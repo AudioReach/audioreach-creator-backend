@@ -1,0 +1,45 @@
+{
+  "name": "@arc/core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Core domain entities and business logic for ARC API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "src/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "arc-api-core",
+    "audioreach-api-core"
+  ],
+  "peerDependencies": {
+    "reflect-metadata": "^0.2.0",
+    "typeorm": "^0.3.0"
+  },
+  "dependencies": {
+    "rxjs": "^7.8.2",
+    "uuid": "^11.1.0",
+    "zod": "^4.0.13"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.2",
+    "@types/uuid": "^10.0.0",
+    "jest": "^30.0.0",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
+  },
+  "license": "BSD-3-Clause-Clear"
+}

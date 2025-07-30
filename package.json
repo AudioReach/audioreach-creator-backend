@@ -1,0 +1,41 @@
+{
+  "name": "audioreach-creator-api",
+  "version": "1.0.0",
+  "description": "Audio Reach Creator API is an open source and cross platform backend framework for updating Audio Reach database files.",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces foreach --all run build",
+    "build:core": "yarn workspace @arc/core build",
+    "build:api": "yarn workspace @arc/api build",
+    "start": "yarn workspace @arc/api start",
+    "start:dev": "yarn workspace @arc/api start:dev",
+    "start:debug": "yarn workspace @arc/api start:debug",
+    "start:prod": "yarn workspace @arc/api start:prod",
+    "test": "yarn workspaces foreach --all run test",
+    "test:core": "yarn workspace @arc/core test",
+    "test:api": "yarn workspace @arc/api test",
+    "clean": "yarn workspaces foreach --all run clean",
+    "format": "yarn workspaces foreach --all run format"
+  },
+  "keywords": [
+    "audioreach",
+    "audioreach-api",
+    "acdb",
+    "workspace",
+    "arc"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "yarn": ">=4.0.0"
+  },
+  "packageManager": "yarn@4.5.3",
+  "license": "BSD-3-Clause-Clear"
+}
