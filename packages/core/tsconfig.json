@@ -1,0 +1,32 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@domain/*": ["domain/*"],
+      "@application/*": ["application/*"],
+      "@shared/*": ["shared/*"],
+      "@infrastructure/*": ["infrastructure/*"]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts"
+  ]
+}
