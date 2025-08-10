@@ -2,6 +2,7 @@
   "name": "audioreach-creator-api",
   "version": "1.0.0",
   "description": "Audio Reach Creator API is an open source and cross platform backend framework for updating Audio Reach database files.",
+  "type": "module",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -18,7 +19,9 @@
     "test:core": "yarn workspace @arc/core test",
     "test:api": "yarn workspace @arc/api test",
     "clean": "yarn workspaces foreach --all run clean",
-    "format": "yarn workspaces foreach --all run format"
+    "format": "yarn workspaces foreach --all run format",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "keywords": [
     "audioreach",
@@ -28,9 +31,21 @@
     "arc"
   ],
   "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/eslint-plugin-security": "^3",
     "@types/node": "^22.10.2",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^17.21.3",
+    "eslint-plugin-promise": "^7.2.1",
+    "eslint-plugin-security": "^3.0.1",
+    "eslint-plugin-sonarjs": "^3.0.4",
+    "eslint-plugin-unicorn": "^60.0.0",
     "prettier": "^3.6.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.0"
   },
   "engines": {
     "node": ">=22.0.0",
