@@ -52,7 +52,7 @@ export default [
       },
       parser: tseslint.parser,
       parserOptions: {
-        ecmaVersion: 2025,
+        ecmaVersion: 2024,
         sourceType: "module",
         project: ["./tsconfig.json", "./packages/*/tsconfig.json"],
         tsconfigRootDir: ".",
