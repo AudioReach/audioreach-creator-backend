@@ -74,6 +74,13 @@ export default [
     },
   },
 
+  // General rules for all js,ts files
+  {
+    rules: {
+      "unicorn/filename-case": "off",
+    },
+  },
+
   // Test files configuration
   {
     files: ["**/*.spec.ts", "**/*.test.ts", "**/test/**/*.ts"],
@@ -87,23 +94,6 @@ export default [
     },
   },
 
-  // API package specific rules
-  {
-    files: ["packages/api/**/*.ts"],
-    rules: {
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "security/detect-object-injection": "warn",
-    },
-  },
-
-  // Core package specific rules
-  {
-    files: ["packages/core/**/*.ts"],
-    rules: {
-      "@typescript-eslint/explicit-function-return-type": "warn",
-    },
-  },
-
   // Configuration files
   {
     files: ["*.config.{js,ts}", "*.conf.{js,ts}"],
@@ -114,11 +104,10 @@ export default [
     },
   },
 
-  // Main entry files (disable top-level await preference for CommonJS)
+  // Main entry files
   {
     files: ["**/main.ts", "**/index.ts"],
     rules: {
-      "unicorn/prefer-top-level-await": "off",
       "unicorn/no-process-exit": "off",
       "n/no-process-exit": "off",
     },
