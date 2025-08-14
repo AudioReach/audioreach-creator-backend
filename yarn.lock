@@ -142,11 +142,11 @@ __metadata:
     rimraf: "npm:^6.0.1"
     rxjs: "npm:^7.8.2"
     ts-jest: "npm:^29.4.0"
+    typeorm: "npm:^0.3.0"
     typescript: "npm:^5.8.3"
     uuid: "npm:^11.1.0"
     zod: "npm:^4.0.13"
   peerDependencies:
-    reflect-metadata: ^0.2.0
     typeorm: ^0.3.0
   languageName: unknown
   linkType: soft
@@ -9277,7 +9277,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typeorm@npm:^0.3.21":
+"typeorm@npm:^0.3.0, typeorm@npm:^0.3.21":
   version: 0.3.25
   resolution: "typeorm@npm:0.3.25"
   dependencies:
