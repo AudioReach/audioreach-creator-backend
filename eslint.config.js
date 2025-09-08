@@ -18,6 +18,9 @@ export default [
       "**/.yarn/**",
       "**/build/**",
       "eslint.config.js",
+      "**/jest.config.js",
+      "**/jest.config.ts",
+      "**/jest.*.js",
     ],
   },
   // Base configurations

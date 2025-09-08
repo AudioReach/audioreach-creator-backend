@@ -27,7 +27,9 @@ async function bootstrap() {
   console.log(`Application is running on: http://localhost:${port}/api/v1`);
 }
 
-bootstrap().catch((error) => {
+try {
+  await bootstrap();
+} catch (error) {
   console.error("Failed to start application:", error);
   process.exit(1);
-});
+}
