@@ -1,0 +1,147 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "tasks": { 
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "src/**/*.ts",
+        "tsconfig.json",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "build": {
+      "dependsOn": ["^build", "typecheck"],
+      "outputs": ["dist/**", "*.tsbuildinfo"],
+      "inputs": [
+        "src/**/*.ts",
+        "tsconfig.json",
+        "package.json"
+      ]
+    },   
+    "test:workspace": {
+      "dependsOn": ["@arc/api#test:api", "@arc/core#test:core"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "packages/*/src/**/*.ts",
+        "packages/*/tests/**/*.ts",
+        "packages/*/jest.config.js",
+        "packages/*/package.json",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "test:core": {
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/**/*.ts",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "test:unit:core": {
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/Unit/**/*.ts",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "test:integration:core": {
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/Integration/**/*.ts",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "test:api": {
+      "dependsOn": ["@arc/api#build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/**/*.ts",
+        "../core/src/**/*.ts",
+        "tsconfig.json",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "test:unit:api": {
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/Unit/**/*.ts",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "test:integration:api": {      
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/Integration/**/*.ts",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "test:e2e:api": {
+      "dependsOn": ["@arc/api#build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/e2e/**/*.ts",
+        "../core/src/**/*.ts",
+        "tsconfig.json",
+        "jest.config.js",
+        "package.json"
+      ],  
+      "cache": true
+    },
+    "coverage:api": {
+      "dependsOn": ["@arc/api#build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/**/*.ts",
+        "../core/src/**/*.ts",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "coverage:core": {
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/**/*.ts",
+        "jest.config.js",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "coverage:workspace": {
+      "dependsOn": ["coverage:api", "coverage:core"],
+      "outputs": ["coverage/**", "temp-coverage/**"],
+      "inputs": [
+        "packages/api/coverage/coverage-final.json",
+        "packages/core/coverage/coverage-final.json",
+        "packages/api/src/**/*.ts",
+        "packages/core/src/**/*.ts"
+      ],
+      "cache": true
+    },
+    "coverage:clean": {
+      "cache": false
+    }
+  }
+}

@@ -13,10 +13,13 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "rimraf dist *.tsbuildinfo",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "format": "prettier --write src/**/*.ts"
+    "test:core": "jest --passWithNoTests",
+    "test:unit:core": "jest --selectProjects unit --passWithNoTests",
+    "test:integration:core": "jest --selectProjects integration --passWithNoTests",
+    "coverage:core": "jest --coverage --passWithNoTests",
+    "coverage:clean": "shx rm -rf coverage",
+    "format": "prettier --write src/**/*.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "arc-api-core",
@@ -34,7 +37,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.2",
     "@types/uuid": "^10.0.0",
-    "jest": "^30.0.0",
+    "jest": "^30.1.3",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "ts-jest": "^29.4.0",
