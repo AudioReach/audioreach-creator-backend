@@ -16,7 +16,7 @@ async function bootstrap() {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
-    })
+    }),
   );
 
   // Enable CORS

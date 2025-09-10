@@ -11,11 +11,11 @@ export interface LogData {
   /** The main log message describing what happened */
   msg: string;
   /** Timestamp when the log event occurred */
-  timestamp: Date;  
+  timestamp: Date;
   /** Identifier of the client application or API consumer */
   clientId?: string;
   /** Identifier of the project/workspace context where the action occurred */
-  projectId?: string;  
+  projectId?: string;
   /** Specific action or operation that was performed */
   action: string;
   /** The component, service, or module that generated this log entry */
@@ -28,12 +28,12 @@ export interface LogData {
 
 /** Even though there is no generic log method in ILogger interface, this is to maintain consistency on dependent packages */
 export const LogLevel = {
-  Verbose: 'verbose',
-  Debug: 'debug',
-  Info: 'info',
-  Warn: 'warn',
-  Error: 'error',
-  Critical: 'critical'
+  Verbose: "verbose",
+  Debug: "debug",
+  Info: "info",
+  Warn: "warn",
+  Error: "error",
+  Critical: "critical",
 } as const;
 
-export type LogLevel = typeof LogLevel[keyof typeof LogLevel];
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];

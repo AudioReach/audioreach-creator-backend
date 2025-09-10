@@ -1,0 +1,54 @@
+import { QueryServices } from "@application/services/query-services";
+import { Query } from "../queries/query";
+import { QueryHandler } from "../queries/query-handler";
+import { GetModuleCompactHandler } from "@application/usecase-designer/spf-module/get/get-module-compact.handler";
+import { GetModuleCompactQuery } from "@application/usecase-designer/spf-module/get/get-module-compact.query";
+import { QueryHandlerNotFoundException } from "../exceptions/handler-not-found-exception";
+
+export interface QueryHandlerDependencies {
+  queryServices: QueryServices;
+}
+
+export interface QueryHandlerFactory<THandler> {
+  create(handlerDependencies: QueryHandlerDependencies): THandler;
+}
+
+export type QueryConstructor<T extends Query = Query> = new (
+  ...arguments_: any[]
+) => T;
+
+export class QueryHandlerRegistry {
+  private static instance: QueryHandlerRegistry;
+  private queryHandlerFactories: Map<
+    QueryConstructor,
+    QueryHandlerFactory<QueryHandler<any, any>>
+  > = new Map();
+
+  public static get Instance(): QueryHandlerRegistry {
+    if (!this.instance) {
+      this.instance = new QueryHandlerRegistry();
+    }
+    return this.instance;
+  }
+
+  private constructor() {
+    this.registerAllQueryHandlers();
+  }
+
+  public getQueryHandlerFactory(
+    query: Query,
+  ): QueryHandlerFactory<QueryHandler<any, any>> {
+    const queryType = query.constructor as QueryConstructor<Query>;
+    const handlerFactory = this.queryHandlerFactories.get(queryType);
+    if (!handlerFactory)
+      throw new QueryHandlerNotFoundException(queryType.name);
+    return handlerFactory;
+  }
+
+  private registerAllQueryHandlers(): void {
+    this.queryHandlerFactories.set(GetModuleCompactQuery, {
+      create: (handlerDependencies: QueryHandlerDependencies) =>
+        new GetModuleCompactHandler(handlerDependencies.queryServices),
+    });
+  }
+}

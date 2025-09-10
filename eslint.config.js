@@ -77,13 +77,6 @@ export default [
     },
   },
 
-  // General rules for all js,ts files
-  {
-    rules: {
-      "unicorn/filename-case": "off",
-    },
-  },
-
   // Test files configuration
   {
     files: ["**/*.spec.ts", "**/*.test.ts", "**/test/**/*.ts"],
@@ -113,6 +106,36 @@ export default [
     rules: {
       "unicorn/no-process-exit": "off",
       "n/no-process-exit": "off",
+    },
+  },
+
+  // TypeScript-specific rules
+  {
+    files: ["**/*.ts"],
+    rules: {
+      // Disabled: Node plugin doesn't understand TypeScript imports. Using import/no-unresolved instead.
+      "n/no-missing-import": "off",
+      // Disabled: Too many false positives for safe array access patterns used by major style guides
+      "security/detect-object-injection": "off",
+      // Disabled: Allow TODO comments in development/placeholder code
+      "sonarjs/todo-tag": "off",
+      // Configure unused vars to ignore parameters/variables prefixed with underscore
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+
+  // Orchestration infrastructure files - allow 'any' type for CQRS framework code
+  {
+    files: ["**/orchestration/**/*.ts"],
+    rules: {
+      // Disabled: Infrastructure code needs flexible typing for dynamic handler creation
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 
