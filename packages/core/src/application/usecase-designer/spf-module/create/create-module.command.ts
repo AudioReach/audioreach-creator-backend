@@ -1,4 +1,4 @@
-import { BaseCommand } from "@application/shared/base-command";
+import {BaseCommand} from '@application/shared/base-command';
 
 /**
  * Command to add a new module to the system
@@ -9,9 +9,9 @@ export class CreateModuleCommand extends BaseCommand {
     public readonly moduleDefinitionSystemId: number,
     public readonly containerSystemId: number,
     public readonly subgraphSystemId: number,
+    clientId: string,
     public readonly moduleAlias?: string,
-    userId?: string,
   ) {
-    super(userId);
+    super(clientId);
   }
 }

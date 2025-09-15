@@ -43,12 +43,12 @@
  * all target environments including React Native mobile applications.
  */
 
-import { Command } from "../commands/command";
-import { CommandHandler } from "../commands/command-handler";
-import { AddModuleCommandHandler } from "@application/usecase-designer/spf-module/create/create-module.handler";
-import { UnitOfWork } from "@shared/repository/unit-of-work";
-import { CommandHandlerNotFoundException } from "../exceptions/handler-not-found-exception";
-import { AddModuleCommand } from "@application/usecase-designer";
+import {Command} from '../commands/command';
+import {CommandHandler} from '../commands/command-handler';
+import {AddModuleCommandHandler} from '@application/usecase-designer/spf-module/create/create-module.handler';
+import {UnitOfWork} from '@shared/repository/unit-of-work';
+import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception';
+import {AddModuleCommand} from '@application/usecase-designer';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -96,8 +96,9 @@ export class CommandHandlerRegistry {
   }
 
   private registerAllCommandHandlers(): void {
+    // To Do: Have separate registration files for each feature and register them here
     this.commandHandlerFactories.set(AddModuleCommand, {
-      create: (deps) => new AddModuleCommandHandler(deps.uow),
+      create: deps => new AddModuleCommandHandler(deps.uow),
     });
   }
 }

@@ -6,51 +6,62 @@ module.exports = {
       testEnvironment: 'node',
       roots: ['<rootDir>'],
       moduleFileExtensions: ['ts', 'js', 'json'],
-      testMatch: ['**/tests/Unit/**/*.spec.(ts|js)'],
+      testMatch: ['**/tests/unit/**/*.spec.(ts|js)'],
       transform: {
-        '^.+\\.(t|j)s$': 'ts-jest'
+        '^.+\\.(t|j)s$': [
+          'ts-jest',
+          {
+            tsconfig: './tsconfig.test.json',
+          },
+        ],
       },
-      collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/index.ts'
-      ],
+      moduleNameMapper: {
+        '^@domain/(.*)$': '<rootDir>/src/domain/$1',
+        '^@application/(.*)$': '<rootDir>/src/application/$1',
+        '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+        '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
+      },
+      collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
-      coveragePathIgnorePatterns: [
-        '/node_modules/',
-        '/tests/',
-        'src/index.ts'
-      ]
+      coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/index.ts'],
     },
     {
       displayName: 'integration',
       testEnvironment: 'node',
       roots: ['<rootDir>'],
       moduleFileExtensions: ['ts', 'js', 'json'],
-      testMatch: ['**/tests/Integration/**/*.spec.(ts|js)'],
+      testMatch: ['**/tests/integration/**/*.spec.(ts|js)'],
       transform: {
-        '^.+\\.(t|j)s$': 'ts-jest'
+        '^.+\\.(t|j)s$': [
+          'ts-jest',
+          {
+            tsconfig: './tsconfig.test.json',
+          },
+        ],
       },
-      collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/index.ts'
-      ],
+      moduleNameMapper: {
+        '^@domain/(.*)$': '<rootDir>/src/domain/$1',
+        '^@application/(.*)$': '<rootDir>/src/application/$1',
+        '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+        '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
+      },
+      collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
-      coveragePathIgnorePatterns: [
-        '/node_modules/',
-        '/tests/',
-        'src/index.ts'
-      ]
-    }
+      coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/index.ts'],
+    },
   ],
   // Global reporters for all projects - merged XML output
   reporters: [
     'default',
-    ['jest-junit', {
-      outputDirectory: './test-results',
-      outputName: 'merged-results.xml',
-      suiteName: 'Core All Tests'
-    }]
-  ]
+    [
+      'jest-junit',
+      {
+        outputDirectory: './test-results',
+        outputName: 'merged-results.xml',
+        suiteName: 'Core All Tests',
+      },
+    ],
+  ],
 };
