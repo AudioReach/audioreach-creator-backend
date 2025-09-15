@@ -1,9 +1,9 @@
-import { QueryServices } from "@application/services/query-services";
-import { Query } from "../queries/query";
-import { QueryHandler } from "../queries/query-handler";
-import { GetModuleCompactHandler } from "@application/usecase-designer/spf-module/get/get-module-compact.handler";
-import { GetModuleCompactQuery } from "@application/usecase-designer/spf-module/get/get-module-compact.query";
-import { QueryHandlerNotFoundException } from "../exceptions/handler-not-found-exception";
+import {QueryServices} from '@application/services/query-services';
+import {Query} from '../queries/query';
+import {QueryHandler} from '../queries/query-handler';
+import {GetModuleCompactHandler} from '@application/usecase-designer/spf-module/get/get-module-compact.handler';
+import {GetModuleCompactQuery} from '@application/usecase-designer/spf-module/get/get-module-compact.query';
+import {QueryHandlerNotFoundException} from '../exceptions/handler-not-found-exception';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -46,6 +46,7 @@ export class QueryHandlerRegistry {
   }
 
   private registerAllQueryHandlers(): void {
+    // To Do: Have separate registration files for each feature and register them here
     this.queryHandlerFactories.set(GetModuleCompactQuery, {
       create: (handlerDependencies: QueryHandlerDependencies) =>
         new GetModuleCompactHandler(handlerDependencies.queryServices),
