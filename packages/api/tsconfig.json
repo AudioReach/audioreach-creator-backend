@@ -5,10 +5,18 @@
     "rootDir": "./src",
     "baseUrl": "./src",
     "paths": {
-      "@arc/core": ["../../core/src"],
-      "@arc/core/*": ["../../core/src/*"],
-      "@infrastructure/*": ["infrastructure/*"],
-      "@presentation/*": ["presentation/*"]
+      "@arc/core": [
+        "../../core/src"
+      ],
+      "@arc/core/*": [
+        "../../core/src/*"
+      ],
+      "@infrastructure/*": [
+        "infrastructure/*"
+      ],
+      "@presentation/*": [
+        "presentation/*"
+      ]
     }
   },
   "include": [
