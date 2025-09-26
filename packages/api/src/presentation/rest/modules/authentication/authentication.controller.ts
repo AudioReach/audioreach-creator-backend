@@ -12,7 +12,7 @@ export class AuthenticationController {
 
   @Post('register')
   @ApiDocumentationWithExample({
-    summary: 'Get all usecases with subsystem filtered if subsystem(s) exists',
+    summary: 'Register client',
     requestDto: RegisterDto,
     requestDtoExample: {
       className: 'RegisterDtoExample'

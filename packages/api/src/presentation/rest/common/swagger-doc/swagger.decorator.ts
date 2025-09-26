@@ -136,6 +136,8 @@ function createResponseConfig(options: ApiDocumentationOptions) {
 function addResponseTypeConfig(config: Record<string, unknown>, options: ApiDocumentationOptions) {
     const isArray = shouldTreatAsArray(options.responseDto, options.isResponseArray);
     const baseType = options.responseDto ? getBaseType(options.responseDto) : undefined;
+
+    
     
     if (isArray && baseType) {
         config.schema = {
@@ -311,3 +313,4 @@ export function ApiDocumentation(options: {
 }) {
     return ApiDocumentationWithExample(options);
 }
+

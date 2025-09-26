@@ -7,9 +7,6 @@ import { Tokens } from './presentation/rest/common/utils/index.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Set global prefix
-  app.setGlobalPrefix("api/v1");
-
   // Set global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -21,6 +18,9 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors();
+
+
+
 
   const port = process.env.PORT ?? 3000;
 
