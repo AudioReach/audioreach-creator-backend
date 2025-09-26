@@ -11,6 +11,7 @@ import {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition
 import {ProcessorDefinitionRow} from '../../common/processor-definition.schema';
 import {ContainerTypeRow} from '../../container/container-definition.schema';
 import {DynamicIntentDefinitionRow} from './dynamic-intent-definition.schema';
+import {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema';
 
 export interface SpfModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;
@@ -31,6 +32,7 @@ export interface SpfModuleDefinitionRow extends EntityBaseRow {
   attributes?: ModuleAttributeRow[];
   processorDefinitions: ProcessorDefinitionRow[];
   containerTypes: ContainerTypeRow[];
+  modules?: SpfModuleRow[];
 }
 
 export const SpfModuleDefinitionSchema =
@@ -159,6 +161,11 @@ export const SpfModuleDefinitionSchema =
             referencedColumnName: 'systemId',
           },
         },
+      },
+      modules: {
+        type: 'one-to-many',
+        target: 'SpfModule',
+        inverseSide: 'definition',
       },
     },
   });

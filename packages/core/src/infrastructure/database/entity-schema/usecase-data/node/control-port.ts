@@ -1,0 +1,109 @@
+import {
+  BaseColumnSchemaPart,
+  EntityBaseRow,
+} from '@infrastructure/database/entity-schema/entity-base';
+import {NodeRow} from '@infrastructure/database/entity-schema/usecase-data/node/node.schema';
+import {EntitySchema} from 'typeorm';
+
+export interface ControlPortRow extends EntityBaseRow {
+  portId: number;
+  name?: string;
+  isStatic: boolean;
+
+  // Foreign key relation
+  nodeSystemId: number;
+
+  //type orm relation
+  node: NodeRow;
+  allocatedIntents?: IntentRow[];
+}
+
+export interface IntentRow extends EntityBaseRow {
+  intentId: number;
+  controlPortSystemId: number;
+
+  controlPort?: ControlPortRow;
+}
+
+export const ControlPortSchema = new EntitySchema<ControlPortRow>({
+  name: 'ControlPort',
+  tableName: 'control_ports',
+  columns: {
+    ...BaseColumnSchemaPart,
+    portId: {
+      type: 'integer',
+      name: 'port_id',
+    },
+    name: {
+      type: 'varchar',
+      length: 255,
+      nullable: true,
+      name: 'name',
+    },
+    isStatic: {
+      type: 'boolean',
+      name: 'is_static',
+    },
+    nodeSystemId: {
+      type: 'integer',
+      name: 'node_system_id',
+    },
+  },
+  relations: {
+    node: {
+      type: 'many-to-one',
+      target: 'Node',
+      joinColumn: {
+        name: 'node_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    allocatedIntents: {
+      type: 'one-to-many',
+      target: 'Intent',
+      inverseSide: 'controlPort',
+    },
+  },
+  indices: [
+    {
+      name: 'uk_control_port_node_port',
+      columns: ['nodeSystemId', 'portId'],
+      unique: true,
+    },
+  ],
+});
+
+export const IntentSchema = new EntitySchema<IntentRow>({
+  name: 'Intent',
+  tableName: 'intents',
+  columns: {
+    ...BaseColumnSchemaPart,
+    intentId: {
+      type: 'integer',
+      name: 'intent_id',
+    },
+    controlPortSystemId: {
+      type: 'integer',
+      name: 'control_port_system_id',
+    },
+  },
+  relations: {
+    controlPort: {
+      type: 'many-to-one',
+      target: 'ControlPort',
+      joinColumn: {
+        name: 'control_port_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+  },
+  indices: [
+    {
+      name: 'uk_intent_control_port_intent',
+      columns: ['controlPortSystemId', 'intentId'],
+      unique: true,
+    },
+  ],
+});

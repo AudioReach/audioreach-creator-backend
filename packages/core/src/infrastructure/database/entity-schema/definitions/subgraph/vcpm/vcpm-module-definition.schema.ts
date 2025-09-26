@@ -4,6 +4,7 @@ import {
 } from '@infrastructure/database/entity-schema/entity-base';
 import {EntitySchema} from 'typeorm';
 import {VcpmModuleParameterDefinitionRow} from './vcpm-module-parameter-definition.schema';
+import {VcpmInstanceRow} from '@infrastructure/database/entity-schema/usecase-data/subgraph/subgraph-vcpm-data';
 
 export interface VcpmModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;
@@ -14,6 +15,7 @@ export interface VcpmModuleDefinitionRow extends EntityBaseRow {
 
   // Relations
   parameters: VcpmModuleParameterDefinitionRow[];
+  vcpmInstances?: VcpmInstanceRow[];
 }
 
 export const VcpmModuleDefinitionSchema =
@@ -62,6 +64,11 @@ export const VcpmModuleDefinitionSchema =
         target: 'VcpmModuleParameterDefinition',
         inverseSide: 'vcpmModuleDefinition',
         cascade: ['insert', 'update'],
+      },
+      vcpmInstances: {
+        type: 'one-to-many',
+        target: 'VcpmInstance',
+        inverseSide: 'vcpmDefinition',
       },
     },
   });

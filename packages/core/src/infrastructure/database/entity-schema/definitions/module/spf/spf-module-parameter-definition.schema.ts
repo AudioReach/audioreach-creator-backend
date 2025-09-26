@@ -5,6 +5,8 @@ import {
 import {EntitySchema} from 'typeorm';
 import {SpfModuleDefinitionRow} from './spf-module-definition.schema';
 import {ModuleAttributeRow} from './module-attribute.schema';
+import {CkvParameterPayloadRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module-calibration-data.schema';
+import {TkvParameterPayloadRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module-tag-data.schema';
 
 export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
   parameterId: number;
@@ -24,6 +26,8 @@ export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
 
   //type orm relation
   spfModuleDefinition: SpfModuleDefinitionRow;
+  ckvParameterPayloads?: CkvParameterPayloadRow[];
+  tkvParameterPayloads?: TkvParameterPayloadRow[];
 }
 
 export const SpfModuleParameterDefinitionSchema =
@@ -88,6 +92,16 @@ export const SpfModuleParameterDefinitionSchema =
           referencedColumnName: 'systemId',
         },
         onDelete: 'CASCADE',
+      },
+      ckvParameterPayloads: {
+        type: 'one-to-many',
+        target: 'CkvParameterPayload',
+        inverseSide: 'spfParameter',
+      },
+      tkvParameterPayloads: {
+        type: 'one-to-many',
+        target: 'TkvParameterPayload',
+        inverseSide: 'spfParameter',
       },
     },
     indices: [

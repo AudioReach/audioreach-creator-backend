@@ -3,6 +3,7 @@ import {
   EntityBaseRow,
 } from '@infrastructure/database/entity-schema/entity-base';
 import {KeyDefinitionRow} from './key-definition.schema';
+import {UseCaseRow} from '@infrastructure/database/entity-schema/usecase-data/use-case';
 import {EntitySchema} from 'typeorm';
 
 /*
@@ -29,6 +30,7 @@ export interface ValueDefinitionRow extends EntityBaseRow {
 
   // type orm relation
   schemaRelationKeys: KeyDefinitionRow;
+  useCases?: UseCaseRow[];
 }
 
 export const valueEntitySchema = new EntitySchema<ValueDefinitionRow>({
@@ -69,6 +71,11 @@ export const valueEntitySchema = new EntitySchema<ValueDefinitionRow>({
       inverseSide: 'values',
       joinColumn: {name: 'keys_system_id', referencedColumnName: 'systemId'},
       onDelete: 'CASCADE',
+    },
+    useCases: {
+      type: 'many-to-many',
+      target: 'UseCase',
+      inverseSide: 'values',
     },
   },
   indices: [

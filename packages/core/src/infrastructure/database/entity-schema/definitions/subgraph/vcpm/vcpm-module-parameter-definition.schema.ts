@@ -4,6 +4,7 @@ import {
 } from '@infrastructure/database/entity-schema/entity-base';
 import {EntitySchema} from 'typeorm';
 import {VcpmModuleDefinitionRow} from './vcpm-module-definition.schema';
+import {VcpmParameterPayloadRow} from '@infrastructure/database/entity-schema/usecase-data/subgraph/subgraph-vcpm-data';
 
 export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   parameterId: number;
@@ -19,6 +20,7 @@ export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
 
   //type orm relation
   vcpmModuleDefinition: VcpmModuleDefinitionRow;
+  vcpmParameterPayloads?: VcpmParameterPayloadRow[];
 }
 
 export const VcpmModuleParameterDefinitionSchema =
@@ -70,6 +72,11 @@ export const VcpmModuleParameterDefinitionSchema =
           referencedColumnName: 'systemId',
         },
         onDelete: 'CASCADE',
+      },
+      vcpmParameterPayloads: {
+        type: 'one-to-many',
+        target: 'VcpmParameterPayload',
+        inverseSide: 'vcpmParameter',
       },
     },
     indices: [

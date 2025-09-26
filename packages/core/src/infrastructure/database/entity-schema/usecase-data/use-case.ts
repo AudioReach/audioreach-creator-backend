@@ -1,0 +1,167 @@
+import {
+  BaseColumnSchemaPart,
+  EntityBaseRow,
+} from '@infrastructure/database/entity-schema/entity-base';
+import {ArcDbFileRow} from '@infrastructure/database/entity-schema/project-data/arc-db-file.schema';
+import {NodeRow} from '@infrastructure/database/entity-schema/usecase-data/node/node.schema';
+import {DataLinkRow} from '@infrastructure/database/entity-schema/usecase-data/Links/data-link';
+import {ControlLinkRow} from '@infrastructure/database/entity-schema/usecase-data/Links/control-link';
+import {ValueDefinitionRow} from '@infrastructure/database/entity-schema/definitions/key-value/value-definition.schema';
+import {EntitySchema} from 'typeorm';
+
+export interface UseCaseRow extends EntityBaseRow {
+  aliasId: number;
+  alias: string;
+  fileSystemId: number;
+
+  // Relations
+  file?: ArcDbFileRow;
+  categories?: UseCaseCategoryRow[];
+  nodes?: NodeRow[];
+  dataLinks?: DataLinkRow[];
+  controlLinks?: ControlLinkRow[];
+  values?: ValueDefinitionRow[];
+}
+
+export interface UseCaseCategoryRow extends EntityBaseRow {
+  name: string;
+
+  // Relations
+  useCases?: UseCaseRow[];
+}
+
+export const UseCaseSchema = new EntitySchema<UseCaseRow>({
+  name: 'UseCase',
+  tableName: 'use_cases',
+  columns: {
+    ...BaseColumnSchemaPart,
+    aliasId: {
+      type: 'integer',
+      name: 'alias_id',
+    },
+    alias: {
+      type: 'varchar',
+      length: 255,
+    },
+    fileSystemId: {
+      type: 'integer',
+      name: 'file_system_id',
+    },
+  },
+  relations: {
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {
+        name: 'file_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    categories: {
+      type: 'many-to-many',
+      target: 'UseCaseCategory',
+      joinTable: {
+        name: 'use_case_categories',
+        joinColumn: {
+          name: 'use_case_system_id',
+          referencedColumnName: 'systemId',
+        },
+        inverseJoinColumn: {
+          name: 'category_system_id',
+          referencedColumnName: 'systemId',
+        },
+      },
+    },
+    nodes: {
+      type: 'many-to-many',
+      target: 'Node',
+      joinTable: {
+        name: 'use_case_nodes',
+        joinColumn: {
+          name: 'use_case_system_id',
+          referencedColumnName: 'systemId',
+        },
+        inverseJoinColumn: {
+          name: 'node_system_id',
+          referencedColumnName: 'systemId',
+        },
+      },
+    },
+    dataLinks: {
+      type: 'many-to-many',
+      target: 'DataLink',
+      joinTable: {
+        name: 'use_case_data_links',
+        joinColumn: {
+          name: 'use_case_system_id',
+          referencedColumnName: 'systemId',
+        },
+        inverseJoinColumn: {
+          name: 'data_link_system_id',
+          referencedColumnName: 'systemId',
+        },
+      },
+    },
+    controlLinks: {
+      type: 'many-to-many',
+      target: 'ControlLink',
+      joinTable: {
+        name: 'use_case_control_links',
+        joinColumn: {
+          name: 'use_case_system_id',
+          referencedColumnName: 'systemId',
+        },
+        inverseJoinColumn: {
+          name: 'control_link_system_id',
+          referencedColumnName: 'systemId',
+        },
+      },
+    },
+    values: {
+      type: 'many-to-many',
+      target: 'ValueDefinition',
+      joinTable: {
+        name: 'use_case_values',
+        joinColumn: {
+          name: 'use_case_system_id',
+          referencedColumnName: 'systemId',
+        },
+        inverseJoinColumn: {
+          name: 'value_definition_system_id',
+          referencedColumnName: 'systemId',
+        },
+      },
+    },
+  },
+  indices: [
+    {
+      name: 'ix_use_case_alias',
+      columns: ['aliasId'],
+    },
+    {
+      name: 'ix_use_case_file',
+      columns: ['fileSystemId'],
+    },
+  ],
+});
+
+export const UseCaseCategorySchema = new EntitySchema<UseCaseCategoryRow>({
+  name: 'UseCaseCategory',
+  tableName: 'use_case_categories_master',
+  columns: {
+    ...BaseColumnSchemaPart,
+    name: {
+      type: 'varchar',
+      length: 255,
+      unique: true,
+    },
+  },
+  relations: {
+    useCases: {
+      type: 'many-to-many',
+      target: 'UseCase',
+      inverseSide: 'categories',
+    },
+  },
+});
