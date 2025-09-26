@@ -2,6 +2,7 @@ import {
   BaseColumnSchemaPart,
   EntityBaseRow,
 } from '@infrastructure/database/entity-schema/entity-base';
+import {SpfModulePropertiesDataRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module-properties-data';
 import {EntitySchema} from 'typeorm';
 
 export interface ModulePropertyRow extends EntityBaseRow {
@@ -13,6 +14,7 @@ export interface ModulePropertyRow extends EntityBaseRow {
   propertyStructure: string; // JSON
 
   // Relations
+  spfModulePropertiesData?: SpfModulePropertiesDataRow[];
 }
 
 export const PropertyCategorySchema = new EntitySchema<ModulePropertyRow>({
@@ -48,6 +50,13 @@ export const PropertyCategorySchema = new EntitySchema<ModulePropertyRow>({
     propertyStructure: {
       type: 'text',
       name: 'property_structure',
+    },
+  },
+  relations: {
+    spfModulePropertiesData: {
+      type: 'one-to-many',
+      target: 'SpfModulePropertiesData',
+      inverseSide: 'propertyDefinition',
     },
   },
 });
