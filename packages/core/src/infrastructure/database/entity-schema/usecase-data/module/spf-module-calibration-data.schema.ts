@@ -59,6 +59,7 @@ export const CkvSchema = (blobConverter: BlobBytesConverter) =>
           name: 'key_vector_system_id',
           referencedColumnName: 'systemId',
         },
+        onDelete: 'RESTRICT',
       },
       payloadCollection: {
         type: 'one-to-many',
