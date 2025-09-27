@@ -95,6 +95,7 @@ export const TkvSchema = (blobConverter: BlobBytesConverter) =>
           name: 'key_vector_system_id',
           referencedColumnName: 'systemId',
         },
+        onDelete: 'RESTRICT',
       },
       moduleTagIdMapRow: {
         type: 'many-to-one',
