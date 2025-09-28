@@ -1,8 +1,5 @@
-import {KeyDefinitionRow} from '@infrastructure/database/entity-schema/definitions/key-value/key-definition.schema';
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {KeyDefinitionRow} from '../../definitions/key-value/key-definition.schema.js';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 
 export interface SubsystemRow extends EntityBaseRow {

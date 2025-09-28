@@ -21,6 +21,7 @@ export default [
       '**/jest.config.js',
       '**/jest.config.ts',
       '**/jest.*.js',
+      'packages/api/scripts/typeorm-cli.cjs',
     ],
   },
   // Base configurations
@@ -57,12 +58,8 @@ export default [
       parserOptions: {
         ecmaVersion: 2024,
         sourceType: 'module',
-        project: [
-          './tsconfig.json',
-          './packages/*/tsconfig.json',
-          './packages/*/tsconfig.test.json',
-        ],
-        tsconfigRootDir: '.',
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     settings: {
@@ -151,6 +148,8 @@ export default [
       'security/detect-object-injection': 'off',
       // Disabled: Allow TODO comments in development/placeholder code
       'sonarjs/todo-tag': 'off',
+      // Disabled: Allow abbreviations in variable names for better readability
+      'unicorn/prevent-abbreviations': 'off',
       // Configure unused vars to ignore parameters/variables prefixed with underscore
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -166,8 +165,64 @@ export default [
   {
     files: ['**/orchestration/**/*.ts'],
     rules: {
-      // Disabled: Infrastructure code needs flexible typing for dynamic handler creation
+      // Disabled: CQRS infrastructure code needs flexible typing for dynamic handler creation and dispatch
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
+
+  // Entity schema files - allow unsafe assignment and explicit any for TypeORM schema definitions
+  {
+    files: ['**/entity-schema/**/*.ts'],
+    rules: {
+      // Disabled: TypeORM entity schemas require flexible typing for database column definitions
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      // Disabled: TypeORM transformers and schema definitions need explicit any for type flexibility
+      '@typescript-eslint/no-explicit-any': 'off',
+      // Disabled: TypeORM transformers need to return any type for database compatibility
+      '@typescript-eslint/no-unsafe-return': 'off',
+      // Disabled: Allow unknown types in template literals for error logging
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      // Disabled: TypeORM entity schemas often use unsafe operations for data transformation
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      // Disabled: Type assertions are necessary for TypeORM's dynamic typing with unknown values
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      // Disabled: Pure utility functions are safe to pass as unbound methods
+      '@typescript-eslint/unbound-method': 'off',
+      // Disabled: Allow null in database schemas where it's semantically correct
+      'unicorn/no-null': 'off',
+      // Disabled: Allow crypto import without node: protocol for compatibility
+      'unicorn/prefer-node-protocol': 'off',
+      // Disabled: Allow static-only classes for utility purposes in database schemas
+      'unicorn/no-static-only-class': 'off',
+    },
+  },
+
+  // Database infrastructure files - allow null for database semantics
+  {
+    files: [
+      '**/infrastructure-wrapper/database/**/*data-source-provider.ts',
+      '**/infrastructure-wrapper/database/**/node-blob-converter.ts',
+      '**/infrastructure-wrapper/persistence/**/typeorm-unit-of-work.ts',
+    ],
+    rules: {
+      // Disabled: null is semantically correct for database NULL values and singleton patterns
+      'unicorn/no-null': 'off',
+    },
+  },
+
+  // Swagger documentation files - allow dynamic file system operations
+  {
+    files: ['**/presentation/rest/common/swagger-doc/**/*.ts'],
+    rules: {
+      // Disabled: Swagger generation may require file system operations with dynamic paths
+      'security/detect-non-literal-fs-filename': 'off',
     },
   },
 

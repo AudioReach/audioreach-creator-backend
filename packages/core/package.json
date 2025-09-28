@@ -3,12 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "description": "Core domain entities and business logic for ARC API",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": [
-    "dist/**/*",
-    "src/**/*"
+    "dist/**/*"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",

@@ -43,12 +43,12 @@
  * all target environments including React Native mobile applications.
  */
 
-import {Command} from '../commands/command';
-import {CommandHandler} from '../commands/command-handler';
-import {AddModuleCommandHandler} from '@application/usecase-designer/spf-module/create/create-module.handler';
-import {UnitOfWork} from '@shared/repository/unit-of-work';
-import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception';
-import {AddModuleCommand} from '@application/usecase-designer';
+import {Command} from '../commands/command.js';
+import {CommandHandler} from '../commands/command-handler.js';
+import {AddModuleCommandHandler} from '../../../usecase-designer/spf-module/create/create-module.handler.js';
+import {UnitOfWork} from '../../../../shared/repository/unit-of-work.js';
+import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
+import {AddModuleCommand} from '../../../usecase-designer/index.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;

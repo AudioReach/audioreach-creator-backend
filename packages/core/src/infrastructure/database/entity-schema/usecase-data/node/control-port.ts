@@ -1,8 +1,5 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {NodeRow} from '@infrastructure/database/entity-schema/usecase-data/node/node.schema';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {NodeRow} from './node.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ControlPortRow extends EntityBaseRow {

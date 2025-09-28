@@ -1,10 +1,7 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {NodeRow} from '@infrastructure/database/entity-schema/usecase-data/node/node.schema';
-import {DataPortRow} from '@infrastructure/database/entity-schema/usecase-data/node/data-port-info.schema';
-import {UseCaseRow} from '@infrastructure/database/entity-schema/usecase-data/use-case';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {NodeRow} from '../node/node.schema.js';
+import {DataPortRow} from '../node/data-port-info.schema.js';
+import {UseCaseRow} from '../use-case.js';
 import {EntitySchema} from 'typeorm';
 
 export interface DataLinkRow extends EntityBaseRow {

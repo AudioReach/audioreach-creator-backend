@@ -1,10 +1,7 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 
 import {EntitySchema} from 'typeorm';
-import {DataPortGroupRow} from './data-group-definition.schema';
+import {DataPortGroupRow} from './data-group-definition.schema.js';
 
 export interface DataPortDefinitionRow extends EntityBaseRow {
   dataPortId: number;

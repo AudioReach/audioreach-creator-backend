@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "module": "ES2022",
-    "target": "ES2024",
-    "lib": ["ES2024"],
+    "target": "ES2023",
+    "module": "NodeNext",
+    "verbatimModuleSyntax": true,
     "declaration": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -21,14 +21,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "moduleResolution": "node",
+    "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
-    "paths": {
-      "@arc/core": ["packages/core/src"],
-      "@arc/core/*": ["packages/core/src/*"],
-      "@arc/api": ["packages/api/src"],
-      "@arc/api/*": ["packages/api/src/*"]
-    }
+    
   },
   "include": [],
   "exclude": ["node_modules", "dist", "**/*.tsbuildinfo"],

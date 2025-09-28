@@ -1,12 +1,12 @@
-import { Command } from "./cqrs/commands/command";
-import { ApplicationMiddleware } from "./middleware/application-middleware";
+import {Command} from './cqrs/commands/command.js';
+import {ApplicationMiddleware} from './middleware/application-middleware.js';
 import {
   CommandHandlerRegistry,
   CommandHandlerDependencies,
-} from "./cqrs/registries/command-handler-registry";
-import { UnitOfWork } from "@shared/repository/unit-of-work";
-import { Request } from "./cqrs/request";
-import { TransactionMiddleware } from "./middleware/transaction.middleware";
+} from './cqrs/registries/command-handler-registry.js';
+import {UnitOfWork} from '../../shared/repository/unit-of-work.js';
+import {Request} from './cqrs/request.js';
+import {TransactionMiddleware} from './middleware/transaction.middleware.js';
 
 export class CommandBus {
   private middlewares: ApplicationMiddleware<Request>[] = [];
@@ -40,10 +40,8 @@ export class CommandBus {
   async executeMiddlewarePipeline<TResponse>(
     command: Command,
   ): Promise<TResponse> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Handler factory returns dynamic type
     const handler = this.createHandler(command);
     const executeMiddlewareHandler = async (): Promise<TResponse> => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Dynamic handler execution
       return await handler.handle(command);
     };
 

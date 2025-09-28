@@ -1,12 +1,9 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {KeyVectorRow} from '@infrastructure/database/entity-schema/usecase-data/common/key-vector-schema';
-import {BlobBytesConverter} from '@infrastructure/database/entity-schema/usecase-data/module/helper/blob-unit8array.converter';
-import {DbTypeToBytesTransformer} from '@infrastructure/database/entity-schema/usecase-data/module/helper/bytes-transformer';
-import {SpfModuleRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module.schema';
-import {SpfModuleParameterDefinitionRow} from '@infrastructure/database/entity-schema/definitions/module/spf/spf-module-parameter-definition.schema';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {KeyVectorRow} from '../common/key-vector-schema.js';
+import {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
+import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
+import {SpfModuleRow} from './spf-module.schema.js';
+import {SpfModuleParameterDefinitionRow} from '../../definitions/module/spf/spf-module-parameter-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface CkvRow extends EntityBaseRow {

@@ -1,12 +1,9 @@
-import {DriverModuleDefinitionRow} from '@infrastructure/database/entity-schema/definitions/module/driver/driver-module-definition.schema';
-import {DriverModuleParameterDefinitionRow} from '@infrastructure/database/entity-schema/definitions/module/driver/driver-module-parameter-definition.schema';
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {KeyVectorRow} from '@infrastructure/database/entity-schema/usecase-data/common/key-vector-schema';
-import {BlobBytesConverter} from '@infrastructure/database/entity-schema/usecase-data/module/helper/blob-unit8array.converter';
-import {DbTypeToBytesTransformer} from '@infrastructure/database/entity-schema/usecase-data/module/helper/bytes-transformer';
+import {DriverModuleDefinitionRow} from '../definitions/module/driver/driver-module-definition.schema.js';
+import {DriverModuleParameterDefinitionRow} from '../definitions/module/driver/driver-module-parameter-definition.schema.js';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
+import {KeyVectorRow} from '../usecase-data/common/key-vector-schema.js';
+import {BlobBytesConverter} from '../usecase-data/module/helper/blob-unit8array.converter.js';
+import {DbTypeToBytesTransformer} from '../usecase-data/module/helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 
 export interface DriverModuleRow extends EntityBaseRow {

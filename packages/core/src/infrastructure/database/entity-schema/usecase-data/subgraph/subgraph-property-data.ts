@@ -1,11 +1,8 @@
-import {SubgraphPropertyRow} from '@infrastructure/database/entity-schema/definitions/subgraph/subgraph-property-definition.schema';
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {SubgraphRow} from '@infrastructure/database/entity-schema/usecase-data/subgraph/subgraph.schema';
-import {BlobBytesConverter} from '@infrastructure/database/entity-schema/usecase-data/module/helper/blob-unit8array.converter';
-import {DbTypeToBytesTransformer} from '@infrastructure/database/entity-schema/usecase-data/module/helper/bytes-transformer';
+import {SubgraphPropertyRow} from '../../definitions/subgraph/subgraph-property-definition.schema.js';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {SubgraphRow} from './subgraph.schema.js';
+import {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
+import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 
 export interface SubgraphPropertyDataRow extends EntityBaseRow {

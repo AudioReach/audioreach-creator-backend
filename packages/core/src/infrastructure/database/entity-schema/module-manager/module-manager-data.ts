@@ -1,7 +1,4 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
 import {
   InterfaceTypeValue,
   InterfaceVersionValue,
@@ -9,7 +6,7 @@ import {
   ModuleTypeTransformer,
   InterfaceTypeTransformer,
   InterfaceVersionTransformer,
-} from '@infrastructure/database/entity-schema/module-manager/types';
+} from './types.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ModuleManagerDataRow extends EntityBaseRow {

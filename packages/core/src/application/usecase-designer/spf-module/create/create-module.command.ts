@@ -1,4 +1,4 @@
-import {BaseCommand} from '@application/shared/base-command';
+import {BaseCommand} from '../../../shared/base-command.js';
 
 /**
  * Command to add a new module to the system

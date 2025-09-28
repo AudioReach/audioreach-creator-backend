@@ -1,13 +1,10 @@
 import {EntitySchema} from 'typeorm';
-import {DataPortRow} from './data-port-info.schema';
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ArcDbFileRow} from '@infrastructure/database/entity-schema/project-data/arc-db-file.schema';
-import {ControlPortRow} from '@infrastructure/database/entity-schema/usecase-data/node/control-port';
-import {DataLinkRow} from '@infrastructure/database/entity-schema/usecase-data/Links/data-link';
-import {UseCaseRow} from '@infrastructure/database/entity-schema/usecase-data/use-case';
+import {DataPortRow} from './data-port-info.schema.js';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import {ControlPortRow} from './control-port.js';
+import {DataLinkRow} from '../Links/data-link.js';
+import {UseCaseRow} from '../use-case.js';
 
 export const NodeType = {
   Module: 'module',
@@ -63,13 +60,13 @@ export const NodeSchema = new EntitySchema<NodeRow>({
     },
     dataPorts: {
       type: 'one-to-many',
-      target: 'DataPortRow',
+      target: 'DataPort',
       inverseSide: 'node',
       cascade: true,
     },
     controlPorts: {
       type: 'one-to-many',
-      target: 'ControlPortRow',
+      target: 'ControlPort',
       inverseSide: 'node',
       cascade: true,
     },

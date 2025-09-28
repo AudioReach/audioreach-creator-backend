@@ -1,4 +1,4 @@
-import {BaseQuery} from '@application/shared/base-query';
+import {BaseQuery} from '../../../shared/base-query.js';
 
 export class GetModuleCompactQuery extends BaseQuery {
   constructor(

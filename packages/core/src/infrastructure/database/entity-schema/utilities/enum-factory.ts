@@ -26,6 +26,16 @@ export function defineEnum<const T extends Record<string, number | string>>(
   const names = Object.keys(def) as Name[];
   const values = names.map(n => def[n]) as Value[];
 
+  const isValue = (raw: unknown): raw is Value =>
+    Object.prototype.hasOwnProperty.call(byValue, raw as any);
+
+  const parseValue = (raw: unknown): Value => {
+    if (!isValue(raw)) {
+      throw new Error(`Invalid enum value: ${String(raw)}`);
+    }
+    return raw;
+  };
+
   const codec: EnumCodec<Name, Value> = {
     byName,
     byValue,
@@ -33,14 +43,8 @@ export function defineEnum<const T extends Record<string, number | string>>(
     values,
     nameToValue: name => byName[name],
     valueToName: value => byValue[value],
-    isValue: (raw: unknown): raw is Value =>
-      Object.prototype.hasOwnProperty.call(byValue, raw as any),
-    parseValue: (raw: unknown): Value => {
-      if (!codec.isValue(raw)) {
-        throw new Error(`Invalid enum value: ${String(raw)}`);
-      }
-      return raw;
-    },
+    isValue,
+    parseValue,
   };
 
   return codec;

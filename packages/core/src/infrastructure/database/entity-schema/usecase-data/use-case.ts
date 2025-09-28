@@ -1,12 +1,9 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ArcDbFileRow} from '@infrastructure/database/entity-schema/project-data/arc-db-file.schema';
-import {NodeRow} from '@infrastructure/database/entity-schema/usecase-data/node/node.schema';
-import {DataLinkRow} from '@infrastructure/database/entity-schema/usecase-data/Links/data-link';
-import {ControlLinkRow} from '@infrastructure/database/entity-schema/usecase-data/Links/control-link';
-import {ValueDefinitionRow} from '@infrastructure/database/entity-schema/definitions/key-value/value-definition.schema';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
+import {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
+import {NodeRow} from './node/node.schema.js';
+import {DataLinkRow} from './Links/data-link.js';
+import {ControlLinkRow} from './Links/control-link.js';
+import {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface UseCaseRow extends EntityBaseRow {

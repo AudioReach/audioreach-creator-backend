@@ -1,11 +1,8 @@
-import {ContainerPropertyRow} from '@infrastructure/database/entity-schema/definitions/container/container-property-definition.schema';
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ContainerRow} from '@infrastructure/database/entity-schema/usecase-data/container/container.schema';
-import {BlobBytesConverter} from '@infrastructure/database/entity-schema/usecase-data/module/helper/blob-unit8array.converter';
-import {DbTypeToBytesTransformer} from '@infrastructure/database/entity-schema/usecase-data/module/helper/bytes-transformer';
+import {ContainerPropertyRow} from '../../definitions/container/container-property-definition.schema.js';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {ContainerRow} from './container.schema.js';
+import {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
+import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ContainerPropertyDataRow extends EntityBaseRow {

@@ -1,9 +1,6 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema';
+import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 
 export interface ModuleAttributeRow extends EntityBaseRow {
   name: string;
@@ -39,7 +36,7 @@ export const ModuleAttributeSchema = new EntitySchema<ModuleAttributeRow>({
   relations: {
     moduleDefinition: {
       type: 'many-to-one',
-      target: 'ModuleDefinition',
+      target: 'SpfModuleDefinition',
       inverseSide: 'attributes',
       joinColumn: {
         name: 'module_definition_system_id',

@@ -1,11 +1,8 @@
-import {ModulePropertyRow} from '@infrastructure/database/entity-schema/definitions/module/spf/module-property-definition.schema';
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {SpfModuleRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module.schema';
-import {BlobBytesConverter} from '@infrastructure/database/entity-schema/usecase-data/module/helper/blob-unit8array.converter';
-import {DbTypeToBytesTransformer} from '@infrastructure/database/entity-schema/usecase-data/module/helper/bytes-transformer';
+import {ModulePropertyRow} from '../../definitions/module/spf/module-property-definition.schema.js';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {SpfModuleRow} from './spf-module.schema.js';
+import {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
+import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 
 export interface SpfModulePropertiesDataRow extends EntityBaseRow {
@@ -50,7 +47,7 @@ export const SpfModulePropertiesDataSchema = (
       },
       propertyDefinition: {
         type: 'many-to-one',
-        target: 'ModuleProperty',
+        target: 'ModulePropertyDefinition',
         joinColumn: {
           name: 'property_system_id',
           referencedColumnName: 'systemId',

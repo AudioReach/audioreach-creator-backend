@@ -1,5 +1,5 @@
 // core/make-bytes-transformer.ts
-import {BlobBytesConverter} from '@infrastructure/database/entity-schema/usecase-data/module/helper/blob-unit8array.converter';
+import {BlobBytesConverter} from './blob-unit8array.converter.js';
 import type {ValueTransformer} from 'typeorm';
 
 export const DbTypeToBytesTransformer = (

@@ -1,9 +1,6 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema';
+import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 
 export interface DynamicIntentDefinitionRow extends EntityBaseRow {
   intentId: number;
@@ -17,7 +14,7 @@ export interface DynamicIntentDefinitionRow extends EntityBaseRow {
   moduleDefinition: SpfModuleDefinitionRow;
 }
 
-export const IntentDefinitionSchema =
+export const DynamicIntentDefinitionSchema =
   new EntitySchema<DynamicIntentDefinitionRow>({
     name: 'DynamicIntentDefinition',
     tableName: 'dynamic_intent_definitions',
@@ -47,7 +44,7 @@ export const IntentDefinitionSchema =
     relations: {
       moduleDefinition: {
         type: 'many-to-one',
-        target: 'ModuleDefinition',
+        target: 'SpfModuleDefinition',
         inverseSide: 'dynamicIntents',
         joinColumn: {
           name: 'module_definition_system_id',

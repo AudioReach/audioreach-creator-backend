@@ -1,9 +1,6 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {KeyDefinitionRow} from './key-definition.schema';
-import {UseCaseRow} from '@infrastructure/database/entity-schema/usecase-data/use-case';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {KeyDefinitionRow} from './key-definition.schema.js';
+import {UseCaseRow} from '../../usecase-data/use-case.js';
 import {EntitySchema} from 'typeorm';
 
 /*
@@ -33,7 +30,7 @@ export interface ValueDefinitionRow extends EntityBaseRow {
   useCases?: UseCaseRow[];
 }
 
-export const valueEntitySchema = new EntitySchema<ValueDefinitionRow>({
+export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
   name: 'ValueDefinition',
   tableName: 'arc_values',
   columns: {

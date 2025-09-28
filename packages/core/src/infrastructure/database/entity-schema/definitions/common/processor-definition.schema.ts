@@ -1,9 +1,6 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from '../module/spf/spf-module-definition.schema';
+import {SpfModuleDefinitionRow} from '../module/spf/spf-module-definition.schema.js';
 
 export interface ProcessorDefinitionRow extends EntityBaseRow {
   name: string;
@@ -32,7 +29,7 @@ export const ProcessorDefinitionSchema =
     relations: {
       moduleDefinitions: {
         type: 'many-to-many',
-        target: 'ModuleDefinition',
+        target: 'SpfModuleDefinition',
         inverseSide: 'processorDefinitions',
       },
     },
