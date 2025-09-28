@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "NestJS API application for ARC project",
+  "type": "module",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",

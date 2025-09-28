@@ -1,11 +1,11 @@
-import { Query } from "./cqrs/queries/query";
-import { ApplicationMiddleware } from "./middleware/application-middleware";
+import {Query} from './cqrs/queries/query.js';
+import {ApplicationMiddleware} from './middleware/application-middleware.js';
 import {
   QueryHandlerDependencies,
   QueryHandlerRegistry,
-} from "./cqrs/registries/query-handler-registry";
-import { Request } from "./cqrs/request";
-import { QueryServices } from "@application/services/query-services";
+} from './cqrs/registries/query-handler-registry.js';
+import {Request} from './cqrs/request.js';
+import {QueryServices} from '../services/query-services.js';
 
 export class QueryBus {
   private middlewares: ApplicationMiddleware<Request>[] = [];
@@ -38,10 +38,8 @@ export class QueryBus {
   }
 
   async executeMiddlewarePipeline<TResponse>(query: Query): Promise<TResponse> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Handler factory returns dynamic type
     const handler = this.createHandler(query);
     const executeMiddlewareHandler = async (): Promise<TResponse> => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Dynamic handler execution
       return await handler.handle(query);
     };
 

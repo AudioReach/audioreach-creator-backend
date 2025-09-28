@@ -1,13 +1,10 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ArcDbFileRow} from '@infrastructure/database/entity-schema/project-data/arc-db-file.schema';
-import {ContainerRow} from '@infrastructure/database/entity-schema/usecase-data/container/container.schema';
-import {SubgraphRow} from '@infrastructure/database/entity-schema/usecase-data/subgraph/subgraph.schema';
-import {SpfModulePropertiesDataRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module-properties-data';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import {ContainerRow} from '../container/container.schema.js';
+import {SubgraphRow} from '../subgraph/subgraph.schema.js';
+import {SpfModulePropertiesDataRow} from './spf-module-properties-data.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from '@infrastructure/database/entity-schema/definitions/module/spf/spf-module-definition.schema';
+import {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-module-definition.schema.js';
 
 export interface SpfModuleRow extends EntityBaseRow {
   alias: string;

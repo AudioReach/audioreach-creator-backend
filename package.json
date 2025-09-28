@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "yarn workspaces foreach --all run build",
+    "build": "yarn workspaces foreach --topological --all run build",
     "build:core": "yarn workspace @arc/core build",
     "build:api": "yarn workspace @arc/api build",
     "start": "yarn workspace @arc/api start",
@@ -24,7 +24,11 @@
     "clean": "yarn workspaces foreach --all run clean",
     "format": "yarn workspaces foreach --all run format",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "migration:run:tmp": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:run",
+    "migration:gen": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:generate ./packages/core/src/infrastructure/database/migrations/<name>",
+    "migration:revert": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:revert",
+    "migration:show": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:show"
   },
   "keywords": [
     "audioreach",
@@ -51,7 +55,10 @@
     "nyc": "^17.1.0",
     "prettier": "^3.6.2",
     "shx": "^0.4.0",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "turbo": "^2.5.6",
+    "typeorm": "^0.3.27",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.39.1"
   },

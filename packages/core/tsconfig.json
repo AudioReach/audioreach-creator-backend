@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "module": "ES2022",
-    "target": "ES2024",
-    "lib": ["ES2024"],
+    "module": "NodeNext",
+    "target": "ES2023",
+    "lib": ["ES2023"],
     "declaration": true,
     "declarationMap": true,
     "allowSyntheticDefaultImports": true,
@@ -22,14 +22,8 @@
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "paths": {
-      "@domain/*": ["domain/*"],
-      "@application/*": ["application/*"],
-      "@shared/*": ["shared/*"],
-      "@infrastructure/*": ["infrastructure/*"]
-    }
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*"

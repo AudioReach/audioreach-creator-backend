@@ -1,17 +1,14 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {ModuleDefinitionMetaDataRow} from './module-definition-meta-data.schema';
-import {DataPortGroupRow} from './data-group-definition.schema';
-import {ModuleAttributeRow} from './module-attribute.schema';
-import {StaticControlPortDefinitionRow} from './static-control-port-definition.schema';
-import {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema';
-import {ProcessorDefinitionRow} from '../../common/processor-definition.schema';
-import {ContainerTypeRow} from '../../container/container-definition.schema';
-import {DynamicIntentDefinitionRow} from './dynamic-intent-definition.schema';
-import {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema';
+import {ModuleDefinitionMetaDataRow} from './module-definition-meta-data.schema.js';
+import {DataPortGroupRow} from './data-group-definition.schema.js';
+import {ModuleAttributeRow} from './module-attribute.schema.js';
+import {StaticControlPortDefinitionRow} from './static-control-port-definition.schema.js';
+import {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema.js';
+import {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
+import {ContainerTypeRow} from '../../container/container-definition.schema.js';
+import {DynamicIntentDefinitionRow} from './dynamic-intent-definition.schema.js';
+import {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema.js';
 
 export interface SpfModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;
@@ -115,7 +112,7 @@ export const SpfModuleDefinitionSchema =
       },
       dynamicIntents: {
         type: 'one-to-many',
-        target: 'IntentDefinition',
+        target: 'DynamicIntentDefinition',
         inverseSide: 'moduleDefinition',
         cascade: ['insert', 'update'],
       },

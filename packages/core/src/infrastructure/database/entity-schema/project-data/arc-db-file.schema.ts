@@ -1,11 +1,8 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ProjectRow} from '@infrastructure/database/entity-schema/project-data/project.schema';
-import {ContainerRow} from '@infrastructure/database/entity-schema/usecase-data/container/container.schema';
-import {SpfModuleRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module.schema';
-import {SubgraphRow} from '@infrastructure/database/entity-schema/usecase-data/subgraph/subgraph.schema';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
+import {ProjectRow} from './project.schema.js';
+import {ContainerRow} from '../usecase-data/container/container.schema.js';
+import {SpfModuleRow} from '../usecase-data/module/spf-module.schema.js';
+import {SubgraphRow} from '../usecase-data/subgraph/subgraph.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ArcDbFileRow extends EntityBaseRow {

@@ -1,4 +1,4 @@
-export interface ILogger {
+export interface Logger {
   logVerbose(data: LogData): Promise<void>;
   logDebug(data: LogData): Promise<void>;
   logInfo(data: LogData): Promise<void>;
@@ -28,12 +28,12 @@ export interface LogData {
 
 /** Even though there is no generic log method in ILogger interface, this is to maintain consistency on dependent packages */
 export const LogLevel = {
-  Verbose: "verbose",
-  Debug: "debug",
-  Info: "info",
-  Warn: "warn",
-  Error: "error",
-  Critical: "critical",
+  Verbose: 'verbose',
+  Debug: 'debug',
+  Info: 'info',
+  Warn: 'warn',
+  Error: 'error',
+  Critical: 'critical',
 } as const;
 
 export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];

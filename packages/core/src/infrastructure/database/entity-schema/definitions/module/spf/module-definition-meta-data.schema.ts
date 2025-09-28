@@ -1,9 +1,6 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema';
+import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 
 export interface ModuleDefinitionMetaDataRow extends EntityBaseRow {
   value?: string;
@@ -34,7 +31,7 @@ export const ModuleDefinitionMetaDataSchema =
     relations: {
       moduleDefinition: {
         type: 'one-to-one',
-        target: 'ModuleDefinition',
+        target: 'SpfModuleDefinition',
         inverseSide: 'metaData',
         joinColumn: {
           name: 'module_definition_system_id',

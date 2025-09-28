@@ -1,7 +1,4 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ContainerTypeRow extends EntityBaseRow {

@@ -1,8 +1,5 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ContainerPropertyDataRow} from '@infrastructure/database/entity-schema/usecase-data/container/container-property-data';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {ContainerPropertyDataRow} from '../../usecase-data/container/container-property-data.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ContainerPropertyRow extends EntityBaseRow {
@@ -16,40 +13,41 @@ export interface ContainerPropertyRow extends EntityBaseRow {
   containerPropertyData?: ContainerPropertyDataRow[];
 }
 
-export const PropertyCategorySchema = new EntitySchema<ContainerPropertyRow>({
-  name: 'ContainerProperty',
-  tableName: 'container_property_definitions',
-  columns: {
-    ...BaseColumnSchemaPart,
-    propertyId: {
-      type: 'integer',
-      name: 'property_id',
+export const ContainerPropertyDefinitionSchema =
+  new EntitySchema<ContainerPropertyRow>({
+    name: 'ContainerProperty',
+    tableName: 'container_property_definitions',
+    columns: {
+      ...BaseColumnSchemaPart,
+      propertyId: {
+        type: 'integer',
+        name: 'property_id',
+      },
+      name: {
+        type: 'varchar',
+        length: 255,
+        nullable: true,
+        name: 'name',
+      },
+      description: {
+        type: 'text',
+        nullable: true,
+        name: 'description',
+      },
+      maxSize: {
+        type: 'integer',
+        name: 'max_size',
+      },
+      propertyStructure: {
+        type: 'text',
+        name: 'property_structure',
+      },
     },
-    name: {
-      type: 'varchar',
-      length: 255,
-      nullable: true,
-      name: 'name',
+    relations: {
+      containerPropertyData: {
+        type: 'one-to-many',
+        target: 'ContainerPropertyData',
+        inverseSide: 'containerProperty',
+      },
     },
-    description: {
-      type: 'text',
-      nullable: true,
-      name: 'description',
-    },
-    maxSize: {
-      type: 'integer',
-      name: 'max_size',
-    },
-    propertyStructure: {
-      type: 'text',
-      name: 'property_structure',
-    },
-  },
-  relations: {
-    containerPropertyData: {
-      type: 'one-to-many',
-      target: 'ContainerPropertyData',
-      inverseSide: 'containerProperty',
-    },
-  },
-});
+  });

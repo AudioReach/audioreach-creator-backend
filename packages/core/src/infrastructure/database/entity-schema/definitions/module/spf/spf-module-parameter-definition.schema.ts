@@ -1,12 +1,9 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema';
-import {ModuleAttributeRow} from './module-attribute.schema';
-import {CkvParameterPayloadRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module-calibration-data.schema';
-import {TkvParameterPayloadRow} from '@infrastructure/database/entity-schema/usecase-data/module/spf-module-tag-data.schema';
+import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
+import {ModuleAttributeRow} from './module-attribute.schema.js';
+import {CkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-calibration-data.schema.js';
+import {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-tag-data.schema.js';
 
 export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
   parameterId: number;

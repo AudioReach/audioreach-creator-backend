@@ -1,9 +1,9 @@
-import {QueryServices} from '@application/services/query-services';
-import {Query} from '../queries/query';
-import {QueryHandler} from '../queries/query-handler';
-import {GetModuleCompactHandler} from '@application/usecase-designer/spf-module/get/get-module-compact.handler';
-import {GetModuleCompactQuery} from '@application/usecase-designer/spf-module/get/get-module-compact.query';
-import {QueryHandlerNotFoundException} from '../exceptions/handler-not-found-exception';
+import {QueryServices} from '../../../services/query-services.js';
+import {Query} from '../queries/query.js';
+import {QueryHandler} from '../queries/query-handler.js';
+import {GetModuleCompactHandler} from '../../../usecase-designer/spf-module/get/get-module-compact.handler.js';
+import {GetModuleCompactQuery} from '../../../usecase-designer/spf-module/get/get-module-compact.query.js';
+import {QueryHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;

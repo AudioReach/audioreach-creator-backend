@@ -1,8 +1,5 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ValueDefinitionRow} from './value-definition.schema';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {ValueDefinitionRow} from './value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 /*
@@ -29,7 +26,7 @@ export interface KeyDefinitionRow extends EntityBaseRow {
   values: ValueDefinitionRow[];
 }
 
-export const keyEntitySchema = new EntitySchema<KeyDefinitionRow>({
+export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
   name: 'KeyDefinition',
   tableName: 'arc_keys',
   columns: {

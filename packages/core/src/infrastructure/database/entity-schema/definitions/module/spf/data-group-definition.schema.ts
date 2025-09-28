@@ -1,8 +1,8 @@
-import {EntityBaseRow} from '@infrastructure/database/entity-schema/entity-base';
+import {EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {DataPortDefinitionRow} from './data-port-definition.schema';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema';
-import {PortIoType} from './port-io-type-definition.schema';
+import {DataPortDefinitionRow} from './data-port-definition.schema.js';
+import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
+import {PortIoType} from './port-io-type-definition.schema.js';
 
 export interface DataPortGroupRow extends EntityBaseRow {
   max: number;
@@ -40,7 +40,7 @@ export const DataPortGroupSchema = new EntitySchema<DataPortGroupRow>({
   relations: {
     moduleDefinition: {
       type: 'many-to-one',
-      target: 'ModuleDefinition',
+      target: 'SpfModuleDefinition',
       joinColumn: {
         name: 'module_definition_system_id',
         referencedColumnName: 'systemId',

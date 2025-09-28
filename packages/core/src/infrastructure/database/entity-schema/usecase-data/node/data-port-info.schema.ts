@@ -1,10 +1,7 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {PortIoType} from '@infrastructure/definitions/module/port-io-type-definition.schema';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {PortIoType} from '../../definitions/module/spf/port-io-type-definition.schema.js';
 import {EntitySchema} from 'typeorm';
-import {NodeRow} from './node.schema';
+import {NodeRow} from './node.schema.js';
 
 export interface DataPortRow extends EntityBaseRow {
   dataPortId: number;
@@ -19,7 +16,7 @@ export interface DataPortRow extends EntityBaseRow {
   node: NodeRow;
 }
 
-export const DataPortInfoSchema = new EntitySchema<DataPortRow>({
+export const DataPortSchema = new EntitySchema<DataPortRow>({
   name: 'DataPort',
   tableName: 'data_ports',
   columns: {

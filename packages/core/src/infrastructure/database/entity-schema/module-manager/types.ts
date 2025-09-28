@@ -1,7 +1,7 @@
 // domain/enums/moduleType.ts
 
-import {defineEnum} from '@infrastructure/database/entity-schema/utilities/enum-factory';
-import {makeEnumTransformer} from '@infrastructure/database/entity-schema/utilities/enum-value-transformer';
+import {defineEnum} from '../utilities/enum-factory.js';
+import {makeEnumTransformer} from '../utilities/enum-value-transformer.js';
 
 export const ModuleType = defineEnum({
   Generic: 2,

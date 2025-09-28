@@ -1,9 +1,6 @@
-import {
-  BaseColumnSchemaPart,
-  EntityBaseRow,
-} from '@infrastructure/database/entity-schema/entity-base';
-import {ValueDefinitionRow} from '@infrastructure/database/entity-schema/definitions/key-value/value-definition.schema';
-import {VcpmCkvRow} from '@infrastructure/database/entity-schema/usecase-data/subgraph/subgraph-vcpm-data';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
+import {VcpmCkvRow} from '../subgraph/subgraph-vcpm-data.js';
 import {EntitySchema} from 'typeorm';
 
 export interface KeyVectorRow extends EntityBaseRow {
