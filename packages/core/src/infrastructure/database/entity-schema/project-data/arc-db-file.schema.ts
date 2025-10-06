@@ -46,5 +46,5 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
     containers: {type: 'one-to-many', target: 'Container', inverseSide: 'file'},
     modules: {type: 'one-to-many', target: 'SpfModule', inverseSide: 'file'},
   },
-  indices: [{name: 'ix_files_project', columns: ['project_system_id']}],
+  indices: [{name: 'ix_files_project', columns: ['projectSystemId']}],
 });

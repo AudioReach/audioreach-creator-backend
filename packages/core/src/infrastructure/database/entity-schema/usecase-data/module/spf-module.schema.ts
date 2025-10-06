@@ -46,7 +46,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
       target: 'Subgraph',
       joinColumn: {
         name: 'subgraph_system_id',
-        referencedColumnName: 'system_id',
+        referencedColumnName: 'systemId',
       },
       onDelete: 'CASCADE', // delete subgraph => delete modules
     },
@@ -55,7 +55,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
       target: 'Container',
       joinColumn: {
         name: 'container_system_id',
-        referencedColumnName: 'system_id',
+        referencedColumnName: 'systemId',
       },
       onDelete: 'CASCADE', //delete container => delete modules
     },
@@ -81,8 +81,8 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
     },
   },
   indices: [
-    {name: 'ix_spf_modules_subgraph', columns: ['subgraph_system_id']},
-    {name: 'ix_spf_modules_container', columns: ['container_system_id']},
-    {name: 'ix_spf_modules_definition', columns: ['definition_system_id']},
+    {name: 'ix_spf_modules_subgraph', columns: ['subgraphSystemId']},
+    {name: 'ix_spf_modules_container', columns: ['containerSystemId']},
+    {name: 'ix_spf_modules_definition', columns: ['definitionSystemId']},
   ],
 });

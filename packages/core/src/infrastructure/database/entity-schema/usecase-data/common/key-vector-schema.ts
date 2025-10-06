@@ -8,10 +8,8 @@ export interface KeyVectorRow extends EntityBaseRow {
   // and can be used to find instance in O(1)
   kvHash: string;
 
-  valueSystemId: number;
-
   // Relations
-  value?: ValueDefinitionRow;
+  values?: ValueDefinitionRow[];
   vcpmCkvs?: VcpmCkvRow[];
 }
 
@@ -26,19 +24,21 @@ export const KeyVectorSchema = new EntitySchema<KeyVectorRow>({
       length: 64,
       nullable: false,
     },
-    valueSystemId: {
-      name: 'value_system_id',
-      type: 'integer',
-      nullable: false,
-    },
   },
   relations: {
-    value: {
-      type: 'many-to-one',
+    values: {
+      type: 'many-to-many',
       target: 'ValueDefinition',
-      joinColumn: {
-        name: 'value_system_id',
-        referencedColumnName: 'systemId',
+      joinTable: {
+        name: 'key_vector_values',
+        joinColumn: {
+          name: 'key_vector_id',
+          referencedColumnName: 'systemId'
+        },
+        inverseJoinColumn: {
+          name: 'value_definition_id',
+          referencedColumnName: 'systemId'
+        }
       },
       onDelete: 'RESTRICT', // Do not delete a value if key-vectors are present
     },
@@ -50,12 +50,12 @@ export const KeyVectorSchema = new EntitySchema<KeyVectorRow>({
   },
   indices: [
     {
-      name: 'ix_kvv_hash',
-      columns: ['kvvHash'],
+      name: 'ix_kv_hash',
+      columns: ['kvHash'],
     },
     {
-      name: 'uk_kvv_hash_value',
-      columns: ['kvvHash', 'valueSystemId'],
+      name: 'uk_kv_hash',
+      columns: ['kvHash'],
       unique: true,
     },
   ],
