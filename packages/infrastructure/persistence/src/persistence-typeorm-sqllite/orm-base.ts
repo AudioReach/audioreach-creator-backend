@@ -1,6 +1,6 @@
-// packages/core/src/infrastructure/database/orm-base.ts
+// packages/infrastructure/persistence/persistence-typeorm-sqllite/orm-base.ts
 import {getAllEntitySchemas} from './entity-schema/index.js';
-import {BlobBytesConverter} from './entity-schema/usecase-data/module/helper/blob-unit8array.converter.js';
+import type {BlobBytesConverter} from './entity-schema/usecase-data/module/helper/blob-unit8array.converter.js';
 import {migrations} from './migration-index.js';
 import type {DataSourceOptions} from 'typeorm';
 

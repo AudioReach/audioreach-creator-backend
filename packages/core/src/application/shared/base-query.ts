@@ -1,4 +1,4 @@
-import {Query} from '../orchestration/cqrs/queries/query.js';
+import type {Query} from '../orchestration/cqrs/queries/query.js';
 import {generateUuid} from '../../shared/utilities/uuid.js';
 
 export abstract class BaseQuery implements Query {

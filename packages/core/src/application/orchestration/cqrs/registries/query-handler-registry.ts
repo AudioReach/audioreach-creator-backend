@@ -1,6 +1,6 @@
-import {QueryServices} from '../../../services/query-services.js';
-import {Query} from '../queries/query.js';
-import {QueryHandler} from '../queries/query-handler.js';
+import type {QueryServices} from '../../../services/query-services.js';
+import type {Query} from '../queries/query.js';
+import type {QueryHandler} from '../queries/query-handler.js';
 import {GetModuleCompactHandler} from '../../../usecase-designer/spf-module/get/get-module-compact.handler.js';
 import {GetModuleCompactQuery} from '../../../usecase-designer/spf-module/get/get-module-compact.query.js';
 import {QueryHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';

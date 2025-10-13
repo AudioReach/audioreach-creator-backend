@@ -1,5 +1,5 @@
-// packages/core/src/infrastructure/database/entity-schema/index.ts
-import {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
+// packages/infrastructure/persistence/persistence-typeorm-sqllite/entity-schema/index.ts
+import type {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
 import {EntitySchema} from 'typeorm';
 
 // Import all schemas for use in getAllEntitySchemas function
@@ -161,7 +161,7 @@ export {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
 export {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
 
 // ===== HELPER TYPES =====
-export {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
+export type {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
 
 // ===== SCHEMA FACTORY HELPER =====
 /**

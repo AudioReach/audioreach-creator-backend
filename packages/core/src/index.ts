@@ -19,12 +19,6 @@ export * from './shared/repository/unit-of-work.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 
-// Database infrastructure
-export * from './infrastructure/database/orm-base.js';
-export * from './infrastructure/database/migration-index.js';
-export * from './infrastructure/database/entity-schema/index.js';
-export * from './infrastructure/database/entity-schema/entity-base.js';
-
 // Application services
 export * from './application/services/query-services.js';
 export * from './application/services/module/module-query-service.js';

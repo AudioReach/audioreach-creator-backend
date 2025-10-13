@@ -1,4 +1,4 @@
-import {ValueTransformer} from 'typeorm';
+import type {ValueTransformer} from 'typeorm';
 
 export function makeEnumTransformer<Value>(
   parseValue: (raw: unknown) => Value,

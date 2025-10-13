@@ -1,4 +1,4 @@
-import {Request} from '../cqrs/request.js';
+import type {Request} from '../cqrs/request.js';
 /*
  * Basic interface all behaviors that are called before commands/queries are executed
  */

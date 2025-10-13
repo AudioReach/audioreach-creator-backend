@@ -3,6 +3,7 @@
     "module": "NodeNext",
     "target": "ES2023",
     "lib": ["ES2023"],
+    "verbatimModuleSyntax": true,
     "declaration": true,
     "declarationMap": true,
     "allowSyntheticDefaultImports": true,

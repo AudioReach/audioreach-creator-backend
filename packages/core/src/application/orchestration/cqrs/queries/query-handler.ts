@@ -1,4 +1,4 @@
-import {Query} from './query.js';
+import type {Query} from './query.js';
 
 /**
  * Represents a query handler.

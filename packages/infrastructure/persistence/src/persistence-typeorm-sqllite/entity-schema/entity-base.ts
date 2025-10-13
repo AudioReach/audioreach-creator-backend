@@ -1,4 +1,4 @@
-import {EntitySchemaColumnOptions} from 'typeorm';
+import type {EntitySchemaColumnOptions} from 'typeorm';
 
 export interface EntityBaseRow {
   //arc specific id, should be treated as primary key for the enity whenever possible

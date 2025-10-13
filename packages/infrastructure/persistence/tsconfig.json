@@ -1,18 +1,19 @@
 {
   "compilerOptions": {
-    "target": "ES2023",
     "module": "NodeNext",
-    "verbatimModuleSyntax": true,
+    "target": "ES2023",
+    "lib": ["ES2023"],
     "declaration": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
+    "declarationMap": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    "rootDir": "./src",
+    "baseUrl": "./src",
     "removeComments": true,
     "sourceMap": true,
     "incremental": true,
+    "composite": true,
     "strict": true,
     "strictNullChecks": true,
     "noImplicitAny": true,
@@ -22,20 +23,15 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "moduleResolution": "NodeNext",
-    "resolveJsonModule": true,
-    
+    "resolveJsonModule": true
   },
-  "include": [],
-  "exclude": ["node_modules", "dist", "**/*.tsbuildinfo"],
-  "references": [
-    {
-      "path": "./packages/core"
-    },
-    {
-      "path": "./packages/infrastructure/persistence"
-    },
-    {
-      "path": "./packages/api"
-    }
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts"
   ]
 }

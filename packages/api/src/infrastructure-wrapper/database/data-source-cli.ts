@@ -1,6 +1,6 @@
 import {DataSource} from 'typeorm';
 import {NodeBlobBytesConverter} from './node-blob-converter.js';
-import {getAllEntitySchemas} from '@arc/core';
+import {getAllEntitySchemas} from '@arc/persistence';
 
 export default new DataSource({
   type: 'sqlite',

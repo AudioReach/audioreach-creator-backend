@@ -1,4 +1,4 @@
-import type {BlobBytesConverter} from '@arc/core';
+import type {BlobBytesConverter} from '@arc/persistence';
 
 export class NodeBlobBytesConverter implements BlobBytesConverter {
   /**

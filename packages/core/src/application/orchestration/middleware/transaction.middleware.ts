@@ -1,6 +1,6 @@
-import {UnitOfWork} from '../../../shared/repository/unit-of-work.js';
-import {Command} from '../cqrs/commands/command.js';
-import {ApplicationMiddleware} from './application-middleware.js';
+import type {UnitOfWork} from '../../../shared/repository/unit-of-work.js';
+import type {Command} from '../cqrs/commands/command.js';
+import type {ApplicationMiddleware} from './application-middleware.js';
 
 export class TransactionMiddleware implements ApplicationMiddleware<Command> {
   constructor(private uow: UnitOfWork) {}

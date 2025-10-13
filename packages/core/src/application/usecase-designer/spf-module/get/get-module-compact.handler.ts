@@ -1,7 +1,7 @@
 import {ModuleCompactView} from '../../../services/module/query-models/module-compact.js';
 import {GetModuleCompactQuery} from './get-module-compact.query.js';
-import {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
-import {QueryServices} from '../../../services/query-services.js';
+import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
+import type {QueryServices} from '../../../services/query-services.js';
 
 export class GetModuleCompactHandler
   implements QueryHandler<GetModuleCompactQuery, ModuleCompactView>
