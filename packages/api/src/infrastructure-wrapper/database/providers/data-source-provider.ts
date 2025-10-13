@@ -1,4 +1,4 @@
-import {getOrmBase} from '@arc/core';
+import {getOrmBase} from '@arc/persistence';
 import type {Logger, LogData} from '@arc/core';
 import {Injectable} from '@nestjs/common';
 import type {OnModuleInit, OnModuleDestroy} from '@nestjs/common';

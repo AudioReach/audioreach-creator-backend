@@ -1,4 +1,4 @@
-import {Request} from '../request.js';
+import type {Request} from '../request.js';
 /**
  * Base interface for all commands in the system
  */

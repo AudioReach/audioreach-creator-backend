@@ -1,6 +1,6 @@
-import {UnitOfWork} from '../../../../shared/repository/unit-of-work.js';
+import type {UnitOfWork} from '../../../../shared/repository/unit-of-work.js';
 import {CreateModuleCommand} from './create-module.command.js';
-import {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
+import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 
 // To Do: This is a partial implementation added for writing an exmaple in CQRS franework
 

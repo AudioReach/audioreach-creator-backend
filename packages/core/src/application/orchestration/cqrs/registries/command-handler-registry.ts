@@ -43,10 +43,10 @@
  * all target environments including React Native mobile applications.
  */
 
-import {Command} from '../commands/command.js';
-import {CommandHandler} from '../commands/command-handler.js';
+import type {Command} from '../commands/command.js';
+import type {CommandHandler} from '../commands/command-handler.js';
 import {AddModuleCommandHandler} from '../../../usecase-designer/spf-module/create/create-module.handler.js';
-import {UnitOfWork} from '../../../../shared/repository/unit-of-work.js';
+import type {UnitOfWork} from '../../../../shared/repository/unit-of-work.js';
 import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 import {AddModuleCommand} from '../../../usecase-designer/index.js';
 

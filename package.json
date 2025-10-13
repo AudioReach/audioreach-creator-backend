@@ -5,11 +5,13 @@
   "type": "module",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/infrastructure/*"
   ],
   "scripts": {
     "build": "yarn workspaces foreach --topological --all run build",
     "build:core": "yarn workspace @arc/core build",
+    "build:persistence": "yarn workspace @arc/persistence build",
     "build:api": "yarn workspace @arc/api build",
     "start": "yarn workspace @arc/api start",
     "start:dev": "yarn workspace @arc/api start:dev",
@@ -26,7 +28,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "migration:run:tmp": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:run",
-    "migration:gen": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:generate ./packages/core/src/infrastructure/database/migrations/<name>",
+    "migration:gen": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:generate ./packages/infrastructure/persistence/persistence-typeorm-sqllite/migrations/<name>",
     "migration:revert": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:revert",
     "migration:show": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:show"
   },

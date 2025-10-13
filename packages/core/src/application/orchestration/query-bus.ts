@@ -1,11 +1,11 @@
-import {Query} from './cqrs/queries/query.js';
-import {ApplicationMiddleware} from './middleware/application-middleware.js';
+import type {Query} from './cqrs/queries/query.js';
+import type {ApplicationMiddleware} from './middleware/application-middleware.js';
 import {
-  QueryHandlerDependencies,
+  type QueryHandlerDependencies,
   QueryHandlerRegistry,
 } from './cqrs/registries/query-handler-registry.js';
-import {Request} from './cqrs/request.js';
-import {QueryServices} from '../services/query-services.js';
+import type {Request} from './cqrs/request.js';
+import type {QueryServices} from '../services/query-services.js';
 
 export class QueryBus {
   private middlewares: ApplicationMiddleware<Request>[] = [];

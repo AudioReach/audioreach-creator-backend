@@ -1,4 +1,4 @@
-import {Command} from '../orchestration/cqrs/commands/command.js';
+import type {Command} from '../orchestration/cqrs/commands/command.js';
 import {generateUuid} from '../../shared/utilities/uuid.js';
 
 /**

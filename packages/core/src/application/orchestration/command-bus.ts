@@ -1,11 +1,9 @@
-import {Command} from './cqrs/commands/command.js';
-import {ApplicationMiddleware} from './middleware/application-middleware.js';
-import {
-  CommandHandlerRegistry,
-  CommandHandlerDependencies,
-} from './cqrs/registries/command-handler-registry.js';
-import {UnitOfWork} from '../../shared/repository/unit-of-work.js';
-import {Request} from './cqrs/request.js';
+import type {Command} from './cqrs/commands/command.js';
+import type {ApplicationMiddleware} from './middleware/application-middleware.js';
+import {CommandHandlerRegistry} from './cqrs/registries/command-handler-registry.js';
+import type {CommandHandlerDependencies} from './cqrs/registries/command-handler-registry.js';
+import type {UnitOfWork} from '../../shared/repository/unit-of-work.js';
+import type {Request} from './cqrs/request.js';
 import {TransactionMiddleware} from './middleware/transaction.middleware.js';
 
 export class CommandBus {
