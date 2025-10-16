@@ -11,6 +11,7 @@
   "scripts": {
     "build": "yarn workspaces foreach --topological --all run build",
     "build:core": "yarn workspace @arc/core build",
+    "build:fs": "yarn workspace @arc/fs build",
     "build:persistence": "yarn workspace @arc/persistence build",
     "build:api": "yarn workspace @arc/api build",
     "start": "yarn workspace @arc/api start",

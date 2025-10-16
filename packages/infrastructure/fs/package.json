@@ -1,0 +1,43 @@
+{
+  "name": "@arc/fs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "File system operations implementation for ARC API",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "shx rm -rf dist *.tsbuildinfo",
+    "format": "prettier --write src/**/*.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "arc-api-fs",
+    "audioreach-api-fs"
+  ],
+  "dependencies": {
+    "@arc/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.2",
+    "jest": "^30.1.3",
+    "prettier": "^3.6.2",
+    "shx": "^0.3.4",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
+  },
+  "license": "BSD-3-Clause-Clear"
+}

@@ -10,6 +10,7 @@ import {
   UploadedFiles,
   UseGuards,
   UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -25,19 +26,30 @@ import {
   ProjectType,
   SessionMode,
 } from './dtos/project-details-response.dto.js';
-import {FilesInterceptor} from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FilesInterceptor,
+} from '@nestjs/platform-express';
 import {UpdateProjectInfoRequest} from './dtos/update-project-info-request.dto.js';
 import {DownloadArcDatabaseFilesResponse} from './dtos/download-arc-database-files-response.dto.js';
 import type {Multer} from 'multer';
+import multer from 'multer';
 import {AuthGuard} from '@nestjs/passport';
 import {DeviceDetailInfo} from './dtos/device-detail-info.dto.js';
 import {ConnectToDeviceRequest} from './dtos/connect-to-device-request.dto.js';
 import {ApiResult} from '../../common/dtos/api-response.dto.js';
 import {DeviceInfo} from './dtos/device-info.dto.js';
+import {CommandBus, OpenFileCommand} from '@arc/core';
+import type {FileRef} from '@arc/core';
+import {promises as fsPromises} from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 @Controller('arcapi/v1/')
 @UseGuards(AuthGuard('jwt'))
 export class ProjectController {
+  constructor(private readonly commandBus: CommandBus) {}
+
   @Post('/offline/files')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -78,7 +90,7 @@ export class ProjectController {
     },
   })
   @ApiBody({
-    description: 'Upload two required files: AcdbFile and WorkspaceFile',
+    description: 'Upload two required files: acdbFile and workspaceFile',
     schema: {
       type: 'object',
       properties: {
@@ -87,28 +99,130 @@ export class ProjectController {
         acdbFile: {type: 'string', format: 'binary'},
         workspaceFile: {type: 'string', format: 'binary'},
       },
-      required: ['AcdbFile', 'WorkspaceFile'],
+      required: ['acdbFile', 'workspaceFile'],
     },
   })
-  @UseInterceptors(FilesInterceptor('files', 2))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        {name: 'acdbFile', maxCount: 1},
+        {name: 'workspaceFile', maxCount: 1},
+      ],
+      {
+        storage: multer.memoryStorage(),
+        limits: {
+          fileSize: 10 * 1024 * 1024, // 10MB limit per file
+        },
+      },
+    ),
+  )
   async uploadArcDbFiles(
-    @UploadedFiles() _files: Multer[],
+    @UploadedFiles()
+    files: {
+      acdbFile: Express.Multer.File;
+      workspaceFile: Express.Multer.File;
+    },
     @Body() _updateProjectInfoRequest: UpdateProjectInfoRequest,
   ): Promise<ApiResult<ProjectDetails>> {
-    const projectdetails: ProjectDetails = {
-      projectId: '',
-      projectName: '',
-      projectDescription: ' ',
-      projectType: ProjectType.Offline,
-      sessionMode: SessionMode.Designer,
-    }; // ToDo Need to update the project Info once services ready
-    await Promise.resolve();
-    const projectResponse: ApiResult<ProjectDetails> = {
-      data: projectdetails,
-      success: true,
-      message: 'The file has been opened successfully',
-    };
-    return projectResponse;
+    const clientId = ''; //TODO: gather from jwt
+    if (!clientId) {
+      throw new BadRequestException('clientId is required');
+    }
+
+    const acdb = files?.acdbFile;
+    const awsp = files?.workspaceFile;
+
+    if (!acdb || !awsp) {
+      throw new BadRequestException(
+        'Both acdbFile and workspaceFile are required',
+      );
+    }
+
+    // Validate extensions early
+    const acdbName = acdb.originalname?.toLowerCase() ?? '';
+    const awspName = awsp.originalname?.toLowerCase() ?? '';
+    if (!acdbName.endsWith('.acdb')) {
+      throw new BadRequestException(
+        'Invalid acdb file extension; expected .acdb',
+      );
+    }
+    if (!awspName.endsWith('.awsp')) {
+      throw new BadRequestException(
+        'Invalid workspace file extension; expected .awsp',
+      );
+    }
+
+    const tmpDir = os.tmpdir();
+    const acdbPath = path.join(tmpDir, `${Date.now()}-${acdb.originalname}`);
+    const awspPath = path.join(tmpDir, `${Date.now()}-${awsp.originalname}`);
+
+    let acdbRef: FileRef;
+    let awspRef: FileRef;
+
+    try {
+      // Write Multer buffers to temp files
+      await fsPromises.writeFile(acdbPath, acdb.buffer);
+      await fsPromises.writeFile(awspPath, awsp.buffer);
+
+      acdbRef = {
+        kind: 'path',
+        name: acdb.originalname,
+        mimeType: acdb.mimetype,
+        uri: acdbPath,
+      };
+      awspRef = {
+        kind: 'path',
+        name: awsp.originalname,
+        mimeType: awsp.mimetype,
+        uri: awspPath,
+      };
+    } catch (error) {
+      // Log error and clean up any created files
+      console.error('Failed to write temporary files:', error);
+      await Promise.allSettled([
+        fsPromises.unlink(acdbPath).catch(() => {}),
+        fsPromises.unlink(awspPath).catch(() => {}),
+      ]);
+      throw new BadRequestException('Failed to process uploaded files');
+    }
+
+    try {
+      // Dispatch command
+      const result = await this.commandBus.execute<any>(
+        new OpenFileCommand(clientId, acdbRef, awspRef),
+      );
+
+      // Cleanup on success
+      await Promise.allSettled([
+        fsPromises.unlink(acdbPath),
+        fsPromises.unlink(awspPath),
+      ]);
+
+      const projectdetails: ProjectDetails = {
+        projectId: result?.projectId ?? '',
+        projectName: result?.projectName ?? '',
+        projectDescription: result?.projectDescription ?? '',
+        projectType: ProjectType.Offline,
+        sessionMode: SessionMode.Designer,
+      };
+
+      const projectResponse: ApiResult<ProjectDetails> = {
+        data: projectdetails,
+        success: true,
+        message: 'The file has been opened successfully',
+      };
+      return projectResponse;
+    } catch (error) {
+      // Keep temp files for debugging; log absolute paths
+      // eslint-disable-next-line no-console
+      console.error(
+        'Open offline files failed. Temp files preserved:',
+        acdbPath,
+        awspPath,
+        error,
+      );
+      throw error;
+    }
   }
 
   @Get('projects')

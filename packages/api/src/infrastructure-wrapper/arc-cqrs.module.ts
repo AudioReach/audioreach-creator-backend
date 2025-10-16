@@ -5,11 +5,12 @@ import {
   CommandHandlerRegistry,
   QueryHandlerRegistry,
 } from '@arc/core';
-import type {UnitOfWork, QueryServices} from '@arc/core';
+import type {UnitOfWork, QueryServices, FileReaderPort} from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {TypeOrmUnitOfWork} from './persistence/unit-of-work/typeorm-unit-of-work.js';
 import {DbQueryServices} from './persistence/queries/typeorm-query-services.js';
 import {DataSource} from 'typeorm';
+import {NodeFileReaderAdapter} from '@arc/fs';
 
 @Module({
   providers: [
@@ -27,6 +28,11 @@ import {DataSource} from 'typeorm';
       scope: Scope.REQUEST,
     },
     {
+      provide: 'NODE_FILE_READER_ADAPTER',
+      useFactory: () => new NodeFileReaderAdapter(),
+      scope: Scope.REQUEST,
+    },
+    {
       provide: 'COMMAND_HANDLER_REGISTRY',
       useFactory: () => CommandHandlerRegistry.Instance,
     },
@@ -41,9 +47,16 @@ import {DataSource} from 'typeorm';
     },
     {
       provide: CommandBus,
-      useFactory: (unitOfWork: UnitOfWork, registry: CommandHandlerRegistry) =>
-        new CommandBus(unitOfWork, registry),
-      inject: ['UNIT_OF_WORK', 'COMMAND_HANDLER_REGISTRY'],
+      useFactory: (
+        unitOfWork: UnitOfWork,
+        registry: CommandHandlerRegistry,
+        fileReader: FileReaderPort,
+      ) => new CommandBus(unitOfWork, registry, fileReader),
+      inject: [
+        'UNIT_OF_WORK',
+        'COMMAND_HANDLER_REGISTRY',
+        'NODE_FILE_READER_ADAPTER',
+      ],
       scope: Scope.REQUEST,
     },
     {
