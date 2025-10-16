@@ -5,6 +5,7 @@ import type {CommandHandlerDependencies} from './cqrs/registries/command-handler
 import type {UnitOfWork} from '../../shared/repository/unit-of-work.js';
 import type {Request} from './cqrs/request.js';
 import {TransactionMiddleware} from './middleware/transaction.middleware.js';
+import type {FileReaderPort} from '../../application/file-operations/open-file/file-reader.port.js';
 
 export class CommandBus {
   private middlewares: ApplicationMiddleware<Request>[] = [];
@@ -12,6 +13,7 @@ export class CommandBus {
   constructor(
     private unitOfWork: UnitOfWork,
     private handlerRegistry: CommandHandlerRegistry,
+    private fileReader: FileReaderPort,
   ) {
     this.registerMiddlewares();
   }
@@ -31,6 +33,7 @@ export class CommandBus {
     const factory = this.handlerRegistry.getCommandHandlerFactory(command);
     const dependencies: CommandHandlerDependencies = {
       uow: this.unitOfWork,
+      fileReader: this.fileReader,
     };
     return factory.create(dependencies);
   }

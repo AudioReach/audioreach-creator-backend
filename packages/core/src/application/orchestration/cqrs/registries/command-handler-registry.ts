@@ -49,9 +49,13 @@ import {AddModuleCommandHandler} from '../../../usecase-designer/spf-module/crea
 import type {UnitOfWork} from '../../../../shared/repository/unit-of-work.js';
 import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 import {AddModuleCommand} from '../../../usecase-designer/index.js';
+import {OpenFileCommand} from '../../../file-operations/open-file/open-file.command.js';
+import {OpenFileHandler} from '../../../file-operations/open-file/open-file.handler.js';
+import type {FileReaderPort} from '../../../file-operations/open-file/file-reader.port.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
+  fileReader: FileReaderPort;
   // Logger
   // Event Bus
 }
@@ -99,6 +103,9 @@ export class CommandHandlerRegistry {
     // To Do: Have separate registration files for each feature and register them here
     this.commandHandlerFactories.set(AddModuleCommand, {
       create: deps => new AddModuleCommandHandler(deps.uow),
+    });
+    this.commandHandlerFactories.set(OpenFileCommand, {
+      create: deps => new OpenFileHandler(deps.uow, deps.fileReader),
     });
   }
 }

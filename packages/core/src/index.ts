@@ -30,3 +30,10 @@ export * from './application/usecase-designer/spf-module/create/create-module.co
 export * from './application/usecase-designer/spf-module/create/create-module.handler.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
+// File Operations - Open File pipeline exports
+export * from './application/file-operations/open-file/file-ref.js';
+export * from './application/file-operations/open-file/file-reader.port.js';
+export * from './application/file-operations/open-file/parsers/acdb-parser.js';
+export * from './application/file-operations/open-file/parsers/awsp-parser.js';
+export * from './application/file-operations/open-file/open-file.command.js';
+export * from './application/file-operations/open-file/open-file.handler.js';
