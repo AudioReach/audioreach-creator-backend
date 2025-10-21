@@ -1,0 +1,33 @@
+{
+  "folders": [
+    {
+      "name": "packages/core",
+      "path": "../packages/core"
+    },
+    {
+      "name": "packages/api",
+      "path": "../packages/api"
+    }
+  ],
+  "settings": {
+    "jest.jestCommandLine": "yarn jest",
+    "jest.rootPath": ".",
+    "jest.autoRun": {
+      "watch": false,
+      "onStartup": ["off"]
+    },
+    "jest.showCoverageOnLoad": false,
+    "jest.coverageFormatter": "DefaultFormatter",
+    "jest.coverageColors": {
+      "covered": "rgba(9, 156, 65, 0.4)",
+      "uncovered": "rgba(121, 31, 10, 0.4)",
+      "partially-covered": "rgba(235, 198, 52, 0.4)"
+    },
+    "jest.testExplorer": {
+      "enabled": true,
+      "showClassicStatus": true,
+      "showInlineError": true
+    },
+    "jest.disabledWorkspaceFolders": [],    
+  }  
+}
