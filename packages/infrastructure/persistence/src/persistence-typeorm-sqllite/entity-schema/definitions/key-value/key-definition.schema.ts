@@ -61,7 +61,7 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
     values: {
       type: 'one-to-many',
       target: 'ValueDefinition',
-      inverseSide: 'schemaRelationKeys',
+      inverseSide: 'keys',
       cascade: ['insert', 'update', 'remove'],
     },
   },

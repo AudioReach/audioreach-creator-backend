@@ -32,7 +32,6 @@ export const DynamicIntentDefinitionSchema =
       },
       maxPort: {
         type: 'integer',
-        length: 255,
         nullable: true,
         name: 'max_port',
       },
@@ -56,7 +55,7 @@ export const DynamicIntentDefinitionSchema =
     indices: [
       {
         name: 'idx_dynamic_intent_defs_module_def_id',
-        columns: ['module_definition_system_id'],
+        columns: ['moduleDefinitionSystemId'],
       },
     ],
   });

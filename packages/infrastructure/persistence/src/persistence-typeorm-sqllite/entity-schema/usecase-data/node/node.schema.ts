@@ -32,7 +32,6 @@ export interface NodeRow extends EntityBaseRow {
 export const NodeSchema = new EntitySchema<NodeRow>({
   name: 'Node',
   tableName: 'nodes',
-  type: 'entity-child', // For inheritance
   columns: {
     ...BaseColumnSchemaPart,
     parentId: {

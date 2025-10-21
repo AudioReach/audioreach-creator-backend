@@ -43,7 +43,7 @@ export const ModuleDefinitionMetaDataSchema =
     indices: [
       {
         name: 'idx_module_def_meta_module_def_id',
-        columns: ['module_definition_system_id'],
+        columns: ['moduleDefinitionSystemId'],
       },
     ],
   });

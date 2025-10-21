@@ -32,7 +32,6 @@ export const StaticIntentDefinitionSchema =
       },
       maxPort: {
         type: 'integer',
-        length: 255,
         nullable: true,
         name: 'max_port',
       },
@@ -56,7 +55,7 @@ export const StaticIntentDefinitionSchema =
     indices: [
       {
         name: 'idx_static_intent_defs_port_id',
-        columns: ['static_control_port_definition_system_id'],
+        columns: ['staticControlPortDefinitionSystemId'],
       },
     ],
   });

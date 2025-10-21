@@ -20,7 +20,7 @@ export const ContainerSchema = new EntitySchema<ContainerRow>({
   tableName: 'containers',
   columns: {
     ...BaseColumnSchemaPart,
-    type: {type: String, length: 128},
+    type: {name: 'type', type: 'varchar', length: 128},
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
   relations: {

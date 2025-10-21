@@ -16,7 +16,7 @@ export interface ModulePropertyRow extends EntityBaseRow {
 
 export const ModulePropertyDefinitionSchema =
   new EntitySchema<ModulePropertyRow>({
-    name: 'ModuleProperty',
+    name: 'ModulePropertyDefinition',
     tableName: 'module_property_definitions',
     columns: {
       ...BaseColumnSchemaPart,
