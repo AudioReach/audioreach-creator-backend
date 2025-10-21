@@ -4,6 +4,8 @@ import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import {ModuleAttributeRow} from './module-attribute.schema.js';
 import {CkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-calibration-data.schema.js';
 import {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-tag-data.schema.js';
+import {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
+import {DbTypeToBytesTransformer} from '../../../usecase-data/module/helper/bytes-transformer.js';
 
 export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
   parameterId: number;
@@ -27,7 +29,9 @@ export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
   tkvParameterPayloads?: TkvParameterPayloadRow[];
 }
 
-export const SpfModuleParameterDefinitionSchema =
+export const SpfModuleParameterDefinitionSchema = (
+  blobConverter: BlobBytesConverter,
+) =>
   new EntitySchema<SpfModuleParameterDefinitionRow>({
     name: 'SpfModuleParameterDefinition',
     tableName: 'spf_module_parameter_definitions',
@@ -66,8 +70,9 @@ export const SpfModuleParameterDefinitionSchema =
         name: 'param_structure',
       },
       defaultData: {
-        type: 'bytea', // or 'blob' depending on your database
+        type: 'blob', // or 'blob' depending on your database
         name: 'default_data',
+        transformer: DbTypeToBytesTransformer(blobConverter),
       },
       isReadOnly: {
         type: 'boolean',
@@ -104,7 +109,7 @@ export const SpfModuleParameterDefinitionSchema =
     indices: [
       {
         name: 'idx_module_param_defs_spf_module_def_id',
-        columns: ['spf_module_definition_system_id'],
+        columns: ['spfModuleDefinitionSystemId'],
       },
     ],
   });

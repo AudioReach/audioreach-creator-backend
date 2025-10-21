@@ -1,16 +1,19 @@
 import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
 import {VcpmCkvRow} from '../subgraph/subgraph-vcpm-data.js';
+import {UseCaseRow} from '../use-case.js';
 import {EntitySchema} from 'typeorm';
 
 export interface KeyVectorRow extends EntityBaseRow {
   // This is has created from list of values
   // and can be used to find instance in O(1)
   kvHash: string;
+  useCaseSystemId?: number;
 
   // Relations
   values?: ValueDefinitionRow[];
   vcpmCkvs?: VcpmCkvRow[];
+  useCase?: UseCaseRow;
 }
 
 export const KeyVectorSchema = new EntitySchema<KeyVectorRow>({
@@ -24,6 +27,11 @@ export const KeyVectorSchema = new EntitySchema<KeyVectorRow>({
       length: 64,
       nullable: false,
     },
+    useCaseSystemId: {
+      name: 'use_case_system_id',
+      type: 'integer',
+      nullable: true,
+    },
   },
   relations: {
     values: {
@@ -33,18 +41,27 @@ export const KeyVectorSchema = new EntitySchema<KeyVectorRow>({
         name: 'key_vector_values',
         joinColumn: {
           name: 'key_vector_id',
-          referencedColumnName: 'systemId'
+          referencedColumnName: 'systemId',
         },
         inverseJoinColumn: {
           name: 'value_definition_id',
-          referencedColumnName: 'systemId'
-        }
+          referencedColumnName: 'systemId',
+        },
       },
-      onDelete: 'RESTRICT', // Do not delete a value if key-vectors are present
+      inverseSide: 'keyVectors',
     },
     vcpmCkvs: {
       type: 'one-to-many',
       target: 'VcpmCkv',
+      inverseSide: 'keyVector',
+    },
+    useCase: {
+      type: 'one-to-one',
+      target: 'UseCase',
+      joinColumn: {
+        name: 'use_case_system_id',
+        referencedColumnName: 'systemId',
+      },
       inverseSide: 'keyVector',
     },
   },

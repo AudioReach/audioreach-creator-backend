@@ -1,6 +1,6 @@
 import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {KeyDefinitionRow} from './key-definition.schema.js';
-import {UseCaseRow} from '../../usecase-data/use-case.js';
+import {KeyVectorRow} from '../../usecase-data/common/key-vector-schema.js';
 import {EntitySchema} from 'typeorm';
 
 /*
@@ -26,8 +26,8 @@ export interface ValueDefinitionRow extends EntityBaseRow {
   updateDate: Date;
 
   // type orm relation
-  schemaRelationKeys: KeyDefinitionRow;
-  useCases?: UseCaseRow[];
+  keys: KeyDefinitionRow;
+  keyVectors?: KeyVectorRow[];
 }
 
 export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
@@ -49,7 +49,6 @@ export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
     valueName: {
       name: 'value_name',
       type: String,
-      unique: true,
     },
     cEnumMemberName: {
       name: 'key_enum_value',
@@ -62,23 +61,34 @@ export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
     },
   },
   relations: {
-    schemaRelationKeys: {
+    keys: {
       type: 'many-to-one',
       target: 'KeyDefinition',
       inverseSide: 'values',
       joinColumn: {name: 'keys_system_id', referencedColumnName: 'systemId'},
       onDelete: 'CASCADE',
     },
-    useCases: {
+    keyVectors: {
       type: 'many-to-many',
-      target: 'UseCase',
+      target: 'KeyVector',
+      joinTable: {
+        name: 'key_vector_values',
+        joinColumn: {
+          name: 'value_definition_id',
+          referencedColumnName: 'systemId',
+        },
+        inverseJoinColumn: {
+          name: 'key_vector_id',
+          referencedColumnName: 'systemId',
+        },
+      },
       inverseSide: 'values',
     },
   },
   indices: [
     {
       name: 'idx_arc_values_keys_system_id',
-      columns: ['keys_system_id'],
+      columns: ['keySystemId'],
     },
   ],
 });

@@ -57,7 +57,7 @@ export const StaticControlPortDefinitionSchema =
     indices: [
       {
         name: 'idx_static_ports_module_def_id',
-        columns: ['module_definition_system_id'],
+        columns: ['moduleDefinitionSystemId'],
       },
     ],
   });

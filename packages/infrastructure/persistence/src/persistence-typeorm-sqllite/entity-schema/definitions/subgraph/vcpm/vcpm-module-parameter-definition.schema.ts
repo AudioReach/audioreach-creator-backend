@@ -2,6 +2,8 @@ import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import {VcpmModuleDefinitionRow} from './vcpm-module-definition.schema.js';
 import {VcpmParameterPayloadRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
+import {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
+import {DbTypeToBytesTransformer} from '../../../usecase-data/module/helper/bytes-transformer.js';
 
 export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   parameterId: number;
@@ -13,14 +15,16 @@ export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   defaultData: Uint8Array;
 
   // Foreign key relation
-  driverModuleDefinitionSystemId: number;
+  vcpmModuleDefinitionSystemId: number;
 
   //type orm relation
   vcpmModuleDefinition: VcpmModuleDefinitionRow;
   vcpmParameterPayloads?: VcpmParameterPayloadRow[];
 }
 
-export const VcpmModuleParameterDefinitionSchema =
+export const VcpmModuleParameterDefinitionSchema = (
+  blobConverter: BlobBytesConverter,
+) =>
   new EntitySchema<VcpmModuleParameterDefinitionRow>({
     name: 'VcpmModuleParameterDefinition',
     tableName: 'vcpm_module_parameter_definitions',
@@ -50,12 +54,13 @@ export const VcpmModuleParameterDefinitionSchema =
         name: 'param_structure',
       },
       defaultData: {
-        type: 'bytea', // or 'blob' depending on your database
+        type: 'blob', // or 'blob' depending on your database
         name: 'default_data',
+        transformer: DbTypeToBytesTransformer(blobConverter),
       },
-      driverModuleDefinitionSystemId: {
+      vcpmModuleDefinitionSystemId: {
         type: 'integer',
-        name: 'driver_module_definition_system_id',
+        name: 'vcpm_module_definition_system_id',
         nullable: true,
       },
     },
@@ -79,7 +84,7 @@ export const VcpmModuleParameterDefinitionSchema =
     indices: [
       {
         name: 'idx_module_param_defs_vcpm_module_def_id',
-        columns: ['vcpm_module_definition_system_id'],
+        columns: ['vcpmModuleDefinitionSystemId'],
       },
     ],
   });

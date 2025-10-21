@@ -1,8 +1,8 @@
 import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {NodeRow} from '../node/node.schema.js';
-import {DataPortRow} from '../node/data-port-info.schema.js';
 import {UseCaseRow} from '../use-case.js';
 import {EntitySchema} from 'typeorm';
+import {ControlPortRow} from '../node/control-port.js';
 
 export interface ControlLinkRow extends EntityBaseRow {
   peerNodeASystemId: number;
@@ -14,8 +14,8 @@ export interface ControlLinkRow extends EntityBaseRow {
 
   peerNodeA?: NodeRow;
   peerNodeB?: NodeRow;
-  nodeAPort?: DataPortRow;
-  nodeBPort?: DataPortRow;
+  nodeAPort?: ControlPortRow;
+  nodeBPort?: ControlPortRow;
   useCases?: UseCaseRow[];
 }
 
@@ -70,7 +70,7 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
     },
     nodeAPort: {
       type: 'many-to-one',
-      target: 'DataPort',
+      target: 'ControlPort',
       joinColumn: {
         name: 'nodeA_port_system_id',
         referencedColumnName: 'systemId',
@@ -79,7 +79,7 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
     },
     nodeBPort: {
       type: 'many-to-one',
-      target: 'DataPort',
+      target: 'ControlPort',
       joinColumn: {
         name: 'nodeB_port_system_id',
         referencedColumnName: 'systemId',

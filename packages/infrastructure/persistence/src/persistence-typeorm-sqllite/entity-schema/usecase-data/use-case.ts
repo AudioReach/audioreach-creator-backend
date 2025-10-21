@@ -3,7 +3,7 @@ import {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 import {NodeRow} from './node/node.schema.js';
 import {DataLinkRow} from './Links/data-link.js';
 import {ControlLinkRow} from './Links/control-link.js';
-import {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
+import {KeyVectorRow} from './common/key-vector-schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface UseCaseRow extends EntityBaseRow {
@@ -17,7 +17,7 @@ export interface UseCaseRow extends EntityBaseRow {
   nodes?: NodeRow[];
   dataLinks?: DataLinkRow[];
   controlLinks?: ControlLinkRow[];
-  values?: ValueDefinitionRow[];
+  keyVector?: KeyVectorRow;
 }
 
 export interface UseCaseCategoryRow extends EntityBaseRow {
@@ -115,20 +115,10 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
         },
       },
     },
-    values: {
-      type: 'many-to-many',
-      target: 'ValueDefinition',
-      joinTable: {
-        name: 'use_case_values',
-        joinColumn: {
-          name: 'use_case_system_id',
-          referencedColumnName: 'systemId',
-        },
-        inverseJoinColumn: {
-          name: 'value_definition_system_id',
-          referencedColumnName: 'systemId',
-        },
-      },
+    keyVector: {
+      type: 'one-to-one',
+      target: 'KeyVector',
+      inverseSide: 'useCase',
     },
   },
   indices: [

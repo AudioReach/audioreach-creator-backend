@@ -49,7 +49,7 @@ export const DataPortDefinitionSchema = new EntitySchema<DataPortDefinitionRow>(
     indices: [
       {
         name: 'idx_data_port_definitions_group_id',
-        columns: ['data_port_group_system_id'],
+        columns: ['dataPortGroupSystemId'],
       },
     ],
   },
