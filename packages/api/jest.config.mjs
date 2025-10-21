@@ -1,15 +1,27 @@
-module.exports = {
+export default {
+  // Use ES modules preset for ts-jest
+  preset: 'ts-jest/presets/default-esm',
+  
+  // Treat .ts files as ES modules
+  extensionsToTreatAsEsm: ['.ts'],
+
   // Use projects to run different test types separately
   projects: [
     {
       displayName: 'unit',
       testEnvironment: 'node',
       roots: ['<rootDir>'],
-      moduleFileExtensions: ['ts', 'js', 'json'],
-      testMatch: ['**/tests/Unit/**/*.spec.(ts|js)'],
+      testMatch: ['**/tests/unit/**/*.spec.ts'],
       transform: {
-        '^.+\\.(t|j)s$': 'ts-jest'
+        '^.+\\.(t|j)s$': [
+          'ts-jest',
+          {
+            tsconfig: './tsconfig.test.json',
+            useESM: true,
+          },
+        ],
       },
+      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: [
         'src/**/*.ts',
         '!src/main.ts'
@@ -26,11 +38,17 @@ module.exports = {
       displayName: 'integration',
       testEnvironment: 'node',
       roots: ['<rootDir>'],
-      moduleFileExtensions: ['ts', 'js', 'json'],
-      testMatch: ['**/tests/Integration/**/*.spec.(ts|js)'],
+      testMatch: ['**/tests/integration/**/*.spec.ts'],
       transform: {
-        '^.+\\.(t|j)s$': 'ts-jest'
-      },
+        '^.+\\.(t|j)s$': [
+          'ts-jest',
+          {
+            tsconfig: './tsconfig.test.json',
+            useESM: true,
+          },
+        ],
+      },      
+      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: [
         'src/**/*.ts',
         '!src/main.ts'
@@ -47,11 +65,18 @@ module.exports = {
       displayName: 'e2e',
       testEnvironment: 'node',
       roots: ['<rootDir>'],
-      moduleFileExtensions: ['ts', 'js', 'json'],
-      testMatch: ['**/tests/e2e/**/*.e2e-spec.(ts|js)'],
+      testMatch: ['**/tests/e2e/**/*.e2e-spec.ts'],
       transform: {
-        '^.+\\.(t|j)s$': 'ts-jest'
+        '^.+\\.(t|j)s$': [
+          'ts-jest',
+          {
+            tsconfig: './tsconfig.test.json',
+            useESM: true,
+          },
+        ],
       },
+      
+      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: [
         'src/**/*.ts',
         '!src/main.ts'

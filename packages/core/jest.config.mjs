@@ -1,26 +1,27 @@
-module.exports = {
+export default {
+  // Use ES modules preset for ts-jest
+  preset: 'ts-jest/presets/default-esm',
+  
+  // Treat .ts files as ES modules
+  extensionsToTreatAsEsm: ['.ts'],
+  
   // Use projects to run different test types separately
   projects: [
     {
       displayName: 'unit',
       testEnvironment: 'node',
-      roots: ['<rootDir>'],
-      moduleFileExtensions: ['ts', 'js', 'json'],
-      testMatch: ['**/tests/unit/**/*.spec.(ts|js)'],
+      roots: ['<rootDir>'],      
+      testMatch: ['**/tests/unit/**/*.spec.ts'],
       transform: {
         '^.+\\.(t|j)s$': [
           'ts-jest',
           {
             tsconfig: './tsconfig.test.json',
+            useESM: true,
           },
         ],
-      },
-      moduleNameMapper: {
-        '^@domain/(.*)$': '<rootDir>/src/domain/$1',
-        '^@application/(.*)$': '<rootDir>/src/application/$1',
-        '^@shared/(.*)$': '<rootDir>/src/shared/$1',
-        '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
-      },
+      },      
+      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
@@ -30,28 +31,24 @@ module.exports = {
       displayName: 'integration',
       testEnvironment: 'node',
       roots: ['<rootDir>'],
-      moduleFileExtensions: ['ts', 'js', 'json'],
-      testMatch: ['**/tests/integration/**/*.spec.(ts|js)'],
+      testMatch: ['**/tests/integration/**/*.spec.ts'],
       transform: {
         '^.+\\.(t|j)s$': [
           'ts-jest',
           {
             tsconfig: './tsconfig.test.json',
+            useESM: true,
           },
         ],
-      },
-      moduleNameMapper: {
-        '^@domain/(.*)$': '<rootDir>/src/domain/$1',
-        '^@application/(.*)$': '<rootDir>/src/application/$1',
-        '^@shared/(.*)$': '<rootDir>/src/shared/$1',
-        '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
-      },
+      },      
+      resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
       coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/index.ts'],
     },
   ],
+  
   // Global reporters for all projects - merged XML output
   reporters: [
     'default',
