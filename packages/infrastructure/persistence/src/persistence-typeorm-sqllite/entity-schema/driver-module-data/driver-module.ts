@@ -53,7 +53,7 @@ export const DriverModuleSchema = new EntitySchema<DriverModuleRow>({
   indices: [
     {
       name: 'idx_driver_modules_definition',
-      columns: ['definition_system_id'],
+      columns: ['definitionSystemId'],
     },
   ],
 });

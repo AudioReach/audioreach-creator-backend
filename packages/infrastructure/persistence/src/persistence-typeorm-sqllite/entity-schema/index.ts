@@ -188,12 +188,12 @@ export function getAllEntitySchemas(
     ModuleParameterAttributeSchema,
     ModulePropertyDefinitionSchema,
     SpfModuleDefinitionSchema,
-    SpfModuleParameterDefinitionSchema,
+    SpfModuleParameterDefinitionSchema(blobConverter),
     StaticControlPortDefinitionSchema,
     StaticIntentDefinitionSchema,
     SubgraphPropertyDefinitionSchema,
     VcpmModuleDefinitionSchema,
-    VcpmModuleParameterDefinitionSchema,
+    VcpmModuleParameterDefinitionSchema(blobConverter),
 
     // Runtime Data Schemas
     DriverModuleSchema,

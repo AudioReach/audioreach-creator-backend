@@ -11,6 +11,7 @@ import {TypeOrmUnitOfWork} from './persistence/unit-of-work/typeorm-unit-of-work
 import {DbQueryServices} from './persistence/queries/typeorm-query-services.js';
 import {DataSource} from 'typeorm';
 import {NodeFileReaderAdapter} from '@arc/fs';
+import {ConsoleLoggerService} from './logger/index.js';
 
 @Module({
   providers: [
@@ -68,6 +69,10 @@ import {NodeFileReaderAdapter} from '@arc/fs';
       inject: ['QUERY_SERVICES', 'QUERY_HANDLER_REGISTRY'],
       scope: Scope.REQUEST,
     },
+    {
+      provide: 'LOGGER',
+      useClass: ConsoleLoggerService,
+    },
   ],
   exports: [
     CommandBus,
@@ -77,6 +82,7 @@ import {NodeFileReaderAdapter} from '@arc/fs';
     'COMMAND_HANDLER_REGISTRY',
     'QUERY_HANDLER_REGISTRY',
     'DATA_SOURCE',
+    'LOGGER',
   ],
 })
 export class ArcCqrsModule {}

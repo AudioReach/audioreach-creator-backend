@@ -5,6 +5,8 @@ import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {ControlPortRow} from './control-port.js';
 import {DataLinkRow} from '../Links/data-link.js';
 import {UseCaseRow} from '../use-case.js';
+import {SpfModuleRow} from '../module/spf-module.schema.js';
+import {SubsystemRow} from '../subsystem/subsystem.js';
 
 export const NodeType = {
   Module: 'module',
@@ -27,6 +29,12 @@ export interface NodeRow extends EntityBaseRow {
   // DataLink relations - separate for source and destination
   sourceDataLinks?: DataLinkRow[];
   destinationDataLinks?: DataLinkRow[];
+
+  // one-to-one relation to SpfModule
+  spfModule?: SpfModuleRow;
+
+  // one-to-one relation to Subsystem
+  subsystem?: SubsystemRow;
 }
 
 export const NodeSchema = new EntitySchema<NodeRow>({
@@ -83,6 +91,16 @@ export const NodeSchema = new EntitySchema<NodeRow>({
       type: 'many-to-many',
       target: 'UseCase',
       inverseSide: 'nodes',
+    },
+    spfModule: {
+      type: 'one-to-one',
+      target: 'SpfModule',
+      inverseSide: 'node', // References the 'node' property in SpfModule
+    },
+    subsystem: {
+      type: 'one-to-one',
+      target: 'Subsystem',
+      inverseSide: 'node', // References the 'node' property in Subsystem
     },
   },
 });

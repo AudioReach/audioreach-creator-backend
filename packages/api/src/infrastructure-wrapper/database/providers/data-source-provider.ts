@@ -1,8 +1,7 @@
 import {getOrmBase} from '@arc/persistence';
 import type {Logger, LogData} from '@arc/core';
-import {Injectable} from '@nestjs/common';
+import {Injectable, Inject} from '@nestjs/common';
 import type {OnModuleInit, OnModuleDestroy} from '@nestjs/common';
-import {ConfigService} from '@nestjs/config';
 import {getDatabasePath} from '../database-path.js';
 import {NodeBlobBytesConverter} from '../node-blob-converter.js';
 import {DataSource} from 'typeorm';
@@ -12,8 +11,8 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
   private static instance: DataSource | null = null;
 
   constructor(
-    private configService: ConfigService,
-    private logger: Logger,
+    /*private configService: ConfigService,*/
+    @Inject('LOGGER') private logger: Logger,
   ) {}
 
   async onModuleInit() {
@@ -43,7 +42,7 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
 
     return new DataSource({
       type: 'sqlite',
-      database: getDatabasePath(this.configService),
+      database: getDatabasePath(/*this.configService*/),
       ...base,
       extra: {
         connectionLimit: 10,
