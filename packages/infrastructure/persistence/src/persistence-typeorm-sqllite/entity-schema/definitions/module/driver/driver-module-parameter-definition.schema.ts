@@ -48,7 +48,7 @@ export const DriverModuleParameterDefinitionSchema =
         name: 'param_structure',
       },
       defaultData: {
-        type: 'bytea', // or 'blob' depending on your database
+        type: 'blob',
         name: 'default_data',
       },
       driverModuleDefinitionSystemId: {
@@ -72,7 +72,7 @@ export const DriverModuleParameterDefinitionSchema =
     indices: [
       {
         name: 'idx_module_param_defs_driver_module_def_id',
-        columns: ['driver_module_definition_system_id'],
+        columns: ['driverModuleDefinitionSystemId'],
       },
     ],
   });

@@ -5,6 +5,7 @@ import {SubgraphRow} from '../subgraph/subgraph.schema.js';
 import {SpfModulePropertiesDataRow} from './spf-module-properties-data.js';
 import {EntitySchema} from 'typeorm';
 import {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-module-definition.schema.js';
+import {NodeRow} from '../node/node.schema.js';
 
 export interface SpfModuleRow extends EntityBaseRow {
   alias: string;
@@ -23,6 +24,9 @@ export interface SpfModuleRow extends EntityBaseRow {
   // scope to file
   fileSystemId: number;
   file?: ArcDbFileRow;
+
+  // one-to-one relation to Node
+  node?: NodeRow;
 }
 
 export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
@@ -78,6 +82,15 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
       target: 'ArcDbFile',
       joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
       onDelete: 'CASCADE', // delete file => delete modules
+    },
+    node: {
+      type: 'one-to-one',
+      target: 'Node',
+      joinColumn: {
+        name: 'system_id', // Use the PK column itself
+        referencedColumnName: 'systemId', // Reference Node's PK
+      },
+      onDelete: 'CASCADE', // If Node is deleted, delete SpfModule
     },
   },
   indices: [

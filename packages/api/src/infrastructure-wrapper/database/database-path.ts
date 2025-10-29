@@ -1,12 +1,11 @@
 import * as os from 'node:os';
 import path from 'node:path';
-import {ConfigService} from '@nestjs/config';
 
-export function getDatabasePath(configService: ConfigService): string {
-  const dbPath = configService.get<string>('DATABASE_PATH');
-  if (dbPath) {
-    return dbPath;
-  }
+export function getDatabasePath(/*configService: ConfigService*/): string {
+  //   const dbPath = configService.get<string>('DATABASE_PATH');
+  //   if (dbPath) {
+  //     return dbPath;
+  //   }
 
   // Cross-platform default paths
   const appName = 'audioreach-creator';
