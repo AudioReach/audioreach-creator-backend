@@ -1,4 +1,4 @@
-import type {UnitOfWork} from '../../../../shared/repository/unit-of-work.js';
+import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {CreateModuleCommand} from './create-module.command.js';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 

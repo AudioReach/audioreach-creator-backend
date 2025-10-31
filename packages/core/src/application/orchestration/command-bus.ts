@@ -2,7 +2,7 @@ import type {Command} from './cqrs/commands/command.js';
 import type {ApplicationMiddleware} from './middleware/application-middleware.js';
 import {CommandHandlerRegistry} from './cqrs/registries/command-handler-registry.js';
 import type {CommandHandlerDependencies} from './cqrs/registries/command-handler-registry.js';
-import type {UnitOfWork} from '../../shared/repository/unit-of-work.js';
+import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 import type {Request} from './cqrs/request.js';
 import {TransactionMiddleware} from './middleware/transaction.middleware.js';
 import type {FileReaderPort} from '../../application/file-operations/open-file/file-reader.port.js';
