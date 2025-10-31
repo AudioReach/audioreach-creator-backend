@@ -1,30 +1,36 @@
-import {applyDecorators, HttpStatus} from '@nestjs/common';
-import type {Type} from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiResponse,
-  ApiBody,
-  getSchemaPath,
-} from '@nestjs/swagger';
-import type {ApiBodyOptions, ApiResponseOptions} from '@nestjs/swagger';
+import { applyDecorators, HttpStatus } from '@nestjs/common';
+import type { Type } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiBody, getSchemaPath, ApiExtraModels } from '@nestjs/swagger';
+import type { ApiResponseOptions, ApiBodyOptions } from '@nestjs/swagger';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {existsSync} from 'node:fs';
-import {createRequire} from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
 interface ExampleConfig {
   modulePath?: string;
   className: string;
 }
 
+interface ResponseConfig {
+  status: HttpStatus;
+  description?: string;
+  dto?: Type<unknown> | Type<unknown>[];
+  example?: ExampleConfig;
+  isArray?: boolean;
+}
+
 interface ApiDocumentationOptions {
   summary: string;
   description?: string;
   requestDto?: Type<unknown> | Type<unknown>[];
+  requestDtoDescription?: string; // Custom description for request DTO
   requestDtoExample?: ExampleConfig;
+  requestRequired?: boolean; // Whether the request body is required
   responseDto?: Type<unknown> | Type<unknown>[];
   responseDtoExample?: ExampleConfig;
-  responseStatus?: HttpStatus;
+  responseStatus?: HttpStatus; // Kept for backward compatibility
+  responses?: ResponseConfig[]; // New array of response configurations
   isRequestArray?: boolean;
   isResponseArray?: boolean;
 }
@@ -35,7 +41,7 @@ interface ExampleClass {
 
 /**
  * Custom decorator that provides comprehensive API documentation with dynamic example loading
- * Supports both request and response DTOs, including arrays
+ * Supports both request and response DTOs, including arrays and multiple response statuses
  */
 export function ApiDocumentationWithExample(options: ApiDocumentationOptions) {
   const decorators = [
@@ -45,17 +51,137 @@ export function ApiDocumentationWithExample(options: ApiDocumentationOptions) {
     }),
   ];
 
-  // Handle request body documentation
-  if (options.requestDto) {
-    const requestBodyConfig = createRequestBodyConfig(options);
-    decorators.push(ApiBody(requestBodyConfig as ApiBodyOptions));
-  }
+  const dtoTypes: Type<unknown>[] = [];
+
+  // Handle request documentation
+  handleRequestDocumentation(options, decorators, dtoTypes);
 
   // Handle response documentation
+  handleResponseDocumentation(options, decorators, dtoTypes);
+
+  // Register all DTOs with Swagger
+  if (dtoTypes.length > 0) {
+    decorators.push(ApiExtraModels(...dtoTypes));
+  }
+
+  return applyDecorators(...decorators);
+}
+
+/**
+ * Handles request body documentation
+ */
+function handleRequestDocumentation(
+  options: ApiDocumentationOptions,
+  decorators: ReturnType<typeof ApiOperation>[],
+  dtoTypes: Type<unknown>[]
+): void {
+  if (!options.requestDto) {
+    return;
+  }
+
+  const baseType = getBaseType(options.requestDto);
+  const bodyConfig = createRequestBodyConfig(options, baseType);
+
+  decorators.push(ApiBody(bodyConfig as ApiBodyOptions));
+
+  if (baseType) {
+    dtoTypes.push(baseType);
+  }
+}
+
+/**
+ * Creates request body configuration
+ */
+function createRequestBodyConfig(options: ApiDocumentationOptions, baseType: Type<unknown>): Record<string, unknown> {
+  const defaultDescription = `${options.requestRequired === false ? 'Optional ' : ''}Request body parameter type: ${baseType?.name || 'unknown'}`;
+
+  const bodyConfig: Record<string, unknown> = {
+    required: options.requestRequired ?? true,
+    description: options.requestDtoDescription || defaultDescription,
+    schema: {
+      $ref: getSchemaPath(baseType)
+    }
+  };
+
+  if (options.requestDtoExample) {
+    addRequestExample(bodyConfig, options.requestDtoExample, baseType);
+  }
+
+  return bodyConfig;
+}
+
+/**
+ * Adds request example to body configuration
+ */
+function addRequestExample(bodyConfig: Record<string, unknown>, exampleConfig: ExampleConfig, baseType: Type<unknown>): void {
+  try {
+    const example = loadExampleDynamicallySync(exampleConfig);
+
+    bodyConfig.examples = {
+      default: {
+        summary: `Example ${baseType?.name || 'request'}`,
+        value: example,
+      },
+    };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`Failed to load request example: ${errorMessage}`);
+  }
+}
+
+/**
+ * Handles response documentation
+ */
+function handleResponseDocumentation(
+  options: ApiDocumentationOptions,
+  decorators: ReturnType<typeof ApiOperation>[],
+  dtoTypes: Type<unknown>[]
+): void {
+  if (options.responses && options.responses.length > 0) {
+    handleMultipleResponses(options.responses, decorators, dtoTypes);
+  } else {
+    handleSingleResponse(options, decorators, dtoTypes);
+  }
+}
+
+/**
+ * Handles multiple response configurations
+ */
+function handleMultipleResponses(
+  responses: ResponseConfig[],
+  decorators: ReturnType<typeof ApiOperation>[],
+  dtoTypes: Type<unknown>[]
+): void {
+  for (const responseConfig of responses) {
+    const config = createMultipleResponseConfig(responseConfig);
+    decorators.push(ApiResponse(config as ApiResponseOptions));
+
+    if (responseConfig.dto) {
+      const baseType = getBaseType(responseConfig.dto);
+      if (baseType) {
+        dtoTypes.push(baseType);
+      }
+    }
+  }
+}
+
+/**
+ * Handles single response configuration (legacy)
+ */
+function handleSingleResponse(
+  options: ApiDocumentationOptions,
+  decorators: ReturnType<typeof ApiOperation>[],
+  dtoTypes: Type<unknown>[]
+): void {
   const responseConfig = createResponseConfig(options);
   decorators.push(ApiResponse(responseConfig as ApiResponseOptions));
 
-  return applyDecorators(...decorators);
+  if (options.responseDto) {
+    const baseType = getBaseType(options.responseDto);
+    if (baseType) {
+      dtoTypes.push(baseType);
+    }
+  }
 }
 
 /**
@@ -86,24 +212,35 @@ function shouldTreatAsArray(
 }
 
 /**
- * Creates request body configuration
+ * Creates response configuration for multiple responses
  */
-function createRequestBodyConfig(options: ApiDocumentationOptions) {
-  const isArray = shouldTreatAsArray(
-    options.requestDto,
-    options.isRequestArray,
-  );
-  const baseType = options.requestDto
-    ? getBaseType(options.requestDto)
-    : undefined;
-
+function createMultipleResponseConfig(responseConfig: ResponseConfig) {
   const config: Record<string, unknown> = {
-    type: baseType,
+    status: responseConfig.status,
+    description: responseConfig.description ?? getStatusDescription(responseConfig.status),
   };
 
-  if (options.requestDtoExample) {
+  if (!responseConfig.dto) {
+    return config;
+  }
+
+  // Handle response type configuration
+  const isArray = shouldTreatAsArray(responseConfig.dto, responseConfig.isArray);
+  const baseType = getBaseType(responseConfig.dto);
+
+  if (isArray && baseType) {
+    config.schema = {
+      type: 'array',
+      items: { $ref: getSchemaPath(baseType) },
+    };
+  } else {
+    config.type = baseType;
+  }
+
+  // Handle response example configuration
+  if (responseConfig.example) {
     try {
-      const example = loadExampleDynamicallySync(options.requestDtoExample);
+      const example = loadExampleDynamicallySync(responseConfig.example);
       const exampleValue = isArray ? [example] : example;
 
       config.examples = {
@@ -111,17 +248,9 @@ function createRequestBodyConfig(options: ApiDocumentationOptions) {
           value: exampleValue,
         },
       };
-
-      if (isArray && baseType) {
-        config.schema = {
-          type: 'array',
-          items: {$ref: getSchemaPath(baseType)},
-        };
-      }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.warn(`Failed to load request example: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`Failed to load response example: ${errorMessage}`);
     }
   }
 
@@ -129,7 +258,7 @@ function createRequestBodyConfig(options: ApiDocumentationOptions) {
 }
 
 /**
- * Creates response configuration
+ * Creates response configuration (legacy single response)
  */
 function createResponseConfig(options: ApiDocumentationOptions) {
   const responseStatus = options.responseStatus ?? HttpStatus.OK;
@@ -151,22 +280,14 @@ function createResponseConfig(options: ApiDocumentationOptions) {
 /**
  * Adds response type configuration
  */
-function addResponseTypeConfig(
-  config: Record<string, unknown>,
-  options: ApiDocumentationOptions,
-) {
-  const isArray = shouldTreatAsArray(
-    options.responseDto,
-    options.isResponseArray,
-  );
-  const baseType = options.responseDto
-    ? getBaseType(options.responseDto)
-    : undefined;
+function addResponseTypeConfig(config: Record<string, unknown>, options: ApiDocumentationOptions) {
+  const isArray = shouldTreatAsArray(options.responseDto, options.isResponseArray);
+  const baseType = options.responseDto ? getBaseType(options.responseDto) : undefined;
 
   if (isArray && baseType) {
     config.schema = {
       type: 'array',
-      items: {$ref: getSchemaPath(baseType)},
+      items: { $ref: getSchemaPath(baseType) },
     };
   } else {
     config.type = baseType;
@@ -209,15 +330,10 @@ function addResponseExampleConfig(
 function loadExampleDynamicallySync(exampleConfig: ExampleConfig): unknown {
   try {
     const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-    let modulePath = path.resolve(currentDirectory, './dto-examples/index.js');
+    const baseModulePath = path.resolve(currentDirectory, './dto-examples/index');
 
-    // For compiled JavaScript, ensure we're looking for .js files
-    if (!modulePath.endsWith('.js') && !modulePath.endsWith('.ts')) {
-      // In production/compiled environment, look for .js files
-      modulePath = existsSync(`${modulePath}.js`)
-        ? `${modulePath}.js`
-        : `${modulePath}.ts`;
-    }
+    // Determine the correct file extension
+    const modulePath = getModulePath(baseModulePath);
 
     const moduleContent = loadModule(modulePath);
     const ExampleClass = getExampleClass(
@@ -226,20 +342,36 @@ function loadExampleDynamicallySync(exampleConfig: ExampleConfig): unknown {
     );
 
     if (!ExampleClass) {
-      console.warn(
-        `Class ${exampleConfig.className} not found in module ${exampleConfig.modulePath}`,
-      );
+      console.warn(`Class ${exampleConfig.className} not found in module ${exampleConfig.modulePath || 'default'}`);
       return getPlaceholderExample(exampleConfig.className);
     }
 
     return createExampleInstance(ExampleClass);
   } catch (error: unknown) {
-    console.error(
-      `Error loading example from ${exampleConfig.modulePath}:`,
-      error,
-    );
+    console.error(`Error loading example from ${exampleConfig.modulePath || 'default'}:`, error);
     return getPlaceholderExample(exampleConfig.className);
   }
+}
+
+/**
+ * Determines the correct module path with proper extension
+ */
+function getModulePath(baseModulePath: string): string {
+  const jsPath = `${baseModulePath}.js`;
+  const tsPath = `${baseModulePath}.ts`;
+
+  // Use a whitelist approach for security
+  const allowedPaths = [jsPath, tsPath];
+
+  for (const allowedPath of allowedPaths) {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    if (existsSync(allowedPath)) {
+      return allowedPath;
+    }
+  }
+
+  // Default to .js if neither exists
+  return jsPath;
 }
 
 /**
@@ -262,33 +394,41 @@ function loadModule(modulePath: string): Record<string, unknown> {
 /**
  * Extracts the example class from the loaded module
  */
-function getExampleClass(
-  moduleContent: Record<string, unknown>,
-  className: string,
-): ExampleClass | undefined {
-  // Debug logging to see what's actually in the module
-  console.log('Module content keys:', Object.keys(moduleContent));
-  console.log('Looking for class:', className);
-  console.log('Direct export check:', moduleContent[className]);
-  console.log('Default export:', moduleContent.default);
-  if (moduleContent.default && typeof moduleContent.default === 'object') {
-    console.log(
-      'Default export keys:',
-      Object.keys(moduleContent.default as Record<string, unknown>),
-    );
+function getExampleClass(moduleContent: Record<string, unknown>, className: string): ExampleClass | undefined {
+  // Validate className to prevent object injection
+  if (!isValidClassName(className)) {
+    console.warn(`Invalid class name: ${className}`);
+    return undefined;
   }
 
+  // eslint-disable-next-line security/detect-object-injection
   const directExport = moduleContent[className] as ExampleClass;
   if (directExport) {
     return directExport;
   }
 
-  const defaultExport = moduleContent.default as Record<string, unknown>;
+  const defaultExport = moduleContent.default;
   if (defaultExport && typeof defaultExport === 'object') {
-    return defaultExport[className] as ExampleClass;
+    const defaultExportObject = defaultExport as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(defaultExportObject, className)) {
+      // eslint-disable-next-line security/detect-object-injection
+      return defaultExportObject[className] as ExampleClass;
+    }
   }
 
   return undefined;
+}
+
+/**
+ * Validates class name to prevent object injection attacks
+ */
+function isValidClassName(className: string): boolean {
+  // Only allow alphanumeric characters and underscores
+  const validClassNamePattern = /^[a-zA-Z_]\w*$/;
+  return validClassNamePattern.test(className) &&
+    className !== 'constructor' &&
+    className !== '__proto__' &&
+    className !== 'prototype';
 }
 
 /**
@@ -304,7 +444,7 @@ function createExampleInstance(ExampleClass: ExampleClass): unknown {
   if (typeof ExampleClass === 'function') {
     const ClassConstructor = ExampleClass as unknown as {
       getExample?: () => unknown;
-      new (): unknown;
+      new(): unknown;
     };
     if (typeof ClassConstructor.getExample === 'function') {
       return ClassConstructor.getExample();
@@ -344,6 +484,7 @@ function getStatusDescription(status: HttpStatus): string {
     [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
   };
 
+  // eslint-disable-next-line security/detect-object-injection
   return descriptions[status] ?? 'Response';
 }
 
@@ -354,6 +495,7 @@ export function ApiDocumentation(options: {
   summary: string;
   description?: string;
   requestDto?: Type<unknown>;
+  requestDtoDescription?: string;
   responseDto?: Type<unknown>;
   responseStatus?: HttpStatus;
   isRequestArray?: boolean;

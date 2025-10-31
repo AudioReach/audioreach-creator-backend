@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { RegisterDto } from './dto/authentication.dto.js';
+import { RegisterDto, RegisterResponseData } from './dto/authentication.dto.js';
 
 @Injectable()
 export class AuthenticationService {
@@ -8,7 +8,7 @@ export class AuthenticationService {
     constructor(private jwtService: JwtService) { }
 
     //This api should be the first call from a client to get JWT for furture requests.
-    register(request?: RegisterDto) {
+    register(request?: RegisterDto): RegisterResponseData {
 
         //TBD: call Core api to send clientName and get a unique id for client.
         //use dummy id '1' for now.
@@ -20,7 +20,7 @@ export class AuthenticationService {
             clientId: id
         };
 
-        // Return the JWT token, clientId, clientName
+        // Return the JWT token, clientId, clientName as RegisterResponseData
         return {
             token: this.jwtService.sign(payload),
             clientId: id,
