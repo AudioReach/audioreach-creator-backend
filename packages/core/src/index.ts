@@ -15,7 +15,7 @@ export * from './application/orchestration/middleware/transaction.middleware.js'
 // Shared utilities and base classes
 export * from './application/shared/base-command.js';
 export * from './application/shared/base-query.js';
-export * from './shared/repository/unit-of-work.js';
+export * from './application/ports/persistence/unit-of-work.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 
