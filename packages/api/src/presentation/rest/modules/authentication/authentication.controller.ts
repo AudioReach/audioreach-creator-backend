@@ -1,8 +1,9 @@
 import { Controller, Post, Body, HttpStatus } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthenticationService } from './authentication.service.js';
-import { RegisterDto } from './dto/authentication.dto.js';
+import { RegisterDto, RegisterResponseData, } from './dto/authentication.dto.js';
 import { ApiDocumentationWithExample } from '../../common/swagger-doc/swagger.decorator.js';
+import { ApiResult } from "../../common/dtos/api-response.dto.js";
 
 
 @ApiTags('authentication')
@@ -14,12 +15,31 @@ export class AuthenticationController {
   @ApiDocumentationWithExample({
     summary: 'Register client',
     requestDto: RegisterDto,
+    requestRequired: false,
     requestDtoExample: {
       className: 'RegisterDtoExample'
     },
-    responseStatus: HttpStatus.OK,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Client registered successfully',
+        dto: RegisterResponseData,
+        example: {
+          className: 'RegisterResponseDataExample'
+        }
+      },
+      {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Failed to register client',
+      }
+    ]
   })
-  register(@Body() request?: RegisterDto) {
-    return this.authService.register(request);
+  register(@Body() request?: RegisterDto): ApiResult<RegisterResponseData> {
+    const data = this.authService.register(request);
+    return {
+      success: true,
+      message: 'Registration successful',
+      data: data
+    };
   }
 }
