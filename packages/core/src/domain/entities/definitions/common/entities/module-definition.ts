@@ -1,5 +1,5 @@
 import { DuplicateParamIdException, DuplicateSystemIdException, NullObjectException, ParamIdNotFoundException, SystemIdNotFoundException } from "../exceptions/input-validation-exception.js";
-import type { ParamDefinition } from "./param-definition.entity.js";
+import type { ParamDefinition } from "./param-definition.js";
 
 export interface ModuleDefinitionInit {
     systemId: number;

@@ -1,4 +1,4 @@
-import type {ModuleParameterData} from '../value-objects/module-parameter-data.vo.js';
+import type {ModuleParameterData} from '../value-objects/module-parameter-data.js';
 
 export class DuplicateParameterPayloadError extends Error {
   constructor(readonly parameterId: number) {

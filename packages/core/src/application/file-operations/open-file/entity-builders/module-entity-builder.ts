@@ -1,4 +1,4 @@
-import {SpfModule} from 'domain/entities/usecase-data/module/spf-module-aggregate.js';
+import {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
 import type {SystemIdReservationService} from './../../../ports/persistence/systemId-reservation-service.port.js';
 import type {EntitiesReferenceIndexer} from '../services/entity-builder-service.js';
 

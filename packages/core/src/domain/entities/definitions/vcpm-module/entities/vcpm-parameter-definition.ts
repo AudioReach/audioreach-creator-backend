@@ -1,4 +1,4 @@
-import { ParamDefinition, type ParamDefinitionInit } from "../../common/entities/param-definition.entity.js";
+import { ParamDefinition, type ParamDefinitionInit } from "../../common/entities/param-definition.js";
 
 export interface VcpmParameterDefinitionInit extends ParamDefinitionInit
 {

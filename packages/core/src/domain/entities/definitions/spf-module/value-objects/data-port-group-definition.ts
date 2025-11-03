@@ -1,5 +1,5 @@
 import type { PortIoType } from "domain/node/port-io-type.js";
-import { DataPortDefinition } from "./data-port-definition.vo.js";
+import { DataPortDefinition } from "./data-port-definition.js";
 import { DataPortIdNotFoundException, DataPortNameNotFoundException, DuplicatePortIdException, DuplicatePortNameException, NullObjectException } from "../../common/exceptions/input-validation-exception.js";
 
 export interface DataPortGroupDefinitionInit {

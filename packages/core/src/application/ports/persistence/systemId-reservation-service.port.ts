@@ -1,4 +1,4 @@
-export type EntityType = 'SpfModule' | 'ContainerAggregate';
+export type EntityType = 'SpfModule' | 'Container';
 
 /**
  * Port: ID reservation service for upfront systemId allocation.

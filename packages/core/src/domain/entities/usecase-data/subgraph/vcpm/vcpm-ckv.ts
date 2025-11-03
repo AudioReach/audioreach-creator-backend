@@ -1,4 +1,4 @@
-import { VcpmParameterPayload } from "./vcpm-parameter-payload.value.js";
+import { VcpmParameterPayload } from "./vcpm-parameter-payload.js";
 
 export class VcpmCkv {
   public systemId: number;

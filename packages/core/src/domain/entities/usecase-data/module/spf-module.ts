@@ -1,9 +1,9 @@
-import type {SpfModulePropertyData} from './value-objects/spf-module-property-data.vo.js';
+import type {SpfModulePropertyData} from './value-objects/spf-module-property-data.js';
 import {TagData} from './entities/spf-module-tag-data.js';
-import type {KvData} from 'domain/entities/common/entities/kv-data.entity.js';
-import {NodeEntity, NodeType} from '../node/node.entity.js';
-import type {DataPortEntity} from '../node/entities/data-port.entity.js';
-import type {ControlPortEntity} from '../node/entities/control-port.entity.js';
+import type {KvData} from 'domain/entities/common/entities/kv-data.js';
+import {Node, NodeType} from '../node/node.js';
+import type {DataPort} from '../node/entities/data-port.js';
+import type {ControlPort} from '../node/entities/control-port.js';
 
 export class DuplicateCkvExceptionError extends Error {
   constructor(
@@ -33,11 +33,11 @@ export interface SpfModuleInit {
   subgraphSystemId: number;
   fileSystemId: number;
   alias?: string;
-  dataPorts: DataPortEntity[];
-  controlPorts: ControlPortEntity[];
+  dataPorts: DataPort[];
+  controlPorts: ControlPort[];
 }
 
-export class SpfModule extends NodeEntity {
+export class SpfModule extends Node {
   private readonly propertiesById = new Map<number, SpfModulePropertyData>();
   private readonly tagIds = new Set<string>();
   private readonly ckvIds = new Set<string>();

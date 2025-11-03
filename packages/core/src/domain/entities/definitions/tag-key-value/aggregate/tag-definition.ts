@@ -1,5 +1,5 @@
 import { DuplicateKeyValuePairException, NullObjectException, TagKeyIdNotFoundException as TagKeyReferenceNotFoundException } from "../../common/exceptions/input-validation-exception.js";
-import type { TagKey } from "../value-objects/tag-key.vo.js";
+import type { TagKey } from "../value-objects/tag-key.js";
 
 export interface TagDefinitionInit {
     systemId: number;
