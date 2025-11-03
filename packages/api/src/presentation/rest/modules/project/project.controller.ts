@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Request,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -21,31 +22,28 @@ import {
   ApiResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
-import {
-  ProjectDetails,
-  ProjectType,
-  SessionMode,
-} from './dtos/project-details-response.dto.js';
+
 import {
   FileFieldsInterceptor,
-  FilesInterceptor,
 } from '@nestjs/platform-express';
-import {UpdateProjectInfoRequest} from './dtos/update-project-info-request.dto.js';
-import {DownloadArcDatabaseFilesResponse} from './dtos/download-arc-database-files-response.dto.js';
-import type {Multer} from 'multer';
+
 import multer from 'multer';
 import {AuthGuard} from '@nestjs/passport';
-import {DeviceDetailInfo} from './dtos/device-detail-info.dto.js';
-import {ConnectToDeviceRequest} from './dtos/connect-to-device-request.dto.js';
-import {ApiResult} from '../../common/dtos/api-response.dto.js';
-import {DeviceInfo} from './dtos/device-info.dto.js';
+
+
 import {CommandBus, OpenFileCommand} from '@arc/core';
 import type {FileRef} from '@arc/core';
 import {promises as fsPromises} from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { ApiResult } from '../../common/dto/api-response/api-result.dto.js';
+import { ProjectInfoResponseDto } from './dto/project-info-response.dto.js';
+import { ProjectInfoUpdateDto } from './dto/project-info-update.dto.js';
+import { DownloadArcDatabaseFilesResponseDto } from './dto/download-arc-database-files-response.dto.js';
+import { ProjectType } from './enums/project-type.enum.js';
+import { SessionMode } from './enums/session-mode.enum.js';
 
-@Controller('arcapi/v1/')
+@Controller('arc-api/v1/')
 @UseGuards(AuthGuard('jwt'))
 export class ProjectController {
   constructor(private readonly commandBus: CommandBus) {}
@@ -57,7 +55,7 @@ export class ProjectController {
     description:
       'Creating a new project while opening acdb and workspace files',
   })
-  @ApiExtraModels(ApiResult, ProjectDetails)
+  @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
     description: 'File opened successfully',
     status: HttpStatus.CREATED,
@@ -66,7 +64,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(ProjectDetails)},
+            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
           },
         },
       ],
@@ -122,9 +120,10 @@ export class ProjectController {
       acdbFile: Express.Multer.File;
       workspaceFile: Express.Multer.File;
     },
-    @Body() _updateProjectInfoRequest: UpdateProjectInfoRequest,
-  ): Promise<ApiResult<ProjectDetails>> {
-    const clientId = ''; //TODO: gather from jwt
+    @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
+    @Request() req: any,
+  ): Promise<ApiResult<ProjectInfoResponseDto>> {
+    const clientId = req.user?.clientId;
     if (!clientId) {
       throw new BadRequestException('clientId is required');
     }
@@ -198,15 +197,15 @@ export class ProjectController {
         fsPromises.unlink(awspPath),
       ]);
 
-      const projectdetails: ProjectDetails = {
+      const projectdetails: ProjectInfoResponseDto = {
         projectId: result?.projectId ?? '',
-        projectName: result?.projectName ?? '',
-        projectDescription: result?.projectDescription ?? '',
+        name: result?.projectName ?? '',
+        description: result?.projectDescription ?? '',
         projectType: ProjectType.Offline,
         sessionMode: SessionMode.Designer,
       };
 
-      const projectResponse: ApiResult<ProjectDetails> = {
+      const projectResponse: ApiResult<ProjectInfoResponseDto> = {
         data: projectdetails,
         success: true,
         message: 'The file has been opened successfully',
@@ -225,12 +224,13 @@ export class ProjectController {
     }
   }
 
+
   @Get('projects')
   @ApiOperation({
     summary: 'Get all active projects',
     description: 'Provides the list of all active projects',
   })
-  @ApiExtraModels(ApiResult, ProjectDetails)
+  @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
     description: 'Successfully retrieved all projects',
     status: HttpStatus.OK,
@@ -239,26 +239,30 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {
+            data: { 
               type: 'array',
-              items: {$ref: getSchemaPath(ProjectDetails)},
-            },
+              items:{$ref: getSchemaPath(ProjectInfoResponseDto) }},
           },
         },
       ],
     },
   })
-  async getProjects(): Promise<ApiResult<ProjectDetails[]>> {
-    // return list of active projects
-    const projectdetails: ProjectDetails[] = [];
+  async getProjects(@Request() req: any): Promise<ApiResult<ProjectInfoResponseDto[]>> {
+    // Extract client ID from JWT token
+    const clientId = req.user?.clientId;
+    
+    // return list of active projects for this client
+    const projectdetails: ProjectInfoResponseDto[] = [];
     await Promise.resolve();
-    const projectResponses: ApiResult<ProjectDetails[]> = {
+    const projectResponses: ApiResult<ProjectInfoResponseDto[]> =
+    {
       data: projectdetails,
       success: true,
-      message: 'Successfully fetch projects',
+      message: `Successfully fetch projects for client ${clientId}`,
     };
     return projectResponses;
   }
+
 
   @Get('projects/:projectId')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
@@ -266,7 +270,7 @@ export class ProjectController {
     summary: 'Get project information',
     description: 'Get project information based on project Id.',
   })
-  @ApiExtraModels(ApiResult, ProjectDetails)
+  @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
     schema: {
@@ -274,7 +278,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(ProjectDetails)},
+            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
           },
         },
       ],
@@ -297,12 +301,12 @@ export class ProjectController {
       ],
     },
   })
-  async getProject(
-    @Param('projectId') _projectId: string,
-  ): Promise<ApiResult<ProjectDetails>> {
-    const projectdetail: ProjectDetails = new ProjectDetails(); // ToDo Need to update the project Info once services ready
+  async getProject(@Param('projectId') _projectId: string): Promise<ApiResult<ProjectInfoResponseDto>> {
+
+    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto; // ToDo Need to update the project Info once services ready
     await Promise.resolve();
-    const projectResponse: ApiResult<ProjectDetails> = {
+    const projectResponse: ApiResult<ProjectInfoResponseDto> =
+    {
       data: projectdetail,
       success: true,
       message: 'Successfully fetch project',
@@ -311,13 +315,13 @@ export class ProjectController {
   }
 
   @Patch('projects/:projectId')
-  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
-  @ApiBody({type: UpdateProjectInfoRequest})
+  @ApiParam({ name: 'projectId', description: 'Id of project', required: true })
+  @ApiBody({ type: ProjectInfoUpdateDto })
   @ApiOperation({
     summary: 'Update project name and description',
     description: 'Update project name and description based on project Id.',
   })
-  @ApiExtraModels(ApiResult, ProjectDetails)
+  @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
     schema: {
@@ -325,7 +329,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(ProjectDetails)},
+            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
           },
         },
       ],
@@ -367,11 +371,13 @@ export class ProjectController {
   })
   async updateProjectInfo(
     @Param('projectId') _projectId: string,
-    @Body() _updateProjectInfoRequest: UpdateProjectInfoRequest,
-  ): Promise<ApiResult<ProjectDetails>> {
-    const projectdetail: ProjectDetails = new ProjectDetails(); // ToDo Need to update the project Info once services ready
+    @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
+  ): Promise<ApiResult<ProjectInfoResponseDto>> {
+
+    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto; // ToDo Need to update the project Info once services ready
     await Promise.resolve();
-    const projectResponse: ApiResult<ProjectDetails> = {
+    const projectResponse: ApiResult<ProjectInfoResponseDto> =
+    {
       data: projectdetail,
       success: true,
       message: '',
@@ -385,7 +391,7 @@ export class ProjectController {
     summary: 'Connect to existing project',
     description: 'Connect to specific project based on project Id.',
   })
-  @ApiExtraModels(ApiResult, ProjectDetails)
+  @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
     schema: {
@@ -393,7 +399,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(ProjectDetails)},
+            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
           },
         },
       ],
@@ -416,13 +422,11 @@ export class ProjectController {
       ],
     },
   })
-  async connectToProject(
-    @Param('projectId') _projectId: string,
-  ): Promise<ApiResult<ProjectDetails>> {
+  async connectToProject(@Param('projectId') _projectId: string): Promise<ApiResult<ProjectInfoResponseDto>> {
     // Need a project Id to open the project. It will take from header
 
     await Promise.resolve();
-    return new ApiResult<ProjectDetails>();
+    return new ApiResult<ProjectInfoResponseDto>;
   }
 
   @Patch('projects/:projectId/disconnect-from-project')
@@ -431,7 +435,7 @@ export class ProjectController {
     summary: 'Disconnect from the project',
     description: 'Disconnect from specific project based on project Id.',
   })
-  @ApiExtraModels(ApiResult, ProjectDetails)
+  @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
     schema: {
@@ -439,7 +443,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(ProjectDetails)},
+            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
           },
         },
       ],
@@ -462,15 +466,14 @@ export class ProjectController {
       ],
     },
   })
-  async disconnectFromProject(
-    @Param('projectId') _projectId: string,
-  ): Promise<ApiResult<ProjectDetails>> {
+  async disconnectFromProject(@Param('projectId') _projectId: string): Promise<ApiResult<ProjectInfoResponseDto>> {
     // Need a project Id to open the project. It will take from header
 
     await Promise.resolve();
 
-    return new ApiResult<ProjectDetails>();
+    return new ApiResult<ProjectInfoResponseDto>;
   }
+
 
   @Get('projects/:projectId/download')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
@@ -479,7 +482,7 @@ export class ProjectController {
     description:
       'Download the acdb and workspace files based on project Id.\r\n\r\n Project Id should be the part of header of the request.',
   })
-  @ApiExtraModels(ApiResult, DownloadArcDatabaseFilesResponse)
+  @ApiExtraModels(ApiResult, DownloadArcDatabaseFilesResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
     schema: {
@@ -487,7 +490,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(DownloadArcDatabaseFilesResponse)},
+            data: { $ref: getSchemaPath(DownloadArcDatabaseFilesResponseDto) },
           },
         },
       ],
@@ -510,20 +513,19 @@ export class ProjectController {
       ],
     },
   })
-  async downloadArcDbFiles(
-    @Param('projectId') _projectId: string,
-  ): Promise<ApiResult<DownloadArcDatabaseFilesResponse>> {
+  async downloadArcDbFiles(@Param('projectId') _projectId: string): Promise<ApiResult<DownloadArcDatabaseFilesResponseDto>> {
+
     await Promise.resolve();
-    const acdbWorkspaceFilesResponse: DownloadArcDatabaseFilesResponse =
-      new DownloadArcDatabaseFilesResponse();
-    const acdbWorkspaceFilesResult: ApiResult<DownloadArcDatabaseFilesResponse> =
-      {
-        data: acdbWorkspaceFilesResponse,
-        success: true,
-        message: '',
-      };
+    const acdbWorkspaceFilesResponse: DownloadArcDatabaseFilesResponseDto = new DownloadArcDatabaseFilesResponseDto;
+    const acdbWorkspaceFilesResult: ApiResult<DownloadArcDatabaseFilesResponseDto> =
+    {
+      data: acdbWorkspaceFilesResponse,
+      success: true,
+      message: ""
+    }
     return acdbWorkspaceFilesResult;
   }
+
 
   @Delete('projects/:projectId')
   @ApiOperation({
@@ -573,173 +575,5 @@ export class ProjectController {
     await Promise.resolve();
 
     return new ApiResult<null>();
-  }
-
-  @Get('devices')
-  @ApiOperation({
-    summary: 'Get all connected devices',
-    description: 'This provides the list of all connected devices',
-  })
-  @ApiExtraModels(ApiResult, DeviceInfo)
-  @ApiResponse({
-    description: 'Successfully fetched all device info',
-    status: HttpStatus.OK,
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {
-              type: 'array',
-              items: {$ref: getSchemaPath(DeviceInfo)},
-            },
-          },
-        },
-      ],
-    },
-  })
-  async getAllDevices(): Promise<ApiResult<DeviceInfo[]>> {
-    const devicesDto: DeviceInfo[] = [];
-    await Promise.resolve();
-    const devicesResponse: ApiResult<DeviceInfo[]> = {
-      data: devicesDto,
-      success: true,
-      message: 'Successfully fetch devices',
-    };
-    return devicesResponse;
-  }
-
-  @Get('devices/:systemId')
-  @ApiParam({
-    name: 'systemId',
-    description: 'Id provided by system',
-    required: true,
-  })
-  @ApiOperation({
-    summary: 'Get device details',
-    description: 'Get device details based on system Id.',
-  })
-  @ApiExtraModels(ApiResult, DeviceDetailInfo)
-  @ApiResponse({
-    description: 'Successfully fetched device detail info',
-    status: HttpStatus.NO_CONTENT,
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {$ref: getSchemaPath(DeviceDetailInfo)},
-          },
-        },
-      ],
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Device does not exist',
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {
-              type: 'object',
-              nullable: true,
-            },
-          },
-        },
-      ],
-    },
-  })
-  async getDeviceDetails(
-    @Param('systemId') _systemId: string,
-  ): Promise<ApiResult<DeviceDetailInfo>> {
-    await Promise.resolve();
-    const deviceDto: DeviceDetailInfo = new DeviceDetailInfo();
-    const deviceResponse: ApiResult<DeviceDetailInfo> = {
-      data: deviceDto,
-      success: true,
-      message: 'Successfully fetch devices',
-    };
-    return deviceResponse;
-  }
-
-  @Post('devices/:systemId/connect')
-  @ApiConsumes('multipart/form-data')
-  @ApiParam({name: 'systemId', description: 'Id of device', required: true})
-  @ApiOperation({
-    summary: 'Connect to specific device',
-    description: 'Connect to the specific device based on device id',
-  })
-  @ApiExtraModels(ApiResult, ProjectDetails)
-  @ApiResponse({
-    description: 'Successfully conncted to device',
-    status: HttpStatus.CREATED,
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {$ref: getSchemaPath(ProjectDetails)},
-          },
-        },
-      ],
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid inputs',
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {
-              type: 'object',
-              nullable: true,
-            },
-          },
-        },
-      ],
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Device does not exist',
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {
-              type: 'object',
-              nullable: true,
-            },
-          },
-        },
-      ],
-    },
-  })
-  @ApiBody({
-    description:
-      'Upload the WorkspaceFile if it is not already available on the device.',
-    schema: {
-      type: 'object',
-      properties: {
-        multiAcdbClientId: {type: 'string'},
-        workspaceFile: {type: 'string', format: 'binary'},
-      },
-    },
-  })
-  @UseInterceptors(FilesInterceptor('files', 1))
-  async connectToDevice(
-    @Param('systemId') _systemId: string,
-    @UploadedFiles() _workspaceFile?: Multer,
-    @Body() _connectToDeviceRequestDto?: ConnectToDeviceRequest,
-  ): Promise<ApiResult<ProjectDetails>> {
-    await Promise.resolve();
-    const projectResponse: ApiResult<ProjectDetails> =
-      new ApiResult<ProjectDetails>();
-    return projectResponse;
   }
 }

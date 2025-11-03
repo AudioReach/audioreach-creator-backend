@@ -2,7 +2,9 @@ import { RegisterDto, RegisterResponseData } from '../../../modules/authenticati
 
 export const RegisterDtoExample = {
     getExample(): RegisterDto {
-        return new RegisterDto('client-123');
+        const dto = new RegisterDto();
+        dto.clientName = 'client-123';
+        return dto;
     }
 };
 

@@ -11,6 +11,9 @@ import { DataLinkModule } from './presentation/rest/modules/data-link/data-link.
 import { ControlLinkModule } from './presentation/rest/modules/control-link/control-link.module.js';
 import {ProjectModule} from './presentation/rest/modules/project/project.module.js';
 import {ArcCqrsModule} from './infrastructure-wrapper/arc-cqrs.module.js';
+import { KeyDefinitionModule } from './presentation/rest/modules/definition/key-definition/key-definition.module.js';
+import { PropertyDefinitionModule } from './presentation/rest/modules/definition/property-definition/property-definition.module.js';
+import { ModuleDefinitionModule } from './presentation/rest/modules/definition/module-definition/module-definition.module.js';
 
 @Module({
   imports: [
@@ -19,7 +22,7 @@ import {ArcCqrsModule} from './infrastructure-wrapper/arc-cqrs.module.js';
     }),
     ArcCqrsModule,
     AuthenticationModule,
-    ProjectModule,
+    ProjectModule,KeyDefinitionModule,PropertyDefinitionModule,ModuleDefinitionModule,
     UseCaseModule, 
     ModuleInstanceModule, 
     ComponentModule, 
@@ -28,6 +31,7 @@ import {ArcCqrsModule} from './infrastructure-wrapper/arc-cqrs.module.js';
     ContainerModule, 
     DataLinkModule, 
     ControlLinkModule],
+
   controllers: [],
   providers: [],
 })

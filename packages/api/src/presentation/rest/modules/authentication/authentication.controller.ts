@@ -7,7 +7,7 @@ import { ApiResult } from "../../common/dtos/api-response.dto.js";
 
 
 @ApiTags('authentication')
-@Controller('arcapi/v1/auth')
+@Controller('arc-api/v1/auth')
 export class AuthenticationController {
   constructor(private authService: AuthenticationService) { }
 

@@ -1,14 +1,15 @@
 import { ApiProperty } from "@nestjs/swagger";
 
+
 export class ApiResult<T> {
   @ApiProperty({ required: false })
   data?: T;
 
   @ApiProperty({ type: [String], required: false })
-  errors?: string[];
+  errors?: String[];
 
   @ApiProperty({ type: [String], required: false })
-  warnings?: string[];
+  warnings?: String[];
 
   @ApiProperty()
   success!: boolean;
