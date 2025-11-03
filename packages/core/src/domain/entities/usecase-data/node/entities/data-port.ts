@@ -5,7 +5,7 @@ export const PortIoType = {
 
 export type PortIoType = (typeof PortIoType)[keyof typeof PortIoType];
 
-export class DataPortEntity {
+export class DataPort {
   readonly systemId: number;
   readonly dataPortId: number;
   readonly portIoType: PortIoType;

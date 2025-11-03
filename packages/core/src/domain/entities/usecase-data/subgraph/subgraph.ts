@@ -1,7 +1,7 @@
-import { SubgraphPropertyValue } from "./value-objects/subgraph-property.value.js";
-import { VcpmInstance } from "./vcpm/vcpm-instance.entity.js";
+import { SubgraphPropertyValue } from "./value-objects/subgraph-property.js";
+import { VcpmInstance } from "./vcpm/vcpm-instance.js";
 
-export class SubgraphAggregate {
+export class Subgraph {
   public systemId: number;
   public name: string;
   public isExported: boolean;

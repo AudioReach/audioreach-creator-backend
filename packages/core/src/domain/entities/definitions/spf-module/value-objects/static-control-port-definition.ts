@@ -1,5 +1,5 @@
 import { DuplicateIntentIdException, DuplicateIntentNameException, IntentPortIdNotFoundException, IntentPortNameNotFoundException, NullObjectException } from "../../common/exceptions/input-validation-exception.js";
-import { StaticIntentDefinition } from "./static-intent-definition.vo.js";
+import { StaticIntentDefinition } from "./static-intent-definition.js";
 
 export interface StaticControlPortDefinitionInit {
     portId: number,

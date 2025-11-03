@@ -1,4 +1,4 @@
-import type { PropertyDefinition } from "./property-definition.entity.js";
+import type { PropertyDefinition } from "./property-definition.js";
 import { DuplicatePropertyIdException, DuplicateSystemIdException, NullObjectException, PropertyIdNotFoundException, SystemIdNotFoundException } from "../exceptions/input-validation-exception.js";
 
 export interface PropertyCategoryInit {

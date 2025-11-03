@@ -1,6 +1,6 @@
 import { SpecialKey } from "../../common/enums/speciality-type.js"
 import { DuplicateKeyValuePairException, DuplicateSystemIdException, NullObjectException, SystemIdNotFoundException, ValueIdNotFoundException } from "../../common/exceptions/input-validation-exception.js";
-import { ValueDefinition } from "../entities/value-definition.entity.js";
+import { ValueDefinition } from "../entities/value-definition.js";
 
 
 export interface KeyDefinitionInit {

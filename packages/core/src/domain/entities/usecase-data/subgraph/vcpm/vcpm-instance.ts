@@ -1,4 +1,4 @@
-import { VcpmCkv } from "./vcpm-ckv.entity.js";
+import { VcpmCkv } from "./vcpm-ckv.js";
 
 export class VcpmInstance {
   public systemId: number;

@@ -1,4 +1,4 @@
-import { PropertyDefinition } from "../../common/entities/property-definition.entity.js";
+import { PropertyDefinition } from "../../common/entities/property-definition.js";
 import { DuplicatePropertyIdException, DuplicateSystemIdException, NullObjectException, PropertyIdNotFoundException, SystemIdNotFoundException } from "../../common/exceptions/input-validation-exception.js";
 
 export class SubgraphDriverProperty {

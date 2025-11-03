@@ -1,5 +1,5 @@
-import type {ControlPortEntity} from './entities/control-port.entity.js';
-import type {DataPortEntity} from './entities/data-port.entity.js';
+import type {ControlPort} from './entities/control-port.js';
+import type {DataPort} from './entities/data-port.js';
 
 export const NodeType = {
   Module: 'module',
@@ -8,22 +8,22 @@ export const NodeType = {
 
 export type NodeType = (typeof NodeType)[keyof typeof NodeType];
 
-export class NodeEntity {
+export class Node {
   readonly systemId: number;
   readonly parentId?: number;
   readonly type: NodeType;
   readonly fileSystemId: number;
 
-  readonly dataPorts: DataPortEntity[];
-  readonly controlPorts: ControlPortEntity[];
+  readonly dataPorts: DataPort[];
+  readonly controlPorts: ControlPort[];
 
   constructor(initparams: {
     systemId: number;
     type: NodeType;
     fileSystemId: number;
     parentId?: number;
-    dataPorts: DataPortEntity[];
-    controlPorts: ControlPortEntity[];
+    dataPorts: DataPort[];
+    controlPorts: ControlPort[];
   }) {
     this.systemId = initparams.systemId;
     this.type = initparams.type;

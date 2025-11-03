@@ -7,7 +7,7 @@ export interface ControlPortInit {
   intentSystemIds: number[];
 }
 
-export class ControlPortEntity {
+export class ControlPort {
   readonly systemId: number;
   readonly portId: number;
   readonly isStatic: boolean;

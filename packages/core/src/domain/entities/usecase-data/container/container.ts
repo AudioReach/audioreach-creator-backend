@@ -1,6 +1,6 @@
-import { ContainerPropertyValue } from "./value-objects/container-property.value.js";
+import { ContainerPropertyValue } from "./value-objects/container-property.js";
 
-export class ContainerAggregate {
+export class Container {
   public systemId: number;
   public type: string;
   public fileSystemId: number;

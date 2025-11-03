@@ -3,8 +3,8 @@ import {
   EntityBuilderService,
   type EntitiesReferenceIndexer,
 } from './entity-builder-service.js';
-import type {ContainerAggregate} from 'domain/entities/usecase-data/container/container-aggregate.js';
-import type {SpfModule} from 'domain/entities/usecase-data/module/spf-module-aggregate.js';
+import type {Container} from 'domain/entities/usecase-data/container/container.js';
+import type {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
 import type {SystemIdReservationService} from 'application/ports/persistence/systemId-reservation-service.port.js';
 
 export class UploadFileOrchestrator implements EntitiesReferenceIndexer {
@@ -12,9 +12,9 @@ export class UploadFileOrchestrator implements EntitiesReferenceIndexer {
 
   /* -----EntitiesReferenceIndexer ------*/
   readonly moduleById: Map<number, SpfModule> = new Map<number, SpfModule>();
-  readonly containerById: Map<number, ContainerAggregate> = new Map<
+  readonly containerById: Map<number, Container> = new Map<
     number,
-    ContainerAggregate
+    Container
   >();
   /* -------------------------------------*/
 
