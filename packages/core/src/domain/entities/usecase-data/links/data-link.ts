@@ -1,3 +1,5 @@
+import {SameNodeException} from './exceptions.js';
+
 export class DataLinkEntity {
   public systemId: number;
   public sourceNodeSystemId: number;
@@ -12,7 +14,7 @@ export class DataLinkEntity {
     destinationNodeSystemId: number,
     sourcePortSystemId: number,
     destinationPortSystemId: number,
-    isInterGraph: boolean
+    isInterGraph: boolean,
   ) {
     this.systemId = systemId;
     this.sourceNodeSystemId = sourceNodeSystemId;
@@ -20,5 +22,8 @@ export class DataLinkEntity {
     this.sourcePortSystemId = sourcePortSystemId;
     this.destinationPortSystemId = destinationPortSystemId;
     this.isInterGraph = isInterGraph;
+    if (this.sourceNodeSystemId == this.destinationNodeSystemId) {
+      throw new SameNodeException(sourceNodeSystemId);
+    }
   }
 }

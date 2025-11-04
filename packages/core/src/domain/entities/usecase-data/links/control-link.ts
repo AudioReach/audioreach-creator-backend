@@ -1,4 +1,6 @@
-export class ControlLinkEntity {
+import {SameNodeException} from './exceptions.js';
+
+export class ControlLink {
   public systemId: number;
   public peerNodeASystemId: number;
   public peerNodeBSystemId: number;
@@ -14,7 +16,7 @@ export class ControlLinkEntity {
     nodeAPortSystemId: number,
     nodeBPortSystemId: number,
     heapId: number,
-    isInterGraph: boolean
+    isInterGraph: boolean,
   ) {
     this.systemId = systemId;
     this.peerNodeASystemId = peerNodeASystemId;
@@ -23,5 +25,8 @@ export class ControlLinkEntity {
     this.nodeBPortSystemId = nodeBPortSystemId;
     this.heapId = heapId;
     this.isInterGraph = isInterGraph;
+    if (this.peerNodeASystemId == this.peerNodeBSystemId) {
+      throw new SameNodeException(peerNodeASystemId);
+    }
   }
 }

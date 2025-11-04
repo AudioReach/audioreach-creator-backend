@@ -1,7 +1,7 @@
-export const SpecialKey = {
-  None: 'None',
-  Shared: 'SampleRate',
-  GlobalShared: 'Volume',
+export const SPECIALTY_KEY = {
+  None: 'NONE',
+  SampleRate: 'SAMPLE_RATE',
+  Volume: 'VOLUME',
 } as const;
 
-export type SpecialKey = (typeof SpecialKey)[keyof typeof SpecialKey];
+export type SpecialtyKey = (typeof SPECIALTY_KEY)[keyof typeof SPECIALTY_KEY];

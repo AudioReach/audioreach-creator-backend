@@ -1,24 +1,26 @@
-export class ArcDbFileEntity {
-  public systemId: number;
-  public description: string;
-  public metadata: string;
-  public tag: string;
-  public isTarget: boolean;
-  public projectSystemId: number;
+export interface ArcDbFileInit {
+  systemId: number;
+  description: string;
+  metadata: string;
+  tag: string;
+  isTarget: boolean;
+  projectSystemId: number;
+}
 
-  constructor(
-    systemId: number,
-    description: string,
-    metadata: string,
-    tag: string,
-    isTarget: boolean,
-    projectSystemId: number
-  ) {
-    this.systemId = systemId;
-    this.description = description;
-    this.metadata = metadata;
-    this.tag = tag;
-    this.isTarget = isTarget;
-    this.projectSystemId = projectSystemId;
+export class ArcDbFile {
+  readonly systemId: number;
+  readonly description: string;
+  readonly metadata: string;
+  readonly tag: string;
+  readonly isTarget: boolean;
+  readonly projectSystemId: number;
+
+  constructor(initParams: ArcDbFileInit) {
+    this.systemId = initParams.systemId;
+    this.description = initParams.description;
+    this.metadata = initParams.metadata;
+    this.tag = initParams.tag;
+    this.isTarget = initParams.isTarget;
+    this.projectSystemId = initParams.projectSystemId;
   }
 }

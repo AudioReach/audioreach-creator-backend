@@ -1,3 +1,5 @@
+import type {Attribute} from 'domain/entities/common/value-objects/attribute.js';
+
 export class DuplicateDataInputPortGroupException extends Error {
   constructor(error: string) {
     super(error);
@@ -178,15 +180,9 @@ export class TagKeyIdNotFoundException extends Error {
   }
 }
 
-export class AttributeNameNotFoundException extends Error {
-  constructor() {
-    super();
-  }
-}
-
-export class AttributeValueNotFoundException extends Error {
-  constructor() {
-    super();
+export class NotDefinedAttributeException extends Error {
+  constructor(attr: Attribute) {
+    super(`Attribute ${attr.name} -> ${attr.value} is not defined correctly`);
   }
 }
 
@@ -219,4 +215,3 @@ export class DuplicateAttributeNameException extends Error {
     super(error);
   }
 }
-

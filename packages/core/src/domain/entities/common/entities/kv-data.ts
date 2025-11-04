@@ -37,12 +37,12 @@ export class KvData {
   /**
    * Adds a payload. Throws DuplicateParameterPayloadError if the id already exists.
    */
-  addParameterPayload(pp: ModuleParameterData): void {
-    const id = pp.parameterId;
+  addParameterPayload(parameterData: ModuleParameterData): void {
+    const id = parameterData.parameterSystemId;
     if (this.byId.has(id)) {
       throw new DuplicateParameterPayloadError(id);
     }
-    this.parameterPayloads.push(pp);
-    this.byId.set(id, pp);
+    this.parameterPayloads.push(parameterData);
+    this.byId.set(id, parameterData);
   }
 }

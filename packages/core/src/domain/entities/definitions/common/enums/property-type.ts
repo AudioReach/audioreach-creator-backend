@@ -1,6 +1,6 @@
 const PROPERTY_TYPE = {
-  SPF: 'spf',
-  Driver: 'driver',
+  Spf: 'SPF',
+  Driver: 'DRIVER',
 } as const;
 
-export type PROPERTY_TYPE = (typeof PROPERTY_TYPE)[keyof typeof PROPERTY_TYPE];
+export type PropertyType = (typeof PROPERTY_TYPE)[keyof typeof PROPERTY_TYPE];

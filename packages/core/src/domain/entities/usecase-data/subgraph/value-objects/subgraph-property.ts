@@ -1,11 +1,19 @@
-export class SubgraphPropertyValue {
-  public systemId: number;
-  public subgraphPropertyDefinitionSystemId: number;
-  public payload: Uint8Array;
+import {BinaryPayloadValue} from '../../../common/value-objects/binary-payload-value.js';
 
-  constructor(systemId: number, subgraphPropertyDefinitionSystemId: number, payload: Uint8Array) {
-    this.systemId = systemId;
-    this.subgraphPropertyDefinitionSystemId = subgraphPropertyDefinitionSystemId;
-    this.payload = payload;
+export class SubgraphPropertyData extends BinaryPayloadValue {
+  readonly propertyDefinitionSystemId: number;
+
+  constructor(propertyDefinitionSystemId: number, payload: Uint8Array | null) {
+    super(payload);
+    this.propertyDefinitionSystemId = propertyDefinitionSystemId;
+  }
+
+  getPayloadCopy(): Uint8Array | null {
+    return super.getPayloadCopy();
+  }
+
+  // Add/replace payload using defensive copy semantics
+  setPayloadCopy(value: Uint8Array | null): void {
+    this.setPayloadCopyInternal(value);
   }
 }

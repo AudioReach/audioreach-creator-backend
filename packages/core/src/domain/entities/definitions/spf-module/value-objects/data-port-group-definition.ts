@@ -1,45 +1,31 @@
-import type { PortIoType } from "domain/node/port-io-type.js";
-import { DataPortDefinition } from "./data-port-definition.js";
-import { DataPortIdNotFoundException, DataPortNameNotFoundException, DuplicatePortIdException, DuplicatePortNameException, NullObjectException } from "../../common/exceptions/input-validation-exception.js";
+import {DataPortDefinition} from './data-port-definition.js';
+import type {PortIoType} from 'domain/entities/common/enums/port-io-type.js';
 
 export interface DataPortGroupDefinitionInit {
-    max: number,
-    portIoType: PortIoType
+  max: number;
+  portIoType: PortIoType;
+  staticPortDefinitions: DataPortDefinition[];
 }
 
 export class DataPortGroupDefinition {
-    max: number;
-    portIoType: PortIoType;
-    readonly portDefinitions: DataPortDefinition[] = [];
+  maxAllowedPortCount: number;
+  portIoType: PortIoType;
+  readonly staticPortDefinitions: DataPortDefinition[] = [];
 
-    constructor(initParam: DataPortGroupDefinitionInit) {
-        this.max = initParam.max;
-        this.portIoType = initParam.portIoType;
+  constructor(initParam: DataPortGroupDefinitionInit) {
+    this.maxAllowedPortCount = initParam.max;
+    this.portIoType = initParam.portIoType;
+    this.staticPortDefinitions = initParam.staticPortDefinitions;
+    this.checkInvariants();
+  }
+
+  checkInvariants() {
+    const seen = new Set<number>();
+    for (const port of this.staticPortDefinitions) {
+      if (seen.has(port.dataPortId)) {
+        throw new Error(`Duplicate dataPortId: ${port.dataPortId}`);
+      }
+      seen.add(port.dataPortId);
     }
-
-    AddPortDefinition(value: DataPortDefinition) {
-        if (value == null) {
-            throw new NullObjectException("Value is null");
-        }
-
-        if (value.dataPortId == null) {
-            throw new DataPortIdNotFoundException();
-        }
-
-        if (value.dataPortName == null) {
-            throw new DataPortNameNotFoundException();
-        }
-
-        const valueWithSamePortId = this.portDefinitions.some(v => v.dataPortId === value.dataPortId);
-        if (valueWithSamePortId) {
-            throw new DuplicatePortIdException(`Port Id: ${value.dataPortId} already exists for Port Type: ${this.portIoType}`)
-        }
-
-        const valueWithSamePortName = this.portDefinitions.some(v => v.dataPortName === value.dataPortName);
-        if (valueWithSamePortName) {
-            throw new DuplicatePortNameException(`Port Name: ${value.dataPortName} already exists for Port Type: ${this.portIoType}`)
-        }
-
-        this.portDefinitions.push(value);
-    }
+  }
 }

@@ -1,19 +1,17 @@
-export interface StaticIntentDefinitionInit
-{
-   intentId: number, 
-   intentName: string, 
-   maxLinks: number
+export interface StaticIntentDefinitionInit {
+  systemId: number;
+  intentId: number;
+  intentName: string;
 }
 
 export class StaticIntentDefinition {
-    readonly intentId: number;
-    intentName: string;
-    maxLinks: number;
-    
+  readonly systemId: number;
+  readonly intentId: number;
+  intentName: string;
 
-    constructor(initParam: StaticIntentDefinitionInit) {
-        this.intentId = initParam.intentId;
-        this.intentName = initParam.intentName;
-        this.maxLinks = initParam.maxLinks;
-    }
+  constructor(initParam: StaticIntentDefinitionInit) {
+    this.intentId = initParam.intentId;
+    this.systemId = initParam.systemId;
+    this.intentName = initParam.intentName;
+  }
 }
