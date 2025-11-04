@@ -1,92 +1,67 @@
-import {Attribute} from '../value-objects/attribute.js';
+import {Attribute} from '../../../common/value-objects/attribute.js';
 import {DataPortGroupDefinition} from '../value-objects/data-port-group-definition.js';
 import {DynamicIntentDefinition} from '../value-objects/dynamic-intent-definition.js';
-import {ModuleDefinitionMetaData} from '../value-objects/module-definition-meta-data.js';
 import {StaticControlPortDefinition} from '../value-objects/static-control-port-definition.js';
 import {
   ModuleDefinition,
   type ModuleDefinitionInit,
 } from '../../common/entities/module-definition.js';
-import {PortIoType} from 'domain/node/port-io-type.js';
 import {
-  AttributeNameNotFoundException,
-  AttributeValueNotFoundException,
+  NotDefinedAttributeException,
   DuplicateAttributeNameException,
   DuplicateContainerTypeReferenceIdException,
-  DuplicateDataInputPortGroupException,
-  DuplicateDataOutputPortGroupException,
   DuplicateIntentIdException,
   DuplicateIntentNameException,
   DuplicatePortIdException,
   DuplicatePortNameException,
   DuplicateProcessorDefinitionReferenceIdException,
-  DuplicateProcessorIdException,
   IntentIdNotFoundException,
   IntentNameNotFoundException,
   NullObjectException,
-  PortIOTypeNotFoundException,
-  ProcessorDefinitionNameNotFoundException,
   StaticPortIdNotFoundException,
   StaticPortNameNotFoundException,
 } from '../../common/exceptions/input-validation-exception.js';
 
 export interface SpfModuleDefinitionInit extends ModuleDefinitionInit {
+  inputDataPortsGroup: DataPortGroupDefinition;
+  outputDataPortsGroup: DataPortGroupDefinition;
+  staticControlPorts: StaticControlPortDefinition[];
+  processorSystemIds: number[];
+  containerTypesSystemIds: number[];
   metaData?: ModuleDefinitionMetaData;
   dynamicIntents?: DynamicIntentDefinition[];
 }
 
+export class ModuleDefinitionMetaData {
+  value?: string;
+
+  constructor(value: string) {
+    this.value = value;
+  }
+}
+
 export class SpfModuleDefinition extends ModuleDefinition {
   attributes: Attribute[] = [];
-  metaData: ModuleDefinitionMetaData = new ModuleDefinitionMetaData({}); //ToDo
-  readonly dataPortGroups: DataPortGroupDefinition[] = [];
-  readonly staticPorts: StaticControlPortDefinition[] = [];
+  metaData: ModuleDefinitionMetaData = new ModuleDefinitionMetaData(''); //ToDo
+  readonly inputDataPortsGroup: DataPortGroupDefinition;
+  readonly outputDataPortsGroup: DataPortGroupDefinition;
+  readonly staticControlPorts: StaticControlPortDefinition[] = [];
   readonly dynamicIntents: DynamicIntentDefinition[] = [];
-  readonly processorDefinitionReferenceIds: number[] = [];
-  readonly containerTypesReferenceIds: number[] = [];
-
-  // Missing for schema:
-  // Stacksize
-  // ArcModuleDirectionType DirectionType { get; set; }
-  //   ArcMdfModuleType MdfModuleType { get; set; }
-  //   string SearchKeys { get; set; }
-  //   bool? IsOffloadable { get; set; }
-  //   bool BuiltIn { get; set; }
-
-  //   ArcMajorModuleType MajorModuleType { get; set; }
-  //   ArcBuildType BuildType { get; set; }
-  //   bool? IslandFriendly { get; set; }
-
-  //   IArcCustomModuleInfo CustomModuleInfo { get; set; }
-
-  //   string GroupName { get; set; }
-
-  //     string RtmLogCode { get; set; }
-  //     uint? ReplacedBy { get; set; }
-  //     bool? Deprecated { get; set; }
-  //     bool HasNeuralNetParam { get; set; }
+  readonly processorSystemIds: number[] = [];
+  readonly containerTypesSystemIds: number[] = [];
 
   constructor(initParam: SpfModuleDefinitionInit) {
-    super({
-      systemId: initParam.systemId,
-      moduleDefinitionId: initParam.moduleDefinitionId,
-      name: initParam.name,
-      displayName: initParam.displayName,
-      description: initParam.description,
-      groupName: initParam.groupName,
-    });
+    super(initParam);
+    this.inputDataPortsGroup = initParam.inputDataPortsGroup;
+    this.outputDataPortsGroup = initParam.outputDataPortsGroup;
+    this.staticControlPorts = initParam.staticControlPorts;
+    this.processorSystemIds = initParam.processorSystemIds;
+    this.containerTypesSystemIds = initParam.containerTypesSystemIds;
   }
 
   AddAttribute(attribute: Attribute) {
-    if (attribute == null) {
-      throw new NullObjectException('Value is null');
-    }
-
-    if (attribute.name == null) {
-      throw new AttributeNameNotFoundException();
-    }
-
-    if (attribute.value == null) {
-      throw new AttributeValueNotFoundException();
+    if (attribute == null || !attribute.name || !attribute.value) {
+      throw new NotDefinedAttributeException(attribute);
     }
 
     const existingAttribute = this.attributes.some(
@@ -99,45 +74,6 @@ export class SpfModuleDefinition extends ModuleDefinition {
     }
 
     this.attributes.push(attribute);
-  }
-
-  AddPortGroup(dataPortGroup: DataPortGroupDefinition) {
-    if (dataPortGroup == null) {
-      throw new NullObjectException('Value is null');
-    }
-
-    if (
-      dataPortGroup.portIoType === undefined ||
-      dataPortGroup.portIoType === null
-    ) {
-      throw new PortIOTypeNotFoundException();
-    }
-
-    if (dataPortGroup.portIoType === PortIoType.Input) {
-      const valueWithInputGroup = this.dataPortGroups.filter(
-        group => group.portIoType === PortIoType.Input,
-      );
-
-      if (valueWithInputGroup.length > 0) {
-        throw new DuplicateDataInputPortGroupException(
-          `Input Port Group already exists for SPF Module Definition: ${this.moduleDefinitionId}`,
-        );
-      }
-    }
-
-    if (dataPortGroup.portIoType === PortIoType.Output) {
-      const valueWithOutputGroup = this.dataPortGroups.filter(
-        group => group.portIoType === PortIoType.Output,
-      );
-
-      if (valueWithOutputGroup.length > 0) {
-        throw new DuplicateDataOutputPortGroupException(
-          `Output Port Group already exists for SPF Module Definition: ${this.moduleDefinitionId}`,
-        );
-      }
-    }
-
-    this.dataPortGroups.push(dataPortGroup);
   }
 
   AddDynamicIntentDefinition(dynamicIntentDefinition: DynamicIntentDefinition) {
@@ -193,7 +129,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
       throw new StaticPortNameNotFoundException();
     }
 
-    const valueWithSamePortId = this.staticPorts.some(
+    const valueWithSamePortId = this.staticControlPorts.some(
       v => v.portId === staticPort.portId,
     );
     if (valueWithSamePortId) {
@@ -202,7 +138,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
       );
     }
 
-    const valueWithSamePortName = this.staticPorts.some(
+    const valueWithSamePortName = this.staticControlPorts.some(
       v => v.portName === staticPort.portName,
     );
     if (valueWithSamePortName) {
@@ -211,7 +147,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
       );
     }
 
-    this.staticPorts.push(staticPort);
+    this.staticControlPorts.push(staticPort);
   }
 
   AddProcessDefinition(processorDefinitionReferenceId: number) {
@@ -222,17 +158,16 @@ export class SpfModuleDefinition extends ModuleDefinition {
       throw new NullObjectException('Value is null');
     }
 
-    const existingProcessorDefinitionReferenceId =
-      this.processorDefinitionReferenceIds.find(
-        id => id === processorDefinitionReferenceId,
-      );
+    const existingProcessorDefinitionReferenceId = this.processorSystemIds.find(
+      id => id === processorDefinitionReferenceId,
+    );
     if (existingProcessorDefinitionReferenceId) {
       throw new DuplicateProcessorDefinitionReferenceIdException(
         `Processor Definition Reference Id: ${processorDefinitionReferenceId} already exists for SPF Module Definition: ${this.moduleDefinitionId}`,
       );
     }
 
-    this.processorDefinitionReferenceIds.push(processorDefinitionReferenceId);
+    this.processorSystemIds.push(processorDefinitionReferenceId);
   }
 
   AddContainerType(containerTypeReferenceIds: number) {
@@ -243,16 +178,15 @@ export class SpfModuleDefinition extends ModuleDefinition {
       throw new NullObjectException('Value is null');
     }
 
-    const existingContainerTypeReferenceId =
-      this.containerTypesReferenceIds.find(
-        id => id === containerTypeReferenceIds,
-      );
+    const existingContainerTypeReferenceId = this.containerTypesSystemIds.find(
+      id => id === containerTypeReferenceIds,
+    );
     if (existingContainerTypeReferenceId) {
       throw new DuplicateContainerTypeReferenceIdException(
         `Container Type Reference Id: ${containerTypeReferenceIds} already exists for SPF Module Definition: ${this.moduleDefinitionId}`,
       );
     }
 
-    this.containerTypesReferenceIds.push(containerTypeReferenceIds);
+    this.containerTypesSystemIds.push(containerTypeReferenceIds);
   }
 }

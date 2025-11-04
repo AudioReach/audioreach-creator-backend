@@ -1,9 +1,4 @@
-export const PortIoType = {
-  Input: 'Input',
-  Output: 'Output',
-} as const;
-
-export type PortIoType = (typeof PortIoType)[keyof typeof PortIoType];
+import type {PortIoType} from 'domain/entities/common/enums/port-io-type.js';
 
 export class DataPort {
   readonly systemId: number;

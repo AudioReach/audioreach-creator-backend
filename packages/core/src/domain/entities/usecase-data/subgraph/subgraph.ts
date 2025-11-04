@@ -1,26 +1,45 @@
-import { SubgraphPropertyValue } from "./value-objects/subgraph-property.js";
-import { VcpmInstance } from "./vcpm/vcpm-instance.js";
+import {VcpmInstance} from './entities/vcpm-module-instance.js';
+import {SubgraphPropertyData} from './value-objects/subgraph-property.js';
+
+export interface SubgraphInit {
+  systemId: number;
+  name: string;
+  isExported: boolean;
+  fileSystemId: number;
+  vcpmDataInstance?: VcpmInstance;
+}
+
+export class DuplicateSubgraphPropertyException extends Error {
+  constructor(propId: number) {
+    super(`Property with ${propId} already exists`);
+    this.name = 'DuplicateSubgraphPropertyException';
+  }
+}
 
 export class Subgraph {
-  public systemId: number;
-  public name: string;
-  public isExported: boolean;
-  public fileSystemId: number;
+  private propertyIds = new Set<number>();
 
-  public properties: Map<number, SubgraphPropertyValue>;
-  public vcpmInstances: Map<number, VcpmInstance>;
+  readonly systemId: number;
+  readonly name: string;
+  readonly isExported: boolean;
+  readonly fileSystemId: number;
+  readonly vcpmDataInstance: VcpmInstance | null;
+  readonly properties: SubgraphPropertyData[] = [];
 
-  constructor(
-    systemId: number,
-    name: string,
-    isExported: boolean,
-    fileSystemId: number
-  ) {
-    this.systemId = systemId;
-    this.name = name;
-    this.isExported = isExported;
-    this.fileSystemId = fileSystemId;
-    this.properties = new Map<number, SubgraphPropertyValue>();
-    this.vcpmInstances = new Map<number, VcpmInstance>();
+  constructor(initParams: SubgraphInit) {
+    this.systemId = initParams.systemId;
+    this.name = initParams.name;
+    this.isExported = initParams.isExported;
+    this.fileSystemId = initParams.fileSystemId;
+    this.vcpmDataInstance = initParams.vcpmDataInstance ?? null;
+  }
+
+  addProperty(propertyData: SubgraphPropertyData) {
+    if (this.propertyIds.has(propertyData.propertyDefinitionSystemId))
+      throw new DuplicateSubgraphPropertyException(
+        propertyData.propertyDefinitionSystemId,
+      );
+    this.propertyIds.add(propertyData.propertyDefinitionSystemId);
+    this.properties.push(propertyData);
   }
 }

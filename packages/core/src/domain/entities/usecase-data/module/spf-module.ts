@@ -1,19 +1,10 @@
 import type {SpfModulePropertyData} from './value-objects/spf-module-property-data.js';
 import {TagData} from './entities/spf-module-tag-data.js';
 import type {KvData} from 'domain/entities/common/entities/kv-data.js';
+import {CkvCollection} from 'domain/entities/common/entities/ckv-collection.js';
 import {Node, NodeType} from '../node/node.js';
 import type {DataPort} from '../node/entities/data-port.js';
 import type {ControlPort} from '../node/entities/control-port.js';
-
-export class DuplicateCkvExceptionError extends Error {
-  constructor(
-    readonly idType: 'systemId' | 'keyVectorSystemId',
-    readonly id: number,
-  ) {
-    super(`Ckv with ${idType} ${id} already exists`);
-    this.name = 'DuplicateCkvExceptionError';
-  }
-}
 
 export class DuplicateTagExceptionError extends Error {
   constructor(
@@ -38,17 +29,18 @@ export interface SpfModuleInit {
 }
 
 export class SpfModule extends Node {
-  private readonly propertiesById = new Map<number, SpfModulePropertyData>();
   private readonly tagIds = new Set<string>();
-  private readonly ckvIds = new Set<string>();
+  private readonly ckvCollection = new CkvCollection();
 
   readonly definitionSystemId: number;
   readonly containerSystemId: number;
   readonly subgraphSystemId: number;
   readonly alias?: string;
-  readonly propertes: SpfModulePropertyData[] = [];
   readonly tagDataList: TagData[] = [];
-  readonly ckvs: KvData[] = [];
+
+  get ckvs(): readonly KvData[] {
+    return this.ckvCollection.ckvs;
+  }
 
   constructor(init: SpfModuleInit) {
     super({
@@ -63,15 +55,6 @@ export class SpfModule extends Node {
     this.containerSystemId = init.containerSystemId;
     this.subgraphSystemId = init.subgraphSystemId;
     this.alias = init.alias ?? '';
-  }
-
-  addModuleProperty(propValue: SpfModulePropertyData) {
-    const propId = propValue.propertyDefinitionSystemId;
-    if (this.propertiesById.has(propId)) {
-      throw new Error(`Property with ${propId} already exists`);
-    }
-    this.propertiesById.set(propId, propValue);
-    this.propertes.push(propValue);
   }
 
   addTagData(tagData: TagData) {
@@ -92,19 +75,6 @@ export class SpfModule extends Node {
   }
 
   addModuleCkv(kvData: KvData) {
-    const systemIdKey = `sys:${kvData.systemId}`;
-    const keyVectorIdKey = `kv:${kvData.keyVectorSystemId}`;
-
-    if (this.ckvIds.has(systemIdKey))
-      throw new DuplicateCkvExceptionError('systemId', kvData.systemId);
-    if (this.ckvIds.has(keyVectorIdKey))
-      throw new DuplicateCkvExceptionError(
-        'keyVectorSystemId',
-        kvData.keyVectorSystemId,
-      );
-
-    this.ckvIds.add(systemIdKey);
-    this.ckvIds.add(keyVectorIdKey);
-    this.ckvs.push(kvData);
+    this.ckvCollection.addCkv(kvData);
   }
 }
