@@ -1,14 +1,24 @@
+import {CHUNK_TYPES, type ChunkType} from '../../../constants/chunk-types.js';
+
+/**
+ * Represents a dependency with its type specification
+ */
+export interface ChunkDependency {
+  /** The chunk type this depends on */
+  chunkType: ChunkType;
+  /** Whether this dependency needs raw binary data or parsed chunk object */
+  dependencyType: 'raw' | 'parsed';
+}
+
 /**
  * Metadata for ACDB chunk types.
- * Defines dependencies, characteristics, and descriptions for each chunk type.
+ * Defines dependencies and descriptions for each chunk type.
  */
 export interface ChunkTypeMetadata {
   /** Chunk type identifier */
-  type: string;
-  /** List of chunk types this chunk depends on */
-  dependencies: string[];
-  /** Whether this chunk is commonly used by multiple other chunks */
-  isCommon: boolean;
+  type: ChunkType;
+  /** List of chunk dependencies with their types */
+  dependencies: ChunkDependency[];
   /** Human-readable description of the chunk */
   description: string;
 }
@@ -20,60 +30,51 @@ export interface ChunkTypeMetadata {
  *
  * Benefits:
  * - No dummy chunk creation needed
- * - O(1) lookup complexity
  * - Centralized metadata management
  * - Easy to extend with new chunk types
  * - Type-safe at compile time
  */
 export class ChunkMetadataRegistry {
-  private static metadata: Map<string, ChunkTypeMetadata> = new Map([
-    [
-      'HEADER',
-      {
-        type: 'HEADER',
-        dependencies: [],
-        isCommon: true,
-        description: 'File header with version and metadata',
-      },
-    ],
-    [
-      'METADATA',
-      {
-        type: 'METADATA',
-        dependencies: ['HEADER'],
-        isCommon: true,
-        description: 'Project metadata and configuration',
-      },
-    ],
-    [
-      'MODULE',
-      {
-        type: 'MODULE',
-        dependencies: ['HEADER', 'METADATA'],
-        isCommon: false,
-        description: 'Audio processing module definition',
-      },
-    ],
-    [
-      'SUBGRAPH',
-      {
-        type: 'SUBGRAPH',
-        dependencies: ['HEADER', 'MODULE'],
-        isCommon: false,
-        description: 'Audio processing subgraph',
-      },
-    ],
-    [
-      'CONTAINER',
-      {
-        type: 'CONTAINER',
-        dependencies: ['HEADER'],
-        isCommon: false,
-        description: 'Container definition',
-      },
-    ],
+  private static metadata: ChunkTypeMetadata[] = [
+    {
+      type: CHUNK_TYPES.HEADER,
+      dependencies: [],
+      description: 'File header with version and metadata',
+    },
+    {
+      type: CHUNK_TYPES.DATAPOOL,
+      dependencies: [],
+      description: 'Datapool chunk',
+    },
+    {
+      type: CHUNK_TYPES.GKV_TABLE,
+      dependencies: [
+        {chunkType: CHUNK_TYPES.GKV_LUT, dependencyType: 'raw'},
+        {chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed'},
+      ],
+      description: 'Usecase data with GKV table and lookup functionality',
+    },
+    {
+      type: CHUNK_TYPES.SUBGRAPH_DATA,
+      dependencies: [
+        {chunkType: CHUNK_TYPES.GKV_TABLE, dependencyType: 'parsed'},
+        {chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed'},
+      ],
+      description:
+        'Derived subgraph data extracted from usecase entries and datapool',
+    },
+    /*{
+      type: CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+      dependencies: [
+        { chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF, dependencyType: 'raw' },
+        { chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT, dependencyType: 'raw' },
+        { chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed' },
+      ],
+      description:
+        'Subgraph connection table - Lookup, definition, data offset',
+    },*/
     // Add more chunk types as they are implemented
-  ]);
+  ];
 
   /**
    * Get metadata for a specific chunk type
@@ -81,7 +82,7 @@ export class ChunkMetadataRegistry {
    * @returns Chunk metadata if found, undefined otherwise
    */
   static getMetadata(chunkType: string): ChunkTypeMetadata | undefined {
-    return this.metadata.get(chunkType);
+    return this.metadata.find(meta => meta.type === chunkType);
   }
 
   /**
@@ -89,25 +90,55 @@ export class ChunkMetadataRegistry {
    * @param chunkType - The chunk type identifier
    * @returns Array of chunk types this chunk depends on
    */
-  static getDependencies(chunkType: string): string[] {
-    return this.metadata.get(chunkType)?.dependencies || [];
+  static getDependencies(chunkType: string): ChunkType[] {
+    const meta = this.metadata.find(meta => meta.type === chunkType);
+    return meta?.dependencies.map(dep => dep.chunkType) || [];
   }
 
   /**
-   * Check if a chunk type is commonly used by other chunks
+   * Get raw dependencies for a specific chunk type
    * @param chunkType - The chunk type identifier
-   * @returns true if chunk is marked as common, false otherwise
+   * @returns Array of chunk types that need raw binary data
    */
-  static isCommonChunk(chunkType: string): boolean {
-    return this.metadata.get(chunkType)?.isCommon || false;
+  static getRawDependencies(chunkType: string): ChunkType[] {
+    const meta = this.metadata.find(meta => meta.type === chunkType);
+    return (
+      meta?.dependencies
+        .filter(dep => dep.dependencyType === 'raw')
+        .map(dep => dep.chunkType) || []
+    );
+  }
+
+  /**
+   * Get parsed dependencies for a specific chunk type
+   * @param chunkType - The chunk type identifier
+   * @returns Array of chunk types that need parsed chunk objects
+   */
+  static getParsedDependencies(chunkType: string): ChunkType[] {
+    const meta = this.metadata.find(meta => meta.type === chunkType);
+    return (
+      meta?.dependencies
+        .filter(dep => dep.dependencyType === 'parsed')
+        .map(dep => dep.chunkType) || []
+    );
+  }
+
+  /**
+   * Get all dependency information for a specific chunk type
+   * @param chunkType - The chunk type identifier
+   * @returns Array of chunk dependencies with their types
+   */
+  static getDependencyInfo(chunkType: string): ChunkDependency[] {
+    const meta = this.metadata.find(meta => meta.type === chunkType);
+    return meta?.dependencies || [];
   }
 
   /**
    * Get all registered chunk types
    * @returns Array of all chunk type identifiers
    */
-  static getAllChunkTypes(): string[] {
-    return Array.from(this.metadata.keys());
+  static getAllChunkTypes(): ChunkType[] {
+    return this.metadata.map(meta => meta.type);
   }
 
   /**
@@ -115,7 +146,14 @@ export class ChunkMetadataRegistry {
    * @param metadata - Metadata for the new chunk type
    */
   static registerChunkType(metadata: ChunkTypeMetadata): void {
-    this.metadata.set(metadata.type, metadata);
+    const existingIndex = this.metadata.findIndex(
+      meta => meta.type === metadata.type,
+    );
+    if (existingIndex >= 0) {
+      this.metadata[existingIndex] = metadata;
+    } else {
+      this.metadata.push(metadata);
+    }
   }
 
   /**
@@ -124,7 +162,24 @@ export class ChunkMetadataRegistry {
    * @returns true if chunk type is registered, false otherwise
    */
   static hasChunkType(chunkType: string): boolean {
-    return this.metadata.has(chunkType);
+    return this.metadata.some(meta => meta.type === chunkType);
+  }
+
+  /**
+   * Check if a chunk type is known (either as a main chunk or dependency)
+   * @param chunkType - The chunk type identifier
+   * @returns true if chunk type is registered or referenced as a dependency
+   */
+  static isKnownChunkType(chunkType: string): boolean {
+    // Check if it's a main registered chunk
+    if (this.hasChunkType(chunkType)) {
+      return true;
+    }
+
+    // Check if it's referenced as a dependency
+    return this.metadata.some(meta =>
+      meta.dependencies.some(dep => dep.chunkType === chunkType),
+    );
   }
 
   /**
@@ -133,6 +188,6 @@ export class ChunkMetadataRegistry {
    * @returns Description if found, undefined otherwise
    */
   static getDescription(chunkType: string): string | undefined {
-    return this.metadata.get(chunkType)?.description;
+    return this.metadata.find(meta => meta.type === chunkType)?.description;
   }
 }

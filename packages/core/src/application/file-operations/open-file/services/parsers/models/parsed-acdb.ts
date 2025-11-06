@@ -1,11 +1,12 @@
 import type {BaseChunk} from '../chunks/base-chunk.js';
-import type {HeaderChunk} from '../chunks/header-chunk.js';
 
 /**
  * Container for all parsed chunks from an ACDB file
  */
 export class ParsedAcdb {
   private chunks = new Map<string, BaseChunk>();
+
+  public fileType: number = 0;
 
   /**
    * Add a parsed chunk to the collection
@@ -33,12 +34,5 @@ export class ParsedAcdb {
    */
   getAllChunks(): Map<string, BaseChunk> {
     return new Map(this.chunks);
-  }
-
-  /**
-   * Convenience method to get the header chunk
-   */
-  getHeader(): HeaderChunk | undefined {
-    return this.getChunk<HeaderChunk>('HEADER');
   }
 }

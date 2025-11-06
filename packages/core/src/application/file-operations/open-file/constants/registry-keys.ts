@@ -1,16 +1,4 @@
 /**
- * Typed constants for chunk parser keys.
- * Used to identify different chunk types in the parser registry.
- */
-export const CHUNK_PARSER_KEYS = {
-  HEADER: 'HEADER',
-  METADATA: 'METADATA',
-  MODULE: 'MODULE',
-  SUBGRAPH: 'SUBGRAPH',
-  CONTAINER: 'CONTAINER',
-} as const;
-
-/**
  * Typed constants for handler keys in the parser registry.
  * Used to identify different handler functions.
  */
@@ -42,8 +30,6 @@ export const ENTITY_HANDLER_KEYS = {
 } as const;
 
 // Type exports for better type safety
-export type ChunkParserKey =
-  (typeof CHUNK_PARSER_KEYS)[keyof typeof CHUNK_PARSER_KEYS];
 export type HandlerKey = (typeof HANDLER_KEYS)[keyof typeof HANDLER_KEYS];
 export type EntityBuilderKey =
   (typeof ENTITY_BUILDER_KEYS)[keyof typeof ENTITY_BUILDER_KEYS];

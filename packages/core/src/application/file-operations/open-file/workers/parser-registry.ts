@@ -1,14 +1,15 @@
-import {HeaderChunkParser} from '../services/parsers/header-chunk-parser.js';
-import {HeaderChunk} from '../services/parsers/chunks/header-chunk.js';
+import {HeaderChunkParser} from '../services/parsers/chunk-parser/header-chunk-parser.js';
+import {DatapoolChunkParser} from '../services/parsers/chunk-parser/datapool-chunk-parser.js';
 import type {ChunkParseContext} from '../services/parsers/models/chunk-parse-context.js';
 import type {BaseChunk} from '../services/parsers/chunks/base-chunk.js';
-import type {BaseChunkParser} from '../services/parsers/base-chunk-parser.js';
+import type {BaseChunkParser} from '../services/parsers/chunk-parser/base-chunk-parser.js';
 import type {
   ChunkParseInput,
   ChunkParseContextData,
 } from '../types/chunk-parse.types.js';
 import type {Handler} from '../../../ports/worker/handler-registry.port.js';
-import {CHUNK_PARSER_KEYS, HANDLER_KEYS} from '../constants/registry-keys.js';
+import {HANDLER_KEYS} from '../constants/registry-keys.js';
+import {CHUNK_TYPES} from '../constants/chunk-types.js';
 
 /**
  * Creates default chunk parser factories.
@@ -16,7 +17,8 @@ import {CHUNK_PARSER_KEYS, HANDLER_KEYS} from '../constants/registry-keys.js';
  */
 function createDefaultChunkParsers(): Map<string, BaseChunkParser> {
   return new Map<string, BaseChunkParser>([
-    [CHUNK_PARSER_KEYS.HEADER, new HeaderChunkParser()],
+    [CHUNK_TYPES.HEADER, new HeaderChunkParser()],
+    [CHUNK_TYPES.DATAPOOL, new DatapoolChunkParser()],
     // Add more default parsers here as they are created
   ]);
 }
@@ -53,24 +55,15 @@ export function createParserRegistry(): Map<string, Handler> {
       throw new Error(`Unknown chunk type: ${input.chunkType}`);
     }
 
-    // Reconstruct dependencies map from serialized data
-    const dependencies = new Map<string, BaseChunk>();
+    // Create context with DATAPOOL if available
+    const context: ChunkParseContext = {
+      parsedChunks: contextData?.parsedChunks
+        ? contextData?.parsedChunks
+        : undefined,
+    };
 
-    if (contextData?.dependencies) {
-      for (const [depType, depData] of Object.entries(
-        contextData.dependencies,
-      )) {
-        // Reconstruct chunk instance from serialized data
-        const depChunk = reconstructChunk(depType, depData);
-        dependencies.set(depType, depChunk);
-      }
-    }
-
-    // Create context for chunk parser
-    const context: ChunkParseContext = {dependencies};
-
-    // Parse the chunk using the factory
-    return parser.parse(input.chunkData, context);
+    // Parse the chunk group using the factory
+    return parser.parse(input.chunkGroup, context);
   }) as Handler);
 
   // Future handlers can be registered here
@@ -88,12 +81,15 @@ export function createParserRegistry(): Map<string, Handler> {
  * @param data - Serialized chunk data
  * @returns Reconstructed chunk instance
  */
-function reconstructChunk(chunkType: string, data: unknown): BaseChunk {
+/*function reconstructChunk(chunkType: string, data: unknown): BaseChunk {
   let chunk: BaseChunk;
 
   switch (chunkType) {
-    case CHUNK_PARSER_KEYS.HEADER:
+    case CHUNK_TYPES.HEADER:
       chunk = new HeaderChunk();
+      break;
+    case CHUNK_TYPES.DATAPOOL:
+      chunk = new DatapoolChunk();
       break;
     default:
       throw new Error(`Unknown chunk type: ${chunkType}`);
@@ -102,4 +98,4 @@ function reconstructChunk(chunkType: string, data: unknown): BaseChunk {
   // Populate chunk with deserialized data
   Object.assign(chunk, data);
   return chunk;
-}
+}*/

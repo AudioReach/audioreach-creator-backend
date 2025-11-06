@@ -1,5 +1,5 @@
-import type {BaseChunk} from './chunks/base-chunk.js';
-import type {ChunkParseContext} from './models/chunk-parse-context.js';
+import type {BaseChunk} from '../chunks/base-chunk.js';
+import type {ChunkParseContext} from '../models/chunk-parse-context.js';
 
 /**
  * Abstract base class for chunk parser factories.
@@ -12,10 +12,13 @@ export abstract class BaseChunkParser<T extends BaseChunk = BaseChunk> {
   abstract readonly chunkType: string;
 
   /**
-   * Parse chunk data into a chunk instance
-   * @param data - Raw chunk data bytes
-   * @param context - Parse context with dependencies
+   * Parse chunk from chunk group
+   * @param chunkGroup - All chunks (main + dependencies) as raw data
+   * @param context - Parse context with common DATAPOOL chunk
    * @returns Parsed chunk instance
    */
-  abstract parse(data: Uint8Array, context: ChunkParseContext): T;
+  abstract parse(
+    chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}>,
+    context: ChunkParseContext,
+  ): T;
 }

@@ -115,8 +115,8 @@ export class ProjectController {
   async uploadArcDbFiles(
     @UploadedFiles()
     files: {
-      acdbFile: Express.Multer.File;
-      workspaceFile: Express.Multer.File;
+      acdbFile: Express.Multer.File[];
+      workspaceFile: Express.Multer.File[];
     },
     @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
     //@Request() req: any,
@@ -134,8 +134,8 @@ export class ProjectController {
       throw new BadRequestException('clientId is required');
     }*/
 
-    const acdb = files?.acdbFile;
-    const awsp = files?.workspaceFile;
+    const acdb = files?.acdbFile?.[0];
+    const awsp = files?.workspaceFile?.[0];
 
     if (!acdb || !awsp) {
       throw new BadRequestException(

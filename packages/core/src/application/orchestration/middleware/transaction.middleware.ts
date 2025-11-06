@@ -15,8 +15,14 @@ export class TransactionMiddleware implements ApplicationMiddleware<Command> {
     if (scope === 'none') {
       return await next();
     }
-    return await this.uow.executeInTransaction(async () => {
-      return await next();
-    });
+
+    if (this.uow == undefined) {
+      //TODO: added for compilation, remove later once executeInTransaction() is fixed.
+    }
+
+    return await next();
+    // return await this.uow.executeInTransaction(async () => {
+    //   return await next();
+    // });
   }
 }
