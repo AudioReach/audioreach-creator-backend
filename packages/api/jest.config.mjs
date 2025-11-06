@@ -1,7 +1,7 @@
 export default {
   // Use ES modules preset for ts-jest
   preset: 'ts-jest/presets/default-esm',
-  
+
   // Treat .ts files as ES modules
   extensionsToTreatAsEsm: ['.ts'],
 
@@ -22,17 +22,10 @@ export default {
         ],
       },
       resolver: 'jest-ts-webcompat-resolver',
-      collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/main.ts'
-      ],
+      collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
-      coveragePathIgnorePatterns: [
-        '/node_modules/',
-        '/tests/',
-        'src/main.ts'
-      ]
+      coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/main.ts'],
     },
     {
       displayName: 'integration',
@@ -47,25 +40,21 @@ export default {
             useESM: true,
           },
         ],
-      },      
+      },
       resolver: 'jest-ts-webcompat-resolver',
-      collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/main.ts'
-      ],
+      collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
-      coveragePathIgnorePatterns: [
-        '/node_modules/',
-        '/tests/',
-        'src/main.ts'
-      ]
+      coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/main.ts'],
     },
     {
       displayName: 'e2e',
+      preset: 'ts-jest/presets/default-esm',
       testEnvironment: 'node',
+      extensionsToTreatAsEsm: ['.ts'],
       roots: ['<rootDir>'],
       testMatch: ['**/tests/e2e/**/*.e2e-spec.ts'],
+      testTimeout: 120000,
       transform: {
         '^.+\\.(t|j)s$': [
           'ts-jest',
@@ -75,28 +64,26 @@ export default {
           },
         ],
       },
-      
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
+      },
       resolver: 'jest-ts-webcompat-resolver',
-      collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/main.ts'
-      ],
+      collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
       coverageDirectory: './coverage',
       coverageReporters: ['html', 'json'],
-      coveragePathIgnorePatterns: [
-        '/node_modules/',
-        '/tests/',
-        'src/main.ts'
-      ]
-    }
+      coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/main.ts'],
+    },
   ],
   // Global reporters for all projects - merged XML output
   reporters: [
     'default',
-    ['jest-junit', {
-      outputDirectory: './test-results',
-      outputName: 'merged-results.xml',
-      suiteName: 'API All Tests'
-    }]
-  ]
+    [
+      'jest-junit',
+      {
+        outputDirectory: './test-results',
+        outputName: 'merged-results.xml',
+        suiteName: 'API All Tests',
+      },
+    ],
+  ],
 };

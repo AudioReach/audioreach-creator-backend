@@ -51,11 +51,13 @@ import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-e
 import {AddModuleCommand} from '../../../usecase-designer/index.js';
 import {OpenFileCommand} from '../../../file-operations/open-file/open-file.command.js';
 import {OpenFileHandler} from '../../../file-operations/open-file/open-file.handler.js';
-import type {FileReaderPort} from '../../../file-operations/open-file/file-reader.port.js';
+import type {FileReaderPort} from '../../../file-operations/open-file/ports/file-reader.port.js';
+import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
   fileReader: FileReaderPort;
+  workerPool?: WorkerPoolPort;
   // Logger
   // Event Bus
 }
@@ -105,7 +107,8 @@ export class CommandHandlerRegistry {
       create: deps => new AddModuleCommandHandler(deps.uow),
     });
     this.commandHandlerFactories.set(OpenFileCommand, {
-      create: deps => new OpenFileHandler(deps.uow, deps.fileReader),
+      create: deps =>
+        new OpenFileHandler(deps.uow, deps.fileReader, deps.workerPool),
     });
   }
 }

@@ -1,4 +1,4 @@
-import type {FileRef} from './file-ref.js';
+import type {FileRef} from '../utils/file-ref.js';
 
 export interface FileReaderPort {
   /**

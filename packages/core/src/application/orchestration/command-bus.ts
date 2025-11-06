@@ -5,7 +5,8 @@ import type {CommandHandlerDependencies} from './cqrs/registries/command-handler
 import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 import type {Request} from './cqrs/request.js';
 import {TransactionMiddleware} from './middleware/transaction.middleware.js';
-import type {FileReaderPort} from '../../application/file-operations/open-file/file-reader.port.js';
+import type {FileReaderPort} from '../../application/file-operations/open-file/ports/file-reader.port.js';
+import type {WorkerPoolPort} from '../ports/worker/worker-pool.port.js';
 
 export class CommandBus {
   private middlewares: ApplicationMiddleware<Request>[] = [];
@@ -14,6 +15,7 @@ export class CommandBus {
     private unitOfWork: UnitOfWork,
     private handlerRegistry: CommandHandlerRegistry,
     private fileReader: FileReaderPort,
+    private workerPool?: WorkerPoolPort,
   ) {
     this.registerMiddlewares();
   }
@@ -34,6 +36,7 @@ export class CommandBus {
     const dependencies: CommandHandlerDependencies = {
       uow: this.unitOfWork,
       fileReader: this.fileReader,
+      workerPool: this.workerPool,
     };
     return factory.create(dependencies);
   }

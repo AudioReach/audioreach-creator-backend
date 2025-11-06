@@ -1,13 +1,13 @@
 /**
  * Helper cursor to consume a contiguous ID range deterministically.
  */
-class IdCursor {
+export class IdCursor {
   private current: number;
   constructor(
     private readonly start: number,
     private readonly end: number,
   ) {
-    this.current = start;
+    this.current = this.start;
   }
   next(): number {
     if (this.current >= this.end) {

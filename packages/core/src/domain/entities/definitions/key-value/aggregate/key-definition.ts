@@ -1,7 +1,4 @@
-import {
-  SPECIALTY_KEY,
-  type SpecialtyKey,
-} from '../../common/enums/speciality-type.js';
+import {type SpecialtyKey} from '../../common/enums/speciality-type.js';
 import {
   DuplicateKeyValuePairException,
   DuplicateSystemIdException,

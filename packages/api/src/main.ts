@@ -1,8 +1,10 @@
-import { ValidationPipe } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
-import { setupSwagger } from "./presentation/rest/common/services/swagger-service.js";
-import { AppModule } from "./app.module.js";
-import { Tokens } from './presentation/rest/common/utils/index.js';
+import {ValidationPipe} from '@nestjs/common';
+import {NestFactory} from '@nestjs/core';
+import {setupSwagger} from './presentation/rest/common/services/swagger-service.js';
+import {AppModule} from './app.module.js';
+import {Tokens} from './presentation/rest/common/utils/index.js';
+import {AllExceptionsFilter} from './infrastructure-wrapper/filters/all-exceptions.filter.js';
+import {ValidationExceptionFilter} from './infrastructure-wrapper/filters/validation-exception.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,8 +21,12 @@ async function bootstrap() {
   // Enable CORS
   app.enableCors();
 
-
-
+  // Register global exception filters
+  const logger = app.get('LOGGER');
+  app.useGlobalFilters(
+    new AllExceptionsFilter(logger),
+    new ValidationExceptionFilter(logger),
+  );
 
   const port = process.env.PORT ?? 3000;
 
@@ -28,16 +34,29 @@ async function bootstrap() {
   const buildType = process.env.NODE_ENV ?? Tokens.BUILD_DEVELOPMENT;
   if (buildType !== Tokens.BUILD_PRODUCTION) {
     setupSwagger(app);
-    console.log(`Swagger documentation available at: http://localhost:${port}/api/docs`);
+    logger.logInfo({
+      component: 'Bootstrap',
+      action: 'setupSwagger',
+      msg: `Swagger documentation available at: http://localhost:${port}/api/docs`,
+      timestamp: new Date(),
+      tag: 'startup',
+    });
   }
 
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  logger.logInfo({
+    component: 'Bootstrap',
+    action: 'startup',
+    msg: `Application is running on: http://localhost:${port}/arcapi/v1`,
+    timestamp: new Date(),
+    tag: 'startup',
+  });
 }
 
 try {
   await bootstrap();
 } catch (error) {
-  console.error("Failed to start application:", error);
+  // We can't use the logger here since it might not be initialized yet
+  console.error('Failed to start application:', error);
   process.exit(1);
 }

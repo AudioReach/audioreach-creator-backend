@@ -1,5 +1,5 @@
-import {DataPortDefinition} from './data-port-definition.js';
 import type {PortIoType} from 'domain/entities/common/enums/port-io-type.js';
+import {DataPortDefinition} from './data-port-definition.js';
 
 export interface DataPortGroupDefinitionInit {
   max: number;

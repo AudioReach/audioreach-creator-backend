@@ -9,9 +9,10 @@ import {
   Post,
   Request,
   UploadedFiles,
-  UseGuards,
+  //UseGuards,
   UseInterceptors,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -23,30 +24,29 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 
-import {
-  FileFieldsInterceptor,
-} from '@nestjs/platform-express';
+import {FileFieldsInterceptor} from '@nestjs/platform-express';
 
 import multer from 'multer';
-import {AuthGuard} from '@nestjs/passport';
-
-
+//import {AuthGuard} from '@nestjs/passport';
 import {CommandBus, OpenFileCommand} from '@arc/core';
-import type {FileRef} from '@arc/core';
+import type {FileRef, Logger} from '@arc/core';
 import {promises as fsPromises} from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ApiResult } from '../../common/dto/api-response/api-result.dto.js';
-import { ProjectInfoResponseDto } from './dto/project-info-response.dto.js';
-import { ProjectInfoUpdateDto } from './dto/project-info-update.dto.js';
-import { DownloadArcDatabaseFilesResponseDto } from './dto/download-arc-database-files-response.dto.js';
-import { ProjectType } from './enums/project-type.enum.js';
-import { SessionMode } from './enums/session-mode.enum.js';
+import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
+import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
+import {DownloadArcDatabaseFilesResponseDto} from './dto/download-arc-database-files-response.dto.js';
+import {ProjectType} from './enums/project-type.enum.js';
+import {SessionMode} from './enums/session-mode.enum.js';
 
 @Controller('arc-api/v1/')
-@UseGuards(AuthGuard('jwt'))
+//@UseGuards(AuthGuard('jwt'))
 export class ProjectController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    @Inject('LOGGER') private readonly logger: Logger,
+  ) {}
 
   @Post('/offline/files')
   @ApiConsumes('multipart/form-data')
@@ -64,7 +64,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
+            data: {$ref: getSchemaPath(ProjectInfoResponseDto)},
           },
         },
       ],
@@ -92,8 +92,6 @@ export class ProjectController {
     schema: {
       type: 'object',
       properties: {
-        projectName: {type: 'string'},
-        projectDescription: {type: 'string'},
         acdbFile: {type: 'string', format: 'binary'},
         workspaceFile: {type: 'string', format: 'binary'},
       },
@@ -121,12 +119,20 @@ export class ProjectController {
       workspaceFile: Express.Multer.File;
     },
     @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
-    @Request() req: any,
+    //@Request() req: any,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const clientId = req.user?.clientId;
-    if (!clientId) {
+    this.logger.logInfo({
+      component: 'ProjectController',
+      action: 'uploadArcDbFiles',
+      msg: 'Method called',
+      timestamp: new Date(),
+      tag: 'file-upload',
+    });
+    const clientId = ''; //TODO: gather from jwt
+    //TODO: enable this later
+    /*if (!clientId) {
       throw new BadRequestException('clientId is required');
-    }
+    }*/
 
     const acdb = files?.acdbFile;
     const awsp = files?.workspaceFile;
@@ -177,7 +183,16 @@ export class ProjectController {
       };
     } catch (error) {
       // Log error and clean up any created files
-      console.error('Failed to write temporary files:', error);
+      this.logger.logError({
+        component: 'ProjectController',
+        action: 'uploadArcDbFiles',
+        msg: 'Failed to write temporary files',
+        timestamp: new Date(),
+        clientId,
+        tag: 'error',
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+
       await Promise.allSettled([
         fsPromises.unlink(acdbPath).catch(() => {}),
         fsPromises.unlink(awspPath).catch(() => {}),
@@ -213,17 +228,18 @@ export class ProjectController {
       return projectResponse;
     } catch (error) {
       // Keep temp files for debugging; log absolute paths
-      // eslint-disable-next-line no-console
-      console.error(
-        'Open offline files failed. Temp files preserved:',
-        acdbPath,
-        awspPath,
-        error,
-      );
+      this.logger.logError({
+        component: 'ProjectController',
+        action: 'uploadArcDbFiles',
+        msg: `Open offline files failed. Temp files preserved: ${acdbPath}, ${awspPath}`,
+        timestamp: new Date(),
+        clientId,
+        tag: 'error',
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
       throw error;
     }
   }
-
 
   @Get('projects')
   @ApiOperation({
@@ -239,30 +255,31 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: { 
+            data: {
               type: 'array',
-              items:{$ref: getSchemaPath(ProjectInfoResponseDto) }},
+              items: {$ref: getSchemaPath(ProjectInfoResponseDto)},
+            },
           },
         },
       ],
     },
   })
-  async getProjects(@Request() req: any): Promise<ApiResult<ProjectInfoResponseDto[]>> {
+  async getProjects(
+    @Request() req: any,
+  ): Promise<ApiResult<ProjectInfoResponseDto[]>> {
     // Extract client ID from JWT token
     const clientId = req.user?.clientId;
-    
+
     // return list of active projects for this client
     const projectdetails: ProjectInfoResponseDto[] = [];
     await Promise.resolve();
-    const projectResponses: ApiResult<ProjectInfoResponseDto[]> =
-    {
+    const projectResponses: ApiResult<ProjectInfoResponseDto[]> = {
       data: projectdetails,
       success: true,
       message: `Successfully fetch projects for client ${clientId}`,
     };
     return projectResponses;
   }
-
 
   @Get('projects/:projectId')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
@@ -278,7 +295,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
+            data: {$ref: getSchemaPath(ProjectInfoResponseDto)},
           },
         },
       ],
@@ -301,12 +318,12 @@ export class ProjectController {
       ],
     },
   })
-  async getProject(@Param('projectId') _projectId: string): Promise<ApiResult<ProjectInfoResponseDto>> {
-
-    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto; // ToDo Need to update the project Info once services ready
+  async getProject(
+    @Param('projectId') _projectId: string,
+  ): Promise<ApiResult<ProjectInfoResponseDto>> {
+    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto(); // ToDo Need to update the project Info once services ready
     await Promise.resolve();
-    const projectResponse: ApiResult<ProjectInfoResponseDto> =
-    {
+    const projectResponse: ApiResult<ProjectInfoResponseDto> = {
       data: projectdetail,
       success: true,
       message: 'Successfully fetch project',
@@ -315,8 +332,8 @@ export class ProjectController {
   }
 
   @Patch('projects/:projectId')
-  @ApiParam({ name: 'projectId', description: 'Id of project', required: true })
-  @ApiBody({ type: ProjectInfoUpdateDto })
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: ProjectInfoUpdateDto})
   @ApiOperation({
     summary: 'Update project name and description',
     description: 'Update project name and description based on project Id.',
@@ -329,7 +346,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
+            data: {$ref: getSchemaPath(ProjectInfoResponseDto)},
           },
         },
       ],
@@ -373,11 +390,9 @@ export class ProjectController {
     @Param('projectId') _projectId: string,
     @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-
-    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto; // ToDo Need to update the project Info once services ready
+    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto(); // ToDo Need to update the project Info once services ready
     await Promise.resolve();
-    const projectResponse: ApiResult<ProjectInfoResponseDto> =
-    {
+    const projectResponse: ApiResult<ProjectInfoResponseDto> = {
       data: projectdetail,
       success: true,
       message: '',
@@ -399,7 +414,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
+            data: {$ref: getSchemaPath(ProjectInfoResponseDto)},
           },
         },
       ],
@@ -422,11 +437,13 @@ export class ProjectController {
       ],
     },
   })
-  async connectToProject(@Param('projectId') _projectId: string): Promise<ApiResult<ProjectInfoResponseDto>> {
+  async connectToProject(
+    @Param('projectId') _projectId: string,
+  ): Promise<ApiResult<ProjectInfoResponseDto>> {
     // Need a project Id to open the project. It will take from header
 
     await Promise.resolve();
-    return new ApiResult<ProjectInfoResponseDto>;
+    return new ApiResult<ProjectInfoResponseDto>();
   }
 
   @Patch('projects/:projectId/disconnect-from-project')
@@ -443,7 +460,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: { $ref: getSchemaPath(ProjectInfoResponseDto) },
+            data: {$ref: getSchemaPath(ProjectInfoResponseDto)},
           },
         },
       ],
@@ -466,14 +483,15 @@ export class ProjectController {
       ],
     },
   })
-  async disconnectFromProject(@Param('projectId') _projectId: string): Promise<ApiResult<ProjectInfoResponseDto>> {
+  async disconnectFromProject(
+    @Param('projectId') _projectId: string,
+  ): Promise<ApiResult<ProjectInfoResponseDto>> {
     // Need a project Id to open the project. It will take from header
 
     await Promise.resolve();
 
-    return new ApiResult<ProjectInfoResponseDto>;
+    return new ApiResult<ProjectInfoResponseDto>();
   }
-
 
   @Get('projects/:projectId/download')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
@@ -490,7 +508,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: { $ref: getSchemaPath(DownloadArcDatabaseFilesResponseDto) },
+            data: {$ref: getSchemaPath(DownloadArcDatabaseFilesResponseDto)},
           },
         },
       ],
@@ -513,19 +531,20 @@ export class ProjectController {
       ],
     },
   })
-  async downloadArcDbFiles(@Param('projectId') _projectId: string): Promise<ApiResult<DownloadArcDatabaseFilesResponseDto>> {
-
+  async downloadArcDbFiles(
+    @Param('projectId') _projectId: string,
+  ): Promise<ApiResult<DownloadArcDatabaseFilesResponseDto>> {
     await Promise.resolve();
-    const acdbWorkspaceFilesResponse: DownloadArcDatabaseFilesResponseDto = new DownloadArcDatabaseFilesResponseDto;
+    const acdbWorkspaceFilesResponse: DownloadArcDatabaseFilesResponseDto =
+      new DownloadArcDatabaseFilesResponseDto();
     const acdbWorkspaceFilesResult: ApiResult<DownloadArcDatabaseFilesResponseDto> =
-    {
-      data: acdbWorkspaceFilesResponse,
-      success: true,
-      message: ""
-    }
+      {
+        data: acdbWorkspaceFilesResponse,
+        success: true,
+        message: '',
+      };
     return acdbWorkspaceFilesResult;
   }
-
 
   @Delete('projects/:projectId')
   @ApiOperation({

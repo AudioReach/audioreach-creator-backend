@@ -1,4 +1,4 @@
-import type {PortIoType} from 'domain/entities/common/enums/port-io-type.js';
+import type {PortIoType} from '../../../common/enums/port-io-type.js';
 
 export class DataPort {
   readonly systemId: number;
