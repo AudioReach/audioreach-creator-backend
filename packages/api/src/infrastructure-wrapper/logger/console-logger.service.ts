@@ -1,8 +1,44 @@
-import {Injectable} from '@nestjs/common';
+import {Injectable, type OnModuleDestroy} from '@nestjs/common';
 import {type Logger, type LogData, LogLevel} from '@arc/core';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 @Injectable()
-export class ConsoleLoggerService implements Logger {
+export class ConsoleLoggerService implements Logger, OnModuleDestroy {
+  private logFilePath: string;
+  private logStream: fs.WriteStream;
+
+  constructor() {
+    // Create logs directory in the project root
+    const logsDir = path.join(process.cwd(), 'logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, {recursive: true});
+    }
+
+    // Create log file with timestamp
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    this.logFilePath = path.join(logsDir, `server-debug-${timestamp}.log`);
+    this.logStream = fs.createWriteStream(this.logFilePath, {flags: 'a'});
+
+    // Log startup information
+    this.logInfo({
+      component: 'Logger',
+      action: 'initialize',
+      msg: `Logger initialized. Writing to ${this.logFilePath}`,
+      timestamp: new Date(),
+      tag: 'startup',
+    });
+  }
+  async onModuleDestroy() {
+    // Properly close the stream on shutdown
+    return new Promise<void>(resolve => {
+      this.logStream.end(() => {
+        resolve();
+      });
+    });
+  }
+
   async logVerbose(data: LogData): Promise<void> {
     this.log(LogLevel.Verbose, data);
   }
@@ -30,6 +66,10 @@ export class ConsoleLoggerService implements Logger {
   private log(level: LogLevel, data: LogData): void {
     const logEntry = this.formatLogEntry(level, data);
 
+    // Write to file
+    this.logStream.write(logEntry + os.EOL);
+
+    // Also log to console
     switch (level) {
       case LogLevel.Verbose:
       case LogLevel.Debug:
@@ -46,6 +86,10 @@ export class ConsoleLoggerService implements Logger {
         console.error(logEntry);
         if (data.error) {
           console.error(data.error);
+          // Also write error stack to file
+          if (data.error.stack) {
+            this.logStream.write(`STACK: ${data.error.stack}${os.EOL}`);
+          }
         }
         break;
     }

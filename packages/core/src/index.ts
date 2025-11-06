@@ -30,10 +30,39 @@ export * from './application/usecase-designer/spf-module/create/create-module.co
 export * from './application/usecase-designer/spf-module/create/create-module.handler.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
+// Generic Worker Abstractions
+export * from './application/ports/worker/worker-pool.port.js';
+export * from './application/ports/worker/handler-registry.port.js';
+export * from './application/ports/worker/worker-types.js';
+
 // File Operations - Open File pipeline exports
-export * from './application/file-operations/open-file/file-ref.js';
-export * from './application/file-operations/open-file/file-reader.port.js';
-export * from './application/file-operations/open-file/parsers/acdb-parser.js';
-export * from './application/file-operations/open-file/parsers/awsp-parser.js';
+export * from './application/file-operations/open-file/utils/file-ref.js';
+export * from './application/file-operations/open-file/ports/file-reader.port.js';
+export * from './application/file-operations/open-file/types/chunk-parse.types.js';
+export * from './application/file-operations/open-file/types/entity-builder.types.js';
+export * from './application/file-operations/open-file/workers/parser-registry.js';
+export * from './application/file-operations/open-file/workers/entity-builder-registry.js';
+export * from './application/file-operations/open-file/services/parsers/base-chunk-parser.js';
+export * from './application/file-operations/open-file/services/parsers/header-chunk-parser.js';
+export * from './application/file-operations/open-file/services/parsers/acdb-chunk-parser.js';
+export * from './application/file-operations/open-file/services/parsers/acdb-parser.js';
+export * from './application/file-operations/open-file/services/parsers/awsp-parser.js';
+export * from './application/file-operations/open-file/validators/acdb-file.validator.js';
 export * from './application/file-operations/open-file/open-file.command.js';
 export * from './application/file-operations/open-file/open-file.handler.js';
+
+// ACDB models and chunks
+export * from './application/file-operations/open-file/services/parsers/models/chunk-metadata.js';
+export * from './application/file-operations/open-file/services/parsers/models/chunk-parse-context.js';
+export * from './application/file-operations/open-file/services/parsers/models/parsed-acdb.js';
+export * from './application/file-operations/open-file/services/parsers/chunks/base-chunk.js';
+export * from './application/file-operations/open-file/services/parsers/chunks/header-chunk.js';
+export * from './application/file-operations/open-file/services/parsers/chunks/chunk-metadata-registry.js';
+
+// ACDB entities and factories
+export * from './domain/entities/common/entities/header.entity.js';
+export * from './application/file-operations/open-file/entity-builders/base-entity-builder.js';
+export * from './application/file-operations/open-file/entity-builders/header-entity.builder.js';
+
+// Application - Entity building
+export * from './application/file-operations/open-file/services/entity-builder-service.js';

@@ -7,6 +7,13 @@ export function buildModules(
   idReservationService: SystemIdReservationService,
   /* parsed objects */
 ): SpfModule[] {
+  if (entitiesReferenceIndexer.moduleById == null) {
+    console.log('error');
+  }
+
+  if (idReservationService.reserveDefaultBlock == null) {
+    console.log('error');
+  }
   /*
     Counts instances per table.
     Reserves systemIds via IdReservationService for the current entity.

@@ -14,7 +14,7 @@
     "test:api": "jest --passWithNoTests",
     "test:unit:api": "jest --selectProjects unit --passWithNoTests",
     "test:integration:api": "jest --selectProjects integration --passWithNoTests",
-    "test:e2e:api": "jest --selectProjects e2e --passWithNoTests",
+    "test:e2e:api": "NODE_OPTIONS=--experimental-vm-modules jest --selectProjects e2e --passWithNoTests",
     "coverage:api": "jest --coverage --passWithNoTests",
     "coverage:workspace": "cd ../.. && yarn run coverage:workspace",
     "coverage:clean": "shx rm -rf coverage",

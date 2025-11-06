@@ -1,4 +1,4 @@
-import type {KvData} from 'domain/entities/common/entities/kv-data.js';
+import type {KvData} from '../../../common/entities/kv-data.js';
 
 export class DuplicateTkvExceptionError extends Error {
   constructor(

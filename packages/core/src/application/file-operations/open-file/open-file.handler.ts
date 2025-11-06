@@ -1,10 +1,12 @@
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import type {OpenFileCommand} from './open-file.command.js';
-import type {FileReaderPort} from './file-reader.port.js';
-import {AcdbParser} from './parsers/acdb-parser.js';
-import {AwspParser} from './parsers/awsp-parser.js';
-import type {FileRef} from './file-ref.js';
+import type {FileReaderPort} from './ports/file-reader.port.js';
+import type {FileRef} from './utils/file-ref.js';
+import {UploadFileOrchestrator} from './services/upload-file-orchestrator.js';
+import type {SystemIdReservationService} from '../../ports/persistence/systemId-reservation-service.port.js';
+import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
+import type {Logger} from '../../../shared/types/logger.interface.js';
 
 export type OpenFileResult = {
   projectId: string;
@@ -15,45 +17,34 @@ export type OpenFileResult = {
 export class OpenFileHandler
   implements CommandHandler<OpenFileCommand, OpenFileResult>
 {
-  private acdbParser: AcdbParser;
-  private awspParser: AwspParser;
+  private uploadOrchestrator: UploadFileOrchestrator;
 
   constructor(
     private readonly uow: UnitOfWork,
     private readonly fileReader: FileReaderPort,
+    workerPool?: WorkerPoolPort,
+    private readonly idReservationService?: SystemIdReservationService,
+    logger?: Logger,
   ) {
-    this.acdbParser = new AcdbParser();
-    this.awspParser = new AwspParser();
+    this.uploadOrchestrator = new UploadFileOrchestrator(
+      this.fileReader,
+      this.uow,
+      this.idReservationService,
+      workerPool,
+      logger,
+    );
   }
 
   async handle(command: OpenFileCommand): Promise<OpenFileResult> {
     this.validateInputs(command.acdb, command.awsp);
 
-    // Read files
-    const [acdbBytes, awspBytes] = await Promise.all([
-      this.fileReader.readAll(command.acdb),
-      this.fileReader.readAll(command.awsp),
-    ]);
-
-    // Parse (placeholders)
-    const [acdbParsed, awspParsed] = await Promise.all([
-      this.acdbParser.parseACDB(acdbBytes),
-      this.awspParser.parseAWSP(awspBytes),
-    ]);
-
-    // Transactional DB updates (placeholder)
-    await this.uow.executeInTransaction(async () => {
-      // TODO: Use parsed results (acdbParsed, awspParsed) to initialize DB.
-      // Insert using repositories/query builders in dependency order.
-      // No raw file bytes should be stored.
-      void acdbParsed;
-      void awspParsed;
-    });
+    // Orchestrate the process: parse, build, and persist
+    await this.uploadOrchestrator.orchestrate(command.acdb, command.awsp);
 
     return {
       projectId: 'PENDING_DB_ID',
-      projectName: '', //TODO:
-      projectDescription: '', //TODO:
+      projectName: '', //TODO: Get from orchestrator
+      projectDescription: '', //TODO: Get from orchestrator
     };
   }
 

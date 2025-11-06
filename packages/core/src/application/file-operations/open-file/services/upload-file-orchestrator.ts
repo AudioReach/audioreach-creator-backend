@@ -6,9 +6,17 @@ import {
 import type {Container} from 'domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
 import type {SystemIdReservationService} from 'application/ports/persistence/systemId-reservation-service.port.js';
+import {AcdbParser} from './parsers/acdb-parser.js';
+import {AwspParser} from './parsers/awsp-parser.js';
+import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
+import type {PathRef} from '../utils/file-ref.js';
+import type {FileReaderPort} from '../ports/file-reader.port.js';
 
 export class UploadFileOrchestrator implements EntitiesReferenceIndexer {
   private builderService: EntityBuilderService;
+  private acdbParser: AcdbParser;
+  private awspParser: AwspParser;
 
   /* -----EntitiesReferenceIndexer ------*/
   readonly moduleById: Map<number, SpfModule> = new Map<number, SpfModule>();
@@ -19,21 +27,46 @@ export class UploadFileOrchestrator implements EntitiesReferenceIndexer {
   /* -------------------------------------*/
 
   constructor(
+    private filereader: FileReaderPort,
     private uow: UnitOfWork,
-    private idReservationService: SystemIdReservationService,
+    private idReservationService?: SystemIdReservationService,
+    workerPool?: WorkerPoolPort,
+    logger?: Logger,
   ) {
-    this.builderService = new EntityBuilderService(this, idReservationService);
+    // Pass worker pool to both services
+    this.builderService = new EntityBuilderService(
+      this,
+      this.idReservationService,
+      workerPool,
+      logger,
+    );
+
+    this.acdbParser = new AcdbParser(this.filereader, workerPool, logger);
+    this.awspParser = new AwspParser();
   }
 
-  async orchestrate(/* byte arrays */): Promise<boolean> {
-    //  const parsedItems = this.parser.Parse();
-    const result = this.builderService.buildAll(/*parsedItems*/);
-    return true;
+  async orchestrate(acdbPath: PathRef, awspPath: PathRef): Promise<boolean> {
+    // Parse files into chunks
+    var [parsedAcdb, parsedAwsp] = await Promise.all([
+      this.acdbParser.parseACDB(acdbPath),
+      this.awspParser.parseAWSP(awspPath),
+    ]);
+
+    // Call buildAll with the parsed data (implementation details to be added later)
+    const result = await this.builderService.buildAll(parsedAcdb, parsedAwsp);
+
+    await this.persistEntities();
+
+    return result;
   }
 
-  persistEntities() {
-    // Fill the items in DB in the correct order
-    // const moduleRepo = this.uow.getModuleRepo();
-    // moduleRepo.BulkInsert(moduleById);
+  async persistEntities(): Promise<void> {
+    // Transactional DB updates
+    await this.uow.executeInTransaction(async () => {
+      // Fill the items in DB in the correct order
+      // const moduleRepo = this.uow.getModuleRepo();
+      // moduleRepo.BulkInsert(this.moduleById);
+      // Add other repositories as needed
+    });
   }
 }

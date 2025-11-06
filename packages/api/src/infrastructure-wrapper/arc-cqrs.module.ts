@@ -5,12 +5,17 @@ import {
   CommandHandlerRegistry,
   QueryHandlerRegistry,
 } from '@arc/core';
-import type {UnitOfWork, QueryServices, FileReaderPort} from '@arc/core';
+import type {
+  UnitOfWork,
+  QueryServices,
+  FileReaderPort,
+  WorkerPoolPort,
+} from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {TypeOrmUnitOfWork} from './persistence/unit-of-work/typeorm-unit-of-work.js';
 import {DbQueryServices} from './persistence/queries/typeorm-query-services.js';
 import {DataSource} from 'typeorm';
-import {NodeFileReaderAdapter} from '@arc/fs';
+import {NodeFileReaderAdapter, createWorkerPool} from '@arc/fs';
 import {ConsoleLoggerService} from './logger/index.js';
 
 @Module({
@@ -34,6 +39,12 @@ import {ConsoleLoggerService} from './logger/index.js';
       scope: Scope.REQUEST,
     },
     {
+      provide: 'WORKER_POOL',
+      useFactory: () => {
+        return createWorkerPool();
+      },
+    },
+    {
       provide: 'COMMAND_HANDLER_REGISTRY',
       useFactory: () => CommandHandlerRegistry.Instance,
     },
@@ -52,11 +63,13 @@ import {ConsoleLoggerService} from './logger/index.js';
         unitOfWork: UnitOfWork,
         registry: CommandHandlerRegistry,
         fileReader: FileReaderPort,
-      ) => new CommandBus(unitOfWork, registry, fileReader),
+        workerPool: WorkerPoolPort,
+      ) => new CommandBus(unitOfWork, registry, fileReader, workerPool),
       inject: [
         'UNIT_OF_WORK',
         'COMMAND_HANDLER_REGISTRY',
         'NODE_FILE_READER_ADAPTER',
+        'WORKER_POOL',
       ],
       scope: Scope.REQUEST,
     },
@@ -83,6 +96,9 @@ import {ConsoleLoggerService} from './logger/index.js';
     'QUERY_HANDLER_REGISTRY',
     'DATA_SOURCE',
     'LOGGER',
+    'WORKER_POOL',
   ],
 })
-export class ArcCqrsModule {}
+export class ArcCqrsModule {
+  constructor() {}
+}
