@@ -15,7 +15,11 @@ import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {TypeOrmUnitOfWork} from './persistence/unit-of-work/typeorm-unit-of-work.js';
 import {DbQueryServices} from './persistence/queries/typeorm-query-services.js';
 import {DataSource} from 'typeorm';
-import {NodeFileReaderAdapter, createWorkerPool} from '@arc/fs';
+import {
+  NodeFileReaderAdapter,
+  NodeProfilerAdapter,
+  createWorkerPool,
+} from '@arc/fs';
 import {ConsoleLoggerService} from './logger/index.js';
 
 @Module({
@@ -86,6 +90,10 @@ import {ConsoleLoggerService} from './logger/index.js';
       provide: 'LOGGER',
       useClass: ConsoleLoggerService,
     },
+    {
+      provide: 'PROFILER',
+      useFactory: () => new NodeProfilerAdapter(),
+    },
   ],
   exports: [
     CommandBus,
@@ -96,6 +104,7 @@ import {ConsoleLoggerService} from './logger/index.js';
     'QUERY_HANDLER_REGISTRY',
     'DATA_SOURCE',
     'LOGGER',
+    'PROFILER',
     'WORKER_POOL',
   ],
 })

@@ -1,5 +1,10 @@
 import {HeaderEntity} from '../../../../domain/entities/common/entities/header.entity.js';
-import {HeaderChunk} from '../services/parsers/chunks/header-chunk.js';
+import {CHUNK_TYPES} from '../constants/chunk-types.js';
+import {
+  HeaderChunk,
+  type ACDBVersionInfo,
+  type CodecInfo,
+} from '../services/parsers/chunks/header-chunk.js';
 import {
   BaseEntityBuilder,
   type EntityBuilderContext,
@@ -9,9 +14,11 @@ import {
  * Data transfer object for HeaderEntity creation
  */
 export interface HeaderEntityData {
-  version: string;
-  fileSize: number;
-  chunkCount: number;
+  headerVersion: number;
+  version: ACDBVersionInfo;
+  codecInfos: CodecInfo[];
+  modifiedDate: number;
+  oemInfo: string;
 }
 
 /**
@@ -19,11 +26,11 @@ export interface HeaderEntityData {
  */
 export class HeaderEntityBuilder extends BaseEntityBuilder<HeaderEntity> {
   readonly entityType = 'HEADER_ENTITY';
-  readonly requiredChunks = ['HEADER'];
+  readonly requiredChunks = [CHUNK_TYPES.HEADER];
   readonly isSimple = true; // Simple entity, prefer direct creation
 
   create(context: EntityBuilderContext): HeaderEntity {
-    const headerChunk = context.chunks.get('HEADER') as HeaderChunk;
+    const headerChunk = context.chunks.get(CHUNK_TYPES.HEADER) as HeaderChunk;
 
     if (!headerChunk) {
       throw new Error('HEADER chunk is required for HeaderEntity');
@@ -31,23 +38,27 @@ export class HeaderEntityBuilder extends BaseEntityBuilder<HeaderEntity> {
 
     // Validate chunk has required data
     if (
+      headerChunk.headerVersion === undefined ||
       !headerChunk.version ||
-      !headerChunk.fileSize ||
-      !headerChunk.chunkCount
+      !headerChunk.codecInfos ||
+      headerChunk.modifiedDate === undefined ||
+      headerChunk.oemInfo === undefined
     ) {
       throw new Error('HEADER chunk is missing required fields');
     }
 
     // Transform chunk data into entity
     return new HeaderEntity(
+      headerChunk.headerVersion,
       headerChunk.version,
-      headerChunk.fileSize,
-      headerChunk.chunkCount,
+      headerChunk.codecInfos,
+      headerChunk.modifiedDate,
+      headerChunk.oemInfo,
     );
   }
 
   extractRequiredData(context: EntityBuilderContext): HeaderEntityData {
-    const headerChunk = context.chunks.get('HEADER') as HeaderChunk;
+    const headerChunk = context.chunks.get(CHUNK_TYPES.HEADER) as HeaderChunk;
 
     if (!headerChunk) {
       throw new Error('HEADER chunk is required for HeaderEntity');
@@ -55,13 +66,21 @@ export class HeaderEntityBuilder extends BaseEntityBuilder<HeaderEntity> {
 
     // Extract only primitives for fast transfer
     return {
-      version: headerChunk.version!,
-      fileSize: headerChunk.fileSize!,
-      chunkCount: headerChunk.chunkCount!,
+      headerVersion: headerChunk.headerVersion,
+      version: headerChunk.version,
+      codecInfos: headerChunk.codecInfos,
+      modifiedDate: headerChunk.modifiedDate,
+      oemInfo: headerChunk.oemInfo,
     };
   }
 
   createFromData(data: HeaderEntityData): HeaderEntity {
-    return new HeaderEntity(data.version, data.fileSize, data.chunkCount);
+    return new HeaderEntity(
+      data.headerVersion,
+      data.version,
+      data.codecInfos,
+      data.modifiedDate,
+      data.oemInfo,
+    );
   }
 }

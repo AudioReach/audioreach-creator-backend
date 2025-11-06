@@ -1,34 +1,65 @@
+import type {
+  ACDBVersionInfo,
+  CodecInfo,
+} from '../../../../application/file-operations/open-file/services/parsers/chunks/header-chunk.js';
+
+// Re-export types for convenience (but they're primarily exported from header-chunk.js)
+export type {ACDBVersionInfo, CodecInfo};
+
 /**
  * Header entity representing ACDB file metadata.
  * Created from HeaderChunk during Phase 2 domain assembly.
+ * Based on correct C# ACDB header structure.
  */
 export class HeaderEntity {
   constructor(
-    public readonly version: string,
-    public readonly fileSize: number,
-    public readonly chunkCount: number,
+    public readonly headerVersion: number,
+    public readonly version: ACDBVersionInfo,
+    public readonly codecInfos: CodecInfo[],
+    public readonly modifiedDate: number,
+    public readonly oemInfo: string,
     public readonly createdAt: Date = new Date(),
   ) {
     this.validate();
   }
 
   private validate(): void {
-    if (!this.version || this.version.length === 0) {
-      throw new Error('Header version is required');
+    if (this.headerVersion <= 0) {
+      throw new Error('Header version must be positive');
     }
-    if (this.fileSize <= 0) {
-      throw new Error('File size must be positive');
+    if (!this.version) {
+      throw new Error('ACDB version info is required');
     }
-    if (this.chunkCount <= 0) {
-      throw new Error('Chunk count must be positive');
+    if (!this.codecInfos) {
+      throw new Error('Codec infos array is required');
+    }
+    if (this.modifiedDate < 0) {
+      throw new Error('Modified date must be non-negative');
+    }
+    if (this.oemInfo === undefined || this.oemInfo === null) {
+      throw new Error('OEM info is required (can be empty string)');
     }
   }
 
   /**
-   * Check if this header is compatible with another version
+   * Check if this header is compatible with another header version
    */
-  isCompatibleWith(otherVersion: string): boolean {
-    return this.version === otherVersion;
+  isCompatibleWith(otherHeaderVersion: number): boolean {
+    return this.headerVersion === otherHeaderVersion;
+  }
+
+  /**
+   * Get version as string for display
+   */
+  getVersionString(): string {
+    return `${this.version.major}.${this.version.minor}.${this.version.revision}.${this.version.cplInfo}`;
+  }
+
+  /**
+   * Get formatted modified date
+   */
+  getModifiedDate(): Date {
+    return new Date(this.modifiedDate * 1000); // Convert from Unix timestamp
   }
 
   /**
@@ -36,9 +67,11 @@ export class HeaderEntity {
    */
   toJSON() {
     return {
+      headerVersion: this.headerVersion,
       version: this.version,
-      fileSize: this.fileSize,
-      chunkCount: this.chunkCount,
+      codecInfos: this.codecInfos,
+      modifiedDate: this.modifiedDate,
+      oemInfo: this.oemInfo,
       createdAt: this.createdAt.toISOString(),
     };
   }
@@ -48,9 +81,11 @@ export class HeaderEntity {
    */
   static fromJSON(data: any): HeaderEntity {
     return new HeaderEntity(
+      data.headerVersion,
       data.version,
-      data.fileSize,
-      data.chunkCount,
+      data.codecInfos,
+      data.modifiedDate,
+      data.oemInfo,
       new Date(data.createdAt),
     );
   }

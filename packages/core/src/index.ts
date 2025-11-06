@@ -42,12 +42,11 @@ export * from './application/file-operations/open-file/types/chunk-parse.types.j
 export * from './application/file-operations/open-file/types/entity-builder.types.js';
 export * from './application/file-operations/open-file/workers/parser-registry.js';
 export * from './application/file-operations/open-file/workers/entity-builder-registry.js';
-export * from './application/file-operations/open-file/services/parsers/base-chunk-parser.js';
-export * from './application/file-operations/open-file/services/parsers/header-chunk-parser.js';
-export * from './application/file-operations/open-file/services/parsers/acdb-chunk-parser.js';
+export * from './application/file-operations/open-file/services/parsers/chunk-parser/base-chunk-parser.js';
+export * from './application/file-operations/open-file/services/parsers/chunk-parser/header-chunk-parser.js';
 export * from './application/file-operations/open-file/services/parsers/acdb-parser.js';
+export * from './application/file-operations/open-file/services/parsers/acdb-file-orchestrator.js';
 export * from './application/file-operations/open-file/services/parsers/awsp-parser.js';
-export * from './application/file-operations/open-file/validators/acdb-file.validator.js';
 export * from './application/file-operations/open-file/open-file.command.js';
 export * from './application/file-operations/open-file/open-file.handler.js';
 
@@ -57,6 +56,7 @@ export * from './application/file-operations/open-file/services/parsers/models/c
 export * from './application/file-operations/open-file/services/parsers/models/parsed-acdb.js';
 export * from './application/file-operations/open-file/services/parsers/chunks/base-chunk.js';
 export * from './application/file-operations/open-file/services/parsers/chunks/header-chunk.js';
+export * from './application/file-operations/open-file/services/parsers/chunks/subgraph-data-chunk.js';
 export * from './application/file-operations/open-file/services/parsers/chunks/chunk-metadata-registry.js';
 
 // ACDB entities and factories
@@ -66,3 +66,7 @@ export * from './application/file-operations/open-file/entity-builders/header-en
 
 // Application - Entity building
 export * from './application/file-operations/open-file/services/entity-builder-service.js';
+
+// Profiling
+export * from './application/ports/profiling/profiler.port.js';
+export * from './shared/profiling/profiler-types.js';

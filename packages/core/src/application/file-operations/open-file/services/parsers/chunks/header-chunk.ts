@@ -1,18 +1,44 @@
 import {BaseChunk} from './base-chunk.js';
+import {CHUNK_TYPES} from '../../../constants/chunk-types.js';
+
+/**
+ * ACDB version information structure
+ */
+export interface ACDBVersionInfo {
+  major: number;
+  minor: number;
+  revision: number;
+  cplInfo: number;
+}
+
+/**
+ * Codec information structure
+ */
+export interface CodecInfo {
+  codecId: number;
+  majorVersion: number;
+  minorVersion: number;
+}
 
 /**
  * Header chunk containing ACDB file metadata and version information.
  * Dependencies: None (this is the root chunk)
  */
 export class HeaderChunk extends BaseChunk {
-  readonly chunkType = 'HEADER';
+  readonly chunkType = CHUNK_TYPES.HEADER;
 
-  /** ACDB file format version */
-  version?: string;
+  /** Header version number (determines parsing logic) */
+  headerVersion!: number;
 
-  /** Total size of the ACDB file in bytes */
-  fileSize?: number;
+  /** ACDB version information */
+  version!: ACDBVersionInfo;
 
-  /** Number of chunks in the file */
-  chunkCount?: number;
+  /** List of codec information */
+  codecInfos!: CodecInfo[];
+
+  /** File modification date */
+  modifiedDate!: number;
+
+  /** OEM information string */
+  oemInfo!: string;
 }
