@@ -7,4 +7,16 @@ export interface FileReaderPort {
    * while this interface remains platform-agnostic.
    */
   readAll(ref: FileRef): Promise<Uint8Array>;
+
+  parseBlock(filePath: string, blockName: string): Promise<any[]>;
+
+  exists(filePath: string): Promise<boolean>;
+
+  joinPath(...paths: string[]): string;
+
+  dirname(filePath: string): string;
+  basename(filePath: string, extension: string): string;
+  deleteDirectory(dirPath: string): Promise<void>;
+
+  unzip(zipFilePath: string, outputDir: string): Promise<void>;
 }

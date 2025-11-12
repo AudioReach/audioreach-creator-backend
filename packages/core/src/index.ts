@@ -47,6 +47,7 @@ export * from './application/file-operations/open-file/services/parsers/chunk-pa
 export * from './application/file-operations/open-file/services/parsers/acdb-parser.js';
 export * from './application/file-operations/open-file/services/parsers/acdb-file-orchestrator.js';
 export * from './application/file-operations/open-file/services/parsers/awsp-parser.js';
+export * from './application/file-operations/open-file/services/parsers/awsp-file-orchestrator.js';
 export * from './application/file-operations/open-file/open-file.command.js';
 export * from './application/file-operations/open-file/open-file.handler.js';
 
