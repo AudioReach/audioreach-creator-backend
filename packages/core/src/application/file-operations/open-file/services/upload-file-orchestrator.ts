@@ -6,7 +6,7 @@ import {
 import type {Container} from 'domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
 import {AcdbFileOrchestrator} from './parsers/acdb-file-orchestrator.js';
-import {AwspParser} from './parsers/awsp-parser.js';
+import {AwspFileOrchestrator} from './parsers/awsp-file-orchestrator.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {PathRef} from '../utils/file-ref.js';
@@ -20,7 +20,7 @@ import {
 export class UploadFileOrchestrator implements EntitiesReferenceIndexer {
   private builderService: EntityBuilderService;
   private acdbParser: AcdbFileOrchestrator;
-  private awspParser: AwspParser;
+  private awspParser: AwspFileOrchestrator;
 
   /* -----EntitiesReferenceIndexer ------*/
   readonly moduleById: Map<number, SpfModule> = new Map<number, SpfModule>();
@@ -48,7 +48,11 @@ export class UploadFileOrchestrator implements EntitiesReferenceIndexer {
       //workerPool,
       logger,
     );
-    this.awspParser = new AwspParser();
+    this.awspParser = new AwspFileOrchestrator(
+      this.filereader,
+      workerPool,
+      logger,
+    );
   }
 
   async orchestrate(acdbPath: PathRef, awspPath: PathRef): Promise<boolean> {

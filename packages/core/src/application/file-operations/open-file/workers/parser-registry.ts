@@ -7,6 +7,8 @@ import type {
   ChunkParseInput,
   ChunkParseContextData,
 } from '../types/chunk-parse.types.js';
+import type {DefinitionParseInput} from '../services/parsers/awsp-parser.js';
+import {AwspParser} from '../services/parsers/awsp-parser.js';
 import type {Handler} from '../../../ports/worker/handler-registry.port.js';
 import {HANDLER_KEYS} from '../constants/registry-keys.js';
 import {CHUNK_TYPES} from '../constants/chunk-types.js';
@@ -64,6 +66,17 @@ export function createParserRegistry(): Map<string, Handler> {
 
     // Parse the chunk group using the factory
     return parser.parse(input.chunkGroup, context);
+  }) as Handler);
+
+  /**
+   * Handler for parsing AWSP definitions.
+   * Uses AwspParser static method to parse definitions.
+   */
+  registry.set(HANDLER_KEYS.PARSE_DEFINITION, ((
+    input: DefinitionParseInput,
+  ): Record<string, unknown> => {
+    // Use AwspParser static method for parsing
+    return AwspParser.parse(input);
   }) as Handler);
 
   // Future handlers can be registered here

@@ -4,6 +4,7 @@
  */
 export const HANDLER_KEYS = {
   PARSE_CHUNK: 'parseChunk',
+  PARSE_DEFINITION: 'parseDefinition', // For AWSP definition parsing
   VALIDATE_CHUNK: 'validateChunk', // Future use
 } as const;
 
