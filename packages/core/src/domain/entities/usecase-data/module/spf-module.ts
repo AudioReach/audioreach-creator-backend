@@ -27,6 +27,7 @@ export class DuplicateTagExceptionError extends Error {
 
 export interface SpfModuleInit {
   systemId: number;
+  instanceId: number;
   parentSystemId?: number;
   definitionSystemId: number;
   containerSystemId: number;

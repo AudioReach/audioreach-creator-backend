@@ -1,6 +1,5 @@
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
-import type {SystemIdReservationService} from '../../../ports/persistence/systemId-reservation-service.port.js';
 import type {ParsedAcdb} from './parsers/models/parsed-acdb.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
@@ -43,7 +42,6 @@ export interface EntitiesReferenceIndexer {
 export class EntityBuilderService {
   constructor(
     private entitiesReferenceIndexer: EntitiesReferenceIndexer,
-    private idReservationService?: SystemIdReservationService,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {}

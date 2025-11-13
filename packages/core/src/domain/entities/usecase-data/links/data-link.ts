@@ -1,6 +1,6 @@
 import {SameNodeException} from './exceptions.js';
 
-export class DataLinkEntity {
+export class DataLink {
   public systemId: number;
   public sourceNodeSystemId: number;
   public destinationNodeSystemId: number;

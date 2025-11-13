@@ -1,3 +1,5 @@
+import type {BulkImportRepository} from './repositories/bulk-import/bulk-import.repository.js';
+
 export interface UnitOfWork {
   /**
    * Begins a new transaction.
@@ -5,4 +7,6 @@ export interface UnitOfWork {
    * commit if success, rollback if error
    */
   executeInTransaction<T>(task: () => Promise<T>): Promise<T>;
+
+  getBulkImportRepository(): BulkImportRepository;
 }
