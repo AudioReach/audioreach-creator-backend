@@ -5,7 +5,6 @@ import {
 } from './entity-builder-service.js';
 import type {Container} from 'domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
-import type {SystemIdReservationService} from 'application/ports/persistence/systemId-reservation-service.port.js';
 import {AcdbParser} from './parsers/acdb-parser.js';
 import {AwspParser} from './parsers/awsp-parser.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
@@ -20,26 +19,17 @@ export class UploadFileOrchestrator implements EntitiesReferenceIndexer {
 
   /* -----EntitiesReferenceIndexer ------*/
   readonly moduleById: Map<number, SpfModule> = new Map<number, SpfModule>();
-  readonly containerById: Map<number, Container> = new Map<
-    number,
-    Container
-  >();
+  readonly containerById: Map<number, Container> = new Map<number, Container>();
   /* -------------------------------------*/
 
   constructor(
     private filereader: FileReaderPort,
     private uow: UnitOfWork,
-    private idReservationService?: SystemIdReservationService,
     workerPool?: WorkerPoolPort,
     logger?: Logger,
   ) {
     // Pass worker pool to both services
-    this.builderService = new EntityBuilderService(
-      this,
-      this.idReservationService,
-      workerPool,
-      logger,
-    );
+    this.builderService = new EntityBuilderService(this, workerPool, logger);
 
     this.acdbParser = new AcdbParser(this.filereader, workerPool, logger);
     this.awspParser = new AwspParser();

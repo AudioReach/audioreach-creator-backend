@@ -1,19 +1,14 @@
 import {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
-import type {SystemIdReservationService} from './../../../ports/persistence/systemId-reservation-service.port.js';
 import type {EntitiesReferenceIndexer} from '../services/entity-builder-service.js';
 
 export function buildModules(
   entitiesReferenceIndexer: EntitiesReferenceIndexer,
-  idReservationService: SystemIdReservationService,
   /* parsed objects */
 ): SpfModule[] {
   if (entitiesReferenceIndexer.moduleById == null) {
     console.log('error');
   }
 
-  if (idReservationService.reserveDefaultBlock == null) {
-    console.log('error');
-  }
   /*
     Counts instances per table.
     Reserves systemIds via IdReservationService for the current entity.
