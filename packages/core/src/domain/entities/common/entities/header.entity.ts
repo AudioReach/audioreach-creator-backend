@@ -1,7 +1,7 @@
 import type {
   ACDBVersionInfo,
   CodecInfo,
-} from '../../../../application/file-operations/open-file/services/parsers/chunks/header-chunk.js';
+} from '../../../../application/file-operations/shared/acdb-chunks/header-chunk.js';
 
 // Re-export types for convenience (but they're primarily exported from header-chunk.js)
 export type {ACDBVersionInfo, CodecInfo};
