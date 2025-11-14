@@ -49,9 +49,9 @@ import {AddModuleCommandHandler} from '../../../usecase-designer/spf-module/crea
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 import {AddModuleCommand} from '../../../usecase-designer/index.js';
-import {OpenFileCommand} from '../../../file-operations/open-file/open-file.command.js';
-import {OpenFileHandler} from '../../../file-operations/open-file/open-file.handler.js';
-import type {FileReaderPort} from '../../../file-operations/open-file/ports/file-reader.port.js';
+import {OpenFileCommand} from '../../../file-operations/upload-file/upload-file.command.js';
+import {OpenFileHandler} from '../../../file-operations/upload-file/upload-file.handler.js';
+import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 
 export interface CommandHandlerDependencies {

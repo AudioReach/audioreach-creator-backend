@@ -1,5 +1,5 @@
-import type {KvData} from 'domain/entities/common/entities/kv-data.js';
-import {CkvCollection} from 'domain/entities/common/entities/ckv-collection.js';
+import type {KvData} from '../../../common/entities/kv-data.js';
+import {CkvCollection} from '../../../common/entities/ckv-collection.js';
 
 export interface vcpmModuleInstanceInit {
   systemId: number;

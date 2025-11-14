@@ -1,19 +1,9 @@
 import {TagData} from './entities/spf-module-tag-data.js';
 import type {KvData} from '../../common/entities/kv-data.js';
-import {CkvCollection} from 'domain/entities/common/entities/ckv-collection.js';
+import {CkvCollection} from '../../common/entities/ckv-collection.js';
 import {Node, NodeType} from '../node/node.js';
 import type {DataPort} from '../node/entities/data-port.js';
 import type {ControlPort} from '../node/entities/control-port.js';
-
-export class DuplicateCkvExceptionError extends Error {
-  constructor(
-    readonly idType: 'systemId' | 'keyVectorSystemId',
-    readonly id: number,
-  ) {
-    super(`Ckv with ${idType} ${id} already exists`);
-    this.name = 'DuplicateCkvExceptionError';
-  }
-}
 
 export class DuplicateTagExceptionError extends Error {
   constructor(

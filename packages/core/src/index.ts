@@ -16,6 +16,12 @@ export * from './application/orchestration/middleware/transaction.middleware.js'
 export * from './application/shared/base-command.js';
 export * from './application/shared/base-query.js';
 export * from './application/ports/persistence/unit-of-work.js';
+export * from './application/ports/persistence/insert-result.js';
+export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
+export * from './application/ports/persistence/repositories/bulk-import/link-insertion-report.js';
+export * from './application/ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
+export * from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
+export * from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 
@@ -35,38 +41,53 @@ export * from './application/ports/worker/worker-pool.port.js';
 export * from './application/ports/worker/handler-registry.port.js';
 export * from './application/ports/worker/worker-types.js';
 
-// File Operations - Open File pipeline exports
-export * from './application/file-operations/open-file/utils/file-ref.js';
-export * from './application/file-operations/open-file/ports/file-reader.port.js';
-export * from './application/file-operations/open-file/types/chunk-parse.types.js';
-export * from './application/file-operations/open-file/types/entity-builder.types.js';
-export * from './application/file-operations/open-file/workers/parser-registry.js';
-export * from './application/file-operations/open-file/workers/entity-builder-registry.js';
-export * from './application/file-operations/open-file/services/parsers/chunk-parser/base-chunk-parser.js';
-export * from './application/file-operations/open-file/services/parsers/chunk-parser/header-chunk-parser.js';
-export * from './application/file-operations/open-file/services/parsers/acdb-parser.js';
-export * from './application/file-operations/open-file/services/parsers/acdb-file-orchestrator.js';
-export * from './application/file-operations/open-file/services/parsers/awsp-parser.js';
-export * from './application/file-operations/open-file/services/parsers/awsp-file-orchestrator.js';
-export * from './application/file-operations/open-file/open-file.command.js';
-export * from './application/file-operations/open-file/open-file.handler.js';
+// File Operations - Upload File pipeline exports
+export * from './application/file-operations/shared/utils/file-ref.js';
+export * from './application/ports/file-system/file-reader.port.js';
+export * from './application/file-operations/upload-file/types/chunk-parse.types.js';
+export * from './application/file-operations/upload-file/types/entity-builder.types.js';
+export * from './application/file-operations/upload-file/workers/parser-registry.js';
+export * from './application/file-operations/upload-file/workers/entity-builder-registry.js';
+export * from './application/file-operations/upload-file/services/acdb-chunk-parsers/base-chunk-parser.js';
+export * from './application/file-operations/upload-file/services/acdb-chunk-parsers/header-chunk-parser.js';
+export * from './application/file-operations/upload-file/services/acdb-parser.js';
+export * from './application/file-operations/upload-file/services/acdb-file-orchestrator.js';
+export * from './application/file-operations/upload-file/services/awsp-parser.js';
+export * from './application/file-operations/upload-file/services/awsp-file-orchestrator.js';
+export * from './application/file-operations/upload-file/upload-file.command.js';
+export * from './application/file-operations/upload-file/upload-file.handler.js';
 
 // ACDB models and chunks
-export * from './application/file-operations/open-file/services/parsers/models/chunk-metadata.js';
-export * from './application/file-operations/open-file/services/parsers/models/chunk-parse-context.js';
-export * from './application/file-operations/open-file/services/parsers/models/parsed-acdb.js';
-export * from './application/file-operations/open-file/services/parsers/chunks/base-chunk.js';
-export * from './application/file-operations/open-file/services/parsers/chunks/header-chunk.js';
-export * from './application/file-operations/open-file/services/parsers/chunks/subgraph-data-chunk.js';
-export * from './application/file-operations/open-file/services/parsers/chunks/chunk-metadata-registry.js';
+export * from './application/file-operations/upload-file/models/chunk-metadata.js';
+export * from './application/file-operations/upload-file/models/chunk-parse-context.js';
+export * from './application/file-operations/upload-file/models/parsed-acdb.js';
+export * from './application/file-operations/shared/acdb-chunks/base-chunk.js';
+export * from './application/file-operations/shared/acdb-chunks/header-chunk.js';
+export * from './application/file-operations/shared/acdb-chunks/subgraph-data-chunk.js';
+export * from './application/file-operations/upload-file/services/chunk-metadata-registry.js';
 
 // ACDB entities and factories
 export * from './domain/entities/common/entities/header.entity.js';
-export * from './application/file-operations/open-file/entity-builders/base-entity-builder.js';
-export * from './application/file-operations/open-file/entity-builders/header-entity.builder.js';
+export * from './domain/entities/common/entities/kv-data.js';
+export * from './domain/entities/common/entities/ckv-collection.js';
+export * from './application/file-operations/upload-file/services/entity-builders/base-entity-builder.js';
+export * from './application/file-operations/upload-file/services/entity-builders/header-entity.builder.js';
 
 // Application - Entity building
-export * from './application/file-operations/open-file/services/entity-builder-service.js';
+export * from './application/file-operations/upload-file/services/entity-builder-service.js';
+
+// Domain entities - usecase data
+export * from './domain/entities/usecase-data/links/control-link.js';
+export * from './domain/entities/usecase-data/links/data-link.js';
+export * from './domain/entities/usecase-data/module/spf-module.js';
+export * from './domain/entities/usecase-data/container/container.js';
+export * from './domain/entities/usecase-data/subgraph/subgraph.js';
+
+// Domain entities - definitions
+export * from './domain/entities/definitions/common/entities/module-definition.js';
+export * from './domain/entities/definitions/key-value/aggregate/key-definition.js';
+export * from './domain/entities/definitions/processor/processor-definition.js';
+export * from './domain/entities/definitions/container/container-type-definition.js';
 
 // Profiling
 export * from './application/ports/profiling/profiler.port.js';

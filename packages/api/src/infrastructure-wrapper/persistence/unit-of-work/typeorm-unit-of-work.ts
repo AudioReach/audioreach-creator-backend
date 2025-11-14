@@ -1,6 +1,7 @@
-import type {UnitOfWork} from '@arc/core';
+import type {UnitOfWork, BulkImportRepository} from '@arc/core';
 import {DataSource} from 'typeorm';
 import type {QueryRunner} from 'typeorm';
+import {TypeOrmBulkImportRepository} from '@arc/persistence';
 
 export class TypeOrmUnitOfWork implements UnitOfWork {
   private currentQueryRunner: QueryRunner | null = null;
@@ -34,5 +35,12 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   // Method to check if currently in transaction
   isInTransaction(): boolean {
     return this.currentQueryRunner !== null;
+  }
+
+  getBulkImportRepository(): BulkImportRepository {
+    // Use the current query runner if in transaction, otherwise use the data source
+    return new TypeOrmBulkImportRepository(
+      this.currentQueryRunner || this.dataSource,
+    );
   }
 }

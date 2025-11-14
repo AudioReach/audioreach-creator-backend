@@ -22,14 +22,16 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "moduleResolution": "NodeNext",
-    "resolveJsonModule": true,
-    
+    "resolveJsonModule": true
   },
   "include": [],
   "exclude": ["node_modules", "dist", "**/*.tsbuildinfo"],
   "references": [
     {
       "path": "./packages/core"
+    },
+    {
+      "path": "./packages/infrastructure/fs"
     },
     {
       "path": "./packages/infrastructure/persistence"

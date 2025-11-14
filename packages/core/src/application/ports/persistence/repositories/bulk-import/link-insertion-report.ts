@@ -1,5 +1,4 @@
-import type {DataLink} from 'domain/entities/usecase-data/links/data-link.js';
-import type {ControlLink} from 'domain/entities/usecase-data/links/control-link.js';
+import type {DataLink, ControlLink} from '@arc/core';
 import type {NaturalIdMapping, InsertError} from '../../insert-result.js';
 
 /**

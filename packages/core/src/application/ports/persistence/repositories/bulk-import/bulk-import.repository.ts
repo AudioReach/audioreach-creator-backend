@@ -1,13 +1,15 @@
-import type {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
+import type {
+  SpfModule,
+  Container,
+  DataLink,
+  ControlLink,
+  ModuleDefinition,
+  KeyDefinition,
+  ProcessorDefinition,
+  Subgraph,
+  ContainerType,
+} from '@arc/core';
 import type {BulkEntityInsertResult} from '../../insert-result.js';
-import type {Container} from 'domain/entities/usecase-data/container/container.js';
-import type {DataLink} from 'domain/entities/usecase-data/links/data-link.js';
-import type {ControlLink} from 'domain/entities/usecase-data/links/control-link.js';
-import type {ModuleDefinition} from 'domain/entities/definitions/common/entities/module-definition.js';
-import type {KeyDefinition} from 'domain/entities/definitions/key-value/aggregate/key-definition.js';
-import type {ProcessorDefinition} from 'domain/entities/definitions/processor/processor-definition.js';
-import type {Subgraph} from 'domain/entities/usecase-data/subgraph/subgraph.js';
-import type {ContainerType} from 'domain/entities/definitions/container/container-type-definition.js';
 import type {BulkModuleInsertResult} from './spf-module-insertion-report.js';
 import type {
   BulkDataLinkInsertResult,
