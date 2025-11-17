@@ -1,4 +1,4 @@
-import type {NaturalIdMapping, InsertError} from '../../insert-result.js';
+import type {NaturalIdMapping, InsertError} from './insert-result.js';
 
 /**
  * Key definition error entity types.

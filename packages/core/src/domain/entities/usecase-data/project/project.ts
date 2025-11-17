@@ -6,20 +6,28 @@ export class DuplicateFileException extends Error {
     this.name = 'DuplicateFileException';
   }
 }
-export class ProjectEntity {
+
+export const PROJECT_TYPE = {
+  OFFLINE: 'OFFLINE',
+  DEVICE: 'DEVICE',
+} as const;
+
+export type ProjectType = (typeof PROJECT_TYPE)[keyof typeof PROJECT_TYPE];
+
+export class Project {
   private readonly arcDbFilesIds = new Set<number>();
 
   readonly systemId: number;
   readonly name: string;
   readonly description: string;
-  readonly type: string;
+  readonly type: ProjectType;
   readonly arcDbFiles: ArcDbFile[] = [];
 
   constructor(
     systemId: number,
     name: string,
     description: string,
-    type: string,
+    type: ProjectType,
   ) {
     this.systemId = systemId;
     this.name = name;

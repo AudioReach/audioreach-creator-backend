@@ -8,8 +8,9 @@ import type {
   ProcessorDefinition,
   Subgraph,
   ContainerType,
+  UseCase,
 } from '@arc/core';
-import type {BulkEntityInsertResult} from '../../insert-result.js';
+import type {BulkEntityInsertResult} from './insert-result.js';
 import type {BulkModuleInsertResult} from './spf-module-insertion-report.js';
 import type {
   BulkDataLinkInsertResult,
@@ -91,6 +92,32 @@ export interface BulkImportRepository {
   insertControlLinks(
     items: readonly Omit<ControlLink, 'systemId'>[],
   ): Promise<BulkControlLinkInsertResult>;
+
+  /**
+   * Inserts usecases in bulk and returns KV to systemID mapping
+   * @param items  - Usecases without system id
+   */
+  /**
+   * Insert use case rows in bulk.
+   * Uses insert+query pattern to return natural key to systemId mappings.
+   * Natural key: keyVectorSystemId (from gkv.keyVectorSystemId)
+   *
+   * @param items - UseCases without systemId (will be generated during insertion)
+   * @returns Promise resolving to entity insertion result with keyVectorSystemId->systemId mappings
+   *
+   * @example
+   * ```typescript
+   * const useCases: Omit<UseCase, 'systemId'>[] = [
+   *   { fileSystemId: 1, gkv: { keyVectorSystemId: 12345, ... }, ... }
+   * ];
+   * const result = await repository.insertUseCases(useCases);
+   * const useCaseSystemId = result.results[0].idMapping?.systemId;
+   * const naturalKey = result.results[0].idMapping?.naturalId; // keyVectorSystemId
+   * ```
+   */
+  insertUseCases(
+    items: readonly Omit<UseCase, 'systemId'>[],
+  ): Promise<BulkEntityInsertResult<number>>;
 
   /**
    * Insert module definition rows in bulk, including parameters, ports, and intents.
