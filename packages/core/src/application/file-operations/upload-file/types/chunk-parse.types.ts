@@ -6,19 +6,14 @@ import type {BaseChunk} from '../../shared/acdb-chunks/base-chunk.js';
 export interface ChunkParseInput {
   /** Type of the main chunk to parse */
   chunkType: string;
-
-  /** All chunks in the group (main chunk + dependencies) */
-  chunkGroup: Array<{
-    chunkType: string;
-    chunkData: Uint8Array;
-  }>;
 }
 
 /**
  * Specific context structure for chunk parsing tasks
  */
 export interface ChunkParseContextData {
-  /** The common DATAPOOL chunk that all parsers need */
-  datapool?: unknown;
+  /** Raw chunk data for all chunks (main + dependencies) */
+  rawChunks?: Map<string, Uint8Array>;
+  /** Parsed chunks available as dependencies */
   parsedChunks?: Map<string, BaseChunk>;
 }

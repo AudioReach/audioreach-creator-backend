@@ -1,5 +1,5 @@
 import {NodeWorkerPoolAdapter} from './node-worker-pool.adapter.js';
-import type {WorkerPoolPort} from '@arc/core';
+import type {WorkerPoolPort, Logger} from '@arc/core';
 import * as path from 'path';
 import {fileURLToPath} from 'url';
 
@@ -9,9 +9,13 @@ import {fileURLToPath} from 'url';
  * Uses default registry configuration from core layer.
  *
  * @param poolSize - Optional pool size (defaults to CPU count - 1)
+ * @param logger - Optional logger instance to pass to workers
  * @returns WorkerPoolPort instance ready to use
  */
-export function createWorkerPool(poolSize?: number): WorkerPoolPort {
+export function createWorkerPool(
+  poolSize?: number,
+  logger?: Logger,
+): WorkerPoolPort {
   // Resolve the path to the worker script relative to this file
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -23,5 +27,6 @@ export function createWorkerPool(poolSize?: number): WorkerPoolPort {
     workerScriptPath,
     poolSize,
     undefined, // Use default timeout
+    logger,
   );
 }

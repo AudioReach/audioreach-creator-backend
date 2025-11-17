@@ -69,6 +69,7 @@ export * from './application/ports/worker/worker-types.js';
 
 // File Operations - Upload File pipeline exports
 export * from './application/file-operations/shared/utils/file-ref.js';
+export * from './application/file-operations/upload-file/models/parsed-awsp.js';
 export * from './application/ports/file-system/file-reader.port.js';
 export * from './application/file-operations/upload-file/types/chunk-parse.types.js';
 export * from './application/file-operations/upload-file/types/entity-builder.types.js';

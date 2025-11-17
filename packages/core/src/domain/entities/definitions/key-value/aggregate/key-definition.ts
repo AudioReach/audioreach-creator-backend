@@ -1,7 +1,6 @@
 import {type SpecialtyKey} from '../../common/enums/speciality-type.js';
 import {
   DuplicateKeyValuePairException,
-  DuplicateSystemIdException,
   NullObjectException,
   SystemIdNotFoundException,
   ValueIdNotFoundException,
@@ -86,16 +85,6 @@ export class KeyDefinition {
 
     if (valueDefinition.valueId == null) {
       throw new ValueIdNotFoundException();
-    }
-
-    // Check if systemId already exists in current values
-    const valueWithSameSystemId = this.values.some(
-      v => v.systemId === valueDefinition.systemId,
-    );
-    if (valueWithSameSystemId) {
-      throw new DuplicateSystemIdException(
-        `SystemId ${valueDefinition.systemId} already exists in ValueDefinition for key: ${this.keyId}`,
-      );
     }
 
     const valueWithSameValueId = this.values.some(

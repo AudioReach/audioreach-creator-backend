@@ -1,14 +1,6 @@
 import {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
-import type {EntitiesReferenceIndexer} from '../entity-builder-service.js';
 
-export function buildModules(
-  entitiesReferenceIndexer: EntitiesReferenceIndexer,
-  /* parsed objects */
-): SpfModule[] {
-  if (entitiesReferenceIndexer.moduleById == null) {
-    console.log('error');
-  }
-
+export function buildModules(): SpfModule[] {
   /*
     Counts instances per table.
     Reserves systemIds via IdReservationService for the current entity.

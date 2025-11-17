@@ -10,6 +10,8 @@ import type {
   QueryServices,
   FileReaderPort,
   WorkerPoolPort,
+  Logger,
+  ProfilerPort,
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {TypeOrmUnitOfWork} from './persistence/unit-of-work/typeorm-unit-of-work.js';
@@ -44,9 +46,10 @@ import {ConsoleLoggerService} from './logger/index.js';
     },
     {
       provide: 'WORKER_POOL',
-      useFactory: () => {
-        return createWorkerPool();
+      useFactory: (logger: Logger) => {
+        return createWorkerPool(undefined, logger);
       },
+      inject: ['LOGGER'],
     },
     {
       provide: 'COMMAND_HANDLER_REGISTRY',
@@ -68,12 +71,24 @@ import {ConsoleLoggerService} from './logger/index.js';
         registry: CommandHandlerRegistry,
         fileReader: FileReaderPort,
         workerPool: WorkerPoolPort,
-      ) => new CommandBus(unitOfWork, registry, fileReader, workerPool),
+        logger: Logger,
+        profiler: ProfilerPort,
+      ) =>
+        new CommandBus(
+          unitOfWork,
+          registry,
+          fileReader,
+          workerPool,
+          logger,
+          profiler,
+        ),
       inject: [
         'UNIT_OF_WORK',
         'COMMAND_HANDLER_REGISTRY',
         'NODE_FILE_READER_ADAPTER',
         'WORKER_POOL',
+        'LOGGER',
+        'PROFILER',
       ],
       scope: Scope.REQUEST,
     },

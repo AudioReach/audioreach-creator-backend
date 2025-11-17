@@ -1,6 +1,6 @@
 import {Worker} from 'worker_threads';
 import * as os from 'os';
-import type {WorkerPoolPort, WorkerTask, WorkerResult} from '@arc/core';
+import type {WorkerPoolPort, WorkerTask, WorkerResult, Logger} from '@arc/core';
 
 // Default worker pool size: CPU count - 1 (leave one for main thread)
 const DEFAULT_WORKER_POOL_SIZE = Math.max(1, os.cpus().length - 1);
@@ -28,6 +28,7 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
     private readonly workerScriptPath: string,
     private readonly poolSize: number = DEFAULT_WORKER_POOL_SIZE,
     private readonly taskTimeoutMs: number = DEFAULT_TASK_TIMEOUT_MS,
+    private readonly logger?: Logger,
   ) {
     this.initializePool();
   }
@@ -80,17 +81,46 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
    */
   private initializePool(): void {
     for (let i = 0; i < this.poolSize; i++) {
-      // No configuration needed - workers use defaults from core layer
-      const worker = new Worker(this.workerScriptPath);
+      // Pass worker data including logger configuration and worker ID
+      const workerData = {
+        workerId: `worker-${i}`,
+        hasLogger: !!this.logger,
+      };
+
+      const worker = new Worker(this.workerScriptPath, {
+        workerData,
+      });
 
       // Handle unexpected worker errors
       worker.on('error', error => {
-        console.error(`Worker ${i} error:`, error);
+        if (this.logger) {
+          this.logger.logError({
+            component: 'WorkerPool',
+            action: 'worker_error',
+            tag: 'worker-lifecycle',
+            msg: `Worker ${i} encountered an error`,
+            timestamp: new Date(),
+            error,
+          });
+        } else {
+          console.error(`Worker ${i} error:`, error);
+        }
       });
 
       worker.on('exit', code => {
         if (code !== 0 && !this.isDisposed) {
-          console.error(`Worker ${i} exited with code ${code}`);
+          if (this.logger) {
+            this.logger.logError({
+              component: 'WorkerPool',
+              action: 'worker_exit',
+              tag: 'worker-lifecycle',
+              msg: `Worker ${i} exited with non-zero code: ${code}`,
+              timestamp: new Date(),
+              error: new Error(`Worker exited with code ${code}`),
+            });
+          } else {
+            console.error(`Worker ${i} exited with code ${code}`);
+          }
         }
       });
 
@@ -125,6 +155,40 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
       const messageHandler = (result: WorkerResult) => {
         if (completed) return; // Already handled (timeout or error)
         cleanup();
+
+        // Log worker task errors if the result indicates failure
+        const resultWithDetails = result as any;
+        if (!result.success && resultWithDetails.errorDetails && this.logger) {
+          this.logger.logError({
+            component: 'WorkerPool',
+            action: 'worker_task_error',
+            tag: 'worker-task',
+            msg: `Worker task failed: ${result.error}`,
+            timestamp: new Date(),
+            error: new Error(result.error || 'Unknown worker error'),
+            clientId: resultWithDetails.errorDetails.context
+              ?.clientId as string,
+            projectId: resultWithDetails.errorDetails.context
+              ?.projectId as string,
+          });
+
+          // Log additional context if available
+          if (resultWithDetails.errorDetails.stack) {
+            this.logger.logError({
+              component: 'WorkerPool',
+              action: 'worker_task_stack_trace',
+              tag: 'worker-task',
+              msg: `Stack trace for handler ${resultWithDetails.errorDetails.handlerKey} in ${resultWithDetails.errorDetails.workerId}`,
+              timestamp: new Date(),
+              error: {
+                name: resultWithDetails.errorDetails.type || 'Error',
+                message: result.error || 'Unknown error',
+                stack: resultWithDetails.errorDetails.stack,
+              } as Error,
+            });
+          }
+        }
+
         this.availableWorkers.push(worker);
         resolve(result);
         this.processQueue();
@@ -133,6 +197,19 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
       const errorHandler = (error: Error) => {
         if (completed) return; // Already handled (timeout or message)
         cleanup();
+
+        // Log task execution error
+        if (this.logger) {
+          this.logger.logError({
+            component: 'WorkerPool',
+            action: 'task_execution_error',
+            tag: 'worker-task',
+            msg: `Task execution failed for handler: ${task.handlerKey}`,
+            timestamp: new Date(),
+            error,
+          });
+        }
+
         this.availableWorkers.push(worker);
         reject(error);
         this.processQueue();
@@ -142,12 +219,25 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
       timeoutId = setTimeout(() => {
         if (completed) return; // Already handled (message or error)
         cleanup();
-        this.availableWorkers.push(worker);
-        reject(
-          new Error(
-            `Worker task timeout after ${this.taskTimeoutMs}ms. Task may be stuck or taking too long.`,
-          ),
+
+        const timeoutError = new Error(
+          `Worker task timeout after ${this.taskTimeoutMs}ms. Task may be stuck or taking too long.`,
         );
+
+        // Log task timeout
+        if (this.logger) {
+          this.logger.logError({
+            component: 'WorkerPool',
+            action: 'task_timeout',
+            tag: 'worker-task',
+            msg: `Task timeout for handler: ${task.handlerKey}`,
+            timestamp: new Date(),
+            error: timeoutError,
+          });
+        }
+
+        this.availableWorkers.push(worker);
+        reject(timeoutError);
         this.processQueue();
       }, this.taskTimeoutMs);
 

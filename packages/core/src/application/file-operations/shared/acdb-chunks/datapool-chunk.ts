@@ -17,4 +17,17 @@ export class DatapoolChunk extends BaseChunk {
 
   /** Total length of the chunk */
   totalLength!: number;
+
+  /**
+   * Get Uint8Array data at a specific offset within the datapool.
+   * Finds the index where offsets[i] === targetOffset and returns the corresponding payload.
+   */
+  getDataAtOffset(targetOffset: number): Uint8Array | null {
+    // Find the index where offsets[i] === targetOffset
+    const index = this.offsets.indexOf(targetOffset);
+    if (index !== -1 && index < this.payloads.length) {
+      return this.payloads[index];
+    }
+    return null;
+  }
 }

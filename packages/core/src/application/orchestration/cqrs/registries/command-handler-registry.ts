@@ -53,12 +53,15 @@ import {OpenFileCommand} from '../../../file-operations/upload-file/upload-file.
 import {OpenFileHandler} from '../../../file-operations/upload-file/upload-file.handler.js';
 import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
+import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
   fileReader: FileReaderPort;
   workerPool?: WorkerPoolPort;
-  // Logger
+  logger?: Logger;
+  profiler?: ProfilerPort;
   // Event Bus
 }
 
@@ -108,7 +111,13 @@ export class CommandHandlerRegistry {
     });
     this.commandHandlerFactories.set(OpenFileCommand, {
       create: deps =>
-        new OpenFileHandler(deps.uow, deps.fileReader, deps.workerPool),
+        new OpenFileHandler(
+          deps.uow,
+          deps.fileReader,
+          deps.workerPool,
+          deps.logger,
+          deps.profiler,
+        ),
     });
   }
 }

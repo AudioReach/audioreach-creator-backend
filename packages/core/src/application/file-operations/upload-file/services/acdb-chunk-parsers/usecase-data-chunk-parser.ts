@@ -19,26 +19,20 @@ import type {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js'
 export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
   readonly chunkType = CHUNK_TYPES.GKV_TABLE;
 
-  parse(
-    chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}>,
-    context: ChunkParseContext,
-  ): UsecaseDataChunk {
-    // Find GKV_TABLE and GKV_LUT chunks in the group
-    const gkvTableData = this.findChunkData(chunkGroup, CHUNK_TYPES.GKV_TABLE);
-    const gkvLutData = this.findChunkData(chunkGroup, CHUNK_TYPES.GKV_LUT);
+  parse(context: ChunkParseContext): UsecaseDataChunk {
+    // Get GKV_TABLE and GKV_LUT chunks from context
+    const gkvTableData = context.rawChunks?.get(CHUNK_TYPES.GKV_TABLE);
+    const gkvLutData = context.rawChunks?.get(CHUNK_TYPES.GKV_LUT);
 
     const datapoolChunk = context.parsedChunks?.get(
       CHUNK_TYPES.DATAPOOL,
     ) as DatapoolChunk;
 
-    if (context) {
-    }
-
     if (!gkvTableData) {
-      throw new Error('GKV_TABLE chunk not found in chunk group');
+      throw new Error('GKV_TABLE chunk not found in context');
     }
     if (!gkvLutData) {
-      throw new Error('GKV_LUT chunk not found in chunk group');
+      throw new Error('GKV_LUT chunk not found in context');
     }
 
     // Parse GKV_TABLE to get key structures and LUT offsets
@@ -47,12 +41,12 @@ export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
     // Parse each table entry to create usecase entries
     const usecases: UsecaseEntry[] = [];
     for (const tableEntry of tableEntries) {
-      const usecaseEntry = this.parseUsecaseEntry(
+      const usecaseEntries = this.parseGkvLutEntries(
         gkvLutData,
         tableEntry,
         datapoolChunk,
       );
-      usecases.push(usecaseEntry);
+      usecases.push(...usecaseEntries);
     }
 
     // Create and populate chunk
@@ -60,17 +54,6 @@ export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
     chunk.usecases = usecases;
 
     return chunk;
-  }
-
-  /**
-   * Find chunk data by type in the chunk group
-   */
-  private findChunkData(
-    chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}>,
-    chunkType: string,
-  ): Uint8Array | undefined {
-    const chunk = chunkGroup.find(c => c.chunkType === chunkType);
-    return chunk?.chunkData;
   }
 
   /**
@@ -129,21 +112,22 @@ export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
    * Based on C# code that parses sgidList and sgPairs.
    */
   private parseSubgraphData(
-    datapoolChunk: any,
+    datapoolChunk: DatapoolChunk,
     sgListOffset: number,
   ): {sgList: number[]; sgPairList: SubgraphPair[]} {
     try {
-      if (!datapoolChunk || !datapoolChunk.data) {
+      if (!datapoolChunk) {
         return {sgList: [], sgPairList: []};
       }
 
-      const data = datapoolChunk.data as Uint8Array;
-      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-      let dataPoolIndex = sgListOffset;
+      // Get data at the specific offset using the new method
+      const data = datapoolChunk.getDataAtOffset(sgListOffset);
+      if (!data) {
+        return {sgList: [], sgPairList: []};
+      }
 
-      // Read size (total size of this data block) - not used but part of format
-      //const size = BinaryUtils.readUint32(view, dataPoolIndex);
-      dataPoolIndex += BinaryUtils.SIZEOF_UINT32;
+      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+      let dataPoolIndex = 0; // Start from beginning since we got the exact payload
 
       // Read sgCount (number of subgraphs)
       const sgCount = BinaryUtils.readUint32(view, dataPoolIndex);
@@ -180,16 +164,17 @@ export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
   }
 
   /**
-   * Parse a single usecase entry from GKV_LUT data.
+   * Parse multiple usecase entries from GKV_LUT data.
+   * Each entry in numEntries loop becomes one UsecaseEntry.
    *    GKVLUTChunkPayload = GKVLUT +
    *    GKVLUT = NumGKeyVals NumGKVLUTEntries GKVLUTEntry+
    *    GKVLUTEntry = GKeyVal + OffsetSGListData OffsetSGData
    */
-  private parseUsecaseEntry(
+  private parseGkvLutEntries(
     lutData: Uint8Array,
     tableEntry: {keys: number[]; lutOffset: number},
-    datapoolChunk?: any,
-  ): UsecaseEntry {
+    datapoolChunk?: DatapoolChunk,
+  ): UsecaseEntry[] {
     const view = new DataView(
       lutData.buffer,
       lutData.byteOffset,
@@ -214,45 +199,55 @@ export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
         );
       }
 
-      const keyValuePairs: KeyValue[] = [];
-      let sgListOffset = 0;
-      let sgPropOffset = 0;
+      const usecaseEntries: UsecaseEntry[] = [];
 
-      // Process all entries for this usecase
+      // Process each entry - each becomes a separate UsecaseEntry
       for (let i = 0; i < numEntries; i++) {
-        // Read key values for this entry
+        // Read key values for THIS entry
         const values: number[] = [];
         for (let j = 0; j < numKeys; j++) {
           values.push(BinaryUtils.readUint32(view, pos));
           pos += BinaryUtils.SIZEOF_UINT32;
         }
 
-        // Read subgraph list offset
-        sgListOffset = BinaryUtils.readUint32(view, pos);
+        // Read subgraph list offset for THIS entry
+        const sgListOffset = BinaryUtils.readUint32(view, pos);
         pos += BinaryUtils.SIZEOF_UINT32;
 
-        // Read subgraph property offset
-        sgPropOffset = BinaryUtils.readUint32(view, pos);
+        // Read subgraph property offset for THIS entry
+        const sgPropOffset = BinaryUtils.readUint32(view, pos);
         pos += BinaryUtils.SIZEOF_UINT32;
 
-        // Create KeyValue pairs by combining keys and values
+        // Create KeyValue pairs for THIS entry
+        const keyValuePairs: KeyValue[] = [];
         for (let k = 0; k < keys.length; k++) {
           keyValuePairs.push(new KeyValue(keys[k], values[k]));
         }
+
+        // Parse subgraph data from DATAPOOL using sgListOffset for THIS entry
+        let sgList: number[] = [];
+        let sgPairList: SubgraphPair[] = [];
+
+        if (datapoolChunk) {
+          const result = this.parseSubgraphData(datapoolChunk, sgListOffset);
+          sgList = result.sgList;
+          sgPairList = result.sgPairList;
+        } else {
+          console.error(
+            'DatapoolChunk is null/undefined - cannot parse subgraph data',
+          );
+        }
+
+        // Create THIS usecase entry
+        usecaseEntries.push({
+          keyValuePairList: new KeyValuePairList(keyValuePairs),
+          sgPropOffset,
+          sgList,
+          sgPairList,
+        });
       }
 
-      // Parse subgraph data from DATAPOOL using sgListOffset
-      const {sgList, sgPairList} = this.parseSubgraphData(
-        datapoolChunk,
-        sgListOffset,
-      );
-
-      return {
-        keyValuePairList: new KeyValuePairList(keyValuePairs),
-        sgPropOffset,
-        sgList,
-        sgPairList,
-      };
+      return usecaseEntries;
     } catch (error) {
       throw new Error(
         `Failed to parse usecase entry at LUT offset ${lutOffset}: ${error instanceof Error ? error.message : 'Unknown error'}`,

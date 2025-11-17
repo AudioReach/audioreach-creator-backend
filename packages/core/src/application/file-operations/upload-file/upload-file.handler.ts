@@ -6,6 +6,7 @@ import type {FileRef} from '../shared/utils/file-ref.js';
 import {UploadFileOrchestrator} from './services/upload-file-orchestrator.js';
 import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
+import type {ProfilerPort} from '../../ports/profiling/profiler.port.js';
 
 export type OpenFileResult = {
   projectId: string;
@@ -23,12 +24,14 @@ export class OpenFileHandler
     private readonly fileReader: FileReaderPort,
     workerPool?: WorkerPoolPort,
     logger?: Logger,
+    profiler?: ProfilerPort,
   ) {
     this.uploadOrchestrator = new UploadFileOrchestrator(
       this.fileReader,
       this.uow,
       workerPool,
       logger,
+      profiler,
     );
   }
 

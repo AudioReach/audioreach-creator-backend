@@ -26,4 +26,34 @@ export interface WorkerResult<TData = unknown> {
 
   /** Error message if failed */
   error?: string;
+
+  /** Detailed error information for logging and debugging */
+  errorDetails?: WorkerErrorDetails;
+}
+
+/**
+ * Detailed error information from worker execution.
+ * Provides comprehensive context for error logging and debugging.
+ */
+export interface WorkerErrorDetails {
+  /** Error stack trace */
+  stack?: string;
+
+  /** Error type/constructor name */
+  type?: string;
+
+  /** Handler key that was being executed */
+  handlerKey?: string;
+
+  /** Worker identifier */
+  workerId?: string;
+
+  /** Task execution start time */
+  startTime?: Date;
+
+  /** Task execution duration in milliseconds */
+  duration?: number;
+
+  /** Additional context information */
+  context?: Record<string, unknown>;
 }

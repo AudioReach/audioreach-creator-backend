@@ -1,6 +1,9 @@
-import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
-import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
+import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
+import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 import type {ParsedAcdb} from '../models/parsed-acdb.js';
+import type {ParsedAwsp} from '../models/parsed-awsp.js';
+import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js';
+import {SpfModuleDefinitionBuilder} from './entity-builders/spf-module-definition-builder.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {WorkerTask} from '../../../ports/worker/worker-types.js';
@@ -12,16 +15,27 @@ import type {
 import {HeaderEntityBuilder} from './entity-builders/header-entity.builder.js';
 
 /**
+ * Constants for entity model keys used by EntityBuilderService
+ */
+export const ENTITY_MODEL_KEYS = {
+  KEY_DEFINITIONS: 'KEY_DEFINITIONS',
+  SPF_MODULE_DEFINITIONS: 'SPF_MODULE_DEFINITIONS',
+} as const;
+
+export type EntityModelKey =
+  (typeof ENTITY_MODEL_KEYS)[keyof typeof ENTITY_MODEL_KEYS];
+
+/**
  * Container for all domain entities created from parsed chunks
  */
 export class EntityModel {
   private entities = new Map<string, any>();
 
-  addEntity(type: string, entity: any): void {
+  addEntity(type: EntityModelKey | string, entity: any): void {
     this.entities.set(type, entity);
   }
 
-  getEntity<T>(type: string): T | undefined {
+  getEntity<T>(type: EntityModelKey | string): T | undefined {
     return this.entities.get(type) as T | undefined;
   }
 
@@ -34,22 +48,31 @@ export class EntityModel {
   }
 }
 
-export interface EntitiesReferenceIndexer {
-  moduleById: Map<number, SpfModule>;
-  containerById: Map<number, Container>;
-}
-
 export class EntityBuilderService {
+  private keyDefinitionBuilder: KeyDefinitionBuilder;
+  private spfModuleDefinitionBuilder: SpfModuleDefinitionBuilder;
+
   constructor(
-    private entitiesReferenceIndexer: EntitiesReferenceIndexer,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
-  ) {}
+  ) {
+    this.keyDefinitionBuilder = new KeyDefinitionBuilder(
+      this.workerPool,
+      this.logger,
+    );
+    this.spfModuleDefinitionBuilder = new SpfModuleDefinitionBuilder(
+      this.workerPool,
+      this.logger,
+    );
+  }
 
   /**
    * Build all entities from parsed data
    */
-  async buildAll(parsedAcdb: ParsedAcdb, awspParsed: any): Promise<boolean> {
+  async buildAll(
+    parsedAcdb: ParsedAcdb,
+    parsedAwsp: ParsedAwsp,
+  ): Promise<{success: boolean; entityModel: EntityModel}> {
     const startTime = Date.now();
 
     this.logger?.logInfo({
@@ -65,12 +88,9 @@ export class EntityBuilderService {
       const entityModel = await this.assembleEntities(parsedAcdb);
 
       // Process AWSP data if needed
-      if (awspParsed) {
-        // Process AWSP data here
+      if (parsedAwsp) {
+        await this.processAwspData(parsedAwsp, entityModel);
       }
-
-      // Process the assembled entities and populate the reference indexer
-      this.processAssembledEntities(entityModel);
 
       const duration = Date.now() - startTime;
       this.logger?.logInfo({
@@ -81,7 +101,7 @@ export class EntityBuilderService {
         timestamp: new Date(),
       });
 
-      return true;
+      return {success: true, entityModel};
     } catch (error) {
       this.logger?.logError({
         msg: 'Entity building failed',
@@ -91,7 +111,7 @@ export class EntityBuilderService {
         error: error as Error,
         timestamp: new Date(),
       });
-      return false;
+      return {success: false, entityModel: new EntityModel()};
     }
   }
 
@@ -432,29 +452,143 @@ export class EntityBuilderService {
   }
 
   /**
-   * Process assembled entities and populate the reference indexer
+   * Process AWSP data and build key definitions and SPF module definitions
    */
-  private processAssembledEntities(entityModel: EntityModel): void {
-    // Process entities and populate the reference indexer
-    const entities = entityModel.getAllEntities();
+  private async processAwspData(
+    parsedAwsp: ParsedAwsp,
+    entityModel: EntityModel,
+  ): Promise<void> {
+    this.logger?.logDebug({
+      msg: 'Processing AWSP data for definitions',
+      action: 'awsp_processing_start',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
 
-    for (const [type, entity] of entities.entries()) {
-      // Process each entity based on its type
-      if (
-        type.includes('MODULE') &&
-        this.entitiesReferenceIndexer &&
-        entity.id
-      ) {
-        // Example: Add module to the reference indexer
-        this.entitiesReferenceIndexer.moduleById.set(entity.id, entity);
-      } else if (
-        type.includes('CONTAINER') &&
-        this.entitiesReferenceIndexer &&
-        entity.id
-      ) {
-        // Example: Add container to the reference indexer
-        this.entitiesReferenceIndexer.containerById.set(entity.id, entity);
-      }
+    try {
+      // Process key definitions
+      await this.processAwspKeyDefinitions(parsedAwsp, entityModel);
+
+      // Process SPF module definitions
+      await this.processAwspModuleDefinitions(parsedAwsp, entityModel);
+    } catch (error) {
+      this.logger?.logError({
+        msg: 'Failed to process AWSP data',
+        action: 'awsp_processing_failed',
+        component: 'EntityBuilderService',
+        tag: 'awsp-processing',
+        error: error as Error,
+        timestamp: new Date(),
+      });
+      throw error;
     }
+  }
+
+  /**
+   * Process AWSP key definitions
+   */
+  private async processAwspKeyDefinitions(
+    parsedAwsp: ParsedAwsp,
+    entityModel: EntityModel,
+  ): Promise<void> {
+    // Extract key definitions from AWSP
+    const awspKeyDefinitions = parsedAwsp.getKeyDefinitions();
+
+    if (!awspKeyDefinitions || awspKeyDefinitions.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No key definitions found in AWSP data',
+        action: 'no_key_definitions',
+        component: 'EntityBuilderService',
+        tag: 'awsp-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain key definitions
+    const keyDefinitions =
+      await this.keyDefinitionBuilder.buildKeyDefinitions(awspKeyDefinitions);
+
+    // Add key definitions to entity model
+    if (keyDefinitions.length > 0) {
+      entityModel.addEntity(ENTITY_MODEL_KEYS.KEY_DEFINITIONS, keyDefinitions);
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${keyDefinitions.length} key definitions from AWSP`,
+        action: 'awsp_key_definitions_complete',
+        component: 'EntityBuilderService',
+        tag: 'awsp-processing',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Process AWSP SPF module definitions
+   */
+  private async processAwspModuleDefinitions(
+    parsedAwsp: ParsedAwsp,
+    entityModel: EntityModel,
+  ): Promise<void> {
+    // Extract SPF module definitions from AWSP
+    const awspModuleDefinitions = parsedAwsp.getSpfModuleDefinitions();
+
+    if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No SPF module definitions found in AWSP data',
+        action: 'no_spf_module_definitions',
+        component: 'EntityBuilderService',
+        tag: 'awsp-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain SPF module definitions
+    const moduleDefinitions =
+      await this.spfModuleDefinitionBuilder.buildModuleDefinitions(
+        awspModuleDefinitions,
+      );
+
+    // Add SPF module definitions to entity model
+    if (moduleDefinitions.length > 0) {
+      entityModel.addEntity(
+        ENTITY_MODEL_KEYS.SPF_MODULE_DEFINITIONS,
+        moduleDefinitions,
+      );
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${moduleDefinitions.length} SPF module definitions from AWSP`,
+        action: 'awsp_spf_module_definitions_complete',
+        component: 'EntityBuilderService',
+        tag: 'awsp-processing',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Get built key definitions from entity model
+   */
+  getBuiltKeyDefinitions(entityModel: EntityModel): KeyDefinition[] {
+    return (
+      entityModel.getEntity<KeyDefinition[]>(
+        ENTITY_MODEL_KEYS.KEY_DEFINITIONS,
+      ) || []
+    );
+  }
+
+  /**
+   * Get built SPF module definitions from entity model
+   */
+  getBuiltSpfModuleDefinitions(
+    entityModel: EntityModel,
+  ): SpfModuleDefinition[] {
+    return (
+      entityModel.getEntity<SpfModuleDefinition[]>(
+        ENTITY_MODEL_KEYS.SPF_MODULE_DEFINITIONS,
+      ) || []
+    );
   }
 }

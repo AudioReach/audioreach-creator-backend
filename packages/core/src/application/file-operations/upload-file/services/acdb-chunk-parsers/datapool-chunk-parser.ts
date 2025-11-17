@@ -16,19 +16,12 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 export class DatapoolChunkParser extends BaseChunkParser<DatapoolChunk> {
   readonly chunkType = CHUNK_TYPES.DATAPOOL;
 
-  parse(
-    chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}>,
-    _context: ChunkParseContext,
-  ): DatapoolChunk {
-    // Find the DATAPOOL chunk in the group
-    const datapoolData = chunkGroup.find(
-      chunk => chunk.chunkType === this.chunkType,
-    );
-    if (!datapoolData) {
-      throw new Error(`DATAPOOL chunk not found in chunk group`);
+  parse(context: ChunkParseContext): DatapoolChunk {
+    // Get the DATAPOOL chunk data from context
+    const data = context.rawChunks?.get(this.chunkType);
+    if (!data) {
+      throw new Error(`DATAPOOL chunk not found in context`);
     }
-
-    const data = datapoolData.chunkData;
     const length = data.length;
 
     if (length === 0) {

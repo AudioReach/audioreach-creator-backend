@@ -12,13 +12,9 @@ export abstract class BaseChunkParser<T extends BaseChunk = BaseChunk> {
   abstract readonly chunkType: string;
 
   /**
-   * Parse chunk from chunk group
-   * @param chunkGroup - All chunks (main + dependencies) as raw data
-   * @param context - Parse context with common DATAPOOL chunk
+   * Parse chunk from context
+   * @param context - Parse context with raw chunks and parsed dependencies
    * @returns Parsed chunk instance
    */
-  abstract parse(
-    chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}>,
-    context: ChunkParseContext,
-  ): T;
+  abstract parse(context: ChunkParseContext): T;
 }

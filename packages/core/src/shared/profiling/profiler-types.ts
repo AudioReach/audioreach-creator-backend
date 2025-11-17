@@ -13,6 +13,7 @@ export const PROFILER_OPERATIONS = {
 
   // Entity building operations
   ENTITY_BUILDING: 'entity_building',
+  KEY_ENTITY_BUILDING: 'key_entity_building',
   SIMPLE_ENTITIES: 'simple_entities',
   COMPLEX_ENTITIES: 'complex_entities',
 

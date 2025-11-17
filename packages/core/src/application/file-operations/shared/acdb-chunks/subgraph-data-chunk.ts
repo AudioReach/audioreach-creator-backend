@@ -5,8 +5,12 @@ import {CHUNK_TYPES} from '../constants/chunk-types.js';
  * Represents a single subgraph data entry extracted from usecase data
  */
 export interface SubgraphDataEntry {
-  /** Extracted subgraph properties data */
-  properties: Uint8Array;
+  /** Subgraph ID */
+  subgraphId: number;
+  /** Driver properties data (formerly GSL) */
+  driverProperties: Uint8Array;
+  /** SPF properties data (formerly Gecko) */
+  spfProperties: Uint8Array;
 }
 
 /**
