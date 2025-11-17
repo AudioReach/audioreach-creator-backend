@@ -38,9 +38,8 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getBulkImportRepository(): BulkImportRepository {
-    // Use the current query runner if in transaction, otherwise use the data source
-    return new TypeOrmBulkImportRepository(
-      this.currentQueryRunner || this.dataSource,
-    );
+    // Always create a new QueryRunner for bulk import operations
+    const queryRunner = this.dataSource.createQueryRunner();
+    return new TypeOrmBulkImportRepository(queryRunner);
   }
 }

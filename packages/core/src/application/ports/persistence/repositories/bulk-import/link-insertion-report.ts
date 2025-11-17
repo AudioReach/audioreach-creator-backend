@@ -1,5 +1,5 @@
 import type {DataLink, ControlLink} from '@arc/core';
-import type {NaturalIdMapping, InsertError} from '../../insert-result.js';
+import type {NaturalIdMapping, InsertError} from './insert-result.js';
 
 /**
  * Link error entity types (combined for data and control links).

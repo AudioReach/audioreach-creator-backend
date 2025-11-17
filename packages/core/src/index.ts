@@ -16,12 +16,38 @@ export * from './application/orchestration/middleware/transaction.middleware.js'
 export * from './application/shared/base-command.js';
 export * from './application/shared/base-query.js';
 export * from './application/ports/persistence/unit-of-work.js';
-export * from './application/ports/persistence/insert-result.js';
+export * from './application/ports/persistence/repositories/bulk-import/insert-result.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 export * from './application/ports/persistence/repositories/bulk-import/link-insertion-report.js';
 export * from './application/ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
 export * from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
+export * from './application/ports/persistence/repositories/project/project.repostiory.js';
+
+// Export specific InsertError types
+export type {
+  InsertError,
+  NaturalIdMapping,
+  EntityInsertResult,
+  BulkEntityInsertResult,
+} from './application/ports/persistence/repositories/bulk-import/insert-result.js';
+export type {
+  KeyDefinitionInsertError,
+  KeyDefinitionInsertErrorEntity,
+} from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
+export type {
+  DataLinkInsertError,
+  ControlLinkInsertError,
+  LinkInsertErrorEntity,
+} from './application/ports/persistence/repositories/bulk-import/link-insertion-report.js';
+export type {
+  ModuleDefinitionInsertError,
+  ModuleDefinitionInsertErrorEntity,
+} from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
+export type {
+  ModuleInsertError,
+  ModuleInsertErrorEntity,
+} from './application/ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 
@@ -82,10 +108,15 @@ export * from './domain/entities/usecase-data/links/data-link.js';
 export * from './domain/entities/usecase-data/module/spf-module.js';
 export * from './domain/entities/usecase-data/container/container.js';
 export * from './domain/entities/usecase-data/subgraph/subgraph.js';
+export * from './domain/entities/usecase-data/project/project.js';
+export * from './domain/entities/usecase-data/project/arc-db-file.js';
+export * from './domain/entities/usecase-data/usecase/usecase.js';
 
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
 export * from './domain/entities/definitions/key-value/aggregate/key-definition.js';
+export * from './domain/entities/definitions/key-value/entities/value-definition.js';
+
 export * from './domain/entities/definitions/processor/processor-definition.js';
 export * from './domain/entities/definitions/container/container-type-definition.js';
 

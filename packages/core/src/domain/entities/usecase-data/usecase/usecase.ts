@@ -1,4 +1,4 @@
-import type {KvData} from 'domain/entities/common/entities/kv-data.js';
+import type {KvData} from '../../common/entities/kv-data.js';
 
 /**
  * Exception thrown when attempting to add a duplicate module systemId to a UseCase.
@@ -42,6 +42,7 @@ export class UseCase {
   readonly moduleSystemIds: number[] = [];
   readonly dataLinkSystemIds: number[] = [];
   readonly controlLinkSystemIds: number[] = [];
+  readonly gkv: KvData;
 
   alias?: string;
   aliasId?: number;
@@ -50,6 +51,7 @@ export class UseCase {
   constructor(initParams: UseCaseInit) {
     this.systemId = initParams.systemId;
     this.fileSystemId = initParams.fileSystemId;
+    this.gkv = initParams.gkv;
     this.alias = initParams.alias;
     this.aliasId = initParams.aliasId;
     this.categories = initParams.categories;

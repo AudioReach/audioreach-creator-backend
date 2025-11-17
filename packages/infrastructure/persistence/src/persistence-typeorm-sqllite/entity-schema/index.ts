@@ -66,99 +66,216 @@ import {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
 
 // ===== DEFINITION SCHEMAS =====
 // Common
-export {ProcessorDefinitionSchema} from './definitions/common/processor-definition.schema.js';
+export {
+  ProcessorDefinitionRow,
+  ProcessorDefinitionSchema,
+} from './definitions/common/processor-definition.schema.js';
 
 // Container
-export {ContainerTypeSchema} from './definitions/container/container-definition.schema.js';
-export {ContainerPropertyDefinitionSchema} from './definitions/container/container-property-definition.schema.js';
+export {
+  ContainerTypeRow,
+  ContainerTypeSchema,
+} from './definitions/container/container-definition.schema.js';
+export {
+  ContainerPropertyRow,
+  ContainerPropertyDefinitionSchema,
+} from './definitions/container/container-property-definition.schema.js';
 
 // Key-Value
-export {KeyDefinitionSchema} from './definitions/key-value/key-definition.schema.js';
-export {ValueDefinitionSchema} from './definitions/key-value/value-definition.schema.js';
+export {
+  KeyDefinitionRow,
+  KeyDefinitionSchema,
+} from './definitions/key-value/key-definition.schema.js';
+export {
+  ValueDefinitionRow,
+  ValueDefinitionSchema,
+} from './definitions/key-value/value-definition.schema.js';
 
 // Module - Driver
-export {DriverModuleDefinitionSchema} from './definitions/module/driver/driver-module-definition.schema.js';
-export {DriverModuleParameterDefinitionSchema} from './definitions/module/driver/driver-module-parameter-definition.schema.js';
+export {
+  DriverModuleDefinitionRow,
+  DriverModuleDefinitionSchema,
+} from './definitions/module/driver/driver-module-definition.schema.js';
+export {
+  DriverModuleParameterDefinitionRow,
+  DriverModuleParameterDefinitionSchema,
+} from './definitions/module/driver/driver-module-parameter-definition.schema.js';
 
 // Module - SPF
-export {DataPortGroupSchema} from './definitions/module/spf/data-group-definition.schema.js';
-export {DataPortDefinitionSchema} from './definitions/module/spf/data-port-definition.schema.js';
-export {DynamicIntentDefinitionSchema} from './definitions/module/spf/dynamic-intent-definition.schema.js';
-export {ModuleAttributeSchema} from './definitions/module/spf/module-attribute.schema.js';
-export {ModuleDefinitionMetaDataSchema} from './definitions/module/spf/module-definition-meta-data.schema.js';
-export {ModuleParameterAttributeSchema} from './definitions/module/spf/module-paramater-attribute.schema.js';
-export {ModulePropertyDefinitionSchema} from './definitions/module/spf/module-property-definition.schema.js';
-export {SpfModuleDefinitionSchema} from './definitions/module/spf/spf-module-definition.schema.js';
-export {SpfModuleParameterDefinitionSchema} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
-export {StaticControlPortDefinitionSchema} from './definitions/module/spf/static-control-port-definition.schema.js';
-export {StaticIntentDefinitionSchema} from './definitions/module/spf/static-intent-definition.schema.js';
+export {
+  DataPortGroupRow,
+  DataPortGroupSchema,
+} from './definitions/module/spf/data-group-definition.schema.js';
+export {
+  DataPortDefinitionRow,
+  DataPortDefinitionSchema,
+} from './definitions/module/spf/data-port-definition.schema.js';
+export {
+  DynamicIntentDefinitionRow,
+  DynamicIntentDefinitionSchema,
+} from './definitions/module/spf/dynamic-intent-definition.schema.js';
+export {
+  ModuleAttributeRow,
+  ModuleAttributeSchema,
+} from './definitions/module/spf/module-attribute.schema.js';
+export {
+  ModuleDefinitionMetaDataRow,
+  ModuleDefinitionMetaDataSchema,
+} from './definitions/module/spf/module-definition-meta-data.schema.js';
+export {
+  ModuleParameterAttributeRow,
+  ModuleParameterAttributeSchema,
+} from './definitions/module/spf/module-paramater-attribute.schema.js';
+export {
+  ModulePropertyRow,
+  ModulePropertyDefinitionSchema,
+} from './definitions/module/spf/module-property-definition.schema.js';
+export {
+  SpfModuleDefinitionRow,
+  SpfModuleDefinitionSchema,
+} from './definitions/module/spf/spf-module-definition.schema.js';
+export {
+  SpfModuleParameterDefinitionRow,
+  SpfModuleParameterDefinitionSchema,
+} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
+export {
+  StaticControlPortDefinitionRow,
+  StaticControlPortDefinitionSchema,
+} from './definitions/module/spf/static-control-port-definition.schema.js';
+export {
+  StaticIntentDefinitionRow,
+  StaticIntentDefinitionSchema,
+} from './definitions/module/spf/static-intent-definition.schema.js';
 
 // Subgraph
-export {SubgraphPropertyDefinitionSchema} from './definitions/subgraph/subgraph-property-definition.schema.js';
-export {VcpmModuleDefinitionSchema} from './definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
-export {VcpmModuleParameterDefinitionSchema} from './definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
+export {
+  SubgraphPropertyRow,
+  SubgraphPropertyDefinitionSchema,
+} from './definitions/subgraph/subgraph-property-definition.schema.js';
+export {
+  VcpmModuleDefinitionRow,
+  VcpmModuleDefinitionSchema,
+} from './definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
+export {
+  VcpmModuleParameterDefinitionRow,
+  VcpmModuleParameterDefinitionSchema,
+} from './definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
 
 // ===== RUNTIME DATA SCHEMAS =====
 // Driver Module Data
 export {
+  DriverModuleRow,
   DriverModuleSchema,
+  DkvRow,
   DkvSchema,
+  DkvParameterPayloadRow,
   DkvParameterPayloadSchema,
 } from './driver-module-data/driver-module.js';
 
 // Module Manager
-export {ModuleManagerDataSchema} from './module-manager/module-manager-data.js';
+export {
+  ModuleManagerDataRow,
+  ModuleManagerDataSchema,
+} from './module-manager/module-manager-data.js';
 
 // Project Data
-export {ArcDbFileSchema} from './project-data/arc-db-file.schema.js';
-export {ProjectSchema} from './project-data/project.schema.js';
+export {
+  ArcDbFileRow,
+  ArcDbFileSchema,
+} from './project-data/arc-db-file.schema.js';
+export {ProjectRow, ProjectSchema} from './project-data/project.schema.js';
 
 // Use Case Data - Common
-export {KeyVectorSchema} from './usecase-data/common/key-vector-schema.js';
+export {
+  KeyVectorRow,
+  KeyVectorSchema,
+} from './usecase-data/common/key-vector-schema.js';
 
 // Use Case Data - Container
-export {ContainerPropertyDataSchema} from './usecase-data/container/container-property-data.js';
-export {ContainerSchema} from './usecase-data/container/container.schema.js';
+export {
+  ContainerPropertyDataRow,
+  ContainerPropertyDataSchema,
+} from './usecase-data/container/container-property-data.js';
+export {
+  ContainerRow,
+  ContainerSchema,
+} from './usecase-data/container/container.schema.js';
 
 // Use Case Data - Links
-export {ControlLinkSchema} from './usecase-data/Links/control-link.js';
-export {DataLinkSchema} from './usecase-data/Links/data-link.js';
+export {
+  ControlLinkRow,
+  ControlLinkSchema,
+} from './usecase-data/Links/control-link.js';
+export {DataLinkRow, DataLinkSchema} from './usecase-data/Links/data-link.js';
 
 // Use Case Data - Module
 export {
+  CkvRow,
   CkvSchema,
+  CkvParameterPayloadRow,
   CkvParameterPayloadRowSchema,
 } from './usecase-data/module/spf-module-calibration-data.schema.js';
-export {SpfModulePropertiesDataSchema} from './usecase-data/module/spf-module-properties-data.js';
 export {
+  SpfModulePropertiesDataRow,
+  SpfModulePropertiesDataSchema,
+} from './usecase-data/module/spf-module-properties-data.js';
+export {
+  ModuleTagIdMapRow,
   ModuleTagIdMapSchema,
+  TkvRow,
   TkvSchema,
+  TkvParameterPayloadRow,
   TkvParameterPayloadSchema,
 } from './usecase-data/module/spf-module-tag-data.schema.js';
-export {SpfModuleSchema} from './usecase-data/module/spf-module.schema.js';
+export {
+  SpfModuleRow,
+  SpfModuleSchema,
+} from './usecase-data/module/spf-module.schema.js';
 
 // Use Case Data - Node
 export {
+  ControlPortRow,
   ControlPortSchema,
+  IntentRow,
   IntentSchema,
 } from './usecase-data/node/control-port.js';
-export {DataPortSchema} from './usecase-data/node/data-port-info.schema.js';
-export {NodeSchema} from './usecase-data/node/node.schema.js';
+export {
+  DataPortRow,
+  DataPortSchema,
+} from './usecase-data/node/data-port-info.schema.js';
+export {NodeRow, NodeSchema} from './usecase-data/node/node.schema.js';
 
 // Use Case Data - Subgraph
-export {SubgraphPropertyDataSchema} from './usecase-data/subgraph/subgraph-property-data.js';
 export {
+  SubgraphPropertyDataRow,
+  SubgraphPropertyDataSchema,
+} from './usecase-data/subgraph/subgraph-property-data.js';
+export {
+  VcpmInstanceRow,
   VcpmInstanceSchema,
+  VcpmCkvRow,
   VcpmCkvSchema,
+  VcpmParameterPayloadRow,
   VcpmParameterPayloadSchema,
 } from './usecase-data/subgraph/subgraph-vcpm-data.js';
-export {SubgraphSchema} from './usecase-data/subgraph/subgraph.schema.js';
+export {
+  SubgraphRow,
+  SubgraphSchema,
+} from './usecase-data/subgraph/subgraph.schema.js';
 
 // Use Case Data - Subsystem
-export {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
+export {
+  SubsystemRow,
+  SubsystemSchema,
+} from './usecase-data/subsystem/subsystem.js';
 
 // Use Case Data - Main
-export {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
+export {
+  UseCaseRow,
+  UseCaseSchema,
+  UseCaseCategoryRow,
+  UseCaseCategorySchema,
+} from './usecase-data/use-case.js';
 
 // ===== HELPER TYPES =====
 export type {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';

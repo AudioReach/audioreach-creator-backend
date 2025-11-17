@@ -10,8 +10,10 @@ import type {
   Subgraph,
   ContainerType,
   BulkEntityInsertResult,
+  UseCase,
 } from '@arc/core';
-import type {DataSource, QueryRunner} from 'typeorm';
+import type {QueryRunner} from 'typeorm';
+import {KeyDefinitionInserter} from './key-definition/key-definition.inserter.js';
 
 // Import the specific result types from @arc/core
 import type {
@@ -24,18 +26,14 @@ import type {
 
 /**
  * TypeORM implementation of BulkImportRepository.
- *
- * This is currently a placeholder implementation that throws "not implemented" errors.
- * Each method should be properly implemented with TypeORM bulk insert operations.
+ * Uses QueryRunner for consistent transaction management.
  */
 export class TypeOrmBulkImportRepository implements BulkImportRepository {
-  constructor(private queryRunnerOrDataSource: QueryRunner | DataSource) {}
+  constructor(private queryRunner: QueryRunner) {}
 
   async insertSpfModules(
     items: readonly Omit<SpfModule, 'systemId'>[],
   ): Promise<BulkModuleInsertResult> {
-    if (this.queryRunnerOrDataSource) {
-    }
     throw new Error(
       'BulkImportRepository.insertSpfModules not yet implemented. ' +
         `Attempted to insert ${items.length} SPF modules.`,
@@ -78,6 +76,14 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     );
   }
 
+  insertUseCases(
+    items: readonly Omit<UseCase, 'systemId'>[],
+  ): Promise<BulkEntityInsertResult<number>> {
+    throw new Error(
+      `BulkImportRepository.insertUseCases ${items.length} not yet implemented. `,
+    );
+  }
+
   async insertModuleDefinitions(
     items: readonly Omit<ModuleDefinition, 'systemId'>[],
   ): Promise<BulkModuleDefinitionInsertResult> {
@@ -90,10 +96,16 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   async insertKeyDefinitions(
     items: readonly Omit<KeyDefinition, 'systemId'>[],
   ): Promise<BulkKeyDefinitionInsertResult> {
-    throw new Error(
-      'BulkImportRepository.insertKeyDefinitions not yet implemented. ' +
-        `Attempted to insert ${items.length} key definitions.`,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new KeyDefinitionInserter(this.queryRunner.manager);
+      return await inserter.insert(items);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertProcessorDefinitions(
