@@ -17,11 +17,14 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> {
   readonly chunkType = CHUNK_TYPES.SUBGRAPH_DATA;
 
-  parse(
-    _chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}>,
-    context: ChunkParseContext,
-  ): SubgraphDataChunk {
-    // For derived chunks, we work with parsed chunks from context, not raw chunkGroup data
+  /** Track processed subgraph IDs to avoid duplicates */
+  private processedSubgraphIds = new Set<number>();
+
+  parse(context: ChunkParseContext): SubgraphDataChunk {
+    // Reset processed subgraph IDs for this parsing session
+    this.processedSubgraphIds.clear();
+
+    // For derived chunks, we work with parsed chunks from context, not raw data
     if (!context.parsedChunks) {
       throw new Error(
         'Parsed chunks context is required for derived chunk processing',
@@ -47,11 +50,14 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
     // Process each usecase entry to extract subgraph data
     usecaseChunk.usecases.forEach((usecaseEntry, index) => {
       try {
-        const subgraphData = this.extractSubgraphData(
+        const subgraphEntries = this.extractSubgraphData(
           datapoolChunk,
           usecaseEntry.sgPropOffset,
         );
-        chunk.addSubgraphData(subgraphData);
+        // Add each unique subgraph entry
+        subgraphEntries.forEach(entry => {
+          chunk.addSubgraphData(entry);
+        });
       } catch (error) {
         // Log error but continue processing other usecases
         console.warn(
@@ -70,7 +76,7 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
   private extractSubgraphData(
     datapoolChunk: DatapoolChunk,
     sgPropOffset: number,
-  ): SubgraphDataEntry {
+  ): SubgraphDataEntry[] {
     if (!datapoolChunk.payloads || datapoolChunk.payloads.length === 0) {
       throw new Error('DATAPOOL chunk has no payloads');
     }
@@ -83,15 +89,12 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
       );
     }
 
-    // Extract properties from the specific payload
-    const properties = this.extractPropertiesFromPayload(
+    // Extract subgraph entries from the specific payload
+    const subgraphEntries = this.extractSubgraphEntriesFromPayload(
       payloadInfo.payload,
-      payloadInfo.relativeOffset,
     );
 
-    return {
-      properties,
-    };
+    return subgraphEntries;
   }
 
   /**
@@ -125,45 +128,129 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
   }
 
   /**
-   * Extract subgraph properties from a specific payload at the given relative offset.
-   * This implements the binary parsing logic similar to the C# GetGeckoPrptyDataPayload method.
+   * Extract subgraph entries from a specific payload at the given relative offset.
+   * This implements the binary parsing logic matching the C# code structure.
    */
-  private extractPropertiesFromPayload(
+  private extractSubgraphEntriesFromPayload(
     payload: Uint8Array,
-    relativeOffset: number,
-  ): Uint8Array {
+  ): SubgraphDataEntry[] {
     try {
       const view = new DataView(
         payload.buffer,
         payload.byteOffset,
         payload.byteLength,
       );
-      let pos = relativeOffset;
+      let pos = 0;
+      const subgraphEntries: SubgraphDataEntry[] = [];
 
       // Read the data length (first uint32 at the offset)
       if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(
-          `Cannot read data length at relative offset ${relativeOffset}`,
-        );
+        throw new Error(`Cannot read data length at relative offset ${pos}`);
       }
 
-      const dataLength = BinaryUtils.readUint32(view, pos);
+      // Read the subgraph count (sgCount)
+      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+        throw new Error(`Cannot read sgCount at relative offset ${pos}`);
+      }
+
+      const sgCount = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
-      // Validate data length
-      if (pos + dataLength > payload.length) {
-        throw new Error(
-          `Data length ${dataLength} exceeds available data at relative offset ${pos}`,
-        );
+      // Loop through each subgraph
+      for (let j = 0; j < sgCount; j++) {
+        // Read curSGId
+        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+          throw new Error(`Cannot read curSGId at position ${pos}`);
+        }
+        const curSGId = BinaryUtils.readUint32(view, pos);
+        pos += BinaryUtils.SIZEOF_UINT32;
+
+        // Skip if this subgraph ID was already processed
+        if (this.processedSubgraphIds.has(curSGId)) {
+          // Skip the rest of this subgraph's data
+          // Read totalPropSize to know how much to skip
+          if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+            throw new Error(`Cannot read totalPropSize at position ${pos}`);
+          }
+          const totalPropSize = BinaryUtils.readUint32(view, pos);
+          pos += BinaryUtils.SIZEOF_UINT32;
+
+          // Skip the entire property data
+          pos += totalPropSize;
+          continue;
+        }
+
+        // Mark this subgraph ID as processed
+        this.processedSubgraphIds.add(curSGId);
+
+        // Read totalPropSize
+        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+          throw new Error(`Cannot read totalPropSize at position ${pos}`);
+        }
+        const totalPropSize = BinaryUtils.readUint32(view, pos);
+        pos += BinaryUtils.SIZEOF_UINT32;
+
+        // Validate that we have enough data for the total property size
+        const remainingDataStart = pos;
+
+        // Read driverPropSize (formerly gslPropSize)
+        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+          throw new Error(`Cannot read driverPropSize at position ${pos}`);
+        }
+        const driverPropSize = BinaryUtils.readUint32(view, pos);
+        pos += BinaryUtils.SIZEOF_UINT32;
+
+        // Read driverProperties data
+        if (pos + driverPropSize > payload.length) {
+          throw new Error(
+            `Cannot read driverProperties data at position ${pos}`,
+          );
+        }
+        const driverProperties = payload.slice(pos, pos + driverPropSize);
+        pos += driverPropSize;
+
+        // Read spfPropSize (formerly geckoPropSize)
+        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+          throw new Error(`Cannot read spfPropSize at position ${pos}`);
+        }
+        const spfPropSize = BinaryUtils.readUint32(view, pos);
+        pos += BinaryUtils.SIZEOF_UINT32;
+
+        // Read spfProperties data
+        if (pos + spfPropSize > payload.length) {
+          throw new Error(`Cannot read spfProperties data at position ${pos}`);
+        }
+        const spfProperties = payload.slice(pos, pos + spfPropSize);
+        pos += spfPropSize;
+
+        // Validate that we consumed exactly the expected amount of data
+        const actualDataConsumed = pos - remainingDataStart;
+        const expectedDataSize =
+          BinaryUtils.SIZEOF_UINT32 +
+          driverPropSize +
+          BinaryUtils.SIZEOF_UINT32 +
+          spfPropSize;
+
+        if (actualDataConsumed !== expectedDataSize) {
+          throw new Error(
+            `Data size mismatch: expected ${expectedDataSize}, consumed ${actualDataConsumed}, totalPropSize was ${totalPropSize}`,
+          );
+        }
+
+        // Create SubgraphDataEntry
+        const entry: SubgraphDataEntry = {
+          subgraphId: curSGId,
+          driverProperties,
+          spfProperties,
+        };
+
+        subgraphEntries.push(entry);
       }
 
-      // Extract the properties data
-      const properties = payload.slice(pos, pos + dataLength);
-
-      return properties;
+      return subgraphEntries;
     } catch (error) {
       throw new Error(
-        `Failed to extract properties from payload at relative offset ${relativeOffset}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to extract subgraph entries from payload: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }

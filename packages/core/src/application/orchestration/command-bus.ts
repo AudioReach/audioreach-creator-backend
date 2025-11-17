@@ -7,6 +7,8 @@ import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 //import {TransactionMiddleware} from './middleware/transaction.middleware.js';
 import type {FileReaderPort} from '../ports/file-system/file-reader.port.js';
 import type {WorkerPoolPort} from '../ports/worker/worker-pool.port.js';
+import type {Logger} from '../../shared/types/logger.interface.js';
+import type {ProfilerPort} from '../ports/profiling/profiler.port.js';
 
 export class CommandBus {
   //private middlewares: ApplicationMiddleware<Request>[] = [];
@@ -16,6 +18,8 @@ export class CommandBus {
     private handlerRegistry: CommandHandlerRegistry,
     private fileReader: FileReaderPort,
     private workerPool?: WorkerPoolPort,
+    private logger?: Logger,
+    private profiler?: ProfilerPort,
   ) {
     this.registerMiddlewares();
   }
@@ -37,6 +41,8 @@ export class CommandBus {
       uow: this.unitOfWork,
       fileReader: this.fileReader,
       workerPool: this.workerPool,
+      logger: this.logger,
+      profiler: this.profiler,
     };
     return factory.create(dependencies);
   }

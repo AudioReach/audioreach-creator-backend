@@ -9,6 +9,16 @@ import type {
 } from '../types/chunk-parse.types.js';
 import type {DefinitionParseInput} from '../services/awsp-parser.js';
 import {AwspParser} from '../services/awsp-parser.js';
+import type {
+  KeyDefinitionBuildInput,
+  KeyDefinitionBuildOutput,
+} from '../services/entity-builders/key-definition-builder.js';
+import {KeyDefinitionBuilder} from '../services/entity-builders/key-definition-builder.js';
+import type {
+  SpfModuleDefinitionBuildInput,
+  SpfModuleDefinitionBuildOutput,
+} from '../services/entity-builders/spf-module-definition-builder.js';
+import {SpfModuleDefinitionBuilder} from '../services/entity-builders/spf-module-definition-builder.js';
 import type {Handler} from '../../../ports/worker/handler-registry.port.js';
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
 import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
@@ -57,15 +67,14 @@ export function createParserRegistry(): Map<string, Handler> {
       throw new Error(`Unknown chunk type: ${input.chunkType}`);
     }
 
-    // Create context with DATAPOOL if available
+    // Create context from contextData
     const context: ChunkParseContext = {
-      parsedChunks: contextData?.parsedChunks
-        ? contextData?.parsedChunks
-        : undefined,
+      rawChunks: contextData?.rawChunks,
+      parsedChunks: contextData?.parsedChunks,
     };
 
-    // Parse the chunk group using the factory
-    return parser.parse(input.chunkGroup, context);
+    // Parse the chunk using the factory (context contains all raw data)
+    return parser.parse(context);
   }) as Handler);
 
   /**
@@ -77,6 +86,28 @@ export function createParserRegistry(): Map<string, Handler> {
   ): Record<string, unknown> => {
     // Use AwspParser static method for parsing
     return AwspParser.parse(input);
+  }) as Handler);
+
+  /**
+   * Handler for building key definitions from AWSP data.
+   * Uses KeyDefinitionBuilder static method to build key definitions.
+   */
+  registry.set(HANDLER_KEYS.BUILD_KEY_DEFINITIONS, ((
+    input: KeyDefinitionBuildInput,
+  ): KeyDefinitionBuildOutput => {
+    // Use KeyDefinitionBuilder static method for building
+    return KeyDefinitionBuilder.buildKeyDefinitions(input);
+  }) as Handler);
+
+  /**
+   * Handler for building SPF module definitions from AWSP data.
+   * Uses SpfModuleDefinitionBuilder static method to build SPF module definitions.
+   */
+  registry.set(HANDLER_KEYS.BUILD_SPF_MODULE_DEFINITIONS, ((
+    input: SpfModuleDefinitionBuildInput,
+  ): SpfModuleDefinitionBuildOutput => {
+    // Use SpfModuleDefinitionBuilder static method for building
+    return SpfModuleDefinitionBuilder.buildModuleDefinitions(input);
   }) as Handler);
 
   // Future handlers can be registered here

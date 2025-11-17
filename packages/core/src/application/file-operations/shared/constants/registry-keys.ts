@@ -5,6 +5,8 @@
 export const HANDLER_KEYS = {
   PARSE_CHUNK: 'parseChunk',
   PARSE_DEFINITION: 'parseDefinition', // For AWSP definition parsing
+  BUILD_KEY_DEFINITIONS: 'buildKeyDefinitions', // For key definition building
+  BUILD_SPF_MODULE_DEFINITIONS: 'buildSpfModuleDefinitions', // For SPF module definition building
   VALIDATE_CHUNK: 'validateChunk', // Future use
 } as const;
 

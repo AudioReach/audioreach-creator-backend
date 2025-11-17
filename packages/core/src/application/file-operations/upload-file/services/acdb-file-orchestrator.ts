@@ -214,27 +214,12 @@ export class AcdbFileOrchestrator {
     const result = new ParsedAcdb();
     const parsedChunks = new Map<string, BaseChunk>();
 
-    // Filter to only registered main chunks (binary chunks from file)
-    const mainChunks = descriptors.filter(d =>
-      ChunkMetadataRegistry.hasChunkType(d.type),
-    );
-
-    // Separate chunks into independent (no dependencies) and dependent chunks
-    const independentChunkTypes = mainChunks
-      .filter(
-        chunk => ChunkMetadataRegistry.getDependencies(chunk.type).length === 0,
-      )
-      .map(chunk => chunk.type);
-
-    const dependentChunkTypes = mainChunks
-      .filter(
-        chunk => ChunkMetadataRegistry.getDependencies(chunk.type).length > 0,
-      )
-      .map(chunk => chunk.type);
+    // Get all registered chunk types in registry order (priority already set)
+    const allRegisteredChunks = ChunkMetadataRegistry.getAllChunkTypes();
 
     this.logger?.logDebug({
-      msg: `Parsing ${independentChunkTypes.length} independent chunks first, then ${dependentChunkTypes.length} dependent chunks`,
-      action: 'parse_binary_chunks_start',
+      msg: `Parsing ${allRegisteredChunks.length} chunks in registry order`,
+      action: 'parse_all_chunks_start',
       component: 'AcdbFileOrchestrator',
       tag: 'parsing',
       timestamp: new Date(),
@@ -243,99 +228,60 @@ export class AcdbFileOrchestrator {
     // NOTE: Parallel processing is temporarily disabled - using sequential parsing only
     // TODO: Re-enable parallel processing once worker issues are resolved
 
-    // Parallel processing branch (commented out):
-    // if (useParallel && this.workerPool) {
-    //   await this.parseChunkBatchParallel(
-    //     bytes,
-    //     descriptors,
-    //     independentChunkTypes,
-    //     dependentChunkTypes,
-    //     parsedChunks,
-    //     result,
-    //   );
-    // } else {
-    await this.parseChunkBatchSequential(
+    await this.parseAllChunksSequential(
       bytes,
       descriptors,
-      independentChunkTypes,
-      dependentChunkTypes,
+      allRegisteredChunks,
       parsedChunks,
       result,
     );
-    // }
 
     return result;
   }
 
   /**
-   * Parse chunks sequentially - independent chunks first, then dependent chunks
+   * Parse all chunks sequentially in registry order
    */
-  private async parseChunkBatchSequential(
+  private async parseAllChunksSequential(
     bytes: Uint8Array,
-    allDescriptors: ChunkMetadata[],
-    independentChunkTypes: string[],
-    dependentChunkTypes: string[],
+    descriptors: ChunkMetadata[],
+    allRegisteredChunks: string[],
     parsedChunks: Map<string, BaseChunk>,
     result: ParsedAcdb,
   ): Promise<void> {
-    // Parse independent chunks first (sequentially)
-    for (const chunkType of independentChunkTypes) {
-      const descriptor = allDescriptors.find(d => d.type === chunkType);
-      if (descriptor) {
-        const chunkData = this.extractChunkData(bytes, descriptor);
-        const context: ChunkParseContext = {}; // No dependencies for independent chunks
+    // Process all registered chunks in registry order (priority already set)
+    for (const chunkType of allRegisteredChunks) {
+      // Build context based on chunk type and dependencies
+      const context = this.buildOptimizedContext(
+        chunkType,
+        parsedChunks,
+        bytes,
+        descriptors,
+      );
 
-        try {
-          // Direct call to chunkParser.parseChunk - NO workers!
-          const chunk = this.chunkParser.parseChunk(
-            chunkType,
-            chunkData,
-            context,
-          );
-          parsedChunks.set(chunkType, chunk);
-          result.addChunk(chunkType, chunk);
-        } catch (error) {
-          this.logger?.logError({
-            msg: `Failed to parse chunk: ${chunkType}`,
-            action: 'parse_chunk_failed',
-            component: 'AcdbFileOrchestrator',
-            tag: 'parsing',
-            error: error as Error,
-            timestamp: new Date(),
-          });
-          throw error;
-        }
-      }
-    }
+      try {
+        // Parse the chunk (works for both binary and derived chunks)
+        const chunk = this.chunkParser.parseChunk(chunkType, context);
+        parsedChunks.set(chunkType, chunk);
+        result.addChunk(chunkType, chunk);
 
-    // Parse dependent chunks (sequentially, they can now access independent chunks)
-    for (const chunkType of dependentChunkTypes) {
-      const descriptor = allDescriptors.find(d => d.type === chunkType);
-      if (descriptor) {
-        const chunkData = this.extractChunkData(bytes, descriptor);
-        // Build optimized context with only required dependencies for this chunk
-        const context = this.buildOptimizedContext(chunkType, parsedChunks);
-
-        try {
-          // Direct call to chunkParser.parseChunk - NO workers!
-          const chunk = this.chunkParser.parseChunk(
-            chunkType,
-            chunkData,
-            context,
-          );
-          parsedChunks.set(chunkType, chunk);
-          result.addChunk(chunkType, chunk);
-        } catch (error) {
-          this.logger?.logError({
-            msg: `Failed to parse chunk: ${chunkType}`,
-            action: 'parse_chunk_failed',
-            component: 'AcdbFileOrchestrator',
-            tag: 'parsing',
-            error: error as Error,
-            timestamp: new Date(),
-          });
-          throw error;
-        }
+        this.logger?.logDebug({
+          msg: `Successfully parsed chunk: ${chunkType}`,
+          action: 'parse_chunk_success',
+          component: 'AcdbFileOrchestrator',
+          tag: 'parsing',
+          timestamp: new Date(),
+        });
+      } catch (error) {
+        this.logger?.logError({
+          msg: `Failed to parse chunk: ${chunkType}`,
+          action: 'parse_chunk_failed',
+          component: 'AcdbFileOrchestrator',
+          tag: 'parsing',
+          error: error as Error,
+          timestamp: new Date(),
+        });
+        throw error;
       }
     }
   }
@@ -480,17 +426,33 @@ export class AcdbFileOrchestrator {
   private buildOptimizedContext(
     chunkType: string,
     parsedChunks: Map<string, BaseChunk>,
+    bytes: Uint8Array,
+    allDescriptors: ChunkMetadata[],
   ): ChunkParseContext {
     const rawDeps = ChunkMetadataRegistry.getRawDependencies(chunkType);
     const parsedDeps = ChunkMetadataRegistry.getParsedDependencies(chunkType);
 
     const context: ChunkParseContext = {};
 
-    // Add raw dependencies (only what's needed for this chunk)
-    if (rawDeps.length > 0) {
-      context.rawChunks = new Map();
-      // Note: Raw dependencies would need to be extracted from file bytes
-      // For now, this is handled in the calling code
+    // Always initialize rawChunks to include the main chunk data
+    context.rawChunks = new Map();
+
+    // Add the main chunk data first
+    const mainDescriptor = allDescriptors.find(d => d.type === chunkType);
+    if (mainDescriptor) {
+      const mainChunkData = this.extractChunkData(bytes, mainDescriptor);
+      context.rawChunks.set(chunkType, mainChunkData);
+    }
+
+    // Add raw dependencies with actual binary data (only what's needed for this chunk)
+    for (const depType of rawDeps) {
+      // Find the descriptor for this raw dependency
+      const descriptor = allDescriptors.find(d => d.type === depType);
+      if (descriptor) {
+        // Extract the raw chunk data using existing extractChunkData method
+        const rawChunkData = this.extractChunkData(bytes, descriptor);
+        context.rawChunks.set(depType, rawChunkData);
+      }
     }
 
     // Add parsed dependencies (only what's needed for this chunk)
@@ -523,11 +485,13 @@ export class AcdbFileOrchestrator {
 
   /**
    * Validate chunk dependencies before parsing.
-   * Ensures all required dependencies are present in the file.
+   * Only validates chunks that are present in the file (binary chunks).
+   * Derived chunks are validated during parsing when their dependencies are checked.
    */
   private validateChunkDependencies(descriptors: ChunkMetadata[]): void {
     const availableChunks = new Set(descriptors.map(d => d.type));
 
+    // Only validate chunks that are actually in the file
     for (const descriptor of descriptors) {
       const deps = ChunkMetadataRegistry.getDependencies(descriptor.type);
 

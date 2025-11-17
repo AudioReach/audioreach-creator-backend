@@ -11,6 +11,7 @@ import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.j
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
+import {ParsedAwsp, type DefinitionBlockName} from '../models/parsed-awsp.js';
 
 /**
  * Orchestrator for AWSP file parsing.
@@ -31,9 +32,9 @@ export class AwspFileOrchestrator {
   /**
    * Parse .awsp file by unzipping it and extracting contents
    * @param awspFilePath - Path to the .awsp file
-   * @returns Promise resolving to parsed data with unzipped folder path
+   * @returns Promise resolving to ParsedAwsp instance
    */
-  async parseAWSP(awspFilePath: PathRef): Promise<Record<string, unknown>> {
+  async parseAWSP(awspFilePath: PathRef): Promise<ParsedAwsp> {
     let unzippedFolderPath: string | undefined;
     const startTime = Date.now();
 
@@ -47,7 +48,7 @@ export class AwspFileOrchestrator {
 
     try {
       // Unzip the .awsp file
-      unzippedFolderPath = await this.unzipAwspFile(awspFilePath.name);
+      unzippedFolderPath = await this.unzipAwspFile(awspFilePath.uri);
 
       // Look for definition.json file specifically
       const definitionFilePath = this.fs.joinPath(
@@ -58,9 +59,9 @@ export class AwspFileOrchestrator {
       // Check if definition.json exists
       const definitionExists = await this.fs.exists(definitionFilePath);
       if (!definitionExists) {
-        return {
-          message: `${FILE_NAMES.DEFINITIONS_JSON} file not found in the unzipped folder`,
-        };
+        throw new Error(
+          `${FILE_NAMES.DEFINITIONS_JSON} file not found in the unzipped folder`,
+        );
       }
 
       // Read the entire JSON file as bytes and convert to text
@@ -78,6 +79,12 @@ export class AwspFileOrchestrator {
       const definitions =
         await this.definitionParser.parseDefinitions(jsonData);
 
+      // Create ParsedAwsp instance and populate it with parsed definitions
+      const parsedAwsp = new ParsedAwsp();
+
+      // Map the parsed definitions to the ParsedAwsp structure
+      this.populateParsedAwsp(parsedAwsp, definitions);
+
       const duration = Date.now() - startTime;
       this.logger?.logInfo({
         msg: `AWSP parsing completed in ${duration}ms`,
@@ -87,9 +94,7 @@ export class AwspFileOrchestrator {
         timestamp: new Date(),
       });
 
-      return {
-        definitions,
-      };
+      return parsedAwsp;
     } catch (error) {
       this.logger?.logError({
         msg: 'AWSP parsing failed',
@@ -162,6 +167,33 @@ export class AwspFileOrchestrator {
       throw new Error(
         `Failed to unzip ${FILE_EXTENSIONS.AWSP} file: Unknown error`,
       );
+    }
+  }
+
+  /**
+   * Populate ParsedAwsp instance with parsed definitions
+   * @param parsedAwsp - The ParsedAwsp instance to populate
+   * @param definitions - The parsed definitions from AwspParser (already structured with DefinitionBlockName keys)
+   */
+  private populateParsedAwsp(
+    parsedAwsp: ParsedAwsp,
+    definitions: Record<DefinitionBlockName, any>,
+  ): void {
+    // Since the parser now returns structured definitions with DefinitionBlockName keys,
+    // we can directly iterate and add them to ParsedAwsp
+    for (const [definitionType, definitionCollection] of Object.entries(
+      definitions,
+    )) {
+      if (
+        definitionCollection &&
+        Array.isArray(definitionCollection) &&
+        definitionCollection.length > 0
+      ) {
+        parsedAwsp.addDefinitions(
+          definitionType as DefinitionBlockName,
+          definitionCollection,
+        );
+      }
     }
   }
 

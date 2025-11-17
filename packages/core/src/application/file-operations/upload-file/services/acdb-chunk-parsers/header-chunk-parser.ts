@@ -11,19 +11,12 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 export class HeaderChunkParser extends BaseChunkParser<HeaderChunk> {
   readonly chunkType = CHUNK_TYPES.HEADER;
 
-  parse(
-    chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}>,
-    _context: ChunkParseContext,
-  ): HeaderChunk {
-    // Find the HEADER chunk in the group
-    const headerData = chunkGroup.find(
-      chunk => chunk.chunkType === this.chunkType,
-    );
-    if (!headerData) {
-      throw new Error(`HEADER chunk not found in chunk group`);
+  parse(context: ChunkParseContext): HeaderChunk {
+    // Get the HEADER chunk data from context
+    const data = context.rawChunks?.get(this.chunkType);
+    if (!data) {
+      throw new Error(`HEADER chunk not found in context`);
     }
-
-    const data = headerData.chunkData;
     if (data.length < BinaryUtils.SIZEOF_UINT32) {
       throw new Error(
         'Invalid HEADER chunk: insufficient data for header version',

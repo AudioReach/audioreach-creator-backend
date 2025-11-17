@@ -22,21 +22,18 @@ export class AcdbParser {
 
   /**
    * Parse a single chunk based on its type
+   * All raw data (including main chunk) is now provided in context.rawChunks
    */
-  parseChunk(
-    chunkType: string,
-    data: Uint8Array,
-    context: ChunkParseContext,
-  ): BaseChunk {
+  parseChunk(chunkType: string, context: ChunkParseContext): BaseChunk {
     switch (chunkType) {
       case CHUNK_TYPES.HEADER:
-        return this.parseHeaderChunk(data, context);
+        return this.parseHeaderChunk(context);
       case CHUNK_TYPES.DATAPOOL:
-        return this.parseDatapoolChunk(data, context);
+        return this.parseDatapoolChunk(context);
       case CHUNK_TYPES.GKV_TABLE:
-        return this.parseUsecaseDataChunk(data, context);
+        return this.parseUsecaseDataChunk(context);
       case CHUNK_TYPES.SUBGRAPH_DATA:
-        return this.parseSubgraphDataChunk(data, context);
+        return this.parseSubgraphDataChunk(context);
       default:
         throw new Error(`Unknown chunk type: ${chunkType}`);
     }
@@ -45,57 +42,22 @@ export class AcdbParser {
   /**
    * Parse HEADER chunk using HeaderChunkParser
    */
-  private parseHeaderChunk(
-    data: Uint8Array,
-    context: ChunkParseContext,
-  ): HeaderChunk {
-    // Create chunk group with just the header chunk
-    const chunkGroup = [
-      {
-        chunkType: CHUNK_TYPES.HEADER,
-        chunkData: data,
-      },
-    ];
-
-    return this.headerParser.parse(chunkGroup, context);
+  private parseHeaderChunk(context: ChunkParseContext): HeaderChunk {
+    return this.headerParser.parse(context);
   }
 
   /**
    * Parse DATAPOOL chunk using DatapoolChunkParser
    */
-  private parseDatapoolChunk(
-    data: Uint8Array,
-    context: ChunkParseContext,
-  ): DatapoolChunk {
-    // Create chunk group with just the datapool chunk
-    const chunkGroup = [
-      {
-        chunkType: CHUNK_TYPES.DATAPOOL,
-        chunkData: data,
-      },
-    ];
-
-    return this.datapoolParser.parse(chunkGroup, context);
+  private parseDatapoolChunk(context: ChunkParseContext): DatapoolChunk {
+    return this.datapoolParser.parse(context);
   }
 
   /**
    * Parse GKV_TABLE chunk using UsecaseDataChunkParser
-   * Note: This method is called by AcdbFileOrchestrator which provides chunk groups with dependencies
    */
-  private parseUsecaseDataChunk(
-    data: Uint8Array,
-    context: ChunkParseContext,
-  ): UsecaseDataChunk {
-    // For now, create a minimal chunk group with just GKV_TABLE
-    // The AcdbFileOrchestrator will handle providing the full chunk group with dependencies
-    const chunkGroup = [
-      {
-        chunkType: CHUNK_TYPES.GKV_TABLE,
-        chunkData: data,
-      },
-    ];
-
-    return this.usecaseDataParser.parse(chunkGroup, context);
+  private parseUsecaseDataChunk(context: ChunkParseContext): UsecaseDataChunk {
+    return this.usecaseDataParser.parse(context);
   }
 
   /**
@@ -103,11 +65,8 @@ export class AcdbParser {
    * Note: This is a derived chunk that works with parsed chunks from context, not raw binary data
    */
   private parseSubgraphDataChunk(
-    _data: Uint8Array,
     context: ChunkParseContext,
   ): SubgraphDataChunk {
-    // For derived chunks, we don't use raw data - pass empty chunk group
-    const chunkGroup: Array<{chunkType: string; chunkData: Uint8Array}> = [];
-    return this.subgraphDataParser.parse(chunkGroup, context);
+    return this.subgraphDataParser.parse(context);
   }
 }
