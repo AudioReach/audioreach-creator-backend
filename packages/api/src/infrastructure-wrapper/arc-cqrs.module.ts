@@ -15,7 +15,7 @@ import type {
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {TypeOrmUnitOfWork} from './persistence/unit-of-work/typeorm-unit-of-work.js';
-import {DbQueryServices} from './persistence/queries/typeorm-query-services.js';
+import {DbQueryServices} from '@arc/persistence';
 import {DataSource} from 'typeorm';
 import {
   NodeFileReaderAdapter,

@@ -1,0 +1,110 @@
+import type {
+  KeyVectorReadModel,
+  ModuleReadModel,
+  DataLinkReadModel,
+  ControlLinkReadModel,
+  DataPortReadModel,
+  ControlPortReadModel,
+  IntentReadModel,
+} from '@arc/core';
+import type {
+  ValueDefinitionRow,
+  NodeRow,
+  DataLinkRow,
+  ControlLinkRow,
+} from '../../entity-schema/index.js';
+
+/**
+ * Mappers for converting database rows to read models for use case queries
+ */
+export class UseCaseQueryMappers {
+  static mapValueToKeyVector(value: ValueDefinitionRow): KeyVectorReadModel {
+    return {
+      key: {
+        systemId: value.keys.systemId,
+        keyId: value.keys.keyId,
+        name: value.keys.keyName,
+      },
+      value: {
+        systemId: value.systemId,
+        valueId: value.valueId,
+        name: value.valueName,
+      },
+    };
+  }
+
+  static mapNodeToModuleReadModel(node: NodeRow): ModuleReadModel {
+    const spfModule = node.spfModule!;
+
+    // Map data ports
+    const dataPorts: DataPortReadModel[] =
+      node.dataPorts?.map(port => ({
+        systemId: port.systemId,
+        portId: port.dataPortId,
+        name: port.name || '',
+        portIoType: port.portIoType,
+        isStatic: port.isStatic,
+      })) || [];
+
+    // Map control ports with intents
+    const controlPorts: ControlPortReadModel[] =
+      node.controlPorts?.map(port => {
+        const allocatedIntents: IntentReadModel[] =
+          port.allocatedIntents?.map(intent => ({
+            systemId: intent.systemId,
+            intentId: intent.intentId,
+            name: `Intent_${intent.intentId}`,
+          })) || [];
+
+        return {
+          systemId: port.systemId,
+          portId: port.portId,
+          name: port.name || '',
+          isStatic: port.isStatic,
+          allocatedIntents,
+        };
+      }) || [];
+
+    return {
+      systemId: node.systemId,
+      name: spfModule.alias,
+      instanceId: spfModule.systemId,
+      definitionSystemId: spfModule.definitionSystemId,
+      container: {
+        systemId: spfModule.container!.systemId,
+        type: spfModule.container!.type,
+      },
+      subgraph: {
+        systemId: spfModule.subgraph!.systemId,
+        name: spfModule.subgraph!.name,
+      },
+      dataPorts,
+      controlPorts,
+    };
+  }
+
+  static mapToDataLinkReadModel(dataLink: DataLinkRow): DataLinkReadModel {
+    return {
+      systemId: dataLink.systemId,
+      sourceNodeSystemId: dataLink.sourceNodeSystemId,
+      destinationNodeSystemId: dataLink.destinationNodeSystemId,
+      sourcePortSystemId: dataLink.sourcePortSystemId,
+      destinationPortSystemId: dataLink.destinationPortSystemId,
+      isInterGraph: dataLink.isInterGraph,
+    };
+  }
+
+  static mapToControlLinkReadModel(
+    controlLink: ControlLinkRow,
+  ): ControlLinkReadModel {
+    return {
+      systemId: controlLink.systemId,
+      peerNodeASystemId: controlLink.peerNodeASystemId,
+      peerNodeBSystemId: controlLink.peerNodeBSystemId,
+      nodeAPortSystemId: controlLink.nodeAPortSystemId,
+      nodeBPortSystemId: controlLink.nodeBPortSystemId,
+      heapId: controlLink.heapId,
+      isInterGraph: controlLink.isInterGraph,
+    };
+  }
+}
