@@ -14,6 +14,7 @@ export const BaseColumnSchemaPart = {
     name: 'system_id',
     type: Number,
     primary: true,
+    generated: true,
   } as EntitySchemaColumnOptions,
 
   creationDate: {

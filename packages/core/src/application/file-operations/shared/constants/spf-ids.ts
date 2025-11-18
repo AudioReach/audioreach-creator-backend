@@ -1,0 +1,60 @@
+/**
+ * SPF (Signal Processing Framework) Parameter and Property IDs
+ * Ported from C# Constants.cs
+ */
+
+// APM Module IDs
+export const GECKO_APM_MODULE_ID = 0x00000001;
+export const GECKO_VCPM_MODULE_ID = 0x00000004;
+
+// APM Parameter IDs
+export const PARAM_ID_SUB_GRAPH_CONFIG = 0x08001001;
+export const PARAM_ID_CONTAINER_CONFIG = 0x08001000;
+export const PARAM_ID_MODULES_LIST = 0x08001002;
+export const PARAM_ID_MODULE_PROP = 0x08001003;
+export const PARAM_ID_MODULE_DATA_LINK = 0x08001004;
+export const PARAM_ID_MODULE_CTRL_LINK = 0x08001061;
+
+// VCPM Parameter IDs
+export const GECKO_VCPM_PARAM_ID_CAL_KEYS = 0x080011c1;
+export const PARAM_ID_VOICE_SG_CONFIG = 0x08001162;
+export const PARAM_ID_VOICE_CAL_TBL = 0x08001163;
+
+// Subgraph Property IDs
+export const SUB_GRAPH_PROP_ID_PERF_MODE = 0x0800100e;
+export const SUB_GRAPH_PROP_ID_SCENARIO_ID = 0x08001010;
+export const SUB_GRAPH_PROP_ID_DIRECTION = 0x0800100f;
+export const SUB_GRAPH_PROP_ID_VSID = 0x080010cc;
+export const SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR = 0x08001374;
+
+// Container Property IDs
+export const CONTAINER_PROP_ID_CAPABILITY_LIST = 0x08001011;
+export const CONTAINER_PROP_ID_GRAPH_POS = 0x08001012;
+export const CONTAINER_PROP_ID_STACK_SIZE = 0x08001013;
+export const CONTAINER_PROP_ID_PROC_DOMAIN = 0x08001014;
+export const CONTAINER_PROP_ID_PARENT_CONTAINER = 0x080010cb;
+export const CONTAINER_HEAP_PROP_ID = 0x08001174;
+export const CONTAINER_PROP_ID_FRAME_SIZE = 0x08001a9b;
+
+// Module Property IDs
+export const MODULE_PROP_ID_PORT_INFO = 0x08001015;
+export const MODULE_PROP_ID_HEAP_ID = 0x08001a9a;
+export const MODULE_PROP_ID_CTRL_LINK_INTENTS = 0x08001062;
+export const MODULE_PROP_ID_CTRL_HEAP_ID = 0x0800136f;
+
+// VCPM Property IDs
+export const VCPM_PROP_ID_TAG_INFO = 0x080011b2;
+
+// Scenario Values
+export const SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_PLAYBACK = 0x00000001;
+export const SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_RECORDING = 0x00000002;
+export const SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL = 0x00000003;
+
+// Heap IDs
+export const HEAP_ID_DEFAULT = 1;
+export const HEAP_ID_LOW_POWER = 2;
+
+// Other Constants
+export const DEFAULT_CONTAINER_STACK_SIZE = 0xffffffff;
+export const ID_DONT_CARE_DUMMY = 0xffffffff;
+export const GECKO_ID = 0xfffffffe;

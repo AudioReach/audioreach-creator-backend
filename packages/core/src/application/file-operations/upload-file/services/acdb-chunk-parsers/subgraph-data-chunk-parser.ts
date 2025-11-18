@@ -8,6 +8,7 @@ import {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js';
 import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ChunkParseContext} from '../../models/chunk-parse-context.js';
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
+import {SpfProperties} from '../../../shared/acdb-chunks/spf-properties/index.js';
 
 /**
  * Parser for derived subgraph data chunks.
@@ -237,11 +238,14 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
           );
         }
 
+        // Parse SPF properties from binary data
+        const parsedSpfProperties = SpfProperties.fromPayload(spfProperties);
+
         // Create SubgraphDataEntry
         const entry: SubgraphDataEntry = {
           subgraphId: curSGId,
           driverProperties,
-          spfProperties,
+          spfProperties: parsedSpfProperties,
         };
 
         subgraphEntries.push(entry);

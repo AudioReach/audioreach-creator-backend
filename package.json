@@ -29,7 +29,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "migration:run:tmp": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:run",
-    "migration:gen": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:generate ./packages/infrastructure/persistence/persistence-typeorm-sqllite/migrations/<name>",
+    "migration:gen": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:generate ./packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/",
     "migration:revert": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:revert",
     "migration:show": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:show"
   },

@@ -3,6 +3,7 @@ import {SubgraphPropertyData} from './value-objects/subgraph-property.js';
 
 export interface SubgraphInit {
   systemId: number;
+  naturalId: number;
   name: string;
   isExported: boolean;
   fileSystemId: number;
@@ -20,6 +21,7 @@ export class Subgraph {
   private propertyIds = new Set<number>();
 
   readonly systemId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly isExported: boolean;
   readonly fileSystemId: number;
@@ -28,6 +30,7 @@ export class Subgraph {
 
   constructor(initParams: SubgraphInit) {
     this.systemId = initParams.systemId;
+    this.naturalId = initParams.naturalId;
     this.name = initParams.name;
     this.isExported = initParams.isExported;
     this.fileSystemId = initParams.fileSystemId;

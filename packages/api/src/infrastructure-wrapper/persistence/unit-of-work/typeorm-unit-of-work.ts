@@ -1,7 +1,12 @@
-import type {UnitOfWork, BulkImportRepository} from '@arc/core';
+import type {
+  UnitOfWork,
+  BulkImportRepository,
+  ProjectRepository,
+} from '@arc/core';
 import {DataSource} from 'typeorm';
 import type {QueryRunner} from 'typeorm';
 import {TypeOrmBulkImportRepository} from '@arc/persistence';
+import {TypeOrmProjectRepository} from '@arc/persistence';
 
 export class TypeOrmUnitOfWork implements UnitOfWork {
   private currentQueryRunner: QueryRunner | null = null;
@@ -41,5 +46,11 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
     // Always create a new QueryRunner for bulk import operations
     const queryRunner = this.dataSource.createQueryRunner();
     return new TypeOrmBulkImportRepository(queryRunner);
+  }
+
+  getProjectRepository(): ProjectRepository {
+    // Always create a new QueryRunner for bulk import operations
+    //const queryRunner = this.dataSource.createQueryRunner();
+    return new TypeOrmProjectRepository(this.dataSource);
   }
 }
