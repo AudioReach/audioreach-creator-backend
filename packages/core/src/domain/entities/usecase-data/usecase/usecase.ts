@@ -1,5 +1,3 @@
-import type {KvData} from '../../common/entities/kv-data.js';
-
 /**
  * Exception thrown when attempting to add a duplicate module systemId to a UseCase.
  */
@@ -27,10 +25,19 @@ export class DuplicateControlLinkSystemIdException extends Error {
   }
 }
 
+/**
+ * Input for key vector definition.
+ * Represents the key-value configuration for a use case.
+ */
+export interface KeyVectorInput {
+  /** Array of value definition systemIds that make up this key vector */
+  valueSystemIds: number[];
+}
+
 export interface UseCaseInit {
   systemId: number;
   fileSystemId: number;
-  gkv: KvData;
+  keyVector: KeyVectorInput;
   alias?: string;
   aliasId?: number;
   categories: string[];
@@ -42,7 +49,7 @@ export class UseCase {
   readonly moduleSystemIds: number[] = [];
   readonly dataLinkSystemIds: number[] = [];
   readonly controlLinkSystemIds: number[] = [];
-  readonly gkv: KvData;
+  readonly keyVector: KeyVectorInput;
 
   alias?: string;
   aliasId?: number;
@@ -51,7 +58,7 @@ export class UseCase {
   constructor(initParams: UseCaseInit) {
     this.systemId = initParams.systemId;
     this.fileSystemId = initParams.fileSystemId;
-    this.gkv = initParams.gkv;
+    this.keyVector = initParams.keyVector;
     this.alias = initParams.alias;
     this.aliasId = initParams.aliasId;
     this.categories = initParams.categories;

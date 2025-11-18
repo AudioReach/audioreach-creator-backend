@@ -2,6 +2,11 @@
 export * from './entity-schema/index.js';
 export * from './entity-schema/entity-base.js';
 
+// Export query services
+export * from './queries/usecase/index.js';
+export * from './queries/db-project-query-service.js';
+export * from './queries/typeorm-query-services.js';
+
 // Export database utilities
 export * from './orm-base.js';
 export * from './migration-index.js';

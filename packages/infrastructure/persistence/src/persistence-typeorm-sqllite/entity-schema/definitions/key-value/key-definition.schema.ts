@@ -1,5 +1,6 @@
 import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {ValueDefinitionRow} from './value-definition.schema.js';
+import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 
 /*
@@ -8,6 +9,9 @@ import {EntitySchema} from 'typeorm';
 export interface KeyDefinitionRow extends EntityBaseRow {
   // primary key
   systemId: number;
+
+  // foreign key to arc_db_file
+  fileSystemId: number;
 
   // member of key entity
   keyId: number;
@@ -22,7 +26,8 @@ export interface KeyDefinitionRow extends EntityBaseRow {
   creationDate: Date;
   updateDate: Date;
 
-  // values belonging this key
+  // Relations
+  file?: ArcDbFileRow;
   values: ValueDefinitionRow[];
 }
 
@@ -31,6 +36,12 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
   tableName: 'arc_keys',
   columns: {
     ...BaseColumnSchemaPart,
+    fileSystemId: {
+      name: 'file_system_id',
+      type: Number,
+      nullable: false,
+      unsigned: true,
+    },
     keyId: {
       name: 'key_id',
       type: Number,
@@ -58,6 +69,15 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
     },
   },
   relations: {
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {
+        name: 'file_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
     values: {
       type: 'one-to-many',
       target: 'ValueDefinition',

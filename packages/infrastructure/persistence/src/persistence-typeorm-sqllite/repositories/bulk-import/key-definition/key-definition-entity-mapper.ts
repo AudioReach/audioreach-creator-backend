@@ -13,6 +13,7 @@ export function toKeyRow(
   key: Omit<KeyDefinition, 'systemId'>,
 ): QueryDeepPartialEntity<KeyDefinitionRow> {
   return {
+    fileSystemId: key.fileSystemId,
     keyId: key.keyId,
     keyName: key.name,
     description: key.description || undefined,

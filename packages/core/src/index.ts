@@ -23,6 +23,7 @@ export * from './application/ports/persistence/repositories/bulk-import/spf-modu
 export * from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/project/project.repostiory.js';
+export * from './application/ports/persistence/repositories/key-vector/key-vector.repository.js';
 
 // Export specific InsertError types
 export type {
@@ -55,6 +56,9 @@ export * from './shared/types/logger.interface.js';
 export * from './application/services/query-services.js';
 export * from './application/services/module/module-query-service.js';
 export * from './application/services/module/query-models/module-compact.js';
+export * from './application/services/usecase/usecase-query-service.js';
+export * from './application/services/usecase/query-models/index.js';
+export * from './application/services/project/project-query-service.js';
 
 // Use case designer
 export * from './application/usecase-designer/index.js';
@@ -62,6 +66,7 @@ export * from './application/usecase-designer/spf-module/create/create-module.co
 export * from './application/usecase-designer/spf-module/create/create-module.handler.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
+export * from './application/usecase-designer/usecase/get-all/index.js';
 // Generic Worker Abstractions
 export * from './application/ports/worker/worker-pool.port.js';
 export * from './application/ports/worker/handler-registry.port.js';
