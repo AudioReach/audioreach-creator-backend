@@ -302,8 +302,10 @@ export class UseCaseInserter extends BaseInserter<
     // Collect all unique category names
     const allCategories = new Set<string>();
     for (const {useCase} of useCasesWithHash) {
-      for (const category of useCase.categories) {
-        allCategories.add(category);
+      if (useCase.categories) {
+        for (const category of useCase.categories) {
+          allCategories.add(category);
+        }
       }
     }
 
@@ -333,6 +335,7 @@ export class UseCaseInserter extends BaseInserter<
       const useCaseSystemId = kvHashToUseCaseSystemId.get(kvHash);
 
       if (!useCaseSystemId) continue;
+      if (!useCase.categories) continue;
 
       for (const categoryName of useCase.categories) {
         const categorySystemId = categoryNameToSystemId.get(categoryName);

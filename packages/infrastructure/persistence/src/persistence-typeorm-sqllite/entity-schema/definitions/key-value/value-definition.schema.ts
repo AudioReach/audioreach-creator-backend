@@ -38,7 +38,7 @@ export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
     valueId: {
       name: 'value_id',
       type: Number,
-      unique: true,
+      unique: false,
       unsigned: true,
     },
     keySystemId: {

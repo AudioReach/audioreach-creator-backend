@@ -1,6 +1,11 @@
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
+import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
+import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
+import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
+import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {ParsedAcdb} from '../models/parsed-acdb.js';
 import type {ParsedAwsp} from '../models/parsed-awsp.js';
 import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js';
@@ -84,131 +89,33 @@ export class EntityBuilderService {
       this.workerPool,
       this.logger,
     );
-    this.usecaseBuilder = new UsecaseBuilder(foreignKeyMapper, this.logger);
+    this.usecaseBuilder = new UsecaseBuilder(
+      this.foreignKeyMapper,
+      this.logger,
+    );
     this.subgraphBuilder = new SubgraphBuilder(this.logger);
     this.containerBuilder = new ContainerBuilder(this.logger);
-    this.spfModuleBuilder = new SpfModuleBuilder(foreignKeyMapper, this.logger);
-    this.dataLinkBuilder = new DataLinkBuilder(foreignKeyMapper, this.logger);
+    this.spfModuleBuilder = new SpfModuleBuilder(
+      this.foreignKeyMapper,
+      this.logger,
+    );
+    this.dataLinkBuilder = new DataLinkBuilder(
+      this.foreignKeyMapper,
+      this.logger,
+    );
     this.controlLinkBuilder = new ControlLinkBuilder(
-      foreignKeyMapper,
+      this.foreignKeyMapper,
       this.logger,
     );
   }
 
   /**
-   * Build all entities from parsed data using direct processing
+   * Build subgraphs from ACDB data
    */
-  async buildAll(
+  async buildSubgraphs(
     parsedAcdb: ParsedAcdb,
-    parsedAwsp: ParsedAwsp,
     fileSystemId: number,
-  ): Promise<{success: boolean; entityModel: EntityModel}> {
-    const startTime = Date.now();
-
-    this.logger?.logInfo({
-      msg: 'Entity building started',
-      action: 'build_entities_start',
-      component: 'EntityBuilderService',
-      tag: 'entity-building',
-      timestamp: new Date(),
-    });
-
-    try {
-      // Create entity model to store assembled entities
-      const entityModel = new EntityModel();
-
-      // Process ACDB data directly (similar to AWSP processing)
-      await this.processAcdbData(parsedAcdb, entityModel, fileSystemId);
-
-      // Process AWSP data if needed
-      if (parsedAwsp) {
-        await this.processAwspData(parsedAwsp, entityModel);
-      }
-
-      const duration = Date.now() - startTime;
-      this.logger?.logInfo({
-        msg: `Entity building completed in ${duration}ms. Built ${entityModel.getEntityCount()} entities.`,
-        action: 'build_entities_complete',
-        component: 'EntityBuilderService',
-        tag: 'entity-building',
-        timestamp: new Date(),
-      });
-
-      return {success: true, entityModel};
-    } catch (error) {
-      this.logger?.logError({
-        msg: 'Entity building failed',
-        action: 'build_entities_failed',
-        component: 'EntityBuilderService',
-        tag: 'entity-building',
-        error: error as Error,
-        timestamp: new Date(),
-      });
-      return {success: false, entityModel: new EntityModel()};
-    }
-  }
-
-  /**
-   * Process ACDB data in hierarchical dependency order:
-   * 1. Subgraphs (no dependencies)
-   * 2. Containers (no dependencies)
-   * 3. Modules (depend on subgraphs, containers, definitions)
-   * 4. Data Links (depend on modules)
-   * 5. Control Links (depend on modules)
-   * 6. Usecases (final processing)
-   */
-  private async processAcdbData(
-    parsedAcdb: ParsedAcdb,
-    entityModel: EntityModel,
-    fileSystemId: number,
-  ): Promise<void> {
-    this.logger?.logDebug({
-      msg: 'Processing ACDB data in hierarchical order',
-      action: 'acdb_processing_start',
-      component: 'EntityBuilderService',
-      tag: 'acdb-processing',
-      timestamp: new Date(),
-    });
-
-    try {
-      // 1. Process subgraphs first (no dependencies)
-      await this.processAcdbSubgraphs(parsedAcdb, entityModel, fileSystemId);
-
-      // 2. Process containers (no dependencies)
-      await this.processAcdbContainers(parsedAcdb, entityModel, fileSystemId);
-
-      // 3. Process modules (depend on subgraphs, containers, definitions)
-      await this.processAcdbModules(parsedAcdb, entityModel, fileSystemId);
-
-      // 4. Process data links (depend on modules)
-      await this.processAcdbDataLinks(parsedAcdb, entityModel);
-
-      // 5. Process control links (depend on modules)
-      await this.processAcdbControlLinks(parsedAcdb, entityModel);
-
-      // 6. Process usecases last
-      await this.processAcdbUsecases(parsedAcdb, entityModel, fileSystemId);
-    } catch (error) {
-      this.logger?.logError({
-        msg: 'Failed to process ACDB data',
-        action: 'acdb_processing_failed',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        error: error as Error,
-        timestamp: new Date(),
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Process ACDB subgraphs from SubgraphDataChunk
-   */
-  private async processAcdbSubgraphs(
-    parsedAcdb: ParsedAcdb,
-    entityModel: EntityModel,
-    fileSystemId: number,
-  ): Promise<void> {
+  ): Promise<Subgraph[]> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -222,7 +129,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Extract subgraph properties from SPF data
@@ -236,7 +143,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain subgraphs
@@ -245,28 +152,24 @@ export class EntityBuilderService {
       fileSystemId,
     );
 
-    // Add subgraphs to entity model
-    if (subgraphs.length > 0) {
-      entityModel.addEntity(ENTITY_MODEL_KEYS.SUBGRAPHS, subgraphs);
+    this.logger?.logInfo({
+      msg: `Successfully built ${subgraphs.length} subgraphs from ACDB`,
+      action: 'acdb_subgraphs_complete',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
 
-      this.logger?.logInfo({
-        msg: `Successfully processed ${subgraphs.length} subgraphs from ACDB`,
-        action: 'acdb_subgraphs_complete',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-    }
+    return subgraphs;
   }
 
   /**
-   * Process ACDB containers from SubgraphDataChunk
+   * Build containers from ACDB data
    */
-  private async processAcdbContainers(
+  async buildContainers(
     parsedAcdb: ParsedAcdb,
-    entityModel: EntityModel,
     fileSystemId: number,
-  ): Promise<void> {
+  ): Promise<Container[]> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -280,7 +183,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Extract container properties from SPF data (deduplicated)
@@ -294,7 +197,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain containers
@@ -303,28 +206,24 @@ export class EntityBuilderService {
       fileSystemId,
     );
 
-    // Add containers to entity model
-    if (containers.length > 0) {
-      entityModel.addEntity(ENTITY_MODEL_KEYS.CONTAINERS, containers);
+    this.logger?.logInfo({
+      msg: `Successfully built ${containers.length} containers from ACDB`,
+      action: 'acdb_containers_complete',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
 
-      this.logger?.logInfo({
-        msg: `Successfully processed ${containers.length} containers from ACDB`,
-        action: 'acdb_containers_complete',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-    }
+    return containers;
   }
 
   /**
-   * Process ACDB modules from SubgraphDataChunk
+   * Build SPF modules from ACDB data
    */
-  private async processAcdbModules(
+  async buildSpfModules(
     parsedAcdb: ParsedAcdb,
-    entityModel: EntityModel,
     fileSystemId: number,
-  ): Promise<void> {
+  ): Promise<SpfModule[]> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -338,7 +237,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Extract module instance info from SPF data
@@ -352,7 +251,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain SPF modules
@@ -361,27 +260,21 @@ export class EntityBuilderService {
       fileSystemId,
     );
 
-    // Add SPF modules to entity model
-    if (spfModules.length > 0) {
-      entityModel.addEntity(ENTITY_MODEL_KEYS.SPF_MODULES, spfModules);
+    this.logger?.logInfo({
+      msg: `Successfully built ${spfModules.length} SPF modules from ACDB`,
+      action: 'acdb_spf_modules_complete',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
 
-      this.logger?.logInfo({
-        msg: `Successfully processed ${spfModules.length} SPF modules from ACDB`,
-        action: 'acdb_spf_modules_complete',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-    }
+    return spfModules;
   }
 
   /**
-   * Process ACDB data links from SubgraphDataChunk
+   * Build data links from ACDB data
    */
-  private async processAcdbDataLinks(
-    parsedAcdb: ParsedAcdb,
-    entityModel: EntityModel,
-  ): Promise<void> {
+  async buildDataLinks(parsedAcdb: ParsedAcdb): Promise<DataLink[]> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -395,7 +288,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Extract data link properties from SPF data
@@ -409,34 +302,28 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain data links
     const dataLinks =
       await this.dataLinkBuilder.buildDataLinks(dataLinkProperties);
 
-    // Add data links to entity model
-    if (dataLinks.length > 0) {
-      entityModel.addEntity(ENTITY_MODEL_KEYS.DATA_LINKS, dataLinks);
+    this.logger?.logInfo({
+      msg: `Successfully built ${dataLinks.length} data links from ACDB`,
+      action: 'acdb_data_links_complete',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
 
-      this.logger?.logInfo({
-        msg: `Successfully processed ${dataLinks.length} data links from ACDB`,
-        action: 'acdb_data_links_complete',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-    }
+    return dataLinks;
   }
 
   /**
-   * Process ACDB control links from SubgraphDataChunk
+   * Build control links from ACDB data
    */
-  private async processAcdbControlLinks(
-    parsedAcdb: ParsedAcdb,
-    entityModel: EntityModel,
-  ): Promise<void> {
+  async buildControlLinks(parsedAcdb: ParsedAcdb): Promise<ControlLink[]> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -450,7 +337,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Extract control link properties from SPF data
@@ -464,7 +351,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain control links
@@ -472,28 +359,24 @@ export class EntityBuilderService {
       controlLinkProperties,
     );
 
-    // Add control links to entity model
-    if (controlLinks.length > 0) {
-      entityModel.addEntity(ENTITY_MODEL_KEYS.CONTROL_LINKS, controlLinks);
+    this.logger?.logInfo({
+      msg: `Successfully built ${controlLinks.length} control links from ACDB`,
+      action: 'acdb_control_links_complete',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
 
-      this.logger?.logInfo({
-        msg: `Successfully processed ${controlLinks.length} control links from ACDB`,
-        action: 'acdb_control_links_complete',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-    }
+    return controlLinks;
   }
 
   /**
-   * Process ACDB usecases
+   * Build usecases from ACDB data
    */
-  private async processAcdbUsecases(
+  async buildUsecases(
     parsedAcdb: ParsedAcdb,
-    entityModel: EntityModel,
     fileSystemId: number,
-  ): Promise<void> {
+  ): Promise<UseCase[]> {
     // Extract usecase data from ACDB
     const usecaseChunk = parsedAcdb.getChunk<UsecaseDataChunk>(
       CHUNK_TYPES.GKV_TABLE,
@@ -507,7 +390,7 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain usecases
@@ -516,61 +399,21 @@ export class EntityBuilderService {
       fileSystemId,
     );
 
-    // Add usecases to entity model
-    if (usecases.length > 0) {
-      entityModel.addEntity(ENTITY_MODEL_KEYS.USECASES, usecases);
-
-      this.logger?.logInfo({
-        msg: `Successfully processed ${usecases.length} usecases from ACDB`,
-        action: 'acdb_usecases_complete',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-    }
-  }
-
-  /**
-   * Process AWSP data and build key definitions and SPF module definitions
-   */
-  private async processAwspData(
-    parsedAwsp: ParsedAwsp,
-    entityModel: EntityModel,
-  ): Promise<void> {
-    this.logger?.logDebug({
-      msg: 'Processing AWSP data for definitions',
-      action: 'awsp_processing_start',
+    this.logger?.logInfo({
+      msg: `Successfully built ${usecases.length} usecases from ACDB`,
+      action: 'acdb_usecases_complete',
       component: 'EntityBuilderService',
-      tag: 'awsp-processing',
+      tag: 'acdb-processing',
       timestamp: new Date(),
     });
 
-    try {
-      // Process key definitions
-      await this.processAwspKeyDefinitions(parsedAwsp, entityModel);
-
-      // Process SPF module definitions
-      await this.processAwspModuleDefinitions(parsedAwsp, entityModel);
-    } catch (error) {
-      this.logger?.logError({
-        msg: 'Failed to process AWSP data',
-        action: 'awsp_processing_failed',
-        component: 'EntityBuilderService',
-        tag: 'awsp-processing',
-        error: error as Error,
-        timestamp: new Date(),
-      });
-      throw error;
-    }
+    return usecases;
   }
 
   /**
-   * Process AWSP key definitions
+   * Build key definitions from AWSP data
    */
-  private async processAwspKeyDefinitions(
-    parsedAwsp: ParsedAwsp,
-    entityModel: EntityModel,
-  ): Promise<void> {
+  async buildKeyDefinitions(parsedAwsp: ParsedAwsp): Promise<KeyDefinition[]> {
     // Extract key definitions from AWSP
     const awspKeyDefinitions = parsedAwsp.getKeyDefinitions();
 
@@ -582,34 +425,30 @@ export class EntityBuilderService {
         tag: 'awsp-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain key definitions
     const keyDefinitions =
       await this.keyDefinitionBuilder.buildKeyDefinitions(awspKeyDefinitions);
 
-    // Add key definitions to entity model
-    if (keyDefinitions.length > 0) {
-      entityModel.addEntity(ENTITY_MODEL_KEYS.KEY_DEFINITIONS, keyDefinitions);
+    this.logger?.logInfo({
+      msg: `Successfully built ${keyDefinitions.length} key definitions from AWSP`,
+      action: 'awsp_key_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
 
-      this.logger?.logInfo({
-        msg: `Successfully processed ${keyDefinitions.length} key definitions from AWSP`,
-        action: 'awsp_key_definitions_complete',
-        component: 'EntityBuilderService',
-        tag: 'awsp-processing',
-        timestamp: new Date(),
-      });
-    }
+    return keyDefinitions;
   }
 
   /**
-   * Process AWSP SPF module definitions
+   * Build SPF module definitions from AWSP data
    */
-  private async processAwspModuleDefinitions(
+  async buildSpfModuleDefinitions(
     parsedAwsp: ParsedAwsp,
-    entityModel: EntityModel,
-  ): Promise<void> {
+  ): Promise<SpfModuleDefinition[]> {
     // Extract SPF module definitions from AWSP
     const awspModuleDefinitions = parsedAwsp.getSpfModuleDefinitions();
 
@@ -621,7 +460,7 @@ export class EntityBuilderService {
         tag: 'awsp-processing',
         timestamp: new Date(),
       });
-      return;
+      return [];
     }
 
     // Build domain SPF module definitions
@@ -630,51 +469,14 @@ export class EntityBuilderService {
         awspModuleDefinitions,
       );
 
-    // Add SPF module definitions to entity model
-    if (moduleDefinitions.length > 0) {
-      entityModel.addEntity(
-        ENTITY_MODEL_KEYS.SPF_MODULE_DEFINITIONS,
-        moduleDefinitions,
-      );
+    this.logger?.logInfo({
+      msg: `Successfully built ${moduleDefinitions.length} SPF module definitions from AWSP`,
+      action: 'awsp_spf_module_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
 
-      this.logger?.logInfo({
-        msg: `Successfully processed ${moduleDefinitions.length} SPF module definitions from AWSP`,
-        action: 'awsp_spf_module_definitions_complete',
-        component: 'EntityBuilderService',
-        tag: 'awsp-processing',
-        timestamp: new Date(),
-      });
-    }
-  }
-
-  /**
-   * Get built key definitions from entity model
-   */
-  getBuiltKeyDefinitions(entityModel: EntityModel): KeyDefinition[] {
-    return (
-      entityModel.getEntity<KeyDefinition[]>(
-        ENTITY_MODEL_KEYS.KEY_DEFINITIONS,
-      ) || []
-    );
-  }
-
-  /**
-   * Get built SPF module definitions from entity model
-   */
-  getBuiltSpfModuleDefinitions(
-    entityModel: EntityModel,
-  ): SpfModuleDefinition[] {
-    return (
-      entityModel.getEntity<SpfModuleDefinition[]>(
-        ENTITY_MODEL_KEYS.SPF_MODULE_DEFINITIONS,
-      ) || []
-    );
-  }
-
-  /**
-   * Get built usecases from entity model
-   */
-  getBuiltUsecases(entityModel: EntityModel): UseCase[] {
-    return entityModel.getEntity<UseCase[]>(ENTITY_MODEL_KEYS.USECASES) || [];
+    return moduleDefinitions;
   }
 }

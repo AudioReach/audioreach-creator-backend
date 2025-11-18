@@ -2,7 +2,7 @@ import {
   Controller,
   Get,
   Post,
-  UseGuards,
+  //  UseGuards,
   HttpStatus,
   HttpException,
   Param,
@@ -17,20 +17,24 @@ import {
   UsecaseDto,
   UsecaseComponentsDto,
   UsecaseWithModificationSummary,
+  UsecaseType,
 } from './dto/usecase.dto.js';
 import {ModuleInstanceDto} from '../module-instance/dto/module-instance.dto.js';
 import {BaseComponentDto, SystemIdsRequestDto} from '../common/dtos/index.js';
-import {AuthGuard} from '@nestjs/passport';
+//import {AuthGuard} from '@nestjs/passport';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {QueryBus, GetAllUseCasesQuery} from '@arc/core';
+import type {UseCaseReadModel, KeyVectorReadModel} from '@arc/core';
+import {KVInfo, KeyValueInfo} from '../common/dtos/kv.dto.js';
 
 /**
  * Controller to support all usecase/graph related APIs
  * Converted from C# UseCaseDesignController class
  */
 @ApiTags('usecases')
-@Controller('arcapi/v1/projects/:projectId/usecases')
-@UseGuards(AuthGuard('jwt'))
+@Controller('arc-api/v1/projects/:projectId/usecases')
+//@UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -45,7 +49,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
   ModuleInstanceDto,
 )
 export class UseCaseController extends BaseController {
-  constructor() {
+  constructor(private readonly queryBus: QueryBus) {
     super();
   }
 
@@ -85,14 +89,74 @@ export class UseCaseController extends BaseController {
   async getAllUsecases(
     @Param('projectId') projectId: string,
   ): Promise<ApiResult<UsecaseDto[]>> {
-    // TBD: Implement this API endpoint
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting subsystem filtered usecases for project: ${projectId}`,
-    );
-    throw new HttpException(
-      'This getSubsystemFilteredUsecases API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    try {
+      console.log(
+        `Getting subsystem filtered usecases for project: ${projectId}`,
+      );
+
+      // Execute the query using the existing handler
+      const query = new GetAllUseCasesQuery(parseInt(projectId), 'client-id'); // TODO: get actual clientId from JWT
+      const usecases = await this.queryBus.execute<UseCaseReadModel[]>(query);
+
+      // Transform UseCaseReadModel[] to UsecaseDto[]
+      const transformedUsecases = this.transformToUsecaseDtos(usecases);
+
+      return {
+        data: transformedUsecases,
+        success: true,
+        message: 'Usecases retrieved successfully',
+      };
+    } catch (error) {
+      console.error('Error getting usecases:', error);
+      throw new HttpException(
+        'Failed to retrieve usecases',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Transform UseCaseReadModel[] to UsecaseDto[]
+   * Creates raw GKV scenario responses (isFiltered = false)
+   */
+  private transformToUsecaseDtos(usecases: UseCaseReadModel[]): UsecaseDto[] {
+    return usecases.map(usecase => {
+      // Transform KeyVectorReadModel[] to KeyValueInfo[]
+      const keyValueCollection = this.transformKeyVectors(usecase.gkv);
+
+      // Create KVInfo from the key-value collection
+      const kvInfo = new KVInfo(keyValueCollection);
+      kvInfo.systemId = usecase.systemId.toString();
+
+      // Create UsecaseIdentifier
+      const usecaseIdentifier = new UsecaseIdentifier(
+        usecase.systemId.toString(),
+        UsecaseType.Regular, // Default type, could be determined from data
+        kvInfo,
+        usecase.aliasId,
+        usecase.alias,
+        usecase.categories?.join(','), // Convert array to string if needed
+      );
+
+      // Create UsecaseDto using raw GKV scenario (isFiltered = false)
+      return UsecaseDto.createRawGKVResponse(usecaseIdentifier);
+    });
+  }
+
+  /**
+   * Transform KeyVectorReadModel[] to KeyValueInfo[]
+   */
+  private transformKeyVectors(
+    keyVectors: KeyVectorReadModel[],
+  ): KeyValueInfo[] {
+    return keyVectors.map(
+      kv =>
+        new KeyValueInfo(
+          kv.key.keyId,
+          kv.value.valueId,
+          kv.key.name,
+          kv.value.name,
+        ),
     );
   }
 
