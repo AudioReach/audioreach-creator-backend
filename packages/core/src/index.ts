@@ -23,7 +23,6 @@ export * from './application/ports/persistence/repositories/bulk-import/spf-modu
 export * from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/project/project.repostiory.js';
-export * from './application/ports/persistence/repositories/key-vector/key-vector.repository.js';
 
 // Export specific InsertError types
 export type {

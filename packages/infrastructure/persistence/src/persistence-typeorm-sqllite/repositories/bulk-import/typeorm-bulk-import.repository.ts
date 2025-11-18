@@ -14,6 +14,7 @@ import type {
 } from '@arc/core';
 import type {QueryRunner} from 'typeorm';
 import {KeyDefinitionInserter} from './key-definition/key-definition.inserter.js';
+import {UseCaseInserter} from './usecase/usecase.inserter.js';
 
 // Import the specific result types from @arc/core
 import type {
@@ -76,12 +77,19 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     );
   }
 
-  insertUseCases(
+  async insertUseCases(
     items: readonly Omit<UseCase, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {
-    throw new Error(
-      `BulkImportRepository.insertUseCases ${items.length} not yet implemented. `,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new UseCaseInserter(this.queryRunner.manager);
+      return await inserter.insert(items);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertModuleDefinitions(

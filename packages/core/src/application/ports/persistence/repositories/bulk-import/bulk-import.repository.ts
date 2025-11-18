@@ -94,25 +94,39 @@ export interface BulkImportRepository {
   ): Promise<BulkControlLinkInsertResult>;
 
   /**
-   * Inserts usecases in bulk and returns KV to systemID mapping
-   * @param items  - Usecases without system id
-   */
-  /**
    * Insert use case rows in bulk.
    * Uses insert+query pattern to return natural key to systemId mappings.
-   * Natural key: keyVectorSystemId (from gkv.keyVectorSystemId)
+   *
+   * Process:
+   * 1. Inserts KeyVectors (using kvHash as natural key)
+   * 2. Inserts UseCases with keyVectorSystemId FK
+   * 3. Returns useCaseSystemId for successful insertions
+   *
+   * Failure handling:
+   * - If KeyVector insertion fails, UseCase is marked as failed (not attempted)
+   * - If KeyVector succeeds but UseCase fails, UseCase is marked as failed
+   * - Only successful UseCases return systemId mappings
    *
    * @param items - UseCases without systemId (will be generated during insertion)
-   * @returns Promise resolving to entity insertion result with keyVectorSystemId->systemId mappings
+   * @returns Promise resolving to bulk entity insertion result where:
+   *   - `idMapping.naturalId` = useCaseSystemId (for successful insertions)
+   *   - `idMapping.systemId` = useCaseSystemId (same as naturalId)
+   *   - `errors` = Array of InsertError for failed insertions
+   *   - `success` = boolean indicating success/failure
    *
    * @example
    * ```typescript
    * const useCases: Omit<UseCase, 'systemId'>[] = [
-   *   { fileSystemId: 1, gkv: { keyVectorSystemId: 12345, ... }, ... }
+   *   { fileSystemId: 1, keyVector: { valueSystemIds: [1, 2, 3] }, ... }
    * ];
    * const result = await repository.insertUseCases(useCases);
+   *
+   * // For successful insertion:
    * const useCaseSystemId = result.results[0].idMapping?.systemId;
-   * const naturalKey = result.results[0].idMapping?.naturalId; // keyVectorSystemId
+   *
+   * // For failed insertion:
+   * const errors = result.results[0].errors; // InsertError[]
+   * const success = result.results[0].success; // false
    * ```
    */
   insertUseCases(
