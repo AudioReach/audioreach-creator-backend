@@ -1,10 +1,12 @@
-import { Module } from '@nestjs/common';
-import { UseCaseController } from './usecase.controller.js';
+import {Module} from '@nestjs/common';
+import {UseCaseController} from './usecase.controller.js';
+import {ArcCqrsModule} from '../../../../infrastructure-wrapper/arc-cqrs.module.js';
 
 /**
  * Module for usecase functionality
  */
 @Module({
-    controllers: [UseCaseController],
+  imports: [ArcCqrsModule],
+  controllers: [UseCaseController],
 })
-export class UseCaseModule { }
+export class UseCaseModule {}

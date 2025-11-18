@@ -1,14 +1,14 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Migrations1763376810791 implements MigrationInterface {
-    name = 'Migrations1763376810791'
+export class Migrations1763482857613 implements MigrationInterface {
+    name = 'Migrations1763482857613'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE TABLE "processor_definitions" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "processor_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL)`);
         await queryRunner.query(`CREATE TABLE "container_types" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(255) NOT NULL, "value" integer NOT NULL)`);
         await queryRunner.query(`CREATE TABLE "container_property_definitions" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_structure" text NOT NULL)`);
-        await queryRunner.query(`CREATE TABLE "arc_keys" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "key_id" integer NOT NULL, "key_name" varchar NOT NULL, "key_enum_name" varchar, "key_enum_value" varchar, "description" varchar, CONSTRAINT "UQ_cbcb7c7e061dc59d8e2d3d34b48" UNIQUE ("key_id"))`);
-        await queryRunner.query(`CREATE TABLE "arc_values" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "value_id" integer NOT NULL, "keys_system_id" integer NOT NULL, "value_name" varchar NOT NULL, "key_enum_value" varchar, "description" varchar, CONSTRAINT "UQ_4a14b683f0f33b5fdcaf0bd041c" UNIQUE ("value_id"))`);
+        await queryRunner.query(`CREATE TABLE "arc_keys" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "file_system_id" integer NOT NULL, "key_id" integer NOT NULL, "key_name" varchar NOT NULL, "key_enum_name" varchar, "key_enum_value" varchar, "description" varchar, CONSTRAINT "UQ_cbcb7c7e061dc59d8e2d3d34b48" UNIQUE ("key_id"))`);
+        await queryRunner.query(`CREATE TABLE "arc_values" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "value_id" integer NOT NULL, "keys_system_id" integer NOT NULL, "value_name" varchar NOT NULL, "key_enum_value" varchar, "description" varchar)`);
         await queryRunner.query(`CREATE INDEX "idx_arc_values_keys_system_id" ON "arc_values" ("keys_system_id") `);
         await queryRunner.query(`CREATE TABLE "driver_module_definitions" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`);
         await queryRunner.query(`CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "default_data" blob NOT NULL, "driver_module_definition_system_id" integer)`);
@@ -91,9 +91,10 @@ export class Migrations1763376810791 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(256) NOT NULL, "is_exported" boolean NOT NULL, "file_system_id" integer NOT NULL)`);
         await queryRunner.query(`CREATE INDEX "ix_subgraphs_name" ON "subgraphs" ("name") `);
         await queryRunner.query(`CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(255) NOT NULL)`);
-        await queryRunner.query(`CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL)`);
+        await queryRunner.query(`CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "key_vector_system_id" integer NOT NULL, CONSTRAINT "REL_319312a58fc0a9b0317f09de35" UNIQUE ("key_vector_system_id"))`);
         await queryRunner.query(`CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `);
         await queryRunner.query(`CREATE INDEX "ix_use_case_file" ON "use_cases" ("file_system_id") `);
+        await queryRunner.query(`CREATE INDEX "ix_use_case_key_vector" ON "use_cases" ("key_vector_system_id") `);
         await queryRunner.query(`CREATE TABLE "use_case_categories_master" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(255) NOT NULL, CONSTRAINT "UQ_80233ed2a392151aa4f419b079e" UNIQUE ("name"))`);
         await queryRunner.query(`CREATE TABLE "key_vector_values" ("value_definition_id" integer NOT NULL, "key_vector_id" integer NOT NULL, PRIMARY KEY ("value_definition_id", "key_vector_id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_8df8807723e992df41610e9667" ON "key_vector_values" ("value_definition_id") `);
@@ -116,8 +117,12 @@ export class Migrations1763376810791 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE "use_case_control_links" ("use_case_system_id" integer NOT NULL, "control_link_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "control_link_system_id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_b9d2885195c73a8cafa57bb635" ON "use_case_control_links" ("use_case_system_id") `);
         await queryRunner.query(`CREATE INDEX "IDX_9e857a3d76f08c2575e272af5f" ON "use_case_control_links" ("control_link_system_id") `);
+        await queryRunner.query(`CREATE TABLE "temporary_arc_keys" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "file_system_id" integer NOT NULL, "key_id" integer NOT NULL, "key_name" varchar NOT NULL, "key_enum_name" varchar, "key_enum_value" varchar, "description" varchar, CONSTRAINT "UQ_cbcb7c7e061dc59d8e2d3d34b48" UNIQUE ("key_id"), CONSTRAINT "FK_d236cb5f4166104e54da9a1d885" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
+        await queryRunner.query(`INSERT INTO "temporary_arc_keys"("system_id", "created_at", "updated_at", "file_system_id", "key_id", "key_name", "key_enum_name", "key_enum_value", "description") SELECT "system_id", "created_at", "updated_at", "file_system_id", "key_id", "key_name", "key_enum_name", "key_enum_value", "description" FROM "arc_keys"`);
+        await queryRunner.query(`DROP TABLE "arc_keys"`);
+        await queryRunner.query(`ALTER TABLE "temporary_arc_keys" RENAME TO "arc_keys"`);
         await queryRunner.query(`DROP INDEX "idx_arc_values_keys_system_id"`);
-        await queryRunner.query(`CREATE TABLE "temporary_arc_values" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "value_id" integer NOT NULL, "keys_system_id" integer NOT NULL, "value_name" varchar NOT NULL, "key_enum_value" varchar, "description" varchar, CONSTRAINT "UQ_4a14b683f0f33b5fdcaf0bd041c" UNIQUE ("value_id"), CONSTRAINT "FK_e372628e5702ae760d317b5cb7e" FOREIGN KEY ("keys_system_id") REFERENCES "arc_keys" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
+        await queryRunner.query(`CREATE TABLE "temporary_arc_values" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "value_id" integer NOT NULL, "keys_system_id" integer NOT NULL, "value_name" varchar NOT NULL, "key_enum_value" varchar, "description" varchar, CONSTRAINT "FK_e372628e5702ae760d317b5cb7e" FOREIGN KEY ("keys_system_id") REFERENCES "arc_keys" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
         await queryRunner.query(`INSERT INTO "temporary_arc_values"("system_id", "created_at", "updated_at", "value_id", "keys_system_id", "value_name", "key_enum_value", "description") SELECT "system_id", "created_at", "updated_at", "value_id", "keys_system_id", "value_name", "key_enum_value", "description" FROM "arc_values"`);
         await queryRunner.query(`DROP TABLE "arc_values"`);
         await queryRunner.query(`ALTER TABLE "temporary_arc_values" RENAME TO "arc_values"`);
@@ -348,12 +353,14 @@ export class Migrations1763376810791 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "temporary_subsystems" RENAME TO "subsystems"`);
         await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
         await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
-        await queryRunner.query(`CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
-        await queryRunner.query(`INSERT INTO "temporary_use_cases"("system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id") SELECT "system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id" FROM "use_cases"`);
+        await queryRunner.query(`DROP INDEX "ix_use_case_key_vector"`);
+        await queryRunner.query(`CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "key_vector_system_id" integer NOT NULL, CONSTRAINT "REL_319312a58fc0a9b0317f09de35" UNIQUE ("key_vector_system_id"), CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_319312a58fc0a9b0317f09de35c" FOREIGN KEY ("key_vector_system_id") REFERENCES "key_vectors" ("system_id") ON DELETE NO ACTION ON UPDATE NO ACTION)`);
+        await queryRunner.query(`INSERT INTO "temporary_use_cases"("system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id", "key_vector_system_id") SELECT "system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id", "key_vector_system_id" FROM "use_cases"`);
         await queryRunner.query(`DROP TABLE "use_cases"`);
         await queryRunner.query(`ALTER TABLE "temporary_use_cases" RENAME TO "use_cases"`);
         await queryRunner.query(`CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `);
         await queryRunner.query(`CREATE INDEX "ix_use_case_file" ON "use_cases" ("file_system_id") `);
+        await queryRunner.query(`CREATE INDEX "ix_use_case_key_vector" ON "use_cases" ("key_vector_system_id") `);
         await queryRunner.query(`DROP INDEX "IDX_8df8807723e992df41610e9667"`);
         await queryRunner.query(`DROP INDEX "IDX_e1d7a23f49c46dcd7ddee72d44"`);
         await queryRunner.query(`CREATE TABLE "temporary_key_vector_values" ("value_definition_id" integer NOT NULL, "key_vector_id" integer NOT NULL, CONSTRAINT "FK_8df8807723e992df41610e9667e" FOREIGN KEY ("value_definition_id") REFERENCES "arc_values" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "FK_e1d7a23f49c46dcd7ddee72d443" FOREIGN KEY ("key_vector_id") REFERENCES "key_vectors" ("system_id") ON DELETE NO ACTION ON UPDATE NO ACTION, PRIMARY KEY ("value_definition_id", "key_vector_id"))`);
@@ -469,12 +476,14 @@ export class Migrations1763376810791 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE "temporary_key_vector_values"`);
         await queryRunner.query(`CREATE INDEX "IDX_e1d7a23f49c46dcd7ddee72d44" ON "key_vector_values" ("key_vector_id") `);
         await queryRunner.query(`CREATE INDEX "IDX_8df8807723e992df41610e9667" ON "key_vector_values" ("value_definition_id") `);
+        await queryRunner.query(`DROP INDEX "ix_use_case_key_vector"`);
         await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
         await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
         await queryRunner.query(`ALTER TABLE "use_cases" RENAME TO "temporary_use_cases"`);
-        await queryRunner.query(`CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL)`);
-        await queryRunner.query(`INSERT INTO "use_cases"("system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id") SELECT "system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id" FROM "temporary_use_cases"`);
+        await queryRunner.query(`CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "key_vector_system_id" integer NOT NULL, CONSTRAINT "REL_319312a58fc0a9b0317f09de35" UNIQUE ("key_vector_system_id"))`);
+        await queryRunner.query(`INSERT INTO "use_cases"("system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id", "key_vector_system_id") SELECT "system_id", "created_at", "updated_at", "alias_id", "alias", "file_system_id", "key_vector_system_id" FROM "temporary_use_cases"`);
         await queryRunner.query(`DROP TABLE "temporary_use_cases"`);
+        await queryRunner.query(`CREATE INDEX "ix_use_case_key_vector" ON "use_cases" ("key_vector_system_id") `);
         await queryRunner.query(`CREATE INDEX "ix_use_case_file" ON "use_cases" ("file_system_id") `);
         await queryRunner.query(`CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `);
         await queryRunner.query(`ALTER TABLE "subsystems" RENAME TO "temporary_subsystems"`);
@@ -703,10 +712,14 @@ export class Migrations1763376810791 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX "idx_module_param_defs_driver_module_def_id" ON "driver_module_parameter_definitions" ("driver_module_definition_system_id") `);
         await queryRunner.query(`DROP INDEX "idx_arc_values_keys_system_id"`);
         await queryRunner.query(`ALTER TABLE "arc_values" RENAME TO "temporary_arc_values"`);
-        await queryRunner.query(`CREATE TABLE "arc_values" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "value_id" integer NOT NULL, "keys_system_id" integer NOT NULL, "value_name" varchar NOT NULL, "key_enum_value" varchar, "description" varchar, CONSTRAINT "UQ_4a14b683f0f33b5fdcaf0bd041c" UNIQUE ("value_id"))`);
+        await queryRunner.query(`CREATE TABLE "arc_values" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "value_id" integer NOT NULL, "keys_system_id" integer NOT NULL, "value_name" varchar NOT NULL, "key_enum_value" varchar, "description" varchar)`);
         await queryRunner.query(`INSERT INTO "arc_values"("system_id", "created_at", "updated_at", "value_id", "keys_system_id", "value_name", "key_enum_value", "description") SELECT "system_id", "created_at", "updated_at", "value_id", "keys_system_id", "value_name", "key_enum_value", "description" FROM "temporary_arc_values"`);
         await queryRunner.query(`DROP TABLE "temporary_arc_values"`);
         await queryRunner.query(`CREATE INDEX "idx_arc_values_keys_system_id" ON "arc_values" ("keys_system_id") `);
+        await queryRunner.query(`ALTER TABLE "arc_keys" RENAME TO "temporary_arc_keys"`);
+        await queryRunner.query(`CREATE TABLE "arc_keys" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "file_system_id" integer NOT NULL, "key_id" integer NOT NULL, "key_name" varchar NOT NULL, "key_enum_name" varchar, "key_enum_value" varchar, "description" varchar, CONSTRAINT "UQ_cbcb7c7e061dc59d8e2d3d34b48" UNIQUE ("key_id"))`);
+        await queryRunner.query(`INSERT INTO "arc_keys"("system_id", "created_at", "updated_at", "file_system_id", "key_id", "key_name", "key_enum_name", "key_enum_value", "description") SELECT "system_id", "created_at", "updated_at", "file_system_id", "key_id", "key_name", "key_enum_name", "key_enum_value", "description" FROM "temporary_arc_keys"`);
+        await queryRunner.query(`DROP TABLE "temporary_arc_keys"`);
         await queryRunner.query(`DROP INDEX "IDX_9e857a3d76f08c2575e272af5f"`);
         await queryRunner.query(`DROP INDEX "IDX_b9d2885195c73a8cafa57bb635"`);
         await queryRunner.query(`DROP TABLE "use_case_control_links"`);
@@ -729,6 +742,7 @@ export class Migrations1763376810791 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX "IDX_8df8807723e992df41610e9667"`);
         await queryRunner.query(`DROP TABLE "key_vector_values"`);
         await queryRunner.query(`DROP TABLE "use_case_categories_master"`);
+        await queryRunner.query(`DROP INDEX "ix_use_case_key_vector"`);
         await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
         await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
         await queryRunner.query(`DROP TABLE "use_cases"`);

@@ -1,14 +1,14 @@
 import type {Query} from './cqrs/queries/query.js';
-import type {ApplicationMiddleware} from './middleware/application-middleware.js';
+//import type {ApplicationMiddleware} from './middleware/application-middleware.js';
 import {
   type QueryHandlerDependencies,
   QueryHandlerRegistry,
 } from './cqrs/registries/query-handler-registry.js';
-import type {Request} from './cqrs/request.js';
+//import type {Request} from './cqrs/request.js';
 import type {QueryServices} from '../services/query-services.js';
 
 export class QueryBus {
-  private middlewares: ApplicationMiddleware<Request>[] = [];
+  //private middlewares: ApplicationMiddleware<Request>[] = [];
 
   constructor(
     private queryServices: QueryServices,
@@ -22,7 +22,7 @@ export class QueryBus {
     // 1. Logging middleware (can be added later)
     // 2. Any common validations
     // Note: Transaction middleware is NOT used for queries
-    this.middlewares = [];
+    //this.middlewares = [];
   }
 
   async execute<TResponse = any>(query: Query): Promise<TResponse> {
@@ -39,6 +39,8 @@ export class QueryBus {
 
   async executeMiddlewarePipeline<TResponse>(query: Query): Promise<TResponse> {
     const handler = this.createHandler(query);
+    return await handler.handle(query);
+    /*
     const executeMiddlewareHandler = async (): Promise<TResponse> => {
       return await handler.handle(query);
     };
@@ -47,6 +49,6 @@ export class QueryBus {
     for (let index: number = this.middlewares.length - 1; index >= 0; index--) {
       next = () => this.middlewares[index].handle(query, next);
     }
-    return await next();
+    return await next();*/
   }
 }

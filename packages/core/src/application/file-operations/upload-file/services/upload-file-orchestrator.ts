@@ -1,10 +1,7 @@
 import type {UnitOfWork} from 'application/ports/persistence/unit-of-work.js';
-import {
-  EntityBuilderService,
-  EntityModel,
-  ENTITY_MODEL_KEYS,
-} from './entity-builder-service.js';
+import {EntityBuilderService} from './entity-builder-service.js';
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
+import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
@@ -12,9 +9,10 @@ import type {SpfModule} from '../../../../domain/entities/usecase-data/module/sp
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import {ForeignKeyMapper} from './foreign-key-mapper.js';
-//import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 import {AcdbFileOrchestrator} from './acdb-file-orchestrator.js';
 import {AwspFileOrchestrator} from './awsp-file-orchestrator.js';
+import {ParsedAcdb} from '../models/parsed-acdb.js';
+import {ParsedAwsp} from '../models/parsed-awsp.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
@@ -33,8 +31,10 @@ export class UploadFileOrchestrator {
   private awspParser: AwspFileOrchestrator;
   private foreignKeyMapper: ForeignKeyMapper;
 
-  // Storage for built entities
-  private entityModel: EntityModel | null = null;
+  // Storage for parsed data to enable build-insert-build pattern
+  private parsedAcdb: ParsedAcdb | null = null;
+  private parsedAwsp: ParsedAwsp | null = null;
+  private currentFileId: number = 0;
 
   /* -------------------------------------*/
 
@@ -123,76 +123,38 @@ export class UploadFileOrchestrator {
     );
 
     try {
-      // Parse files into chunks
+      // Parse files into chunks and store for build-insert-build pattern
       this.profiler?.start(PROFILER_OPERATIONS.ACDB_PARSING);
-      const parsedAcdb = await this.acdbParser.parseACDB(acdbPath);
+      this.parsedAcdb = await this.acdbParser.parseACDB(acdbPath);
       this.logPerformanceMetrics(
         this.profiler?.end(PROFILER_OPERATIONS.ACDB_PARSING),
       );
 
       this.profiler?.start(PROFILER_OPERATIONS.AWSP_PARSING);
-      const parsedAwsp = await this.awspParser.parseAWSP(awspPath);
+      this.parsedAwsp = await this.awspParser.parseAWSP(awspPath);
       this.logPerformanceMetrics(
         this.profiler?.end(PROFILER_OPERATIONS.AWSP_PARSING),
       );
+
+      // Store file ID for use in build phases
+      this.currentFileId = fileId;
 
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_PARSING),
       );
 
-      // Call buildAll with the parsed data
-      this.profiler?.start(PROFILER_OPERATIONS.ENTITY_BUILDING);
-      this.logMemorySnapshot(
-        this.profiler?.snapshot(MEMORY_SNAPSHOTS.BEFORE_ENTITY_BUILDING),
-      );
-      const buildResult = await this.builderService.buildAll(
-        parsedAcdb,
-        parsedAwsp,
-        fileId,
-      );
-
-      // Store the entity model for persistence
-      if (buildResult.success) {
-        this.entityModel = buildResult.entityModel;
-
-        const keyDefinitions = this.builderService.getBuiltKeyDefinitions(
-          buildResult.entityModel,
-        );
-        const spfModuleDefinitions =
-          this.builderService.getBuiltSpfModuleDefinitions(
-            buildResult.entityModel,
-          );
-
-        if (keyDefinitions.length > 0 || spfModuleDefinitions.length > 0) {
-          this.logger?.logInfo({
-            msg: `Built entity model with ${keyDefinitions.length} key definitions, ${spfModuleDefinitions.length} SPF module definitions, and ${buildResult.entityModel.getEntityCount()} total entities`,
-            action: 'entity_model_built',
-            component: 'UploadFileOrchestrator',
-            tag: 'entity-extraction',
-            timestamp: new Date(),
-          });
-        }
-      }
-
-      this.logMemorySnapshot(
-        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_ENTITY_BUILDING),
-      );
-      this.logPerformanceMetrics(
-        this.profiler?.end(PROFILER_OPERATIONS.ENTITY_BUILDING),
-      );
-
-      // Persist entities
+      // Implement build-insert-build pattern
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.BEFORE_PERSISTENCE),
       );
 
-      await this.persistEntities();
+      await this.persistEntitiesInHierarchicalOrder();
 
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_PERSISTENCE),
       );
 
-      return buildResult.success;
+      return true;
     } catch (error) {
       // Log the error using the proper LogData structure
       await this.logger?.logError({
@@ -216,21 +178,40 @@ export class UploadFileOrchestrator {
     }
   }
 
-  async persistEntities(): Promise<void> {
+  /**
+   * Implement build-insert-build pattern for hierarchical entity processing
+   */
+  private async persistEntitiesInHierarchicalOrder(): Promise<void> {
     this.profiler?.start(PROFILER_OPERATIONS.DATABASE_TRANSACTION);
 
     try {
-      // Transactional DB updates
-      //await this.uow.executeInTransaction(async () => {
       const bulkRepo = this.uow.getBulkImportRepository();
 
-      await this.processDefinitionsWithMappings(bulkRepo);
+      // Phase 1a: Build and Insert Key Definitions (no dependencies)
+      await this.buildAndInsertKeyDefinitions(bulkRepo);
 
-      // Phase 2: Process all usecase data (SPF entities + usecases) with foreign key mappings
-      await this.processUsecaseDataWithMappings(bulkRepo);
+      if (false) {
+        // Phase 1b: Build and Insert SPF Module Definitions (no dependencies)
+        await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
 
-      // Add other repositories as needed
-      //});
+        // Phase 2: Build and Insert Subgraphs (no dependencies)
+        await this.buildAndInsertSubgraphs(bulkRepo);
+
+        // Phase 3: Build and Insert Containers (no dependencies)
+        await this.buildAndInsertContainers(bulkRepo);
+
+        // Phase 4: Build and Insert SPF Modules (depend on subgraphs, containers, definitions)
+        await this.buildAndInsertSpfModules(bulkRepo);
+
+        // Phase 5: Build and Insert Data Links (depend on modules)
+        await this.buildAndInsertDataLinks(bulkRepo);
+
+        // Phase 6: Build and Insert Control Links (depend on modules)
+        await this.buildAndInsertControlLinks(bulkRepo);
+      }
+
+      // Phase 7: Build and Insert Usecases (depend on all value definitions)
+      await this.buildAndInsertUsecases(bulkRepo);
     } catch (error) {
       // Log persistence errors
       await this.logger?.logError({
@@ -251,79 +232,97 @@ export class UploadFileOrchestrator {
     }
   }
 
-  private async processDefinitionsWithMappings(bulkRepo: any): Promise<void> {
-    if (!this.entityModel) {
-      return;
+  /**
+   * Phase 1a: Build and Insert Key Definitions
+   */
+  private async buildAndInsertKeyDefinitions(bulkRepo: any): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building definitions');
     }
-    // Insert key definitions if available
-    if (this.entityModel) {
-      const keyDefinitions = this.entityModel.getEntity<KeyDefinition[]>(
-        ENTITY_MODEL_KEYS.KEY_DEFINITIONS,
+
+    // Build key definitions
+    const keyDefinitions = await this.builderService.buildKeyDefinitions(
+      this.parsedAwsp,
+    );
+
+    if (keyDefinitions && keyDefinitions.length > 0) {
+      const keyDefResult = await bulkRepo.insertKeyDefinitions(
+        keyDefinitions.map((kd: KeyDefinition) => ({
+          ...kd,
+          systemId: undefined,
+        })) as any,
       );
 
-      if (keyDefinitions && keyDefinitions.length > 0) {
-        const keyDefResult = await bulkRepo.insertKeyDefinitions(
-          keyDefinitions.map((kd: KeyDefinition) => ({
-            ...kd,
-            systemId: undefined,
-          })) as any,
-        );
+      // Store foreign key mappings for subsequent phases
+      this.foreignKeyMapper.setKeyDefinitionMappings(keyDefResult);
 
-        // Store foreign key mappings for usecase processing
-        this.foreignKeyMapper.setKeyDefinitionMappings(keyDefResult);
+      const successfulInserts = keyDefResult.results.filter(
+        (r: any) => r.success,
+      ).length;
 
-        const successfulInserts = keyDefResult.results.filter(
-          (r: any) => r.success,
-        ).length;
-        this.logger?.logInfo({
-          msg: `Inserted ${successfulInserts} key definitions (${keyDefResult.results.length} total)`,
-          action: 'key_definitions_persisted',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-        });
-      }
-
-      /*// Insert SPF module definitions if available
-          const spfModuleDefinitions = this.entityModel.getEntity<
-            SpfModuleDefinition[]
-          >(ENTITY_MODEL_KEYS.SPF_MODULE_DEFINITIONS);
-
-          if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
-            const moduleDefResult = await bulkRepo.insertModuleDefinitions(
-              spfModuleDefinitions.map((md: SpfModuleDefinition) => ({
-                ...md,
-                systemId: undefined,
-              })) as any,
-            );
-
-            const successfulInserts = moduleDefResult.results.filter(
-              r => r.success,
-            ).length;
-            this.logger?.logInfo({
-              msg: `Inserted ${successfulInserts} SPF module definitions (${moduleDefResult.results.length} total)`,
-              action: 'spf_module_definitions_persisted',
-              component: 'UploadFileOrchestrator',
-              tag: 'database-persistence',
-              timestamp: new Date(),
-            });
-          }*/
+      this.logger?.logInfo({
+        msg: `Built and inserted ${successfulInserts} key definitions (${keyDefResult.results.length} total)`,
+        action: 'key_definitions_persisted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
     }
   }
 
   /**
-   * Process all usecase data (SPF entities + usecases) in hierarchical order with foreign key mappings
+   * Phase 1b: Build and Insert SPF Module Definitions
    */
-  private async processUsecaseDataWithMappings(bulkRepo: any): Promise<void> {
-    if (!this.entityModel) {
-      return;
+  private async buildAndInsertSpfModuleDefinitions(
+    bulkRepo: any,
+  ): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error(
+        'Parsed data not available for building SPF module definitions',
+      );
     }
 
-    // ============================================
-    // Phase 1: Insert Subgraphs (no dependencies)
-    // ============================================
-    const subgraphs = this.entityModel.getEntity<Subgraph[]>(
-      ENTITY_MODEL_KEYS.SUBGRAPHS,
+    // Build SPF module definitions
+    const spfModuleDefinitions =
+      await this.builderService.buildSpfModuleDefinitions(this.parsedAwsp);
+
+    if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
+      const spfModuleDefResult = await bulkRepo.insertSpfModuleDefinitions(
+        spfModuleDefinitions.map((smd: SpfModuleDefinition) => ({
+          ...smd,
+          systemId: undefined,
+        })) as any,
+      );
+
+      // Store foreign key mappings for subsequent phases
+      this.foreignKeyMapper.setModuleDefinitionMappings(spfModuleDefResult);
+
+      const successfulInserts = spfModuleDefResult.results.filter(
+        (r: any) => r.success,
+      ).length;
+
+      this.logger?.logInfo({
+        msg: `Built and inserted ${successfulInserts} SPF module definitions (${spfModuleDefResult.results.length} total)`,
+        action: 'spf_module_definitions_persisted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Phase 2: Build and Insert Subgraphs
+   */
+  private async buildAndInsertSubgraphs(bulkRepo: any): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building subgraphs');
+    }
+
+    // Build subgraphs (now that we have definition systemIds)
+    const subgraphs = await this.builderService.buildSubgraphs(
+      this.parsedAcdb,
+      this.currentFileId,
     );
 
     if (subgraphs && subgraphs.length > 0) {
@@ -346,19 +345,27 @@ export class UploadFileOrchestrator {
       ).length;
 
       this.logger?.logInfo({
-        msg: `Inserted ${successfulInserts} subgraphs (${subgraphResult.results.length} total)`,
+        msg: `Built and inserted ${successfulInserts} subgraphs (${subgraphResult.results.length} total)`,
         action: 'subgraphs_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
         timestamp: new Date(),
       });
     }
+  }
 
-    // ============================================
-    // Phase 2: Insert Containers (no dependencies)
-    // ============================================
-    const containers = this.entityModel.getEntity<Container[]>(
-      ENTITY_MODEL_KEYS.CONTAINERS,
+  /**
+   * Phase 3: Build and Insert Containers
+   */
+  private async buildAndInsertContainers(bulkRepo: any): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building containers');
+    }
+
+    // Build containers (now that we have definition systemIds)
+    const containers = await this.builderService.buildContainers(
+      this.parsedAcdb,
+      this.currentFileId,
     );
 
     if (containers && containers.length > 0) {
@@ -381,19 +388,27 @@ export class UploadFileOrchestrator {
       ).length;
 
       this.logger?.logInfo({
-        msg: `Inserted ${successfulInserts} containers (${containerResult.results.length} total)`,
+        msg: `Built and inserted ${successfulInserts} containers (${containerResult.results.length} total)`,
         action: 'containers_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
         timestamp: new Date(),
       });
     }
+  }
 
-    // ============================================
-    // Phase 3: Insert SPF Modules (depend on subgraphs, containers, definitions)
-    // ============================================
-    const spfModules = this.entityModel.getEntity<SpfModule[]>(
-      ENTITY_MODEL_KEYS.SPF_MODULES,
+  /**
+   * Phase 4: Build and Insert SPF Modules
+   */
+  private async buildAndInsertSpfModules(bulkRepo: any): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building SPF modules');
+    }
+
+    // Build SPF modules (now that we have subgraph, container, and definition systemIds)
+    const spfModules = await this.builderService.buildSpfModules(
+      this.parsedAcdb,
+      this.currentFileId,
     );
 
     if (spfModules && spfModules.length > 0) {
@@ -416,20 +431,25 @@ export class UploadFileOrchestrator {
       ).length;
 
       this.logger?.logInfo({
-        msg: `Inserted ${successfulInserts} SPF modules (${spfModuleResult.results.length} total)`,
+        msg: `Built and inserted ${successfulInserts} SPF modules (${spfModuleResult.results.length} total)`,
         action: 'spf_modules_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
         timestamp: new Date(),
       });
     }
+  }
 
-    // ============================================
-    // Phase 4: Insert Data Links (depend on modules)
-    // ============================================
-    const dataLinks = this.entityModel.getEntity<DataLink[]>(
-      ENTITY_MODEL_KEYS.DATA_LINKS,
-    );
+  /**
+   * Phase 5: Build and Insert Data Links
+   */
+  private async buildAndInsertDataLinks(bulkRepo: any): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building data links');
+    }
+
+    // Build data links (now that we have module systemIds)
+    const dataLinks = await this.builderService.buildDataLinks(this.parsedAcdb);
 
     if (dataLinks && dataLinks.length > 0) {
       const dataLinkResult = await bulkRepo.insertDataLinks(
@@ -444,19 +464,26 @@ export class UploadFileOrchestrator {
       ).length;
 
       this.logger?.logInfo({
-        msg: `Inserted ${successfulInserts} data links (${dataLinkResult.results.length} total)`,
+        msg: `Built and inserted ${successfulInserts} data links (${dataLinkResult.results.length} total)`,
         action: 'data_links_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
         timestamp: new Date(),
       });
     }
+  }
 
-    // ============================================
-    // Phase 5: Insert Control Links (depend on modules)
-    // ============================================
-    const controlLinks = this.entityModel.getEntity<ControlLink[]>(
-      ENTITY_MODEL_KEYS.CONTROL_LINKS,
+  /**
+   * Phase 6: Build and Insert Control Links
+   */
+  private async buildAndInsertControlLinks(bulkRepo: any): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building control links');
+    }
+
+    // Build control links (now that we have module systemIds)
+    const controlLinks = await this.builderService.buildControlLinks(
+      this.parsedAcdb,
     );
 
     if (controlLinks && controlLinks.length > 0) {
@@ -472,22 +499,30 @@ export class UploadFileOrchestrator {
       ).length;
 
       this.logger?.logInfo({
-        msg: `Inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
+        msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
         action: 'control_links_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
         timestamp: new Date(),
       });
     }
+  }
 
-    // ============================================
-    // Phase 6: Insert Usecases (final processing)
-    // ============================================
-    const usecases = this.builderService.getBuiltUsecases(this.entityModel);
+  /**
+   * Phase 7: Build and Insert Usecases
+   */
+  private async buildAndInsertUsecases(bulkRepo: any): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building usecases');
+    }
+
+    // Build usecases (now that we have all value definition systemIds)
+    const usecases = await this.builderService.buildUsecases(
+      this.parsedAcdb,
+      this.currentFileId,
+    );
 
     if (usecases && usecases.length > 0) {
-      // Usecases are already built with correct foreign key mappings
-      // since they are processed after key definitions are inserted
       const usecaseResult = await bulkRepo.insertUseCases(
         usecases.map((uc: UseCase) => ({
           ...uc,
@@ -500,7 +535,7 @@ export class UploadFileOrchestrator {
       ).length;
 
       this.logger?.logInfo({
-        msg: `Inserted ${successfulInserts} usecases (${usecaseResult.results.length} total)`,
+        msg: `Built and inserted ${successfulInserts} usecases (${usecaseResult.results.length} total)`,
         action: 'usecases_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',

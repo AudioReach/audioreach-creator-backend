@@ -12,16 +12,16 @@ export class DbProjectQueryService implements ProjectQueryService {
     const project = await this.dataSource
       .getRepository('Project')
       .createQueryBuilder('p')
-      .leftJoinAndSelect('p.file', 'f')
+      .leftJoinAndSelect('p.files', 'f')
       .where('p.systemId = :projectId', {projectId})
       .getOne();
 
-    if (!project?.file) {
+    if (!project?.files || project.files.length === 0) {
       throw new Error(
-        `Project with ID ${projectId} not found or has no associated file`,
+        `Project with ID ${projectId} not found or has no associated files`,
       );
     }
 
-    return project.file.systemId;
+    return project.files[0].systemId;
   }
 }
