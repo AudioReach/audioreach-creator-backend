@@ -51,7 +51,7 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
     keyName: {
       name: 'key_name',
       type: String,
-      unique: true,
+      unique: false,
     },
     cEnumMemberName: {
       name: 'key_enum_name',

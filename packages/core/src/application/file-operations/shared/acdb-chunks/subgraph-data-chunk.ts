@@ -1,5 +1,13 @@
 import {BaseChunk} from './base-chunk.js';
 import {CHUNK_TYPES} from '../constants/chunk-types.js';
+import type {SpfProperties} from './spf-properties/index.js';
+import type {
+  SubgraphProperty,
+  ContainerProperty,
+  ModuleInstanceInfo,
+  DataLink,
+  ControlLink,
+} from './spf-properties/types.js';
 
 /**
  * Represents a single subgraph data entry extracted from usecase data
@@ -9,8 +17,8 @@ export interface SubgraphDataEntry {
   subgraphId: number;
   /** Driver properties data (formerly GSL) */
   driverProperties: Uint8Array;
-  /** SPF properties data (formerly Gecko) */
-  spfProperties: Uint8Array;
+  /** Parsed SPF properties (formerly Gecko) */
+  spfProperties: SpfProperties;
 }
 
 /**
@@ -52,5 +60,88 @@ export class SubgraphDataChunk extends BaseChunk {
    */
   clearSubgraphData(): void {
     this.subgraphData = [];
+  }
+
+  /**
+   * Extract all subgraphs from SPF properties
+   */
+  getAllSubgraphs(): SubgraphProperty[] {
+    const subgraphs: SubgraphProperty[] = [];
+
+    for (const entry of this.subgraphData) {
+      if (entry.spfProperties.subgraphConfig) {
+        subgraphs.push(
+          ...entry.spfProperties.subgraphConfig.subgraphProperties,
+        );
+      }
+    }
+
+    return subgraphs;
+  }
+
+  /**
+   * Extract all containers from SPF properties (deduplicated across subgraphs)
+   */
+  getAllContainers(): ContainerProperty[] {
+    const containerMap = new Map<number, ContainerProperty>();
+
+    for (const entry of this.subgraphData) {
+      if (entry.spfProperties.containerConfig) {
+        for (const container of entry.spfProperties.containerConfig
+          .containerProperties) {
+          // Use containerId as key to deduplicate
+          if (!containerMap.has(container.containerId)) {
+            containerMap.set(container.containerId, container);
+          }
+        }
+      }
+    }
+
+    return Array.from(containerMap.values());
+  }
+
+  /**
+   * Extract all modules from SPF properties
+   */
+  getAllModules(): ModuleInstanceInfo[] {
+    const modules: ModuleInstanceInfo[] = [];
+
+    for (const entry of this.subgraphData) {
+      if (entry.spfProperties.moduleList) {
+        modules.push(...entry.spfProperties.moduleList.moduleInstanceInfos);
+      }
+    }
+
+    return modules;
+  }
+
+  /**
+   * Extract all data links from SPF properties
+   */
+  getAllDataLinks(): DataLink[] {
+    const dataLinks: DataLink[] = [];
+    //TODO: deduplicate this for dangling links. Also, we should maintain per subgraph mapping? How to handle dangling link? Should it be part of usecase?
+    for (const entry of this.subgraphData) {
+      if (entry.spfProperties.dataLinks) {
+        dataLinks.push(...entry.spfProperties.dataLinks.dataLinks);
+      }
+    }
+
+    return dataLinks;
+  }
+
+  /**
+   * Extract all control links from SPF properties
+   */
+  getAllControlLinks(): ControlLink[] {
+    const controlLinks: ControlLink[] = [];
+    //TODO: deduplicate this for dangling links. Also, we should maintain per subgraph mapping? How to handle dangling link? Should it be part of usecase?
+    for (const entry of this.subgraphData) {
+      if (entry.spfProperties.controlLinks) {
+        controlLinks.push(...entry.spfProperties.controlLinks.controlLinks);
+      }
+    }
+
+    return controlLinks;
   }
 }

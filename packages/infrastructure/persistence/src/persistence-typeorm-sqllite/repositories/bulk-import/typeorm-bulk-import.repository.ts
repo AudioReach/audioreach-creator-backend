@@ -15,6 +15,10 @@ import type {
 import type {QueryRunner} from 'typeorm';
 import {KeyDefinitionInserter} from './key-definition/key-definition.inserter.js';
 import {UseCaseInserter} from './usecase/usecase.inserter.js';
+import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
+import {ContainerInserter} from './container/container.inserter.js';
+import {DataLinkInserter} from './data-link/data-link.inserter.js';
+import {ControlLinkInserter} from './control-link/control-link.inserter.js';
 
 // Import the specific result types from @arc/core
 import type {
@@ -44,37 +48,61 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   async insertContainers(
     items: readonly Omit<Container, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {
-    throw new Error(
-      'BulkImportRepository.insertContainers not yet implemented. ' +
-        `Attempted to insert ${items.length} containers.`,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new ContainerInserter(this.queryRunner.manager);
+      return await inserter.insert(items);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertSubgraphs(
     items: readonly Omit<Subgraph, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {
-    throw new Error(
-      'BulkImportRepository.insertSubgraphs not yet implemented. ' +
-        `Attempted to insert ${items.length} subgraphs.`,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new SubgraphInserter(this.queryRunner.manager);
+      return await inserter.insert(items);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertDataLinks(
     items: readonly Omit<DataLink, 'systemId'>[],
   ): Promise<BulkDataLinkInsertResult> {
-    throw new Error(
-      'BulkImportRepository.insertDataLinks not yet implemented. ' +
-        `Attempted to insert ${items.length} data links.`,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new DataLinkInserter(this.queryRunner.manager);
+      return await inserter.insert(items);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertControlLinks(
     items: readonly Omit<ControlLink, 'systemId'>[],
   ): Promise<BulkControlLinkInsertResult> {
-    throw new Error(
-      'BulkImportRepository.insertControlLinks not yet implemented. ' +
-        `Attempted to insert ${items.length} control links.`,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new ControlLinkInserter(this.queryRunner.manager);
+      return await inserter.insert(items);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertUseCases(

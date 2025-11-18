@@ -1,14 +1,21 @@
-import { ContainerPropertyValue } from "./value-objects/container-property.js";
+import {ContainerPropertyValue} from './value-objects/container-property.js';
 
 export class Container {
   public systemId: number;
+  public naturalId: number;
   public type: string;
   public fileSystemId: number;
 
   public properties: Map<number, ContainerPropertyValue>;
 
-  constructor(systemId: number, type: string, fileSystemId: number) {
+  constructor(
+    systemId: number,
+    naturalId: number,
+    type: string,
+    fileSystemId: number,
+  ) {
     this.systemId = systemId;
+    this.naturalId = naturalId;
     this.type = type;
     this.fileSystemId = fileSystemId;
 

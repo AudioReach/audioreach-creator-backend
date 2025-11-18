@@ -32,6 +32,7 @@ export class SpfModule extends Node {
   private readonly tagIds = new Set<string>();
   private readonly ckvCollection = new CkvCollection();
 
+  readonly instanceId: number;
   readonly definitionSystemId: number;
   readonly containerSystemId: number;
   readonly subgraphSystemId: number;
@@ -51,6 +52,7 @@ export class SpfModule extends Node {
       parentId: init.parentSystemId,
       fileSystemId: init.fileSystemId,
     });
+    this.instanceId = init.instanceId;
     this.definitionSystemId = init.definitionSystemId;
     this.containerSystemId = init.containerSystemId;
     this.subgraphSystemId = init.subgraphSystemId;

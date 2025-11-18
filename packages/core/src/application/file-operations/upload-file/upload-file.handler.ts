@@ -7,6 +7,10 @@ import {UploadFileOrchestrator} from './services/upload-file-orchestrator.js';
 import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../../ports/profiling/profiler.port.js';
+import {
+  PROJECT_TYPE,
+  Project,
+} from '../../../domain/entities/usecase-data/project/project.js';
 
 export type OpenFileResult = {
   projectId: string;
@@ -38,13 +42,39 @@ export class OpenFileHandler
   async handle(command: OpenFileCommand): Promise<OpenFileResult> {
     this.validateInputs(command.acdb, command.awsp);
 
-    // Orchestrate the process: parse, build, and persist
-    await this.uploadOrchestrator.orchestrate(command.acdb, command.awsp);
+    // Create project and file first to get proper IDs
+    const projectRepo = this.uow.getProjectRepository();
+    const projectName = this.extractProjectName(command.acdb, command.awsp);
+    const projectDescription = this.extractProjectDescription(
+      command.acdb,
+      command.awsp,
+    );
+
+    const {project, file} = await projectRepo.createOfflineProject(
+      new Project(0, projectName, projectDescription, PROJECT_TYPE.OFFLINE),
+      {
+        description: `ACDB: ${command.acdb.name}, AWSP: ${command.awsp.name}`,
+        metadata: JSON.stringify({
+          acdb: command.acdb.name,
+          awsp: command.awsp.name,
+          uploadedAt: new Date().toISOString(),
+        }),
+        tag: 'upload',
+        isTarget: true,
+      },
+    );
+
+    // Orchestrate the process with proper file ID
+    await this.uploadOrchestrator.orchestrate(
+      command.acdb,
+      command.awsp,
+      file.systemId,
+    );
 
     return {
-      projectId: 'PENDING_DB_ID',
-      projectName: '', //TODO: Get from orchestrator
-      projectDescription: '', //TODO: Get from orchestrator
+      projectId: project.systemId.toString(),
+      projectName: project.name,
+      projectDescription: project.description,
     };
   }
 
@@ -57,5 +87,18 @@ export class OpenFileHandler
     if (!awspName?.toLowerCase().endsWith('.awsp')) {
       throw new Error('Invalid workspace file extension; expected .awsp');
     }
+  }
+
+  private extractProjectName(acdb: FileRef, awsp: FileRef): string {
+    // Extract project name from file names, removing extensions
+    const acdbName = acdb.name.replace(/\.acdb$/i, '');
+    const awspName = awsp.name.replace(/\.awsp$/i, '');
+
+    // Use the common part or the ACDB name as project name
+    return acdbName === awspName ? acdbName : `${acdbName}_project`;
+  }
+
+  private extractProjectDescription(acdb: FileRef, awsp: FileRef): string {
+    return `Project created from ACDB file: ${acdb.name} and AWSP file: ${awsp.name}`;
   }
 }

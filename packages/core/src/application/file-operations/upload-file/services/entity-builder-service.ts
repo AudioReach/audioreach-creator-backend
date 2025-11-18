@@ -1,18 +1,22 @@
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
+import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {ParsedAcdb} from '../models/parsed-acdb.js';
 import type {ParsedAwsp} from '../models/parsed-awsp.js';
 import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js';
 import {SpfModuleDefinitionBuilder} from './entity-builders/spf-module-definition-builder.js';
+import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
+import {SubgraphBuilder} from './entity-builders/subgraph-builder.js';
+import {ContainerBuilder} from './entity-builders/container-builder.js';
+import {SpfModuleBuilder} from './entity-builders/spf-module-builder.js';
+import {DataLinkBuilder} from './entity-builders/data-link-builder.js';
+import {ControlLinkBuilder} from './entity-builders/control-link-builder.js';
+import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
+import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
+import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
-import type {WorkerTask} from '../../../ports/worker/worker-types.js';
-import type {EntityBuilderInput} from '../types/entity-builder.types.js';
-import type {
-  BaseEntityBuilder,
-  EntityBuilderContext,
-} from './entity-builders/base-entity-builder.js';
-import {HeaderEntityBuilder} from './entity-builders/header-entity.builder.js';
+import type {ForeignKeyMapper} from './foreign-key-mapper.js';
 
 /**
  * Constants for entity model keys used by EntityBuilderService
@@ -20,6 +24,12 @@ import {HeaderEntityBuilder} from './entity-builders/header-entity.builder.js';
 export const ENTITY_MODEL_KEYS = {
   KEY_DEFINITIONS: 'KEY_DEFINITIONS',
   SPF_MODULE_DEFINITIONS: 'SPF_MODULE_DEFINITIONS',
+  USECASES: 'USECASES',
+  SUBGRAPHS: 'SUBGRAPHS',
+  CONTAINERS: 'CONTAINERS',
+  SPF_MODULES: 'SPF_MODULES',
+  DATA_LINKS: 'DATA_LINKS',
+  CONTROL_LINKS: 'CONTROL_LINKS',
 } as const;
 
 export type EntityModelKey =
@@ -48,11 +58,21 @@ export class EntityModel {
   }
 }
 
+/**
+ * Simplified EntityBuilderService with direct processing similar to AWSP pattern
+ */
 export class EntityBuilderService {
   private keyDefinitionBuilder: KeyDefinitionBuilder;
   private spfModuleDefinitionBuilder: SpfModuleDefinitionBuilder;
+  private usecaseBuilder: UsecaseBuilder;
+  private subgraphBuilder: SubgraphBuilder;
+  private containerBuilder: ContainerBuilder;
+  private spfModuleBuilder: SpfModuleBuilder;
+  private dataLinkBuilder: DataLinkBuilder;
+  private controlLinkBuilder: ControlLinkBuilder;
 
   constructor(
+    readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {
@@ -64,14 +84,24 @@ export class EntityBuilderService {
       this.workerPool,
       this.logger,
     );
+    this.usecaseBuilder = new UsecaseBuilder(foreignKeyMapper, this.logger);
+    this.subgraphBuilder = new SubgraphBuilder(this.logger);
+    this.containerBuilder = new ContainerBuilder(this.logger);
+    this.spfModuleBuilder = new SpfModuleBuilder(foreignKeyMapper, this.logger);
+    this.dataLinkBuilder = new DataLinkBuilder(foreignKeyMapper, this.logger);
+    this.controlLinkBuilder = new ControlLinkBuilder(
+      foreignKeyMapper,
+      this.logger,
+    );
   }
 
   /**
-   * Build all entities from parsed data
+   * Build all entities from parsed data using direct processing
    */
   async buildAll(
     parsedAcdb: ParsedAcdb,
     parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
   ): Promise<{success: boolean; entityModel: EntityModel}> {
     const startTime = Date.now();
 
@@ -85,7 +115,10 @@ export class EntityBuilderService {
 
     try {
       // Create entity model to store assembled entities
-      const entityModel = await this.assembleEntities(parsedAcdb);
+      const entityModel = new EntityModel();
+
+      // Process ACDB data directly (similar to AWSP processing)
+      await this.processAcdbData(parsedAcdb, entityModel, fileSystemId);
 
       // Process AWSP data if needed
       if (parsedAwsp) {
@@ -116,338 +149,384 @@ export class EntityBuilderService {
   }
 
   /**
-   * Assemble domain entities from parsed chunks using hybrid approach
-   * Strategy 1: Simple entities direct, complex entities with worker fallback
+   * Process ACDB data in hierarchical dependency order:
+   * 1. Subgraphs (no dependencies)
+   * 2. Containers (no dependencies)
+   * 3. Modules (depend on subgraphs, containers, definitions)
+   * 4. Data Links (depend on modules)
+   * 5. Control Links (depend on modules)
+   * 6. Usecases (final processing)
    */
-  private async assembleEntities(parsedAcdb: ParsedAcdb): Promise<EntityModel> {
-    const entityModel = new EntityModel();
-
-    // Step 1: Discover available builders
-    const builders = this.discoverAvailableBuilders();
-    if (builders.length === 0) {
-      this.logger?.logWarn({
-        msg: 'No entity builders available, skipping entity building',
-        action: 'no_builders_available',
-        component: 'EntityBuilderService',
-        tag: 'entity-building',
-        timestamp: new Date(),
-      });
-      return entityModel;
-    }
-
-    // Step 2: Create and validate chunk context
-    const context = this.createChunkContext(parsedAcdb);
-    const validBuilders = this.validateBuilders(builders, context);
-
-    if (validBuilders.length === 0) {
-      this.logger?.logWarn({
-        msg: 'No builders have required chunks available',
-        action: 'no_valid_builders',
-        component: 'EntityBuilderService',
-        tag: 'entity-building',
-        timestamp: new Date(),
-      });
-      return entityModel;
-    }
-
-    // Step 3: Separate simple vs complex entities
-    const simpleBuilders = validBuilders.filter(builder => builder.isSimple);
-    const complexBuilders = validBuilders.filter(builder => !builder.isSimple);
-
+  private async processAcdbData(
+    parsedAcdb: ParsedAcdb,
+    entityModel: EntityModel,
+    fileSystemId: number,
+  ): Promise<void> {
     this.logger?.logDebug({
-      msg: `Found ${simpleBuilders.length} simple and ${complexBuilders.length} complex entity builders`,
-      action: 'builders_categorized',
+      msg: 'Processing ACDB data in hierarchical order',
+      action: 'acdb_processing_start',
       component: 'EntityBuilderService',
-      tag: 'entity-building',
+      tag: 'acdb-processing',
       timestamp: new Date(),
     });
 
-    // Step 4: Process simple entities directly (fast path)
-    await this.assembleSimpleEntities(simpleBuilders, context, entityModel);
+    try {
+      // 1. Process subgraphs first (no dependencies)
+      await this.processAcdbSubgraphs(parsedAcdb, entityModel, fileSystemId);
 
-    // Step 5: Process complex entities (worker-based with fallback)
-    if (complexBuilders.length > 0) {
-      await this.assembleComplexEntities(complexBuilders, context, entityModel);
-    }
+      // 2. Process containers (no dependencies)
+      await this.processAcdbContainers(parsedAcdb, entityModel, fileSystemId);
 
-    return entityModel;
-  }
+      // 3. Process modules (depend on subgraphs, containers, definitions)
+      await this.processAcdbModules(parsedAcdb, entityModel, fileSystemId);
 
-  /**
-   * Discover available entity builders from registry
-   */
-  private discoverAvailableBuilders(): BaseEntityBuilder<any>[] {
-    // For now, return the known builders. In the future, this could be
-    // dynamically loaded from the registry or configuration
-    return [
-      new HeaderEntityBuilder(),
-      // Add more builders here as they are created
-    ];
-  }
+      // 4. Process data links (depend on modules)
+      await this.processAcdbDataLinks(parsedAcdb, entityModel);
 
-  /**
-   * Create chunk context from parsed ACDB data
-   */
-  private createChunkContext(parsedAcdb: ParsedAcdb): EntityBuilderContext {
-    return {
-      chunks: parsedAcdb.getAllChunks(),
-    };
-  }
+      // 5. Process control links (depend on modules)
+      await this.processAcdbControlLinks(parsedAcdb, entityModel);
 
-  /**
-   * Validate that builders have their required chunks available
-   */
-  private validateBuilders(
-    builders: BaseEntityBuilder<any>[],
-    context: EntityBuilderContext,
-  ): BaseEntityBuilder<any>[] {
-    const validBuilders: BaseEntityBuilder<any>[] = [];
-
-    for (const builder of builders) {
-      const hasRequiredChunks = builder.requiredChunks.every(chunkType =>
-        context.chunks.has(chunkType),
-      );
-
-      if (hasRequiredChunks) {
-        validBuilders.push(builder);
-        this.logger?.logDebug({
-          msg: `Builder ${builder.entityType} has all required chunks: [${builder.requiredChunks.join(', ')}]`,
-          action: 'builder_validated',
-          component: 'EntityBuilderService',
-          tag: 'entity-building',
-          timestamp: new Date(),
-        });
-      } else {
-        const missingChunks = builder.requiredChunks.filter(
-          chunkType => !context.chunks.has(chunkType),
-        );
-        this.logger?.logDebug({
-          msg: `Builder ${builder.entityType} missing required chunks: [${missingChunks.join(', ')}]`,
-          action: 'builder_invalid',
-          component: 'EntityBuilderService',
-          tag: 'entity-building',
-          timestamp: new Date(),
-        });
-      }
-    }
-
-    return validBuilders;
-  }
-
-  /**
-   * Assemble simple entities directly (synchronous, no worker overhead)
-   */
-  private async assembleSimpleEntities(
-    builders: BaseEntityBuilder<any>[],
-    context: EntityBuilderContext,
-    entityModel: EntityModel,
-  ): Promise<void> {
-    if (builders.length === 0) return;
-
-    this.logger?.logDebug({
-      msg: `Creating ${builders.length} simple entities directly`,
-      action: 'simple_entities_start',
-      component: 'EntityBuilderService',
-      tag: 'entity-building',
-      timestamp: new Date(),
-    });
-
-    for (const builder of builders) {
-      try {
-        const entity = builder.create(context);
-        entityModel.addEntity(builder.entityType, entity);
-
-        this.logger?.logDebug({
-          msg: `Created simple entity: ${builder.entityType}`,
-          action: 'simple_entity_created',
-          component: 'EntityBuilderService',
-          tag: 'entity-building',
-          timestamp: new Date(),
-        });
-      } catch (error) {
-        this.logger?.logError({
-          msg: `Failed to create simple entity: ${builder.entityType}`,
-          action: 'simple_entity_failed',
-          component: 'EntityBuilderService',
-          tag: 'entity-building',
-          error: error as Error,
-          timestamp: new Date(),
-        });
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * Assemble complex entities using workers with sequential fallback
-   */
-  private async assembleComplexEntities(
-    builders: BaseEntityBuilder<any>[],
-    context: EntityBuilderContext,
-    entityModel: EntityModel,
-  ): Promise<void> {
-    if (builders.length === 0) return;
-
-    const useParallel = this.shouldUseParallelAssembly(builders);
-
-    if (useParallel) {
-      try {
-        await this.assembleComplexParallel(builders, context, entityModel);
-        return;
-      } catch (error) {
-        this.logger?.logWarn({
-          msg: 'Parallel assembly failed, falling back to sequential',
-          action: 'parallel_fallback',
-          component: 'EntityBuilderService',
-          tag: 'entity-building',
-          error: error as Error,
-          timestamp: new Date(),
-        });
-      }
-    }
-
-    // Fallback to sequential assembly
-    await this.assembleComplexSequential(builders, context, entityModel);
-  }
-
-  /**
-   * Determine if parallel assembly should be used
-   */
-  private shouldUseParallelAssembly(
-    builders: BaseEntityBuilder<any>[],
-  ): boolean {
-    return (
-      this.workerPool !== undefined &&
-      this.workerPool.isThreadingSupported() &&
-      builders.length > 1
-    );
-  }
-
-  /**
-   * Assemble complex entities in parallel using worker pool
-   */
-  private async assembleComplexParallel(
-    builders: BaseEntityBuilder<any>[],
-    context: EntityBuilderContext,
-    entityModel: EntityModel,
-  ): Promise<void> {
-    this.logger?.logDebug({
-      msg: `Assembling ${builders.length} complex entities in parallel`,
-      action: 'parallel_assembly_start',
-      component: 'EntityBuilderService',
-      tag: 'entity-building',
-      timestamp: new Date(),
-    });
-
-    const tasks: WorkerTask<EntityBuilderInput>[] = builders.map(builder => ({
-      handlerKey: 'buildEntity',
-      input: {
-        entityType: builder.entityType,
-        requiredData: builder.extractRequiredData(context),
-      },
-    }));
-
-    const results = await this.workerPool!.executeParallel<
-      EntityBuilderInput,
-      unknown,
-      {entityType: string; entityData: any}
-    >(tasks);
-
-    const errors: Array<{entityType: string; error: string}> = [];
-    const successfulEntities: string[] = [];
-
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      const builder = builders[i];
-
-      if (!result.success || result.error) {
-        errors.push({
-          entityType: builder.entityType,
-          error: result.error || 'Unknown error',
-        });
-        continue;
-      }
-
-      try {
-        const assembledData = result.data!;
-        entityModel.addEntity(
-          assembledData.entityType,
-          assembledData.entityData,
-        );
-        successfulEntities.push(assembledData.entityType);
-      } catch (error) {
-        errors.push({
-          entityType: builder.entityType,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    if (errors.length > 0) {
-      const errorSummary = errors
-        .map(e => `${e.entityType}: ${e.error}`)
-        .join('; ');
+      // 6. Process usecases last
+      await this.processAcdbUsecases(parsedAcdb, entityModel, fileSystemId);
+    } catch (error) {
       this.logger?.logError({
-        msg: `Failed to create ${errors.length} entities. Successful: ${successfulEntities.join(', ')}`,
-        action: 'parallel_entity_creation_failed',
+        msg: 'Failed to process ACDB data',
+        action: 'acdb_processing_failed',
         component: 'EntityBuilderService',
-        tag: 'entity-building',
-        error: new Error(errorSummary),
+        tag: 'acdb-processing',
+        error: error as Error,
         timestamp: new Date(),
       });
-      throw new Error(
-        `Failed to create ${errors.length} of ${builders.length} entities: ${errorSummary}`,
-      );
+      throw error;
     }
-
-    this.logger?.logDebug({
-      msg: `Successfully created ${successfulEntities.length} complex entities in parallel`,
-      action: 'parallel_assembly_complete',
-      component: 'EntityBuilderService',
-      tag: 'entity-building',
-      timestamp: new Date(),
-    });
   }
 
   /**
-   * Assemble complex entities sequentially (fallback method)
+   * Process ACDB subgraphs from SubgraphDataChunk
    */
-  private async assembleComplexSequential(
-    builders: BaseEntityBuilder<any>[],
-    context: EntityBuilderContext,
+  private async processAcdbSubgraphs(
+    parsedAcdb: ParsedAcdb,
+    entityModel: EntityModel,
+    fileSystemId: number,
+  ): Promise<void> {
+    // Extract subgraph data from ACDB
+    const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
+
+    if (!subgraphDataChunk) {
+      this.logger?.logDebug({
+        msg: 'No subgraph data chunk found in ACDB data',
+        action: 'no_subgraph_data_chunk',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Extract subgraph properties from SPF data
+    const subgraphProperties = subgraphDataChunk.getAllSubgraphs();
+
+    if (!subgraphProperties || subgraphProperties.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No subgraphs found in subgraph data chunk',
+        action: 'no_subgraphs',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain subgraphs
+    const subgraphs = await this.subgraphBuilder.buildSubgraphs(
+      subgraphProperties,
+      fileSystemId,
+    );
+
+    // Add subgraphs to entity model
+    if (subgraphs.length > 0) {
+      entityModel.addEntity(ENTITY_MODEL_KEYS.SUBGRAPHS, subgraphs);
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${subgraphs.length} subgraphs from ACDB`,
+        action: 'acdb_subgraphs_complete',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Process ACDB containers from SubgraphDataChunk
+   */
+  private async processAcdbContainers(
+    parsedAcdb: ParsedAcdb,
+    entityModel: EntityModel,
+    fileSystemId: number,
+  ): Promise<void> {
+    // Extract subgraph data from ACDB
+    const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
+
+    if (!subgraphDataChunk) {
+      this.logger?.logDebug({
+        msg: 'No subgraph data chunk found for containers',
+        action: 'no_subgraph_data_chunk_containers',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Extract container properties from SPF data (deduplicated)
+    const containerProperties = subgraphDataChunk.getAllContainers();
+
+    if (!containerProperties || containerProperties.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No containers found in subgraph data chunk',
+        action: 'no_containers',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain containers
+    const containers = await this.containerBuilder.buildContainers(
+      containerProperties,
+      fileSystemId,
+    );
+
+    // Add containers to entity model
+    if (containers.length > 0) {
+      entityModel.addEntity(ENTITY_MODEL_KEYS.CONTAINERS, containers);
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${containers.length} containers from ACDB`,
+        action: 'acdb_containers_complete',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Process ACDB modules from SubgraphDataChunk
+   */
+  private async processAcdbModules(
+    parsedAcdb: ParsedAcdb,
+    entityModel: EntityModel,
+    fileSystemId: number,
+  ): Promise<void> {
+    // Extract subgraph data from ACDB
+    const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
+
+    if (!subgraphDataChunk) {
+      this.logger?.logDebug({
+        msg: 'No subgraph data chunk found for modules',
+        action: 'no_subgraph_data_chunk_modules',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Extract module instance info from SPF data
+    const moduleInstanceInfos = subgraphDataChunk.getAllModules();
+
+    if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No modules found in subgraph data chunk',
+        action: 'no_modules',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain SPF modules
+    const spfModules = await this.spfModuleBuilder.buildSpfModules(
+      moduleInstanceInfos,
+      fileSystemId,
+    );
+
+    // Add SPF modules to entity model
+    if (spfModules.length > 0) {
+      entityModel.addEntity(ENTITY_MODEL_KEYS.SPF_MODULES, spfModules);
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${spfModules.length} SPF modules from ACDB`,
+        action: 'acdb_spf_modules_complete',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Process ACDB data links from SubgraphDataChunk
+   */
+  private async processAcdbDataLinks(
+    parsedAcdb: ParsedAcdb,
     entityModel: EntityModel,
   ): Promise<void> {
-    this.logger?.logDebug({
-      msg: `Assembling ${builders.length} complex entities sequentially`,
-      action: 'sequential_assembly_start',
-      component: 'EntityBuilderService',
-      tag: 'entity-building',
-      timestamp: new Date(),
-    });
+    // Extract subgraph data from ACDB
+    const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
 
-    for (const builder of builders) {
-      try {
-        const entity = builder.create(context);
-        entityModel.addEntity(builder.entityType, entity);
+    if (!subgraphDataChunk) {
+      this.logger?.logDebug({
+        msg: 'No subgraph data chunk found for data links',
+        action: 'no_subgraph_data_chunk_data_links',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
 
-        this.logger?.logDebug({
-          msg: `Created complex entity: ${builder.entityType}`,
-          action: 'sequential_entity_created',
-          component: 'EntityBuilderService',
-          tag: 'entity-building',
-          timestamp: new Date(),
-        });
-      } catch (error) {
-        this.logger?.logError({
-          msg: `Failed to create complex entity: ${builder.entityType}`,
-          action: 'sequential_entity_failed',
-          component: 'EntityBuilderService',
-          tag: 'entity-building',
-          error: error as Error,
-          timestamp: new Date(),
-        });
-        throw error;
-      }
+    // Extract data link properties from SPF data
+    const dataLinkProperties = subgraphDataChunk.getAllDataLinks();
+
+    if (!dataLinkProperties || dataLinkProperties.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No data links found in subgraph data chunk',
+        action: 'no_data_links',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain data links
+    const dataLinks =
+      await this.dataLinkBuilder.buildDataLinks(dataLinkProperties);
+
+    // Add data links to entity model
+    if (dataLinks.length > 0) {
+      entityModel.addEntity(ENTITY_MODEL_KEYS.DATA_LINKS, dataLinks);
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${dataLinks.length} data links from ACDB`,
+        action: 'acdb_data_links_complete',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Process ACDB control links from SubgraphDataChunk
+   */
+  private async processAcdbControlLinks(
+    parsedAcdb: ParsedAcdb,
+    entityModel: EntityModel,
+  ): Promise<void> {
+    // Extract subgraph data from ACDB
+    const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
+
+    if (!subgraphDataChunk) {
+      this.logger?.logDebug({
+        msg: 'No subgraph data chunk found for control links',
+        action: 'no_subgraph_data_chunk_control_links',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Extract control link properties from SPF data
+    const controlLinkProperties = subgraphDataChunk.getAllControlLinks();
+
+    if (!controlLinkProperties || controlLinkProperties.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No control links found in subgraph data chunk',
+        action: 'no_control_links',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain control links
+    const controlLinks = await this.controlLinkBuilder.buildControlLinks(
+      controlLinkProperties,
+    );
+
+    // Add control links to entity model
+    if (controlLinks.length > 0) {
+      entityModel.addEntity(ENTITY_MODEL_KEYS.CONTROL_LINKS, controlLinks);
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${controlLinks.length} control links from ACDB`,
+        action: 'acdb_control_links_complete',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Process ACDB usecases
+   */
+  private async processAcdbUsecases(
+    parsedAcdb: ParsedAcdb,
+    entityModel: EntityModel,
+    fileSystemId: number,
+  ): Promise<void> {
+    // Extract usecase data from ACDB
+    const usecaseChunk = parsedAcdb.getChunk<UsecaseDataChunk>(
+      CHUNK_TYPES.GKV_TABLE,
+    );
+
+    if (!usecaseChunk?.usecases || usecaseChunk.usecases.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No usecases found in ACDB data',
+        action: 'no_usecases',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // Build domain usecases
+    const usecases = await this.usecaseBuilder.buildUsecases(
+      usecaseChunk.usecases,
+      fileSystemId,
+    );
+
+    // Add usecases to entity model
+    if (usecases.length > 0) {
+      entityModel.addEntity(ENTITY_MODEL_KEYS.USECASES, usecases);
+
+      this.logger?.logInfo({
+        msg: `Successfully processed ${usecases.length} usecases from ACDB`,
+        action: 'acdb_usecases_complete',
+        component: 'EntityBuilderService',
+        tag: 'acdb-processing',
+        timestamp: new Date(),
+      });
     }
   }
 
@@ -590,5 +669,12 @@ export class EntityBuilderService {
         ENTITY_MODEL_KEYS.SPF_MODULE_DEFINITIONS,
       ) || []
     );
+  }
+
+  /**
+   * Get built usecases from entity model
+   */
+  getBuiltUsecases(entityModel: EntityModel): UseCase[] {
+    return entityModel.getEntity<UseCase[]>(ENTITY_MODEL_KEYS.USECASES) || [];
   }
 }

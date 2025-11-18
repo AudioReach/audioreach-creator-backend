@@ -1,4 +1,5 @@
 import type {BulkImportRepository} from './repositories/bulk-import/bulk-import.repository.js';
+import type {ProjectRepository} from './repositories/project/project.repostiory.js';
 
 export interface UnitOfWork {
   /**
@@ -9,4 +10,5 @@ export interface UnitOfWork {
   executeInTransaction<T>(task: () => Promise<T>): Promise<T>;
 
   getBulkImportRepository(): BulkImportRepository;
+  getProjectRepository(): ProjectRepository;
 }

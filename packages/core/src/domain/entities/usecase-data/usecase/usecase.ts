@@ -40,7 +40,7 @@ export interface UseCaseInit {
   keyVector: KeyVectorInput;
   alias?: string;
   aliasId?: number;
-  categories: string[];
+  categories?: string[];
 }
 
 export class UseCase {
@@ -53,7 +53,7 @@ export class UseCase {
 
   alias?: string;
   aliasId?: number;
-  categories: string[];
+  categories?: string[];
 
   constructor(initParams: UseCaseInit) {
     this.systemId = initParams.systemId;
