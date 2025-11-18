@@ -10,6 +10,7 @@ export interface UseCaseRow extends EntityBaseRow {
   aliasId: number;
   alias: string;
   fileSystemId: number;
+  keyVectorSystemId: number;
 
   // Relations
   file?: ArcDbFileRow;
@@ -43,6 +44,11 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     fileSystemId: {
       type: 'integer',
       name: 'file_system_id',
+    },
+    keyVectorSystemId: {
+      type: 'integer',
+      name: 'key_vector_system_id',
+      nullable: false,
     },
   },
   relations: {
@@ -118,6 +124,10 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     keyVector: {
       type: 'one-to-one',
       target: 'KeyVector',
+      joinColumn: {
+        name: 'key_vector_system_id',
+        referencedColumnName: 'systemId',
+      },
       inverseSide: 'useCase',
     },
   },
@@ -129,6 +139,10 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     {
       name: 'ix_use_case_file',
       columns: ['fileSystemId'],
+    },
+    {
+      name: 'ix_use_case_key_vector',
+      columns: ['keyVectorSystemId'],
     },
   ],
 });
