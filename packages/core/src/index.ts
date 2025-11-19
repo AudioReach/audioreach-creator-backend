@@ -111,6 +111,8 @@ export * from './application/file-operations/upload-file/services/entity-builder
 export * from './domain/entities/usecase-data/links/control-link.js';
 export * from './domain/entities/usecase-data/links/data-link.js';
 export * from './domain/entities/usecase-data/module/spf-module.js';
+export * from './domain/entities/usecase-data/node/entities/data-port.js';
+export * from './domain/entities/usecase-data/node/entities/control-port.js';
 export * from './domain/entities/usecase-data/container/container.js';
 export * from './domain/entities/usecase-data/subgraph/subgraph.js';
 export * from './domain/entities/usecase-data/project/project.js';

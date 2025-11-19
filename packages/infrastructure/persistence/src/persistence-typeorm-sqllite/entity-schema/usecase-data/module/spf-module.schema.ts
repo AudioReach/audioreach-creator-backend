@@ -8,6 +8,7 @@ import {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-module-de
 import {NodeRow} from '../node/node.schema.js';
 
 export interface SpfModuleRow extends EntityBaseRow {
+  instanceId: number;
   alias: string;
 
   // FKs(scalar columns you will set directly on writes)
@@ -34,6 +35,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
   tableName: 'spf_modules',
   columns: {
     ...BaseColumnSchemaPart,
+    instanceId: {name: 'instance_id', type: 'integer'},
     alias: {type: String, length: 256},
 
     //  scalar FK columns you will set directly
