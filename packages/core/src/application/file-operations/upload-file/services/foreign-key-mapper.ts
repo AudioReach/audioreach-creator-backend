@@ -1,5 +1,12 @@
 import type {BulkKeyDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
+import type {
+  BulkDataLinkInsertResult,
+  BulkControlLinkInsertResult,
+} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
+import type {BulkEntityInsertResult} from '../../../ports/persistence/repositories/bulk-import/insert-result.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
+import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
+import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
 
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
@@ -13,6 +20,8 @@ export class ForeignKeyMapper {
   private containerMappings = new Map<number, number>(); // containerId -> systemId
   private moduleDefinitionMappings = new Map<number, number>(); // moduleId -> systemId
   private moduleInstanceMappings = new Map<number, number>(); // instanceId -> systemId
+  private dataLinkMappings = new Map<string, number>(); // naturalKey -> systemId
+  private controlLinkMappings = new Map<string, number>(); // naturalKey -> systemId
 
   constructor(private readonly logger?: Logger) {}
 
@@ -119,15 +128,21 @@ export class ForeignKeyMapper {
   /**
    * Set subgraph mappings from bulk insertion result
    */
-  setSubgraphMappings(
-    mappings: Array<{naturalId: number; systemId: number}>,
-  ): void {
-    for (const mapping of mappings) {
-      this.subgraphMappings.set(mapping.naturalId, mapping.systemId);
+  setSubgraphMappings(result: BulkEntityInsertResult): void {
+    let mappingsCount = 0;
+
+    for (const entityResult of result.results) {
+      if (entityResult.success && entityResult.idMapping) {
+        this.subgraphMappings.set(
+          entityResult.idMapping.naturalId,
+          entityResult.idMapping.systemId,
+        );
+        mappingsCount++;
+      }
     }
 
     this.logger?.logInfo({
-      msg: `Stored ${mappings.length} subgraph mappings`,
+      msg: `Stored ${mappingsCount} subgraph mappings`,
       action: 'subgraph_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
@@ -138,15 +153,21 @@ export class ForeignKeyMapper {
   /**
    * Set container mappings from bulk insertion result
    */
-  setContainerMappings(
-    mappings: Array<{naturalId: number; systemId: number}>,
-  ): void {
-    for (const mapping of mappings) {
-      this.containerMappings.set(mapping.naturalId, mapping.systemId);
+  setContainerMappings(result: BulkEntityInsertResult): void {
+    let mappingsCount = 0;
+
+    for (const entityResult of result.results) {
+      if (entityResult.success && entityResult.idMapping) {
+        this.containerMappings.set(
+          entityResult.idMapping.naturalId,
+          entityResult.idMapping.systemId,
+        );
+        mappingsCount++;
+      }
     }
 
     this.logger?.logInfo({
-      msg: `Stored ${mappings.length} container mappings`,
+      msg: `Stored ${mappingsCount} container mappings`,
       action: 'container_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
@@ -157,15 +178,21 @@ export class ForeignKeyMapper {
   /**
    * Set module definition mappings from bulk insertion result
    */
-  setModuleDefinitionMappings(
-    mappings: Array<{naturalId: number; systemId: number}>,
-  ): void {
-    for (const mapping of mappings) {
-      this.moduleDefinitionMappings.set(mapping.naturalId, mapping.systemId);
+  setModuleDefinitionMappings(result: BulkModuleDefinitionInsertResult): void {
+    let mappingsCount = 0;
+
+    for (const entityResult of result.results) {
+      if (entityResult.success && entityResult.definitionIdMapping) {
+        this.moduleDefinitionMappings.set(
+          entityResult.definitionIdMapping.naturalId,
+          entityResult.definitionIdMapping.systemId,
+        );
+        mappingsCount++;
+      }
     }
 
     this.logger?.logInfo({
-      msg: `Stored ${mappings.length} module definition mappings`,
+      msg: `Stored ${mappingsCount} module definition mappings`,
       action: 'module_definition_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
@@ -176,15 +203,21 @@ export class ForeignKeyMapper {
   /**
    * Set module instance mappings from bulk insertion result
    */
-  setModuleInstanceMappings(
-    mappings: Array<{naturalId: number; systemId: number}>,
-  ): void {
-    for (const mapping of mappings) {
-      this.moduleInstanceMappings.set(mapping.naturalId, mapping.systemId);
+  setModuleInstanceMappings(result: BulkModuleInsertResult): void {
+    let mappingsCount = 0;
+
+    for (const entityResult of result.results) {
+      if (entityResult.success && entityResult.moduleIdMapping) {
+        this.moduleInstanceMappings.set(
+          entityResult.moduleIdMapping.naturalId,
+          entityResult.moduleIdMapping.systemId,
+        );
+        mappingsCount++;
+      }
     }
 
     this.logger?.logInfo({
-      msg: `Stored ${mappings.length} module instance mappings`,
+      msg: `Stored ${mappingsCount} module instance mappings`,
       action: 'module_instance_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
@@ -221,6 +254,64 @@ export class ForeignKeyMapper {
   }
 
   /**
+   * Set data link mappings from bulk insertion result
+   */
+  setDataLinkMappings(result: BulkDataLinkInsertResult): void {
+    for (const linkResult of result.results) {
+      if (linkResult.success && linkResult.idMapping) {
+        this.dataLinkMappings.set(
+          linkResult.idMapping.naturalId,
+          linkResult.idMapping.systemId,
+        );
+      }
+    }
+
+    this.logger?.logInfo({
+      msg: `Stored ${this.dataLinkMappings.size} data link mappings`,
+      action: 'data_link_mappings_stored',
+      component: 'ForeignKeyMapper',
+      tag: 'foreign-key-mapping',
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Set control link mappings from bulk insertion result
+   */
+  setControlLinkMappings(result: BulkControlLinkInsertResult): void {
+    for (const linkResult of result.results) {
+      if (linkResult.success && linkResult.idMapping) {
+        this.controlLinkMappings.set(
+          linkResult.idMapping.naturalId,
+          linkResult.idMapping.systemId,
+        );
+      }
+    }
+
+    this.logger?.logInfo({
+      msg: `Stored ${this.controlLinkMappings.size} control link mappings`,
+      action: 'control_link_mappings_stored',
+      component: 'ForeignKeyMapper',
+      tag: 'foreign-key-mapping',
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Get systemId for a given data link natural key
+   */
+  getDataLinkSystemId(naturalKey: string): number | undefined {
+    return this.dataLinkMappings.get(naturalKey);
+  }
+
+  /**
+   * Get systemId for a given control link natural key
+   */
+  getControlLinkSystemId(naturalKey: string): number | undefined {
+    return this.controlLinkMappings.get(naturalKey);
+  }
+
+  /**
    * Clear all mappings
    */
   clear(): void {
@@ -230,6 +321,8 @@ export class ForeignKeyMapper {
     this.containerMappings.clear();
     this.moduleDefinitionMappings.clear();
     this.moduleInstanceMappings.clear();
+    this.dataLinkMappings.clear();
+    this.controlLinkMappings.clear();
 
     this.logger?.logDebug({
       msg: 'Cleared all foreign key mappings',
@@ -250,6 +343,8 @@ export class ForeignKeyMapper {
     containerMappings: number;
     moduleDefinitionMappings: number;
     moduleInstanceMappings: number;
+    dataLinkMappings: number;
+    controlLinkMappings: number;
   } {
     return {
       keyMappings: this.keyDefinitionMappings.size,
@@ -258,6 +353,8 @@ export class ForeignKeyMapper {
       containerMappings: this.containerMappings.size,
       moduleDefinitionMappings: this.moduleDefinitionMappings.size,
       moduleInstanceMappings: this.moduleInstanceMappings.size,
+      dataLinkMappings: this.dataLinkMappings.size,
+      controlLinkMappings: this.controlLinkMappings.size,
     };
   }
 }

@@ -190,19 +190,19 @@ export class UploadFileOrchestrator {
       // Phase 1a: Build and Insert Key Definitions (no dependencies)
       await this.buildAndInsertKeyDefinitions(bulkRepo);
 
+      // Phase 1b: Build and Insert SPF Module Definitions (no dependencies)
+      await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
+
+      // Phase 2: Build and Insert Subgraphs (no dependencies)
+      await this.buildAndInsertSubgraphs(bulkRepo);
+
+      // Phase 3: Build and Insert Containers (no dependencies)
+      await this.buildAndInsertContainers(bulkRepo);
+
+      // Phase 4: Build and Insert SPF Modules (depend on subgraphs, containers, definitions)
+      await this.buildAndInsertSpfModules(bulkRepo);
+
       if (false) {
-        // Phase 1b: Build and Insert SPF Module Definitions (no dependencies)
-        await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
-
-        // Phase 2: Build and Insert Subgraphs (no dependencies)
-        await this.buildAndInsertSubgraphs(bulkRepo);
-
-        // Phase 3: Build and Insert Containers (no dependencies)
-        await this.buildAndInsertContainers(bulkRepo);
-
-        // Phase 4: Build and Insert SPF Modules (depend on subgraphs, containers, definitions)
-        await this.buildAndInsertSpfModules(bulkRepo);
-
         // Phase 5: Build and Insert Data Links (depend on modules)
         await this.buildAndInsertDataLinks(bulkRepo);
 
@@ -287,7 +287,7 @@ export class UploadFileOrchestrator {
       await this.builderService.buildSpfModuleDefinitions(this.parsedAwsp);
 
     if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
-      const spfModuleDefResult = await bulkRepo.insertSpfModuleDefinitions(
+      const spfModuleDefResult = await bulkRepo.insertModuleDefinitions(
         spfModuleDefinitions.map((smd: SpfModuleDefinition) => ({
           ...smd,
           systemId: undefined,
@@ -333,12 +333,8 @@ export class UploadFileOrchestrator {
         })) as any,
       );
 
-      // Extract and store subgraph mappings
-      const subgraphMappings = subgraphResult.results
-        .filter((r: any) => r.success && r.idMapping)
-        .map((r: any) => r.idMapping);
-
-      this.foreignKeyMapper.setSubgraphMappings(subgraphMappings);
+      // Store subgraph mappings from bulk insertion result
+      this.foreignKeyMapper.setSubgraphMappings(subgraphResult);
 
       const successfulInserts = subgraphResult.results.filter(
         (r: any) => r.success,
@@ -376,12 +372,8 @@ export class UploadFileOrchestrator {
         })) as any,
       );
 
-      // Extract and store container mappings
-      const containerMappings = containerResult.results
-        .filter((r: any) => r.success && r.idMapping)
-        .map((r: any) => r.idMapping);
-
-      this.foreignKeyMapper.setContainerMappings(containerMappings);
+      // Store container mappings from bulk insertion result
+      this.foreignKeyMapper.setContainerMappings(containerResult);
 
       const successfulInserts = containerResult.results.filter(
         (r: any) => r.success,
@@ -419,12 +411,8 @@ export class UploadFileOrchestrator {
         })) as any,
       );
 
-      // Extract and store module instance mappings
-      const moduleInstanceMappings = spfModuleResult.results
-        .filter((r: any) => r.success && r.idMapping)
-        .map((r: any) => r.idMapping);
-
-      this.foreignKeyMapper.setModuleInstanceMappings(moduleInstanceMappings);
+      // Store module instance mappings from bulk insertion result
+      this.foreignKeyMapper.setModuleInstanceMappings(spfModuleResult);
 
       const successfulInserts = spfModuleResult.results.filter(
         (r: any) => r.success,
@@ -458,6 +446,9 @@ export class UploadFileOrchestrator {
           systemId: undefined,
         })) as any,
       );
+
+      // Store datalink mappings for usecases
+      this.foreignKeyMapper.setDataLinkMappings(dataLinkResult);
 
       const successfulInserts = dataLinkResult.results.filter(
         (r: any) => r.success,
@@ -493,6 +484,9 @@ export class UploadFileOrchestrator {
           systemId: undefined,
         })) as any,
       );
+
+      // Store control link mappings for usecases
+      this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
 
       const successfulInserts = controlLinkResult.results.filter(
         (r: any) => r.success,

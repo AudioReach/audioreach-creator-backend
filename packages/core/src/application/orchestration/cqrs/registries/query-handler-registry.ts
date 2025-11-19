@@ -5,6 +5,8 @@ import {GetModuleCompactHandler} from '../../../usecase-designer/spf-module/get/
 import {GetModuleCompactQuery} from '../../../usecase-designer/spf-module/get/get-module-compact.query.js';
 import {GetAllUseCasesHandler} from '../../../usecase-designer/usecase/get-all/get-all-usecases.handler.js';
 import {GetAllUseCasesQuery} from '../../../usecase-designer/usecase/get-all/get-all-usecases.query.js';
+import {GetComponentsHandler} from '../../../usecase-designer/usecase/get-components/get-components.handler.js';
+import {GetComponentsQuery} from '../../../usecase-designer/usecase/get-components/get-components.query.js';
 import {QueryHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 
 export interface QueryHandlerDependencies {
@@ -57,6 +59,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetAllUseCasesQuery, {
       create: (handlerDependencies: QueryHandlerDependencies) =>
         new GetAllUseCasesHandler(handlerDependencies.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetComponentsQuery, {
+      create: (handlerDependencies: QueryHandlerDependencies) =>
+        new GetComponentsHandler(handlerDependencies.queryServices),
     });
   }
 }

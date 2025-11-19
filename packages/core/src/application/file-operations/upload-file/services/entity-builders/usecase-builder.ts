@@ -3,6 +3,9 @@ import {
   type KeyVectorInput,
 } from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
+import type {SubgraphDataChunk} from '../../../shared/acdb-chunks/subgraph-data-chunk.js';
+import type {ParsedAcdb} from '../../models/parsed-acdb.js';
+import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 
@@ -14,6 +17,7 @@ import type {Logger} from '../../../../../shared/types/logger.interface.js';
 export class UsecaseBuilder {
   constructor(
     private readonly foreignKeyMapper: ForeignKeyMapper,
+    private readonly parsedAcdb: ParsedAcdb,
     private readonly logger?: Logger,
   ) {}
 
@@ -86,7 +90,7 @@ export class UsecaseBuilder {
     const keyVector = this.convertToKeyVector(entry, index);
 
     // Create UseCase entity
-    return new UseCase({
+    const useCase = new UseCase({
       systemId: 0, // Will be generated during insertion
       fileSystemId: fileSystemId, // Use actual file system ID from database
       keyVector: keyVector,
@@ -94,6 +98,54 @@ export class UsecaseBuilder {
       aliasId: undefined,
       categories: undefined, // Convert sgList to string categories
     });
+
+    // Add module system IDs from subgraphs
+    const moduleSystemIds = this.getModuleSystemIdsFromSubgraphs(entry.sgList);
+    if (moduleSystemIds.length > 0) {
+      try {
+        useCase.addModuleSystemIds(moduleSystemIds);
+        this.logger?.logDebug({
+          msg: `Added ${moduleSystemIds.length} module system IDs to usecase ${index}`,
+          action: 'module_system_ids_added',
+          component: 'UsecaseBuilder',
+          tag: 'usecase-building',
+          timestamp: new Date(),
+        });
+      } catch (error) {
+        this.logger?.logWarn({
+          msg: `Failed to add module system IDs to usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          action: 'add_module_system_ids_failed',
+          component: 'UsecaseBuilder',
+          tag: 'usecase-building',
+          timestamp: new Date(),
+        });
+      }
+    }
+
+    // Add all non-interGraph datalink system IDs
+    /*const dataLinkSystemIds = this.getAllNonInterGraphDataLinkSystemIds();
+    if (dataLinkSystemIds.length > 0) {
+      try {
+        useCase.addDataLinkSystemIds(dataLinkSystemIds);
+        this.logger?.logDebug({
+          msg: `Added ${dataLinkSystemIds.length} datalink system IDs to usecase ${index}`,
+          action: 'datalink_system_ids_added',
+          component: 'UsecaseBuilder',
+          tag: 'usecase-building',
+          timestamp: new Date(),
+        });
+      } catch (error) {
+        this.logger?.logWarn({
+          msg: `Failed to add datalink system IDs to usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          action: 'add_datalink_system_ids_failed',
+          component: 'UsecaseBuilder',
+          tag: 'usecase-building',
+          timestamp: new Date(),
+        });
+      }
+    }*/
+
+    return useCase;
   }
 
   /**
@@ -164,5 +216,77 @@ export class UsecaseBuilder {
     return {
       valueSystemIds,
     };
+  }
+
+  /**
+   * Get module system IDs from all modules in the specified subgraphs
+   */
+  private getModuleSystemIdsFromSubgraphs(sgList: number[]): number[] {
+    const subgraphDataChunk = this.parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
+    if (!subgraphDataChunk) {
+      return [];
+    }
+
+    const moduleSystemIds: number[] = [];
+    const allModules = subgraphDataChunk.getAllModules();
+
+    // Filter modules that belong to the specified subgraphs
+    for (const moduleInfo of allModules) {
+      if (sgList.includes(moduleInfo.subgraphId)) {
+        for (const moduleInstance of moduleInfo.moduleInstances) {
+          const systemId = this.foreignKeyMapper.getModuleInstanceSystemId(
+            moduleInstance.instanceId,
+          );
+          if (systemId) {
+            moduleSystemIds.push(systemId);
+          }
+        }
+      }
+    }
+
+    return moduleSystemIds;
+  }
+
+  /**
+   * Get all non-interGraph datalink system IDs (isInterGraph = false)
+   */
+  getAllNonInterGraphDataLinkSystemIds(): number[] {
+    const subgraphDataChunk = this.parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
+    if (!subgraphDataChunk) {
+      return [];
+    }
+
+    const dataLinkSystemIds: number[] = [];
+    const allDataLinks = subgraphDataChunk.getAllDataLinks();
+
+    // Filter datalinks where isInterGraph = false (intra-subgraph links only)
+    for (const dataLink of allDataLinks) {
+      if (!dataLink.isInterGraph) {
+        // Build natural key to get system ID
+        const sourceNodeSystemId =
+          this.foreignKeyMapper.getModuleInstanceSystemId(
+            dataLink.sourceInstanceId,
+          );
+        const destNodeSystemId =
+          this.foreignKeyMapper.getModuleInstanceSystemId(
+            dataLink.destinationInstanceId,
+          );
+
+        if (sourceNodeSystemId && destNodeSystemId) {
+          const naturalKey = `${sourceNodeSystemId}:${dataLink.sourcePortId}->${destNodeSystemId}:${dataLink.destinationPortId}`;
+          const systemId =
+            this.foreignKeyMapper.getDataLinkSystemId(naturalKey);
+          if (systemId) {
+            dataLinkSystemIds.push(systemId);
+          }
+        }
+      }
+    }
+
+    return dataLinkSystemIds;
   }
 }

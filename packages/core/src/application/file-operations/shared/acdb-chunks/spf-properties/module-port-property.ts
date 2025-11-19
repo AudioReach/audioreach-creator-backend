@@ -9,6 +9,7 @@ import {
   MODULE_PROP_ID_PORT_INFO,
   MODULE_PROP_ID_HEAP_ID,
 } from '../../constants/spf-ids.js';
+import {ModulePropertyConfigImpl} from './module-property-config-impl.js';
 
 /**
  * Handles parsing of module port properties from binary data.
@@ -105,11 +106,11 @@ export class ModulePortProperty {
         properties.push(moduleProperty);
       }
 
-      // Create module property configuration
-      const modulePropertyConfig: ModulePropertyConfig = {
+      // Create module property configuration with implementation
+      const modulePropertyConfig = new ModulePropertyConfigImpl(
         moduleInstanceId,
         properties,
-      };
+      );
 
       this.modulePropertyConfigs.push(modulePropertyConfig);
     }

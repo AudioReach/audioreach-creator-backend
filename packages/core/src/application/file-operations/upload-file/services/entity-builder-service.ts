@@ -69,7 +69,6 @@ export class EntityModel {
 export class EntityBuilderService {
   private keyDefinitionBuilder: KeyDefinitionBuilder;
   private spfModuleDefinitionBuilder: SpfModuleDefinitionBuilder;
-  private usecaseBuilder: UsecaseBuilder;
   private subgraphBuilder: SubgraphBuilder;
   private containerBuilder: ContainerBuilder;
   private spfModuleBuilder: SpfModuleBuilder;
@@ -87,10 +86,6 @@ export class EntityBuilderService {
     );
     this.spfModuleDefinitionBuilder = new SpfModuleDefinitionBuilder(
       this.workerPool,
-      this.logger,
-    );
-    this.usecaseBuilder = new UsecaseBuilder(
-      this.foreignKeyMapper,
       this.logger,
     );
     this.subgraphBuilder = new SubgraphBuilder(this.logger);
@@ -254,10 +249,14 @@ export class EntityBuilderService {
       return [];
     }
 
-    // Build domain SPF modules
+    // Extract module properties from SPF data
+    const modulePropertyConfigs = subgraphDataChunk.getAllModuleProperties();
+
+    // Build domain SPF modules with module properties
     const spfModules = await this.spfModuleBuilder.buildSpfModules(
       moduleInstanceInfos,
       fileSystemId,
+      modulePropertyConfigs,
     );
 
     this.logger?.logInfo({
@@ -393,8 +392,15 @@ export class EntityBuilderService {
       return [];
     }
 
+    // Create usecase builder with parsed ACDB data
+    const usecaseBuilder = new UsecaseBuilder(
+      this.foreignKeyMapper,
+      parsedAcdb,
+      this.logger,
+    );
+
     // Build domain usecases
-    const usecases = await this.usecaseBuilder.buildUsecases(
+    const usecases = await usecaseBuilder.buildUsecases(
       usecaseChunk.usecases,
       fileSystemId,
     );

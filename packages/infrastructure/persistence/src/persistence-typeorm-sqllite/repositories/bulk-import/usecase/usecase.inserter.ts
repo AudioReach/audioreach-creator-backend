@@ -241,17 +241,18 @@ export class UseCaseInserter extends BaseInserter<
 
     if (keyVectorSystemIds.length === 0) return [];
 
-    // Query UseCases by joining with KeyVector
+    // Query UseCases by joining with KeyVector using the correct foreign key relationship
+    // UseCase.keyVectorSystemId -> KeyVector.systemId (not the back-reference)
     const results = await this.manager
       .createQueryBuilder('UseCase', 'uc')
-      .innerJoin('KeyVector', 'kv', 'kv.useCaseSystemId = uc.systemId')
+      .innerJoin('KeyVector', 'kv', 'uc.keyVectorSystemId = kv.systemId')
       .select(['uc.systemId', 'kv.kvHash'])
       .where('kv.systemId IN (:...ids)', {ids: keyVectorSystemIds})
-      .getRawMany<{uc_systemId: number; kv_kvHash: string}>();
+      .getRawMany<{uc_system_id: number; kv_kv_hash: string}>();
 
     return results.map(r => ({
-      naturalId: r.kv_kvHash,
-      systemId: r.uc_systemId,
+      naturalId: r.kv_kv_hash,
+      systemId: r.uc_system_id,
     }));
   }
 

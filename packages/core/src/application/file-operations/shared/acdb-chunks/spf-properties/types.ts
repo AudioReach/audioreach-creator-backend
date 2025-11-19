@@ -63,6 +63,13 @@ export interface ModulePropertyConfig {
   moduleInstanceId: number;
   /** List of properties for this module */
   properties: ModuleProperty[];
+
+  /** Get port information for this module */
+  getPortInfo(): PortInfo | null;
+  /** Get heap information for this module */
+  getHeapInfo(): HeapInfo | null;
+  /** Get specific property data by property ID */
+  getPropertyData(propertyId: number): Uint8Array | null;
 }
 
 /**
@@ -77,6 +84,8 @@ export interface DataLink {
   destinationInstanceId: number;
   /** Destination port ID */
   destinationPortId: number;
+  /** Whether this link crosses subgraph boundaries */
+  isInterGraph: boolean;
 }
 
 /**

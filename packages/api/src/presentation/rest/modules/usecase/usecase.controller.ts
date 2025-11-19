@@ -20,13 +20,20 @@ import {
   UsecaseType,
 } from './dto/usecase.dto.js';
 import {ModuleInstanceDto} from '../module-instance/dto/module-instance.dto.js';
+import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
+import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
 import {BaseComponentDto, SystemIdsRequestDto} from '../common/dtos/index.js';
 //import {AuthGuard} from '@nestjs/passport';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
-import {QueryBus, GetAllUseCasesQuery} from '@arc/core';
-import type {UseCaseReadModel, KeyVectorReadModel} from '@arc/core';
+import {QueryBus, GetAllUseCasesQuery, GetComponentsQuery} from '@arc/core';
+import type {
+  UseCaseReadModel,
+  KeyVectorReadModel,
+  UseCaseComponentsReadModel,
+} from '@arc/core';
 import {KVInfo, KeyValueInfo} from '../common/dtos/kv.dto.js';
+import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 
 /**
  * Controller to support all usecase/graph related APIs
@@ -161,6 +168,74 @@ export class UseCaseController extends BaseController {
   }
 
   /**
+   * Transform UseCaseComponentsReadModel to UsecaseComponentsDto
+   */
+  private transformToUsecaseComponentsDto(
+    components: UseCaseComponentsReadModel,
+  ): UsecaseComponentsDto {
+    // Create a dummy usecase identifier for the constructor
+    const dummyKvInfo = new KVInfo([]);
+    const dummyUsecaseIdentifier = new UsecaseIdentifier(
+      '0',
+      UsecaseType.Regular,
+      dummyKvInfo,
+    );
+
+    const usecaseComponentsDto = new UsecaseComponentsDto(
+      dummyUsecaseIdentifier,
+    );
+
+    // Transform modules to ModuleInstanceDto
+    usecaseComponentsDto.moduleInstances = components.modules.map(module => {
+      const moduleDto = new ModuleInstanceDto(
+        module.systemId.toString(),
+        module.instanceId,
+        module.definitionSystemId,
+        module.name,
+      );
+      moduleDto.subgraphId = module.subgraph.systemId;
+      moduleDto.containerId = module.container.systemId;
+      return moduleDto;
+    });
+
+    // Transform data links to DataLinkDto
+    usecaseComponentsDto.dataLinks = components.dataLinks.map(
+      link =>
+        new DataLinkDto(
+          link.systemId.toString(),
+          link.systemId, // Using systemId as id for now
+          CONN_CTRL_TYPE.MODULE_MODULE, // Default connection type
+          link.sourceNodeSystemId,
+          link.sourcePortSystemId,
+          link.destinationNodeSystemId,
+          link.destinationPortSystemId,
+          false, // isDangling - default to false
+        ),
+    );
+
+    // Transform control links to ControlLinkDto
+    usecaseComponentsDto.controlLinks = components.controlLinks.map(
+      link =>
+        new ControlLinkDto(
+          link.systemId.toString(),
+          link.systemId, // Using systemId as id for now
+          CONN_CTRL_TYPE.MODULE_MODULE, // Default connection type
+          link.peerNodeASystemId,
+          link.nodeAPortSystemId,
+          link.peerNodeBSystemId,
+          link.nodeBPortSystemId,
+          false, // isDangling - default to false
+          undefined, // parentId
+        ),
+    );
+
+    // Initialize subsystems as empty array for now
+    usecaseComponentsDto.subsystems = [];
+
+    return usecaseComponentsDto;
+  }
+
+  /**
    * Get all usecases without any subsystem information.
    */
   // @Get()
@@ -281,14 +356,61 @@ export class UseCaseController extends BaseController {
     @Query('contentsType')
     contentsType: ComponentsTypeInUsecase = ComponentsTypeInUsecase.TopLevel,
   ): Promise<ApiResult<UsecaseComponentsDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting components for usecases in project ${projectId}: ${JSON.stringify(usecaseSystemIds)}, contentsType: ${contentsType}`,
-    );
-    throw new HttpException(
-      'Components retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    try {
+      console.log(
+        `Getting components for usecases in project ${projectId}: ${JSON.stringify(usecaseSystemIds)}, contentsType: ${contentsType}`,
+      );
+
+      // Validate input
+      if (
+        !usecaseSystemIds ||
+        !usecaseSystemIds.systemIds ||
+        usecaseSystemIds.systemIds.length === 0
+      ) {
+        throw new HttpException(
+          'systemIds array is required and cannot be empty',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Convert string systemIds to numbers
+      const systemIds = usecaseSystemIds.systemIds.map(id => {
+        const parsed = parseInt(id, 10);
+        if (isNaN(parsed)) {
+          throw new HttpException(
+            `Invalid use case system ID: ${id}`,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return parsed;
+      });
+
+      // Execute the query using the new handler
+      const query = new GetComponentsQuery(systemIds, 'client-id'); // TODO: get actual clientId from JWT
+      const components =
+        await this.queryBus.execute<UseCaseComponentsReadModel>(query);
+
+      // Transform the response to UsecaseComponentsDto format
+      const transformedComponents =
+        this.transformToUsecaseComponentsDto(components);
+
+      return {
+        data: [transformedComponents], // Wrap in array to match the expected return type
+        success: true,
+        message: 'Components retrieved successfully',
+      };
+    } catch (error) {
+      console.error('Error getting components:', error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Failed to retrieve components for usecase(s)',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   /**
