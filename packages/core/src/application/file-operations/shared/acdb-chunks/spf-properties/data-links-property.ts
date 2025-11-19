@@ -14,16 +14,22 @@ export class DataLinksProperty {
   /**
    * Create DataLinksProperty from binary payload
    */
-  static fromPayload(payload: Uint8Array): DataLinksProperty {
+  static fromPayload(
+    payload: Uint8Array,
+    currentSubgraphModuleInstanceIds: number[] = [],
+  ): DataLinksProperty {
     const instance = new DataLinksProperty();
-    instance.parsePayload(payload);
+    instance.parsePayload(payload, currentSubgraphModuleInstanceIds);
     return instance;
   }
 
   /**
    * Parse binary payload into data links
    */
-  private parsePayload(payload: Uint8Array): void {
+  private parsePayload(
+    payload: Uint8Array,
+    currentSubgraphModuleInstanceIds: number[] = [],
+  ): void {
     const view = new DataView(
       payload.buffer,
       payload.byteOffset,
@@ -75,12 +81,20 @@ export class DataLinksProperty {
       const destinationPortId = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
+      // Calculate isInterGraph based on module instance membership
+      const isInterGraph = this.calculateIsInterGraph(
+        sourceInstanceId,
+        destinationInstanceId,
+        currentSubgraphModuleInstanceIds,
+      );
+
       // Create data link
       const dataLink: DataLink = {
         sourceInstanceId,
         sourcePortId,
         destinationInstanceId,
         destinationPortId,
+        isInterGraph,
       };
 
       this.dataLinks.push(dataLink);
@@ -155,5 +169,23 @@ export class DataLinksProperty {
       this.dataLinks.map(link => link.destinationInstanceId),
     );
     return Array.from(destIds);
+  }
+
+  /**
+   * Calculate whether a data link crosses subgraph boundaries
+   */
+  private calculateIsInterGraph(
+    sourceInstanceId: number,
+    destinationInstanceId: number,
+    currentSubgraphModuleInstanceIds: number[],
+  ): boolean {
+    const sourceInCurrentSubgraph =
+      currentSubgraphModuleInstanceIds.includes(sourceInstanceId);
+    const destInCurrentSubgraph = currentSubgraphModuleInstanceIds.includes(
+      destinationInstanceId,
+    );
+
+    // If either source or destination is not in current subgraph, it's inter-graph
+    return !sourceInCurrentSubgraph || !destInCurrentSubgraph;
   }
 }

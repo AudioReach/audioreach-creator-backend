@@ -135,7 +135,17 @@ export class SpfProperties {
 
         case PARAM_ID_MODULE_DATA_LINK:
           if (payloadSize > 0) {
-            dataLinks = DataLinksProperty.fromPayload(payloadData);
+            // Extract module instance IDs from previously parsed moduleList
+            const moduleInstanceIds = moduleList
+              ? moduleList.moduleInstanceInfos.flatMap(info =>
+                  info.moduleInstances.map(instance => instance.instanceId),
+                )
+              : [];
+
+            dataLinks = DataLinksProperty.fromPayload(
+              payloadData,
+              moduleInstanceIds,
+            );
           }
           break;
 

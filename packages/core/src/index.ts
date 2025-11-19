@@ -66,6 +66,7 @@ export * from './application/usecase-designer/spf-module/create/create-module.ha
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';
+export * from './application/usecase-designer/usecase/get-components/index.js';
 // Generic Worker Abstractions
 export * from './application/ports/worker/worker-pool.port.js';
 export * from './application/ports/worker/handler-registry.port.js';

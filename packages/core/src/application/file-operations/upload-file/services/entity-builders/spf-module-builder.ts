@@ -1,9 +1,13 @@
 import {SpfModule} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 import {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
-import type {ModuleInstanceInfo} from '../../../shared/acdb-chunks/spf-properties/types.js';
+import type {
+  ModuleInstanceInfo,
+  ModulePropertyConfig,
+} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-type.js';
 
 /**
  * Builder for converting ModuleInstanceInfo data to SpfModule domain entities.
@@ -22,6 +26,7 @@ export class SpfModuleBuilder {
   async buildSpfModules(
     moduleInstanceInfos: ModuleInstanceInfo[],
     fileSystemId: number,
+    modulePropertyConfigs: ModulePropertyConfig[] = [],
   ): Promise<SpfModule[]> {
     // Input validation
     if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
@@ -43,10 +48,16 @@ export class SpfModuleBuilder {
     for (const moduleInfo of moduleInstanceInfos) {
       for (const moduleInstance of moduleInfo.moduleInstances) {
         try {
+          // Find the specific property config for this module instance
+          const modulePropertyConfig = modulePropertyConfigs.find(
+            config => config.moduleInstanceId === moduleInstance.instanceId,
+          );
+
           const spfModule = this.convertModuleInstance(
             moduleInstance,
             moduleInfo,
             fileSystemId,
+            modulePropertyConfig,
           );
           spfModules.push(spfModule);
           successCount++;
@@ -81,6 +92,7 @@ export class SpfModuleBuilder {
     moduleInstance: any,
     moduleInfo: ModuleInstanceInfo,
     fileSystemId: number,
+    modulePropertyConfig?: ModulePropertyConfig,
   ): SpfModule {
     // Get foreign key mappings
     const subgraphSystemId = this.getSubgraphSystemId(moduleInfo.subgraphId);
@@ -89,8 +101,11 @@ export class SpfModuleBuilder {
       moduleInstance.moduleId,
     );
 
-    // TODO: Create default ports (these will be enhanced with actual port data later)
-    const dataPorts = this.createDefaultDataPorts();
+    if (modulePropertyConfig) {
+    }
+
+    // Create data ports using module property config
+    const dataPorts = this.createDefaultDataPorts(); //this.createDataPortsFromProperties(modulePropertyConfig);
     const controlPorts = this.createDefaultControlPorts();
 
     // Create SpfModule entity
@@ -148,10 +163,58 @@ export class SpfModuleBuilder {
   }
 
   /**
-   * Create default data ports (will be enhanced with actual port data)
+   * Create data ports from module properties using the interface API
    */
+  createDataPortsFromProperties(
+    modulePropertyConfig?: ModulePropertyConfig,
+  ): DataPort[] {
+    if (!modulePropertyConfig) {
+      return [];
+    }
+
+    // Use the interface method directly - clean and simple!
+    const portInfo = modulePropertyConfig.getPortInfo();
+
+    if (!portInfo) {
+      return [];
+    }
+
+    const dataPorts: DataPort[] = [];
+
+    // Create input ports with ODD IDs (1, 3, 5, ...)
+    for (let i = 0; i < portInfo.maxInputPorts; i++) {
+      const portId = i * 2 + 1;
+      dataPorts.push(
+        new DataPort({
+          systemId: 0,
+          dataPortId: portId,
+          portIoType: PORT_IO_TYPE.Input,
+          isStatic: false,
+          name: `Input_${portId}`,
+        }),
+      );
+    }
+
+    // Create output ports with EVEN IDs (2, 4, 6, ...)
+    for (let i = 0; i < portInfo.maxOutputPorts; i++) {
+      const portId = i * 2 + 2;
+      dataPorts.push(
+        new DataPort({
+          systemId: 0,
+          dataPortId: portId,
+          portIoType: PORT_IO_TYPE.Output,
+          isStatic: false,
+          name: `Output_${portId}`,
+        }),
+      );
+    }
+
+    return dataPorts;
+  }
+
   private createDefaultDataPorts(): DataPort[] {
     // TODO: For now, create empty array - will be populated with actual port data
+
     return [];
   }
 

@@ -89,7 +89,7 @@ export class DataLinkBuilder {
       destinationNodeSystemId,
       sourcePortSystemId,
       destinationPortSystemId,
-      false, // isInterGraph - Default to false, could be enhanced with actual logic
+      property.isInterGraph, // Use the calculated value from parser
     );
   }
 

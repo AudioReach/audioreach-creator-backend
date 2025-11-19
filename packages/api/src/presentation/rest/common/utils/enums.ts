@@ -1,29 +1,24 @@
 export const ComponentInfoType = {
   Module: 'Module',
-  Switch: 'Switch',
   Subsystem: 'Subsystem',
   Container: 'Container',
   DataLink: 'DataLink',
   ControlLink: 'ControlLink',
   Subgraph: 'Subgraph',
-  DataPort: 'DataPort',
-  ControlPort: 'ControlPort',
-  SubgraphProxy: 'SubgraphProxy',
-  BusPortStrip: 'BusPortStrip'
 } as const;
 
-export type ComponentInfoType = typeof ComponentInfoType[keyof typeof ComponentInfoType];
-
+export type ComponentInfoType =
+  (typeof ComponentInfoType)[keyof typeof ComponentInfoType];
 
 export const PROPERTY_TYPE = {
   Spf: 'Spf',
   Driver: 'Driver',
   Container: 'Container',
   Module: 'Module',
-  ControlLink: 'ControlLink'
+  ControlLink: 'ControlLink',
 } as const;
 
-export type PROPERTY_TYPE = typeof PROPERTY_TYPE[keyof typeof PROPERTY_TYPE];
+export type PROPERTY_TYPE = (typeof PROPERTY_TYPE)[keyof typeof PROPERTY_TYPE];
 
 export const SubgraphScenarioType = {
   /**
@@ -33,28 +28,30 @@ export const SubgraphScenarioType = {
   /**
    * For subgraphs configured to run in voice scenarios
    */
-  Voice: 'Voice'
+  Voice: 'Voice',
 } as const;
 
-export type SubgraphScenarioType = typeof SubgraphScenarioType[keyof typeof SubgraphScenarioType];
+export type SubgraphScenarioType =
+  (typeof SubgraphScenarioType)[keyof typeof SubgraphScenarioType];
 
 export const SubgraphDeviceType = {
   Stream: 'Stream',
   Device: 'Device',
   Stream_Device: 'Stream_Device',
   Stream_PP: 'Stream_PP',
-  Device_PP: 'Device_PP'
+  Device_PP: 'Device_PP',
 } as const;
 
-export type SubgraphDeviceType = typeof SubgraphDeviceType[keyof typeof SubgraphDeviceType];
+export type SubgraphDeviceType =
+  (typeof SubgraphDeviceType)[keyof typeof SubgraphDeviceType];
 
 export const SharedType = {
   None: 'None',
   Exported: 'Exported',
-  Imported: 'Imported'
+  Imported: 'Imported',
 } as const;
 
-export type SharedType = typeof SharedType[keyof typeof SharedType];
+export type SharedType = (typeof SharedType)[keyof typeof SharedType];
 
 export const SWITCH_TYPE = {
   NONE: 'NONE', // ""
@@ -62,45 +59,35 @@ export const SWITCH_TYPE = {
   SPLITTER_SWITCH: 'SPLITTER_SWITCH', // "Splitter Switch" - 1 to N. Concurrent
   INPUT_SELECTOR_SWITCH: 'INPUT_SELECTOR_SWITCH', // "Input Selector Switch" - N to 1. Non-Concurrent
   OUTPUT_SELECTOR_SWITCH: 'OUTPUT_SELECTOR_SWITCH', // "Output Selector Switch" - 1 to N. Non-Concurrent
-  EC: 'EC' // "EC Switch" - N to N
+  EC: 'EC', // "EC Switch" - N to N
 } as const;
 
-export type SWITCH_TYPE = typeof SWITCH_TYPE[keyof typeof SWITCH_TYPE];
+export type SWITCH_TYPE = (typeof SWITCH_TYPE)[keyof typeof SWITCH_TYPE];
 
 export const CONN_CTRL_TYPE = {
   MODULE_MODULE: 'MODULE_MODULE',
-  MODULE_SWITCH: 'MODULE_SWITCH',
-  SWITCH_MODULE: 'SWITCH_MODULE',
-  SWITCH_SWITCH: 'SWITCH_SWITCH',
   MODULE_SUBSYSTEM: 'MODULE_SUBSYSTEM',
   SUBSYSTEM_MODULE: 'SUBSYSTEM_MODULE',
-  SWITCH_SUBSYSTEM: 'SWITCH_SUBSYSTEM',
-  SUBSYSTEM_SWITCH: 'SUBSYSTEM_SWITCH',
   SUBSYSTEM_SUBSYSTEM: 'SUBSYSTEM_SUBSYSTEM',
-  SUBGRAPHPROXY_MODULE: 'SUBGRAPHPROXY_MODULE',
-  SUBGRAPHPROXY_SWITCH: 'SUBGRAPHPROXY_SWITCH',
-  SUBGRAPHPROXY_SUBSYSTEM: 'SUBGRAPHPROXY_SUBSYSTEM',
-  MODULE_SUBGRAPHPROXY: 'MODULE_SUBGRAPHPROXY',
-  SWITCH_SUBGRAPHPROXY: 'SWITCH_SUBGRAPHPROXY',
-  SUBSYSTEM_SUBGRAPHPROXY: 'SUBSYSTEM_SUBGRAPHPROXY',
-  SUBGRAPHPROXY_SUBGRAPHPROXY: 'SUBGRAPHPROXY_SUBGRAPHPROXY'
 } as const;
 
-export type CONN_CTRL_TYPE = typeof CONN_CTRL_TYPE[keyof typeof CONN_CTRL_TYPE];
+export type CONN_CTRL_TYPE =
+  (typeof CONN_CTRL_TYPE)[keyof typeof CONN_CTRL_TYPE];
 
 export const ModificationAction = {
   None: 'None',
   Add: 'Add',
   Delete: 'Delete',
-  Update: 'Update'
+  Update: 'Update',
 } as const;
 
-export type ModificationAction = typeof ModificationAction[keyof typeof ModificationAction];
+export type ModificationAction =
+  (typeof ModificationAction)[keyof typeof ModificationAction];
 
 export enum AsyncResult {
   Completed = 'Completed',
   Cancelled = 'Cancelled',
-  Timeout = 'Timeout'
+  Timeout = 'Timeout',
 }
 
 export enum ErrorCode {
@@ -131,5 +118,5 @@ export enum ErrorCode {
   /**
    * The action being peformed or the component provided is not supported
    */
-  Unsupported = 'Unsupported'
+  Unsupported = 'Unsupported',
 }

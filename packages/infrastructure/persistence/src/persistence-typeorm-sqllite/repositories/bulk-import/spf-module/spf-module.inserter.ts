@@ -27,16 +27,16 @@ import {
  * Handles bulk insertion of SpfModule entities with complex 6-step process.
  *
  * Process:
- * 1. Bulk Insert SpfModules using BatchInserter
- * 2. Query back using instanceId as natural key to get systemId mappings
- * 3. Bulk Insert Nodes using SpfModule systemIds (shared primary key)
+ * 1. Bulk Insert Nodes FIRST (auto-generated systemIds)
+ * 2. Map Node systemIds to SpfModules using insertion order
+ * 3. Bulk Insert SpfModules using Node systemIds (shared primary key)
  * 4. Bulk Insert all DataPorts across all modules
  * 5. Bulk Insert all ControlPorts across all modules (without intents)
  * 6. Build results with port mappings for link creation
  *
  * Success Criteria: Module success = SpfModule insert success AND Node insert success
  * Natural Keys: SpfModule: instanceId, DataPort: dataPortId, ControlPort: portId
- * Shared Primary Key: SpfModule.systemId = Node.systemId (SpfModule owns the relationship)
+ * Shared Primary Key: SpfModule.systemId = Node.systemId (Node owns the relationship)
  */
 export class SpfModuleInserter extends BaseInserter<
   SpfModule,
@@ -58,60 +58,54 @@ export class SpfModuleInserter extends BaseInserter<
     }
 
     // ============================================
-    // Step 1: Bulk Insert SpfModules
+    // Step 1: Bulk Insert Nodes FIRST (SpfModule depends on Node)
     // ============================================
-    const spfModuleRows = spfModules.map(sm => mapSpfModuleToRow(sm));
-    const spfModuleInsertResult = await BatchInserter.insert(
+    const nodeRows = spfModules.map(sm => mapNodeToRow(sm));
+    const nodeInsertResult = await BatchInserter.insert(
       this.manager,
-      'SpfModule',
-      spfModuleRows,
+      'Node',
+      nodeRows,
     );
 
     // ============================================
-    // Step 2: Query Back SpfModule SystemIds
+    // Step 2: Map Node SystemIds to SpfModules (using insertion order)
     // ============================================
-    const successfulInstanceIds = spfModuleInsertResult.succeeded.map(
-      (row: QueryDeepPartialEntity<SpfModuleRow>) => row.instanceId as number,
-    );
-    const spfModuleMappings = await this.queryBackSpfModules(
-      successfulInstanceIds,
-    );
+    // Assumption: successful inserts are in the same order as input
+    const instanceIdToSystemId = new Map<number, number>();
 
-    // O(1) lookup: instanceId → systemId
-    const instanceIdToSystemId = new Map(
-      spfModuleMappings.map(m => [m.naturalId, m.systemId]),
-    );
-
-    // ============================================
-    // Step 3: Bulk Insert Nodes (Shared Primary Key)
-    // ============================================
-    const nodeRowsWithInstanceId: Array<{
-      row: QueryDeepPartialEntity<NodeRow>;
-      instanceId: number;
-    }> = [];
-
-    for (const spfModule of spfModules) {
-      const spfModuleSystemId = instanceIdToSystemId.get(spfModule.instanceId);
-      if (!spfModuleSystemId) continue;
-
-      const nodeRow = mapNodeToRow(spfModule);
-      // Use the same systemId as SpfModule (shared primary key)
-      (
-        nodeRow as QueryDeepPartialEntity<NodeRow> & {systemId: number}
-      ).systemId = spfModuleSystemId;
-
-      nodeRowsWithInstanceId.push({
-        row: nodeRow,
-        instanceId: spfModule.instanceId,
-      });
+    for (let i = 0; i < nodeInsertResult.succeeded.length; i++) {
+      const nodeRow = nodeInsertResult.succeeded[
+        i
+      ] as QueryDeepPartialEntity<NodeRow> & {systemId: number};
+      const spfModule = spfModules[i];
+      if (nodeRow.systemId && spfModule) {
+        instanceIdToSystemId.set(spfModule.instanceId, nodeRow.systemId);
+      }
     }
 
-    const nodeInsertResult =
-      nodeRowsWithInstanceId.length > 0
+    // ============================================
+    // Step 3: Bulk Insert SpfModules using Node SystemIds (Shared Primary Key)
+    // ============================================
+    const spfModuleRowsWithSystemId: QueryDeepPartialEntity<SpfModuleRow>[] =
+      [];
+
+    for (const spfModule of spfModules) {
+      const nodeSystemId = instanceIdToSystemId.get(spfModule.instanceId);
+      if (!nodeSystemId) continue; // Skip if Node insertion failed
+
+      const spfModuleRow = mapSpfModuleToRow(spfModule);
+      // Use Node's systemId as SpfModule's systemId (shared primary key)
+      (spfModuleRow as any).systemId = nodeSystemId;
+
+      spfModuleRowsWithSystemId.push(spfModuleRow);
+    }
+
+    const spfModuleInsertResult =
+      spfModuleRowsWithSystemId.length > 0
         ? await BatchInserter.insert(
             this.manager,
-            'Node',
-            nodeRowsWithInstanceId.map(n => n.row),
+            'SpfModule',
+            spfModuleRowsWithSystemId,
           )
         : {succeeded: [], failed: []};
 
@@ -206,26 +200,6 @@ export class SpfModuleInserter extends BaseInserter<
       spfModuleInsertResult,
       nodeInsertResult,
     );
-  }
-
-  /**
-   * Query back SpfModule systemIds using natural keys (instanceId).
-   */
-  private async queryBackSpfModules(
-    instanceIds: number[],
-  ): Promise<NaturalIdMapping<number>[]> {
-    if (instanceIds.length === 0) return [];
-
-    const results = await this.manager
-      .createQueryBuilder('SpfModule', 'sm')
-      .select(['sm.systemId', 'sm.instanceId'])
-      .where('sm.instanceId IN (:...ids)', {ids: instanceIds})
-      .getMany();
-
-    return results.map(r => ({
-      naturalId: r.instanceId,
-      systemId: r.systemId,
-    }));
   }
 
   /**

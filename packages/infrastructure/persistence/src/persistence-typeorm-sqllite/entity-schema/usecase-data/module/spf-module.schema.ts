@@ -1,4 +1,3 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {ContainerRow} from '../container/container.schema.js';
 import {SubgraphRow} from '../subgraph/subgraph.schema.js';
@@ -6,6 +5,7 @@ import {SpfModulePropertiesDataRow} from './spf-module-properties-data.js';
 import {EntitySchema} from 'typeorm';
 import {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-module-definition.schema.js';
 import {NodeRow} from '../node/node.schema.js';
+import {EntityBaseRow} from '../../entity-base.js';
 
 export interface SpfModuleRow extends EntityBaseRow {
   instanceId: number;
@@ -34,7 +34,23 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
   name: 'SpfModule',
   tableName: 'spf_modules',
   columns: {
-    ...BaseColumnSchemaPart,
+    // Override systemId to NOT be auto-generated (will use Node's systemId)
+    systemId: {
+      name: 'system_id',
+      type: Number,
+      primary: true,
+      // No 'generated' property - will be provided from Node
+    },
+    creationDate: {
+      name: 'created_at',
+      type: Date,
+      createDate: true,
+    },
+    updateDate: {
+      name: 'updated_at',
+      type: Date,
+      updateDate: true,
+    },
     instanceId: {name: 'instance_id', type: 'integer'},
     alias: {type: String, length: 256},
 

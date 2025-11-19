@@ -1,7 +1,7 @@
 import request from 'supertest';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
-import {writeFileSync} from 'fs';
+import {writeFileSync, mkdirSync} from 'fs';
 import {generateMockJwtToken} from '../helpers/auth.helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,7 +26,6 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
     const acdbPath = join(__dirname, '../fixtures/acdb_cal.acdb');
     const awspPath = join(__dirname, '../fixtures/workspaceFileXml.awsp');
 
-    console.log('🧪 [TEST] About to make request to:', SERVER_URL);
     const response = await request(SERVER_URL)
       .post('/arc-api/v1/offline/files')
       .set('Authorization', `Bearer ${authToken}`)
@@ -34,8 +33,6 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
       .attach('workspaceFile', awspPath)
       .timeout(300000) // 5 minutes timeout for debugging
       .expect(201);
-
-    console.log('🧪 [TEST] File upload completed:', response.status);
 
     // Verify response structure
     expect(response.body).toBeDefined();
@@ -50,17 +47,13 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
 
     // Extract project ID for usecase API call
     const projectId = response.body.data.projectId;
-    console.log('🧪 [TEST] Extracted projectId:', projectId);
 
     // Call get all usecases API
-    console.log('🧪 [TEST] About to call get all usecases API');
     const usecasesResponse = await request(SERVER_URL)
       .get(`/arc-api/v1/projects/${projectId}/usecases/allUsecases`)
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000) // 30 seconds timeout
       .expect(200);
-
-    console.log('🧪 [TEST] Usecases API completed:', usecasesResponse.status);
 
     // Verify usecases response structure
     expect(usecasesResponse.body).toBeDefined();
@@ -73,70 +66,107 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
 
     // Log the usecases data to a file in the specified format
     const usecasesData = usecasesResponse.body.data;
-    console.log(
-      '🧪 [DEBUG] Raw usecases data:',
-      JSON.stringify(usecasesData, null, 2),
-    );
-
     const logLines: string[] = [];
 
     for (const usecaseDto of usecasesData) {
-      console.log(
-        '🧪 [DEBUG] Processing usecaseDto:',
-        JSON.stringify(usecaseDto, null, 2),
-      );
+      // Handle serialization issue - private fields are serialized with underscores
+      const usecases = usecaseDto._usecases || usecaseDto.usecases;
 
-      if (usecaseDto.usecases && Array.isArray(usecaseDto.usecases)) {
-        console.log(
-          '🧪 [DEBUG] Found usecases array with length:',
-          usecaseDto.usecases.length,
-        );
-
-        for (const usecaseIdentifier of usecaseDto.usecases) {
-          console.log(
-            '🧪 [DEBUG] Processing usecaseIdentifier:',
-            JSON.stringify(usecaseIdentifier, null, 2),
-          );
-
-          const systemId = usecaseIdentifier.systemId;
-          const keyValuePairs = usecaseIdentifier.keyValueCollection || [];
-
-          console.log(
-            '🧪 [DEBUG] SystemId:',
-            systemId,
-            'KeyValuePairs:',
-            keyValuePairs,
-          );
+      if (usecases && Array.isArray(usecases)) {
+        for (const usecaseIdentifier of usecases) {
+          const systemId =
+            usecaseIdentifier._systemId || usecaseIdentifier.systemId;
+          const keyValueCollection =
+            usecaseIdentifier._keyValueCollection ||
+            usecaseIdentifier.keyValueCollection ||
+            [];
 
           // Format: systemId : [Key1Name: Value1Name][Key2Name: Value2Name]...
           let kvString = '';
-          for (const kv of keyValuePairs) {
-            kvString += `[${kv.keyLabel}: ${kv.valueLabel}]`;
+          for (const kv of keyValueCollection) {
+            const keyLabel = kv._keyLabel || kv.keyLabel;
+            const valueLabel = kv._valueLabel || kv.valueLabel;
+            kvString += `[${keyLabel}: ${valueLabel}]`;
           }
 
           const logLine = `${systemId} : ${kvString}`;
           logLines.push(logLine);
-          console.log('🧪 [DEBUG] Generated log line:', logLine);
         }
-      } else {
-        console.log('🧪 [DEBUG] No usecases array found or not an array');
       }
     }
 
-    // Write to file
+    // Ensure output directory exists
     const outputPath = join(__dirname, '../../../logs/usecases-output.txt');
-    const logContent = logLines.join('\n');
+    const outputDir = dirname(outputPath);
 
-    console.log('🧪 [DEBUG] Final log content length:', logContent.length);
-    console.log('🧪 [DEBUG] Final log content:', logContent);
-    console.log('🧪 [DEBUG] Output path:', outputPath);
-
-    // Write to file with error logging
     try {
-      writeFileSync(outputPath, logContent, 'utf8');
-      console.log('🧪 [DEBUG] File written successfully');
+      mkdirSync(outputDir, {recursive: true});
     } catch (error) {
-      console.error('🧪 [DEBUG] File write error:', error);
+      // Directory might already exist, ignore error
+    }
+
+    // Write to file
+    const logContent = logLines.join('\n');
+    writeFileSync(outputPath, logContent, 'utf8');
+
+    // Add small delay to ensure file operations complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Call components API for one random usecase
+    if (logLines.length > 0) {
+      // Pick a random usecase from the logged usecases
+      const randomIndex = Math.floor(Math.random() * logLines.length);
+      const randomUsecaseSystemId = logLines[randomIndex].split(' : ')[0];
+
+      const componentsResponse = await request(SERVER_URL)
+        .post(`/arc-api/v1/projects/${projectId}/usecases/components/get`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          systemIds: [randomUsecaseSystemId],
+        })
+        .timeout(30000) // 30 seconds timeout
+        .expect(200);
+
+      // Verify components response structure
+      expect(componentsResponse.body).toBeDefined();
+      expect(componentsResponse.body.success).toBe(true);
+      expect(componentsResponse.body.message).toBe(
+        'Components retrieved successfully',
+      );
+      expect(componentsResponse.body.data).toBeDefined();
+      expect(Array.isArray(componentsResponse.body.data)).toBe(true);
+      expect(componentsResponse.body.data.length).toBe(1);
+
+      const componentsData = componentsResponse.body.data[0];
+      expect(componentsData.moduleInstances).toBeDefined();
+      expect(Array.isArray(componentsData.moduleInstances)).toBe(true);
+      expect(componentsData.dataLinks).toBeDefined();
+      expect(Array.isArray(componentsData.dataLinks)).toBe(true);
+      expect(componentsData.controlLinks).toBeDefined();
+      expect(Array.isArray(componentsData.controlLinks)).toBe(true);
+      expect(componentsData.subsystems).toBeDefined();
+      expect(Array.isArray(componentsData.subsystems)).toBe(true);
+
+      // Write components summary to file
+      const componentsSummary = [
+        `Components for usecase ${randomUsecaseSystemId}:`,
+        `Module instances: ${componentsData.moduleInstances.length}`,
+        `Data links: ${componentsData.dataLinks.length}`,
+        `Control links: ${componentsData.controlLinks.length}`,
+        `Subsystems: ${componentsData.subsystems.length}`,
+        '',
+        'Module instances details:',
+        ...componentsData.moduleInstances.map(
+          (module: any) =>
+            `  - ${module.systemId}: ${module.name || 'Unnamed'} (Definition: ${module.moduleId})`,
+        ),
+      ].join('\n');
+
+      const componentsOutputPath = join(
+        __dirname,
+        '../../../logs/components-output.txt',
+      );
+      writeFileSync(componentsOutputPath, componentsSummary, 'utf8');
     }
 
     // Add small delay to ensure file operations complete
