@@ -13,7 +13,7 @@ export interface DataPortRow extends EntityBaseRow {
   nodeSystemId: number;
 
   //type orm relation
-  node: NodeRow;
+  node?: NodeRow;
 }
 
 export const DataPortSchema = new EntitySchema<DataPortRow>({

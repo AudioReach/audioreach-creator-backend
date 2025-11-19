@@ -19,6 +19,8 @@ import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
 import {ContainerInserter} from './container/container.inserter.js';
 import {DataLinkInserter} from './data-link/data-link.inserter.js';
 import {ControlLinkInserter} from './control-link/control-link.inserter.js';
+import {ModuleDefinitionInserter} from './module-definition/module-definition.inserter.js';
+import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
 
 // Import the specific result types from @arc/core
 import type {
@@ -39,10 +41,17 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   async insertSpfModules(
     items: readonly Omit<SpfModule, 'systemId'>[],
   ): Promise<BulkModuleInsertResult> {
-    throw new Error(
-      'BulkImportRepository.insertSpfModules not yet implemented. ' +
-        `Attempted to insert ${items.length} SPF modules.`,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new SpfModuleInserter(this.queryRunner.manager);
+      // SpfModule domain entities already have instanceId for natural key identification
+      return await inserter.insert(items as readonly SpfModule[]);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertContainers(
@@ -123,10 +132,16 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   async insertModuleDefinitions(
     items: readonly Omit<ModuleDefinition, 'systemId'>[],
   ): Promise<BulkModuleDefinitionInsertResult> {
-    throw new Error(
-      'BulkImportRepository.insertModuleDefinitions not yet implemented. ' +
-        `Attempted to insert ${items.length} module definitions.`,
-    );
+    // Connect QueryRunner for database operations
+    await this.queryRunner.connect();
+
+    try {
+      const inserter = new ModuleDefinitionInserter(this.queryRunner.manager);
+      return await inserter.insert(items);
+    } finally {
+      // Always release QueryRunner to prevent connection leaks
+      await this.queryRunner.release();
+    }
   }
 
   async insertKeyDefinitions(
