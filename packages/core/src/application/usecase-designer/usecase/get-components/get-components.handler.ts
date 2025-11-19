@@ -14,9 +14,12 @@ export class GetComponentsHandler
   constructor(private queryServices: QueryServices) {}
 
   async handle(query: GetComponentsQuery): Promise<UseCaseComponentsReadModel> {
+    // Convert string array to number array for database query
+    const useCaseSystemIds = query.useCaseSystemIds.map(id => Number(id));
+
     // Get all components for the specified use cases
     return await this.queryServices.useCaseQueryService.getAllComponentsForUseCases(
-      query.useCaseSystemIds,
+      useCaseSystemIds,
     );
   }
 }

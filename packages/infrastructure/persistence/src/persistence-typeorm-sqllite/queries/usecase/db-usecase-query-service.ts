@@ -8,7 +8,12 @@ import {
   type ControlLinkReadModel,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
-import type {UseCaseRow} from '../../entity-schema/index.js';
+import type {
+  UseCaseRow,
+  NodeRow,
+  DataLinkRow,
+  ControlLinkRow,
+} from '../../entity-schema/index.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
 
 /**
@@ -41,75 +46,118 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       return new UseCaseComponentsReadModel([], [], []);
     }
 
-    // Query all use cases with their components using comprehensive joins
-    const queryBuilder = this.dataSource
-      .getRepository('UseCase')
-      .createQueryBuilder('uc')
-      .where('uc.systemId IN (:...useCaseSystemIds)', {useCaseSystemIds})
-      // Join nodes and modules
-      .leftJoinAndSelect('uc.nodes', 'node')
+    // Approach 1: Use 3 separate optimized queries for better performance and reliability
+    const [modules, dataLinks, controlLinks] = await Promise.all([
+      this.queryModulesForUseCases(useCaseSystemIds),
+      this.queryDataLinksForUseCases(useCaseSystemIds),
+      this.queryControlLinksForUseCases(useCaseSystemIds),
+    ]);
+
+    return new UseCaseComponentsReadModel(modules, dataLinks, controlLinks);
+  }
+
+  /**
+   * Query modules (nodes with spfModule) for specific use cases
+   */
+  private async queryModulesForUseCases(
+    useCaseSystemIds: number[],
+  ): Promise<ModuleReadModel[]> {
+    const nodes = await this.dataSource
+      .getRepository('Node')
+      .createQueryBuilder('node')
+      .innerJoin('use_case_nodes', 'ucn', 'ucn.node_system_id = node.systemId')
+      .where('ucn.use_case_system_id IN (:...useCaseSystemIds)', {
+        useCaseSystemIds,
+      })
+      // Join module and related data
       .leftJoinAndSelect('node.spfModule', 'spfModule')
       .leftJoinAndSelect('spfModule.container', 'container')
       .leftJoinAndSelect('spfModule.subgraph', 'subgraph')
-      .leftJoinAndSelect('spfModule.definition', 'moduleDefinition')
-      // Join data ports
+      // Join ports
       .leftJoinAndSelect('node.dataPorts', 'dataPort')
-      // Join control ports and intents
       .leftJoinAndSelect('node.controlPorts', 'controlPort')
       .leftJoinAndSelect('controlPort.allocatedIntents', 'intent')
-      .leftJoinAndSelect('intent.staticIntentDefinition', 'staticIntentDef')
-      // Join data links
-      .leftJoinAndSelect('uc.dataLinks', 'dataLink')
-      // Join control links
-      .leftJoinAndSelect('uc.controlLinks', 'controlLink');
+      .getMany();
 
-    const useCases = await queryBuilder.getMany();
-
-    // Extract and deduplicate components
+    // Deduplicate and map to read models
     const moduleMap = new Map<number, ModuleReadModel>();
-    const dataLinkMap = new Map<number, DataLinkReadModel>();
-    const controlLinkMap = new Map<number, ControlLinkReadModel>();
-
-    for (const useCase of useCases) {
-      // Process modules (nodes with spfModule)
-      if (useCase.nodes) {
-        for (const node of useCase.nodes) {
-          if (node.spfModule && !moduleMap.has(node.systemId)) {
-            const moduleReadModel =
-              UseCaseQueryMappers.mapNodeToModuleReadModel(node);
-            moduleMap.set(node.systemId, moduleReadModel);
-          }
-        }
-      }
-
-      // Process data links
-      if (useCase.dataLinks) {
-        for (const dataLink of useCase.dataLinks) {
-          if (!dataLinkMap.has(dataLink.systemId)) {
-            const dataLinkReadModel =
-              UseCaseQueryMappers.mapToDataLinkReadModel(dataLink);
-            dataLinkMap.set(dataLink.systemId, dataLinkReadModel);
-          }
-        }
-      }
-
-      // Process control links
-      if (useCase.controlLinks) {
-        for (const controlLink of useCase.controlLinks) {
-          if (!controlLinkMap.has(controlLink.systemId)) {
-            const controlLinkReadModel =
-              UseCaseQueryMappers.mapToControlLinkReadModel(controlLink);
-            controlLinkMap.set(controlLink.systemId, controlLinkReadModel);
-          }
-        }
+    for (const node of nodes) {
+      if (node.spfModule && !moduleMap.has(node.systemId)) {
+        const moduleReadModel = UseCaseQueryMappers.mapNodeToModuleReadModel(
+          node as NodeRow,
+        );
+        moduleMap.set(node.systemId, moduleReadModel);
       }
     }
 
-    return new UseCaseComponentsReadModel(
-      Array.from(moduleMap.values()),
-      Array.from(dataLinkMap.values()),
-      Array.from(controlLinkMap.values()),
-    );
+    return Array.from(moduleMap.values());
+  }
+
+  /**
+   * Query data links for specific use cases
+   */
+  private async queryDataLinksForUseCases(
+    useCaseSystemIds: number[],
+  ): Promise<DataLinkReadModel[]> {
+    const dataLinks = await this.dataSource
+      .getRepository('DataLink')
+      .createQueryBuilder('dl')
+      .innerJoin(
+        'use_case_data_links',
+        'ucdl',
+        'ucdl.data_link_system_id = dl.systemId',
+      )
+      .where('ucdl.use_case_system_id IN (:...useCaseSystemIds)', {
+        useCaseSystemIds,
+      })
+      .getMany();
+
+    // Deduplicate and map to read models
+    const dataLinkMap = new Map<number, DataLinkReadModel>();
+    for (const dataLink of dataLinks) {
+      if (!dataLinkMap.has(dataLink.systemId)) {
+        const dataLinkReadModel = UseCaseQueryMappers.mapToDataLinkReadModel(
+          dataLink as DataLinkRow,
+        );
+        dataLinkMap.set(dataLink.systemId, dataLinkReadModel);
+      }
+    }
+
+    return Array.from(dataLinkMap.values());
+  }
+
+  /**
+   * Query control links for specific use cases
+   */
+  private async queryControlLinksForUseCases(
+    useCaseSystemIds: number[],
+  ): Promise<ControlLinkReadModel[]> {
+    const controlLinks = await this.dataSource
+      .getRepository('ControlLink')
+      .createQueryBuilder('cl')
+      .innerJoin(
+        'use_case_control_links',
+        'uccl',
+        'uccl.control_link_system_id = cl.systemId',
+      )
+      .where('uccl.use_case_system_id IN (:...useCaseSystemIds)', {
+        useCaseSystemIds,
+      })
+      .getMany();
+
+    // Deduplicate and map to read models
+    const controlLinkMap = new Map<number, ControlLinkReadModel>();
+    for (const controlLink of controlLinks) {
+      if (!controlLinkMap.has(controlLink.systemId)) {
+        const controlLinkReadModel =
+          UseCaseQueryMappers.mapToControlLinkReadModel(
+            controlLink as ControlLinkRow,
+          );
+        controlLinkMap.set(controlLink.systemId, controlLinkReadModel);
+      }
+    }
+
+    return Array.from(controlLinkMap.values());
   }
 
   private mapToReadModel(useCaseRow: UseCaseRow): UseCaseReadModel {
