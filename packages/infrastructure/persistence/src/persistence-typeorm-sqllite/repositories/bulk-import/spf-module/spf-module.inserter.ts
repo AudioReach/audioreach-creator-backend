@@ -5,6 +5,7 @@ import {
   ModuleInsertErrorEntity,
   ModuleInsertResult,
   NaturalIdMapping,
+  DataPortMapping,
   SpfModule,
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
@@ -212,7 +213,7 @@ export class SpfModuleInserter extends BaseInserter<
       dataPortId: number;
     }>,
     succeededRows: QueryDeepPartialEntity<DataPortRow>[],
-  ): Promise<Array<{mapping: NaturalIdMapping<number>; instanceId: number}>> {
+  ): Promise<Array<{mapping: DataPortMapping; instanceId: number}>> {
     if (succeededRows.length === 0) return [];
 
     // Get all unique nodeSystemIds from successful insertions
@@ -225,10 +226,15 @@ export class SpfModuleInserter extends BaseInserter<
       ),
     );
 
-    // Bulk query all ports whose nodeSystemId is in the list
+    // Bulk query all ports whose nodeSystemId is in the list, including portIoType
     const results = await this.manager
       .createQueryBuilder('DataPort', 'dp')
-      .select(['dp.systemId', 'dp.dataPortId', 'dp.nodeSystemId'])
+      .select([
+        'dp.systemId',
+        'dp.dataPortId',
+        'dp.nodeSystemId',
+        'dp.portIoType',
+      ])
       .where('dp.nodeSystemId IN (:...nodeSystemIds)', {nodeSystemIds})
       .getMany();
 
@@ -242,7 +248,7 @@ export class SpfModuleInserter extends BaseInserter<
     }
 
     const mappings: Array<{
-      mapping: NaturalIdMapping<number>;
+      mapping: DataPortMapping;
       instanceId: number;
     }> = [];
     for (const result of results) {
@@ -252,6 +258,7 @@ export class SpfModuleInserter extends BaseInserter<
           mapping: {
             naturalId: result.dataPortId,
             systemId: result.systemId,
+            portIoType: result.portIoType,
           },
           instanceId,
         });
@@ -329,7 +336,7 @@ export class SpfModuleInserter extends BaseInserter<
     spfModules: readonly SpfModule[],
     instanceIdToSystemId: Map<number, number>,
     dataPortMappings: Array<{
-      mapping: NaturalIdMapping<number>;
+      mapping: DataPortMapping;
       instanceId: number;
     }>,
     controlPortMappings: Array<{
@@ -366,10 +373,7 @@ export class SpfModuleInserter extends BaseInserter<
     }
 
     // Group port mappings by instanceId
-    const dataPortMappingsByInstance = new Map<
-      number,
-      NaturalIdMapping<number>[]
-    >();
+    const dataPortMappingsByInstance = new Map<number, DataPortMapping[]>();
     for (const {mapping, instanceId} of dataPortMappings) {
       if (!dataPortMappingsByInstance.has(instanceId)) {
         dataPortMappingsByInstance.set(instanceId, []);

@@ -135,12 +135,27 @@ export class SubgraphDataChunk extends BaseChunk {
 
   /**
    * Extract all data links from SPF properties
+   * @param subgraphIds Optional array of subgraph IDs to filter by. If not provided, returns all data links.
    */
-  getAllDataLinks(): DataLink[] {
+  getAllDataLinks(subgraphIds?: number[]): DataLink[] {
     const dataLinks: DataLink[] = [];
-    //TODO: deduplicate this for dangling links. Also, we should maintain per subgraph mapping? How to handle dangling link? Should it be part of usecase?
+
+    // If no subgraph filter is provided, return all data links
+    if (!subgraphIds || subgraphIds.length === 0) {
+      //TODO: deduplicate this for dangling links. Also, we should maintain per subgraph mapping? How to handle dangling link? Should it be part of usecase?
+      for (const entry of this.subgraphData) {
+        if (entry.spfProperties.dataLinks) {
+          dataLinks.push(...entry.spfProperties.dataLinks.dataLinks);
+        }
+      }
+      return dataLinks;
+    }
+
+    // Filter by specific subgraphs
+    const subgraphSet = new Set(subgraphIds);
     for (const entry of this.subgraphData) {
-      if (entry.spfProperties.dataLinks) {
+      // Only include data links from the specified subgraphs
+      if (subgraphSet.has(entry.subgraphId) && entry.spfProperties.dataLinks) {
         dataLinks.push(...entry.spfProperties.dataLinks.dataLinks);
       }
     }

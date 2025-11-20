@@ -5,6 +5,7 @@
 export class BinaryUtils {
   // Size constants (matching C# sizeof behavior)
   static readonly SIZEOF_UINT32 = 4;
+  static readonly SIZEOF_INT32 = 4;
   static readonly SIZEOF_UINT16 = 2;
   static readonly SIZEOF_UINT8 = 1;
 
@@ -63,6 +64,18 @@ export class BinaryUtils {
    */
   static readUint32(view: DataView, offset: number): number {
     return view.getUint32(offset, true); // true = little-endian
+  }
+
+  /**
+   * Read Int32 from DataView (always little-endian).
+   * Consistent with C# BinaryReader.ReadInt32() default behavior.
+   *
+   * @param view - DataView to read from
+   * @param offset - Byte offset to read from
+   * @returns Int32 value
+   */
+  static readInt32(view: DataView, offset: number): number {
+    return view.getInt32(offset, true); // true = little-endian
   }
 
   /**

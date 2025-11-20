@@ -66,16 +66,16 @@ export class ChunkMetadataRegistry {
       description:
         'Derived subgraph data extracted from usecase entries and datapool',
     },
-    /*{
+    {
       type: CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
       dependencies: [
-        { chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF, dependencyType: 'raw' },
-        { chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT, dependencyType: 'raw' },
-        { chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed' },
+        {chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF, dependencyType: 'raw'},
+        {chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT, dependencyType: 'raw'},
+        {chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed'},
       ],
       description:
-        'Subgraph connection table - Lookup, definition, data offset',
-    },*/
+        'Subgraph connection pairs with data and control links between subgraphs',
+    },
     // Add more chunk types as they are implemented
   ];
 

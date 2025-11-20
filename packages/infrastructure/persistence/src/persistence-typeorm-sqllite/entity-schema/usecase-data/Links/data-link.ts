@@ -10,6 +10,7 @@ export interface DataLinkRow extends EntityBaseRow {
   sourcePortSystemId: number;
   destinationPortSystemId: number;
   isInterGraph: boolean;
+  naturalKeyHash: string;
 
   sourceNode?: NodeRow;
   destinationNode?: NodeRow;
@@ -42,6 +43,11 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
     isInterGraph: {
       type: 'boolean',
       name: 'is_inter_graph',
+    },
+    naturalKeyHash: {
+      type: 'varchar',
+      name: 'natural_key_hash',
+      length: 255,
     },
   },
   relations: {
@@ -89,13 +95,8 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
   },
   indices: [
     {
-      name: 'uk_data_link_unique',
-      columns: [
-        'sourceNodeSystemId',
-        'sourcePortSystemId',
-        'destinationNodeSystemId',
-        'destinationPortSystemId',
-      ],
+      name: 'uk_data_link_natural_key_hash',
+      columns: ['naturalKeyHash'],
       unique: true,
     },
   ],

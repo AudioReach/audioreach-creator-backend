@@ -7,6 +7,7 @@ import type {BulkEntityInsertResult} from '../../../ports/persistence/repositori
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
 import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
+import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
 
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
@@ -20,6 +21,8 @@ export class ForeignKeyMapper {
   private containerMappings = new Map<number, number>(); // containerId -> systemId
   private moduleDefinitionMappings = new Map<number, number>(); // moduleId -> systemId
   private moduleInstanceMappings = new Map<number, number>(); // instanceId -> systemId
+  private moduleInputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
+  private moduleOutputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
   private dataLinkMappings = new Map<string, number>(); // naturalKey -> systemId
   private controlLinkMappings = new Map<string, number>(); // naturalKey -> systemId
 
@@ -205,19 +208,48 @@ export class ForeignKeyMapper {
    */
   setModuleInstanceMappings(result: BulkModuleInsertResult): void {
     let mappingsCount = 0;
+    let inputPortMappingsCount = 0;
+    let outputPortMappingsCount = 0;
 
     for (const entityResult of result.results) {
       if (entityResult.success && entityResult.moduleIdMapping) {
+        const moduleSystemId = entityResult.moduleIdMapping.systemId;
+
+        // Store module instance mapping
         this.moduleInstanceMappings.set(
           entityResult.moduleIdMapping.naturalId,
-          entityResult.moduleIdMapping.systemId,
+          moduleSystemId,
         );
         mappingsCount++;
+
+        // Process data port mappings by type
+        if (entityResult.portMappings?.dataPorts) {
+          const inputPortMap = new Map<number, number>();
+          const outputPortMap = new Map<number, number>();
+
+          for (const portMapping of entityResult.portMappings.dataPorts) {
+            if (portMapping.portIoType === PORT_IO_TYPE.Input) {
+              inputPortMap.set(portMapping.naturalId, portMapping.systemId);
+              inputPortMappingsCount++;
+            } else if (portMapping.portIoType === PORT_IO_TYPE.Output) {
+              outputPortMap.set(portMapping.naturalId, portMapping.systemId);
+              outputPortMappingsCount++;
+            }
+          }
+
+          // Store port mappings under the module's systemId
+          if (inputPortMap.size > 0) {
+            this.moduleInputPortMappings.set(moduleSystemId, inputPortMap);
+          }
+          if (outputPortMap.size > 0) {
+            this.moduleOutputPortMappings.set(moduleSystemId, outputPortMap);
+          }
+        }
       }
     }
 
     this.logger?.logInfo({
-      msg: `Stored ${mappingsCount} module instance mappings`,
+      msg: `Stored ${mappingsCount} module instance mappings, ${inputPortMappingsCount} input ports, ${outputPortMappingsCount} output ports`,
       action: 'module_instance_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
@@ -251,6 +283,48 @@ export class ForeignKeyMapper {
    */
   getModuleInstanceSystemId(instanceId: number): number | undefined {
     return this.moduleInstanceMappings.get(instanceId);
+  }
+
+  /**
+   * Get all input port system IDs for a given module system ID
+   */
+  getModuleInputPortSystemIds(
+    moduleSystemId: number,
+  ): Map<number, number> | undefined {
+    const portMap = this.moduleInputPortMappings.get(moduleSystemId);
+    return portMap ? new Map(portMap) : undefined;
+  }
+
+  /**
+   * Get all output port system IDs for a given module system ID
+   */
+  getModuleOutputPortSystemIds(
+    moduleSystemId: number,
+  ): Map<number, number> | undefined {
+    const portMap = this.moduleOutputPortMappings.get(moduleSystemId);
+    return portMap ? new Map(portMap) : undefined;
+  }
+
+  /**
+   * Get system ID for a specific input port of a module
+   */
+  getInputPortSystemId(
+    moduleSystemId: number,
+    portNaturalId: number,
+  ): number | undefined {
+    const portMap = this.moduleInputPortMappings.get(moduleSystemId);
+    return portMap?.get(portNaturalId);
+  }
+
+  /**
+   * Get system ID for a specific output port of a module
+   */
+  getOutputPortSystemId(
+    moduleSystemId: number,
+    portNaturalId: number,
+  ): number | undefined {
+    const portMap = this.moduleOutputPortMappings.get(moduleSystemId);
+    return portMap?.get(portNaturalId);
   }
 
   /**
@@ -321,6 +395,8 @@ export class ForeignKeyMapper {
     this.containerMappings.clear();
     this.moduleDefinitionMappings.clear();
     this.moduleInstanceMappings.clear();
+    this.moduleInputPortMappings.clear();
+    this.moduleOutputPortMappings.clear();
     this.dataLinkMappings.clear();
     this.controlLinkMappings.clear();
 
@@ -343,6 +419,8 @@ export class ForeignKeyMapper {
     containerMappings: number;
     moduleDefinitionMappings: number;
     moduleInstanceMappings: number;
+    moduleInputPortMappings: number;
+    moduleOutputPortMappings: number;
     dataLinkMappings: number;
     controlLinkMappings: number;
   } {
@@ -353,6 +431,8 @@ export class ForeignKeyMapper {
       containerMappings: this.containerMappings.size,
       moduleDefinitionMappings: this.moduleDefinitionMappings.size,
       moduleInstanceMappings: this.moduleInstanceMappings.size,
+      moduleInputPortMappings: this.moduleInputPortMappings.size,
+      moduleOutputPortMappings: this.moduleOutputPortMappings.size,
       dataLinkMappings: this.dataLinkMappings.size,
       controlLinkMappings: this.controlLinkMappings.size,
     };

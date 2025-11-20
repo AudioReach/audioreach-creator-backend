@@ -1,4 +1,5 @@
 import type {NaturalIdMapping, InsertError} from './insert-result.js';
+import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
 
 /**
  * Module instance error entity types.
@@ -19,6 +20,18 @@ export type ModuleInsertErrorEntity =
 export type ModuleInsertError = InsertError<ModuleInsertErrorEntity>;
 
 /**
+ * Data port mapping with port type information for link creation.
+ */
+export interface DataPortMapping {
+  /** Natural identifier of the data port */
+  naturalId: number;
+  /** Generated system ID of the data port */
+  systemId: number;
+  /** Port I/O type (INPUT or OUTPUT) */
+  portIoType: PortIoType;
+}
+
+/**
  * Module instance insert result.
  * Success depends only on main module table insert.
  * Child failures are informational and do not cause rollback.
@@ -28,8 +41,11 @@ export type ModuleInsertError = InsertError<ModuleInsertErrorEntity>;
  * const result: ModuleInsertResult = {
  *   moduleIdMapping: { naturalId: 123, systemId: 456 },
  *   portMappings: {
- *     dataPorts: [{ naturalId: 'output_1', systemId: 789 }],
- *     controlPorts: [{ naturalId: 'ctrl_1', systemId: 790 }]
+ *     dataPorts: [
+ *       { naturalId: 1, systemId: 789, portIoType: 'INPUT' },
+ *       { naturalId: 2, systemId: 790, portIoType: 'OUTPUT' }
+ *     ],
+ *     controlPorts: [{ naturalId: 3, systemId: 791 }]
  *   },
  *   errors: [
  *     {
@@ -49,7 +65,7 @@ export interface ModuleInsertResult {
   moduleIdMapping?: NaturalIdMapping<number>;
   /** Port mappings needed for creating links */
   portMappings: {
-    dataPorts: NaturalIdMapping<number>[];
+    dataPorts: DataPortMapping[];
     controlPorts: NaturalIdMapping<number>[];
   };
   /** Child failures (no rollback) */

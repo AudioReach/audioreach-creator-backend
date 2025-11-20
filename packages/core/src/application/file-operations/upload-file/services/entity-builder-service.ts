@@ -19,6 +19,7 @@ import {ControlLinkBuilder} from './entity-builders/control-link-builder.js';
 import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
+import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ForeignKeyMapper} from './foreign-key-mapper.js';
@@ -272,30 +273,44 @@ export class EntityBuilderService {
 
   /**
    * Build data links from ACDB data
+   * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
   async buildDataLinks(parsedAcdb: ParsedAcdb): Promise<DataLink[]> {
-    // Extract subgraph data from ACDB
+    const allDataLinkProperties: any[] = [];
+    let intraSubgraphCount = 0;
+    let interSubgraphCount = 0;
+
+    // 1. Extract intra-subgraph data links from SubgraphDataChunk
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
-    if (!subgraphDataChunk) {
-      this.logger?.logDebug({
-        msg: 'No subgraph data chunk found for data links',
-        action: 'no_subgraph_data_chunk_data_links',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-      return [];
+    if (subgraphDataChunk) {
+      const intraSubgraphLinks = subgraphDataChunk.getAllDataLinks();
+      if (intraSubgraphLinks && intraSubgraphLinks.length > 0) {
+        allDataLinkProperties.push(...intraSubgraphLinks);
+        intraSubgraphCount = intraSubgraphLinks.length;
+      }
     }
 
-    // Extract data link properties from SPF data
-    const dataLinkProperties = subgraphDataChunk.getAllDataLinks();
+    // 2. Extract inter-subgraph data links from SubgraphPairDataChunk
+    const subgraphPairChunk = parsedAcdb.getChunk<SubgraphPairDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+    );
 
-    if (!dataLinkProperties || dataLinkProperties.length === 0) {
+    if (subgraphPairChunk) {
+      for (const pair of subgraphPairChunk.subgraphPairs) {
+        if (pair.dataLinks && pair.dataLinks.length > 0) {
+          allDataLinkProperties.push(...pair.dataLinks);
+          interSubgraphCount += pair.dataLinks.length;
+        }
+      }
+    }
+
+    // 3. Check if we have any data links to process
+    if (allDataLinkProperties.length === 0) {
       this.logger?.logDebug({
-        msg: 'No data links found in subgraph data chunk',
+        msg: 'No data links found in either subgraph data chunk or subgraph pair chunk',
         action: 'no_data_links',
         component: 'EntityBuilderService',
         tag: 'acdb-processing',
@@ -304,12 +319,13 @@ export class EntityBuilderService {
       return [];
     }
 
-    // Build domain data links
-    const dataLinks =
-      await this.dataLinkBuilder.buildDataLinks(dataLinkProperties);
+    // 4. Build domain data links from all sources
+    const dataLinks = await this.dataLinkBuilder.buildDataLinks(
+      allDataLinkProperties,
+    );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${dataLinks.length} data links from ACDB`,
+      msg: `Successfully built ${dataLinks.length} data links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph)`,
       action: 'acdb_data_links_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
@@ -321,30 +337,44 @@ export class EntityBuilderService {
 
   /**
    * Build control links from ACDB data
+   * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
   async buildControlLinks(parsedAcdb: ParsedAcdb): Promise<ControlLink[]> {
-    // Extract subgraph data from ACDB
+    const allControlLinkProperties: any[] = [];
+    let intraSubgraphCount = 0;
+    let interSubgraphCount = 0;
+
+    // 1. Extract intra-subgraph control links from SubgraphDataChunk
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
-    if (!subgraphDataChunk) {
-      this.logger?.logDebug({
-        msg: 'No subgraph data chunk found for control links',
-        action: 'no_subgraph_data_chunk_control_links',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
-      return [];
+    if (subgraphDataChunk) {
+      const intraSubgraphLinks = subgraphDataChunk.getAllControlLinks();
+      if (intraSubgraphLinks && intraSubgraphLinks.length > 0) {
+        allControlLinkProperties.push(...intraSubgraphLinks);
+        intraSubgraphCount = intraSubgraphLinks.length;
+      }
     }
 
-    // Extract control link properties from SPF data
-    const controlLinkProperties = subgraphDataChunk.getAllControlLinks();
+    // 2. Extract inter-subgraph control links from SubgraphPairDataChunk
+    const subgraphPairChunk = parsedAcdb.getChunk<SubgraphPairDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+    );
 
-    if (!controlLinkProperties || controlLinkProperties.length === 0) {
+    if (subgraphPairChunk) {
+      for (const pair of subgraphPairChunk.subgraphPairs) {
+        if (pair.controlLinks && pair.controlLinks.length > 0) {
+          allControlLinkProperties.push(...pair.controlLinks);
+          interSubgraphCount += pair.controlLinks.length;
+        }
+      }
+    }
+
+    // 3. Check if we have any control links to process
+    if (allControlLinkProperties.length === 0) {
       this.logger?.logDebug({
-        msg: 'No control links found in subgraph data chunk',
+        msg: 'No control links found in either subgraph data chunk or subgraph pair chunk',
         action: 'no_control_links',
         component: 'EntityBuilderService',
         tag: 'acdb-processing',
@@ -353,13 +383,13 @@ export class EntityBuilderService {
       return [];
     }
 
-    // Build domain control links
+    // 4. Build domain control links from all sources
     const controlLinks = await this.controlLinkBuilder.buildControlLinks(
-      controlLinkProperties,
+      allControlLinkProperties,
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${controlLinks.length} control links from ACDB`,
+      msg: `Successfully built ${controlLinks.length} control links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph)`,
       action: 'acdb_control_links_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',

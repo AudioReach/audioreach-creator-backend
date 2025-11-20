@@ -1,5 +1,6 @@
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import type {DataLink} from './types.js';
+import {buildDataLinkNaturalKeyHash} from '../../utils/natural-key-utils.js';
 
 /**
  * Handles parsing of data links properties from binary data.
@@ -88,6 +89,14 @@ export class DataLinksProperty {
         currentSubgraphModuleInstanceIds,
       );
 
+      // Generate natural key hash based on natural IDs
+      const naturalKeyHash = buildDataLinkNaturalKeyHash(
+        sourceInstanceId,
+        sourcePortId,
+        destinationInstanceId,
+        destinationPortId,
+      );
+
       // Create data link
       const dataLink: DataLink = {
         sourceInstanceId,
@@ -95,6 +104,7 @@ export class DataLinksProperty {
         destinationInstanceId,
         destinationPortId,
         isInterGraph,
+        naturalKeyHash,
       };
 
       this.dataLinks.push(dataLink);
