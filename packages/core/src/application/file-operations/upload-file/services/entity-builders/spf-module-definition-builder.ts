@@ -296,14 +296,14 @@ export class SpfModuleDefinitionBuilder {
     // Create input data port group
     const inputDataPortsGroup = new DataPortGroupDefinition({
       max: awsp.inputPortsInfo?.maxPortCount || 0,
-      portIoType: 'INPUT', // TODO: Map from AWSP when available
+      portIoType: 'Input', // TODO: Map from AWSP when available
       staticPortDefinitions: [], // TODO: Map ports when available
     });
 
     // Create output data port group
     const outputDataPortsGroup = new DataPortGroupDefinition({
       max: awsp.outputPortsInfo?.maxPortCount || 0,
-      portIoType: 'OUTPUT', // TODO: Map from AWSP when available
+      portIoType: 'Output', // TODO: Map from AWSP when available
       staticPortDefinitions: [], // TODO: Map ports when available
     });
 

@@ -14,7 +14,7 @@ import {DataLinkRow} from '../../../entity-schema/index.js';
  *
  * Process:
  * 1. Batch insert all DataLinks
- * 2. Query back using composite natural key
+ * 2. Query back using naturalKeyHash
  * 3. Build results with mappings and errors
  *
  * Uses insert+query pattern with natural keys for reliable systemId mapping.
@@ -53,9 +53,9 @@ export class DataLinkInserter extends BaseInserter<
     // ============================================
     // Query Back DataLink SystemIds
     // ============================================
-    const successfulNaturalKeys = insertResult.succeeded.map(row =>
-      this.buildNaturalKeyFromRow(row),
-    );
+    const successfulNaturalKeys = insertResult.succeeded
+      .map(row => row.naturalKeyHash)
+      .filter((hash): hash is string => typeof hash === 'string');
     const mappings = await this.queryBackDataLinks(successfulNaturalKeys);
 
     // ============================================
@@ -76,77 +76,32 @@ export class DataLinkInserter extends BaseInserter<
       sourcePortSystemId: dataLink.sourcePortSystemId,
       destinationPortSystemId: dataLink.destinationPortSystemId,
       isInterGraph: dataLink.isInterGraph,
+      naturalKeyHash: dataLink.naturalKeyHash, // Now stored in DB for efficient querying
     };
   }
 
   /**
-   * Build natural key from database row
-   */
-  private buildNaturalKeyFromRow(
-    row: QueryDeepPartialEntity<DataLinkRow>,
-  ): string {
-    return `${row.sourceNodeSystemId}:${row.sourcePortSystemId}->${row.destinationNodeSystemId}:${row.destinationPortSystemId}`;
-  }
-
-  /**
-   * Query back DataLink systemIds using natural keys.
+   * Query back DataLink systemIds using naturalKeyHash.
    *
-   * @param naturalKeys - Array of natural keys to query
-   * @returns Array of natural key → systemId mappings
+   * @param naturalKeys - Array of naturalKeyHash values to query
+   * @returns Array of naturalKeyHash → systemId mappings
    */
   private async queryBackDataLinks(
     naturalKeys: string[],
   ): Promise<NaturalIdMapping<string>[]> {
     if (naturalKeys.length === 0) return [];
 
-    // Parse natural keys to build query conditions
-    const conditions = naturalKeys.map(key => {
-      const [source, dest] = key.split('->');
-      const [sourceNodeId, sourcePortId] = source.split(':');
-      const [destNodeId, destPortId] = dest.split(':');
-      return {
-        sourceNodeSystemId: parseInt(sourceNodeId),
-        sourcePortSystemId: parseInt(sourcePortId),
-        destinationNodeSystemId: parseInt(destNodeId),
-        destinationPortSystemId: parseInt(destPortId),
-      };
-    });
+    // Use efficient IN query with naturalKeyHash
+    const results = await this.manager
+      .createQueryBuilder('DataLink', 'dl')
+      .select(['dl.systemId', 'dl.naturalKeyHash'])
+      .where('dl.naturalKeyHash IN (:...naturalKeys)', {naturalKeys})
+      .getMany();
 
-    const results = [];
-    for (const condition of conditions) {
-      const result = await this.manager
-        .createQueryBuilder('DataLink', 'dl')
-        .select([
-          'dl.systemId',
-          'dl.sourceNodeSystemId',
-          'dl.sourcePortSystemId',
-          'dl.destinationNodeSystemId',
-          'dl.destinationPortSystemId',
-        ])
-        .where('dl.sourceNodeSystemId = :sourceNodeId', {
-          sourceNodeId: condition.sourceNodeSystemId,
-        })
-        .andWhere('dl.sourcePortSystemId = :sourcePortId', {
-          sourcePortId: condition.sourcePortSystemId,
-        })
-        .andWhere('dl.destinationNodeSystemId = :destNodeId', {
-          destNodeId: condition.destinationNodeSystemId,
-        })
-        .andWhere('dl.destinationPortSystemId = :destPortId', {
-          destPortId: condition.destinationPortSystemId,
-        })
-        .getOne();
-
-      if (result) {
-        const naturalKey = this.buildNaturalKeyFromRow(result);
-        results.push({
-          naturalId: naturalKey,
-          systemId: result.systemId,
-        });
-      }
-    }
-
-    return results;
+    return results.map(result => ({
+      naturalId: result.naturalKeyHash,
+      systemId: result.systemId,
+    }));
   }
 
   /**
@@ -160,16 +115,19 @@ export class DataLinkInserter extends BaseInserter<
     const mappingMap = new Map(mappings.map(m => [m.naturalId, m.systemId]));
 
     const failedMap = new Map(
-      insertResult.failed.map(f => [
-        this.buildNaturalKeyFromRow(f.row),
-        f.error,
-      ]),
+      insertResult.failed
+        .map(f => ({hash: f.row.naturalKeyHash, error: f.error}))
+        .filter(
+          (item): item is {hash: string; error: any} =>
+            typeof item.hash === 'string',
+        )
+        .map(item => [item.hash, item.error]),
     );
 
     const results: DataLinkInsertResult[] = [];
 
     for (const dataLink of dataLinks) {
-      const naturalKey = `${dataLink.sourceNodeSystemId}:${dataLink.sourcePortSystemId}->${dataLink.destinationNodeSystemId}:${dataLink.destinationPortSystemId}`;
+      const naturalKey = dataLink.naturalKeyHash;
       const systemId = mappingMap.get(naturalKey);
       const error = failedMap.get(naturalKey);
 

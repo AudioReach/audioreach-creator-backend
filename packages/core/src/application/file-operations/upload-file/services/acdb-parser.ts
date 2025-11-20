@@ -4,11 +4,13 @@ import {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
 import {DatapoolChunk} from '../../shared/acdb-chunks/datapool-chunk.js';
 import {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
+import {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
 import type {ChunkParseContext} from '../models/chunk-parse-context.js';
 import {HeaderChunkParser} from './acdb-chunk-parsers/header-chunk-parser.js';
 import {DatapoolChunkParser} from './acdb-chunk-parsers/datapool-chunk-parser.js';
 import {UsecaseDataChunkParser} from './acdb-chunk-parsers/usecase-data-chunk-parser.js';
 import {SubgraphDataChunkParser} from './acdb-chunk-parsers/subgraph-data-chunk-parser.js';
+import {SubgraphPairDataChunkParser} from './acdb-chunk-parsers/subgraph-pair-data-chunk-parser.js';
 
 /**
  * Service responsible for parsing individual ACDB chunks.
@@ -19,6 +21,7 @@ export class AcdbParser {
   private readonly datapoolParser = new DatapoolChunkParser();
   private readonly usecaseDataParser = new UsecaseDataChunkParser();
   private readonly subgraphDataParser = new SubgraphDataChunkParser();
+  private readonly subgraphPairDataParser = new SubgraphPairDataChunkParser();
 
   /**
    * Parse a single chunk based on its type
@@ -34,6 +37,8 @@ export class AcdbParser {
         return this.parseUsecaseDataChunk(context);
       case CHUNK_TYPES.SUBGRAPH_DATA:
         return this.parseSubgraphDataChunk(context);
+      case CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT:
+        return this.parseSubgraphPairDataChunk(context);
       default:
         throw new Error(`Unknown chunk type: ${chunkType}`);
     }
@@ -68,5 +73,14 @@ export class AcdbParser {
     context: ChunkParseContext,
   ): SubgraphDataChunk {
     return this.subgraphDataParser.parse(context);
+  }
+
+  /**
+   * Parse SUBGRAPH_CONNECTION_LUT chunk using SubgraphPairDataChunkParser
+   */
+  private parseSubgraphPairDataChunk(
+    context: ChunkParseContext,
+  ): SubgraphPairDataChunk {
+    return this.subgraphPairDataParser.parse(context);
   }
 }

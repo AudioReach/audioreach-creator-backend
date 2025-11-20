@@ -202,10 +202,10 @@ export class UploadFileOrchestrator {
       // Phase 4: Build and Insert SPF Modules (depend on subgraphs, containers, definitions)
       await this.buildAndInsertSpfModules(bulkRepo);
 
-      if (false) {
-        // Phase 5: Build and Insert Data Links (depend on modules)
-        await this.buildAndInsertDataLinks(bulkRepo);
+      // Phase 5: Build and Insert Data Links (depend on modules)
+      await this.buildAndInsertDataLinks(bulkRepo);
 
+      if (false) {
         // Phase 6: Build and Insert Control Links (depend on modules)
         await this.buildAndInsertControlLinks(bulkRepo);
       }

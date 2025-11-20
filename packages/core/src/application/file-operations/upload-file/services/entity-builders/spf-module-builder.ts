@@ -105,7 +105,7 @@ export class SpfModuleBuilder {
     }
 
     // Create data ports using module property config
-    const dataPorts = this.createDefaultDataPorts(); //this.createDataPortsFromProperties(modulePropertyConfig);
+    const dataPorts = this.createDataPortsFromProperties(modulePropertyConfig);
     const controlPorts = this.createDefaultControlPorts();
 
     // Create SpfModule entity
@@ -181,9 +181,9 @@ export class SpfModuleBuilder {
 
     const dataPorts: DataPort[] = [];
 
-    // Create input ports with ODD IDs (1, 3, 5, ...)
+    // Create input ports with EVEN IDs starting from 2 (2, 4, 6, ...)
     for (let i = 0; i < portInfo.maxInputPorts; i++) {
-      const portId = i * 2 + 1;
+      const portId = i * 2 + 2;
       dataPorts.push(
         new DataPort({
           systemId: 0,
@@ -195,9 +195,9 @@ export class SpfModuleBuilder {
       );
     }
 
-    // Create output ports with EVEN IDs (2, 4, 6, ...)
+    // Create output ports with ODD IDs starting from 1 (1, 3, 5, ...)
     for (let i = 0; i < portInfo.maxOutputPorts; i++) {
-      const portId = i * 2 + 2;
+      const portId = i * 2 + 1;
       dataPorts.push(
         new DataPort({
           systemId: 0,
@@ -210,12 +210,6 @@ export class SpfModuleBuilder {
     }
 
     return dataPorts;
-  }
-
-  private createDefaultDataPorts(): DataPort[] {
-    // TODO: For now, create empty array - will be populated with actual port data
-
-    return [];
   }
 
   /**

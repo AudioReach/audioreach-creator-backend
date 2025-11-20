@@ -23,6 +23,15 @@ import {ModuleInstanceDto} from '../module-instance/dto/module-instance.dto.js';
 import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
 import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
 import {BaseComponentDto, SystemIdsRequestDto} from '../common/dtos/index.js';
+import {
+  DataPortDto,
+  PortIoType,
+  PortType,
+} from '../common/dtos/data-port.dto.js';
+import {
+  ControlPortDto,
+  ControlPortIntentDto,
+} from '../common/dtos/control-port.dto.js';
 //import {AuthGuard} from '@nestjs/passport';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
@@ -195,6 +204,34 @@ export class UseCaseController extends BaseController {
       );
       moduleDto.subgraphId = module.subgraph.systemId;
       moduleDto.containerId = module.container.systemId;
+
+      // Map data ports
+      moduleDto.dataPorts = module.dataPorts.map(
+        port =>
+          new DataPortDto(
+            port.systemId.toString(),
+            port.portId,
+            port.name,
+            port.portIoType === 'Input' ? PortIoType.Input : PortIoType.Output,
+            port.isStatic ? PortType.Static : PortType.Dynamic,
+          ),
+      );
+
+      // Map control ports with intents
+      moduleDto.controlPorts = module.controlPorts.map(port => {
+        const intents = port.allocatedIntents.map(
+          intent => new ControlPortIntentDto(intent.intentId, intent.name),
+        );
+
+        return new ControlPortDto(
+          port.systemId.toString(),
+          port.portId,
+          port.name,
+          port.isStatic ? PortType.Static : PortType.Dynamic,
+          intents,
+        );
+      });
+
       return moduleDto;
     });
 

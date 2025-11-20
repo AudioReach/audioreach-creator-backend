@@ -4,6 +4,7 @@ import {
 } from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {SubgraphDataChunk} from '../../../shared/acdb-chunks/subgraph-data-chunk.js';
+import type {SubgraphPairDataChunk} from '../../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
 import type {ParsedAcdb} from '../../models/parsed-acdb.js';
 import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
@@ -122,13 +123,13 @@ export class UsecaseBuilder {
       }
     }
 
-    // Add all non-interGraph datalink system IDs
-    /*const dataLinkSystemIds = this.getAllNonInterGraphDataLinkSystemIds();
+    // Add filtered datalink system IDs based on usecase subgraphs and subgraph pairs
+    const dataLinkSystemIds = this.getFilteredDataLinkSystemIds(entry);
     if (dataLinkSystemIds.length > 0) {
       try {
         useCase.addDataLinkSystemIds(dataLinkSystemIds);
         this.logger?.logDebug({
-          msg: `Added ${dataLinkSystemIds.length} datalink system IDs to usecase ${index}`,
+          msg: `Added ${dataLinkSystemIds.length} filtered datalink system IDs to usecase ${index}`,
           action: 'datalink_system_ids_added',
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
@@ -143,7 +144,7 @@ export class UsecaseBuilder {
           timestamp: new Date(),
         });
       }
-    }*/
+    }
 
     return useCase;
   }
@@ -250,42 +251,78 @@ export class UsecaseBuilder {
   }
 
   /**
-   * Get all non-interGraph datalink system IDs (isInterGraph = false)
+   * Get filtered datalink system IDs based on usecase subgraphs and subgraph pairs
    */
-  getAllNonInterGraphDataLinkSystemIds(): number[] {
+  private getFilteredDataLinkSystemIds(entry: UsecaseEntry): number[] {
     const subgraphDataChunk = this.parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
     );
+    const subgraphPairDataChunk =
+      this.parsedAcdb.getChunk<SubgraphPairDataChunk>(
+        CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+      );
+
     if (!subgraphDataChunk) {
       return [];
     }
 
     const dataLinkSystemIds: number[] = [];
-    const allDataLinks = subgraphDataChunk.getAllDataLinks();
+    let totalLinks = 0;
+    let interGraphFiltered = 0;
+    let mappingFailed = 0;
+    let added = 0;
 
-    // Filter datalinks where isInterGraph = false (intra-subgraph links only)
-    for (const dataLink of allDataLinks) {
-      if (!dataLink.isInterGraph) {
-        // Build natural key to get system ID
-        const sourceNodeSystemId =
-          this.foreignKeyMapper.getModuleInstanceSystemId(
-            dataLink.sourceInstanceId,
-          );
-        const destNodeSystemId =
-          this.foreignKeyMapper.getModuleInstanceSystemId(
-            dataLink.destinationInstanceId,
-          );
+    // Get data links from subgraphs present in this usecase (intra-subgraph links)
+    const usecaseDataLinks = subgraphDataChunk.getAllDataLinks(entry.sgList);
+    totalLinks += usecaseDataLinks.length;
 
-        if (sourceNodeSystemId && destNodeSystemId) {
-          const naturalKey = `${sourceNodeSystemId}:${dataLink.sourcePortId}->${destNodeSystemId}:${dataLink.destinationPortId}`;
-          const systemId =
-            this.foreignKeyMapper.getDataLinkSystemId(naturalKey);
-          if (systemId) {
-            dataLinkSystemIds.push(systemId);
-          }
+    // Process intra-subgraph data links (isInterGraph = false)
+    for (const dataLink of usecaseDataLinks) {
+      if (dataLink.isInterGraph) {
+        interGraphFiltered++;
+        continue;
+      }
+
+      // Get system ID for this data link
+      const systemId = this.foreignKeyMapper.getDataLinkSystemId(
+        dataLink.naturalKeyHash,
+      );
+      if (systemId) {
+        dataLinkSystemIds.push(systemId);
+        added++;
+      } else {
+        mappingFailed++;
+      }
+    }
+
+    // Get data links from subgraph pairs (inter-subgraph links)
+    if (subgraphPairDataChunk && entry.sgPairList.length > 0) {
+      const subgraphPairDataLinks =
+        subgraphPairDataChunk.getDataLinksForSubgraphPairs(entry.sgPairList);
+      totalLinks += subgraphPairDataLinks.length;
+
+      // Process inter-subgraph data links (isInterGraph = true)
+      for (const dataLink of subgraphPairDataLinks) {
+        // Get system ID for this data link
+        const systemId = this.foreignKeyMapper.getDataLinkSystemId(
+          dataLink.naturalKeyHash,
+        );
+        if (systemId) {
+          dataLinkSystemIds.push(systemId);
+          added++;
+        } else {
+          mappingFailed++;
         }
       }
     }
+
+    this.logger?.logDebug({
+      msg: `Data link filtering stats: ${totalLinks} total (${usecaseDataLinks.length} intra-subgraph, ${totalLinks - usecaseDataLinks.length} inter-subgraph), ${interGraphFiltered} inter-graph filtered, ${mappingFailed} mapping failed, ${added} added`,
+      action: 'datalink_filtering_stats',
+      component: 'UsecaseBuilder',
+      tag: 'usecase-building',
+      timestamp: new Date(),
+    });
 
     return dataLinkSystemIds;
   }
