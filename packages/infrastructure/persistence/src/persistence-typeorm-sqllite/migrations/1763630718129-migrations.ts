@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Migrations1763618514159 implements MigrationInterface {
-    name = 'Migrations1763618514159'
+export class Migrations1763630718129 implements MigrationInterface {
+    name = 'Migrations1763630718129'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE TABLE "processor_definitions" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "processor_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL)`);
@@ -52,8 +52,9 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_kv_hash" ON "key_vectors" ("kv_hash") `);
         await queryRunner.query(`CREATE TABLE "container_property_data" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "container_system_id" integer NOT NULL, "property_system_id" integer NOT NULL, "payload" blob NOT NULL)`);
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_container_property_data" ON "container_property_data" ("container_system_id", "property_system_id") `);
-        await queryRunner.query(`CREATE TABLE "containers" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "type" varchar(128) NOT NULL, "file_system_id" integer NOT NULL)`);
+        await queryRunner.query(`CREATE TABLE "containers" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "type" varchar(128) NOT NULL, "natural_id" integer NOT NULL, "file_system_id" integer NOT NULL)`);
         await queryRunner.query(`CREATE INDEX "ix_containers_type" ON "containers" ("type") `);
+        await queryRunner.query(`CREATE INDEX "ix_containers_natural_id" ON "containers" ("natural_id") `);
         await queryRunner.query(`CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL)`);
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `);
         await queryRunner.query(`CREATE TABLE "data_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL, "natural_key_hash" varchar(255) NOT NULL)`);
@@ -88,8 +89,9 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_vcpm_ckv_instance_keyvector" ON "vcpm_ckv" ("vcpm_instance_system_id", "key_vector_system_id") `);
         await queryRunner.query(`CREATE TABLE "vcpm_parameter_payload" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "vcpm_parameter_system_id" integer NOT NULL, "vcpm_ckv_system_id" integer NOT NULL, "payload" blob NOT NULL)`);
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_vcpm_parameter_payload" ON "vcpm_parameter_payload" ("vcpm_parameter_system_id", "vcpm_ckv_system_id") `);
-        await queryRunner.query(`CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(256) NOT NULL, "is_exported" boolean NOT NULL, "file_system_id" integer NOT NULL)`);
+        await queryRunner.query(`CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(256) NOT NULL, "natural_id" integer NOT NULL, "is_exported" boolean NOT NULL, "file_system_id" integer NOT NULL)`);
         await queryRunner.query(`CREATE INDEX "ix_subgraphs_name" ON "subgraphs" ("name") `);
+        await queryRunner.query(`CREATE INDEX "ix_subgraphs_natural_id" ON "subgraphs" ("natural_id") `);
         await queryRunner.query(`CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(255) NOT NULL)`);
         await queryRunner.query(`CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "key_vector_system_id" integer NOT NULL, CONSTRAINT "REL_319312a58fc0a9b0317f09de35" UNIQUE ("key_vector_system_id"))`);
         await queryRunner.query(`CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `);
@@ -234,11 +236,13 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "temporary_container_property_data" RENAME TO "container_property_data"`);
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_container_property_data" ON "container_property_data" ("container_system_id", "property_system_id") `);
         await queryRunner.query(`DROP INDEX "ix_containers_type"`);
-        await queryRunner.query(`CREATE TABLE "temporary_containers" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "type" varchar(128) NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_653656dc62acc1aad3344064cd4" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
-        await queryRunner.query(`INSERT INTO "temporary_containers"("system_id", "created_at", "updated_at", "type", "file_system_id") SELECT "system_id", "created_at", "updated_at", "type", "file_system_id" FROM "containers"`);
+        await queryRunner.query(`DROP INDEX "ix_containers_natural_id"`);
+        await queryRunner.query(`CREATE TABLE "temporary_containers" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "type" varchar(128) NOT NULL, "natural_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_653656dc62acc1aad3344064cd4" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
+        await queryRunner.query(`INSERT INTO "temporary_containers"("system_id", "created_at", "updated_at", "type", "natural_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "type", "natural_id", "file_system_id" FROM "containers"`);
         await queryRunner.query(`DROP TABLE "containers"`);
         await queryRunner.query(`ALTER TABLE "temporary_containers" RENAME TO "containers"`);
         await queryRunner.query(`CREATE INDEX "ix_containers_type" ON "containers" ("type") `);
+        await queryRunner.query(`CREATE INDEX "ix_containers_natural_id" ON "containers" ("natural_id") `);
         await queryRunner.query(`DROP INDEX "uk_control_link_unique"`);
         await queryRunner.query(`CREATE TABLE "temporary_control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL, CONSTRAINT "FK_6990d878f1170b958d2b5b84abc" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bc6af2a635beb595adbc823353f" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c4d63ebdc45c6656eae61597da" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_23e7e524f43b619b95126e0beae" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`);
         await queryRunner.query(`INSERT INTO "temporary_control_links"("system_id", "created_at", "updated_at", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "control_links"`);
@@ -342,11 +346,13 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "temporary_vcpm_parameter_payload" RENAME TO "vcpm_parameter_payload"`);
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_vcpm_parameter_payload" ON "vcpm_parameter_payload" ("vcpm_parameter_system_id", "vcpm_ckv_system_id") `);
         await queryRunner.query(`DROP INDEX "ix_subgraphs_name"`);
-        await queryRunner.query(`CREATE TABLE "temporary_subgraphs" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(256) NOT NULL, "is_exported" boolean NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_8f5322ebd0fbec146a71ab8a365" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
-        await queryRunner.query(`INSERT INTO "temporary_subgraphs"("system_id", "created_at", "updated_at", "name", "is_exported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "name", "is_exported", "file_system_id" FROM "subgraphs"`);
+        await queryRunner.query(`DROP INDEX "ix_subgraphs_natural_id"`);
+        await queryRunner.query(`CREATE TABLE "temporary_subgraphs" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(256) NOT NULL, "natural_id" integer NOT NULL, "is_exported" boolean NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_8f5322ebd0fbec146a71ab8a365" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
+        await queryRunner.query(`INSERT INTO "temporary_subgraphs"("system_id", "created_at", "updated_at", "name", "natural_id", "is_exported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "name", "natural_id", "is_exported", "file_system_id" FROM "subgraphs"`);
         await queryRunner.query(`DROP TABLE "subgraphs"`);
         await queryRunner.query(`ALTER TABLE "temporary_subgraphs" RENAME TO "subgraphs"`);
         await queryRunner.query(`CREATE INDEX "ix_subgraphs_name" ON "subgraphs" ("name") `);
+        await queryRunner.query(`CREATE INDEX "ix_subgraphs_natural_id" ON "subgraphs" ("natural_id") `);
         await queryRunner.query(`CREATE TABLE "temporary_subsystems" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(255) NOT NULL, CONSTRAINT "FK_84d896fd64dc0971dd15a904809" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`);
         await queryRunner.query(`INSERT INTO "temporary_subsystems"("system_id", "created_at", "updated_at", "name") SELECT "system_id", "created_at", "updated_at", "name" FROM "subsystems"`);
         await queryRunner.query(`DROP TABLE "subsystems"`);
@@ -490,11 +496,13 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(255) NOT NULL)`);
         await queryRunner.query(`INSERT INTO "subsystems"("system_id", "created_at", "updated_at", "name") SELECT "system_id", "created_at", "updated_at", "name" FROM "temporary_subsystems"`);
         await queryRunner.query(`DROP TABLE "temporary_subsystems"`);
+        await queryRunner.query(`DROP INDEX "ix_subgraphs_natural_id"`);
         await queryRunner.query(`DROP INDEX "ix_subgraphs_name"`);
         await queryRunner.query(`ALTER TABLE "subgraphs" RENAME TO "temporary_subgraphs"`);
-        await queryRunner.query(`CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(256) NOT NULL, "is_exported" boolean NOT NULL, "file_system_id" integer NOT NULL)`);
-        await queryRunner.query(`INSERT INTO "subgraphs"("system_id", "created_at", "updated_at", "name", "is_exported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "name", "is_exported", "file_system_id" FROM "temporary_subgraphs"`);
+        await queryRunner.query(`CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "name" varchar(256) NOT NULL, "natural_id" integer NOT NULL, "is_exported" boolean NOT NULL, "file_system_id" integer NOT NULL)`);
+        await queryRunner.query(`INSERT INTO "subgraphs"("system_id", "created_at", "updated_at", "name", "natural_id", "is_exported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "name", "natural_id", "is_exported", "file_system_id" FROM "temporary_subgraphs"`);
         await queryRunner.query(`DROP TABLE "temporary_subgraphs"`);
+        await queryRunner.query(`CREATE INDEX "ix_subgraphs_natural_id" ON "subgraphs" ("natural_id") `);
         await queryRunner.query(`CREATE INDEX "ix_subgraphs_name" ON "subgraphs" ("name") `);
         await queryRunner.query(`DROP INDEX "uk_vcpm_parameter_payload"`);
         await queryRunner.query(`ALTER TABLE "vcpm_parameter_payload" RENAME TO "temporary_vcpm_parameter_payload"`);
@@ -598,11 +606,13 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`INSERT INTO "control_links"("system_id", "created_at", "updated_at", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "temporary_control_links"`);
         await queryRunner.query(`DROP TABLE "temporary_control_links"`);
         await queryRunner.query(`CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `);
+        await queryRunner.query(`DROP INDEX "ix_containers_natural_id"`);
         await queryRunner.query(`DROP INDEX "ix_containers_type"`);
         await queryRunner.query(`ALTER TABLE "containers" RENAME TO "temporary_containers"`);
-        await queryRunner.query(`CREATE TABLE "containers" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "type" varchar(128) NOT NULL, "file_system_id" integer NOT NULL)`);
-        await queryRunner.query(`INSERT INTO "containers"("system_id", "created_at", "updated_at", "type", "file_system_id") SELECT "system_id", "created_at", "updated_at", "type", "file_system_id" FROM "temporary_containers"`);
+        await queryRunner.query(`CREATE TABLE "containers" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "type" varchar(128) NOT NULL, "natural_id" integer NOT NULL, "file_system_id" integer NOT NULL)`);
+        await queryRunner.query(`INSERT INTO "containers"("system_id", "created_at", "updated_at", "type", "natural_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "type", "natural_id", "file_system_id" FROM "temporary_containers"`);
         await queryRunner.query(`DROP TABLE "temporary_containers"`);
+        await queryRunner.query(`CREATE INDEX "ix_containers_natural_id" ON "containers" ("natural_id") `);
         await queryRunner.query(`CREATE INDEX "ix_containers_type" ON "containers" ("type") `);
         await queryRunner.query(`DROP INDEX "uk_container_property_data"`);
         await queryRunner.query(`ALTER TABLE "container_property_data" RENAME TO "temporary_container_property_data"`);
@@ -747,6 +757,7 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
         await queryRunner.query(`DROP TABLE "use_cases"`);
         await queryRunner.query(`DROP TABLE "subsystems"`);
+        await queryRunner.query(`DROP INDEX "ix_subgraphs_natural_id"`);
         await queryRunner.query(`DROP INDEX "ix_subgraphs_name"`);
         await queryRunner.query(`DROP TABLE "subgraphs"`);
         await queryRunner.query(`DROP INDEX "uk_vcpm_parameter_payload"`);
@@ -783,6 +794,7 @@ export class Migrations1763618514159 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE "data_links"`);
         await queryRunner.query(`DROP INDEX "uk_control_link_unique"`);
         await queryRunner.query(`DROP TABLE "control_links"`);
+        await queryRunner.query(`DROP INDEX "ix_containers_natural_id"`);
         await queryRunner.query(`DROP INDEX "ix_containers_type"`);
         await queryRunner.query(`DROP TABLE "containers"`);
         await queryRunner.query(`DROP INDEX "uk_container_property_data"`);

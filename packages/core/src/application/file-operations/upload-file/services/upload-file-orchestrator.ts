@@ -401,6 +401,7 @@ export class UploadFileOrchestrator {
     const spfModules = await this.builderService.buildSpfModules(
       this.parsedAcdb,
       this.currentFileId,
+      this.parsedAwsp,
     );
 
     if (spfModules && spfModules.length > 0) {
@@ -536,7 +537,7 @@ export class UploadFileOrchestrator {
         timestamp: new Date(),
       });
     } else {
-      this.logger?.logDebug({
+      this.logger?.logInfo({
         msg: 'No usecases found to process',
         action: 'no_usecases_found',
         component: 'UploadFileOrchestrator',

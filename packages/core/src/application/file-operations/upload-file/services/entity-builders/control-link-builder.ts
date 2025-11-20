@@ -22,13 +22,6 @@ export class ControlLinkBuilder {
   ): Promise<ControlLink[]> {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No control link properties provided for building',
-        action: 'no_control_link_properties',
-        component: 'ControlLinkBuilder',
-        tag: 'control-link-building',
-        timestamp: new Date(),
-      });
       return [];
     }
 

@@ -26,7 +26,7 @@ export class AwspFileOrchestrator {
     private readonly logger?: Logger,
   ) {
     this.fs = fs;
-    this.definitionParser = new AwspParser(this.workerPool, this.logger);
+    this.definitionParser = new AwspParser(this.workerPool);
   }
 
   /**

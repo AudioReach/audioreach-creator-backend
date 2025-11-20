@@ -19,13 +19,6 @@ export class SubgraphBuilder {
   ): Promise<Subgraph[]> {
     // Input validation
     if (!subgraphProperties || subgraphProperties.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No subgraph properties provided for building',
-        action: 'no_subgraph_properties',
-        component: 'SubgraphBuilder',
-        tag: 'subgraph-building',
-        timestamp: new Date(),
-      });
       return [];
     }
 

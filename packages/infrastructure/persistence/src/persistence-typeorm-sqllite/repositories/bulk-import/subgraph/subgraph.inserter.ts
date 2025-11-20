@@ -9,7 +9,7 @@ import {SubgraphRow} from '../../../entity-schema/index.js';
  *
  * Process:
  * 1. Batch insert all Subgraphs
- * 2. Query back using subgraphId (natural key)
+ * 2. Query back using naturalId (natural key)
  * 3. Build results with mappings and errors
  *
  * Uses insert+query pattern with natural keys for reliable systemId mapping.
@@ -48,10 +48,12 @@ export class SubgraphInserter extends BaseInserter<
     // ============================================
     // Query Back Subgraph SystemIds
     // ============================================
-    const successfulSubgraphIds = insertResult.succeeded.map(
-      row => row.name as string, // Using name as natural key since we don't have subgraphId
+    const successfulSubgraphNaturalIds = insertResult.succeeded.map(
+      row => row.naturalId as number, // Using naturalId as natural key
     );
-    const mappings = await this.queryBackSubgraphs(successfulSubgraphIds);
+    const mappings = await this.queryBackSubgraphs(
+      successfulSubgraphNaturalIds,
+    );
 
     // ============================================
     // Build Results
@@ -67,31 +69,32 @@ export class SubgraphInserter extends BaseInserter<
   ): QueryDeepPartialEntity<SubgraphRow> {
     return {
       name: subgraph.name,
+      naturalId: subgraph.naturalId,
       isExported: subgraph.isExported,
       fileSystemId: subgraph.fileSystemId,
     };
   }
 
   /**
-   * Query back Subgraph systemIds using natural keys (name).
+   * Query back Subgraph systemIds using natural keys (naturalId).
    * Uses indexed column for fast lookup.
    *
-   * @param names - Array of subgraph names to query
+   * @param naturalIds - Array of subgraph naturalIds to query
    * @returns Array of natural key → systemId mappings
    */
   private async queryBackSubgraphs(
-    names: string[],
-  ): Promise<NaturalIdMapping<string>[]> {
-    if (names.length === 0) return [];
+    naturalIds: number[],
+  ): Promise<NaturalIdMapping<number>[]> {
+    if (naturalIds.length === 0) return [];
 
     const results = await this.manager
       .createQueryBuilder('Subgraph', 's')
-      .select(['s.systemId', 's.name'])
-      .where('s.name IN (:...names)', {names})
+      .select(['s.systemId', 's.naturalId'])
+      .where('s.naturalId IN (:...naturalIds)', {naturalIds})
       .getMany();
 
     return results.map(r => ({
-      naturalId: r.name,
+      naturalId: r.naturalId,
       systemId: r.systemId,
     }));
   }
@@ -101,23 +104,22 @@ export class SubgraphInserter extends BaseInserter<
    */
   private buildResults(
     subgraphs: readonly Omit<Subgraph, 'systemId'>[],
-    mappings: NaturalIdMapping<string>[],
+    mappings: NaturalIdMapping<number>[],
     insertResult: BatchInsertResult<QueryDeepPartialEntity<SubgraphRow>>,
   ): BulkEntityInsertResult<number> {
     const mappingMap = new Map(mappings.map(m => [m.naturalId, m.systemId]));
 
     const failedMap = new Map(
-      insertResult.failed.map(f => [f.row.name as string, f.error]),
+      insertResult.failed.map(f => [f.row.naturalId as number, f.error]),
     );
 
     const results = [];
 
     for (const subgraph of subgraphs) {
-      const systemId = mappingMap.get(subgraph.name);
-      const error = failedMap.get(subgraph.name);
+      const systemId = mappingMap.get(subgraph.naturalId);
+      const error = failedMap.get(subgraph.naturalId);
 
       if (systemId) {
-        // Use the actual naturalId from the subgraph entity
         results.push({
           idMapping: {naturalId: subgraph.naturalId, systemId},
           errors: [],
@@ -125,7 +127,7 @@ export class SubgraphInserter extends BaseInserter<
         });
       } else if (error) {
         results.push({
-          errors: [this.buildError('Subgraph', subgraph.name, error)],
+          errors: [this.buildError('Subgraph', subgraph.naturalId, error)],
           success: false,
         });
       }

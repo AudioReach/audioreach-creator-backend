@@ -118,7 +118,7 @@ export class EntityBuilderService {
     );
 
     if (!subgraphDataChunk) {
-      this.logger?.logDebug({
+      this.logger?.logError({
         msg: 'No subgraph data chunk found in ACDB data',
         action: 'no_subgraph_data_chunk',
         component: 'EntityBuilderService',
@@ -132,13 +132,6 @@ export class EntityBuilderService {
     const subgraphProperties = subgraphDataChunk.getAllSubgraphs();
 
     if (!subgraphProperties || subgraphProperties.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No subgraphs found in subgraph data chunk',
-        action: 'no_subgraphs',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 
@@ -172,7 +165,7 @@ export class EntityBuilderService {
     );
 
     if (!subgraphDataChunk) {
-      this.logger?.logDebug({
+      this.logger?.logError({
         msg: 'No subgraph data chunk found for containers',
         action: 'no_subgraph_data_chunk_containers',
         component: 'EntityBuilderService',
@@ -186,13 +179,6 @@ export class EntityBuilderService {
     const containerProperties = subgraphDataChunk.getAllContainers();
 
     if (!containerProperties || containerProperties.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No containers found in subgraph data chunk',
-        action: 'no_containers',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 
@@ -219,6 +205,7 @@ export class EntityBuilderService {
   async buildSpfModules(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
+    parsedAwsp?: ParsedAwsp,
   ): Promise<SpfModule[]> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
@@ -226,7 +213,7 @@ export class EntityBuilderService {
     );
 
     if (!subgraphDataChunk) {
-      this.logger?.logDebug({
+      this.logger?.logError({
         msg: 'No subgraph data chunk found for modules',
         action: 'no_subgraph_data_chunk_modules',
         component: 'EntityBuilderService',
@@ -240,24 +227,21 @@ export class EntityBuilderService {
     const moduleInstanceInfos = subgraphDataChunk.getAllModules();
 
     if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No modules found in subgraph data chunk',
-        action: 'no_modules',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 
     // Extract module properties from SPF data
     const modulePropertyConfigs = subgraphDataChunk.getAllModuleProperties();
 
-    // Build domain SPF modules with module properties
+    // Get SPF module definitions from ParsedAwsp for display names
+    const spfModuleDefinitions = parsedAwsp?.getSpfModuleDefinitions() || [];
+
+    // Build domain SPF modules with module properties and definitions
     const spfModules = await this.spfModuleBuilder.buildSpfModules(
       moduleInstanceInfos,
       fileSystemId,
       modulePropertyConfigs,
+      spfModuleDefinitions,
     );
 
     this.logger?.logInfo({
@@ -309,13 +293,6 @@ export class EntityBuilderService {
 
     // 3. Check if we have any data links to process
     if (allDataLinkProperties.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No data links found in either subgraph data chunk or subgraph pair chunk',
-        action: 'no_data_links',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 
@@ -373,13 +350,6 @@ export class EntityBuilderService {
 
     // 3. Check if we have any control links to process
     if (allControlLinkProperties.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No control links found in either subgraph data chunk or subgraph pair chunk',
-        action: 'no_control_links',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 
@@ -412,13 +382,6 @@ export class EntityBuilderService {
     );
 
     if (!usecaseChunk?.usecases || usecaseChunk.usecases.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No usecases found in ACDB data',
-        action: 'no_usecases',
-        component: 'EntityBuilderService',
-        tag: 'acdb-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 
@@ -454,13 +417,6 @@ export class EntityBuilderService {
     const awspKeyDefinitions = parsedAwsp.getKeyDefinitions();
 
     if (!awspKeyDefinitions || awspKeyDefinitions.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No key definitions found in AWSP data',
-        action: 'no_key_definitions',
-        component: 'EntityBuilderService',
-        tag: 'awsp-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 
@@ -489,13 +445,6 @@ export class EntityBuilderService {
     const awspModuleDefinitions = parsedAwsp.getSpfModuleDefinitions();
 
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No SPF module definitions found in AWSP data',
-        action: 'no_spf_module_definitions',
-        component: 'EntityBuilderService',
-        tag: 'awsp-processing',
-        timestamp: new Date(),
-      });
       return [];
     }
 

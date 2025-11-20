@@ -9,7 +9,6 @@ import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-na
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../ports/worker/worker-types.js';
-import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {
   type DefinitionBlockName,
   type DefinitionCollection,
@@ -42,10 +41,7 @@ export interface DefinitionParseInput {
 export class AwspParser {
   private readonly definitionValidator: DefinitionValidatorService;
 
-  constructor(
-    private readonly workerPool?: WorkerPoolPort,
-    private readonly logger?: Logger,
-  ) {
+  constructor(private readonly workerPool?: WorkerPoolPort) {
     this.definitionValidator = new DefinitionValidatorService();
   }
 
@@ -128,18 +124,8 @@ export class AwspParser {
   async parseDefinitions(
     jsonData: Record<string, any>,
   ): Promise<Record<DefinitionBlockName, DefinitionCollection>> {
-    const startTime = Date.now();
-
     // Determine parsing strategy
     const useParallel = this.shouldUseParallelParsing();
-
-    this.logger?.logDebug({
-      msg: `Using ${useParallel ? 'parallel' : 'sequential'} parsing for definitions`,
-      action: 'parse_strategy_selected',
-      component: 'AwspParser',
-      tag: 'parsing',
-      timestamp: new Date(),
-    });
 
     let parsedDefinitions: Record<DefinitionBlockName, DefinitionCollection>;
 
@@ -170,16 +156,6 @@ export class AwspParser {
       }
       throw new Error('Validation failed: Unknown error');
     }*/
-
-    const duration = Date.now() - startTime;
-    this.logger?.logDebug({
-      msg: `Definition parsing completed in ${duration}ms`,
-      action: 'parse_definitions_complete',
-      component: 'AwspParser',
-      tag: 'parsing',
-      timestamp: new Date(),
-    });
-
     return parsedDefinitions;
   }
 

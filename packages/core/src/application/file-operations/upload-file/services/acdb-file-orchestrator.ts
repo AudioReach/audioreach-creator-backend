@@ -145,14 +145,6 @@ export class AcdbFileOrchestrator {
       // 6. Determine parsing strategy
       //const useParallel = this.shouldUseParallelParsing(chunkDescriptors);
 
-      //this.logger?.logDebug({
-      //   msg: `Using ${useParallel ? 'parallel' : 'sequential'} parsing for ${chunkDescriptors.length} chunks`,
-      //   action: 'parse_strategy_selected',
-      //   component: 'AcdbFileOrchestrator',
-      //   tag: 'parsing',
-      //   timestamp: new Date(),
-      // });
-
       // 6. Execute parsing based on strategy
       const result = await this.parseChunks(
         bytes,
@@ -217,14 +209,6 @@ export class AcdbFileOrchestrator {
     // Get all registered chunk types in registry order (priority already set)
     const allRegisteredChunks = ChunkMetadataRegistry.getAllChunkTypes();
 
-    this.logger?.logDebug({
-      msg: `Parsing ${allRegisteredChunks.length} chunks in registry order`,
-      action: 'parse_all_chunks_start',
-      component: 'AcdbFileOrchestrator',
-      tag: 'parsing',
-      timestamp: new Date(),
-    });
-
     // NOTE: Parallel processing is temporarily disabled - using sequential parsing only
     // TODO: Re-enable parallel processing once worker issues are resolved
 
@@ -265,7 +249,7 @@ export class AcdbFileOrchestrator {
         parsedChunks.set(chunkType, chunk);
         result.addChunk(chunkType, chunk);
 
-        this.logger?.logDebug({
+        this.logger?.logInfo({
           msg: `Successfully parsed chunk: ${chunkType}`,
           action: 'parse_chunk_success',
           component: 'AcdbFileOrchestrator',

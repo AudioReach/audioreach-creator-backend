@@ -6,6 +6,7 @@ import {EntitySchema} from 'typeorm';
 
 export interface SubgraphRow extends EntityBaseRow {
   name: string;
+  naturalId: number;
 
   // true: if subgraph is exported from another acdb file
   isExported: boolean;
@@ -25,6 +26,7 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
   columns: {
     ...BaseColumnSchemaPart,
     name: {type: String, length: 256},
+    naturalId: {name: 'natural_id', type: 'integer'},
     isExported: {name: 'is_exported', type: 'boolean'},
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
@@ -47,5 +49,8 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
       onDelete: 'CASCADE', // delete file => delete subgraphs
     },
   },
-  indices: [{name: 'ix_subgraphs_name', columns: ['name']}],
+  indices: [
+    {name: 'ix_subgraphs_name', columns: ['name']},
+    {name: 'ix_subgraphs_natural_id', columns: ['naturalId']},
+  ],
 });
