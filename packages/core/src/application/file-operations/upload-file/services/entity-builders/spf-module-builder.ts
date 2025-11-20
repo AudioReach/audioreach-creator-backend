@@ -8,6 +8,7 @@ import type {
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-type.js';
+import type {SpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 
 /**
  * Builder for converting ModuleInstanceInfo data to SpfModule domain entities.
@@ -27,6 +28,7 @@ export class SpfModuleBuilder {
     moduleInstanceInfos: ModuleInstanceInfo[],
     fileSystemId: number,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
+    spfModuleDefinitions: SpfModuleDefinition[] = [],
   ): Promise<SpfModule[]> {
     // Input validation
     if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
@@ -38,6 +40,26 @@ export class SpfModuleBuilder {
         timestamp: new Date(),
       });
       return [];
+    }
+
+    // Build display name lookup map from SPF module definitions
+    const moduleDisplayNames = new Map<number, string>();
+    if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
+      for (const moduleDef of spfModuleDefinitions) {
+        // Use displayName if available, fallback to name
+        const displayName = moduleDef.displayName || moduleDef.name;
+        if (displayName) {
+          moduleDisplayNames.set(moduleDef.id, displayName);
+        }
+      }
+
+      this.logger?.logDebug({
+        msg: `Built display name lookup for ${moduleDisplayNames.size} module definitions`,
+        action: 'module_display_name_lookup_built',
+        component: 'SpfModuleBuilder',
+        tag: 'spf-module-building',
+        timestamp: new Date(),
+      });
     }
 
     // Direct conversion logic
@@ -58,6 +80,7 @@ export class SpfModuleBuilder {
             moduleInfo,
             fileSystemId,
             modulePropertyConfig,
+            moduleDisplayNames,
           );
           spfModules.push(spfModule);
           successCount++;
@@ -93,6 +116,7 @@ export class SpfModuleBuilder {
     moduleInfo: ModuleInstanceInfo,
     fileSystemId: number,
     modulePropertyConfig?: ModulePropertyConfig,
+    moduleDisplayNames?: Map<number, string>,
   ): SpfModule {
     // Get foreign key mappings
     const subgraphSystemId = this.getSubgraphSystemId(moduleInfo.subgraphId);
@@ -108,6 +132,10 @@ export class SpfModuleBuilder {
     const dataPorts = this.createDataPortsFromProperties(modulePropertyConfig);
     const controlPorts = this.createDefaultControlPorts();
 
+    // Get display name from module definition, fallback to default alias
+    const displayName = moduleDisplayNames?.get(moduleInstance.moduleId);
+    const alias = displayName || `Module_${moduleInstance.instanceId}`;
+
     // Create SpfModule entity
     return new SpfModule({
       systemId: 0, // Will be generated during insertion
@@ -116,7 +144,7 @@ export class SpfModuleBuilder {
       containerSystemId,
       subgraphSystemId,
       fileSystemId,
-      alias: `Module_${moduleInstance.instanceId}`, // Default alias
+      alias,
       dataPorts,
       controlPorts,
     });

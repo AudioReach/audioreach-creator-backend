@@ -3,6 +3,7 @@ import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import {writeFileSync, mkdirSync} from 'fs';
 import {generateMockJwtToken} from '../helpers/auth.helper.js';
+import {ComponentGraphLogger} from '../helpers/component-graph-logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -167,6 +168,33 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
         '../../../logs/components-output.txt',
       );
       writeFileSync(componentsOutputPath, componentsSummary, 'utf8');
+
+      // Generate enhanced component graph log using ComponentGraphLogger
+      const graphLogger = new ComponentGraphLogger(
+        componentsData,
+        randomUsecaseSystemId,
+      );
+      const enhancedLog = graphLogger.generateEnhancedLog();
+
+      // Write enhanced log to file
+      const enhancedOutputPath = join(
+        __dirname,
+        '../../../logs/components-graph-enhanced.log',
+      );
+      writeFileSync(enhancedOutputPath, enhancedLog, 'utf8');
+
+      // Add assertions to verify the enhanced log content
+      expect(enhancedLog).toContain('USECASE COMPONENTS GRAPH');
+      expect(enhancedLog).toContain('DATA FLOW SUMMARY');
+      expect(enhancedLog).toContain('PORT DETAILS');
+      expect(enhancedLog).toContain('ERROR ANALYSIS');
+      expect(enhancedLog).toContain(`UseCase ID: ${randomUsecaseSystemId}`);
+
+      // Log success message
+      console.log(
+        `Enhanced component graph log generated for usecase ${randomUsecaseSystemId}`,
+      );
+      console.log(`Log file: ${enhancedOutputPath}`);
     }
 
     // Add small delay to ensure file operations complete

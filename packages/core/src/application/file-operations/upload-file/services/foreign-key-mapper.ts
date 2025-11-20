@@ -399,14 +399,6 @@ export class ForeignKeyMapper {
     this.moduleOutputPortMappings.clear();
     this.dataLinkMappings.clear();
     this.controlLinkMappings.clear();
-
-    this.logger?.logDebug({
-      msg: 'Cleared all foreign key mappings',
-      action: 'foreign_key_mappings_cleared',
-      component: 'ForeignKeyMapper',
-      tag: 'foreign-key-mapping',
-      timestamp: new Date(),
-    });
   }
 
   /**

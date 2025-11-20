@@ -52,14 +52,6 @@ export class KeyDefinitionBuilder {
       return [];
     }
 
-    this.logger?.logDebug({
-      msg: `Building ${awspKeyDefinitions.length} key definitions`,
-      action: 'key_definition_building_start',
-      component: 'KeyDefinitionBuilderService',
-      tag: 'key-definitions',
-      timestamp: new Date(),
-    });
-
     let result: DomainKeyDefinition[];
 
     // Determine processing strategy

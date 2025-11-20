@@ -9,7 +9,7 @@ import {ContainerRow} from '../../../entity-schema/index.js';
  *
  * Process:
  * 1. Batch insert all Containers
- * 2. Query back using type (natural key)
+ * 2. Query back using naturalId (natural key)
  * 3. Build results with mappings and errors
  *
  * Uses insert+query pattern with natural keys for reliable systemId mapping.
@@ -48,10 +48,12 @@ export class ContainerInserter extends BaseInserter<
     // ============================================
     // Query Back Container SystemIds
     // ============================================
-    const successfulContainerTypes = insertResult.succeeded.map(
-      row => row.type as string, // Using type as natural key
+    const successfulContainerNaturalIds = insertResult.succeeded.map(
+      row => row.naturalId as number, // Using naturalId as natural key
     );
-    const mappings = await this.queryBackContainers(successfulContainerTypes);
+    const mappings = await this.queryBackContainers(
+      successfulContainerNaturalIds,
+    );
 
     // ============================================
     // Build Results
@@ -67,30 +69,31 @@ export class ContainerInserter extends BaseInserter<
   ): QueryDeepPartialEntity<ContainerRow> {
     return {
       type: container.type,
+      naturalId: container.naturalId,
       fileSystemId: container.fileSystemId,
     };
   }
 
   /**
-   * Query back Container systemIds using natural keys (type).
+   * Query back Container systemIds using natural keys (naturalId).
    * Uses indexed column for fast lookup.
    *
-   * @param types - Array of container types to query
+   * @param naturalIds - Array of container naturalIds to query
    * @returns Array of natural key → systemId mappings
    */
   private async queryBackContainers(
-    types: string[],
-  ): Promise<NaturalIdMapping<string>[]> {
-    if (types.length === 0) return [];
+    naturalIds: number[],
+  ): Promise<NaturalIdMapping<number>[]> {
+    if (naturalIds.length === 0) return [];
 
     const results = await this.manager
       .createQueryBuilder('Container', 'c')
-      .select(['c.systemId', 'c.type'])
-      .where('c.type IN (:...types)', {types})
+      .select(['c.systemId', 'c.naturalId'])
+      .where('c.naturalId IN (:...naturalIds)', {naturalIds})
       .getMany();
 
     return results.map(r => ({
-      naturalId: r.type,
+      naturalId: r.naturalId,
       systemId: r.systemId,
     }));
   }
@@ -100,23 +103,22 @@ export class ContainerInserter extends BaseInserter<
    */
   private buildResults(
     containers: readonly Omit<Container, 'systemId'>[],
-    mappings: NaturalIdMapping<string>[],
+    mappings: NaturalIdMapping<number>[],
     insertResult: BatchInsertResult<QueryDeepPartialEntity<ContainerRow>>,
   ): BulkEntityInsertResult<number> {
     const mappingMap = new Map(mappings.map(m => [m.naturalId, m.systemId]));
 
     const failedMap = new Map(
-      insertResult.failed.map(f => [f.row.type as string, f.error]),
+      insertResult.failed.map(f => [f.row.naturalId as number, f.error]),
     );
 
     const results = [];
 
     for (const container of containers) {
-      const systemId = mappingMap.get(container.type);
-      const error = failedMap.get(container.type);
+      const systemId = mappingMap.get(container.naturalId);
+      const error = failedMap.get(container.naturalId);
 
       if (systemId) {
-        // Use the actual naturalId from the container entity
         results.push({
           idMapping: {naturalId: container.naturalId, systemId},
           errors: [],
@@ -124,7 +126,7 @@ export class ContainerInserter extends BaseInserter<
         });
       } else if (error) {
         results.push({
-          errors: [this.buildError('Container', container.type, error)],
+          errors: [this.buildError('Container', container.naturalId, error)],
           success: false,
         });
       }

@@ -189,15 +189,6 @@ export class SpfModuleDefinitionBuilder {
 
       // Log individual errors
       output.errors.forEach(error => {
-        // Debug log to see what error data we're receiving
-        this.logger?.logDebug({
-          msg: `Processing error for module ${error.moduleId}: error type=${typeof error.error}, length=${typeof error.error === 'string' ? error.error.length : 'N/A'}`,
-          action: 'error_data_debug',
-          component: 'SpfModuleDefinitionBuilder',
-          tag: 'spf-module-definitions',
-          timestamp: new Date(),
-        });
-
         this.logger?.logError({
           msg: `Failed to build SPF module definition ${error.moduleId} (${error.moduleName}): ${error.error}`,
           action: 'spf_module_definition_transform_error',

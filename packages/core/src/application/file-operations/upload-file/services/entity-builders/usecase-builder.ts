@@ -32,13 +32,6 @@ export class UsecaseBuilder {
   ): Promise<UseCase[]> {
     // Input validation
     if (!usecaseEntries || usecaseEntries.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No usecase entries provided for building',
-        action: 'no_usecase_entries',
-        component: 'UsecaseBuilder',
-        tag: 'usecase-building',
-        timestamp: new Date(),
-      });
       return [];
     }
 
@@ -105,13 +98,6 @@ export class UsecaseBuilder {
     if (moduleSystemIds.length > 0) {
       try {
         useCase.addModuleSystemIds(moduleSystemIds);
-        this.logger?.logDebug({
-          msg: `Added ${moduleSystemIds.length} module system IDs to usecase ${index}`,
-          action: 'module_system_ids_added',
-          component: 'UsecaseBuilder',
-          tag: 'usecase-building',
-          timestamp: new Date(),
-        });
       } catch (error) {
         this.logger?.logWarn({
           msg: `Failed to add module system IDs to usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -128,13 +114,6 @@ export class UsecaseBuilder {
     if (dataLinkSystemIds.length > 0) {
       try {
         useCase.addDataLinkSystemIds(dataLinkSystemIds);
-        this.logger?.logDebug({
-          msg: `Added ${dataLinkSystemIds.length} filtered datalink system IDs to usecase ${index}`,
-          action: 'datalink_system_ids_added',
-          component: 'UsecaseBuilder',
-          tag: 'usecase-building',
-          timestamp: new Date(),
-        });
       } catch (error) {
         this.logger?.logWarn({
           msg: `Failed to add datalink system IDs to usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
