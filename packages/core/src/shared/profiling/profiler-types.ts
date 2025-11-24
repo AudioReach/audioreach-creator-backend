@@ -17,9 +17,25 @@ export const PROFILER_OPERATIONS = {
   SIMPLE_ENTITIES: 'simple_entities',
   COMPLEX_ENTITIES: 'complex_entities',
 
+  // Entity-specific building operations
+  SUBGRAPH_BUILDING: 'subgraph_building',
+  CONTAINER_BUILDING: 'container_building',
+  SPF_MODULE_BUILDING: 'spf_module_building',
+  DATA_LINK_BUILDING: 'data_link_building',
+  CONTROL_LINK_BUILDING: 'control_link_building',
+  USECASE_BUILDING: 'usecase_building',
+
   // Persistence operations
   DATABASE_TRANSACTION: 'database_transaction',
   BULK_INSERT: 'bulk_insert',
+
+  // Entity-specific insertion operations
+  SUBGRAPH_INSERT: 'subgraph_insert',
+  CONTAINER_INSERT: 'container_insert',
+  SPF_MODULE_INSERT: 'spf_module_insert',
+  DATA_LINK_INSERT: 'data_link_insert',
+  CONTROL_LINK_INSERT: 'control_link_insert',
+  USECASE_INSERT: 'usecase_insert',
 
   // Worker operations
   WORKER_TASK: 'worker_task',
@@ -39,9 +55,25 @@ export const MEMORY_SNAPSHOTS = {
   BEFORE_ENTITY_BUILDING: 'before_entity_building',
   AFTER_ENTITY_BUILDING: 'after_entity_building',
 
+  // Entity-specific building snapshots
+  AFTER_SUBGRAPH_BUILD: 'after_subgraph_build',
+  AFTER_CONTAINER_BUILD: 'after_container_build',
+  AFTER_SPF_MODULE_BUILD: 'after_spf_module_build',
+  AFTER_DATA_LINK_BUILD: 'after_data_link_build',
+  AFTER_CONTROL_LINK_BUILD: 'after_control_link_build',
+  AFTER_USECASE_BUILD: 'after_usecase_build',
+
   // Persistence phase snapshots
   BEFORE_PERSISTENCE: 'before_persistence',
   AFTER_PERSISTENCE: 'after_persistence',
+
+  // Entity-specific insertion snapshots
+  AFTER_SUBGRAPH_INSERT: 'after_subgraph_insert',
+  AFTER_CONTAINER_INSERT: 'after_container_insert',
+  AFTER_SPF_MODULE_INSERT: 'after_spf_module_insert',
+  AFTER_DATA_LINK_INSERT: 'after_data_link_insert',
+  AFTER_CONTROL_LINK_INSERT: 'after_control_link_insert',
+  AFTER_USECASE_INSERT: 'after_usecase_insert',
 
   // Memory monitoring points
   PEAK_MEMORY: 'peak_memory',

@@ -185,14 +185,6 @@ export class UsecaseBuilder {
       );
     }
 
-    this.logger?.logDebug({
-      msg: `Mapped ${mappedCount} value systemIds, ${unmappedCount} failed for usecase ${index}`,
-      action: 'key_vector_mapping_complete',
-      component: 'UsecaseBuilder',
-      tag: 'usecase-building',
-      timestamp: new Date(),
-    });
-
     return {
       valueSystemIds,
     };
@@ -294,14 +286,6 @@ export class UsecaseBuilder {
         }
       }
     }
-
-    this.logger?.logDebug({
-      msg: `Data link filtering stats: ${totalLinks} total (${usecaseDataLinks.length} intra-subgraph, ${totalLinks - usecaseDataLinks.length} inter-subgraph), ${interGraphFiltered} inter-graph filtered, ${mappingFailed} mapping failed, ${added} added`,
-      action: 'datalink_filtering_stats',
-      component: 'UsecaseBuilder',
-      tag: 'usecase-building',
-      timestamp: new Date(),
-    });
 
     return dataLinkSystemIds;
   }

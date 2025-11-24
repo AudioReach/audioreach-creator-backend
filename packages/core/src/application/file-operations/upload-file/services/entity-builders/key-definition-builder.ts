@@ -43,10 +43,12 @@ export class KeyDefinitionBuilder {
   /**
    * Build domain KeyDefinition entities from AWSP KeyDefinitions
    * @param awspKeyDefinitions - Array of AWSP key definitions to transform
+   * @param fileSystemId - The file system ID to associate with the key definitions
    * @returns Promise resolving to array of domain key definitions
    */
   async buildKeyDefinitions(
     awspKeyDefinitions: AwspKeyDefinition[],
+    fileSystemId: number,
   ): Promise<DomainKeyDefinition[]> {
     if (!awspKeyDefinitions || awspKeyDefinitions.length === 0) {
       return [];
@@ -59,9 +61,9 @@ export class KeyDefinitionBuilder {
 
     try {
       if (useParallel) {
-        result = await this.buildParallel(awspKeyDefinitions);
+        result = await this.buildParallel(awspKeyDefinitions, fileSystemId);
       } else {
-        result = await this.buildSequential(awspKeyDefinitions);
+        result = await this.buildSequential(awspKeyDefinitions, fileSystemId);
       }
 
       this.logger?.logInfo({
@@ -102,6 +104,7 @@ export class KeyDefinitionBuilder {
    */
   private async buildParallel(
     keyDefinitions: AwspKeyDefinition[],
+    fileSystemId: number,
   ): Promise<DomainKeyDefinition[]> {
     if (!this.workerPool) {
       throw new Error('Worker pool not available for parallel processing');
@@ -128,7 +131,7 @@ export class KeyDefinitionBuilder {
         handlerKey: HANDLER_KEYS.BUILD_KEY_DEFINITIONS,
         input: {
           keyDefinitions: task1Definitions,
-          fileSystemId: 1, // Hardcoded as requested
+          fileSystemId: fileSystemId,
           taskName: `Key definitions batch 1 (${task1Definitions.length} items)`,
         },
       });
@@ -140,7 +143,7 @@ export class KeyDefinitionBuilder {
         handlerKey: HANDLER_KEYS.BUILD_KEY_DEFINITIONS,
         input: {
           keyDefinitions: task2Definitions,
-          fileSystemId: 1, // Hardcoded as requested
+          fileSystemId: fileSystemId,
           taskName: `Key definitions batch 2 (${task2Definitions.length} items)`,
         },
       });
@@ -206,6 +209,7 @@ export class KeyDefinitionBuilder {
    */
   private async buildSequential(
     keyDefinitions: AwspKeyDefinition[],
+    fileSystemId: number,
   ): Promise<DomainKeyDefinition[]> {
     this.logger?.logDebug({
       msg: `Building ${keyDefinitions.length} key definitions sequentially`,
@@ -220,8 +224,10 @@ export class KeyDefinitionBuilder {
 
     for (const awspKeyDef of keyDefinitions) {
       try {
-        const domainKeyDef =
-          KeyDefinitionBuilder.transformKeyDefinition(awspKeyDef);
+        const domainKeyDef = KeyDefinitionBuilder.transformKeyDefinition(
+          awspKeyDef,
+          fileSystemId,
+        );
         validKeyDefinitions.push(domainKeyDef);
       } catch (error) {
         errorCount++;
@@ -280,7 +286,10 @@ export class KeyDefinitionBuilder {
    * Static method for transforming AWSP KeyDefinition to Domain KeyDefinition
    * This method is used both in sequential processing and worker threads
    */
-  static transformKeyDefinition(awsp: AwspKeyDefinition): DomainKeyDefinition {
+  static transformKeyDefinition(
+    awsp: AwspKeyDefinition,
+    fileSystemId: number,
+  ): DomainKeyDefinition {
     // Transform value definitions
     const domainValues: DomainValueDefinition[] = [];
 
@@ -308,7 +317,7 @@ export class KeyDefinitionBuilder {
     const domainKeyDef = new DomainKeyDefinition({
       systemId: 0, // Will be generated during insertion
       keyId: awsp.id,
-      fileSystemId: 1, // Hardcoded as requested
+      fileSystemId: fileSystemId,
       name: awsp.name,
       description: awsp.description || '',
       isCalibrationKey: awsp.isCalKey ?? false,
@@ -352,8 +361,10 @@ export class KeyDefinitionBuilder {
 
     for (const awspKeyDef of input.keyDefinitions) {
       try {
-        const domainKeyDef =
-          KeyDefinitionBuilder.transformKeyDefinition(awspKeyDef);
+        const domainKeyDef = KeyDefinitionBuilder.transformKeyDefinition(
+          awspKeyDef,
+          input.fileSystemId,
+        );
         validKeyDefinitions.push(domainKeyDef);
       } catch (error) {
         // Enhanced error capture with diagnostic information

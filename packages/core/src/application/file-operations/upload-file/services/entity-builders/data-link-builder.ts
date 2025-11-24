@@ -16,9 +16,11 @@ export class DataLinkBuilder {
   /**
    * Build DataLink entities from data link properties
    * Main API method similar to UsecaseBuilder.buildUsecases()
+   * Uses early deduplication for optimal performance
    */
   async buildDataLinks(
     dataLinkProperties: DataLinkProperty[],
+    fileSystemId: number,
   ): Promise<DataLink[]> {
     // Input validation
     if (!dataLinkProperties || dataLinkProperties.length === 0) {
@@ -32,30 +34,48 @@ export class DataLinkBuilder {
       return [];
     }
 
-    // Direct conversion logic with detailed error tracking
+    // STEP 1: Early deduplication by naturalKeyHash (Performance Optimization)
+    const uniqueProperties = new Map<string, DataLinkProperty>();
+    let duplicateCount = 0;
+
+    for (const property of dataLinkProperties) {
+      if (uniqueProperties.has(property.naturalKeyHash)) {
+        duplicateCount++;
+      } else {
+        uniqueProperties.set(property.naturalKeyHash, property);
+      }
+    }
+
+    // Log deduplication results
+    this.logger?.logInfo({
+      msg: `Data link deduplication: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
+      action: 'data_link_deduplication',
+      component: 'DataLinkBuilder',
+      tag: 'data-link-building',
+      timestamp: new Date(),
+    });
+
+    // STEP 2: Build DataLink objects only for unique properties (Efficient Processing)
     const dataLinks: DataLink[] = [];
     let successCount = 0;
+    let failureCount = 0;
 
-    for (let i = 0; i < dataLinkProperties.length; i++) {
-      const property = dataLinkProperties[i];
-      const dataLink = this.convertDataLinkProperty(property);
+    for (const property of uniqueProperties.values()) {
+      const dataLink = this.convertDataLinkProperty(property, fileSystemId);
 
       if (dataLink !== null) {
         dataLinks.push(dataLink);
         successCount++;
       } else {
+        failureCount++;
         // The specific failure reason was already logged in convertDataLinkProperty
-        // We just increment the appropriate counter here
-        // Note: We can't easily distinguish the failure type here without duplicating logic,
-        // but the detailed logs in convertDataLinkProperty provide the specifics
       }
     }
 
-    const totalFailures = dataLinkProperties.length - successCount;
-
+    // STEP 3: Performance and results logging
     this.logger?.logInfo({
-      msg: `Data link conversion complete: ${successCount} successful, ${totalFailures} failed out of ${dataLinkProperties.length} total`,
-      action: 'data_link_conversion_complete',
+      msg: `Data link building complete: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${failureCount} failed (${duplicateCount} duplicates eliminated)`,
+      action: 'data_link_building_complete',
       component: 'DataLinkBuilder',
       tag: 'data-link-building',
       timestamp: new Date(),
@@ -68,7 +88,10 @@ export class DataLinkBuilder {
    * Convert single DataLinkProperty to DataLink entity
    * Returns null if any required mapping fails
    */
-  private convertDataLinkProperty(property: DataLinkProperty): DataLink | null {
+  private convertDataLinkProperty(
+    property: DataLinkProperty,
+    fileSystemId: number,
+  ): DataLink | null {
     try {
       // Get node systemIds from foreign key mapper
       const sourceNodeSystemId = this.getModuleInstanceSystemId(
@@ -143,6 +166,7 @@ export class DataLinkBuilder {
         destinationPortSystemId,
         property.isInterGraph, // Use the calculated value from parser
         property.naturalKeyHash, // Use pre-computed hash from parsed ACDB
+        fileSystemId, // Associate with the file being uploaded
       );
     } catch (error) {
       this.logger?.logWarn({

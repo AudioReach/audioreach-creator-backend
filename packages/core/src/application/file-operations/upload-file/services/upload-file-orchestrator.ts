@@ -93,6 +93,66 @@ export class UploadFileOrchestrator {
   }
 
   /**
+   * Log entity building performance metrics with throughput calculation
+   */
+  private async logEntityBuildMetrics(
+    metrics: PerformanceMetrics | undefined,
+    entityCount: number,
+  ): Promise<void> {
+    if (!metrics) return;
+
+    const memoryDelta =
+      metrics.endMemory.heapUsed - metrics.startMemory.heapUsed;
+    const memoryDeltaMB = (memoryDelta / 1024 / 1024).toFixed(2);
+    const throughput =
+      entityCount > 0
+        ? (entityCount / (metrics.duration / 1000)).toFixed(1)
+        : '0';
+
+    await this.logger?.logInfo({
+      msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (entities: ${entityCount}, throughput: ${throughput}/sec, memory delta: ${memoryDeltaMB}MB)`,
+      timestamp: new Date(),
+      action: 'entity-build-performance',
+      component: 'UploadFileOrchestrator',
+      tag: 'profiling-metrics',
+    });
+  }
+
+  /**
+   * Log entity insertion performance metrics with success rates
+   */
+  private async logEntityInsertMetrics(
+    metrics: PerformanceMetrics | undefined,
+    insertResult: any,
+  ): Promise<void> {
+    if (!metrics || !insertResult) return;
+
+    const memoryDelta =
+      metrics.endMemory.heapUsed - metrics.startMemory.heapUsed;
+    const memoryDeltaMB = (memoryDelta / 1024 / 1024).toFixed(2);
+
+    const totalEntities = insertResult.results?.length || 0;
+    const successfulInserts =
+      insertResult.results?.filter((r: any) => r.success)?.length || 0;
+    const successRate =
+      totalEntities > 0
+        ? ((successfulInserts / totalEntities) * 100).toFixed(1)
+        : '0';
+    const throughput =
+      totalEntities > 0
+        ? (totalEntities / (metrics.duration / 1000)).toFixed(1)
+        : '0';
+
+    await this.logger?.logInfo({
+      msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (entities: ${totalEntities}, success: ${successfulInserts}/${totalEntities} (${successRate}%), throughput: ${throughput}/sec, memory delta: ${memoryDeltaMB}MB)`,
+      timestamp: new Date(),
+      action: 'entity-insert-performance',
+      component: 'UploadFileOrchestrator',
+      tag: 'profiling-metrics',
+    });
+  }
+
+  /**
    * Log memory snapshots from profiler
    */
   private async logMemorySnapshot(
@@ -243,6 +303,7 @@ export class UploadFileOrchestrator {
     // Build key definitions
     const keyDefinitions = await this.builderService.buildKeyDefinitions(
       this.parsedAwsp,
+      this.currentFileId,
     );
 
     if (keyDefinitions && keyDefinitions.length > 0) {
@@ -284,7 +345,10 @@ export class UploadFileOrchestrator {
 
     // Build SPF module definitions
     const spfModuleDefinitions =
-      await this.builderService.buildSpfModuleDefinitions(this.parsedAwsp);
+      await this.builderService.buildSpfModuleDefinitions(
+        this.parsedAwsp,
+        this.currentFileId,
+      );
 
     if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
       const spfModuleDefResult = await bulkRepo.insertModuleDefinitions(
@@ -319,18 +383,35 @@ export class UploadFileOrchestrator {
       throw new Error('Parsed data not available for building subgraphs');
     }
 
-    // Build subgraphs (now that we have definition systemIds)
+    // Profile building phase
+    this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_BUILDING);
     const subgraphs = await this.builderService.buildSubgraphs(
       this.parsedAcdb,
       this.currentFileId,
     );
+    const buildMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.SUBGRAPH_BUILDING,
+    );
+    this.logEntityBuildMetrics(buildMetrics, subgraphs?.length || 0);
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SUBGRAPH_BUILD),
+    );
 
     if (subgraphs && subgraphs.length > 0) {
+      // Profile insertion phase
+      this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_INSERT);
       const subgraphResult = await bulkRepo.insertSubgraphs(
         subgraphs.map((sg: Subgraph) => ({
           ...sg,
           systemId: undefined,
         })) as any,
+      );
+      const insertMetrics = this.profiler?.end(
+        PROFILER_OPERATIONS.SUBGRAPH_INSERT,
+      );
+      this.logEntityInsertMetrics(insertMetrics, subgraphResult);
+      this.logMemorySnapshot(
+        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SUBGRAPH_INSERT),
       );
 
       // Store subgraph mappings from bulk insertion result
@@ -358,18 +439,35 @@ export class UploadFileOrchestrator {
       throw new Error('Parsed data not available for building containers');
     }
 
-    // Build containers (now that we have definition systemIds)
+    // Profile building phase
+    this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_BUILDING);
     const containers = await this.builderService.buildContainers(
       this.parsedAcdb,
       this.currentFileId,
     );
+    const buildMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.CONTAINER_BUILDING,
+    );
+    this.logEntityBuildMetrics(buildMetrics, containers?.length || 0);
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTAINER_BUILD),
+    );
 
     if (containers && containers.length > 0) {
+      // Profile insertion phase
+      this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_INSERT);
       const containerResult = await bulkRepo.insertContainers(
         containers.map((c: Container) => ({
           ...c,
           systemId: undefined,
         })) as any,
+      );
+      const insertMetrics = this.profiler?.end(
+        PROFILER_OPERATIONS.CONTAINER_INSERT,
+      );
+      this.logEntityInsertMetrics(insertMetrics, containerResult);
+      this.logMemorySnapshot(
+        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTAINER_INSERT),
       );
 
       // Store container mappings from bulk insertion result
@@ -397,19 +495,36 @@ export class UploadFileOrchestrator {
       throw new Error('Parsed data not available for building SPF modules');
     }
 
-    // Build SPF modules (now that we have subgraph, container, and definition systemIds)
+    // Profile building phase
+    this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_BUILDING);
     const spfModules = await this.builderService.buildSpfModules(
       this.parsedAcdb,
       this.currentFileId,
       this.parsedAwsp,
     );
+    const buildMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.SPF_MODULE_BUILDING,
+    );
+    this.logEntityBuildMetrics(buildMetrics, spfModules?.length || 0);
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SPF_MODULE_BUILD),
+    );
 
     if (spfModules && spfModules.length > 0) {
+      // Profile insertion phase
+      this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_INSERT);
       const spfModuleResult = await bulkRepo.insertSpfModules(
         spfModules.map((sm: SpfModule) => ({
           ...sm,
           systemId: undefined,
         })) as any,
+      );
+      const insertMetrics = this.profiler?.end(
+        PROFILER_OPERATIONS.SPF_MODULE_INSERT,
+      );
+      this.logEntityInsertMetrics(insertMetrics, spfModuleResult);
+      this.logMemorySnapshot(
+        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SPF_MODULE_INSERT),
       );
 
       // Store module instance mappings from bulk insertion result
@@ -437,15 +552,35 @@ export class UploadFileOrchestrator {
       throw new Error('Parsed data not available for building data links');
     }
 
-    // Build data links (now that we have module systemIds)
-    const dataLinks = await this.builderService.buildDataLinks(this.parsedAcdb);
+    // Profile building phase
+    this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_BUILDING);
+    const dataLinks = await this.builderService.buildDataLinks(
+      this.parsedAcdb,
+      this.currentFileId,
+    );
+    const buildMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.DATA_LINK_BUILDING,
+    );
+    this.logEntityBuildMetrics(buildMetrics, dataLinks?.length || 0);
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_BUILD),
+    );
 
     if (dataLinks && dataLinks.length > 0) {
+      // Profile insertion phase
+      this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_INSERT);
       const dataLinkResult = await bulkRepo.insertDataLinks(
         dataLinks.map((dl: DataLink) => ({
           ...dl,
           systemId: undefined,
         })) as any,
+      );
+      const insertMetrics = this.profiler?.end(
+        PROFILER_OPERATIONS.DATA_LINK_INSERT,
+      );
+      this.logEntityInsertMetrics(insertMetrics, dataLinkResult);
+      this.logMemorySnapshot(
+        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_INSERT),
       );
 
       // Store datalink mappings for usecases
@@ -511,18 +646,35 @@ export class UploadFileOrchestrator {
       throw new Error('Parsed data not available for building usecases');
     }
 
-    // Build usecases (now that we have all value definition systemIds)
+    // Profile building phase
+    this.profiler?.start(PROFILER_OPERATIONS.USECASE_BUILDING);
     const usecases = await this.builderService.buildUsecases(
       this.parsedAcdb,
       this.currentFileId,
     );
+    const buildMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.USECASE_BUILDING,
+    );
+    this.logEntityBuildMetrics(buildMetrics, usecases?.length || 0);
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_USECASE_BUILD),
+    );
 
     if (usecases && usecases.length > 0) {
+      // Profile insertion phase
+      this.profiler?.start(PROFILER_OPERATIONS.USECASE_INSERT);
       const usecaseResult = await bulkRepo.insertUseCases(
         usecases.map((uc: UseCase) => ({
           ...uc,
           systemId: undefined,
         })) as any,
+      );
+      const insertMetrics = this.profiler?.end(
+        PROFILER_OPERATIONS.USECASE_INSERT,
+      );
+      this.logEntityInsertMetrics(insertMetrics, usecaseResult);
+      this.logMemorySnapshot(
+        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_USECASE_INSERT),
       );
 
       const successfulInserts = usecaseResult.results.filter(

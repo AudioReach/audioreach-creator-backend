@@ -259,7 +259,10 @@ export class EntityBuilderService {
    * Build data links from ACDB data
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
-  async buildDataLinks(parsedAcdb: ParsedAcdb): Promise<DataLink[]> {
+  async buildDataLinks(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<DataLink[]> {
     const allDataLinkProperties: any[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
@@ -299,6 +302,7 @@ export class EntityBuilderService {
     // 4. Build domain data links from all sources
     const dataLinks = await this.dataLinkBuilder.buildDataLinks(
       allDataLinkProperties,
+      fileSystemId,
     );
 
     this.logger?.logInfo({
@@ -412,7 +416,10 @@ export class EntityBuilderService {
   /**
    * Build key definitions from AWSP data
    */
-  async buildKeyDefinitions(parsedAwsp: ParsedAwsp): Promise<KeyDefinition[]> {
+  async buildKeyDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<KeyDefinition[]> {
     // Extract key definitions from AWSP
     const awspKeyDefinitions = parsedAwsp.getKeyDefinitions();
 
@@ -421,8 +428,10 @@ export class EntityBuilderService {
     }
 
     // Build domain key definitions
-    const keyDefinitions =
-      await this.keyDefinitionBuilder.buildKeyDefinitions(awspKeyDefinitions);
+    const keyDefinitions = await this.keyDefinitionBuilder.buildKeyDefinitions(
+      awspKeyDefinitions,
+      fileSystemId,
+    );
 
     this.logger?.logInfo({
       msg: `Successfully built ${keyDefinitions.length} key definitions from AWSP`,
@@ -440,6 +449,7 @@ export class EntityBuilderService {
    */
   async buildSpfModuleDefinitions(
     parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
   ): Promise<SpfModuleDefinition[]> {
     // Extract SPF module definitions from AWSP
     const awspModuleDefinitions = parsedAwsp.getSpfModuleDefinitions();
@@ -452,6 +462,7 @@ export class EntityBuilderService {
     const moduleDefinitions =
       await this.spfModuleDefinitionBuilder.buildModuleDefinitions(
         awspModuleDefinitions,
+        fileSystemId,
       );
 
     this.logger?.logInfo({
