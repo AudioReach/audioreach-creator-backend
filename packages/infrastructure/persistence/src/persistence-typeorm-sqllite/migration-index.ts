@@ -1,3 +1,3 @@
-import {Migrations1763630718129} from './migrations/1763630718129-migrations.js';
+import {Migrations1763727957737} from './migrations/1763727957737-migrations.js';
 
-export const migrations = [Migrations1763630718129];
+export const migrations = [Migrations1763727957737];

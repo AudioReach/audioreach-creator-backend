@@ -2,6 +2,7 @@ import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 import {NodeRow} from '../node/node.schema.js';
 import {DataPortRow} from '../node/data-port-info.schema.js';
 import {UseCaseRow} from '../use-case.js';
+import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface DataLinkRow extends EntityBaseRow {
@@ -11,12 +12,14 @@ export interface DataLinkRow extends EntityBaseRow {
   destinationPortSystemId: number;
   isInterGraph: boolean;
   naturalKeyHash: string;
+  fileSystemId: number;
 
   sourceNode?: NodeRow;
   destinationNode?: NodeRow;
   sourcePort?: DataPortRow;
   destinationPort?: DataPortRow;
   useCases?: UseCaseRow[];
+  file?: ArcDbFileRow;
 }
 
 export const DataLinkSchema = new EntitySchema<DataLinkRow>({
@@ -48,6 +51,12 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
       type: 'varchar',
       name: 'natural_key_hash',
       length: 255,
+    },
+    fileSystemId: {
+      name: 'file_system_id',
+      type: Number,
+      nullable: false,
+      unsigned: true,
     },
   },
   relations: {
@@ -87,6 +96,15 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
       },
       onDelete: 'RESTRICT',
     },
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {
+        name: 'file_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
     useCases: {
       type: 'many-to-many',
       target: 'UseCase',
@@ -95,8 +113,8 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
   },
   indices: [
     {
-      name: 'uk_data_link_natural_key_hash',
-      columns: ['naturalKeyHash'],
+      name: 'uk_data_link_file_natural_key',
+      columns: ['fileSystemId', 'naturalKeyHash'],
       unique: true,
     },
   ],

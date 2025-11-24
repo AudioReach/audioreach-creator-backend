@@ -43,10 +43,12 @@ export class SpfModuleDefinitionBuilder {
   /**
    * Build domain SpfModuleDefinition entities from AWSP SpfModuleDefinitions
    * @param awspModuleDefinitions - Array of AWSP SPF module definitions to transform
+   * @param fileSystemId - The file system ID to associate with the module definitions
    * @returns Promise resolving to array of domain SPF module definitions
    */
   async buildModuleDefinitions(
     awspModuleDefinitions: AwspSpfModuleDefinition[],
+    fileSystemId: number,
   ): Promise<DomainSpfModuleDefinition[]> {
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
       return [];
@@ -67,9 +69,12 @@ export class SpfModuleDefinitionBuilder {
 
     try {
       if (useParallel) {
-        result = await this.buildParallel(awspModuleDefinitions);
+        result = await this.buildParallel(awspModuleDefinitions, fileSystemId);
       } else {
-        result = await this.buildSequential(awspModuleDefinitions);
+        result = await this.buildSequential(
+          awspModuleDefinitions,
+          fileSystemId,
+        );
       }
 
       this.logger?.logInfo({
@@ -112,6 +117,7 @@ export class SpfModuleDefinitionBuilder {
    */
   private async buildParallel(
     moduleDefinitions: AwspSpfModuleDefinition[],
+    fileSystemId: number,
   ): Promise<DomainSpfModuleDefinition[]> {
     if (!this.workerPool) {
       throw new Error('Worker pool not available for parallel processing');
@@ -138,7 +144,7 @@ export class SpfModuleDefinitionBuilder {
         handlerKey: HANDLER_KEYS.BUILD_SPF_MODULE_DEFINITIONS,
         input: {
           moduleDefinitions: task1Definitions,
-          fileSystemId: 1, // Hardcoded as requested
+          fileSystemId: fileSystemId,
           taskName: `SPF module definitions batch 1 (${task1Definitions.length} items)`,
         },
       });
@@ -150,7 +156,7 @@ export class SpfModuleDefinitionBuilder {
         handlerKey: HANDLER_KEYS.BUILD_SPF_MODULE_DEFINITIONS,
         input: {
           moduleDefinitions: task2Definitions,
-          fileSystemId: 1, // Hardcoded as requested
+          fileSystemId: fileSystemId,
           taskName: `SPF module definitions batch 2 (${task2Definitions.length} items)`,
         },
       });
@@ -216,6 +222,7 @@ export class SpfModuleDefinitionBuilder {
    */
   private async buildSequential(
     moduleDefinitions: AwspSpfModuleDefinition[],
+    fileSystemId: number,
   ): Promise<DomainSpfModuleDefinition[]> {
     this.logger?.logDebug({
       msg: `Building ${moduleDefinitions.length} SPF module definitions sequentially`,
@@ -231,7 +238,10 @@ export class SpfModuleDefinitionBuilder {
     for (const awspModuleDef of moduleDefinitions) {
       try {
         const domainModuleDef =
-          SpfModuleDefinitionBuilder.transformModuleDefinition(awspModuleDef);
+          SpfModuleDefinitionBuilder.transformModuleDefinition(
+            awspModuleDef,
+            fileSystemId,
+          );
         validModuleDefinitions.push(domainModuleDef);
       } catch (error) {
         errorCount++;
@@ -283,6 +293,7 @@ export class SpfModuleDefinitionBuilder {
    */
   static transformModuleDefinition(
     awsp: AwspSpfModuleDefinition,
+    fileSystemId: number,
   ): DomainSpfModuleDefinition {
     // Create input data port group
     const inputDataPortsGroup = new DataPortGroupDefinition({
@@ -320,7 +331,7 @@ export class SpfModuleDefinitionBuilder {
     const domainModuleDef = new DomainSpfModuleDefinition({
       systemId: 0, // Will be generated during insertion
       moduleDefinitionId: awsp.id,
-      fileSystemId: 1, // Hardcoded as requested
+      fileSystemId: fileSystemId,
       name: awsp.name,
       displayName: awsp.displayName || awsp.name,
       description: awsp.description || '',
@@ -366,7 +377,10 @@ export class SpfModuleDefinitionBuilder {
     for (const awspModuleDef of input.moduleDefinitions) {
       try {
         const domainModuleDef =
-          SpfModuleDefinitionBuilder.transformModuleDefinition(awspModuleDef);
+          SpfModuleDefinitionBuilder.transformModuleDefinition(
+            awspModuleDef,
+            input.fileSystemId,
+          );
         validModuleDefinitions.push(domainModuleDef);
       } catch (error) {
         // Enhanced error capture with diagnostic information

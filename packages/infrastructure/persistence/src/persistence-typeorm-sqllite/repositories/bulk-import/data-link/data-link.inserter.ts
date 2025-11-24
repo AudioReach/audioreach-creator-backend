@@ -77,6 +77,7 @@ export class DataLinkInserter extends BaseInserter<
       destinationPortSystemId: dataLink.destinationPortSystemId,
       isInterGraph: dataLink.isInterGraph,
       naturalKeyHash: dataLink.naturalKeyHash, // Now stored in DB for efficient querying
+      fileSystemId: dataLink.fileSystemId, // Associate with file
     };
   }
 

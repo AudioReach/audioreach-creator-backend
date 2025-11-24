@@ -16,31 +16,61 @@ export class ControlLinkBuilder {
   /**
    * Build ControlLink entities from control link properties
    * Main API method similar to UsecaseBuilder.buildUsecases()
+   * Uses early deduplication for optimal performance
    */
   async buildControlLinks(
     controlLinkProperties: ControlLinkProperty[],
   ): Promise<ControlLink[]> {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
+      this.logger?.logDebug({
+        msg: 'No control link properties provided for building',
+        action: 'no_control_link_properties',
+        component: 'ControlLinkBuilder',
+        tag: 'control-link-building',
+        timestamp: new Date(),
+      });
       return [];
     }
 
-    // Direct conversion logic
+    // STEP 1: Early deduplication by composite key (Performance Optimization)
+    const uniqueProperties = new Map<string, ControlLinkProperty>();
+    let duplicateCount = 0;
+
+    for (const property of controlLinkProperties) {
+      // Create composite key for deduplication (matches DB unique constraint)
+      const compositeKey = `${property.peer1InstanceId}-${property.peer2InstanceId}-${property.peer1PortId}-${property.peer2PortId}`;
+
+      if (uniqueProperties.has(compositeKey)) {
+        duplicateCount++;
+      } else {
+        uniqueProperties.set(compositeKey, property);
+      }
+    }
+
+    // Log deduplication results
+    this.logger?.logInfo({
+      msg: `Control link deduplication: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
+      action: 'control_link_deduplication',
+      component: 'ControlLinkBuilder',
+      tag: 'control-link-building',
+      timestamp: new Date(),
+    });
+
+    // STEP 2: Build ControlLink objects only for unique properties (Efficient Processing)
     const controlLinks: ControlLink[] = [];
     let successCount = 0;
     let errorCount = 0;
 
-    for (let i = 0; i < controlLinkProperties.length; i++) {
+    for (const property of uniqueProperties.values()) {
       try {
-        const controlLink = this.convertControlLinkProperty(
-          controlLinkProperties[i],
-        );
+        const controlLink = this.convertControlLinkProperty(property);
         controlLinks.push(controlLink);
         successCount++;
       } catch (error) {
         errorCount++;
         this.logger?.logWarn({
-          msg: `Failed to convert control link property ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          msg: `Failed to convert control link property (peer1: ${property.peer1InstanceId}, peer2: ${property.peer2InstanceId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
           action: 'control_link_conversion_failed',
           component: 'ControlLinkBuilder',
           tag: 'control-link-building',
@@ -49,9 +79,10 @@ export class ControlLinkBuilder {
       }
     }
 
+    // STEP 3: Performance and results logging
     this.logger?.logInfo({
-      msg: `Converted ${successCount} control links successfully, ${errorCount} failed`,
-      action: 'control_link_conversion_complete',
+      msg: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated)`,
+      action: 'control_link_building_complete',
       component: 'ControlLinkBuilder',
       tag: 'control-link-building',
       timestamp: new Date(),

@@ -45,7 +45,7 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
     keyId: {
       name: 'key_id',
       type: Number,
-      unique: true,
+      unique: false,
       unsigned: true,
     },
     keyName: {
