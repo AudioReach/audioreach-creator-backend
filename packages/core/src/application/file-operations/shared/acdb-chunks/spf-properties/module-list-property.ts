@@ -147,7 +147,7 @@ export class ModuleListProperty {
     const subgraphIds = new Set(
       this.moduleInstanceInfos.map(mi => mi.subgraphId),
     );
-    return Array.from(subgraphIds);
+    return [...subgraphIds];
   }
 
   /**
@@ -157,6 +157,6 @@ export class ModuleListProperty {
     const containerIds = new Set(
       this.moduleInstanceInfos.map(mi => mi.containerId),
     );
-    return Array.from(containerIds);
+    return [...containerIds];
   }
 }

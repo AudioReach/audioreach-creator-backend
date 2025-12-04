@@ -243,8 +243,7 @@ export class AwspParser {
     const parsedDefinitions: Record<DefinitionBlockName, DefinitionCollection> =
       {} as Record<DefinitionBlockName, DefinitionCollection>;
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
+    for (const [i, result] of results.entries()) {
       const task = tasks[i];
 
       if (!result.success || result.error) {

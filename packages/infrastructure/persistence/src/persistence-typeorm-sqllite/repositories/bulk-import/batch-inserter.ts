@@ -6,8 +6,8 @@ export interface BatchInsertResult<TRow> {
   failed: Array<{row: TRow; error: Error}>;
 }
 
-export class BatchInserter {
-  static async insert<TEntity extends ObjectLiteral>(
+export const BatchInserter = {
+  async insert<TEntity extends ObjectLiteral>(
     manager: EntityManager,
     target: EntityTarget<TEntity>,
     rows: QueryDeepPartialEntity<TEntity>[],
@@ -22,7 +22,7 @@ export class BatchInserter {
       try {
         await manager.insert<TEntity>(target, batch);
         succeeded.push(...batch);
-      } catch (batchError) {
+      } catch {
         for (const row of batch) {
           try {
             await manager.insert<TEntity>(target, row);
@@ -35,5 +35,5 @@ export class BatchInserter {
     }
 
     return {succeeded, failed};
-  }
-}
+  },
+};

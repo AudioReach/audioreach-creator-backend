@@ -8,7 +8,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
   constructor(@Inject('LOGGER') private readonly logger: Logger) {}
 
   use(req: Request, res: Response, next: NextFunction) {
-    const requestId = Math.random().toString(36).substring(2, 15);
+    const requestId = Math.random().toString(36).slice(2, 15);
     const startTime = Date.now();
 
     this.logger.logInfo({
@@ -90,13 +90,13 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     try {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
+        const token = authHeader.slice(7);
         const payload = JSON.parse(
           Buffer.from(token.split('.')[1], 'base64').toString(),
         );
         return payload.sub || 'unknown';
       }
-    } catch (e) {
+    } catch {
       // Ignore parsing errors
     }
     return 'unknown';

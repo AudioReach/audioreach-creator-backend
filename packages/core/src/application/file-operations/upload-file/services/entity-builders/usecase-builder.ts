@@ -40,10 +40,10 @@ export class UsecaseBuilder {
     let successCount = 0;
     let errorCount = 0;
 
-    for (let i = 0; i < usecaseEntries.length; i++) {
+    for (const [i, usecaseEntry] of usecaseEntries.entries()) {
       try {
         const usecase = this.convertUsecaseEntry(
-          usecaseEntries[i],
+          usecaseEntry,
           i,
           fileSystemId,
         );

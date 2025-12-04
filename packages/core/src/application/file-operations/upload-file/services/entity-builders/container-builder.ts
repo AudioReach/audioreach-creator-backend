@@ -34,10 +34,10 @@ export class ContainerBuilder {
     let successCount = 0;
     let errorCount = 0;
 
-    for (let i = 0; i < containerProperties.length; i++) {
+    for (const [i, containerProperty] of containerProperties.entries()) {
       try {
         const container = this.convertContainerProperty(
-          containerProperties[i],
+          containerProperty,
           fileSystemId,
         );
         containers.push(container);

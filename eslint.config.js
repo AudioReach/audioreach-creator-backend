@@ -150,6 +150,12 @@ export default [
       'sonarjs/todo-tag': 'off',
       // Disabled: Allow abbreviations in variable names for better readability
       'unicorn/prevent-abbreviations': 'off',
+      // Disabled: Switch case braces are not required for our codebase style
+      'unicorn/switch-case-braces': 'off',
+      // Disabled: Prefer explicit if-else over ternary for better readability
+      'unicorn/prefer-ternary': 'off',
+      // Disabled: TypeError should only be used for JavaScript type errors, not data validation errors
+      'unicorn/prefer-type-error': 'off',
       // Configure unused vars to ignore parameters/variables prefixed with underscore
       '@typescript-eslint/no-unused-vars': [
         'error',

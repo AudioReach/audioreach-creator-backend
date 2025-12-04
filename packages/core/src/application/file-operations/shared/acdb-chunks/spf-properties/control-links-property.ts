@@ -198,10 +198,10 @@ export class ControlLinksProperty {
    */
   getInstanceIds(): number[] {
     const instanceIds = new Set<number>();
-    this.controlLinks.forEach(link => {
+    for (const link of this.controlLinks) {
       instanceIds.add(link.peer1InstanceId);
       instanceIds.add(link.peer2InstanceId);
-    });
-    return Array.from(instanceIds);
+    }
+    return [...instanceIds];
   }
 }

@@ -17,8 +17,8 @@ import type {
 /**
  * Mappers for converting database rows to read models for use case queries
  */
-export class UseCaseQueryMappers {
-  static mapValueToKeyVector(value: ValueDefinitionRow): KeyVectorReadModel {
+export const UseCaseQueryMappers = {
+  mapValueToKeyVector(value: ValueDefinitionRow): KeyVectorReadModel {
     return {
       key: {
         systemId: value.keys.systemId,
@@ -31,9 +31,9 @@ export class UseCaseQueryMappers {
         name: value.valueName,
       },
     };
-  }
+  },
 
-  static mapNodeToModuleReadModel(node: NodeRow): ModuleReadModel {
+  mapNodeToModuleReadModel(node: NodeRow): ModuleReadModel {
     const spfModule = node.spfModule!;
 
     // Map data ports
@@ -81,9 +81,9 @@ export class UseCaseQueryMappers {
       dataPorts,
       controlPorts,
     };
-  }
+  },
 
-  static mapToDataLinkReadModel(dataLink: DataLinkRow): DataLinkReadModel {
+  mapToDataLinkReadModel(dataLink: DataLinkRow): DataLinkReadModel {
     return {
       systemId: dataLink.systemId,
       sourceNodeSystemId: dataLink.sourceNodeSystemId,
@@ -92,9 +92,9 @@ export class UseCaseQueryMappers {
       destinationPortSystemId: dataLink.destinationPortSystemId,
       isInterGraph: dataLink.isInterGraph,
     };
-  }
+  },
 
-  static mapToControlLinkReadModel(
+  mapToControlLinkReadModel(
     controlLink: ControlLinkRow,
   ): ControlLinkReadModel {
     return {
@@ -106,5 +106,5 @@ export class UseCaseQueryMappers {
       heapId: controlLink.heapId,
       isInterGraph: controlLink.isInterGraph,
     };
-  }
-}
+  },
+};

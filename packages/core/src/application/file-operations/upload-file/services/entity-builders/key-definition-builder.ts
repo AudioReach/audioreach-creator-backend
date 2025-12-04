@@ -60,11 +60,7 @@ export class KeyDefinitionBuilder {
     const useParallel = this.shouldUseParallel(awspKeyDefinitions);
 
     try {
-      if (useParallel) {
-        result = await this.buildParallel(awspKeyDefinitions, fileSystemId);
-      } else {
-        result = await this.buildSequential(awspKeyDefinitions, fileSystemId);
-      }
+      result = await (useParallel ? this.buildParallel(awspKeyDefinitions, fileSystemId) : this.buildSequential(awspKeyDefinitions, fileSystemId));
 
       this.logger?.logInfo({
         msg: `Successfully built ${result.length} key definitions`,
@@ -160,8 +156,7 @@ export class KeyDefinitionBuilder {
     const validKeyDefinitions: DomainKeyDefinition[] = [];
     let totalErrors = 0;
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
+    for (const [i, result] of results.entries()) {
       const task = tasks[i];
 
       if (!result.success || result.error) {
@@ -181,7 +176,7 @@ export class KeyDefinitionBuilder {
       totalErrors += output.errors.length;
 
       // Log individual errors with safe error handling
-      output.errors.forEach(error => {
+      for (const error of output.errors) {
         this.logger?.logError({
           msg: `Failed to build key definition ${error.keyId} (${error.keyName}): ${error.error}`,
           action: 'key_definition_transform_error',
@@ -190,7 +185,7 @@ export class KeyDefinitionBuilder {
           error: new Error(error.error || 'Unknown error'),
           timestamp: new Date(),
         });
-      });
+      }
     }
 
     this.logger?.logInfo({

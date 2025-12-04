@@ -49,16 +49,16 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
     const chunk = new SubgraphDataChunk();
 
     // Process each usecase entry to extract subgraph data
-    usecaseChunk.usecases.forEach((usecaseEntry, index) => {
+    for (const [index, usecaseEntry] of usecaseChunk.usecases.entries()) {
       try {
         const subgraphEntries = this.extractSubgraphData(
           datapoolChunk,
           usecaseEntry.sgPropOffset,
         );
         // Add each unique subgraph entry
-        subgraphEntries.forEach(entry => {
+        for (const entry of subgraphEntries) {
           chunk.addSubgraphData(entry);
-        });
+        }
       } catch (error) {
         // Log error but continue processing other usecases
         console.warn(
@@ -66,7 +66,7 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
           error,
         );
       }
-    });
+    }
 
     return chunk;
   }

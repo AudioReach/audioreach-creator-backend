@@ -6,10 +6,10 @@ export class ApiResult<T> {
   data?: T;
 
   @ApiProperty({ type: [String], required: false })
-  errors?: String[];
+  errors?: string[];
 
   @ApiProperty({ type: [String], required: false })
-  warnings?: String[];
+  warnings?: string[];
 
   @ApiProperty()
   success!: boolean;

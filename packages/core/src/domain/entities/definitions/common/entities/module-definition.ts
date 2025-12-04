@@ -38,11 +38,11 @@ export abstract class ModuleDefinition {
   }
 
   AddParameter(paramDefinition: ParamDefinition) {
-    if (paramDefinition == null) {
+    if (!paramDefinition) {
       throw new NullObjectException('Value is null');
     }
 
-    if (!paramDefinition.systemId) {
+    if (paramDefinition.systemId == undefined) {
       throw new SystemIdNotFoundException();
     }
 

@@ -168,7 +168,7 @@ export class DataLinksProperty {
     const sourceIds = new Set(
       this.dataLinks.map(link => link.sourceInstanceId),
     );
-    return Array.from(sourceIds);
+    return [...sourceIds];
   }
 
   /**
@@ -178,7 +178,7 @@ export class DataLinksProperty {
     const destIds = new Set(
       this.dataLinks.map(link => link.destinationInstanceId),
     );
-    return Array.from(destIds);
+    return [...destIds];
   }
 
   /**

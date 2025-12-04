@@ -98,7 +98,7 @@ export class SubgraphDataChunk extends BaseChunk {
       }
     }
 
-    return Array.from(containerMap.values());
+    return [...containerMap.values()];
   }
 
   /**

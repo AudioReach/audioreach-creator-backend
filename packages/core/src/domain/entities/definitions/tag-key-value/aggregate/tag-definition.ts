@@ -38,7 +38,7 @@ export class TagDefinition {
   }
 
   AddTagKey(tagKey: TagDefKeyDefLink) {
-    if (tagKey == null) {
+    if (!tagKey) {
       throw new NullObjectException('Value is null');
     }
 

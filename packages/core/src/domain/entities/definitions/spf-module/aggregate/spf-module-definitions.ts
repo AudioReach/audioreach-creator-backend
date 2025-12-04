@@ -19,7 +19,6 @@ import {
   IntentNameNotFoundException,
   NullObjectException,
   StaticPortIdNotFoundException,
-  StaticPortNameNotFoundException,
 } from '../../common/exceptions/input-validation-exception.js';
 
 export interface SpfModuleDefinitionInit extends ModuleDefinitionInit {
@@ -60,7 +59,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
   }
 
   AddAttribute(attribute: Attribute) {
-    if (attribute == null || !attribute.name || !attribute.value) {
+    if (!attribute || !attribute.name || !attribute.value) {
       throw new NotDefinedAttributeException(attribute);
     }
 
@@ -77,21 +76,15 @@ export class SpfModuleDefinition extends ModuleDefinition {
   }
 
   AddDynamicIntentDefinition(dynamicIntentDefinition: DynamicIntentDefinition) {
-    if (dynamicIntentDefinition == null) {
+    if (!dynamicIntentDefinition) {
       throw new NullObjectException('Value is null');
     }
 
-    if (
-      dynamicIntentDefinition.intentId === undefined ||
-      dynamicIntentDefinition.intentId === null
-    ) {
+    if (!dynamicIntentDefinition.intentId) {
       throw new IntentIdNotFoundException();
     }
 
-    if (
-      dynamicIntentDefinition.name === undefined ||
-      dynamicIntentDefinition.name === null
-    ) {
+    if (!dynamicIntentDefinition.name) {
       throw new IntentNameNotFoundException();
     }
 
@@ -117,16 +110,12 @@ export class SpfModuleDefinition extends ModuleDefinition {
   }
 
   AddStaticControlPort(staticPort: StaticControlPortDefinition) {
-    if (staticPort == null) {
+    if (!staticPort) {
       throw new NullObjectException('Value is null');
     }
 
-    if (staticPort.portId === undefined || staticPort.portId === null) {
+    if (!staticPort.portId) {
       throw new StaticPortIdNotFoundException();
-    }
-
-    if (staticPort.portName === undefined || staticPort.portName === null) {
-      throw new StaticPortNameNotFoundException();
     }
 
     const valueWithSamePortId = this.staticControlPorts.some(

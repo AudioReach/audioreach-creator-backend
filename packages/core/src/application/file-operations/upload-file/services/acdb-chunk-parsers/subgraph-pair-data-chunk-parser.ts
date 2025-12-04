@@ -258,7 +258,7 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
       }
 
       return dataLinks;
-    } catch (error) {
+    } catch {
       // Return empty array on parse error to allow graceful degradation
       return [];
     }
@@ -335,7 +335,7 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
       }
 
       return controlLinks;
-    } catch (error) {
+    } catch {
       // Return empty array on parse error to allow graceful degradation
       return [];
     }

@@ -36,14 +36,14 @@ export class TypeOrmProjectRepository implements ProjectRepository {
 
     return this.dataSource.transaction(async manager => {
       const projectInsertResult = await manager.insert(
-        ProjectSchema.options.name!,
+        ProjectSchema.options.name,
         projectRow,
       );
       const projectSystemId = projectInsertResult.identifiers[0]
         .systemId as number;
       // 2. Query back project to get complete row
       const savedProjectRow = await manager.findOneOrFail(
-        ProjectSchema.options.name!,
+        ProjectSchema.options.name,
         {
           where: {systemId: projectSystemId},
         },
@@ -53,14 +53,14 @@ export class TypeOrmProjectRepository implements ProjectRepository {
       const fileRow = toArcDbFileRow(file, projectSystemId);
 
       const fileInsertResult = await manager.insert(
-        ArcDbFileSchema.options.name!,
+        ArcDbFileSchema.options.name,
         fileRow,
       );
       const fileSystemId = fileInsertResult.identifiers[0].systemId as number;
 
       // 4. Query back file to get complete row
       const savedFileRow = await manager.findOneOrFail(
-        ArcDbFileSchema.options.name!,
+        ArcDbFileSchema.options.name,
         {
           where: {systemId: fileSystemId},
         },

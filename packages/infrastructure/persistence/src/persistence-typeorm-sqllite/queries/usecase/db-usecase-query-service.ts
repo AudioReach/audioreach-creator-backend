@@ -1,12 +1,11 @@
-import type {UseCaseQueryService} from '@arc/core';
-import {
-  UseCaseReadModel,
-  UseCaseComponentsReadModel,
-  type KeyVectorReadModel,
-  type ModuleReadModel,
-  type DataLinkReadModel,
-  type ControlLinkReadModel,
+import type {
+  UseCaseQueryService,
+  KeyVectorReadModel,
+  ModuleReadModel,
+  DataLinkReadModel,
+  ControlLinkReadModel,
 } from '@arc/core';
+import {UseCaseReadModel, UseCaseComponentsReadModel} from '@arc/core';
 import {DataSource} from 'typeorm';
 import type {
   UseCaseRow,
@@ -90,7 +89,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       }
     }
 
-    return Array.from(moduleMap.values());
+    return [...moduleMap.values()];
   }
 
   /**
@@ -123,7 +122,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       }
     }
 
-    return Array.from(dataLinkMap.values());
+    return [...dataLinkMap.values()];
   }
 
   /**
@@ -157,7 +156,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       }
     }
 
-    return Array.from(controlLinkMap.values());
+    return [...controlLinkMap.values()];
   }
 
   private mapToReadModel(useCaseRow: UseCaseRow): UseCaseReadModel {

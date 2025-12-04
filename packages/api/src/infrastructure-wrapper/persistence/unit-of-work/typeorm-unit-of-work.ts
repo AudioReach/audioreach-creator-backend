@@ -5,8 +5,7 @@ import type {
 } from '@arc/core';
 import {DataSource} from 'typeorm';
 import type {QueryRunner} from 'typeorm';
-import {TypeOrmBulkImportRepository} from '@arc/persistence';
-import {TypeOrmProjectRepository} from '@arc/persistence';
+import {TypeOrmBulkImportRepository,TypeOrmProjectRepository} from '@arc/persistence';
 
 export class TypeOrmUnitOfWork implements UnitOfWork {
   private currentQueryRunner: QueryRunner | null = null;
