@@ -1,8 +1,8 @@
 import {Injectable, type OnModuleDestroy} from '@nestjs/common';
 import {type Logger, type LogData, LogLevel} from '@arc/core';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 
 @Injectable()
 export class ConsoleLoggerService implements Logger, OnModuleDestroy {
@@ -17,7 +17,7 @@ export class ConsoleLoggerService implements Logger, OnModuleDestroy {
     }
 
     // Create log file with timestamp
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const timestamp = new Date().toISOString().replaceAll(':', '-');
     this.logFilePath = path.join(logsDir, `server-debug-${timestamp}.log`);
     this.logStream = fs.createWriteStream(this.logFilePath, {flags: 'a'});
 

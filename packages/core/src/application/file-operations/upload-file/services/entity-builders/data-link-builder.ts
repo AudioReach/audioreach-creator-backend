@@ -63,12 +63,12 @@ export class DataLinkBuilder {
     for (const property of uniqueProperties.values()) {
       const dataLink = this.convertDataLinkProperty(property, fileSystemId);
 
-      if (dataLink !== null) {
-        dataLinks.push(dataLink);
-        successCount++;
-      } else {
+      if (dataLink === null) {
         failureCount++;
         // The specific failure reason was already logged in convertDataLinkProperty
+      } else {
+        dataLinks.push(dataLink);
+        successCount++;
       }
     }
 

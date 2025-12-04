@@ -157,7 +157,7 @@ export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
       }
 
       return {sgList, sgPairList};
-    } catch (error) {
+    } catch {
       // Log error but return empty arrays to allow graceful degradation
       return {sgList: [], sgPairList: []};
     }
@@ -220,8 +220,8 @@ export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
 
         // Create KeyValue pairs for THIS entry
         const keyValuePairs: KeyValue[] = [];
-        for (let k = 0; k < keys.length; k++) {
-          keyValuePairs.push(new KeyValue(keys[k], values[k]));
+        for (const [k, key] of keys.entries()) {
+          keyValuePairs.push(new KeyValue(key, values[k]));
         }
 
         // Parse subgraph data from DATAPOOL using sgListOffset for THIS entry

@@ -112,7 +112,7 @@ export class AcdbFileOrchestrator {
     const startTime = Date.now();
 
     // Read files
-    var bytes = await this.fileReader.readAll(acdbRef);
+    const bytes = await this.fileReader.readAll(acdbRef);
 
     this.logger?.logInfo({
       msg: 'ACDB parsing started',

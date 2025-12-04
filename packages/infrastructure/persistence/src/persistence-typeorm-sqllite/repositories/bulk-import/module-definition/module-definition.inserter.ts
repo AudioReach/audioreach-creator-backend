@@ -100,7 +100,7 @@ export class ModuleDefinitionInserter extends BaseInserter<
       {row: QueryDeepPartialEntity<SpfModuleDefinitionRow>; error: Error}
     >(
       moduleDefinitionInsertResult.failed.map(f => [
-        (f.row as QueryDeepPartialEntity<SpfModuleDefinitionRow>)
+        (f.row)
           .moduleDefinitionId as number,
         f,
       ]),

@@ -1,7 +1,7 @@
 import {NodeWorkerPoolAdapter} from './node-worker-pool.adapter.js';
 import type {WorkerPoolPort, Logger} from '@arc/core';
-import * as path from 'path';
-import {fileURLToPath} from 'url';
+import * as path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 /**
  * Factory function to create a worker pool with automatic path resolution.

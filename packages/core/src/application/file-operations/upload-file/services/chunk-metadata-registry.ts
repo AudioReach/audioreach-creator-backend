@@ -152,10 +152,10 @@ export class ChunkMetadataRegistry {
     const existingIndex = this.metadata.findIndex(
       meta => meta.type === metadata.type,
     );
-    if (existingIndex >= 0) {
-      this.metadata[existingIndex] = metadata;
-    } else {
+    if (existingIndex === -1) {
       this.metadata.push(metadata);
+    } else {
+      this.metadata[existingIndex] = metadata;
     }
   }
 

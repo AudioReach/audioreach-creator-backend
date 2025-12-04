@@ -68,14 +68,10 @@ export class SpfModuleDefinitionBuilder {
     const useParallel = this.shouldUseParallel(awspModuleDefinitions);
 
     try {
-      if (useParallel) {
-        result = await this.buildParallel(awspModuleDefinitions, fileSystemId);
-      } else {
-        result = await this.buildSequential(
+      result = await (useParallel ? this.buildParallel(awspModuleDefinitions, fileSystemId) : this.buildSequential(
           awspModuleDefinitions,
           fileSystemId,
-        );
-      }
+        ));
 
       this.logger?.logInfo({
         msg: `Successfully built ${result.length} SPF module definitions`,
@@ -173,8 +169,7 @@ export class SpfModuleDefinitionBuilder {
     const validModuleDefinitions: DomainSpfModuleDefinition[] = [];
     let totalErrors = 0;
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
+    for (const [i, result] of results.entries()) {
       const task = tasks[i];
 
       if (!result.success || result.error) {
@@ -194,7 +189,7 @@ export class SpfModuleDefinitionBuilder {
       totalErrors += output.errors.length;
 
       // Log individual errors
-      output.errors.forEach(error => {
+      for (const error of output.errors) {
         this.logger?.logError({
           msg: `Failed to build SPF module definition ${error.moduleId} (${error.moduleName}): ${error.error}`,
           action: 'spf_module_definition_transform_error',
@@ -203,7 +198,7 @@ export class SpfModuleDefinitionBuilder {
           error: new Error(error.error || 'Unknown error'),
           timestamp: new Date(),
         });
-      });
+      }
     }
 
     this.logger?.logInfo({

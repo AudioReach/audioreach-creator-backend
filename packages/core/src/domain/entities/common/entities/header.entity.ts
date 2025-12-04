@@ -3,9 +3,6 @@ import type {
   CodecInfo,
 } from '../../../../application/file-operations/shared/acdb-chunks/header-chunk.js';
 
-// Re-export types for convenience (but they're primarily exported from header-chunk.js)
-export type {ACDBVersionInfo, CodecInfo};
-
 /**
  * Header entity representing ACDB file metadata.
  * Created from HeaderChunk during Phase 2 domain assembly.

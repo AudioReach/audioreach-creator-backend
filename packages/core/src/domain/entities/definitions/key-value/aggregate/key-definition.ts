@@ -75,15 +75,15 @@ export class KeyDefinition {
   }
 
   AddValue(valueDefinition: ValueDefinition): void {
-    if (valueDefinition == null) {
+    if (!valueDefinition) {
       throw new NullObjectException('Value is null');
     }
 
-    if (valueDefinition.systemId == null) {
+    if (valueDefinition.systemId == undefined) {
       throw new SystemIdNotFoundException();
     }
 
-    if (valueDefinition.valueId == null) {
+    if (!valueDefinition.valueId) {
       throw new ValueIdNotFoundException();
     }
 

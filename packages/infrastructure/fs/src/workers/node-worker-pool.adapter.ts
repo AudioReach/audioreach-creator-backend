@@ -1,12 +1,12 @@
-import {Worker} from 'worker_threads';
-import * as os from 'os';
+import {Worker} from 'node:worker_threads';
+import * as os from 'node:os';
 import type {WorkerPoolPort, WorkerTask, WorkerResult, Logger} from '@arc/core';
 
 // Default worker pool size: CPU count - 1 (leave one for main thread)
 const DEFAULT_WORKER_POOL_SIZE = Math.max(1, os.cpus().length - 1);
 
 // Default task timeout: 30 seconds
-const DEFAULT_TASK_TIMEOUT_MS = 30000;
+const DEFAULT_TASK_TIMEOUT_MS = 30_000;
 
 interface QueuedTask {
   task: any;

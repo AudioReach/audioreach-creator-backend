@@ -243,12 +243,8 @@ export class KeyDefinitionInserter extends BaseInserter<
     if (succeededRows.length === 0) return [];
 
     // Build sets for efficient querying
-    const keySystemIds = Array.from(
-      new Set(succeededRows.map(row => row.keySystemId as number)),
-    );
-    const valueIds = Array.from(
-      new Set(succeededRows.map(row => row.valueId as number)),
-    );
+    const keySystemIds = [...new Set(succeededRows.map(row => row.keySystemId as number))];
+    const valueIds = [...new Set(succeededRows.map(row => row.valueId as number))];
 
     // Query using composite key constraints
     const results = await this.manager

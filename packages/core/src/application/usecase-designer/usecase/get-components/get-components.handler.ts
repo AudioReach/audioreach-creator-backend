@@ -15,7 +15,7 @@ export class GetComponentsHandler
 
   async handle(query: GetComponentsQuery): Promise<UseCaseComponentsReadModel> {
     // Convert string array to number array for database query
-    const useCaseSystemIds = query.useCaseSystemIds.map(id => Number(id));
+    const useCaseSystemIds = query.useCaseSystemIds.map(Number);
 
     // Get all components for the specified use cases
     return await this.queryServices.useCaseQueryService.getAllComponentsForUseCases(

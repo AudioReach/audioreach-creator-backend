@@ -1,6 +1,5 @@
-import {performance} from 'perf_hooks';
-import type {ProfilerPort} from '@arc/core';
-import type {
+import {performance} from 'node:perf_hooks';
+import type {ProfilerPort,
   ProfilerOperation,
   MemorySnapshotPoint,
   PerformanceMetrics,

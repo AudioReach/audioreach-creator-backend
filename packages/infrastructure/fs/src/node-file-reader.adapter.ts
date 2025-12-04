@@ -1,8 +1,8 @@
 import AdmZip from 'adm-zip';
-import {promises as promises} from 'fs';
-import {promisify} from 'util';
-import * as fs from 'fs';
-import * as path from 'path';
+import {promises as promises} from 'node:fs';
+import {promisify} from 'node:util';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import Parser from 'stream-json/Parser.js';
 import Pick from 'stream-json/filters/Pick.js';
 import StreamValues from 'stream-json/streamers/StreamValues.js';

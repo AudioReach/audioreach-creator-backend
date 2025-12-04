@@ -112,9 +112,9 @@ export class KVInfo implements IEquatable<KVInfo> {
         if (other.keyValueCollection.length !== this._keyValueCollection.length) return false;
 
         for (let index = 0; index < this._keyValueCollection.length; index++) {
-            // eslint-disable-next-line security/detect-object-injection
+             
             const item = this._keyValueCollection[index];
-            // eslint-disable-next-line security/detect-object-injection
+             
             const otherItem = other.keyValueCollection[index];
             if (!otherItem || !item.equals(otherItem)) {
                 return false;

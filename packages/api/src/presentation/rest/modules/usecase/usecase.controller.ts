@@ -111,7 +111,7 @@ export class UseCaseController extends BaseController {
       );
 
       // Execute the query using the existing handler
-      const query = new GetAllUseCasesQuery(parseInt(projectId), 'client-id'); // TODO: get actual clientId from JWT
+      const query = new GetAllUseCasesQuery(Number.parseInt(projectId), 'client-id'); // TODO: get actual clientId from JWT
       const usecases = await this.queryBus.execute<UseCaseReadModel[]>(query);
 
       // Transform UseCaseReadModel[] to UsecaseDto[]
@@ -412,7 +412,7 @@ export class UseCaseController extends BaseController {
 
       // Convert string systemIds to numbers
       const systemIds = usecaseSystemIds.systemIds.map(id => {
-        const parsed = parseInt(id, 10);
+        const parsed = Number.parseInt(id, 10);
         if (isNaN(parsed)) {
           throw new HttpException(
             `Invalid use case system ID: ${id}`,

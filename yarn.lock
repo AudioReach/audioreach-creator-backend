@@ -161,6 +161,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@arc/persistence@workspace:packages/infrastructure/persistence"
   dependencies:
+    "@arc/core": "workspace:*"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.10.2"
     jest: "npm:^30.1.3"

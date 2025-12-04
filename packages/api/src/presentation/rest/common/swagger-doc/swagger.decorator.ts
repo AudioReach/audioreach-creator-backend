@@ -364,7 +364,7 @@ function getModulePath(baseModulePath: string): string {
   const allowedPaths = [jsPath, tsPath];
 
   for (const allowedPath of allowedPaths) {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+     
     if (existsSync(allowedPath)) {
       return allowedPath;
     }
@@ -401,7 +401,7 @@ function getExampleClass(moduleContent: Record<string, unknown>, className: stri
     return undefined;
   }
 
-  // eslint-disable-next-line security/detect-object-injection
+   
   const directExport = moduleContent[className] as ExampleClass;
   if (directExport) {
     return directExport;
@@ -411,7 +411,7 @@ function getExampleClass(moduleContent: Record<string, unknown>, className: stri
   if (defaultExport && typeof defaultExport === 'object') {
     const defaultExportObject = defaultExport as Record<string, unknown>;
     if (Object.prototype.hasOwnProperty.call(defaultExportObject, className)) {
-      // eslint-disable-next-line security/detect-object-injection
+       
       return defaultExportObject[className] as ExampleClass;
     }
   }
@@ -484,7 +484,7 @@ function getStatusDescription(status: HttpStatus): string {
     [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
   };
 
-  // eslint-disable-next-line security/detect-object-injection
+   
   return descriptions[status] ?? 'Response';
 }
 

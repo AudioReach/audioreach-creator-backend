@@ -27,10 +27,10 @@ export class SubgraphBuilder {
     let successCount = 0;
     let errorCount = 0;
 
-    for (let i = 0; i < subgraphProperties.length; i++) {
+    for (const subgraphProperty of subgraphProperties) {
       try {
         const subgraph = this.convertSubgraphProperty(
-          subgraphProperties[i],
+          subgraphProperty,
           fileSystemId,
         );
         subgraphs.push(subgraph);
@@ -38,7 +38,7 @@ export class SubgraphBuilder {
       } catch (error) {
         errorCount++;
         this.logger?.logWarn({
-          msg: `Failed to convert subgraph property ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          msg: `Failed to convert subgraph property (ID: ${subgraphProperty.subgraphId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
           action: 'subgraph_conversion_failed',
           component: 'SubgraphBuilder',
           tag: 'subgraph-building',

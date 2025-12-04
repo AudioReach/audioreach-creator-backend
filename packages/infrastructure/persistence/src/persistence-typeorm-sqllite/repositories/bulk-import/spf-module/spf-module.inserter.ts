@@ -217,14 +217,12 @@ export class SpfModuleInserter extends BaseInserter<
     if (succeededRows.length === 0) return [];
 
     // Get all unique nodeSystemIds from successful insertions
-    const nodeSystemIds = Array.from(
-      new Set(
+    const nodeSystemIds = [...new Set(
         succeededRows.map(
           row =>
-            (row as QueryDeepPartialEntity<DataPortRow>).nodeSystemId as number,
+            (row).nodeSystemId as number,
         ),
-      ),
-    );
+      )];
 
     // Bulk query all ports whose nodeSystemId is in the list, including portIoType
     const results = await this.manager
@@ -242,7 +240,7 @@ export class SpfModuleInserter extends BaseInserter<
     const nodeSystemIdToInstanceId = new Map<number, number>();
     for (const {row, instanceId} of dataPortRowsWithInstanceId) {
       nodeSystemIdToInstanceId.set(
-        (row as QueryDeepPartialEntity<DataPortRow>).nodeSystemId as number,
+        (row).nodeSystemId as number,
         instanceId,
       );
     }
@@ -282,15 +280,13 @@ export class SpfModuleInserter extends BaseInserter<
     if (succeededRows.length === 0) return [];
 
     // Get all unique nodeSystemIds from successful insertions
-    const nodeSystemIds = Array.from(
-      new Set(
+    const nodeSystemIds = [...new Set(
         succeededRows.map(
           row =>
-            (row as QueryDeepPartialEntity<ControlPortRow>)
+            (row)
               .nodeSystemId as number,
         ),
-      ),
-    );
+      )];
 
     // Bulk query all ports whose nodeSystemId is in the list
     const results = await this.manager
@@ -303,7 +299,7 @@ export class SpfModuleInserter extends BaseInserter<
     const nodeSystemIdToInstanceId = new Map<number, number>();
     for (const {row, instanceId} of controlPortRowsWithInstanceId) {
       nodeSystemIdToInstanceId.set(
-        (row as QueryDeepPartialEntity<ControlPortRow>).nodeSystemId as number,
+        (row).nodeSystemId as number,
         instanceId,
       );
     }
@@ -353,7 +349,7 @@ export class SpfModuleInserter extends BaseInserter<
     // Build failure lookup maps
     const failedSpfModuleMap = new Map<number, Error>(
       spfModuleInsertResult.failed.map(f => [
-        (f.row as QueryDeepPartialEntity<SpfModuleRow>).instanceId as number,
+        (f.row).instanceId as number,
         f.error,
       ]),
     );
@@ -429,7 +425,7 @@ export class SpfModuleInserter extends BaseInserter<
         results.push({
           moduleIdMapping: {
             naturalId: spfModule.instanceId,
-            systemId: spfModuleSystemId!,
+            systemId: spfModuleSystemId,
           },
           portMappings: {
             dataPorts:

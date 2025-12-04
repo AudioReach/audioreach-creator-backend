@@ -86,11 +86,7 @@ export class ControlLinkInserter extends BaseInserter<
   private buildNaturalKeyFromRow(
     row: QueryDeepPartialEntity<ControlLinkRow>,
   ): string {
-    if (row.peerNodeASystemId! < row.peerNodeBSystemId!) {
-      return `${row.peerNodeASystemId}:${row.nodeAPortSystemId}<->${row.peerNodeBSystemId}:${row.nodeBPortSystemId}`;
-    } else {
-      return `${row.peerNodeBSystemId}:${row.nodeBPortSystemId}<->${row.peerNodeASystemId}:${row.nodeAPortSystemId}`;
-    }
+    return row.peerNodeASystemId! < row.peerNodeBSystemId! ? `${row.peerNodeASystemId}:${row.nodeAPortSystemId}<->${row.peerNodeBSystemId}:${row.nodeBPortSystemId}` : `${row.peerNodeBSystemId}:${row.nodeBPortSystemId}<->${row.peerNodeASystemId}:${row.nodeAPortSystemId}`;
   }
 
   /**
@@ -110,10 +106,10 @@ export class ControlLinkInserter extends BaseInserter<
       const [nodeAId, portAId] = nodeA.split(':');
       const [nodeBId, portBId] = nodeB.split(':');
       return {
-        nodeASystemId: parseInt(nodeAId),
-        portASystemId: parseInt(portAId),
-        nodeBSystemId: parseInt(nodeBId),
-        portBSystemId: parseInt(portBId),
+        nodeASystemId: Number.parseInt(nodeAId),
+        portASystemId: Number.parseInt(portAId),
+        nodeBSystemId: Number.parseInt(nodeBId),
+        portBSystemId: Number.parseInt(portBId),
       };
     });
 

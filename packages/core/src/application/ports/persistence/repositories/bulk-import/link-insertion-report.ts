@@ -107,9 +107,5 @@ export function buildDataLinkNaturalKey(link: DataLink): string {
  * ```
  */
 export function buildControlLinkNaturalKey(link: ControlLink): string {
-  if (link.peerNodeASystemId < link.peerNodeBSystemId) {
-    return `${link.peerNodeASystemId}:${link.nodeAPortSystemId}<->${link.peerNodeBSystemId}:${link.nodeBPortSystemId}`;
-  } else {
-    return `${link.peerNodeBSystemId}:${link.nodeBPortSystemId}<->${link.peerNodeASystemId}:${link.nodeAPortSystemId}`;
-  }
+  return link.peerNodeASystemId < link.peerNodeBSystemId ? `${link.peerNodeASystemId}:${link.nodeAPortSystemId}<->${link.peerNodeBSystemId}:${link.nodeBPortSystemId}` : `${link.peerNodeBSystemId}:${link.nodeBPortSystemId}<->${link.peerNodeASystemId}:${link.nodeAPortSystemId}`;
 }

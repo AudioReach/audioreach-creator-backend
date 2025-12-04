@@ -40,7 +40,7 @@ describe('UsecaseDataChunkParser', () => {
   });
 
   it('should generate payload correctly', () => {
-    const keyValues = [new KeyValue(0x12345678, 0x87654321)];
+    const keyValues = [new KeyValue(0x12_34_56_78, 0x87_65_43_21)];
     const kvpList = new KeyValuePairList(keyValues);
 
     const payload = kvpList.generatePayload();
@@ -49,8 +49,8 @@ describe('UsecaseDataChunkParser', () => {
 
     // Verify the binary data (little-endian)
     const view = new DataView(payload.buffer);
-    expect(BinaryUtils.readUint32(view, 0)).toBe(0x12345678);
-    expect(BinaryUtils.readUint32(view, 4)).toBe(0x87654321);
+    expect(BinaryUtils.readUint32(view, 0)).toBe(0x12_34_56_78);
+    expect(BinaryUtils.readUint32(view, 4)).toBe(0x87_65_43_21);
   });
 
   it('should handle equality correctly', () => {
