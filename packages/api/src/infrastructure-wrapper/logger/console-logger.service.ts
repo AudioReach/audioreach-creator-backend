@@ -1,7 +1,7 @@
 import {Injectable, type OnModuleDestroy} from '@nestjs/common';
 import {type Logger, type LogData, LogLevel} from '@arc/core';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import path from 'node:path';
 import * as os from 'node:os';
 
 @Injectable()
@@ -39,27 +39,27 @@ export class ConsoleLoggerService implements Logger, OnModuleDestroy {
     });
   }
 
-  async logVerbose(data: LogData): Promise<void> {
+  logVerbose(data: LogData): void {
     this.log(LogLevel.Verbose, data);
   }
 
-  async logDebug(data: LogData): Promise<void> {
+  logDebug(data: LogData): void {
     this.log(LogLevel.Debug, data);
   }
 
-  async logInfo(data: LogData): Promise<void> {
+  logInfo(data: LogData): void {
     this.log(LogLevel.Info, data);
   }
 
-  async logWarn(data: LogData): Promise<void> {
+  logWarn(data: LogData): void {
     this.log(LogLevel.Warn, data);
   }
 
-  async logError(data: LogData): Promise<void> {
+  logError(data: LogData): void {
     this.log(LogLevel.Error, data);
   }
 
-  async logCritical(data: LogData): Promise<void> {
+  logCritical(data: LogData): void {
     this.log(LogLevel.Critical, data);
   }
 

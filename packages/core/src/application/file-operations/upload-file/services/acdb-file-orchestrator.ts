@@ -146,7 +146,7 @@ export class AcdbFileOrchestrator {
       //const useParallel = this.shouldUseParallelParsing(chunkDescriptors);
 
       // 6. Execute parsing based on strategy
-      const result = await this.parseChunks(
+      const result = this.parseChunks(
         bytes,
         chunkDescriptors,
         //useParallel,
@@ -198,11 +198,11 @@ export class AcdbFileOrchestrator {
    * Parse all chunks in registry order (unified approach)
    * Handles both binary chunks (from file) and derived chunks (computed) in correct dependency order
    */
-  private async parseChunks(
+  private parseChunks(
     bytes: Uint8Array,
     descriptors: ChunkMetadata[],
     //useParallel: boolean,
-  ): Promise<ParsedAcdb> {
+  ): ParsedAcdb {
     const result = new ParsedAcdb();
     const parsedChunks = new Map<string, BaseChunk>();
 
@@ -212,7 +212,7 @@ export class AcdbFileOrchestrator {
     // NOTE: Parallel processing is temporarily disabled - using sequential parsing only
     // TODO: Re-enable parallel processing once worker issues are resolved
 
-    await this.parseAllChunksSequential(
+    this.parseAllChunksSequential(
       bytes,
       descriptors,
       allRegisteredChunks,
@@ -226,13 +226,13 @@ export class AcdbFileOrchestrator {
   /**
    * Parse all chunks sequentially in registry order
    */
-  private async parseAllChunksSequential(
+  private parseAllChunksSequential(
     bytes: Uint8Array,
     descriptors: ChunkMetadata[],
     allRegisteredChunks: string[],
     parsedChunks: Map<string, BaseChunk>,
     result: ParsedAcdb,
-  ): Promise<void> {
+  ): void {
     // Process all registered chunks in registry order (priority already set)
     for (const chunkType of allRegisteredChunks) {
       // Build context based on chunk type and dependencies

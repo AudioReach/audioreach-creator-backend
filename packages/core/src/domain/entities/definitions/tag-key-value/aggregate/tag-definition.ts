@@ -42,7 +42,7 @@ export class TagDefinition {
       throw new NullObjectException('Value is null');
     }
 
-    if (tagKey.keyReferenceSystemId === null) {
+    if (tagKey.keyReferenceSystemId == null) {
       throw new TagKeyReferenceNotFoundException();
     }
 

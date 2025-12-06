@@ -2,11 +2,12 @@ import AdmZip from 'adm-zip';
 import {promises as promises} from 'node:fs';
 import {promisify} from 'node:util';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import path from 'node:path';
 import Parser from 'stream-json/Parser.js';
 import Pick from 'stream-json/filters/Pick.js';
 import StreamValues from 'stream-json/streamers/StreamValues.js';
-import type {FileReaderPort, FileRef} from '@arc/core';
+import type {FileReaderPort, PathRef} from '@arc/core';
+import {access} from 'node:fs/promises';
 //import {unzip} from 'zlib';
 
 const mkdir = promisify(fs.mkdir);
@@ -15,7 +16,7 @@ const mkdir = promisify(fs.mkdir);
  * Supports only PathRef; reads from absolute path or file:// URI and returns Uint8Array.
  */
 export class NodeFileReaderAdapter implements FileReaderPort {
-  async readAll(ref: FileRef): Promise<Uint8Array> {
+  async readAll(ref: PathRef): Promise<Uint8Array> {
     if (ref.kind !== 'path') {
       throw new Error('NodeFileReaderAdapter supports only PathRef');
     }
@@ -36,7 +37,13 @@ export class NodeFileReaderAdapter implements FileReaderPort {
   }
 
   async exists(filePath: string): Promise<boolean> {
-    return fs.existsSync(filePath);
+    try {
+      await access(filePath, fs.constants.F_OK);
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   joinPath(...paths: string[]): string {
@@ -66,7 +73,7 @@ export class NodeFileReaderAdapter implements FileReaderPort {
     zip.extractAllTo(destinationPath, true);
   }
 
-  async deleteDirectory(dirPath: string): Promise<void> {
+  deleteDirectory(dirPath: string): void {
     if (fs.existsSync(dirPath)) {
       // Use fs.rmSync with recursive option (available in Node.js 14.14.0+)
       fs.rmSync(dirPath, {recursive: true, force: true});
@@ -77,7 +84,7 @@ export class NodeFileReaderAdapter implements FileReaderPort {
    * Parse JSON file and extract specific block
    * Automatically uses streaming for large files
    */
-  async parseBlock(filePath: string, blockName: string): Promise<any[]> {
+  parseBlock(filePath: string, blockName: string): Promise<any[]> {
     // Validate file extension
     const fileExtension = path.extname(filePath).toLowerCase();
     if (fileExtension !== '.json') {

@@ -1,11 +1,11 @@
 import {BaseCommand} from '../../shared/base-command.js';
-import type {FileRef} from '../shared/utils/file-ref.js';
+import type {PathRef} from '../shared/utils/file-ref.js';
 
 export class OpenFileCommand extends BaseCommand {
   constructor(
     clientId: string,
-    public readonly acdb: FileRef,
-    public readonly awsp: FileRef,
+    public readonly acdb: PathRef,
+    public readonly awsp: PathRef,
   ) {
     super(clientId);
   }

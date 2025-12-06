@@ -13,10 +13,10 @@ export class ContainerBuilder {
    * Build Container entities from container properties
    * Main API method similar to UsecaseBuilder.buildUsecases()
    */
-  async buildContainers(
+  buildContainers(
     containerProperties: ContainerProperty[],
     fileSystemId: number,
-  ): Promise<Container[]> {
+  ): Container[] {
     // Input validation
     if (!containerProperties || containerProperties.length === 0) {
       this.logger?.logDebug({

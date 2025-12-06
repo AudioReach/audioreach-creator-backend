@@ -1,10 +1,10 @@
 export interface Logger {
-  logVerbose(data: LogData): Promise<void>;
-  logDebug(data: LogData): Promise<void>;
-  logInfo(data: LogData): Promise<void>;
-  logWarn(data: LogData): Promise<void>;
-  logError(data: LogData): Promise<void>;
-  logCritical(data: LogData): Promise<void>;
+  logVerbose(data: LogData): void;
+  logDebug(data: LogData): void;
+  logInfo(data: LogData): void;
+  logWarn(data: LogData): void;
+  logError(data: LogData): void;
+  logCritical(data: LogData): void;
 }
 
 export interface LogData {

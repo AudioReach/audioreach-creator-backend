@@ -1,7 +1,7 @@
 import type {KvData} from '../../../common/entities/kv-data.js';
 import {CkvCollection} from '../../../common/entities/ckv-collection.js';
 
-export interface vcpmModuleInstanceInit {
+export interface VcpmModuleInstanceInit {
   systemId: number;
   subgraphSystemId: number;
   vcpmDefinitionId: number;
@@ -17,7 +17,7 @@ export class VcpmInstance {
     return this.ckvCollection.ckvs;
   }
 
-  constructor(initParams: vcpmModuleInstanceInit) {
+  constructor(initParams: VcpmModuleInstanceInit) {
     this.systemId = initParams.systemId;
     this.subgraphSystemId = initParams.subgraphSystemId;
     this.vcpmModuleDefinitionId = initParams.vcpmDefinitionId;

@@ -29,10 +29,10 @@ import {FileFieldsInterceptor} from '@nestjs/platform-express';
 import multer from 'multer';
 //import {AuthGuard} from '@nestjs/passport';
 import {CommandBus, OpenFileCommand} from '@arc/core';
-import type {FileRef, Logger} from '@arc/core';
+import type {PathRef, Logger} from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 import * as os from 'node:os';
-import * as path from 'node:path';
+import path from 'node:path';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
 import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
@@ -160,8 +160,8 @@ export class ProjectController {
     const acdbPath = path.join(tmpDir, `${Date.now()}-${acdb.originalname}`);
     const awspPath = path.join(tmpDir, `${Date.now()}-${awsp.originalname}`);
 
-    let acdbRef: FileRef;
-    let awspRef: FileRef;
+    let acdbRef: PathRef;
+    let awspRef: PathRef;
 
     try {
       // Write Multer buffers to temp files

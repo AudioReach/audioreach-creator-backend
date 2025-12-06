@@ -74,16 +74,14 @@ export class UploadFileOrchestrator {
   /**
    * Log performance metrics from profiler operations
    */
-  private async logPerformanceMetrics(
-    metrics: PerformanceMetrics | undefined,
-  ): Promise<void> {
+  private logPerformanceMetrics(metrics: PerformanceMetrics | undefined): void {
     if (!metrics) return;
 
     const memoryDelta =
       metrics.endMemory.heapUsed - metrics.startMemory.heapUsed;
     const memoryDeltaMB = (memoryDelta / 1024 / 1024).toFixed(2);
 
-    await this.logger?.logInfo({
+    this.logger?.logInfo({
       msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (memory delta: ${memoryDeltaMB}MB)`,
       timestamp: new Date(),
       action: 'performance-monitoring',
@@ -95,10 +93,10 @@ export class UploadFileOrchestrator {
   /**
    * Log entity building performance metrics with throughput calculation
    */
-  private async logEntityBuildMetrics(
+  private logEntityBuildMetrics(
     metrics: PerformanceMetrics | undefined,
     entityCount: number,
-  ): Promise<void> {
+  ): void {
     if (!metrics) return;
 
     const memoryDelta =
@@ -109,7 +107,7 @@ export class UploadFileOrchestrator {
         ? (entityCount / (metrics.duration / 1000)).toFixed(1)
         : '0';
 
-    await this.logger?.logInfo({
+    this.logger?.logInfo({
       msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (entities: ${entityCount}, throughput: ${throughput}/sec, memory delta: ${memoryDeltaMB}MB)`,
       timestamp: new Date(),
       action: 'entity-build-performance',
@@ -121,10 +119,10 @@ export class UploadFileOrchestrator {
   /**
    * Log entity insertion performance metrics with success rates
    */
-  private async logEntityInsertMetrics(
+  private logEntityInsertMetrics(
     metrics: PerformanceMetrics | undefined,
     insertResult: any,
-  ): Promise<void> {
+  ): void {
     if (!metrics || !insertResult) return;
 
     const memoryDelta =
@@ -143,7 +141,7 @@ export class UploadFileOrchestrator {
         ? (totalEntities / (metrics.duration / 1000)).toFixed(1)
         : '0';
 
-    await this.logger?.logInfo({
+    this.logger?.logInfo({
       msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (entities: ${totalEntities}, success: ${successfulInserts}/${totalEntities} (${successRate}%), throughput: ${throughput}/sec, memory delta: ${memoryDeltaMB}MB)`,
       timestamp: new Date(),
       action: 'entity-insert-performance',
@@ -155,15 +153,13 @@ export class UploadFileOrchestrator {
   /**
    * Log memory snapshots from profiler
    */
-  private async logMemorySnapshot(
-    snapshot: MemorySnapshot | undefined,
-  ): Promise<void> {
+  private logMemorySnapshot(snapshot: MemorySnapshot | undefined): void {
     if (!snapshot) return;
 
     const heapUsedMB = (snapshot.memory.heapUsed / 1024 / 1024).toFixed(2);
     const heapTotalMB = (snapshot.memory.heapTotal / 1024 / 1024).toFixed(2);
 
-    await this.logger?.logInfo({
+    this.logger?.logInfo({
       msg: `Memory snapshot at ${snapshot.point}: ${heapUsedMB}MB used / ${heapTotalMB}MB total heap`,
       timestamp: new Date(),
       action: 'memory-monitoring',
@@ -217,7 +213,7 @@ export class UploadFileOrchestrator {
       return true;
     } catch (error) {
       // Log the error using the proper LogData structure
-      await this.logger?.logError({
+      this.logger?.logError({
         msg: 'File orchestration failed during processing',
         timestamp: new Date(),
         action: 'file-orchestration',
@@ -265,16 +261,15 @@ export class UploadFileOrchestrator {
       // Phase 5: Build and Insert Data Links (depend on modules)
       await this.buildAndInsertDataLinks(bulkRepo);
 
-      if (false) {
-        // Phase 6: Build and Insert Control Links (depend on modules)
-        await this.buildAndInsertControlLinks(bulkRepo);
-      }
+      // TODO: Re-enable control links insertion once implementation is complete
+      // Phase 6: Build and Insert Control Links (depend on modules) - Currently disabled
+      // await this.buildAndInsertControlLinks(bulkRepo);
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
     } catch (error) {
       // Log persistence errors
-      await this.logger?.logError({
+      this.logger?.logError({
         msg: 'Entity persistence failed during database transaction',
         timestamp: new Date(),
         action: 'entity-persistence',

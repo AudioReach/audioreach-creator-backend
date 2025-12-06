@@ -68,10 +68,9 @@ export class SpfModuleDefinitionBuilder {
     const useParallel = this.shouldUseParallel(awspModuleDefinitions);
 
     try {
-      result = await (useParallel ? this.buildParallel(awspModuleDefinitions, fileSystemId) : this.buildSequential(
-          awspModuleDefinitions,
-          fileSystemId,
-        ));
+      result = await (useParallel
+        ? this.buildParallel(awspModuleDefinitions, fileSystemId)
+        : this.buildSequential(awspModuleDefinitions, fileSystemId));
 
       this.logger?.logInfo({
         msg: `Successfully built ${result.length} SPF module definitions`,
@@ -215,10 +214,10 @@ export class SpfModuleDefinitionBuilder {
   /**
    * Build SPF module definitions sequentially in the main thread
    */
-  private async buildSequential(
+  private buildSequential(
     moduleDefinitions: AwspSpfModuleDefinition[],
     fileSystemId: number,
-  ): Promise<DomainSpfModuleDefinition[]> {
+  ): DomainSpfModuleDefinition[] {
     this.logger?.logDebug({
       msg: `Building ${moduleDefinitions.length} SPF module definitions sequentially`,
       action: 'sequential_spf_module_building_start',

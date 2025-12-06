@@ -2,7 +2,7 @@ import type {CommandHandler} from '../../orchestration/cqrs/commands/command-han
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import type {OpenFileCommand} from './upload-file.command.js';
 import type {FileReaderPort} from '../../ports/file-system/file-reader.port.js';
-import type {FileRef} from '../shared/utils/file-ref.js';
+import type {PathRef} from '../shared/utils/file-ref.js';
 import {UploadFileOrchestrator} from './services/upload-file-orchestrator.js';
 import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
@@ -78,9 +78,9 @@ export class OpenFileHandler
     };
   }
 
-  private validateInputs(acdb: FileRef, awsp: FileRef): void {
-    const acdbName = acdb.kind === 'path' ? acdb.name : acdb.name;
-    const awspName = awsp.kind === 'path' ? awsp.name : awsp.name;
+  private validateInputs(acdb: PathRef, awsp: PathRef): void {
+    const acdbName = acdb.name;
+    const awspName = awsp.name;
     if (!acdbName?.toLowerCase().endsWith('.acdb')) {
       throw new Error('Invalid acdb file extension; expected .acdb');
     }
@@ -89,7 +89,7 @@ export class OpenFileHandler
     }
   }
 
-  private extractProjectName(acdb: FileRef, awsp: FileRef): string {
+  private extractProjectName(acdb: PathRef, awsp: PathRef): string {
     // Extract project name from file names, removing extensions
     const acdbName = acdb.name.replace(/\.acdb$/i, '');
     const awspName = awsp.name.replace(/\.awsp$/i, '');
@@ -98,7 +98,7 @@ export class OpenFileHandler
     return acdbName === awspName ? acdbName : `${acdbName}_project`;
   }
 
-  private extractProjectDescription(acdb: FileRef, awsp: FileRef): string {
+  private extractProjectDescription(acdb: PathRef, awsp: PathRef): string {
     return `Project created from ACDB file: ${acdb.name} and AWSP file: ${awsp.name}`;
   }
 }

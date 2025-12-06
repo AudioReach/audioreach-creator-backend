@@ -13,10 +13,10 @@ export class SubgraphBuilder {
    * Build Subgraph entities from subgraph properties
    * Main API method similar to UsecaseBuilder.buildUsecases()
    */
-  async buildSubgraphs(
+  buildSubgraphs(
     subgraphProperties: SubgraphProperty[],
     fileSystemId: number,
-  ): Promise<Subgraph[]> {
+  ): Subgraph[] {
     // Input validation
     if (!subgraphProperties || subgraphProperties.length === 0) {
       return [];

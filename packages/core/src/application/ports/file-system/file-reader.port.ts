@@ -1,4 +1,4 @@
-import type {FileRef} from '../../file-operations/shared/utils/file-ref.js';
+import type {PathRef} from '../../file-operations/shared/utils/file-ref.js';
 
 export interface FileReaderPort {
   /**
@@ -6,7 +6,7 @@ export interface FileReaderPort {
    * Implementations must be platform-specific adapters (Node, RN),
    * while this interface remains platform-agnostic.
    */
-  readAll(ref: FileRef): Promise<Uint8Array>;
+  readAll(ref: PathRef): Promise<Uint8Array>;
 
   parseBlock(filePath: string, blockName: string): Promise<any[]>;
 
@@ -16,7 +16,7 @@ export interface FileReaderPort {
 
   dirname(filePath: string): string;
   basename(filePath: string, extension: string): string;
-  deleteDirectory(dirPath: string): Promise<void>;
+  deleteDirectory(dirPath: string): void;
 
   unzip(zipFilePath: string, outputDir: string): Promise<void>;
 }

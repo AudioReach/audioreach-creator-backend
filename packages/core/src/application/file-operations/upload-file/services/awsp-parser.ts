@@ -134,7 +134,7 @@ export class AwspParser {
       if (useParallel && this.workerPool) {
         parsedDefinitions = await this.parseDefinitionsParallel(jsonData);
       } else {
-        parsedDefinitions = await this.parseDefinitionsSequential(jsonData);
+        parsedDefinitions = this.parseDefinitionsSequential(jsonData);
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -143,8 +143,11 @@ export class AwspParser {
       throw new Error('Parsing failed: Unknown error');
     }
 
+    // TODO: Validation temporarily disabled - will be re-enabled after review
+    // The definitionValidator is kept as a field for future use
     if (this.definitionValidator) {
-    } //TODO: added for compilation, remove later
+      // Intentionally empty - placeholder for future validation logic
+    }
 
     /* TODO: commenting validation for now, check and add back later.
     // Step 2: Validate parsed definitions
@@ -266,9 +269,9 @@ export class AwspParser {
   /**
    * Parse definitions sequentially using the same static parse method as workers (optimized)
    */
-  private async parseDefinitionsSequential(
+  private parseDefinitionsSequential(
     jsonData: Record<string, any>,
-  ): Promise<Record<DefinitionBlockName, DefinitionCollection>> {
+  ): Record<DefinitionBlockName, DefinitionCollection> {
     // Collect all definition blocks that have data
     const definitionBlocks: Record<string, any[]> = {};
 

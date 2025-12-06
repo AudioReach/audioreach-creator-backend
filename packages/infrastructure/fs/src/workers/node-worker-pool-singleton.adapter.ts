@@ -7,7 +7,7 @@ import {createWorkerPool} from './worker-pool.factory.js';
  * and properly disposed on shutdown.
  */
 export class NodeWorkerPoolSingleton implements WorkerPoolPort {
-  private static instance: WorkerPoolPort | null = null;
+  private static instance: WorkerPoolPort | undefined = undefined;
 
   constructor() {
     if (!NodeWorkerPoolSingleton.instance) {
@@ -42,7 +42,7 @@ export class NodeWorkerPoolSingleton implements WorkerPoolPort {
   async dispose(): Promise<void> {
     if (NodeWorkerPoolSingleton.instance) {
       await NodeWorkerPoolSingleton.instance.dispose();
-      NodeWorkerPoolSingleton.instance = null;
+      NodeWorkerPoolSingleton.instance = undefined;
     }
   }
 
