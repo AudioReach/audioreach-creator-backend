@@ -19,8 +19,10 @@ export default [
       '**/build/**',
       'eslint.config.js',
       '**/jest.config.js',
+      '**/jest.config.mjs',
       '**/jest.config.ts',
       '**/jest.*.js',
+      '**/jest.*.mjs',
       'packages/api/scripts/typeorm-cli.cjs',
     ],
   },
@@ -156,6 +158,8 @@ export default [
       'unicorn/prefer-ternary': 'off',
       // Disabled: TypeError should only be used for JavaScript type errors, not data validation errors
       'unicorn/prefer-type-error': 'off',
+      // Disabled: Allow null where it has semantic meaning (e.g., database NULL, explicit absence)
+      'unicorn/no-null': 'off',
       // Configure unused vars to ignore parameters/variables prefixed with underscore
       '@typescript-eslint/no-unused-vars': [
         'error',

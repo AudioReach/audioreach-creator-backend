@@ -140,10 +140,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
   }
 
   AddProcessDefinition(processorDefinitionReferenceId: number) {
-    if (
-      processorDefinitionReferenceId === undefined ||
-      processorDefinitionReferenceId === null
-    ) {
+    if (processorDefinitionReferenceId == null) {
       throw new NullObjectException('Value is null');
     }
 
@@ -160,10 +157,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
   }
 
   AddContainerType(containerTypeReferenceIds: number) {
-    if (
-      containerTypeReferenceIds === undefined ||
-      containerTypeReferenceIds === null
-    ) {
+    if (containerTypeReferenceIds == null) {
       throw new NullObjectException('Value is null');
     }
 

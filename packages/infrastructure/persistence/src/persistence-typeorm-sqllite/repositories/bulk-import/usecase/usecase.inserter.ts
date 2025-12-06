@@ -274,7 +274,7 @@ export class UseCaseInserter extends BaseInserter<
           ? `WHEN systemId = ${keyVectorSystemId} THEN ${mapping.systemId}`
           : null;
       })
-      .filter(c => c !== null)
+      .filter(c => c != null)
       .join(' ');
 
     if (cases) {
@@ -313,15 +313,11 @@ export class UseCaseInserter extends BaseInserter<
     if (allCategories.size === 0) return;
 
     // Insert categories (ignore duplicates)
-    const categoryRows = [...allCategories].map(name =>
-      toCategoryRow(name),
-    );
+    const categoryRows = [...allCategories].map(name => toCategoryRow(name));
     await BatchInserter.insert(this.manager, 'UseCaseCategory', categoryRows);
 
     // Query back category systemIds
-    const categoryMappings = await this.queryBackCategories(
-      [...allCategories],
-    );
+    const categoryMappings = await this.queryBackCategories([...allCategories]);
     const categoryNameToSystemId = new Map(
       categoryMappings.map(m => [m.naturalId, m.systemId]),
     );

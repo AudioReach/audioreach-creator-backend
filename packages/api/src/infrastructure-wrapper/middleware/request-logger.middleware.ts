@@ -54,28 +54,29 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
     // Capture response
     const originalSend = res.send;
-    const self = this; // Store middleware instance in a local variable
+    const logger = this.logger;
+    const extractClientId = this.extractClientId.bind(this);
 
     res.send = function (body) {
       const responseBody = body instanceof Buffer ? '[Buffer]' : body;
       const responseTime = Date.now() - startTime;
 
-      self.logger.logInfo({
+      logger.logInfo({
         component: 'RequestLogger',
         action: 'outgoingResponse',
         msg: `${req.method} ${req.originalUrl} ${res.statusCode} - ${responseTime}ms`,
         timestamp: new Date(),
         tag: `request-${requestId}`,
-        clientId: self.extractClientId(req),
+        clientId: extractClientId(req),
       });
 
-      self.logger.logDebug({
+      logger.logDebug({
         component: 'RequestLogger',
         action: 'responseBody',
         msg: `Body: ${typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody)}`,
         timestamp: new Date(),
         tag: `request-${requestId}`,
-        clientId: self.extractClientId(req),
+        clientId: extractClientId(req),
       });
 
       // 'this' here refers to the response object

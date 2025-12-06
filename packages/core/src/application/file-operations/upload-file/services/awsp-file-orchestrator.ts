@@ -1,7 +1,3 @@
-// IMPORTANT: reflect-metadata must be imported first, before any other imports
-// This polyfill is required for class-transformer decorators to work
-import 'reflect-metadata';
-
 import {AwspParser} from './awsp-parser.js';
 import {
   FILE_NAMES,
@@ -72,7 +68,7 @@ export class AwspFileOrchestrator {
         mimeType: 'application/json',
       };
       const fileBytes = await this.fs.readAll(fileRef);
-      const jsonContent = new TextDecoder('utf-8').decode(fileBytes);
+      const jsonContent = new TextDecoder('utf8').decode(fileBytes);
       const jsonData = JSON.parse(jsonContent);
 
       // Parse all definitions using the AwspParser
@@ -205,7 +201,7 @@ export class AwspFileOrchestrator {
     try {
       const folderExists = await this.fs.exists(folderPath);
       if (folderExists) {
-        await this.fs.deleteDirectory(folderPath);
+        this.fs.deleteDirectory(folderPath);
       }
     } catch (error) {
       if (error instanceof Error) {

@@ -18,9 +18,9 @@ export class ControlLinkBuilder {
    * Main API method similar to UsecaseBuilder.buildUsecases()
    * Uses early deduplication for optimal performance
    */
-  async buildControlLinks(
+  buildControlLinks(
     controlLinkProperties: ControlLinkProperty[],
-  ): Promise<ControlLink[]> {
+  ): ControlLink[] {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
       this.logger?.logDebug({

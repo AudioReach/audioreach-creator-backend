@@ -18,10 +18,10 @@ export class DataLinkBuilder {
    * Main API method similar to UsecaseBuilder.buildUsecases()
    * Uses early deduplication for optimal performance
    */
-  async buildDataLinks(
+  buildDataLinks(
     dataLinkProperties: DataLinkProperty[],
     fileSystemId: number,
-  ): Promise<DataLink[]> {
+  ): DataLink[] {
     // Input validation
     if (!dataLinkProperties || dataLinkProperties.length === 0) {
       this.logger?.logDebug({

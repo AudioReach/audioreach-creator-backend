@@ -416,7 +416,7 @@ export class UseCaseController extends BaseController {
       // Convert string systemIds to numbers
       const systemIds = usecaseSystemIds.systemIds.map(id => {
         const parsed = Number.parseInt(id, 10);
-        if (isNaN(parsed)) {
+        if (Number.isNaN(parsed)) {
           throw new HttpException(
             `Invalid use case system ID: ${id}`,
             HttpStatus.BAD_REQUEST,

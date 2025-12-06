@@ -33,7 +33,7 @@ export class HeaderEntity {
     if (this.modifiedDate < 0) {
       throw new Error('Modified date must be non-negative');
     }
-    if (this.oemInfo === undefined || this.oemInfo === null) {
+    if (this.oemInfo == null) {
       throw new Error('OEM info is required (can be empty string)');
     }
   }

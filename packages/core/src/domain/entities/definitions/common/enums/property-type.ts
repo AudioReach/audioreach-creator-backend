@@ -1,4 +1,4 @@
-const PROPERTY_TYPE = {
+export const PROPERTY_TYPE = {
   Spf: 'SPF',
   Driver: 'DRIVER',
 } as const;

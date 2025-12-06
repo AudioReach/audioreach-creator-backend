@@ -1,6 +1,6 @@
 import {NodeWorkerPoolAdapter} from './node-worker-pool.adapter.js';
 import type {WorkerPoolPort, Logger} from '@arc/core';
-import * as path from 'node:path';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 /**

@@ -86,7 +86,14 @@ export class ControlLinkInserter extends BaseInserter<
   private buildNaturalKeyFromRow(
     row: QueryDeepPartialEntity<ControlLinkRow>,
   ): string {
-    return row.peerNodeASystemId! < row.peerNodeBSystemId! ? `${row.peerNodeASystemId}:${row.nodeAPortSystemId}<->${row.peerNodeBSystemId}:${row.nodeBPortSystemId}` : `${row.peerNodeBSystemId}:${row.nodeBPortSystemId}<->${row.peerNodeASystemId}:${row.nodeAPortSystemId}`;
+    const nodeAId = Number(row.peerNodeASystemId);
+    const nodeBId = Number(row.peerNodeBSystemId);
+    const portAId = Number(row.nodeAPortSystemId);
+    const portBId = Number(row.nodeBPortSystemId);
+
+    return nodeAId < nodeBId
+      ? `${nodeAId}:${portAId}<->${nodeBId}:${portBId}`
+      : `${nodeBId}:${portBId}<->${nodeAId}:${portAId}`;
   }
 
   /**

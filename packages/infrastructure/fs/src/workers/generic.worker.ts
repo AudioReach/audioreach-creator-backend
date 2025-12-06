@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import {parentPort, workerData} from 'node:worker_threads';
 import type {WorkerTask, WorkerResult} from '@arc/core';
 import {NodeRegistry} from './node-registry.adapter.js';

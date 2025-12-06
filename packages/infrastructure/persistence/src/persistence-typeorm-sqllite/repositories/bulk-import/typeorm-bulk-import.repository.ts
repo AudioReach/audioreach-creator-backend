@@ -11,6 +11,11 @@ import type {
   ContainerType,
   BulkEntityInsertResult,
   UseCase,
+  BulkModuleInsertResult,
+  BulkDataLinkInsertResult,
+  BulkControlLinkInsertResult,
+  BulkModuleDefinitionInsertResult,
+  BulkKeyDefinitionInsertResult,
 } from '@arc/core';
 import type {QueryRunner} from 'typeorm';
 import {KeyDefinitionInserter} from './key-definition/key-definition.inserter.js';
@@ -21,15 +26,6 @@ import {DataLinkInserter} from './data-link/data-link.inserter.js';
 import {ControlLinkInserter} from './control-link/control-link.inserter.js';
 import {ModuleDefinitionInserter} from './module-definition/module-definition.inserter.js';
 import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
-
-// Import the specific result types from @arc/core
-import type {
-  BulkModuleInsertResult,
-  BulkDataLinkInsertResult,
-  BulkControlLinkInsertResult,
-  BulkModuleDefinitionInsertResult,
-  BulkKeyDefinitionInsertResult,
-} from '@arc/core';
 
 /**
  * TypeORM implementation of BulkImportRepository.
@@ -159,6 +155,7 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async insertProcessorDefinitions(
     items: readonly Omit<ProcessorDefinition, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {
@@ -168,6 +165,7 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async insertContainerTypeDefinitions(
     items: readonly Omit<ContainerType, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {

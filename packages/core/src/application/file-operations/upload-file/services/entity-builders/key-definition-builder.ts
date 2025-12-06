@@ -60,7 +60,9 @@ export class KeyDefinitionBuilder {
     const useParallel = this.shouldUseParallel(awspKeyDefinitions);
 
     try {
-      result = await (useParallel ? this.buildParallel(awspKeyDefinitions, fileSystemId) : this.buildSequential(awspKeyDefinitions, fileSystemId));
+      result = await (useParallel
+        ? this.buildParallel(awspKeyDefinitions, fileSystemId)
+        : this.buildSequential(awspKeyDefinitions, fileSystemId));
 
       this.logger?.logInfo({
         msg: `Successfully built ${result.length} key definitions`,
@@ -202,10 +204,10 @@ export class KeyDefinitionBuilder {
   /**
    * Build key definitions sequentially in the main thread
    */
-  private async buildSequential(
+  private buildSequential(
     keyDefinitions: AwspKeyDefinition[],
     fileSystemId: number,
-  ): Promise<DomainKeyDefinition[]> {
+  ): DomainKeyDefinition[] {
     this.logger?.logDebug({
       msg: `Building ${keyDefinitions.length} key definitions sequentially`,
       action: 'sequential_key_building_start',

@@ -158,16 +158,16 @@ export class DefinitionValidatorService {
 
     // Add constraint messages for current field
     if (error.constraints) {
-      Object.values(error.constraints).forEach((constraint: any) => {
+      for (const constraint of Object.values(error.constraints)) {
         messages.push(`  ↳ ${currentPath}: ${constraint}`);
-      });
+      }
     }
 
     // Recursively format nested errors (for nested objects/arrays)
     if (error.children && error.children.length > 0) {
-      error.children.forEach((childError: any) => {
+      for (const childError of error.children) {
         messages.push(this.formatValidationError(childError, currentPath));
-      });
+      }
     }
 
     return messages.join('\n');

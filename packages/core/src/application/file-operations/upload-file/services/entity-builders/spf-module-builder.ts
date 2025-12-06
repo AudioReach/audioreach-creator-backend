@@ -24,12 +24,12 @@ export class SpfModuleBuilder {
    * Build SpfModule entities from module instance info
    * Main API method similar to UsecaseBuilder.buildUsecases()
    */
-  async buildSpfModules(
+  buildSpfModules(
     moduleInstanceInfos: ModuleInstanceInfo[],
     fileSystemId: number,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
     spfModuleDefinitions: SpfModuleDefinition[] = [],
-  ): Promise<SpfModule[]> {
+  ): SpfModule[] {
     // Input validation
     if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
       this.logger?.logDebug({
@@ -125,7 +125,10 @@ export class SpfModuleBuilder {
       moduleInstance.moduleId,
     );
 
+    // Module property config is available but not currently used in this conversion
+    // It will be utilized when we implement property-based port configuration
     if (modulePropertyConfig) {
+      // Intentionally empty - reserved for future property-based configuration
     }
 
     // Create data ports using module property config

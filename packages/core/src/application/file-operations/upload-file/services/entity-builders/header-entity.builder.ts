@@ -38,11 +38,11 @@ export class HeaderEntityBuilder extends BaseEntityBuilder<HeaderEntity> {
 
     // Validate chunk has required data
     if (
-      headerChunk.headerVersion === undefined ||
+      headerChunk.headerVersion == null ||
       !headerChunk.version ||
       !headerChunk.codecInfos ||
-      headerChunk.modifiedDate === undefined ||
-      headerChunk.oemInfo === undefined
+      headerChunk.modifiedDate == null ||
+      headerChunk.oemInfo == null
     ) {
       throw new Error('HEADER chunk is missing required fields');
     }

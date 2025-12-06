@@ -1,4 +1,4 @@
-const TOOL_POLICY = {
+export const TOOL_POLICY = {
   Unknown: 'UNKNOWN',
   NoSupport: 'NO_SUPPORT',
   Calibration: 'CALIBRATION',

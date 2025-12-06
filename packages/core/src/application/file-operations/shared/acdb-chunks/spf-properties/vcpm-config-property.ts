@@ -16,6 +16,7 @@ export class VcpmConfigProperty {
   static fromPayload(payload: Uint8Array): VcpmConfigProperty {
     // For VCPM config, we store the raw payload as-is
     // The C# implementation also stores it as raw data
+    // eslint-disable-next-line unicorn/prefer-spread -- Uint8Array.slice() is more efficient than spread for typed arrays
     return new VcpmConfigProperty(payload.slice());
   }
 
@@ -23,6 +24,7 @@ export class VcpmConfigProperty {
    * Get the raw configuration data
    */
   getRawData(): Uint8Array {
+    // eslint-disable-next-line unicorn/prefer-spread -- Uint8Array.slice() is more efficient than spread for typed arrays
     return this.configData.slice();
   }
 

@@ -7,5 +7,3 @@ export type PathRef = {
    */
   uri: string;
 };
-
-export type FileRef = PathRef;

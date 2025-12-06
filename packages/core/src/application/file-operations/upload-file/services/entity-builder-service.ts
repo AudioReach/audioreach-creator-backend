@@ -108,10 +108,7 @@ export class EntityBuilderService {
   /**
    * Build subgraphs from ACDB data
    */
-  async buildSubgraphs(
-    parsedAcdb: ParsedAcdb,
-    fileSystemId: number,
-  ): Promise<Subgraph[]> {
+  buildSubgraphs(parsedAcdb: ParsedAcdb, fileSystemId: number): Subgraph[] {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -136,7 +133,7 @@ export class EntityBuilderService {
     }
 
     // Build domain subgraphs
-    const subgraphs = await this.subgraphBuilder.buildSubgraphs(
+    const subgraphs = this.subgraphBuilder.buildSubgraphs(
       subgraphProperties,
       fileSystemId,
     );
@@ -155,10 +152,7 @@ export class EntityBuilderService {
   /**
    * Build containers from ACDB data
    */
-  async buildContainers(
-    parsedAcdb: ParsedAcdb,
-    fileSystemId: number,
-  ): Promise<Container[]> {
+  buildContainers(parsedAcdb: ParsedAcdb, fileSystemId: number): Container[] {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -183,7 +177,7 @@ export class EntityBuilderService {
     }
 
     // Build domain containers
-    const containers = await this.containerBuilder.buildContainers(
+    const containers = this.containerBuilder.buildContainers(
       containerProperties,
       fileSystemId,
     );
@@ -202,11 +196,11 @@ export class EntityBuilderService {
   /**
    * Build SPF modules from ACDB data
    */
-  async buildSpfModules(
+  buildSpfModules(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
     parsedAwsp?: ParsedAwsp,
-  ): Promise<SpfModule[]> {
+  ): SpfModule[] {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -237,7 +231,7 @@ export class EntityBuilderService {
     const spfModuleDefinitions = parsedAwsp?.getSpfModuleDefinitions() || [];
 
     // Build domain SPF modules with module properties and definitions
-    const spfModules = await this.spfModuleBuilder.buildSpfModules(
+    const spfModules = this.spfModuleBuilder.buildSpfModules(
       moduleInstanceInfos,
       fileSystemId,
       modulePropertyConfigs,
@@ -259,10 +253,7 @@ export class EntityBuilderService {
    * Build data links from ACDB data
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
-  async buildDataLinks(
-    parsedAcdb: ParsedAcdb,
-    fileSystemId: number,
-  ): Promise<DataLink[]> {
+  buildDataLinks(parsedAcdb: ParsedAcdb, fileSystemId: number): DataLink[] {
     const allDataLinkProperties: any[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
@@ -300,7 +291,7 @@ export class EntityBuilderService {
     }
 
     // 4. Build domain data links from all sources
-    const dataLinks = await this.dataLinkBuilder.buildDataLinks(
+    const dataLinks = this.dataLinkBuilder.buildDataLinks(
       allDataLinkProperties,
       fileSystemId,
     );
@@ -320,7 +311,7 @@ export class EntityBuilderService {
    * Build control links from ACDB data
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
-  async buildControlLinks(parsedAcdb: ParsedAcdb): Promise<ControlLink[]> {
+  buildControlLinks(parsedAcdb: ParsedAcdb): ControlLink[] {
     const allControlLinkProperties: any[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
@@ -358,7 +349,7 @@ export class EntityBuilderService {
     }
 
     // 4. Build domain control links from all sources
-    const controlLinks = await this.controlLinkBuilder.buildControlLinks(
+    const controlLinks = this.controlLinkBuilder.buildControlLinks(
       allControlLinkProperties,
     );
 
@@ -376,10 +367,7 @@ export class EntityBuilderService {
   /**
    * Build usecases from ACDB data
    */
-  async buildUsecases(
-    parsedAcdb: ParsedAcdb,
-    fileSystemId: number,
-  ): Promise<UseCase[]> {
+  buildUsecases(parsedAcdb: ParsedAcdb, fileSystemId: number): UseCase[] {
     // Extract usecase data from ACDB
     const usecaseChunk = parsedAcdb.getChunk<UsecaseDataChunk>(
       CHUNK_TYPES.GKV_TABLE,
@@ -397,7 +385,7 @@ export class EntityBuilderService {
     );
 
     // Build domain usecases
-    const usecases = await usecaseBuilder.buildUsecases(
+    const usecases = usecaseBuilder.buildUsecases(
       usecaseChunk.usecases,
       fileSystemId,
     );

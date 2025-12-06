@@ -1,4 +1,4 @@
-const PARAM_TYPE = {
+export const PARAM_TYPE = {
   None: 'NONE',
   Shared: 'SHARED',
   GlobalShared: 'GLOBAL_SHARED',

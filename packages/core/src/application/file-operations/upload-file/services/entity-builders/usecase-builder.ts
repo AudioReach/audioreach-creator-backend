@@ -26,10 +26,10 @@ export class UsecaseBuilder {
    * Build UseCase entities from usecase entries
    * Main API method similar to KeyDefinitionBuilder.buildKeyDefinitions()
    */
-  async buildUsecases(
+  buildUsecases(
     usecaseEntries: UsecaseEntry[],
     fileSystemId: number,
-  ): Promise<UseCase[]> {
+  ): UseCase[] {
     // Input validation
     if (!usecaseEntries || usecaseEntries.length === 0) {
       return [];
@@ -42,11 +42,7 @@ export class UsecaseBuilder {
 
     for (const [i, usecaseEntry] of usecaseEntries.entries()) {
       try {
-        const usecase = this.convertUsecaseEntry(
-          usecaseEntry,
-          i,
-          fileSystemId,
-        );
+        const usecase = this.convertUsecaseEntry(usecaseEntry, i, fileSystemId);
         usecases.push(usecase);
         successCount++;
       } catch (error) {
@@ -143,8 +139,6 @@ export class UsecaseBuilder {
     }
 
     const valueSystemIds: number[] = [];
-    let mappedCount = 0;
-    let unmappedCount = 0;
 
     // Convert each key-value pair to its corresponding value systemId
     for (const keyValue of entry.keyValuePairList.keyValueList) {
@@ -156,9 +150,7 @@ export class UsecaseBuilder {
 
         if (valueSystemId) {
           valueSystemIds.push(valueSystemId);
-          mappedCount++;
         } else {
-          unmappedCount++;
           this.logger?.logWarn({
             msg: `No foreign key mapping found for key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}`,
             action: 'missing_value_mapping',
@@ -168,7 +160,6 @@ export class UsecaseBuilder {
           });
         }
       } catch (error) {
-        unmappedCount++;
         this.logger?.logWarn({
           msg: `Failed to map key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           action: 'key_value_mapping_failed',
@@ -238,19 +229,13 @@ export class UsecaseBuilder {
     }
 
     const dataLinkSystemIds: number[] = [];
-    let totalLinks = 0;
-    let interGraphFiltered = 0;
-    let mappingFailed = 0;
-    let added = 0;
 
     // Get data links from subgraphs present in this usecase (intra-subgraph links)
     const usecaseDataLinks = subgraphDataChunk.getAllDataLinks(entry.sgList);
-    totalLinks += usecaseDataLinks.length;
 
     // Process intra-subgraph data links (isInterGraph = false)
     for (const dataLink of usecaseDataLinks) {
       if (dataLink.isInterGraph) {
-        interGraphFiltered++;
         continue;
       }
 
@@ -260,9 +245,6 @@ export class UsecaseBuilder {
       );
       if (systemId) {
         dataLinkSystemIds.push(systemId);
-        added++;
-      } else {
-        mappingFailed++;
       }
     }
 
@@ -270,7 +252,6 @@ export class UsecaseBuilder {
     if (subgraphPairDataChunk && entry.sgPairList.length > 0) {
       const subgraphPairDataLinks =
         subgraphPairDataChunk.getDataLinksForSubgraphPairs(entry.sgPairList);
-      totalLinks += subgraphPairDataLinks.length;
 
       // Process inter-subgraph data links (isInterGraph = true)
       for (const dataLink of subgraphPairDataLinks) {
@@ -280,9 +261,8 @@ export class UsecaseBuilder {
         );
         if (systemId) {
           dataLinkSystemIds.push(systemId);
-          added++;
         } else {
-          mappingFailed++;
+          // TODO: Send validation error back
         }
       }
     }

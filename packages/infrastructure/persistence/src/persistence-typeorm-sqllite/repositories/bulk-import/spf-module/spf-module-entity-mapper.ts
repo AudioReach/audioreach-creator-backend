@@ -8,6 +8,16 @@ import type {
 import {NodeType} from '../../../entity-schema/usecase-data/node/node.schema.js';
 import {PortIoType} from '../../../entity-schema/definitions/module/spf/port-io-type-definition.schema.js';
 
+// Type aliases for database insertion rows (excluding auto-generated fields)
+type DataPortRowInsert = Omit<
+  DataPortRow,
+  'systemId' | 'creationDate' | 'updateDate' | 'node'
+>;
+type ControlPortRowInsert = Omit<
+  ControlPortRow,
+  'systemId' | 'creationDate' | 'updateDate' | 'node'
+>;
+
 /**
  * Maps SpfModule domain entity to SpfModuleRow for database insertion.
  * Uses type assertion for missing audit fields (creationDate, updateDate) as they will be handled by the database.
@@ -52,17 +62,14 @@ export function mapNodeToRow(spfModule: SpfModule): NodeRow {
 export function mapDataPortsToRows(
   dataPorts: readonly DataPort[],
   nodeSystemId: number,
-): Omit<DataPortRow, 'systemId' | 'creationDate' | 'updateDate' | 'node'>[] {
+): DataPortRowInsert[] {
   return dataPorts.map(port => ({
     dataPortId: port.dataPortId,
     name: port.name,
     portIoType: port.portIoType as PortIoType, // Type assertion to schema PortIoType enum
     isStatic: port.isStatic,
     nodeSystemId: nodeSystemId,
-  })) as Omit<
-    DataPortRow,
-    'systemId' | 'creationDate' | 'updateDate' | 'node'
-  >[];
+  })) as DataPortRowInsert[];
 }
 
 /**
@@ -77,14 +84,11 @@ export function mapDataPortsToRows(
 export function mapControlPortsToRows(
   controlPorts: readonly ControlPort[],
   nodeSystemId: number,
-): Omit<ControlPortRow, 'systemId' | 'creationDate' | 'updateDate' | 'node'>[] {
+): ControlPortRowInsert[] {
   return controlPorts.map(port => ({
     portId: port.portId,
     name: port.name,
     isStatic: port.isStatic,
     nodeSystemId: nodeSystemId,
-  })) as Omit<
-    ControlPortRow,
-    'systemId' | 'creationDate' | 'updateDate' | 'node'
-  >[];
+  })) as ControlPortRowInsert[];
 }

@@ -23,31 +23,6 @@ export * from './application/ports/persistence/repositories/bulk-import/spf-modu
 export * from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/project/project.repostiory.js';
-
-// Export specific InsertError types
-export type {
-  InsertError,
-  NaturalIdMapping,
-  EntityInsertResult,
-  BulkEntityInsertResult,
-} from './application/ports/persistence/repositories/bulk-import/insert-result.js';
-export type {
-  KeyDefinitionInsertError,
-  KeyDefinitionInsertErrorEntity,
-} from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
-export type {
-  DataLinkInsertError,
-  ControlLinkInsertError,
-  LinkInsertErrorEntity,
-} from './application/ports/persistence/repositories/bulk-import/link-insertion-report.js';
-export type {
-  ModuleDefinitionInsertError,
-  ModuleDefinitionInsertErrorEntity,
-} from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
-export type {
-  ModuleInsertError,
-  ModuleInsertErrorEntity,
-} from './application/ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 
