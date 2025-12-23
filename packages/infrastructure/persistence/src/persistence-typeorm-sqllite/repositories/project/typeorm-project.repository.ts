@@ -8,6 +8,7 @@ import {
 import {
   ArcDbFileRow,
   ArcDbFileSchema,
+  EntityRowForInsert,
   ProjectRow,
   ProjectSchema,
 } from '../../entity-schema/index.js';
@@ -16,6 +17,7 @@ import {
   toProjectDomain,
   toArcDbFileDomain,
   toArcDbFileRow,
+  toProjectRow,
 } from './project-mapper.js';
 
 export class TypeOrmProjectRepository implements ProjectRepository {
@@ -25,14 +27,10 @@ export class TypeOrmProjectRepository implements ProjectRepository {
     project: Omit<Project, 'systemId' | 'type'>,
     file: Omit<ArcDbFile, 'systemId' | 'projectSystemId'>,
   ): Promise<{project: Project; file: ArcDbFile}> {
-    const projectRow: Omit<
-      ProjectRow,
-      'systemId' | 'creationDate' | 'updateDate'
-    > = {
-      name: project.name,
-      description: project.description,
+    const projectRow: EntityRowForInsert<ProjectRow> = toProjectRow({
+      ...project,
       type: PROJECT_TYPE.OFFLINE,
-    };
+    } as Project);
 
     return this.dataSource.transaction(async manager => {
       const projectInsertResult = await manager.insert(

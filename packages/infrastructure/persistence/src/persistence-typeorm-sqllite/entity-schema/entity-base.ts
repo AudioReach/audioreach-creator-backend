@@ -1,31 +1,66 @@
 import type {EntitySchemaColumnOptions} from 'typeorm';
 
 export interface EntityBaseRow {
-  //arc specific id, should be treated as primary key for the enity whenever possible
+  // arc specific id, should be treated as primary key for the entity whenever possible
   systemId: number;
-  //stores the enity creation date
+  // stores the entity creation date
   creationDate: Date;
-  //stores entity update date
+  // stores entity update date
   updateDate: Date;
+  // version for optimistic locking
+  version: number;
 }
 
-export const BaseColumnSchemaPart = {
+/**
+ * Utility type to omit auto-generated/managed fields from entity rows.
+ * Use this when creating new entity rows to insert into the database.
+ *
+ * Auto-managed fields:
+ * - systemId: Auto-incremented by database
+ * - creationDate: Set by TypeORM on insert
+ * - updateDate: Set by TypeORM on update
+ * - version: Managed by TypeORM for optimistic locking
+ *
+ * @example
+ * ```typescript
+ * function toProjectRow(entity: Project): EntityRowForInsert<ProjectRow> {
+ *   return {
+ *     name: entity.name,
+ *     description: entity.description,
+ *     type: entity.type,
+ *   };
+ * }
+ * ```
+ */
+export type EntityRowForInsert<T extends EntityBaseRow> = Omit<
+  T,
+  'systemId' | 'creationDate' | 'updateDate' | 'version'
+>;
+
+export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
   systemId: {
     name: 'system_id',
-    type: Number,
+    type: 'integer',
     primary: true,
-    generated: true,
-  } as EntitySchemaColumnOptions,
+    generated: 'increment',
+  },
 
   creationDate: {
     name: 'created_at',
-    type: Date,
+    type: 'datetime',
     createDate: true,
-  } as EntitySchemaColumnOptions,
+  },
 
   updateDate: {
     name: 'updated_at',
-    type: Date,
+    type: 'datetime',
     updateDate: true,
-  } as EntitySchemaColumnOptions,
+  },
+
+  version: {
+    name: 'version',
+    type: 'integer',
+    version: true,
+    default: 1,
+  },
 };

@@ -1,5 +1,9 @@
 import {ArcDbFile, Project, ProjectType} from '@arc/core';
-import {ArcDbFileRow, ProjectRow} from '../../entity-schema/index.js';
+import {
+  ArcDbFileRow,
+  EntityRowForInsert,
+  ProjectRow,
+} from '../../entity-schema/index.js';
 
 export function toProjectDomain(row: ProjectRow): Project {
   return new Project(
@@ -12,7 +16,7 @@ export function toProjectDomain(row: ProjectRow): Project {
 
 export function toProjectRow(
   entity: Omit<Project, 'systemId'>,
-): Omit<ProjectRow, 'systemId' | 'creationDate' | 'updateDate'> {
+): EntityRowForInsert<ProjectRow> {
   return {
     name: entity.name,
     description: entity.description,
@@ -25,7 +29,7 @@ export function toArcDbFileDomain(row: ArcDbFileRow): ArcDbFile {
     systemId: row.systemId,
     description: row.description,
     metadata: row.metadata,
-    tag: row.tag,
+    fileName: row.fileName,
     isTarget: row.isTarget,
     projectSystemId: row.projectSystemId,
   });
@@ -34,11 +38,11 @@ export function toArcDbFileDomain(row: ArcDbFileRow): ArcDbFile {
 export function toArcDbFileRow(
   file: Omit<ArcDbFile, 'systemId' | 'projectSystemId'>,
   projectSystemId: number,
-): Omit<ArcDbFileRow, 'systemId' | 'creationDate' | 'updateDate'> {
+): EntityRowForInsert<ArcDbFileRow> {
   return {
     description: file.description,
     metadata: file.metadata,
-    tag: file.tag,
+    fileName: file.fileName,
     isTarget: file.isTarget,
     projectSystemId,
   };

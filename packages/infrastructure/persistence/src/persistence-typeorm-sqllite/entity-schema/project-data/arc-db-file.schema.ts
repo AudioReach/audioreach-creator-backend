@@ -8,7 +8,7 @@ import {EntitySchema} from 'typeorm';
 export interface ArcDbFileRow extends EntityBaseRow {
   description: string;
   metadata: string;
-  tag: string;
+  fileName: string;
   isTarget: boolean;
 
   // FK to project
@@ -28,8 +28,8 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
     ...BaseColumnSchemaPart,
     description: {type: 'text'},
     metadata: {type: 'text'}, // or use `type: 'simple-json'` if you prefer object serialization
-    tag: {type: String, length: 128},
-    isTarget: {type: Boolean},
+    fileName: {name: 'file_name', type: 'varchar', length: 250},
+    isTarget: {type: 'integer'}, // SQLite stores boolean as 0/1
 
     projectSystemId: {name: 'project_system_id', type: 'integer'},
   },
@@ -46,5 +46,11 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
     containers: {type: 'one-to-many', target: 'Container', inverseSide: 'file'},
     modules: {type: 'one-to-many', target: 'SpfModule', inverseSide: 'file'},
   },
-  indices: [{name: 'ix_files_project', columns: ['projectSystemId']}],
+  indices: [
+    {
+      name: 'uk_files_project_filename',
+      columns: ['projectSystemId', 'fileName'],
+      unique: true,
+    },
+  ],
 });

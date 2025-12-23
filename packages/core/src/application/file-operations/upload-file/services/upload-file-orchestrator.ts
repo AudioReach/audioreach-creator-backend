@@ -7,7 +7,6 @@ import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/s
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
-import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import {ForeignKeyMapper} from './foreign-key-mapper.js';
 import {AcdbFileOrchestrator} from './acdb-file-orchestrator.js';
 import {AwspFileOrchestrator} from './awsp-file-orchestrator.js';
@@ -598,40 +597,40 @@ export class UploadFileOrchestrator {
   /**
    * Phase 6: Build and Insert Control Links
    */
-  private async buildAndInsertControlLinks(bulkRepo: any): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building control links');
-    }
+  //   private async buildAndInsertControlLinks(bulkRepo: any): Promise<void> {
+  //     if (!this.parsedAcdb || !this.parsedAwsp) {
+  //       throw new Error('Parsed data not available for building control links');
+  //     }
 
-    // Build control links (now that we have module systemIds)
-    const controlLinks = await this.builderService.buildControlLinks(
-      this.parsedAcdb,
-    );
+  //     // Build control links (now that we have module systemIds)
+  //     const controlLinks = await this.builderService.buildControlLinks(
+  //       this.parsedAcdb,
+  //     );
 
-    if (controlLinks && controlLinks.length > 0) {
-      const controlLinkResult = await bulkRepo.insertControlLinks(
-        controlLinks.map((cl: ControlLink) => ({
-          ...cl,
-          systemId: undefined,
-        })) as any,
-      );
+  //     if (controlLinks && controlLinks.length > 0) {
+  //       const controlLinkResult = await bulkRepo.insertControlLinks(
+  //         controlLinks.map((cl: ControlLink) => ({
+  //           ...cl,
+  //           systemId: undefined,
+  //         })) as any,
+  //       );
 
-      // Store control link mappings for usecases
-      this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
+  //       // Store control link mappings for usecases
+  //       this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
 
-      const successfulInserts = controlLinkResult.results.filter(
-        (r: any) => r.success,
-      ).length;
+  //       const successfulInserts = controlLinkResult.results.filter(
+  //         (r: any) => r.success,
+  //       ).length;
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
-        action: 'control_links_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
-    }
-  }
+  //       this.logger?.logInfo({
+  //         msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
+  //         action: 'control_links_persisted',
+  //         component: 'UploadFileOrchestrator',
+  //         tag: 'database-persistence',
+  //         timestamp: new Date(),
+  //       });
+  //     }
+  //   }
 
   /**
    * Phase 7: Build and Insert Usecases

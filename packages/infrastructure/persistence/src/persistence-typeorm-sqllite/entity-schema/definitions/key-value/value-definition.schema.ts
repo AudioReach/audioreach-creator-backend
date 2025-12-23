@@ -37,26 +37,25 @@ export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
     ...BaseColumnSchemaPart,
     valueId: {
       name: 'value_id',
-      type: Number,
+      type: 'integer',
       unique: false,
-      unsigned: true,
     },
     keySystemId: {
       name: 'keys_system_id',
-      type: Number,
+      type: 'integer',
       nullable: false,
     },
     valueName: {
       name: 'value_name',
-      type: String,
+      type: 'text',
     },
     cEnumMemberName: {
       name: 'key_enum_value',
-      type: String,
+      type: 'text',
       nullable: true,
     },
     description: {
-      type: String,
+      type: 'text',
       nullable: true,
     },
   },

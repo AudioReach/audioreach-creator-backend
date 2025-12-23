@@ -54,12 +54,12 @@ export class OpenFileHandler
       new Project(0, projectName, projectDescription, PROJECT_TYPE.OFFLINE),
       {
         description: `ACDB: ${command.acdb.name}, AWSP: ${command.awsp.name}`,
-        metadata: JSON.stringify({
+        metadata: 'upload',
+        fileName: JSON.stringify({
           acdb: command.acdb.name,
           awsp: command.awsp.name,
           uploadedAt: new Date().toISOString(),
         }),
-        tag: 'upload',
         isTarget: true,
       },
     );
