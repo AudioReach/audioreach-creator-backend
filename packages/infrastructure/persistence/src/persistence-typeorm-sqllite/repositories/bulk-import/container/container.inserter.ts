@@ -2,14 +2,17 @@ import {BulkEntityInsertResult, Container, NaturalIdMapping} from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
 import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
 import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {ContainerRow} from '../../../entity-schema/index.js';
+import {
+  ContainerRow,
+  EntityRowForInsert,
+} from '../../../entity-schema/index.js';
 
 /**
  * Handles bulk insertion of Container entities.
  *
  * Process:
  * 1. Batch insert all Containers
- * 2. Query back using naturalId (natural key)
+ * 2. Query back using containerId (natural key)
  * 3. Build results with mappings and errors
  *
  * Uses insert+query pattern with natural keys for reliable systemId mapping.
@@ -48,12 +51,14 @@ export class ContainerInserter extends BaseInserter<
     // ============================================
     // Query Back Container SystemIds
     // ============================================
-    const successfulContainerNaturalIds = insertResult.succeeded.map(
-      row => row.naturalId as number, // Using naturalId as natural key
-    );
-    const mappings = await this.queryBackContainers(
-      successfulContainerNaturalIds,
-    );
+    const successfulContainerIds = insertResult.succeeded
+      .map(
+        row =>
+          (row as EntityRowForInsert<ContainerRow> & {containerId: number})
+            .containerId,
+      )
+      .filter((id): id is number => id !== undefined);
+    const mappings = await this.queryBackContainers(successfulContainerIds);
 
     // ============================================
     // Build Results
@@ -66,34 +71,34 @@ export class ContainerInserter extends BaseInserter<
    */
   private toContainerRow(
     container: Omit<Container, 'systemId'>,
-  ): QueryDeepPartialEntity<ContainerRow> {
+  ): EntityRowForInsert<ContainerRow> {
     return {
       type: container.type,
-      naturalId: container.naturalId,
+      containerId: container.containerId,
       fileSystemId: container.fileSystemId,
     };
   }
 
   /**
-   * Query back Container systemIds using natural keys (naturalId).
+   * Query back Container systemIds using natural keys (containerId).
    * Uses indexed column for fast lookup.
    *
-   * @param naturalIds - Array of container naturalIds to query
+   * @param containerIds - Array of container containerIds to query
    * @returns Array of natural key → systemId mappings
    */
   private async queryBackContainers(
-    naturalIds: number[],
+    containerIds: number[],
   ): Promise<NaturalIdMapping<number>[]> {
-    if (naturalIds.length === 0) return [];
+    if (containerIds.length === 0) return [];
 
     const results = await this.manager
       .createQueryBuilder('Container', 'c')
-      .select(['c.systemId', 'c.naturalId'])
-      .where('c.naturalId IN (:...naturalIds)', {naturalIds})
+      .select(['c.systemId', 'c.containerId'])
+      .where('c.containerId IN (:...containerIds)', {containerIds})
       .getMany();
 
     return results.map(r => ({
-      naturalId: r.naturalId,
+      naturalId: r.containerId,
       systemId: r.systemId,
     }));
   }
@@ -109,24 +114,24 @@ export class ContainerInserter extends BaseInserter<
     const mappingMap = new Map(mappings.map(m => [m.naturalId, m.systemId]));
 
     const failedMap = new Map(
-      insertResult.failed.map(f => [f.row.naturalId as number, f.error]),
+      insertResult.failed.map(f => [f.row.containerId as number, f.error]),
     );
 
     const results = [];
 
     for (const container of containers) {
-      const systemId = mappingMap.get(container.naturalId);
-      const error = failedMap.get(container.naturalId);
+      const systemId = mappingMap.get(container.containerId);
+      const error = failedMap.get(container.containerId);
 
       if (systemId) {
         results.push({
-          idMapping: {naturalId: container.naturalId, systemId},
+          idMapping: {naturalId: container.containerId, systemId},
           errors: [],
           success: true,
         });
       } else if (error) {
         results.push({
-          errors: [this.buildError('Container', container.naturalId, error)],
+          errors: [this.buildError('Container', container.containerId, error)],
           success: false,
         });
       }

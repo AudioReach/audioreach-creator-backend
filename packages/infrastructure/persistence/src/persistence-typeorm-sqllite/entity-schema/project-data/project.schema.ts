@@ -14,9 +14,9 @@ export const ProjectSchema = new EntitySchema<ProjectRow>({
   tableName: 'projects',
   columns: {
     ...BaseColumnSchemaPart,
-    name: {type: String, length: 256},
+    name: {type: 'varchar', length: 256},
     description: {type: 'text'},
-    type: {type: String, length: 64},
+    type: {type: 'varchar', length: 64},
   },
   relations: {
     // read convenience only; no save-cascade
@@ -26,5 +26,5 @@ export const ProjectSchema = new EntitySchema<ProjectRow>({
       inverseSide: 'project',
     },
   },
-  indices: [{name: 'ix_projects_type', columns: ['type']}],
+  indices: [{name: 'uk_projects_name', columns: ['name'], unique: true}],
 });

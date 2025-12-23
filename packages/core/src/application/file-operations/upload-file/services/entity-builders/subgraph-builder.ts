@@ -68,7 +68,7 @@ export class SubgraphBuilder {
     // Create Subgraph entity
     return new Subgraph({
       systemId: 0, // Will be generated during insertion
-      naturalId: property.subgraphId, // Use the subgraphId from the property
+      subgraphId: property.subgraphId, // Use the subgraphId from the property
       name: `Subgraph_${property.subgraphId}`, //TODO: init from workspace file.
       isExported: false, // Default value, could be derived from properties
       fileSystemId: fileSystemId,

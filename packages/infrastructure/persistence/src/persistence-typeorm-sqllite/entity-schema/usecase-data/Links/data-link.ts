@@ -44,7 +44,7 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
       name: 'destination_port_system_id',
     },
     isInterGraph: {
-      type: 'boolean',
+      type: 'integer', // SQLite stores boolean as 0/1
       name: 'is_inter_graph',
     },
     naturalKeyHash: {
@@ -54,9 +54,8 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
     },
     fileSystemId: {
       name: 'file_system_id',
-      type: Number,
+      type: 'integer',
       nullable: false,
-      unsigned: true,
     },
   },
   relations: {

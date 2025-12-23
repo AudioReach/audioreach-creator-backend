@@ -2,7 +2,7 @@ import {BulkEntityInsertResult, Subgraph, NaturalIdMapping} from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
 import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
 import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {SubgraphRow} from '../../../entity-schema/index.js';
+import {EntityRowForInsert, SubgraphRow} from '../../../entity-schema/index.js';
 
 /**
  * Handles bulk insertion of Subgraph entities.
@@ -48,12 +48,14 @@ export class SubgraphInserter extends BaseInserter<
     // ============================================
     // Query Back Subgraph SystemIds
     // ============================================
-    const successfulSubgraphNaturalIds = insertResult.succeeded.map(
-      row => row.naturalId as number, // Using naturalId as natural key
-    );
-    const mappings = await this.queryBackSubgraphs(
-      successfulSubgraphNaturalIds,
-    );
+    const successfulSubgraphIds = insertResult.succeeded
+      .map(
+        row =>
+          (row as EntityRowForInsert<SubgraphRow> & {subgraphId: number})
+            .subgraphId,
+      )
+      .filter((id): id is number => id !== undefined);
+    const mappings = await this.queryBackSubgraphs(successfulSubgraphIds);
 
     // ============================================
     // Build Results
@@ -66,35 +68,35 @@ export class SubgraphInserter extends BaseInserter<
    */
   private toSubgraphRow(
     subgraph: Omit<Subgraph, 'systemId'>,
-  ): QueryDeepPartialEntity<SubgraphRow> {
+  ): EntityRowForInsert<SubgraphRow> {
     return {
       name: subgraph.name,
-      naturalId: subgraph.naturalId,
+      subgraphId: subgraph.subgraphId,
       isExported: subgraph.isExported,
       fileSystemId: subgraph.fileSystemId,
     };
   }
 
   /**
-   * Query back Subgraph systemIds using natural keys (naturalId).
+   * Query back Subgraph systemIds using natural keys (subgraphId).
    * Uses indexed column for fast lookup.
    *
-   * @param naturalIds - Array of subgraph naturalIds to query
+   * @param subgraphIds - Array of subgraph subgraphIds to query
    * @returns Array of natural key → systemId mappings
    */
   private async queryBackSubgraphs(
-    naturalIds: number[],
+    subgraphIds: number[],
   ): Promise<NaturalIdMapping<number>[]> {
-    if (naturalIds.length === 0) return [];
+    if (subgraphIds.length === 0) return [];
 
     const results = await this.manager
       .createQueryBuilder('Subgraph', 's')
-      .select(['s.systemId', 's.naturalId'])
-      .where('s.naturalId IN (:...naturalIds)', {naturalIds})
+      .select(['s.systemId', 's.subgraphId'])
+      .where('s.subgraphId IN (:...subgraphIds)', {subgraphIds})
       .getMany();
 
     return results.map(r => ({
-      naturalId: r.naturalId,
+      naturalId: r.subgraphId,
       systemId: r.systemId,
     }));
   }
@@ -110,24 +112,24 @@ export class SubgraphInserter extends BaseInserter<
     const mappingMap = new Map(mappings.map(m => [m.naturalId, m.systemId]));
 
     const failedMap = new Map(
-      insertResult.failed.map(f => [f.row.naturalId as number, f.error]),
+      insertResult.failed.map(f => [f.row.subgraphId as number, f.error]),
     );
 
     const results = [];
 
     for (const subgraph of subgraphs) {
-      const systemId = mappingMap.get(subgraph.naturalId);
-      const error = failedMap.get(subgraph.naturalId);
+      const systemId = mappingMap.get(subgraph.subgraphId);
+      const error = failedMap.get(subgraph.subgraphId);
 
       if (systemId) {
         results.push({
-          idMapping: {naturalId: subgraph.naturalId, systemId},
+          idMapping: {naturalId: subgraph.subgraphId, systemId},
           errors: [],
           success: true,
         });
       } else if (error) {
         results.push({
-          errors: [this.buildError('Subgraph', subgraph.naturalId, error)],
+          errors: [this.buildError('Subgraph', subgraph.subgraphId, error)],
           success: false,
         });
       }

@@ -6,7 +6,7 @@ import {EntitySchema} from 'typeorm';
 
 export interface ContainerRow extends EntityBaseRow {
   type: string;
-  naturalId: number;
+  containerId: number;
 
   // inverse relation for convenience (reads)
   modules?: SpfModuleRow[];
@@ -22,7 +22,7 @@ export const ContainerSchema = new EntitySchema<ContainerRow>({
   columns: {
     ...BaseColumnSchemaPart,
     type: {name: 'type', type: 'varchar', length: 128},
-    naturalId: {name: 'natural_id', type: 'integer'},
+    containerId: {name: 'container_id', type: 'integer'},
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
   relations: {
@@ -44,7 +44,10 @@ export const ContainerSchema = new EntitySchema<ContainerRow>({
     },
   },
   indices: [
-    {name: 'ix_containers_type', columns: ['type']},
-    {name: 'ix_containers_natural_id', columns: ['naturalId']},
+    {
+      name: 'uq_containers_container_id_file_system_id',
+      columns: ['containerId', 'fileSystemId'],
+      unique: true,
+    },
   ],
 });

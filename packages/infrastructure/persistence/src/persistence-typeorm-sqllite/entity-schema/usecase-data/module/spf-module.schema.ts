@@ -5,7 +5,7 @@ import {SpfModulePropertiesDataRow} from './spf-module-properties-data.js';
 import {EntitySchema} from 'typeorm';
 import {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-module-definition.schema.js';
 import {NodeRow} from '../node/node.schema.js';
-import {EntityBaseRow} from '../../entity-base.js';
+import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
 
 export interface SpfModuleRow extends EntityBaseRow {
   instanceId: number;
@@ -34,25 +34,16 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
   name: 'SpfModule',
   tableName: 'spf_modules',
   columns: {
+    ...BaseColumnSchemaPart,
     // Override systemId to NOT be auto-generated (will use Node's systemId)
     systemId: {
       name: 'system_id',
-      type: Number,
+      type: 'integer',
       primary: true,
       // No 'generated' property - will be provided from Node
     },
-    creationDate: {
-      name: 'created_at',
-      type: Date,
-      createDate: true,
-    },
-    updateDate: {
-      name: 'updated_at',
-      type: Date,
-      updateDate: true,
-    },
     instanceId: {name: 'instance_id', type: 'integer'},
-    alias: {type: String, length: 256},
+    alias: {type: 'varchar', length: 256},
 
     //  scalar FK columns you will set directly
     subgraphSystemId: {name: 'subgraph_system_id', type: 'integer'},
@@ -112,8 +103,27 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
     },
   },
   indices: [
-    {name: 'ix_spf_modules_subgraph', columns: ['subgraphSystemId']},
-    {name: 'ix_spf_modules_container', columns: ['containerSystemId']},
-    {name: 'ix_spf_modules_definition', columns: ['definitionSystemId']},
+    {
+      name: 'ix_spf_modules_subgraph_file_system',
+      columns: ['subgraphSystemId', 'fileSystemId'],
+    },
+    {
+      name: 'ix_spf_modules_container_file_system',
+      columns: ['containerSystemId', 'fileSystemId'],
+    },
+    {
+      name: 'ix_spf_modules_definition_file_system',
+      columns: ['definitionSystemId', 'fileSystemId'],
+    },
+    {
+      name: 'uq_spf_modules_instance_id_file_system_id',
+      columns: ['instanceId', 'fileSystemId'],
+      unique: true,
+    },
+    {
+      name: 'uq_spf_modules_alias_file_system_id',
+      columns: ['alias', 'fileSystemId'],
+      unique: true,
+    },
   ],
 });

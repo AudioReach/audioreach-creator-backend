@@ -279,6 +279,7 @@ export {
 
 // ===== HELPER TYPES =====
 export type {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
+export {EntityBaseRow, EntityRowForInsert} from './entity-base.js';
 
 // ===== SCHEMA FACTORY HELPER =====
 /**

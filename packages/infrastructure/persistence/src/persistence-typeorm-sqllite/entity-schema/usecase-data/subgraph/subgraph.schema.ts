@@ -6,7 +6,7 @@ import {EntitySchema} from 'typeorm';
 
 export interface SubgraphRow extends EntityBaseRow {
   name: string;
-  naturalId: number;
+  subgraphId: number;
 
   // true: if subgraph is exported from another acdb file
   isExported: boolean;
@@ -25,9 +25,9 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
   tableName: 'subgraphs',
   columns: {
     ...BaseColumnSchemaPart,
-    name: {type: String, length: 256},
-    naturalId: {name: 'natural_id', type: 'integer'},
-    isExported: {name: 'is_exported', type: 'boolean'},
+    name: {type: 'varchar', length: 256},
+    subgraphId: {name: 'subgraph_id', type: 'integer'},
+    isExported: {name: 'is_exported', type: 'integer'}, // SQLite stores boolean as 0/1
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
   relations: {
@@ -50,7 +50,15 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
     },
   },
   indices: [
-    {name: 'ix_subgraphs_name', columns: ['name']},
-    {name: 'ix_subgraphs_natural_id', columns: ['naturalId']},
+    {
+      name: 'uq_subgraphs_name_file_system_id',
+      columns: ['name', 'fileSystemId'],
+      unique: true,
+    },
+    {
+      name: 'uq_subgraphs_subgraph_id_file_system_id',
+      columns: ['subgraphId', 'fileSystemId'],
+      unique: true,
+    },
   ],
 });
