@@ -1,12 +1,13 @@
 import {EntitySchema} from 'typeorm';
-import {DataPortRow} from './data-port-info.schema.js';
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
-import {ControlPortRow} from './control-port.js';
-import {DataLinkRow} from '../Links/data-link.js';
-import {UseCaseRow} from '../use-case.js';
-import {SpfModuleRow} from '../module/spf-module.schema.js';
-import {SubsystemRow} from '../subsystem/subsystem.js';
+import type {DataPortRow} from './data-port-info.schema.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import type {ControlPortRow} from './control-port.js';
+import type {DataLinkRow} from '../Links/data-link.js';
+import type {UseCaseRow} from '../use-case.js';
+import type {SpfModuleRow} from '../module/spf-module.schema.js';
+import type {SubsystemRow} from '../subsystem/subsystem.js';
 
 export const NodeType = {
   Module: 'module',

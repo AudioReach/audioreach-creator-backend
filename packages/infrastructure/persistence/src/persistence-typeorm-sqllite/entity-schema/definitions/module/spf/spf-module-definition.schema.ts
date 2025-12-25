@@ -1,14 +1,14 @@
 import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {ModuleDefinitionMetaDataRow} from './module-definition-meta-data.schema.js';
-import {DataPortGroupRow} from './data-group-definition.schema.js';
-import {ModuleAttributeRow} from './module-attribute.schema.js';
-import {StaticControlPortDefinitionRow} from './static-control-port-definition.schema.js';
-import {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema.js';
-import {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
-import {ContainerTypeRow} from '../../container/container-definition.schema.js';
-import {DynamicIntentDefinitionRow} from './dynamic-intent-definition.schema.js';
-import {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema.js';
+import type {ModuleDefinitionMetaDataRow} from './module-definition-meta-data.schema.js';
+import type {DataPortGroupRow} from './data-group-definition.schema.js';
+import type {ModuleAttributeRow} from './module-attribute.schema.js';
+import type {StaticControlPortDefinitionRow} from './static-control-port-definition.schema.js';
+import type {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema.js';
+import type {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
+import type {ContainerTypeRow} from '../../container/container-definition.schema.js';
+import type {DynamicIntentDefinitionRow} from './dynamic-intent-definition.schema.js';
+import type {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema.js';
 
 export interface SpfModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;

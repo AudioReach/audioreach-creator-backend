@@ -1,9 +1,10 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
-import {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
-import {NodeRow} from './node/node.schema.js';
-import {DataLinkRow} from './Links/data-link.js';
-import {ControlLinkRow} from './Links/control-link.js';
-import {KeyVectorRow} from './common/key-vector-schema.js';
+import {BaseColumnSchemaPart} from '../entity-base.js';
+import type {EntityBaseRow} from '../entity-base.js';
+import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
+import type {NodeRow} from './node/node.schema.js';
+import type {DataLinkRow} from './Links/data-link.js';
+import type {ControlLinkRow} from './Links/control-link.js';
+import type {KeyVectorRow} from './common/key-vector-schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface UseCaseRow extends EntityBaseRow {

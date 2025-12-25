@@ -1,7 +1,8 @@
-import {ModulePropertyRow} from '../../definitions/module/spf/module-property-definition.schema.js';
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {SpfModuleRow} from './spf-module.schema.js';
-import {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
+import type {ModulePropertyRow} from '../../definitions/module/spf/module-property-definition.schema.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {SpfModuleRow} from './spf-module.schema.js';
+import type {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 

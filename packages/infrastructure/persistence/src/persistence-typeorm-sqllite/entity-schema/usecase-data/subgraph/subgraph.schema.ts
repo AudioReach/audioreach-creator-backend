@@ -1,7 +1,8 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
-import {SpfModuleRow} from '../module/spf-module.schema.js';
-import {VcpmInstanceRow} from './subgraph-vcpm-data.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import type {SpfModuleRow} from '../module/spf-module.schema.js';
+import type {VcpmInstanceRow} from './subgraph-vcpm-data.js';
 import {EntitySchema} from 'typeorm';
 
 export interface SubgraphRow extends EntityBaseRow {

@@ -1,9 +1,10 @@
-import {VcpmModuleDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
-import {VcpmModuleParameterDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {KeyVectorRow} from '../common/key-vector-schema.js';
-import {SubgraphRow} from './subgraph.schema.js';
-import {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
+import type {VcpmModuleDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
+import type {VcpmModuleParameterDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {KeyVectorRow} from '../common/key-vector-schema.js';
+import type {SubgraphRow} from './subgraph.schema.js';
+import type {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 

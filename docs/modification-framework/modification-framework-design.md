@@ -260,17 +260,29 @@ This framework spans multiple bounded contexts:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
+│                         session_modes                                │
+├─────────────────────────────────────────────────────────────────────┤
+│ PK  mode_id               VARCHAR(36)                                │
+│ FK  file_system_id        INTEGER       -- FK to arc_db_files        │
+│     mode                  ENUM('DESIGNER','DIFF_MERGE','SIMULATION') │
+│     deactivated_at        TIMESTAMP     -- NULL if active            │
+│     created_at            TIMESTAMP     -- Activation time           │
+└─────────────────────────────────────────────────────────────────────┘
+                │
+                │ 1:N
+                ▼
+┌─────────────────────────────────────────────────────────────────────┐
 │                         edit_sessions                                │
 ├─────────────────────────────────────────────────────────────────────┤
-│ PK  session_uuid          VARCHAR(36)                                │
-│     user_id               VARCHAR(255)                               │
-│     client_id             VARCHAR(255)  -- Optional: client app ID   │
-│     file_system_id        INTEGER       -- FK to arc_db_files        │
-│     status                ENUM('Active','Committed','Rejected')      │
-│     edit_type             ENUM('Designer','DiffMerge',...)           │
+│ PK  session_id            VARCHAR(36)                                │
+│     user_id               VARCHAR(255)  -- Nullable                  │
+│     client_id             VARCHAR(255)  -- Client app identifier     │
+│ FK  file_system_id        INTEGER       -- FK to arc_db_files        │
+│ FK  mode_id               VARCHAR(36)   -- FK to session_modes       │
+│     edit_status           ENUM('ACTIVE','COMMITTED')                 │
+│     committed_at          TIMESTAMP     -- NULL if active            │
+│     commit_message        TEXT          -- NULL if not committed     │
 │     created_at            TIMESTAMP                                  │
-│     released_at           TIMESTAMP     -- NULL if active            │
-│     commit_text           TEXT          -- NULL if rejected          │
 └─────────────────────────────────────────────────────────────────────┘
                 │                                    │
                 │ 1:N                                │ 1:N
@@ -278,91 +290,119 @@ This framework spans multiple bounded contexts:
 ┌───────────────────────────────┐    ┌───────────────────────────────┐
 │       edit_actions            │    │      restore_points           │
 ├───────────────────────────────┤    ├───────────────────────────────┤
-│ PK  change_uuid               │    │ PK  restore_uuid              │
-│     system_id                 │    │ FK  session_uuid (nullable)   │
-│ FK  session_uuid              │    │     file_system_id            │
+│ PK  change_id                 │    │ PK  restore_id                │
+│     system_id                 │    │ FK  session_id (nullable)     │
+│ FK  session_id                │    │ FK  file_system_id            │
 │     table_name                │    │     restore_type              │
 │     operation                 │    │     snapshot_data             │
-│     payload                   │    │     created_at                │
-│     commit_status             │    │     description               │
-│     base_version              │    └───────────────────────────────┘
-│     group_id                  │
-│     created_at                │
-│     valid_until               │
+│     payload                   │    │     description               │
+│     change_status             │    │     created_at                │
+│     base_version              │    │     system_id                 │
+│     group_id                  │    │     updated_at                │
+│     created_at                │    │     version                   │
+│     valid_until               │    └───────────────────────────────┘
 ├───────────────────────────────┤
 │ IDX idx_edit_actions_session  │
 │ IDX idx_edit_actions_system_id│
 │ IDX idx_edit_actions_valid    │
+│ IDX idx_edit_actions_status   │
 │ UNIQUE uniq_edit_actions_...  │
 └───────────────────────────────┘
 ```
 
 ### Table Schemas
 
-#### edit_sessions
+#### session_modes
 ```sql
-CREATE TABLE edit_sessions (
-  session_uuid VARCHAR(36) PRIMARY KEY,
-  user_id VARCHAR(255) NOT NULL,
-  client_id VARCHAR(255),
+CREATE TABLE session_modes (
+  mode_id VARCHAR(36) PRIMARY KEY,
   file_system_id INTEGER NOT NULL,
-  status VARCHAR(20) NOT NULL CHECK (status IN ('Active', 'Committed', 'Rejected')),
-  edit_type VARCHAR(50) NOT NULL CHECK (edit_type IN ('Designer', 'DiffMerge', 'RealTimeDesigner', 'Simulation')),
+  mode VARCHAR(20) NOT NULL CHECK (mode IN ('DESIGNER', 'DIFF_MERGE', 'SIMULATION')),
+  deactivated_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  released_at TIMESTAMP,
-  commit_text TEXT,
   FOREIGN KEY (file_system_id) REFERENCES arc_db_files(system_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_edit_sessions_file ON edit_sessions(file_system_id);
-CREATE INDEX idx_edit_sessions_status ON edit_sessions(status);
-CREATE INDEX idx_edit_sessions_user ON edit_sessions(user_id, file_system_id);
+CREATE INDEX idx_session_modes_file ON session_modes(file_system_id);
+CREATE INDEX idx_session_modes_active ON session_modes(file_system_id, deactivated_at);
 ```
+
+**Purpose**: Tracks the current mode of a project. Only one active mode per project (WHERE deactivated_at IS NULL). The `created_at` timestamp serves as the activation time.
+
+#### edit_sessions
+```sql
+CREATE TABLE edit_sessions (
+  session_id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(255),
+  client_id VARCHAR(255) NOT NULL,
+  file_system_id INTEGER NOT NULL,
+  mode_id VARCHAR(36) NOT NULL,
+  edit_status VARCHAR(20) NOT NULL CHECK (edit_status IN ('ACTIVE', 'COMMITTED')),
+  committed_at TIMESTAMP,
+  commit_message TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (file_system_id) REFERENCES arc_db_files(system_id) ON DELETE CASCADE,
+  FOREIGN KEY (mode_id) REFERENCES session_modes(mode_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_edit_sessions_file ON edit_sessions(file_system_id);
+CREATE INDEX idx_edit_sessions_status ON edit_sessions(edit_status);
+CREATE INDEX idx_edit_sessions_mode ON edit_sessions(mode_id);
+```
+
+**Purpose**: Tracks individual edit sessions within a mode. Multiple sessions can exist per mode over time, but only one active session per user per project.
 
 #### edit_actions
 ```sql
 CREATE TABLE edit_actions (
-  change_uuid VARCHAR(36) PRIMARY KEY,
+  change_id VARCHAR(36) PRIMARY KEY,
   system_id VARCHAR(36) NOT NULL,  -- GUID for pending entities; mapped to integer at commit
-  session_uuid VARCHAR(36) NOT NULL,
+  session_id VARCHAR(36) NOT NULL,
   table_name VARCHAR(100) NOT NULL,
-  operation VARCHAR(10) NOT NULL CHECK (operation IN ('Add', 'Update', 'Delete')),
+  operation VARCHAR(10) NOT NULL CHECK (operation IN ('ADD', 'UPDATE', 'DELETE')),
   payload TEXT NOT NULL,  -- JSON
-  commit_status VARCHAR(20) NOT NULL DEFAULT 'Staged' 
-    CHECK (commit_status IN ('Unstaged', 'Staged', 'Discarded')),
+  change_status VARCHAR(20) NOT NULL DEFAULT 'STAGED' 
+    CHECK (change_status IN ('UNSTAGED', 'STAGED', 'DISCARDED')),
   base_version INTEGER,  -- NULL for Add operations
   group_id VARCHAR(36),
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   valid_until TIMESTAMP,  -- NULL means current version
-  FOREIGN KEY (session_uuid) REFERENCES edit_sessions(session_uuid) ON DELETE CASCADE
+  FOREIGN KEY (session_id) REFERENCES edit_sessions(session_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_edit_actions_session ON edit_actions(session_uuid);
+CREATE INDEX idx_edit_actions_session ON edit_actions(session_id);
 CREATE INDEX idx_edit_actions_system_id ON edit_actions(system_id, table_name);
 CREATE INDEX idx_edit_actions_valid ON edit_actions(valid_until);
-CREATE INDEX idx_edit_actions_status ON edit_actions(session_uuid, commit_status);
+CREATE INDEX idx_edit_actions_status ON edit_actions(session_id, change_status);
 CREATE UNIQUE INDEX uniq_edit_actions_current 
-  ON edit_actions(session_uuid, system_id, table_name) 
+  ON edit_actions(session_id, system_id, table_name) 
   WHERE valid_until IS NULL;
 ```
+
+**Purpose**: Stores individual edit operations as events. Each change is immutable; updates create new versions with `valid_until` set on old versions.
 
 #### restore_points
 ```sql
 CREATE TABLE restore_points (
-  restore_uuid VARCHAR(36) PRIMARY KEY,
-  session_uuid VARCHAR(36),  -- NULL for non-edit mode restores
+  restore_id VARCHAR(36) PRIMARY KEY,
+  session_id VARCHAR(36),  -- NULL for non-edit mode restores
   file_system_id INTEGER NOT NULL,
-  restore_type VARCHAR(20) NOT NULL CHECK (restore_type IN ('EditSnapshot', 'FullSnapshot')),
-  snapshot_data BLOB NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  restore_type VARCHAR(20) NOT NULL CHECK (restore_type IN ('EDIT_SNAPSHOT', 'FULL_SNAPSHOT')),
+  snapshot_data TEXT NOT NULL,  -- JSON
   description TEXT,
-  FOREIGN KEY (session_uuid) REFERENCES edit_sessions(session_uuid) ON DELETE CASCADE,
+  system_id INTEGER NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  version INTEGER NOT NULL DEFAULT 1,
+  FOREIGN KEY (session_id) REFERENCES edit_sessions(session_id) ON DELETE CASCADE,
   FOREIGN KEY (file_system_id) REFERENCES arc_db_files(system_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_restore_points_session ON restore_points(session_uuid);
+CREATE INDEX idx_restore_points_session ON restore_points(session_id);
 CREATE INDEX idx_restore_points_file ON restore_points(file_system_id);
 ```
+
+**Purpose**: Stores snapshots for undo/redo functionality. Can be session-specific (EDIT_SNAPSHOT) or full project snapshots (FULL_SNAPSHOT).
 
 ### Normalization & Relationships
 

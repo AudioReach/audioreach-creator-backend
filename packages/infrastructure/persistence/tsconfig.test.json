@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["jest", "node"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": true,
+  },
+  "include": ["**/*.spec.ts", "tests/**/*", "src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
