@@ -1,6 +1,7 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {ValueDefinitionRow} from './value-definition.schema.js';
-import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {ValueDefinitionRow} from './value-definition.schema.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 
 /*

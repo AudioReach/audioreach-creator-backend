@@ -1,8 +1,9 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {NodeRow} from '../node/node.schema.js';
-import {DataPortRow} from '../node/data-port-info.schema.js';
-import {UseCaseRow} from '../use-case.js';
-import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {NodeRow} from '../node/node.schema.js';
+import type {DataPortRow} from '../node/data-port-info.schema.js';
+import type {UseCaseRow} from '../use-case.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface DataLinkRow extends EntityBaseRow {

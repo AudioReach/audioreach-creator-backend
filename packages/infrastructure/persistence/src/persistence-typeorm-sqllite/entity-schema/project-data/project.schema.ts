@@ -1,5 +1,6 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
-import {ArcDbFileRow} from './arc-db-file.schema.js';
+import {BaseColumnSchemaPart} from '../entity-base.js';
+import type {EntityBaseRow} from '../entity-base.js';
+import type {ArcDbFileRow} from './arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ProjectRow extends EntityBaseRow {

@@ -1,11 +1,12 @@
-import {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
-import {ContainerRow} from '../container/container.schema.js';
-import {SubgraphRow} from '../subgraph/subgraph.schema.js';
-import {SpfModulePropertiesDataRow} from './spf-module-properties-data.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import type {ContainerRow} from '../container/container.schema.js';
+import type {SubgraphRow} from '../subgraph/subgraph.schema.js';
+import type {SpfModulePropertiesDataRow} from './spf-module-properties-data.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-module-definition.schema.js';
-import {NodeRow} from '../node/node.schema.js';
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import type {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-module-definition.schema.js';
+import type {NodeRow} from '../node/node.schema.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
 
 export interface SpfModuleRow extends EntityBaseRow {
   instanceId: number;

@@ -1,7 +1,8 @@
-import {SubgraphPropertyRow} from '../../definitions/subgraph/subgraph-property-definition.schema.js';
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {SubgraphRow} from './subgraph.schema.js';
-import {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
+import type {SubgraphPropertyRow} from '../../definitions/subgraph/subgraph-property-definition.schema.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {SubgraphRow} from './subgraph.schema.js';
+import type {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 

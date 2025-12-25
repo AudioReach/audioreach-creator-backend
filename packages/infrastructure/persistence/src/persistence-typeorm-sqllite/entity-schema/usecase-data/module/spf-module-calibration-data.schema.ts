@@ -1,9 +1,10 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {KeyVectorRow} from '../common/key-vector-schema.js';
-import {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
+import type {KeyVectorRow} from '../common/key-vector-schema.js';
+import type {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
-import {SpfModuleRow} from './spf-module.schema.js';
-import {SpfModuleParameterDefinitionRow} from '../../definitions/module/spf/spf-module-parameter-definition.schema.js';
+import type {SpfModuleRow} from './spf-module.schema.js';
+import type {SpfModuleParameterDefinitionRow} from '../../definitions/module/spf/spf-module-parameter-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface CkvRow extends EntityBaseRow {
