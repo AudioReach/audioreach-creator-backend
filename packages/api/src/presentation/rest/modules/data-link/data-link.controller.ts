@@ -8,11 +8,11 @@ import {
   HttpException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
-import {BaseController} from '../common/base.controller.js';
+import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {NewDataLinkRequest} from './dto/data-link-request.dto.js';
 import {DataLinkDto} from './dto/data-link.dto.js';
-import {SystemIdsRequestDto} from '../common/dtos/index.js';
+import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 
@@ -21,7 +21,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  * Provides data link related APIs for usecase design.
  */
 @ApiTags('data-links')
-@Controller('arcapi/v1/projects/:projectId/data-links')
+@Controller('arc-api/v1/projects/:projectId/data-links')
 @UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',

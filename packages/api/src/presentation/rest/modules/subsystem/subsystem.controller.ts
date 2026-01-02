@@ -8,9 +8,9 @@ import {
   Post,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
-import {BaseController} from '../common/base.controller.js';
+import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {BaseComponentDto, SystemIdsRequestDto} from '../common/dtos/index.js';
+import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
 import {SubsystemDto} from './dto/subsystem.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
@@ -20,7 +20,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  * Provides Subsystem related APIs for usecase design.
  */
 @ApiTags('subsystems')
-@Controller('arcapi/v1/projects/:projectId/subsystem')
+@Controller('arc-api/v1/projects/:projectId/subsystems')
 @UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',

@@ -53,17 +53,6 @@ export const SharedType = {
 
 export type SharedType = (typeof SharedType)[keyof typeof SharedType];
 
-export const SWITCH_TYPE = {
-  NONE: 'NONE', // ""
-  MIXER_SWITCH: 'MIXER_SWITCH', // "Mixer Switch" - N to 1. Concurrent
-  SPLITTER_SWITCH: 'SPLITTER_SWITCH', // "Splitter Switch" - 1 to N. Concurrent
-  INPUT_SELECTOR_SWITCH: 'INPUT_SELECTOR_SWITCH', // "Input Selector Switch" - N to 1. Non-Concurrent
-  OUTPUT_SELECTOR_SWITCH: 'OUTPUT_SELECTOR_SWITCH', // "Output Selector Switch" - 1 to N. Non-Concurrent
-  EC: 'EC', // "EC Switch" - N to N
-} as const;
-
-export type SWITCH_TYPE = (typeof SWITCH_TYPE)[keyof typeof SWITCH_TYPE];
-
 export const CONN_CTRL_TYPE = {
   MODULE_MODULE: 'MODULE_MODULE',
   MODULE_SUBSYSTEM: 'MODULE_SUBSYSTEM',

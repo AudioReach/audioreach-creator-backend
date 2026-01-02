@@ -9,13 +9,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam} from '@nestjs/swagger';
-import {BaseController} from '../common/base.controller.js';
+import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {
   ModuleInstanceDto,
   ModuleInstancePropertiesDto,
 } from './dto/module-instance.dto.js';
-import {SystemIdsRequestDto} from '../common/dtos/index.js';
+import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
   BaseModuleInstanceRequest,
   DetailedModuleInstanceRequest,
@@ -29,7 +29,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  * Provides module related APIs for usecase design.
  */
 @ApiTags('module-instances')
-@Controller('arcapi/v1/projects/:projectId/modules-instance')
+@Controller('arc-api/v1/projects/:projectId/module-instances')
 @UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',
@@ -49,7 +49,7 @@ export class ModuleInstanceController extends BaseController {
   }
 
   /**
-   * Get module instance.
+   * Get module instances.
    */
   @Post('get')
   @ApiDocumentationWithExample({
@@ -136,7 +136,7 @@ export class ModuleInstanceController extends BaseController {
   /**
    * Get all property data for a module instance (subgraph, container, subsystem, module).
    */
-  @Get(':moduleInstanceSystemId/properties')
+  @Get('/:moduleInstanceSystemId/properties')
   @ApiParam({
     name: 'moduleInstanceSystemId',
     required: true,

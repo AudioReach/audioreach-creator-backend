@@ -1,5 +1,5 @@
 import {ApiProperty} from '@nestjs/swagger';
-import {BaseComponentDto} from './BaseComponent.dto.js';
+import {BaseComponentDto} from './base-component.dto.js';
 
 /**
  * Converted from C# enum PortIoType

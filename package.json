@@ -18,6 +18,7 @@
     "start:dev": "yarn workspace @arc/api start:dev",
     "start:debug": "yarn workspace @arc/api start:debug",
     "start:prod": "yarn workspace @arc/api start:prod",
+    "generate:swagger": "yarn workspace @arc/api generate:swagger",
     "coverage:workspace": "yarn run coverage:collect && yarn run coverage:merge-files && yarn run coverage:generate-reports && yarn run coverage:cleanup",
     "coverage:collect": "shx mkdir -p temp-coverage && shx cp packages/api/coverage/coverage-final.json temp-coverage/api.json && shx cp packages/core/coverage/coverage-final.json temp-coverage/core.json",
     "coverage:merge-files": "shx mkdir -p coverage/merged && nyc merge temp-coverage coverage/merged/coverage-final.json",

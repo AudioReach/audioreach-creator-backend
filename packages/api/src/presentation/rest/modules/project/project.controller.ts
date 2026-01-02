@@ -40,7 +40,7 @@ import {DownloadArcDatabaseFilesResponseDto} from './dto/download-arc-database-f
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 
-@Controller('arc-api/v1/')
+@Controller('arc-api/v1/projects')
 //@UseGuards(AuthGuard('jwt'))
 export class ProjectController {
   constructor(
@@ -48,12 +48,11 @@ export class ProjectController {
     @Inject('LOGGER') private readonly logger: Logger,
   ) {}
 
-  @Post('/offline/files')
+  @Post('/offline/upload-files')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: 'Open acdb and workspace files',
-    description:
-      'Creating a new project while opening acdb and workspace files',
+    summary: 'Create project by uploading ACDB and workspace files',
+    description: 'Creates a new project by uploading ACDB and workspace files',
   })
   @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
@@ -112,7 +111,7 @@ export class ProjectController {
       },
     ),
   )
-  async uploadArcDbFiles(
+  async createProjectFromFiles(
     @UploadedFiles()
     files: {
       acdbFile: Express.Multer.File[];
@@ -241,7 +240,7 @@ export class ProjectController {
     }
   }
 
-  @Get('projects')
+  @Get()
   @ApiOperation({
     summary: 'Get all active projects',
     description: 'Provides the list of all active projects',
@@ -281,7 +280,7 @@ export class ProjectController {
     return projectResponses;
   }
 
-  @Get('projects/:projectId')
+  @Get('/:projectId')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
     summary: 'Get project information',
@@ -331,7 +330,7 @@ export class ProjectController {
     return projectResponse;
   }
 
-  @Patch('projects/:projectId')
+  @Patch('/:projectId')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiBody({type: ProjectInfoUpdateDto})
   @ApiOperation({
@@ -400,11 +399,11 @@ export class ProjectController {
     return projectResponse;
   }
 
-  @Patch('projects/:projectId/connect-to-project')
+  @Post('/:projectId/connect')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
     summary: 'Connect to existing project',
-    description: 'Connect to specific project based on project Id.',
+    description: 'Establish connection to an existing project for active use.',
   })
   @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
@@ -446,11 +445,12 @@ export class ProjectController {
     return new ApiResult<ProjectInfoResponseDto>();
   }
 
-  @Patch('projects/:projectId/disconnect-from-project')
+  @Post('/:projectId/disconnect')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
-    summary: 'Disconnect from the project',
-    description: 'Disconnect from specific project based on project Id.',
+    summary: 'Disconnect from project',
+    description:
+      'Disconnect from project while keeping it available for future connections.',
   })
   @ApiExtraModels(ApiResult, ProjectInfoResponseDto)
   @ApiResponse({
@@ -493,12 +493,11 @@ export class ProjectController {
     return new ApiResult<ProjectInfoResponseDto>();
   }
 
-  @Get('projects/:projectId/download')
+  @Get('/:projectId/download-files')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
-    summary: 'Download the acdb and workspace files',
-    description:
-      'Download the acdb and workspace files based on project Id.\r\n\r\n Project Id should be the part of header of the request.',
+    summary: 'Download the ACDB and workspace files',
+    description: 'Download the ACDB and workspace files based on project Id.',
   })
   @ApiExtraModels(ApiResult, DownloadArcDatabaseFilesResponseDto)
   @ApiResponse({
@@ -546,10 +545,10 @@ export class ProjectController {
     return acdbWorkspaceFilesResult;
   }
 
-  @Delete('projects/:projectId')
+  @Delete('/:projectId')
   @ApiOperation({
     summary: 'Delete project',
-    description: 'Deleting the project based on project Id.',
+    description: 'Delete the project based on project Id.',
   })
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiResponse({
