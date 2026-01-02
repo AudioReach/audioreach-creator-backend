@@ -1,7 +1,7 @@
-import {EndPointLink} from '../../../common/utils/utilities.js';
+import {EndPointLink} from '../utils/utilities.js';
 import {ApiProperty} from '@nestjs/swagger';
 import {IsArray, IsString, ArrayNotEmpty} from 'class-validator';
-import {BaseComponentDto} from './BaseComponent.dto.js';
+import {BaseComponentDto} from './base-component.dto.js';
 import {DataPortDto} from './data-port.dto.js';
 import {ControlPortDto} from './control-port.dto.js';
 

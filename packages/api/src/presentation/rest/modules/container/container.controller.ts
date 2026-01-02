@@ -9,10 +9,10 @@ import {
   HttpException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
-import {BaseController} from '../common/base.controller.js';
+import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {ContainerDto, ContainerPropertiesDto} from './dto/container.dto.js';
-import {SystemIdsRequestDto} from '../common/dtos/index.js';
+import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 
@@ -21,7 +21,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  * Provides container related APIs for usecase design.
  */
 @ApiTags('containers')
-@Controller('arcapi/v1/projects/:projectId/containers')
+@Controller('arc-api/v1/projects/:projectId/containers')
 @UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',
@@ -75,7 +75,7 @@ export class ContainerController extends BaseController {
   /**
    * Get all property data for a container.
    */
-  @Get(':containerSystemId/properties')
+  @Get('/:containerSystemId/properties')
   @ApiParam({
     name: 'containerSystemId',
     required: true,

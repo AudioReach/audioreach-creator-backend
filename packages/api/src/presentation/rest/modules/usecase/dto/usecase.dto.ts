@@ -1,7 +1,7 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {IsArray, ArrayMaxSize} from 'class-validator';
-import {BaseComponentDto} from '../../../modules/common/dtos/BaseComponent.dto.js';
-import {KVInfo, KeyValueInfo} from '../../../modules/common/dtos/kv.dto.js';
+import {BaseComponentDto} from '../../../common/dto/base-component.dto.js';
+import {KVInfo, KeyValueInfo} from '../../../common/dto/kv.dto.js';
 import {EndPointLink, ModificationAction} from '../../../common/utils/index.js';
 import {SubsystemDto} from '../../subsystem/dto/subsystem.dto.js';
 import {ModuleInstanceDto} from '../../module-instance/dto/module-instance.dto.js';
@@ -228,7 +228,7 @@ export class UsecaseDto {
 
 /**
  * Full usecases information including usecase identifier and all its
- * components (module-instances, switches, data links, control links, dangling links).
+ * components (module-instances, data links, control links, dangling links).
  */
 export class UsecaseWithComponents {
   private _usecaseIdentifier: UsecaseIdentifier;

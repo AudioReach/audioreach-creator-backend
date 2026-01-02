@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import {ApiTags, ApiQuery, ApiExtraModels, ApiParam} from '@nestjs/swagger';
-import {BaseController} from '../common/base.controller.js';
+import {BaseController} from '../base/base.controller.js';
 import {
   ComponentsTypeInUsecase,
   UsecaseIdentifier,
@@ -22,16 +22,16 @@ import {
 import {ModuleInstanceDto} from '../module-instance/dto/module-instance.dto.js';
 import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
 import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
-import {BaseComponentDto, SystemIdsRequestDto} from '../common/dtos/index.js';
+import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
   DataPortDto,
   PortIoType,
   PortType,
-} from '../common/dtos/data-port.dto.js';
+} from '../../common/dto/data-port.dto.js';
 import {
   ControlPortDto,
   ControlPortIntentDto,
-} from '../common/dtos/control-port.dto.js';
+} from '../../common/dto/control-port.dto.js';
 //import {AuthGuard} from '@nestjs/passport';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
@@ -41,7 +41,7 @@ import type {
   KeyVectorReadModel,
   UseCaseComponentsReadModel,
 } from '@arc/core';
-import {KVInfo, KeyValueInfo} from '../common/dtos/kv.dto.js';
+import {KVInfo, KeyValueInfo} from '../../common/dto/kv.dto.js';
 import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 
 /**
@@ -111,7 +111,10 @@ export class UseCaseController extends BaseController {
       );
 
       // Execute the query using the existing handler
-      const query = new GetAllUseCasesQuery(Number.parseInt(projectId), 'client-id'); // TODO: get actual clientId from JWT
+      const query = new GetAllUseCasesQuery(
+        Number.parseInt(projectId),
+        'client-id',
+      ); // TODO: get actual clientId from JWT
       const usecases = await this.queryBus.execute<UseCaseReadModel[]>(query);
 
       // Transform UseCaseReadModel[] to UsecaseDto[]

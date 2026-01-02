@@ -10,9 +10,9 @@ import {
   HttpException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
-import {BaseController} from '../common/base.controller.js';
+import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {SystemIdsRequestDto} from '../common/dtos/index.js';
+import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {NewLinkRequest} from './dto/control-link-request.dto.js';
 import {
   ControlLinkDto,
@@ -26,7 +26,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  * Provides control link related APIs for usecase design.
  */
 @ApiTags('control-links')
-@Controller('arcapi/v1/projects/:projectId/control-links')
+@Controller('arc-api/v1/projects/:projectId/control-links')
 @UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',
@@ -81,7 +81,7 @@ export class ControlLinkController extends BaseController {
   /**
    * Add a new control link
    */
-  @Post('controlConnections')
+  @Post()
   @ApiDocumentationWithExample({
     summary: 'Add a new control link',
     requestDto: NewLinkRequest,
@@ -113,7 +113,7 @@ export class ControlLinkController extends BaseController {
   /**
    * Update a control link's properties.
    */
-  @Patch('controlLinks/:controlLinkSystemId/properties')
+  @Patch('/:controlLinkSystemId/properties')
   @ApiDocumentationWithExample({
     summary: 'Update control link properties',
     requestDto: ControlLinkPropertiesDto,
@@ -153,7 +153,7 @@ export class ControlLinkController extends BaseController {
   /**
    * Get all property data for a control link.
    */
-  @Get(':controlLinkSystemId/properties')
+  @Get('/:controlLinkSystemId/properties')
   @ApiParam({
     name: 'controlLinkSystemId',
     required: true,

@@ -47,7 +47,7 @@ async function bootstrap() {
   logger.logInfo({
     component: 'Bootstrap',
     action: 'startup',
-    msg: `Application is running on: http://localhost:${port}/arcapi/v1`,
+    msg: `Application is running on: http://localhost:${port}/arc-api/v1`,
     timestamp: new Date(),
     tag: 'startup',
   });

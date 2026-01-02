@@ -1,82 +1,86 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
-import { BaseComponentDto, PropertyDto } from '../../../modules/common/dtos/index.js';
-import { KVInfo } from '../../../modules/common/dtos/kv.dto.js';
-import { ComponentInfoType, SubgraphScenarioType, SubgraphDeviceType, SharedType } from '../../../common/utils/index.js';
-
+import {ApiProperty} from '@nestjs/swagger';
+import {IsNotEmpty, IsOptional, IsNumber} from 'class-validator';
+import {BaseComponentDto, PropertyDto} from '../../../common/dto/index.js';
+import {KVInfo} from '../../../common/dto/kv.dto.js';
+import {
+  ComponentInfoType,
+  SubgraphScenarioType,
+  SubgraphDeviceType,
+  SharedType,
+} from '../../../common/utils/index.js';
 
 /**
  * DTO for subgraph properties
  */
 export class SubgraphPropertiesDto {
-    @ApiProperty({
-        description: 'Array of subgraph properties',
-        type: [PropertyDto]
-    })
-    properties: PropertyDto[];
+  @ApiProperty({
+    description: 'Array of subgraph properties',
+    type: [PropertyDto],
+  })
+  properties: PropertyDto[];
 
-    constructor(properties: PropertyDto[]) {
-        this.properties = properties;
-    }
+  constructor(properties: PropertyDto[]) {
+    this.properties = properties;
+  }
 }
 
 export class SubgraphDto extends BaseComponentDto<number> {
-    @ApiProperty({
-        description: 'Subgraph scenario type',
-        enum: SubgraphScenarioType,
-        default: SubgraphScenarioType.Audio
-    })
-    scenarioType: SubgraphScenarioType = SubgraphScenarioType.Audio;
+  @ApiProperty({
+    description: 'Subgraph scenario type',
+    enum: SubgraphScenarioType,
+    default: SubgraphScenarioType.Audio,
+  })
+  scenarioType: SubgraphScenarioType = SubgraphScenarioType.Audio;
 
-    @ApiProperty({
-        description: 'Subgraph device type',
-        enum: SubgraphDeviceType,
-        default: SubgraphDeviceType.Stream
-    })
-    deviceType: SubgraphDeviceType = SubgraphDeviceType.Stream;
+  @ApiProperty({
+    description: 'Subgraph device type',
+    enum: SubgraphDeviceType,
+    default: SubgraphDeviceType.Stream,
+  })
+  deviceType: SubgraphDeviceType = SubgraphDeviceType.Stream;
 
-    @ApiProperty({
-        description: 'Subgraph shared type',
-        enum: SharedType,
-        default: SharedType.None
-    })
-    subGraphSharedType: SharedType = SharedType.None;
+  @ApiProperty({
+    description: 'Subgraph shared type',
+    enum: SharedType,
+    default: SharedType.None,
+  })
+  subGraphSharedType: SharedType = SharedType.None;
 
-    @ApiProperty({
-        description: 'VSID',
-        type: Number,
-        required: false
-    })
-    @IsOptional()
-    @IsNumber()
-    VSID?: number;
+  @ApiProperty({
+    description: 'VSID',
+    type: Number,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  VSID?: number;
 
-    @ApiProperty({
-        description: 'SGKV - List of KV information',
-        type: [KVInfo]
-    })
-    SGKV: KVInfo[] = [];
+  @ApiProperty({
+    description: 'SGKV - List of KV information',
+    type: [KVInfo],
+  })
+  SGKV: KVInfo[] = [];
 
-    get componentType(): ComponentInfoType {
-        return ComponentInfoType.Subgraph;
-    }
+  get componentType(): ComponentInfoType {
+    return ComponentInfoType.Subgraph;
+  }
 
-    constructor(sysemId: string, id: number) {
-        super(sysemId, id);
-    }
+  constructor(sysemId: string, id: number) {
+    super(sysemId, id);
+  }
 }
 
 /**
  * Request DTO for cloning a subgraph
  */
 export class CloneSubgraphRequest {
-    @ApiProperty({ description: 'Reference Subgraph ID' })
-    @IsNotEmpty()
-    @IsNumber()
-    refSubgraphId!: number;
+  @ApiProperty({description: 'Reference Subgraph ID'})
+  @IsNotEmpty()
+  @IsNumber()
+  refSubgraphId!: number;
 
-    @ApiProperty({ description: 'Target parent ID', required: false })
-    @IsOptional()
-    @IsNumber()
-    targetParentId?: number;
+  @ApiProperty({description: 'Target parent ID', required: false})
+  @IsOptional()
+  @IsNumber()
+  targetParentId?: number;
 }
