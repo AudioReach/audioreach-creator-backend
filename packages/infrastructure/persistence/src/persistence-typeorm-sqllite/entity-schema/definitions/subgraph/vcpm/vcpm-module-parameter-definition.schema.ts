@@ -1,8 +1,11 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {VcpmModuleDefinitionRow} from './vcpm-module-definition.schema.js';
-import {VcpmParameterPayloadRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
-import {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
+import type {VcpmModuleDefinitionRow} from './vcpm-module-definition.schema.js';
+import type {VcpmParameterPayloadRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
+import type {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../../../usecase-data/module/helper/bytes-transformer.js';
 
 export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {

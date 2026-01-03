@@ -1,10 +1,13 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
-import {ModuleAttributeRow} from './module-attribute.schema.js';
-import {CkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-calibration-data.schema.js';
-import {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-tag-data.schema.js';
-import {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
+import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
+import type {ModuleAttributeRow} from './module-attribute.schema.js';
+import type {CkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-calibration-data.schema.js';
+import type {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-tag-data.schema.js';
+import type {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../../../usecase-data/module/helper/bytes-transformer.js';
 
 export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {

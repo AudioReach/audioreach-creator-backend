@@ -1,4 +1,4 @@
-import {InsertError} from '@arc/core';
+import type {InsertError} from '@arc/core';
 import {EntityManager} from 'typeorm';
 /**
  * Abstract base class for all entity inserters.

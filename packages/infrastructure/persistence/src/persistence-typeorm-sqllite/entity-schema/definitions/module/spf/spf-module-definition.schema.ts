@@ -1,4 +1,7 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {ModuleDefinitionMetaDataRow} from './module-definition-meta-data.schema.js';
 import type {DataPortGroupRow} from './data-group-definition.schema.js';

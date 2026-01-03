@@ -1,7 +1,7 @@
-import {KeyDefinitionRow} from '../../definitions/key-value/key-definition.schema.js';
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import type {KeyDefinitionRow} from '../../definitions/key-value/key-definition.schema.js';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {NodeRow} from '../node/node.schema.js';
+import type {NodeRow} from '../node/node.schema.js';
 
 export interface SubsystemRow extends EntityBaseRow {
   filteredKeys: KeyDefinitionRow[];

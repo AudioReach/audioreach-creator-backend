@@ -1,7 +1,10 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {DataPortDefinitionRow} from './data-port-definition.schema.js';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
+import type {DataPortDefinitionRow} from './data-port-definition.schema.js';
+import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import {PortIoType} from './port-io-type-definition.schema.js';
 
 export interface DataPortGroupRow extends EntityBaseRow {

@@ -1,7 +1,7 @@
 import {
-  BulkEntityInsertResult,
-  EntityInsertResult,
-  NaturalIdMapping,
+  type BulkEntityInsertResult,
+  type EntityInsertResult,
+  type NaturalIdMapping,
   UseCase,
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
@@ -11,9 +11,9 @@ import {
   toCategoryRow,
   generateKvHash,
 } from './usecase-entity-mapper.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {KeyVectorRow, UseCaseRow} from '../../../entity-schema/index.js';
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {KeyVectorRow, UseCaseRow} from '../../../entity-schema/index.js';
 
 /**
  * UseCase with pre-computed kvHash for optimization.

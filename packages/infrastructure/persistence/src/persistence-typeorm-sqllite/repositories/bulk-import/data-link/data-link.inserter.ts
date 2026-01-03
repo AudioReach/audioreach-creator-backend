@@ -1,13 +1,13 @@
 import {
-  BulkDataLinkInsertResult,
+  type BulkDataLinkInsertResult,
   DataLink,
-  NaturalIdMapping,
-  DataLinkInsertResult,
+  type NaturalIdMapping,
+  type DataLinkInsertResult,
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {DataLinkRow} from '../../../entity-schema/index.js';
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {DataLinkRow} from '../../../entity-schema/index.js';
 
 /**
  * Handles bulk insertion of DataLink entities.

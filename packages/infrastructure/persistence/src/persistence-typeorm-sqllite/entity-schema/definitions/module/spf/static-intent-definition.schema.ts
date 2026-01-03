@@ -1,6 +1,9 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {StaticControlPortDefinitionRow} from './static-control-port-definition.schema.js';
+import type {StaticControlPortDefinitionRow} from './static-control-port-definition.schema.js';
 
 export interface StaticIntentDefinitionRow extends EntityBaseRow {
   intentId: number;

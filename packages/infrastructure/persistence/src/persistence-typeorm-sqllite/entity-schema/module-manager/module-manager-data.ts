@@ -1,8 +1,8 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../entity-base.js';
 import {
-  InterfaceTypeValue,
-  InterfaceVersionValue,
-  ModuleTypeValue,
+  type InterfaceTypeValue,
+  type InterfaceVersionValue,
+  type ModuleTypeValue,
   ModuleTypeTransformer,
   InterfaceTypeTransformer,
   InterfaceVersionTransformer,

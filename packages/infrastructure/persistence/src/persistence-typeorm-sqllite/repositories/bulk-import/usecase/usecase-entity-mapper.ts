@@ -1,5 +1,5 @@
 import {UseCase} from '@arc/core';
-import {
+import type {
   UseCaseRow,
   UseCaseCategoryRow,
   KeyVectorRow,

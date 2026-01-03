@@ -1,7 +1,7 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {PortIoType} from '../../definitions/module/spf/port-io-type-definition.schema.js';
 import {EntitySchema} from 'typeorm';
-import {NodeRow} from './node.schema.js';
+import type {NodeRow} from './node.schema.js';
 
 export interface DataPortRow extends EntityBaseRow {
   dataPortId: number;

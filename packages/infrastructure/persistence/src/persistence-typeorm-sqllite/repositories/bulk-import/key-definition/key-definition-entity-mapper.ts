@@ -1,9 +1,9 @@
-import {KeyDefinition, ValueDefinition} from '@arc/core';
-import {
+import type {KeyDefinition, ValueDefinition} from '@arc/core';
+import type {
   KeyDefinitionRow,
   ValueDefinitionRow,
 } from '../../../entity-schema/index.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
 
 /**
  * Map KeyDefinition domain entity to database row.

@@ -1,5 +1,5 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {ContainerPropertyDataRow} from '../../usecase-data/container/container-property-data.js';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
+import type {ContainerPropertyDataRow} from '../../usecase-data/container/container-property-data.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ContainerPropertyRow extends EntityBaseRow {

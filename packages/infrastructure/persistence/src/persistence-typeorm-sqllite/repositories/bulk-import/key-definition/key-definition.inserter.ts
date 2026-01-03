@@ -1,17 +1,17 @@
 import {
-  BulkKeyDefinitionInsertResult,
+  type BulkKeyDefinitionInsertResult,
   KEY_DEF_AGGREGATE_ENTITY_TYPES,
   KeyDefinition,
-  KeyDefinitionInsertError,
-  KeyDefinitionInsertErrorEntity,
-  KeyDefinitionInsertResult,
-  NaturalIdMapping,
+  type KeyDefinitionInsertError,
+  type KeyDefinitionInsertErrorEntity,
+  type KeyDefinitionInsertResult,
+  type NaturalIdMapping,
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
 import {toKeyRow, toValueRow} from './key-definition-entity-mapper.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {
   KeyDefinitionRow,
   ValueDefinitionRow,
 } from '../../../entity-schema/index.js';
@@ -243,8 +243,12 @@ export class KeyDefinitionInserter extends BaseInserter<
     if (succeededRows.length === 0) return [];
 
     // Build sets for efficient querying
-    const keySystemIds = [...new Set(succeededRows.map(row => row.keySystemId as number))];
-    const valueIds = [...new Set(succeededRows.map(row => row.valueId as number))];
+    const keySystemIds = [
+      ...new Set(succeededRows.map(row => row.keySystemId as number)),
+    ];
+    const valueIds = [
+      ...new Set(succeededRows.map(row => row.valueId as number)),
+    ];
 
     // Query using composite key constraints
     const results = await this.manager
