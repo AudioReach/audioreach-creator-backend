@@ -1,5 +1,5 @@
-import {ArcDbFile, Project, ProjectType} from '@arc/core';
-import {
+import {ArcDbFile, Project, type ProjectType} from '@arc/core';
+import type {
   ArcDbFileRow,
   EntityRowForInsert,
   ProjectRow,

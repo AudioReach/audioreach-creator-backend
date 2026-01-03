@@ -1,7 +1,10 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {VcpmModuleParameterDefinitionRow} from './vcpm-module-parameter-definition.schema.js';
-import {VcpmInstanceRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
+import type {VcpmModuleParameterDefinitionRow} from './vcpm-module-parameter-definition.schema.js';
+import type {VcpmInstanceRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
 
 export interface VcpmModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;

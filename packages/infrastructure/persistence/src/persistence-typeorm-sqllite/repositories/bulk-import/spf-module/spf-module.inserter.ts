@@ -1,11 +1,11 @@
 import {
-  BulkModuleInsertResult,
+  type BulkModuleInsertResult,
   MODULE_AGGREGATE_ENTITY_TYPES,
-  ModuleInsertError,
-  ModuleInsertErrorEntity,
-  ModuleInsertResult,
-  NaturalIdMapping,
-  DataPortMapping,
+  type ModuleInsertError,
+  type ModuleInsertErrorEntity,
+  type ModuleInsertResult,
+  type NaturalIdMapping,
+  type DataPortMapping,
   SpfModule,
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
@@ -15,9 +15,9 @@ import {
   mapDataPortsToRows,
   mapControlPortsToRows,
 } from './spf-module-entity-mapper.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {
   SpfModuleRow,
   NodeRow,
   DataPortRow,
@@ -217,12 +217,9 @@ export class SpfModuleInserter extends BaseInserter<
     if (succeededRows.length === 0) return [];
 
     // Get all unique nodeSystemIds from successful insertions
-    const nodeSystemIds = [...new Set(
-        succeededRows.map(
-          row =>
-            (row).nodeSystemId as number,
-        ),
-      )];
+    const nodeSystemIds = [
+      ...new Set(succeededRows.map(row => row.nodeSystemId as number)),
+    ];
 
     // Bulk query all ports whose nodeSystemId is in the list, including portIoType
     const results = await this.manager
@@ -239,10 +236,7 @@ export class SpfModuleInserter extends BaseInserter<
     // Build reverse lookup: nodeSystemId → instanceId
     const nodeSystemIdToInstanceId = new Map<number, number>();
     for (const {row, instanceId} of dataPortRowsWithInstanceId) {
-      nodeSystemIdToInstanceId.set(
-        (row).nodeSystemId as number,
-        instanceId,
-      );
+      nodeSystemIdToInstanceId.set(row.nodeSystemId as number, instanceId);
     }
 
     const mappings: Array<{
@@ -280,13 +274,9 @@ export class SpfModuleInserter extends BaseInserter<
     if (succeededRows.length === 0) return [];
 
     // Get all unique nodeSystemIds from successful insertions
-    const nodeSystemIds = [...new Set(
-        succeededRows.map(
-          row =>
-            (row)
-              .nodeSystemId as number,
-        ),
-      )];
+    const nodeSystemIds = [
+      ...new Set(succeededRows.map(row => row.nodeSystemId as number)),
+    ];
 
     // Bulk query all ports whose nodeSystemId is in the list
     const results = await this.manager
@@ -298,10 +288,7 @@ export class SpfModuleInserter extends BaseInserter<
     // Build reverse lookup: nodeSystemId → instanceId
     const nodeSystemIdToInstanceId = new Map<number, number>();
     for (const {row, instanceId} of controlPortRowsWithInstanceId) {
-      nodeSystemIdToInstanceId.set(
-        (row).nodeSystemId as number,
-        instanceId,
-      );
+      nodeSystemIdToInstanceId.set(row.nodeSystemId as number, instanceId);
     }
 
     const mappings: Array<{
@@ -349,7 +336,7 @@ export class SpfModuleInserter extends BaseInserter<
     // Build failure lookup maps
     const failedSpfModuleMap = new Map<number, Error>(
       spfModuleInsertResult.failed.map(f => [
-        (f.row).instanceId as number,
+        f.row.instanceId as number,
         f.error,
       ]),
     );

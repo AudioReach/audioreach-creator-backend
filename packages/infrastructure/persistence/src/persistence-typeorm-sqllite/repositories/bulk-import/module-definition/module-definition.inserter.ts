@@ -1,17 +1,17 @@
 import {
-  BulkModuleDefinitionInsertResult,
+  type BulkModuleDefinitionInsertResult,
   MODULE_DEF_AGGREGATE_ENTITY_TYPES,
   ModuleDefinition,
-  ModuleDefinitionInsertError,
-  ModuleDefinitionInsertErrorEntity,
-  ModuleDefinitionInsertResult,
-  NaturalIdMapping,
+  type ModuleDefinitionInsertError,
+  type ModuleDefinitionInsertErrorEntity,
+  type ModuleDefinitionInsertResult,
+  type NaturalIdMapping,
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
 import {toSpfModuleDefinitionRow} from './module-definition-entity-mapper.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {SpfModuleDefinitionRow} from '../../../entity-schema/index.js';
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {SpfModuleDefinitionRow} from '../../../entity-schema/index.js';
 
 /**
  * Handles bulk insertion of ModuleDefinition entities.
@@ -100,8 +100,7 @@ export class ModuleDefinitionInserter extends BaseInserter<
       {row: QueryDeepPartialEntity<SpfModuleDefinitionRow>; error: Error}
     >(
       moduleDefinitionInsertResult.failed.map(f => [
-        (f.row)
-          .moduleDefinitionId as number,
+        f.row.moduleDefinitionId as number,
         f,
       ]),
     );

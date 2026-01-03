@@ -1,8 +1,8 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
-import {NodeRow} from '../node/node.schema.js';
-import {UseCaseRow} from '../use-case.js';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
+import type {NodeRow} from '../node/node.schema.js';
+import type {UseCaseRow} from '../use-case.js';
 import {EntitySchema} from 'typeorm';
-import {ControlPortRow} from '../node/control-port.js';
+import type {ControlPortRow} from '../node/control-port.js';
 
 export interface ControlLinkRow extends EntityBaseRow {
   peerNodeASystemId: number;

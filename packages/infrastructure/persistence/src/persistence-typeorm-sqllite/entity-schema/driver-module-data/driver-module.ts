@@ -1,8 +1,8 @@
-import {DriverModuleDefinitionRow} from '../definitions/module/driver/driver-module-definition.schema.js';
-import {DriverModuleParameterDefinitionRow} from '../definitions/module/driver/driver-module-parameter-definition.schema.js';
-import {BaseColumnSchemaPart, EntityBaseRow} from '../entity-base.js';
-import {KeyVectorRow} from '../usecase-data/common/key-vector-schema.js';
-import {BlobBytesConverter} from '../usecase-data/module/helper/blob-unit8array.converter.js';
+import type {DriverModuleDefinitionRow} from '../definitions/module/driver/driver-module-definition.schema.js';
+import type {DriverModuleParameterDefinitionRow} from '../definitions/module/driver/driver-module-parameter-definition.schema.js';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../entity-base.js';
+import type {KeyVectorRow} from '../usecase-data/common/key-vector-schema.js';
+import type {BlobBytesConverter} from '../usecase-data/module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../usecase-data/module/helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 

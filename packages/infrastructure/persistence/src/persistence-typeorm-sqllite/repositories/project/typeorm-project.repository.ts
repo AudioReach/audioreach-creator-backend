@@ -5,13 +5,12 @@ import {
   type ProjectRepository,
   type ProjectType,
 } from '@arc/core';
-import {
+import type {
   ArcDbFileRow,
-  ArcDbFileSchema,
   EntityRowForInsert,
   ProjectRow,
-  ProjectSchema,
 } from '../../entity-schema/index.js';
+import {ArcDbFileSchema, ProjectSchema} from '../../entity-schema/index.js';
 import {DataSource} from 'typeorm';
 import {
   toProjectDomain,

@@ -1,5 +1,8 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
-import {SpfModulePropertiesDataRow} from '../../../usecase-data/module/spf-module-properties-data.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
+import type {SpfModulePropertiesDataRow} from '../../../usecase-data/module/spf-module-properties-data.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ModulePropertyRow extends EntityBaseRow {

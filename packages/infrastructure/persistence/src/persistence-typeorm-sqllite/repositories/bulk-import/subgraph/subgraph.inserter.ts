@@ -1,8 +1,15 @@
-import {BulkEntityInsertResult, Subgraph, NaturalIdMapping} from '@arc/core';
+import {
+  type BulkEntityInsertResult,
+  Subgraph,
+  type NaturalIdMapping,
+} from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {EntityRowForInsert, SubgraphRow} from '../../../entity-schema/index.js';
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {
+  EntityRowForInsert,
+  SubgraphRow,
+} from '../../../entity-schema/index.js';
 
 /**
  * Handles bulk insertion of Subgraph entities.

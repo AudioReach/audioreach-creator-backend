@@ -1,6 +1,9 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema.js';
+import type {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema.js';
 
 export interface ModuleParameterAttributeRow extends EntityBaseRow {
   name: string;

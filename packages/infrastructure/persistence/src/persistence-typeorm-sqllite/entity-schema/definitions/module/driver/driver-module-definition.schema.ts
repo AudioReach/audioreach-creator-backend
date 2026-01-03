@@ -1,6 +1,9 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {DriverModuleParameterDefinitionRow} from './driver-module-parameter-definition.schema.js';
+import type {DriverModuleParameterDefinitionRow} from './driver-module-parameter-definition.schema.js';
 
 export interface DriverModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;

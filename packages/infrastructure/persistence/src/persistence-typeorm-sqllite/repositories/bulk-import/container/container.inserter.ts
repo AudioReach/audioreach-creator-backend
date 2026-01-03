@@ -1,10 +1,14 @@
-import {BulkEntityInsertResult, Container, NaturalIdMapping} from '@arc/core';
-import {BaseInserter} from '../base.inserter.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
 import {
-  ContainerRow,
-  EntityRowForInsert,
+  type BulkEntityInsertResult,
+  Container,
+  type NaturalIdMapping,
+} from '@arc/core';
+import {BaseInserter} from '../base.inserter.js';
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import {
+  type ContainerRow,
+  type EntityRowForInsert,
 } from '../../../entity-schema/index.js';
 
 /**

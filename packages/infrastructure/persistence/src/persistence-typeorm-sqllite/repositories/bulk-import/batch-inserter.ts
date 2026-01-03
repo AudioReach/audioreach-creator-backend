@@ -1,5 +1,5 @@
-import {EntityManager, EntityTarget, ObjectLiteral} from 'typeorm';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import {EntityManager, type EntityTarget, type ObjectLiteral} from 'typeorm';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
 
 export interface BatchInsertResult<TRow> {
   succeeded: TRow[];

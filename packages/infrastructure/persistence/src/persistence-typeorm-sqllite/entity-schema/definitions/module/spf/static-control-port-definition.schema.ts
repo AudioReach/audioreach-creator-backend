@@ -1,7 +1,10 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../../entity-base.js';
+import {
+  BaseColumnSchemaPart,
+  type EntityBaseRow,
+} from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
-import {StaticIntentDefinitionRow} from './static-intent-definition.schema.js';
+import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
+import type {StaticIntentDefinitionRow} from './static-intent-definition.schema.js';
 
 export interface StaticControlPortDefinitionRow extends EntityBaseRow {
   portId: number;

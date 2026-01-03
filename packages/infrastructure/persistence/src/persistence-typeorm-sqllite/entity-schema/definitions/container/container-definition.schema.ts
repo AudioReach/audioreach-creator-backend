@@ -1,4 +1,4 @@
-import {BaseColumnSchemaPart, EntityBaseRow} from '../../entity-base.js';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ContainerTypeRow extends EntityBaseRow {

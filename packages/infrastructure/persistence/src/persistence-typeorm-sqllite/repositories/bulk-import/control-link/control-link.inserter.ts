@@ -1,13 +1,13 @@
 import {
-  BulkControlLinkInsertResult,
+  type BulkControlLinkInsertResult,
   ControlLink,
-  NaturalIdMapping,
-  ControlLinkInsertResult,
+  type NaturalIdMapping,
+  type ControlLinkInsertResult,
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
-import {BatchInserter, BatchInsertResult} from '../batch-inserter.js';
-import {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
-import {ControlLinkRow} from '../../../entity-schema/index.js';
+import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {ControlLinkRow} from '../../../entity-schema/index.js';
 
 /**
  * Handles bulk insertion of ControlLink entities.
