@@ -53,10 +53,6 @@ export class DataLinkDto extends BaseComponentDto<number> {
   })
   connectionType: CONN_CTRL_TYPE;
 
-  get componentType(): ComponentInfoType {
-    return ComponentInfoType.DataLink;
-  }
-
   constructor(
     systemId: string,
     id: number,
@@ -76,5 +72,6 @@ export class DataLinkDto extends BaseComponentDto<number> {
     this.isDangling = isDangling;
     this.connectionType = connectionType;
     this.parentId = parentId;
+    this.componentType = ComponentInfoType.DataLink;
   }
 }

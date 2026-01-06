@@ -3,45 +3,26 @@ import {ApiProperty} from '@nestjs/swagger';
 import {BaseValueElement} from './pid-data.dto.js';
 
 export class PropertyDto {
-  private _systemId: string;
-  private _propertyId: number;
-  private _propertyName: string;
-  private _hasDefinition: boolean;
-  private _propertyValues: BaseValueElement[];
-  private _definitionLink?: EndPointLink;
-
   @ApiProperty({description: 'System ID'})
-  get systemId(): string {
-    return this._systemId;
-  }
+  readonly systemId!: string;
 
   @ApiProperty({description: 'Property ID'})
-  get propertyId(): number {
-    return this._propertyId;
-  }
+  readonly propertyId!: number;
 
   @ApiProperty({description: 'Property name'})
-  get propertyName(): string {
-    return this._propertyName;
-  }
+  readonly propertyName!: string;
 
   @ApiProperty({description: 'Has definition or not'})
-  get hasDefinition(): boolean {
-    return this._hasDefinition;
-  }
+  readonly hasDefinition!: boolean;
 
   @ApiProperty({
     description: 'Property values',
     type: [BaseValueElement],
   })
-  get propertyValues(): BaseValueElement[] {
-    return this._propertyValues;
-  }
+  propertyValues?: BaseValueElement[];
 
   @ApiProperty({description: 'Definition link', required: false})
-  get definitionLink(): EndPointLink | undefined {
-    return this._definitionLink;
-  }
+  definitionLink?: EndPointLink;
 
   constructor(
     systemId: string,
@@ -49,19 +30,19 @@ export class PropertyDto {
     propertyName: string,
     hasDefinition: boolean = false,
   ) {
-    this._systemId = systemId;
-    this._propertyId = propertyId;
-    this._propertyName = propertyName;
-    this._hasDefinition = hasDefinition;
-    this._propertyValues = [];
+    this.systemId = systemId;
+    this.propertyId = propertyId;
+    this.propertyName = propertyName;
+    this.hasDefinition = hasDefinition;
+    this.propertyValues = [];
 
     // Only create definition link for property types that have definitions
     if (hasDefinition) {
       const link = new EndPointLink();
-      link.hypertextRef = `/definition/properties/${hasDefinition}/${this._systemId}`;
+      link.hypertextRef = `/definition/properties/${hasDefinition}/${this.systemId}`;
       link.method = 'GET';
       link.description = 'Get property definition.';
-      this._definitionLink = link;
+      this.definitionLink = link;
     }
   }
 }

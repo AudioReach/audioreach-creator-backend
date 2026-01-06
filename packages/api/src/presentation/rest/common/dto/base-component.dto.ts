@@ -1,6 +1,7 @@
+import {IsDefined, IsNotEmpty, IsString, ValidateIf} from 'class-validator';
 import {ComponentInfoType} from '../utils/enums.js';
 import {EndPointLink} from '../utils/utilities.js';
-import {ApiProperty} from '@nestjs/swagger';
+import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
 
 export type EditType = 'Added' | 'Updated' | 'Deleted' | 'None';
 
@@ -8,66 +9,45 @@ export type EditType = 'Added' | 'Updated' | 'Deleted' | 'None';
  * Converted from C# abstract class BaseComponentDTO<T>
  */
 export class BaseComponentDto<T> {
-  protected _systemId!: string;
-  protected _changeId!: string;
-  protected _id!: T;
-  private _name: string = '';
-  private _relatedEndPointLinks: EndPointLink[] = [];
-  private _editType: EditType = 'None';
-
   @ApiProperty({description: 'System ID'})
-  get systemId(): string {
-    return this._systemId;
-  }
-
-  @ApiProperty({description: 'Change ID'})
-  get changeId(): string {
-    return this._changeId;
-  }
-
-  @ApiProperty({
-    description: 'Edit type',
-    enum: ['Added', 'Updated', 'Deleted', 'None'],
-  })
-  get editType(): EditType {
-    return this._editType;
-  }
+  readonly systemId!: string;
 
   @ApiProperty({description: 'Component ID'})
-  get id(): T {
-    return this._id;
-  }
+  readonly id!: T;
 
   @ApiProperty({description: 'Component name'})
-  get name(): string {
-    return this._name;
-  }
-
-  set name(value: string) {
-    this._name = value;
-  }
+  name?: string;
 
   @ApiProperty({
     description: 'Component type',
     enum: ComponentInfoType,
   })
-  get componentType(): ComponentInfoType {
-    throw new Error('componentType must be implemented by derived classes');
-  }
+  componentType!: ComponentInfoType;
 
   @ApiProperty({description: 'Related endpoint links', type: [EndPointLink]})
-  get relatedEndPointLinks(): EndPointLink[] {
-    return this._relatedEndPointLinks;
-  }
+  relatedEndPointLinks: EndPointLink[] = [];
 
-  set relatedEndPointLinks(value: EndPointLink[]) {
-    this._relatedEndPointLinks = value;
-  }
+  @ApiProperty({
+    description: 'Edit type',
+    enum: ['Added', 'Updated', 'Deleted', 'None'],
+  })
+  editType!: EditType;
+
+  @ApiPropertyOptional({
+    description:
+      "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+    example: 'chg-12345',
+  })
+  @ValidateIf(o => o.editType !== 'None')
+  @IsDefined({message: 'changeId is required when editType is not None'})
+  @IsString()
+  @IsNotEmpty({message: 'changeId must not be empty when editType is not None'})
+  changeId?: string;
 
   constructor(systemId: string, id?: T) {
-    if (id) {
-      this._id = id;
+    this.systemId = systemId;
+    if (id !== undefined) {
+      (this as any).id = id;
     }
-    this._systemId = systemId;
   }
 }

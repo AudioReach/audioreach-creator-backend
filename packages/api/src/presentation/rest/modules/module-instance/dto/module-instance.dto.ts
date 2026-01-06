@@ -43,10 +43,6 @@ export class ModuleInstanceDto extends BaseConnectableComponentDto {
   @ApiProperty({description: 'Heap ID'})
   heapId!: number;
 
-  get componentType(): ComponentInfoType {
-    return ComponentInfoType.Module;
-  }
-
   constructor(
     systemId: string,
     id: number,
@@ -58,5 +54,6 @@ export class ModuleInstanceDto extends BaseConnectableComponentDto {
     this.moduleId = moduleId;
     this.name = name;
     this.parentId = parentId;
+    this.componentType = ComponentInfoType.Module;
   }
 }

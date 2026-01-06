@@ -61,12 +61,9 @@ export class SubgraphDto extends BaseComponentDto<number> {
   })
   SGKV: KVInfo[] = [];
 
-  get componentType(): ComponentInfoType {
-    return ComponentInfoType.Subgraph;
-  }
-
   constructor(sysemId: string, id: number) {
     super(sysemId, id);
+    this.componentType = ComponentInfoType.Subgraph;
   }
 }
 
