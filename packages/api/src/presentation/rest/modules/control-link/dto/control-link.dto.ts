@@ -140,10 +140,6 @@ export class ControlLinkDto extends BaseComponentDto<number> {
   })
   connectionType: CONN_CTRL_TYPE;
 
-  get componentType(): ComponentInfoType {
-    return ComponentInfoType.ControlLink;
-  }
-
   constructor(
     systemId: string,
     id: number,
@@ -163,5 +159,6 @@ export class ControlLinkDto extends BaseComponentDto<number> {
     this.isDangling = isDangling;
     this.connectionType = connectionType;
     this.parentId = parentId;
+    this.componentType = ComponentInfoType.ControlLink;
   }
 }

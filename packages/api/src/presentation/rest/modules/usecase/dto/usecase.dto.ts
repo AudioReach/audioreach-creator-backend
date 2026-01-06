@@ -28,71 +28,39 @@ export enum ComponentsTypeInUsecase {
 }
 
 export class UsecaseIdentifier extends KVInfo {
-  private _usecaseAliasId?: number;
-  private _usecaseAliasName?: string;
-  private _usecaseCategory?: string;
-  private _usecaseType: UsecaseType;
-  private _relatedEndPointLinks?: EndPointLink[];
-
   @ApiProperty({
     description: 'Optional alias identifier for the usecase',
     type: Number,
     required: false,
   })
-  get usecaseAliasId(): number | undefined {
-    return this._usecaseAliasId;
-  }
-
-  set usecaseAliasId(value: number | undefined) {
-    this._usecaseAliasId = value;
-  }
+  usecaseAliasId?: number;
 
   @ApiProperty({
     description: 'Alias name for the usecase',
     type: String,
     required: false,
   })
-  get usecaseAliasName(): string | undefined {
-    return this._usecaseAliasName;
-  }
-
-  set usecaseAliasName(value: string | undefined) {
-    this._usecaseAliasName = value;
-  }
+  usecaseAliasName?: string;
 
   @ApiProperty({
     description: 'Category of the usecase',
     type: String,
     required: false,
   })
-  get usecaseCategory(): string | undefined {
-    return this._usecaseCategory;
-  }
-
-  set usecaseCategory(value: string | undefined) {
-    this._usecaseCategory = value;
-  }
+  usecaseCategory?: string;
 
   @ApiProperty({
     description: 'Type of the usecase',
     enum: UsecaseType,
   })
-  get usecaseType(): UsecaseType {
-    return this._usecaseType;
-  }
-
-  set usecaseType(value: UsecaseType) {
-    this._usecaseType = value;
-  }
+  usecaseType!: UsecaseType;
 
   @ApiProperty({
     description: 'Related endpoint links for the usecase',
     type: [EndPointLink],
     required: false,
   })
-  get relatedEndPointLinks(): EndPointLink[] | undefined {
-    return this._relatedEndPointLinks;
-  }
+  relatedEndPointLinks?: EndPointLink[];
 
   constructor(
     systemId: string,
@@ -103,23 +71,21 @@ export class UsecaseIdentifier extends KVInfo {
     category?: string,
   ) {
     super(kvInfo.keyValueCollection as KeyValueInfo[]);
-    this._usecaseType = useCaseType;
+    this.usecaseType = useCaseType;
     this.systemId = systemId;
-    this._usecaseAliasId = aliasId;
-    this._usecaseAliasName = aliasName;
-    this._usecaseCategory = category;
+    this.usecaseAliasId = aliasId;
+    this.usecaseAliasName = aliasName;
+    this.usecaseCategory = category;
 
     const link = new EndPointLink();
     link.hypertextRef = `/usecases/components/get`;
     link.method = 'POST';
     link.description = 'Get all components of usecase.';
-    this._relatedEndPointLinks = [link];
+    this.relatedEndPointLinks = [link];
   }
 }
 
 export class UsecaseDto {
-  private _usecases: UsecaseIdentifier[];
-
   @ApiProperty({
     description:
       'Indicates whether this usecase has subsystem filtering applied. ' +
@@ -134,9 +100,7 @@ export class UsecaseDto {
   })
   @IsArray()
   @ArrayMaxSize(1)
-  get usecases(): UsecaseIdentifier[] {
-    return this._usecases;
-  }
+  readonly usecases: UsecaseIdentifier[];
 
   /**
    * Constructor for raw GKV scenario (no subsystem filtering)
@@ -168,10 +132,10 @@ export class UsecaseDto {
           'filteredKv and usecases are required for filtered scenario',
         );
       }
-      this._usecases = usecases;
+      this.usecases = usecases;
     } else {
       // Raw GKV scenario (Scenario 1)
-      this._usecases = [rawUsecaseOrSystemId];
+      this.usecases = [rawUsecaseOrSystemId];
     }
   }
 
@@ -201,7 +165,7 @@ export class UsecaseDto {
   validate(): {isValid: boolean; errors: string[]} {
     const errors: string[] = [];
 
-    if (this._usecases.length === 0) {
+    if (this.usecases.length === 0) {
       errors.push(
         'usecases array must contain at least one item when isFiltered is true',
       );
@@ -231,72 +195,50 @@ export class UsecaseDto {
  * components (module-instances, data links, control links, dangling links).
  */
 export class UsecaseWithComponents {
-  private _usecaseIdentifier: UsecaseIdentifier;
-  private _components: BaseComponentDto<number>[];
-
   @ApiProperty({
     description: 'Usecase identifier information',
     type: UsecaseIdentifier,
   })
-  get usecaseIdentifier(): UsecaseIdentifier {
-    return this._usecaseIdentifier;
-  }
+  readonly usecaseIdentifier: UsecaseIdentifier;
 
   @ApiProperty({
     description: 'Array of components in the usecase',
     type: [BaseComponentDto],
   })
-  get components(): BaseComponentDto<number>[] {
-    return this._components;
-  }
-
-  set components(value: BaseComponentDto<number>[]) {
-    this._components = value;
-  }
+  components: BaseComponentDto<number>[] = [];
 
   constructor(usecaseId: UsecaseIdentifier) {
-    this._usecaseIdentifier = usecaseId;
-    this._components = [];
+    this.usecaseIdentifier = usecaseId;
   }
 }
 
 export class UsecaseWithModificationSummary {
-  private _usecase: UsecaseWithComponents;
-  private _usecaseModification: ModificationAction;
-  private _modificationSummary: string;
-
   @ApiProperty({
     description: 'Usecase with components information',
     type: UsecaseWithComponents,
   })
-  get usecase(): UsecaseWithComponents {
-    return this._usecase;
-  }
+  readonly usecase: UsecaseWithComponents;
 
   @ApiProperty({
     description: 'Type of modification action performed on the usecase',
     enum: ModificationAction,
   })
-  get usecaseModification(): ModificationAction {
-    return this._usecaseModification;
-  }
+  readonly usecaseModification: ModificationAction;
 
   @ApiProperty({
     description: 'Summary of the modifications made to the usecase',
     type: String,
   })
-  get modificationSummary(): string {
-    return this._modificationSummary;
-  }
+  readonly modificationSummary: string;
 
   constructor(
     usecaseWithComponents: UsecaseWithComponents,
     usecaseModificaiton: ModificationAction,
     summary: string,
   ) {
-    this._usecase = usecaseWithComponents;
-    this._usecaseModification = usecaseModificaiton;
-    this._modificationSummary = summary;
+    this.usecase = usecaseWithComponents;
+    this.usecaseModification = usecaseModificaiton;
+    this.modificationSummary = summary;
   }
 }
 
@@ -304,14 +246,11 @@ export class UsecaseWithModificationSummary {
  * DTO containing all components of a usecase organized by type
  */
 export class UsecaseComponentsDto {
-  private _usecaseIdentifier: UsecaseIdentifier;
   @ApiProperty({
     description: 'Usecase identifier information',
     type: UsecaseIdentifier,
   })
-  get usecaseIdentifier(): UsecaseIdentifier {
-    return this._usecaseIdentifier;
-  }
+  readonly usecaseIdentifier: UsecaseIdentifier;
 
   @ApiProperty({
     description: 'List of subsystems in the usecase',
@@ -338,6 +277,6 @@ export class UsecaseComponentsDto {
   controlLinks!: ControlLinkDto[];
 
   constructor(usecaseId: UsecaseIdentifier) {
-    this._usecaseIdentifier = usecaseId;
+    this.usecaseIdentifier = usecaseId;
   }
 }

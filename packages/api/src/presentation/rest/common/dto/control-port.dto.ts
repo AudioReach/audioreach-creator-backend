@@ -6,55 +6,30 @@ import {PortType} from './data-port.dto.js';
  * Converted from C# class ControlPortIntentDTO
  */
 export class ControlPortIntentDto {
-  private _id: number;
-  private _name: string;
-
   @ApiProperty({description: 'Intent ID'})
-  get id(): number {
-    return this._id;
-  }
+  id!: number;
 
   @ApiProperty({description: 'Intent name'})
-  get name(): string {
-    return this._name;
-  }
-
-  set name(value: string) {
-    this._name = value;
-  }
+  name?: string;
 
   constructor(id: number, name: string) {
-    this._id = id;
-    this._name = name;
+    this.id = id;
+    this.name = name;
   }
 }
 
 export class ControlPortDto extends BaseComponentDto<number> {
-  private _portType: PortType = PortType.Static;
-  private _controlPortName: string = '';
-  private _intents: ControlPortIntentDto[] = [];
-
   @ApiProperty({description: 'Port type', enum: PortType})
-  get portType(): PortType {
-    return this._portType;
-  }
+  portType!: PortType;
 
   @ApiProperty({description: 'Control port name'})
-  get controlPortName(): string {
-    return this._controlPortName;
-  }
-
-  set controlPortName(value: string) {
-    this._controlPortName = value;
-  }
+  controlPortName?: string;
 
   @ApiProperty({
     description: 'Control port intents',
     type: [ControlPortIntentDto],
   })
-  get intents(): ControlPortIntentDto[] {
-    return this._intents;
-  }
+  intents!: ControlPortIntentDto[];
 
   constructor(systemId: string, id: number);
   constructor(
@@ -74,9 +49,9 @@ export class ControlPortDto extends BaseComponentDto<number> {
     super(systemId, id);
 
     if (name !== undefined && portType !== undefined && intents !== undefined) {
-      this._portType = portType;
-      this._intents = intents;
-      this._controlPortName = name;
+      this.portType = portType;
+      this.intents = intents;
+      this.controlPortName = name;
     }
   }
 }

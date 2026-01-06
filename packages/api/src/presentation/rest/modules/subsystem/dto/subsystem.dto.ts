@@ -11,23 +11,12 @@ export class SubsystemDto extends BaseConnectableComponentDto {
     description: 'Filtered keys assigned to the subsystem',
     type: [KeyInfo],
   })
-  private _filteredKeys!: KeyInfo[];
-
-  get componentType(): ComponentInfoType {
-    return ComponentInfoType.Subsystem;
-  }
-
-  get filteredKeys(): KeyInfo[] {
-    return this._filteredKeys;
-  }
-
-  set filteredKeys(value: KeyInfo[]) {
-    this._filteredKeys = value;
-  }
+  filteredKeys!: KeyInfo[];
 
   constructor(systemId: string, id: number, name: string, parentId?: number) {
     super(systemId, id);
     this.name = name;
     this.parentId = parentId;
+    this.componentType = ComponentInfoType.Subsystem;
   }
 }

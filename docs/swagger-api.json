@@ -1630,109 +1630,109 @@
                     "value": [
                       [
                         {
-                          "_usecases": [
+                          "usecases": [
                             {
-                              "_keyValueCollection": [
+                              "keyValueCollection": [
                                 {
-                                  "_keyId": 2701131776,
-                                  "_keyLabel": "StreamRX",
-                                  "_valueId": 2701131777,
-                                  "_valueLabel": "PCM_Deep_Buffer"
+                                  "keyId": 2701131776,
+                                  "keyLabel": "StreamRX",
+                                  "valueId": 2701131777,
+                                  "valueLabel": "PCM_Deep_Buffer"
                                 },
                                 {
-                                  "_keyId": 2885681152,
-                                  "_keyLabel": "DevicePP_Rx",
-                                  "_valueId": 2885681154,
-                                  "_valueLabel": "Audio_MBDRC"
+                                  "keyId": 2885681152,
+                                  "keyLabel": "DevicePP_Rx",
+                                  "valueId": 2885681154,
+                                  "valueLabel": "Audio_MBDRC"
                                 },
                                 {
-                                  "_keyId": 2717908992,
-                                  "_keyLabel": "DeviceRX",
-                                  "_valueId": 2717908993,
-                                  "_valueLabel": "Speaker"
+                                  "keyId": 2717908992,
+                                  "keyLabel": "DeviceRX",
+                                  "valueId": 2717908993,
+                                  "valueLabel": "Speaker"
                                 }
                               ],
-                              "_systemId": "1",
-                              "_usecaseAliasId": 101,
-                              "_usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                              "_usecaseCategory": "default",
-                              "_usecaseType": "Regular",
-                              "_relatedEndPointLinks": [
+                              "systemId": "1",
+                              "usecaseAliasId": 101,
+                              "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                              "usecaseCategory": "default",
+                              "usecaseType": "Regular",
+                              "relatedEndPointLinks": [
                                 {
-                                  "_hypertextRef": "/usecases/components/get",
-                                  "_method": "POST",
-                                  "_description": "Get all components of usecase."
+                                  "hypertextRef": "/usecases/components/get",
+                                  "method": "POST",
+                                  "description": "Get all components of usecase."
                                 }
                               ]
                             }
                           ]
                         },
                         {
-                          "_usecases": [
+                          "usecases": [
                             {
-                              "_keyValueCollection": [
+                              "keyValueCollection": [
                                 {
-                                  "_keyId": 2701131776,
-                                  "_keyLabel": "StreamRX",
-                                  "_valueId": 2701131777,
-                                  "_valueLabel": "PCM_Deep_Buffer"
+                                  "keyId": 2701131776,
+                                  "keyLabel": "StreamRX",
+                                  "valueId": 2701131777,
+                                  "valueLabel": "PCM_Deep_Buffer"
                                 },
                                 {
-                                  "_keyId": 2885681152,
-                                  "_keyLabel": "DevicePP_Rx",
-                                  "_valueId": 2885681154,
-                                  "_valueLabel": "Audio_MBDRC"
+                                  "keyId": 2885681152,
+                                  "keyLabel": "DevicePP_Rx",
+                                  "valueId": 2885681154,
+                                  "valueLabel": "Audio_MBDRC"
                                 },
                                 {
-                                  "_keyId": 2717908992,
-                                  "_keyLabel": "DeviceRX",
-                                  "_valueId": 2717908993,
-                                  "_valueLabel": "Speaker"
+                                  "keyId": 2717908992,
+                                  "keyLabel": "DeviceRX",
+                                  "valueId": 2717908993,
+                                  "valueLabel": "Speaker"
                                 }
                               ],
-                              "_systemId": "1",
-                              "_usecaseAliasId": 101,
-                              "_usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                              "_usecaseCategory": "default",
-                              "_usecaseType": "Regular",
-                              "_relatedEndPointLinks": [
+                              "systemId": "1",
+                              "usecaseAliasId": 101,
+                              "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                              "usecaseCategory": "default",
+                              "usecaseType": "Regular",
+                              "relatedEndPointLinks": [
                                 {
-                                  "_hypertextRef": "/usecases/components/get",
-                                  "_method": "POST",
-                                  "_description": "Get all components of usecase."
+                                  "hypertextRef": "/usecases/components/get",
+                                  "method": "POST",
+                                  "description": "Get all components of usecase."
                                 }
                               ]
                             },
                             {
-                              "_keyValueCollection": [
+                              "keyValueCollection": [
                                 {
-                                  "_keyId": 2701131776,
-                                  "_keyLabel": "StreamRX",
-                                  "_valueId": 2701131791,
-                                  "_valueLabel": "PCM_Offload"
+                                  "keyId": 2701131776,
+                                  "keyLabel": "StreamRX",
+                                  "valueId": 2701131791,
+                                  "valueLabel": "PCM_Offload"
                                 },
                                 {
-                                  "_keyId": 2885681152,
-                                  "_keyLabel": "DevicePP_Rx",
-                                  "_valueId": 2885681154,
-                                  "_valueLabel": "Audio_MBDRC"
+                                  "keyId": 2885681152,
+                                  "keyLabel": "DevicePP_Rx",
+                                  "valueId": 2885681154,
+                                  "valueLabel": "Audio_MBDRC"
                                 },
                                 {
-                                  "_keyId": 2717908992,
-                                  "_keyLabel": "DeviceRX",
-                                  "_valueId": 2717908993,
-                                  "_valueLabel": "Speaker"
+                                  "keyId": 2717908992,
+                                  "keyLabel": "DeviceRX",
+                                  "valueId": 2717908993,
+                                  "valueLabel": "Speaker"
                                 }
                               ],
-                              "_systemId": "2",
-                              "_usecaseAliasId": 102,
-                              "_usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
-                              "_usecaseType": "Regular",
-                              "_relatedEndPointLinks": [
+                              "systemId": "2",
+                              "usecaseAliasId": 102,
+                              "usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
+                              "usecaseType": "Regular",
+                              "relatedEndPointLinks": [
                                 {
-                                  "_hypertextRef": "/usecases/components/get",
-                                  "_method": "POST",
-                                  "_description": "Get all components of usecase."
+                                  "hypertextRef": "/usecases/components/get",
+                                  "method": "POST",
+                                  "description": "Get all components of usecase."
                                 }
                               ]
                             }
@@ -1796,69 +1796,69 @@
                     "value": [
                       [
                         {
-                          "_keyValueCollection": [
+                          "keyValueCollection": [
                             {
-                              "_keyId": 2701131776,
-                              "_keyLabel": "StreamRX",
-                              "_valueId": 2701131777,
-                              "_valueLabel": "PCM_Deep_Buffer"
+                              "keyId": 2701131776,
+                              "keyLabel": "StreamRX",
+                              "valueId": 2701131777,
+                              "valueLabel": "PCM_Deep_Buffer"
                             },
                             {
-                              "_keyId": 2885681152,
-                              "_keyLabel": "DevicePP_Rx",
-                              "_valueId": 2885681154,
-                              "_valueLabel": "Audio_MBDRC"
+                              "keyId": 2885681152,
+                              "keyLabel": "DevicePP_Rx",
+                              "valueId": 2885681154,
+                              "valueLabel": "Audio_MBDRC"
                             },
                             {
-                              "_keyId": 2717908992,
-                              "_keyLabel": "DeviceRX",
-                              "_valueId": 2717908993,
-                              "_valueLabel": "Speaker"
+                              "keyId": 2717908992,
+                              "keyLabel": "DeviceRX",
+                              "valueId": 2717908993,
+                              "valueLabel": "Speaker"
                             }
                           ],
-                          "_systemId": "1",
-                          "_usecaseAliasId": 101,
-                          "_usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                          "_usecaseCategory": "default",
-                          "_usecaseType": "Regular",
-                          "_relatedEndPointLinks": [
+                          "systemId": "1",
+                          "usecaseAliasId": 101,
+                          "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                          "usecaseCategory": "default",
+                          "usecaseType": "Regular",
+                          "relatedEndPointLinks": [
                             {
-                              "_hypertextRef": "/usecases/components/get",
-                              "_method": "POST",
-                              "_description": "Get all components of usecase."
+                              "hypertextRef": "/usecases/components/get",
+                              "method": "POST",
+                              "description": "Get all components of usecase."
                             }
                           ]
                         },
                         {
-                          "_keyValueCollection": [
+                          "keyValueCollection": [
                             {
-                              "_keyId": 2701131776,
-                              "_keyLabel": "StreamRX",
-                              "_valueId": 2701131791,
-                              "_valueLabel": "PCM_Offload"
+                              "keyId": 2701131776,
+                              "keyLabel": "StreamRX",
+                              "valueId": 2701131791,
+                              "valueLabel": "PCM_Offload"
                             },
                             {
-                              "_keyId": 2885681152,
-                              "_keyLabel": "DevicePP_Rx",
-                              "_valueId": 2885681154,
-                              "_valueLabel": "Audio_MBDRC"
+                              "keyId": 2885681152,
+                              "keyLabel": "DevicePP_Rx",
+                              "valueId": 2885681154,
+                              "valueLabel": "Audio_MBDRC"
                             },
                             {
-                              "_keyId": 2717908992,
-                              "_keyLabel": "DeviceRX",
-                              "_valueId": 2717908993,
-                              "_valueLabel": "Speaker"
+                              "keyId": 2717908992,
+                              "keyLabel": "DeviceRX",
+                              "valueId": 2717908993,
+                              "valueLabel": "Speaker"
                             }
                           ],
-                          "_systemId": "2",
-                          "_usecaseAliasId": 102,
-                          "_usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
-                          "_usecaseType": "Regular",
-                          "_relatedEndPointLinks": [
+                          "systemId": "2",
+                          "usecaseAliasId": 102,
+                          "usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
+                          "usecaseType": "Regular",
+                          "relatedEndPointLinks": [
                             {
-                              "_hypertextRef": "/usecases/components/get",
-                              "_method": "POST",
-                              "_description": "Get all components of usecase."
+                              "hypertextRef": "/usecases/components/get",
+                              "method": "POST",
+                              "description": "Get all components of usecase."
                             }
                           ]
                         }
@@ -1949,106 +1949,100 @@
                   "default": {
                     "value": [
                       {
-                        "_usecaseIdentifier": {
-                          "_keyValueCollection": [
+                        "usecaseIdentifier": {
+                          "keyValueCollection": [
                             {
-                              "_keyId": 2701131776,
-                              "_keyLabel": "StreamRX",
-                              "_valueId": 2701131777,
-                              "_valueLabel": "PCM_Deep_Buffer"
+                              "keyId": 2701131776,
+                              "keyLabel": "StreamRX",
+                              "valueId": 2701131777,
+                              "valueLabel": "PCM_Deep_Buffer"
                             },
                             {
-                              "_keyId": 2885681152,
-                              "_keyLabel": "DevicePP_Rx",
-                              "_valueId": 2885681154,
-                              "_valueLabel": "Audio_MBDRC"
+                              "keyId": 2885681152,
+                              "keyLabel": "DevicePP_Rx",
+                              "valueId": 2885681154,
+                              "valueLabel": "Audio_MBDRC"
                             },
                             {
-                              "_keyId": 2717908992,
-                              "_keyLabel": "DeviceRX",
-                              "_valueId": 2717908993,
-                              "_valueLabel": "Speaker"
+                              "keyId": 2717908992,
+                              "keyLabel": "DeviceRX",
+                              "valueId": 2717908993,
+                              "valueLabel": "Speaker"
                             }
                           ],
-                          "_systemId": "1",
-                          "_usecaseAliasId": 101,
-                          "_usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                          "_usecaseCategory": "default",
-                          "_usecaseType": "Regular",
-                          "_relatedEndPointLinks": [
+                          "systemId": "1",
+                          "usecaseAliasId": 101,
+                          "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                          "usecaseCategory": "default",
+                          "usecaseType": "Regular",
+                          "relatedEndPointLinks": [
                             {
-                              "_hypertextRef": "/usecases/components/get",
-                              "_method": "POST",
-                              "_description": "Get all components of usecase."
+                              "hypertextRef": "/usecases/components/get",
+                              "method": "POST",
+                              "description": "Get all components of usecase."
                             }
                           ]
                         },
                         "subsystems": [
                           {
-                            "_systemId": "1",
-                            "_id": 4027580417,
-                            "_name": "Device_RX",
-                            "_relatedEndPointLinks": [
+                            "systemId": "1",
+                            "id": 4027580417,
+                            "name": "Device_RX",
+                            "componentType": "Subsystem",
+                            "relatedEndPointLinks": [
                               {
-                                "_hypertextRef": "/components/1/properties",
-                                "_method": "GET",
-                                "_description": "Get properties for a component."
+                                "hypertextRef": "/components/1/properties",
+                                "method": "GET",
+                                "description": "Get properties for a component."
                               }
                             ],
-                            "_editType": "None",
-                            "_dataPorts": [],
-                            "_controlPorts": [],
-                            "_filteredKeys": [
+                            "filteredKeys": [
                               {
-                                "_keyId": 2717908992,
-                                "_keyLabel": "DeviceRX"
+                                "keyId": 2717908992,
+                                "keyLabel": "DeviceRX"
                               }
                             ]
                           }
                         ],
                         "moduleInstances": [
                           {
-                            "_systemId": "1001",
-                            "_id": 1001,
-                            "_name": "PCM Decoder",
-                            "_relatedEndPointLinks": [
+                            "systemId": "1001",
+                            "id": 1001,
+                            "name": "PCM Decoder",
+                            "componentType": "Module",
+                            "relatedEndPointLinks": [
                               {
-                                "_hypertextRef": "/components/1001/properties",
-                                "_method": "GET",
-                                "_description": "Get properties for a component."
+                                "hypertextRef": "/components/1001/properties",
+                                "method": "GET",
+                                "description": "Get properties for a component."
                               }
                             ],
-                            "_editType": "None",
-                            "_dataPorts": [
+                            "dataPorts": [
                               {
-                                "_systemId": "2001",
-                                "_id": 2001,
-                                "_name": "Input",
-                                "_relatedEndPointLinks": [],
-                                "_editType": "None",
-                                "_portIoType": "Input",
-                                "_portType": "Static"
+                                "systemId": "2001",
+                                "id": 2001,
+                                "name": "Input",
+                                "relatedEndPointLinks": [],
+                                "portIoType": "Input",
+                                "portType": "Static"
                               },
                               {
-                                "_systemId": "2002",
-                                "_id": 2002,
-                                "_name": "Output",
-                                "_relatedEndPointLinks": [],
-                                "_editType": "None",
-                                "_portIoType": "Output",
-                                "_portType": "Static"
+                                "systemId": "2002",
+                                "id": 2002,
+                                "name": "Output",
+                                "relatedEndPointLinks": [],
+                                "portIoType": "Output",
+                                "portType": "Static"
                               }
                             ],
-                            "_controlPorts": [
+                            "controlPorts": [
                               {
-                                "_systemId": "3001",
-                                "_id": 3001,
-                                "_name": "",
-                                "_relatedEndPointLinks": [],
-                                "_editType": "None",
-                                "_portType": "Static",
-                                "_controlPortName": "Control",
-                                "_intents": []
+                                "systemId": "3001",
+                                "id": 3001,
+                                "relatedEndPointLinks": [],
+                                "portType": "Static",
+                                "controlPortName": "Control",
+                                "intents": []
                               }
                             ],
                             "alias": "PCM_Decoder_1",
@@ -2061,57 +2055,51 @@
                             "heapId": 1
                           },
                           {
-                            "_systemId": "1002",
-                            "_id": 1002,
-                            "_name": "Audio MBDRC",
-                            "_relatedEndPointLinks": [
+                            "systemId": "1002",
+                            "id": 1002,
+                            "name": "Audio MBDRC",
+                            "componentType": "Module",
+                            "relatedEndPointLinks": [
                               {
-                                "_hypertextRef": "/components/1002/properties",
-                                "_method": "GET",
-                                "_description": "Get properties for a component."
+                                "hypertextRef": "/components/1002/properties",
+                                "method": "GET",
+                                "description": "Get properties for a component."
                               }
                             ],
-                            "_editType": "None",
-                            "_dataPorts": [
+                            "dataPorts": [
                               {
-                                "_systemId": "2003",
-                                "_id": 2003,
-                                "_name": "Input",
-                                "_relatedEndPointLinks": [],
-                                "_editType": "None",
-                                "_portIoType": "Input",
-                                "_portType": "Static"
+                                "systemId": "2003",
+                                "id": 2003,
+                                "name": "Input",
+                                "relatedEndPointLinks": [],
+                                "portIoType": "Input",
+                                "portType": "Static"
                               },
                               {
-                                "_systemId": "2004",
-                                "_id": 2004,
-                                "_name": "Output",
-                                "_relatedEndPointLinks": [],
-                                "_editType": "None",
-                                "_portIoType": "Output",
-                                "_portType": "Static"
+                                "systemId": "2004",
+                                "id": 2004,
+                                "name": "Output",
+                                "relatedEndPointLinks": [],
+                                "portIoType": "Output",
+                                "portType": "Static"
                               }
                             ],
-                            "_controlPorts": [
+                            "controlPorts": [
                               {
-                                "_systemId": "3002",
-                                "_id": 3002,
-                                "_name": "",
-                                "_relatedEndPointLinks": [],
-                                "_editType": "None",
-                                "_portType": "Static",
-                                "_controlPortName": "Control",
-                                "_intents": []
+                                "systemId": "3002",
+                                "id": 3002,
+                                "relatedEndPointLinks": [],
+                                "portType": "Static",
+                                "controlPortName": "Control",
+                                "intents": []
                               },
                               {
-                                "_systemId": "3003",
-                                "_id": 3003,
-                                "_name": "",
-                                "_relatedEndPointLinks": [],
-                                "_editType": "None",
-                                "_portType": "Static",
-                                "_controlPortName": "Control",
-                                "_intents": []
+                                "systemId": "3003",
+                                "id": 3003,
+                                "relatedEndPointLinks": [],
+                                "portType": "Static",
+                                "controlPortName": "Control",
+                                "intents": []
                               }
                             ],
                             "alias": "Audio_MBDRC_1",
@@ -2126,11 +2114,11 @@
                         ],
                         "dataLinks": [
                           {
-                            "_systemId": "4001",
-                            "_id": 4001,
-                            "_name": "data_link",
-                            "_relatedEndPointLinks": [],
-                            "_editType": "None",
+                            "systemId": "4001",
+                            "id": 4001,
+                            "name": "data_link",
+                            "componentType": "DataLink",
+                            "relatedEndPointLinks": [],
                             "sourceId": 1001,
                             "sourcePortId": 2002,
                             "destinationId": 1002,
@@ -2142,11 +2130,11 @@
                         ],
                         "controlLinks": [
                           {
-                            "_systemId": "5001",
-                            "_id": 5001,
-                            "_name": "control_link",
-                            "_relatedEndPointLinks": [],
-                            "_editType": "None",
+                            "systemId": "5001",
+                            "id": 5001,
+                            "name": "control_link",
+                            "componentType": "ControlLink",
+                            "relatedEndPointLinks": [],
                             "sourceId": 1001,
                             "sourcePortId": 3001,
                             "destinationId": 1002,
@@ -2374,20 +2362,20 @@
                 "examples": {
                   "default": {
                     "value": {
-                      "_systemId": "1",
-                      "_id": 1,
-                      "_name": "Example Module",
-                      "_relatedEndPointLinks": [
+                      "systemId": "1",
+                      "id": 1,
+                      "name": "Example Module",
+                      "componentType": "Module",
+                      "relatedEndPointLinks": [
                         {
-                          "_hypertextRef": "/components/1/properties",
-                          "_method": "GET",
-                          "_description": "Get properties for this module instance."
+                          "hypertextRef": "/components/1/properties",
+                          "method": "GET",
+                          "description": "Get properties for this module instance."
                         }
                       ],
-                      "_editType": "None",
-                      "_parentId": 202,
-                      "_dataPorts": [],
-                      "_controlPorts": [],
+                      "parentId": 202,
+                      "dataPorts": [],
+                      "controlPorts": [],
                       "alias": "ExampleAlias",
                       "moduleId": 123,
                       "subgraphId": 456,
@@ -4366,20 +4354,6 @@
             "type": "string",
             "description": "System ID"
           },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
           "id": {
             "type": "object",
             "description": "Component ID"
@@ -4406,16 +4380,30 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
+          },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
           }
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
-          "relatedEndPointLinks"
+          "relatedEndPointLinks",
+          "editType"
         ]
       },
       "UsecaseWithComponents": {
@@ -4481,20 +4469,6 @@
             "type": "string",
             "description": "System ID"
           },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
           "id": {
             "type": "object",
             "description": "Component ID"
@@ -4522,6 +4496,21 @@
               "$ref": "#/components/schemas/EndPointLink"
             }
           },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
+          },
           "portIoType": {
             "type": "string",
             "description": "Port IO type",
@@ -4541,12 +4530,11 @@
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
+          "editType",
           "portIoType",
           "portType"
         ]
@@ -4575,20 +4563,6 @@
             "type": "string",
             "description": "System ID"
           },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
           "id": {
             "type": "object",
             "description": "Component ID"
@@ -4615,6 +4589,21 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
+          },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
           },
           "portType": {
             "type": "string",
@@ -4638,12 +4627,11 @@
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
+          "editType",
           "portType",
           "controlPortName",
           "intents"
@@ -4655,20 +4643,6 @@
           "systemId": {
             "type": "string",
             "description": "System ID"
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
           },
           "id": {
             "type": "object",
@@ -4697,8 +4671,23 @@
               "$ref": "#/components/schemas/EndPointLink"
             }
           },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
+          },
           "parentId": {
-            "type": "object",
+            "type": "number",
             "description": "Parent component ID"
           },
           "dataPorts": {
@@ -4750,12 +4739,11 @@
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
+          "editType",
           "dataPorts",
           "controlPorts",
           "alias",
@@ -4807,20 +4795,6 @@
             "type": "string",
             "description": "System ID"
           },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
           "id": {
             "type": "object",
             "description": "Component ID"
@@ -4848,8 +4822,23 @@
               "$ref": "#/components/schemas/EndPointLink"
             }
           },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
+          },
           "parentId": {
-            "type": "object",
+            "type": "number",
             "description": "Parent component ID"
           },
           "dataPorts": {
@@ -4866,7 +4855,7 @@
               "$ref": "#/components/schemas/ControlPortDto"
             }
           },
-          "_filteredKeys": {
+          "filteredKeys": {
             "description": "Filtered keys assigned to the subsystem",
             "type": "array",
             "items": {
@@ -4876,15 +4865,14 @@
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
+          "editType",
           "dataPorts",
           "controlPorts",
-          "_filteredKeys"
+          "filteredKeys"
         ]
       },
       "DataLinkDto": {
@@ -4893,20 +4881,6 @@
           "systemId": {
             "type": "string",
             "description": "System ID"
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
           },
           "id": {
             "type": "object",
@@ -4934,6 +4908,21 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
+          },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
           },
           "sourceId": {
             "type": "number",
@@ -4979,12 +4968,11 @@
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
+          "editType",
           "sourceId",
           "sourcePortId",
           "destinationId",
@@ -5000,20 +4988,6 @@
             "type": "string",
             "description": "System ID"
           },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
           "id": {
             "type": "object",
             "description": "Component ID"
@@ -5040,6 +5014,21 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
+          },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
           },
           "sourceId": {
             "type": "number",
@@ -5085,12 +5074,11 @@
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
+          "editType",
           "sourceId",
           "sourcePortId",
           "destinationId",
@@ -5307,8 +5295,12 @@
             }
           },
           "definitionLink": {
-            "type": "object",
-            "description": "Definition link"
+            "description": "Definition link",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EndPointLink"
+              }
+            ]
           }
         },
         "required": [
@@ -5361,20 +5353,6 @@
             "type": "string",
             "description": "System ID"
           },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
           "id": {
             "type": "object",
             "description": "Component ID"
@@ -5401,6 +5379,21 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
+          },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
           },
           "scenarioType": {
             "type": "string",
@@ -5447,12 +5440,11 @@
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
+          "editType",
           "scenarioType",
           "deviceType",
           "subGraphSharedType",
@@ -5481,20 +5473,6 @@
             "type": "string",
             "description": "System ID"
           },
-          "changeId": {
-            "type": "string",
-            "description": "Change ID"
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
           "id": {
             "type": "object",
             "description": "Component ID"
@@ -5521,16 +5499,30 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
+          },
+          "editType": {
+            "type": "string",
+            "description": "Edit type",
+            "enum": [
+              "Added",
+              "Updated",
+              "Deleted",
+              "None"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
+            "example": "chg-12345"
           }
         },
         "required": [
           "systemId",
-          "changeId",
-          "editType",
           "id",
           "name",
           "componentType",
-          "relatedEndPointLinks"
+          "relatedEndPointLinks",
+          "editType"
         ]
       },
       "ContainerPropertiesDto": {

@@ -21,18 +21,11 @@ export enum PortType {
  * Converted from C# class DataPortDTO
  */
 export class DataPortDto extends BaseComponentDto<number> {
-  private _portIoType: PortIoType = PortIoType.Input;
-  private _portType: PortType = PortType.Static;
-
   @ApiProperty({description: 'Port IO type', enum: PortIoType})
-  get portIoType(): PortIoType {
-    return this._portIoType;
-  }
+  portIoType!: PortIoType;
 
   @ApiProperty({description: 'Port type', enum: PortType})
-  get portType(): PortType {
-    return this._portType;
-  }
+  portType!: PortType;
 
   set dataPortName(value: string) {
     this.name = value;
@@ -61,8 +54,8 @@ export class DataPortDto extends BaseComponentDto<number> {
       portIoType !== undefined &&
       portType !== undefined
     ) {
-      this._portIoType = portIoType;
-      this._portType = portType;
+      this.portIoType = portIoType;
+      this.portType = portType;
       this.name = name;
     }
   }

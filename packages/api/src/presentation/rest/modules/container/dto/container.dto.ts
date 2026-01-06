@@ -18,11 +18,8 @@ export class ContainerPropertiesDto {
 }
 
 export class ContainerDto extends BaseComponentDto<number> {
-  get componentType(): ComponentInfoType {
-    return ComponentInfoType.Subgraph;
-  }
-
   constructor(sysemId: string, id: number) {
     super(sysemId, id);
+    this.componentType = ComponentInfoType.Container;
   }
 }

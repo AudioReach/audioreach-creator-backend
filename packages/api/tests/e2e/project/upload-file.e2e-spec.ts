@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 // Server URL - change this if your server runs on a different port
 const SERVER_URL = 'http://localhost:3000';
 
-describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
+describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () => {
   let authToken: string;
 
   beforeAll(async () => {
@@ -28,7 +28,7 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
     const awspPath = join(__dirname, '../fixtures/workspaceFileXml.awsp');
 
     const response = await request(SERVER_URL)
-      .post('/arc-api/v1/offline/files')
+      .post('/arc-api/v1/projects/offline/upload-files')
       .set('Authorization', `Bearer ${authToken}`)
       .attach('acdbFile', acdbPath)
       .attach('workspaceFile', awspPath)
@@ -70,23 +70,19 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
     const logLines: string[] = [];
 
     for (const usecaseDto of usecasesData) {
-      // Handle serialization issue - private fields are serialized with underscores
-      const usecases = usecaseDto._usecases || usecaseDto.usecases;
+      // Access the usecases property (serialization issue has been fixed)
+      const usecases = usecaseDto.usecases;
 
       if (usecases && Array.isArray(usecases)) {
         for (const usecaseIdentifier of usecases) {
-          const systemId =
-            usecaseIdentifier._systemId || usecaseIdentifier.systemId;
-          const keyValueCollection =
-            usecaseIdentifier._keyValueCollection ||
-            usecaseIdentifier.keyValueCollection ||
-            [];
+          const systemId = usecaseIdentifier.systemId;
+          const keyValueCollection = usecaseIdentifier.keyValueCollection || [];
 
           // Format: systemId : [Key1Name: Value1Name][Key2Name: Value2Name]...
           let kvString = '';
           for (const kv of keyValueCollection) {
-            const keyLabel = kv._keyLabel || kv.keyLabel;
-            const valueLabel = kv._valueLabel || kv.valueLabel;
+            const keyLabel = kv.keyLabel;
+            const valueLabel = kv.valueLabel;
             kvString += `[${keyLabel}: ${valueLabel}]`;
           }
 
@@ -199,5 +195,5 @@ describe('Open File E2E (POST /arc-api/v1/offline/files)', () => {
 
     // Add small delay to ensure file operations complete
     await new Promise(resolve => setTimeout(resolve, 1000));
-  });
+  }, 350000); // 350 seconds Jest timeout
 });
