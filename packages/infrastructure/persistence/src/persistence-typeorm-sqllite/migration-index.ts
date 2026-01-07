@@ -1,3 +1,3 @@
-import {InitialCreate1766556240795} from './migrations/1766556240795-InitialCreate.js';
+import {InitialCreate1767851801484} from './migrations/1767851801484-InitialCreate.js';
 
-export const migrations = [InitialCreate1766556240795];
+export const migrations = [InitialCreate1767851801484];

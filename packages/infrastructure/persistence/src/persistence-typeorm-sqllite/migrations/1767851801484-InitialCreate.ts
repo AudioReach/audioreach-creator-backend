@@ -1,7 +1,7 @@
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1766556240795 implements MigrationInterface {
-  name = 'InitialCreate1766556240795';
+export class InitialCreate1767851801484 implements MigrationInterface {
+  name = 'InitialCreate1767851801484';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -326,13 +326,13 @@ export class InitialCreate1766556240795 implements MigrationInterface {
       `CREATE INDEX "idx_restore_points_file" ON "restore_points" ("file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "session_modes" ("mode_id" varchar(36) PRIMARY KEY NOT NULL, "file_system_id" integer NOT NULL, "mode" varchar CHECK( "mode" IN ('DESIGNER','DIFF_MERGE','SIMULATION') ) NOT NULL, "deactivated_at" datetime, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`,
+      `CREATE TABLE "project_activities" ("activity_id" varchar(36) PRIMARY KEY NOT NULL, "file_system_id" integer NOT NULL, "activity_type" varchar CHECK( "activity_type" IN ('DESIGNER','DIFF_MERGE','SIMULATION') ) NOT NULL, "ended_at" datetime, "started_at" datetime NOT NULL DEFAULT (datetime('now')))`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_session_modes_file" ON "session_modes" ("file_system_id") `,
+      `CREATE INDEX "idx_project_activities_file" ON "project_activities" ("file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_session_modes_active" ON "session_modes" ("file_system_id", "deactivated_at") `,
+      `CREATE INDEX "idx_project_activities_active" ON "project_activities" ("file_system_id", "ended_at") `,
     );
     await queryRunner.query(
       `CREATE TABLE "key_vector_values" ("value_definition_id" integer NOT NULL, "key_vector_id" integer NOT NULL, PRIMARY KEY ("value_definition_id", "key_vector_id"))`,
@@ -989,6 +989,50 @@ export class InitialCreate1766556240795 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "ix_use_case_key_vector" ON "use_cases" ("key_vector_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_system_id"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_valid"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_status"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_edit_actions" ("change_id" varchar(36) PRIMARY KEY NOT NULL, "system_id" varchar(36) NOT NULL, "session_id" varchar(36) NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('ADD','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('UNSTAGED','STAGED','DISCARDED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime, CONSTRAINT "FK_56f75f850acdde5e18d4eebdbdc" FOREIGN KEY ("session_id") REFERENCES "edit_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_edit_actions"("change_id", "system_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until") SELECT "change_id", "system_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until" FROM "edit_actions"`,
+    );
+    await queryRunner.query(`DROP TABLE "edit_actions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_edit_actions" RENAME TO "edit_actions"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_session" ON "edit_actions" ("session_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_system_id" ON "edit_actions" ("system_id", "table_name") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_valid" ON "edit_actions" ("valid_until") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_status" ON "edit_actions" ("session_id", "change_status") `,
+    );
+    await queryRunner.query(`DROP INDEX "idx_project_activities_file"`);
+    await queryRunner.query(`DROP INDEX "idx_project_activities_active"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_project_activities" ("activity_id" varchar(36) PRIMARY KEY NOT NULL, "file_system_id" integer NOT NULL, "activity_type" varchar CHECK( "activity_type" IN ('DESIGNER','DIFF_MERGE','SIMULATION') ) NOT NULL, "ended_at" datetime, "started_at" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "FK_67d5e1e4fca6555928811066838" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_project_activities"("activity_id", "file_system_id", "activity_type", "ended_at", "started_at") SELECT "activity_id", "file_system_id", "activity_type", "ended_at", "started_at" FROM "project_activities"`,
+    );
+    await queryRunner.query(`DROP TABLE "project_activities"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_project_activities" RENAME TO "project_activities"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_activities_file" ON "project_activities" ("file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_activities_active" ON "project_activities" ("file_system_id", "ended_at") `,
+    );
     await queryRunner.query(`DROP INDEX "IDX_8df8807723e992df41610e9667"`);
     await queryRunner.query(`DROP INDEX "IDX_e1d7a23f49c46dcd7ddee72d44"`);
     await queryRunner.query(
@@ -1249,6 +1293,50 @@ export class InitialCreate1766556240795 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_8df8807723e992df41610e9667" ON "key_vector_values" ("value_definition_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "idx_project_activities_active"`);
+    await queryRunner.query(`DROP INDEX "idx_project_activities_file"`);
+    await queryRunner.query(
+      `ALTER TABLE "project_activities" RENAME TO "temporary_project_activities"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "project_activities" ("activity_id" varchar(36) PRIMARY KEY NOT NULL, "file_system_id" integer NOT NULL, "activity_type" varchar CHECK( "activity_type" IN ('DESIGNER','DIFF_MERGE','SIMULATION') ) NOT NULL, "ended_at" datetime, "started_at" datetime NOT NULL DEFAULT (datetime('now')))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "project_activities"("activity_id", "file_system_id", "activity_type", "ended_at", "started_at") SELECT "activity_id", "file_system_id", "activity_type", "ended_at", "started_at" FROM "temporary_project_activities"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_project_activities"`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_activities_active" ON "project_activities" ("file_system_id", "ended_at") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_activities_file" ON "project_activities" ("file_system_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_status"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_valid"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_system_id"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
+    await queryRunner.query(
+      `ALTER TABLE "edit_actions" RENAME TO "temporary_edit_actions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "edit_actions" ("change_id" varchar(36) PRIMARY KEY NOT NULL, "system_id" varchar(36) NOT NULL, "session_id" varchar(36) NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('ADD','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('UNSTAGED','STAGED','DISCARDED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "edit_actions"("change_id", "system_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until") SELECT "change_id", "system_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until" FROM "temporary_edit_actions"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_edit_actions"`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_status" ON "edit_actions" ("session_id", "change_status") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_valid" ON "edit_actions" ("valid_until") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_system_id" ON "edit_actions" ("system_id", "table_name") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_session" ON "edit_actions" ("session_id") `,
     );
     await queryRunner.query(`DROP INDEX "ix_use_case_key_vector"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
@@ -1881,9 +1969,9 @@ export class InitialCreate1766556240795 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "IDX_e1d7a23f49c46dcd7ddee72d44"`);
     await queryRunner.query(`DROP INDEX "IDX_8df8807723e992df41610e9667"`);
     await queryRunner.query(`DROP TABLE "key_vector_values"`);
-    await queryRunner.query(`DROP INDEX "idx_session_modes_active"`);
-    await queryRunner.query(`DROP INDEX "idx_session_modes_file"`);
-    await queryRunner.query(`DROP TABLE "session_modes"`);
+    await queryRunner.query(`DROP INDEX "idx_project_activities_active"`);
+    await queryRunner.query(`DROP INDEX "idx_project_activities_file"`);
+    await queryRunner.query(`DROP TABLE "project_activities"`);
     await queryRunner.query(`DROP INDEX "idx_restore_points_file"`);
     await queryRunner.query(`DROP INDEX "idx_restore_points_session"`);
     await queryRunner.query(`DROP TABLE "restore_points"`);

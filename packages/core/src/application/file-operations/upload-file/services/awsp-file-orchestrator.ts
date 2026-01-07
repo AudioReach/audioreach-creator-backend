@@ -1,3 +1,7 @@
+// IMPORTANT: reflect-metadata must be imported first, before any other imports
+// This polyfill is required for class-transformer decorators to work
+import 'reflect-metadata';
+
 import {AwspParser} from './awsp-parser.js';
 import {
   FILE_NAMES,

@@ -53,83 +53,33 @@ export const teardownTestDatabase = async (): Promise<void> => {
 
 /**
  * Clear all data from test database (for test isolation)
- * Clears tables in reverse dependency order to avoid foreign key constraints
+ * Clears all tables by temporarily disabling foreign key constraints
  */
 export const clearTestDatabase = async (): Promise<void> => {
   if (!testDataSource || !testDataSource.isInitialized) {
     throw new Error('Test database not initialized');
   }
 
-  // Clear in reverse dependency order to avoid foreign key constraints
-  const tablesToClear = [
-    // Edit session tables (modification framework)
-    'edit_actions',
-    'restore_points',
-    'edit_sessions',
-    'session_modes',
-    // Links
-    'control_links',
-    'data_links',
-    // Nodes
-    'intents',
-    'control_ports',
-    'data_ports',
-    'nodes',
-    // Module data
-    'tkv_parameter_payloads',
-    'tkvs',
-    'module_tag_id_maps',
-    'ckv_parameter_payload_rows',
-    'ckvs',
-    'spf_module_properties_data',
-    'spf_modules',
-    // Container data
-    'container_property_data',
-    'containers',
-    // Subgraph data
-    'vcpm_parameter_payloads',
-    'vcpm_instances',
-    'vcpm_ckvs',
-    'subgraph_property_data',
-    'subgraphs',
-    // Use cases
-    'use_case_categories',
-    'use_cases',
-    // Key-value system
-    'key_vectors',
-    'value_definitions',
-    'key_definitions',
-    // Definitions
-    'module_property_definitions',
-    'dynamic_intent_definitions',
-    'static_intent_definitions',
-    'static_control_port_definitions',
-    'data_port_definitions',
-    'data_port_groups',
-    'module_attributes',
-    'module_definition_meta_data',
-    'driver_module_parameter_definitions',
-    'driver_module_definitions',
-    'spf_module_parameter_definitions',
-    'spf_module_definitions',
-    'vcpm_module_parameter_definitions',
-    'vcpm_module_definitions',
-    'subgraph_property_definitions',
-    'container_property_definitions',
-    'container_types',
-    'processor_definitions',
-    // Project data
-    'arc_db_files',
-    'projects',
-  ];
+  try {
+    // Disable foreign key constraints to allow deleting in any order
+    await testDataSource.query('PRAGMA foreign_keys = OFF');
 
-  for (const tableName of tablesToClear) {
-    try {
-      await testDataSource.query(`DELETE FROM ${tableName}`);
-    } catch (error) {
-      // Table might not exist, ignore error
-      // console.warn(`Could not clear table ${tableName}:`, error);
+    // Get all table names from metadata
+    const tableNames = testDataSource.entityMetadatas.map(
+      entity => entity.tableName,
+    );
+
+    for (const tableName of tableNames) {
+      try {
+        await testDataSource.query(`DELETE FROM "${tableName}"`);
+      } catch (error) {
+        // Table might not exist or other error, ignore to continue cleanup
+        // console.warn(`Could not clear table ${tableName}:`, error);
+      }
     }
+  } finally {
+    // Re-enable foreign key constraints
+    await testDataSource.query('PRAGMA foreign_keys = ON');
   }
 };
 

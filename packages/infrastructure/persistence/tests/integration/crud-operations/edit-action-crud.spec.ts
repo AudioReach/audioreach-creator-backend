@@ -434,6 +434,77 @@ describe('EditAction CRUD Integration Tests', () => {
     });
   });
 
+  describe('Foreign Key Constraints', () => {
+    it('should fail when creating action with non-existent session (Orphan Check)', async () => {
+      // Arrange
+      const changeId = generateUuid();
+      const systemId = generateUuid();
+      const nonExistentSessionId = generateUuid();
+
+      const action: Omit<EditActionRow, 'createdAt'> = {
+        changeId,
+        systemId,
+        sessionId: nonExistentSessionId, // This session does not exist
+        tableName: 'spf_modules',
+        operation: EDIT_OPERATION.ADD,
+        payload: JSON.stringify({test: 'orphan'}),
+        changeStatus: CHANGE_STATUS.STAGED,
+        baseVersion: null,
+        groupId: null,
+        validUntil: null,
+      };
+
+      // Act & Assert
+      // TypeORM throws QueryFailedError for FK violations
+      await expect(editActionRepository.save(action)).rejects.toThrow();
+    });
+
+    it('should delete actions when session is deleted (Cascade Delete)', async () => {
+      // Arrange
+      const {fileSystemId, modeId} = await createEditSessionDependencies();
+      const sessionId = generateUuid();
+
+      // Create session
+      await editSessionRepository.save({
+        sessionId,
+        userId: 'test-user',
+        clientId: 'test-client',
+        fileSystemId,
+        modeId,
+        editStatus: EDIT_STATUS.ACTIVE,
+        committedAt: null,
+        commitMessage: null,
+      });
+
+      // Create action linked to session
+      const changeId = generateUuid();
+      await editActionRepository.save({
+        changeId,
+        systemId: generateUuid(),
+        sessionId,
+        tableName: 'spf_modules',
+        operation: EDIT_OPERATION.ADD,
+        payload: JSON.stringify({test: 'cascade'}),
+        changeStatus: CHANGE_STATUS.STAGED,
+        baseVersion: null,
+        groupId: null,
+        createdAt: new Date(),
+        validUntil: null,
+      });
+
+      // Verify action exists
+      let action = await editActionRepository.findOne({where: {changeId}});
+      expect(action).toBeDefined();
+
+      // Act - Delete session
+      await editSessionRepository.delete(sessionId);
+
+      // Assert - Verify action is gone
+      action = await editActionRepository.findOne({where: {changeId}});
+      expect(action).toBeNull();
+    });
+  });
+
   describe('Indexes', () => {
     it('should efficiently query by sessionId using idx_edit_actions_session', async () => {
       // Arrange
