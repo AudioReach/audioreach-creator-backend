@@ -11,6 +11,7 @@ import {
   PROJECT_TYPE,
   Project,
 } from '../../../domain/entities/usecase-data/project/project.js';
+import {generateUuid} from '../../../shared/utilities/uuid.js';
 
 export type OpenFileResult = {
   projectId: string;
@@ -44,7 +45,10 @@ export class OpenFileHandler
 
     // Create project and file first to get proper IDs
     const projectRepo = this.uow.getProjectRepository();
-    const projectName = this.extractProjectName(command.acdb, command.awsp);
+    const projectName =
+      this.extractProjectName(command.acdb, command.awsp) +
+      '_' +
+      generateUuid();
     const projectDescription = this.extractProjectDescription(
       command.acdb,
       command.awsp,

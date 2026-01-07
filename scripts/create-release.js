@@ -95,7 +95,8 @@ try {
     stdio: 'inherit',
   });
 } catch (error) {
-  console.warn('⚠️  Warning: Production install had issues, but continuing...');
+  console.error('❌ Install failed!');
+  process.exit(1);
 }
 
 // Step 6: Create startup scripts

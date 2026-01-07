@@ -122,7 +122,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
           systemIds: [randomUsecaseSystemId],
         })
         .timeout(30000) // 30 seconds timeout
-        .expect(200);
+        .expect(201);
 
       // Verify components response structure
       expect(componentsResponse.body).toBeDefined();

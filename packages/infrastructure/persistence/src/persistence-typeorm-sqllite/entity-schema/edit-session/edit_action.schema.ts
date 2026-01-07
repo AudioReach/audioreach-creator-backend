@@ -1,10 +1,11 @@
 import {EntitySchema} from 'typeorm';
+import type {EditSessionRow} from './edit-session.schema.js';
 
 export const EDIT_OPERATION = {
   ADD: 'ADD',
   UPDATE: 'UPDATE',
   DELETE: 'DELETE',
-};
+} as const;
 export type EditOperation =
   (typeof EDIT_OPERATION)[keyof typeof EDIT_OPERATION];
 
@@ -12,7 +13,7 @@ export const CHANGE_STATUS = {
   UNSTAGED: 'UNSTAGED',
   STAGED: 'STAGED',
   DISCARDED: 'DISCARDED',
-};
+} as const;
 export type ChangeStatus = (typeof CHANGE_STATUS)[keyof typeof CHANGE_STATUS];
 
 export interface EditActionRow {
@@ -21,12 +22,13 @@ export interface EditActionRow {
   sessionId: string;
   tableName: string;
   operation: EditOperation;
-  payload: string; //json
+  payload: unknown; //json
   changeStatus: ChangeStatus;
   baseVersion: number | null;
   groupId: string | null;
   createdAt: Date;
   validUntil: Date | null;
+  session?: EditSessionRow;
 }
 
 export const EditActionSchema = new EntitySchema<EditActionRow>({
@@ -64,7 +66,7 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
     },
     payload: {
       name: 'payload',
-      type: 'text',
+      type: 'simple-json',
       nullable: false,
     },
     changeStatus: {
@@ -92,6 +94,14 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       name: 'valid_until',
       type: 'datetime',
       nullable: true,
+    },
+  },
+  relations: {
+    session: {
+      type: 'many-to-one',
+      target: 'EditSession',
+      joinColumn: {name: 'session_id'},
+      onDelete: 'CASCADE',
     },
   },
   indices: [
