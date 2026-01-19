@@ -41,12 +41,16 @@ import type {
   KeyVectorReadModel,
   UseCaseComponentsReadModel,
 } from '@arc/core';
-import {KVInfo, KeyValueInfo} from '../../common/dto/kv.dto.js';
+import {
+  KeyValuePairsInfo,
+  KeyValueInfo,
+  KeyInfo,
+  ValueInfo,
+} from '../../common/dto/kv.dto.js';
 import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 
 /**
- * Controller to support all usecase/graph related APIs
- * Converted from C# UseCaseDesignController class
+ * Controller to support all usecase related APIs
  */
 @ApiTags('usecases')
 @Controller('arc-api/v1/projects/:projectId/usecases')
@@ -72,7 +76,7 @@ export class UseCaseController extends BaseController {
   /**
    * Get all usecases
    */
-  @Get('allUsecases')
+  @Get()
   @ApiDocumentationWithExample({
     summary: 'Get all usecases',
     description:
@@ -143,8 +147,8 @@ export class UseCaseController extends BaseController {
       // Transform KeyVectorReadModel[] to KeyValueInfo[]
       const keyValueCollection = this.transformKeyVectors(usecase.gkv);
 
-      // Create KVInfo from the key-value collection
-      const kvInfo = new KVInfo(keyValueCollection);
+      // Create KeyValuePairsInfo from the key-value collection
+      const kvInfo = new KeyValuePairsInfo(keyValueCollection);
       kvInfo.systemId = usecase.systemId.toString();
 
       // Create UsecaseIdentifier
@@ -171,10 +175,12 @@ export class UseCaseController extends BaseController {
     return keyVectors.map(
       kv =>
         new KeyValueInfo(
-          kv.key.keyId,
-          kv.value.valueId,
-          kv.key.name,
-          kv.value.name,
+          new KeyInfo(kv.key.keyId, kv.key.name, `key_${kv.key.keyId}`),
+          new ValueInfo(
+            kv.value.valueId,
+            kv.value.name,
+            `val_${kv.value.valueId}`,
+          ),
         ),
     );
   }
@@ -186,7 +192,7 @@ export class UseCaseController extends BaseController {
     components: UseCaseComponentsReadModel,
   ): UsecaseComponentsDto {
     // Create a dummy usecase identifier for the constructor
-    const dummyKvInfo = new KVInfo([]);
+    const dummyKvInfo = new KeyValuePairsInfo([]);
     const dummyUsecaseIdentifier = new UsecaseIdentifier(
       '0',
       UsecaseType.Regular,
@@ -306,51 +312,9 @@ export class UseCaseController extends BaseController {
   // }
 
   /**
-   * Get all usecases for a given subgraph system id.
-   */
-  @Get('subgraph')
-  @ApiQuery({
-    name: 'subgraphSystemId',
-    required: true,
-    type: 'string',
-    description: 'The system ID of the subgraph to get usecases for',
-    example: 'subgraph-123',
-  })
-  @ApiDocumentationWithExample({
-    summary: 'Get all usecases for a given subgraph system id',
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Usecases are returned successfully',
-        dto: [UsecaseIdentifier],
-        example: {
-          className: 'UseCaseIdentifierCollectionExample',
-        },
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Subgraph is not found',
-      },
-    ],
-  })
-  async getUsecasesForSubgraph(
-    @Param('projectId') projectId: string,
-    @Query('subgraphSystemId') subgraphSystemId: string,
-  ): Promise<ApiResult<UsecaseIdentifier[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting all usecases for project: ${projectId} and subgraph: ${subgraphSystemId}`,
-    );
-    throw new HttpException(
-      'Usecases retrieval functionality for subgraph is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  /**
    * Get all components for usecase(s). For components shared between usecases, only one copy will be returned.
    */
-  @Post('components/get')
+  @Post('getComponents')
   @ApiDocumentationWithExample({
     summary:
       'Get all components (including module instances, data links, control links, subsystems) for usecase(s) based on querying type.',
@@ -456,7 +420,7 @@ export class UseCaseController extends BaseController {
   /**
    * Get all added and deleted usecases with their modification summary.
    */
-  @Get('updates/summary')
+  @Get('/modificationsSummary')
   @ApiDocumentationWithExample({
     summary:
       'Get all added and deleted usecases with their modification summary',

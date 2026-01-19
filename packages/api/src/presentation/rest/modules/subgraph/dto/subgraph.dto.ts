@@ -1,7 +1,7 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {IsNotEmpty, IsOptional, IsNumber} from 'class-validator';
 import {BaseComponentDto, PropertyDto} from '../../../common/dto/index.js';
-import {KVInfo} from '../../../common/dto/kv.dto.js';
+import {KeyValuePairsInfo} from '../../../common/dto/kv.dto.js';
 import {
   ComponentInfoType,
   SubgraphScenarioType,
@@ -57,9 +57,9 @@ export class SubgraphDto extends BaseComponentDto<number> {
 
   @ApiProperty({
     description: 'SGKV - List of KV information',
-    type: [KVInfo],
+    type: [KeyValuePairsInfo],
   })
-  SGKV: KVInfo[] = [];
+  SGKV: KeyValuePairsInfo[] = [];
 
   constructor(sysemId: string, id: number) {
     super(sysemId, id);

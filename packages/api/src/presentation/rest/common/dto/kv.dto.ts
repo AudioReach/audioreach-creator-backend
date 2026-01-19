@@ -1,60 +1,83 @@
 import {ApiProperty} from '@nestjs/swagger';
 
-/**
- * TypeScript equivalent of C# IEquatable interface
- */
-interface IEquatable<T> {
-  equals(other: T): boolean;
-}
-
-export class KeyInfo implements IEquatable<KeyInfo> {
+export class KeyInfo {
   @ApiProperty({description: 'Key id', type: Number})
   readonly keyId!: number;
 
   @ApiProperty({description: 'Key name', type: String})
   readonly keyLabel!: string;
 
-  constructor(keyId: number, keyLabel: string) {
+  @ApiProperty({description: 'Key system identifier', type: String})
+  readonly keySystemId!: string;
+
+  constructor(keyId: number, keyLabel: string, keySystemId: string) {
     this.keyId = keyId;
     this.keyLabel = keyLabel;
+    this.keySystemId = keySystemId;
   }
 
   equals(other: KeyInfo): boolean {
     if (!other) return false;
-    return this.keyId === other.keyId && this.keyLabel === other.keyLabel;
+    return (
+      this.keyId === other.keyId &&
+      this.keyLabel === other.keyLabel &&
+      this.keySystemId === other.keySystemId
+    );
   }
 }
 
-export class KeyValueInfo extends KeyInfo {
+export class ValueInfo {
   @ApiProperty({description: 'Value id', type: Number})
   readonly valueId!: number;
 
   @ApiProperty({description: 'Value name', type: String})
   readonly valueLabel!: string;
 
-  constructor(
-    keyId: number,
-    valueId: number,
-    keyName: string,
-    valueName: string,
-  ) {
-    super(keyId, keyName);
+  @ApiProperty({description: 'Value system identifier', type: String})
+  readonly valueSystemId!: string;
+
+  constructor(valueId: number, valueLabel: string, valueSystemId: string) {
     this.valueId = valueId;
-    this.valueLabel = valueName;
+    this.valueLabel = valueLabel;
+    this.valueSystemId = valueSystemId;
   }
 
-  override equals(object: KeyValueInfo): boolean {
-    if (!(object instanceof KeyValueInfo)) return false;
-
-    return object.keyId === this.keyId && object.valueId === this.valueId;
-  }
-
-  override toString(): string {
-    return `[${this.keyLabel}:${this.valueLabel}]`;
+  equals(other: ValueInfo): boolean {
+    if (!other) return false;
+    return (
+      this.valueId === other.valueId &&
+      this.valueLabel === other.valueLabel &&
+      this.valueSystemId === other.valueSystemId
+    );
   }
 }
 
-export class KVInfo implements IEquatable<KVInfo> {
+export class KeyValueInfo {
+  @ApiProperty({description: 'Key information', type: KeyInfo})
+  readonly keyInfo!: KeyInfo;
+
+  @ApiProperty({description: 'Value information', type: ValueInfo})
+  readonly valueInfo!: ValueInfo;
+
+  constructor(keyInfo: KeyInfo, valueInfo: ValueInfo) {
+    this.keyInfo = keyInfo;
+    this.valueInfo = valueInfo;
+  }
+
+  equals(other: KeyValueInfo): boolean {
+    if (!other) return false;
+    return (
+      this.keyInfo.equals(other.keyInfo) &&
+      this.valueInfo.equals(other.valueInfo)
+    );
+  }
+
+  toString(): string {
+    return `[${this.keyInfo.keyLabel}:${this.valueInfo.valueLabel}]`;
+  }
+}
+
+export class KeyValuePairsInfo {
   @ApiProperty({
     description: 'Collection of key-value pairs',
     type: [KeyValueInfo],
@@ -69,30 +92,5 @@ export class KVInfo implements IEquatable<KVInfo> {
   constructor(keyValueInfo?: KeyValueInfo[]) {
     this.keyValueCollection = keyValueInfo ? [...keyValueInfo] : [];
     this.systemId = '';
-  }
-
-  equals(other: KVInfo | null): boolean {
-    if (!other || !other.keyValueCollection) return false;
-
-    if (other.keyValueCollection.length !== this.keyValueCollection.length)
-      return false;
-
-    for (let index = 0; index < this.keyValueCollection.length; index++) {
-      const item = this.keyValueCollection[index];
-
-      const otherItem = other.keyValueCollection[index];
-      if (!otherItem || !item.equals(otherItem)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  toString(): string {
-    let result = '';
-    for (const kv of this.keyValueCollection) {
-      result += kv.toString();
-    }
-    return result;
   }
 }

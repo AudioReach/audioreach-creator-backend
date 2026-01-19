@@ -8,8 +8,10 @@ import {
 } from '../../../modules/usecase/dto/usecase.dto.js';
 import {
   BaseComponentDto,
-  KVInfo,
+  KeyValuePairsInfo,
   KeyValueInfo,
+  KeyInfo,
+  ValueInfo,
   SystemIdsRequestDto,
 } from '../../dto/index.js';
 import {
@@ -41,14 +43,15 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     const ucExamples = UseCaseIdentifierCollectionExample.getExample();
     const keyvalueInfo = [
       new KeyValueInfo(
-        0xac_db_f1_00,
-        0xf0_10_00_2e,
-        'Subsystem',
-        'Playback_stream_DevPP',
+        new KeyInfo(0xac_db_f1_00, 'Subsystem', 'sys1'),
+        new ValueInfo(0xf0_10_00_2e, 'Playback_stream_DevPP', 'val1'),
       ),
-      new KeyValueInfo(0xac_00_00_00, 0xf0_10_00_34, 'Subsystem', 'Rx_Devices'),
+      new KeyValueInfo(
+        new KeyInfo(0xac_00_00_00, 'Subsystem', 'sys2'),
+        new ValueInfo(0xf0_10_00_34, 'Rx_Devices', 'val2'),
+      ),
     ];
-    const filteredKv = new KVInfo(keyvalueInfo);
+    const filteredKv = new KeyValuePairsInfo(keyvalueInfo);
     ssFilteredUcCollection.push(
       UsecaseDto.createFilteredGKVResponse(
         'subsystem_1',
@@ -84,14 +87,15 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     // First filtered group
     const keyvalueInfo1 = [
       new KeyValueInfo(
-        0xac_db_f1_00,
-        0xf0_10_00_2e,
-        'Subsystem',
-        'Playback_stream_DevPP',
+        new KeyInfo(0xac_db_f1_00, 'Subsystem', 'sys3'),
+        new ValueInfo(0xf0_10_00_2e, 'Playback_stream_DevPP', 'val3'),
       ),
-      new KeyValueInfo(0xac_00_00_00, 0xf0_10_00_34, 'Subsystem', 'Rx_Devices'),
+      new KeyValueInfo(
+        new KeyInfo(0xac_00_00_00, 'Subsystem', 'sys4'),
+        new ValueInfo(0xf0_10_00_34, 'Rx_Devices', 'val4'),
+      ),
     ];
-    const filteredKv1 = new KVInfo(keyvalueInfo1);
+    const filteredKv1 = new KeyValuePairsInfo(keyvalueInfo1);
     const usecases1 = [UsecaseIdentifierExample.getExample()];
     collection.push(
       UsecaseDto.createFilteredGKVResponse(
@@ -104,14 +108,15 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     // Second filtered group
     const keyvalueInfo2 = [
       new KeyValueInfo(
-        0xac_db_f1_01,
-        0xf0_10_00_3a,
-        'Subsystem',
-        'Record_stream_DevPP',
+        new KeyInfo(0xac_db_f1_01, 'Subsystem', 'sys5'),
+        new ValueInfo(0xf0_10_00_3a, 'Record_stream_DevPP', 'val5'),
       ),
-      new KeyValueInfo(0xac_00_00_01, 0xf0_10_00_35, 'Subsystem', 'Tx_Devices'),
+      new KeyValueInfo(
+        new KeyInfo(0xac_00_00_01, 'Subsystem', 'sys6'),
+        new ValueInfo(0xf0_10_00_35, 'Tx_Devices', 'val6'),
+      ),
     ];
-    const filteredKv2 = new KVInfo(keyvalueInfo2);
+    const filteredKv2 = new KeyValuePairsInfo(keyvalueInfo2);
     const usecases2 = UseCaseIdentifierCollectionExample.getExample();
     collection.push(
       UsecaseDto.createFilteredGKVResponse(
@@ -132,20 +137,19 @@ export const UsecaseIdentifierExample = {
   getExample(): UsecaseIdentifier {
     const keyvalueInfo = [
       new KeyValueInfo(
-        0xa1_00_00_00,
-        0xa1_00_00_01,
-        'StreamRX',
-        'PCM_Deep_Buffer',
+        new KeyInfo(0xa1_00_00_00, 'StreamRX', 'sys7'),
+        new ValueInfo(0xa1_00_00_01, 'PCM_Deep_Buffer', 'val7'),
       ),
       new KeyValueInfo(
-        0xac_00_00_00,
-        0xac_00_00_02,
-        'DevicePP_Rx',
-        'Audio_MBDRC',
+        new KeyInfo(0xac_00_00_00, 'DevicePP_Rx', 'sys8'),
+        new ValueInfo(0xac_00_00_02, 'Audio_MBDRC', 'val8'),
       ),
-      new KeyValueInfo(0xa2_00_00_00, 0xa2_00_00_01, 'DeviceRX', 'Speaker'),
+      new KeyValueInfo(
+        new KeyInfo(0xa2_00_00_00, 'DeviceRX', 'sys9'),
+        new ValueInfo(0xa2_00_00_01, 'Speaker', 'val9'),
+      ),
     ];
-    const kvInfo = new KVInfo(keyvalueInfo);
+    const kvInfo = new KeyValuePairsInfo(keyvalueInfo);
     return new UsecaseIdentifier(
       '1',
       UsecaseType.Regular,
@@ -166,16 +170,20 @@ export const UseCaseIdentifierCollectionExample = {
     listOfUsecases.push(UsecaseIdentifierExample.getExample());
 
     const keyvalueInfo = [
-      new KeyValueInfo(0xa1_00_00_00, 0xa1_00_00_0f, 'StreamRX', 'PCM_Offload'),
       new KeyValueInfo(
-        0xac_00_00_00,
-        0xac_00_00_02,
-        'DevicePP_Rx',
-        'Audio_MBDRC',
+        new KeyInfo(0xa1_00_00_00, 'StreamRX', 'sys10'),
+        new ValueInfo(0xa1_00_00_0f, 'PCM_Offload', 'val10'),
       ),
-      new KeyValueInfo(0xa2_00_00_00, 0xa2_00_00_01, 'DeviceRX', 'Speaker'),
+      new KeyValueInfo(
+        new KeyInfo(0xac_00_00_00, 'DevicePP_Rx', 'sys11'),
+        new ValueInfo(0xac_00_00_02, 'Audio_MBDRC', 'val11'),
+      ),
+      new KeyValueInfo(
+        new KeyInfo(0xa2_00_00_00, 'DeviceRX', 'sys12'),
+        new ValueInfo(0xa2_00_00_01, 'Speaker', 'val12'),
+      ),
     ];
-    const kvInfo = new KVInfo(keyvalueInfo);
+    const kvInfo = new KeyValuePairsInfo(keyvalueInfo);
     listOfUsecases.push(
       new UsecaseIdentifier(
         '2',
@@ -361,15 +369,19 @@ export const UsecaseWithComponentsExample = {
     // Create a usecase with components using a custom UseCaseIdentifier
     const keyvalueInfo = [
       new KeyValueInfo(
-        0xa1_00_00_00,
-        0xa1_00_00_02,
-        'StreamRX',
-        'PCM_Low_Latency',
+        new KeyInfo(0xa1_00_00_00, 'StreamRX', 'sys13'),
+        new ValueInfo(0xa1_00_00_02, 'PCM_Low_Latency', 'val13'),
       ),
-      new KeyValueInfo(0xac_00_00_00, 0xac_00_00_03, 'DevicePP_Rx', 'Audio_EQ'),
-      new KeyValueInfo(0xa2_00_00_00, 0xa2_00_00_02, 'DeviceRX', 'Headphones'),
+      new KeyValueInfo(
+        new KeyInfo(0xac_00_00_00, 'DevicePP_Rx', 'sys14'),
+        new ValueInfo(0xac_00_00_03, 'Audio_EQ', 'val14'),
+      ),
+      new KeyValueInfo(
+        new KeyInfo(0xa2_00_00_00, 'DeviceRX', 'sys15'),
+        new ValueInfo(0xa2_00_00_02, 'Headphones', 'val15'),
+      ),
     ];
-    const kvInfo = new KVInfo(keyvalueInfo);
+    const kvInfo = new KeyValuePairsInfo(keyvalueInfo);
     const usecaseIdentifier = new UsecaseIdentifier(
       '1',
       UsecaseType.Regular,

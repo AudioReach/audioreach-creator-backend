@@ -1,11 +1,18 @@
-import { applyDecorators, HttpStatus } from '@nestjs/common';
-import type { Type } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiBody, getSchemaPath, ApiExtraModels } from '@nestjs/swagger';
-import type { ApiResponseOptions, ApiBodyOptions } from '@nestjs/swagger';
+import {applyDecorators, HttpStatus} from '@nestjs/common';
+import type {Type} from '@nestjs/common';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  getSchemaPath,
+  ApiExtraModels,
+} from '@nestjs/swagger';
+import type {ApiResponseOptions, ApiBodyOptions} from '@nestjs/swagger';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {existsSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {ApiResult} from '../dto/api-response/api-result.dto.js';
 
 interface ExampleConfig {
   modulePath?: string;
@@ -33,6 +40,7 @@ interface ApiDocumentationOptions {
   responses?: ResponseConfig[]; // New array of response configurations
   isRequestArray?: boolean;
   isResponseArray?: boolean;
+  wrapInApiResult?: boolean; // Whether to wrap response in ApiResult (default: true for backward compatibility)
 }
 
 interface ExampleClass {
@@ -59,9 +67,10 @@ export function ApiDocumentationWithExample(options: ApiDocumentationOptions) {
   // Handle response documentation
   handleResponseDocumentation(options, decorators, dtoTypes);
 
-  // Register all DTOs with Swagger
-  if (dtoTypes.length > 0) {
-    decorators.push(ApiExtraModels(...dtoTypes));
+  // Register all DTOs with Swagger, including ApiResult
+  const allDtoTypes = [ApiResult, ...dtoTypes];
+  if (allDtoTypes.length > 0) {
+    decorators.push(ApiExtraModels(...allDtoTypes));
   }
 
   return applyDecorators(...decorators);
@@ -73,7 +82,7 @@ export function ApiDocumentationWithExample(options: ApiDocumentationOptions) {
 function handleRequestDocumentation(
   options: ApiDocumentationOptions,
   decorators: ReturnType<typeof ApiOperation>[],
-  dtoTypes: Type<unknown>[]
+  dtoTypes: Type<unknown>[],
 ): void {
   if (!options.requestDto) {
     return;
@@ -92,15 +101,18 @@ function handleRequestDocumentation(
 /**
  * Creates request body configuration
  */
-function createRequestBodyConfig(options: ApiDocumentationOptions, baseType: Type<unknown>): Record<string, unknown> {
+function createRequestBodyConfig(
+  options: ApiDocumentationOptions,
+  baseType: Type<unknown>,
+): Record<string, unknown> {
   const defaultDescription = `${options.requestRequired === false ? 'Optional ' : ''}Request body parameter type: ${baseType?.name || 'unknown'}`;
 
   const bodyConfig: Record<string, unknown> = {
     required: options.requestRequired ?? true,
     description: options.requestDtoDescription || defaultDescription,
     schema: {
-      $ref: getSchemaPath(baseType)
-    }
+      $ref: getSchemaPath(baseType),
+    },
   };
 
   if (options.requestDtoExample) {
@@ -113,7 +125,11 @@ function createRequestBodyConfig(options: ApiDocumentationOptions, baseType: Typ
 /**
  * Adds request example to body configuration
  */
-function addRequestExample(bodyConfig: Record<string, unknown>, exampleConfig: ExampleConfig, baseType: Type<unknown>): void {
+function addRequestExample(
+  bodyConfig: Record<string, unknown>,
+  exampleConfig: ExampleConfig,
+  baseType: Type<unknown>,
+): void {
   try {
     const example = loadExampleDynamicallySync(exampleConfig);
 
@@ -135,10 +151,10 @@ function addRequestExample(bodyConfig: Record<string, unknown>, exampleConfig: E
 function handleResponseDocumentation(
   options: ApiDocumentationOptions,
   decorators: ReturnType<typeof ApiOperation>[],
-  dtoTypes: Type<unknown>[]
+  dtoTypes: Type<unknown>[],
 ): void {
   if (options.responses && options.responses.length > 0) {
-    handleMultipleResponses(options.responses, decorators, dtoTypes);
+    handleMultipleResponses(options.responses, decorators, dtoTypes, options);
   } else {
     handleSingleResponse(options, decorators, dtoTypes);
   }
@@ -150,10 +166,11 @@ function handleResponseDocumentation(
 function handleMultipleResponses(
   responses: ResponseConfig[],
   decorators: ReturnType<typeof ApiOperation>[],
-  dtoTypes: Type<unknown>[]
+  dtoTypes: Type<unknown>[],
+  options: ApiDocumentationOptions,
 ): void {
   for (const responseConfig of responses) {
-    const config = createMultipleResponseConfig(responseConfig);
+    const config = createMultipleResponseConfig(responseConfig, options);
     decorators.push(ApiResponse(config as ApiResponseOptions));
 
     if (responseConfig.dto) {
@@ -171,7 +188,7 @@ function handleMultipleResponses(
 function handleSingleResponse(
   options: ApiDocumentationOptions,
   decorators: ReturnType<typeof ApiOperation>[],
-  dtoTypes: Type<unknown>[]
+  dtoTypes: Type<unknown>[],
 ): void {
   const responseConfig = createResponseConfig(options);
   decorators.push(ApiResponse(responseConfig as ApiResponseOptions));
@@ -214,27 +231,58 @@ function shouldTreatAsArray(
 /**
  * Creates response configuration for multiple responses
  */
-function createMultipleResponseConfig(responseConfig: ResponseConfig) {
+function createMultipleResponseConfig(
+  responseConfig: ResponseConfig,
+  options: ApiDocumentationOptions,
+) {
   const config: Record<string, unknown> = {
     status: responseConfig.status,
-    description: responseConfig.description ?? getStatusDescription(responseConfig.status),
+    description:
+      responseConfig.description ?? getStatusDescription(responseConfig.status),
   };
 
   if (!responseConfig.dto) {
     return config;
   }
 
-  // Handle response type configuration
-  const isArray = shouldTreatAsArray(responseConfig.dto, responseConfig.isArray);
+  // Handle response type configuration with ApiResult wrapper
+  const isArray = shouldTreatAsArray(
+    responseConfig.dto,
+    responseConfig.isArray,
+  );
   const baseType = getBaseType(responseConfig.dto);
 
-  if (isArray && baseType) {
+  // Check if we should wrap in ApiResult (default: true for backward compatibility)
+  const shouldWrap = options.wrapInApiResult !== false;
+
+  if (shouldWrap) {
+    // Generate ApiResult wrapper schema (same pattern as module definition APIs)
     config.schema = {
-      type: 'array',
-      items: { $ref: getSchemaPath(baseType) },
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data:
+              isArray && baseType
+                ? {
+                    type: 'array',
+                    items: {$ref: getSchemaPath(baseType)},
+                  }
+                : {$ref: getSchemaPath(baseType)},
+          },
+        },
+      ],
     };
   } else {
-    config.type = baseType;
+    // Direct DTO schema without ApiResult wrapper
+    if (isArray && baseType) {
+      config.schema = {
+        type: 'array',
+        items: {$ref: getSchemaPath(baseType)},
+      };
+    } else {
+      config.type = baseType;
+    }
   }
 
   // Handle response example configuration
@@ -249,7 +297,8 @@ function createMultipleResponseConfig(responseConfig: ResponseConfig) {
         },
       };
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.warn(`Failed to load response example: ${errorMessage}`);
     }
   }
@@ -280,17 +329,53 @@ function createResponseConfig(options: ApiDocumentationOptions) {
 /**
  * Adds response type configuration
  */
-function addResponseTypeConfig(config: Record<string, unknown>, options: ApiDocumentationOptions) {
-  const isArray = shouldTreatAsArray(options.responseDto, options.isResponseArray);
-  const baseType = options.responseDto ? getBaseType(options.responseDto) : undefined;
+function addResponseTypeConfig(
+  config: Record<string, unknown>,
+  options: ApiDocumentationOptions,
+) {
+  const isArray = shouldTreatAsArray(
+    options.responseDto,
+    options.isResponseArray,
+  );
+  const baseType = options.responseDto
+    ? getBaseType(options.responseDto)
+    : undefined;
 
-  if (isArray && baseType) {
+  if (!baseType) {
+    return;
+  }
+
+  // Check if we should wrap in ApiResult (default: true for backward compatibility)
+  const shouldWrap = options.wrapInApiResult !== false;
+
+  if (shouldWrap) {
+    // Generate ApiResult wrapper schema (same pattern as module definition APIs)
     config.schema = {
-      type: 'array',
-      items: { $ref: getSchemaPath(baseType) },
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data:
+              isArray && baseType
+                ? {
+                    type: 'array',
+                    items: {$ref: getSchemaPath(baseType)},
+                  }
+                : {$ref: getSchemaPath(baseType)},
+          },
+        },
+      ],
     };
   } else {
-    config.type = baseType;
+    // Direct DTO schema without ApiResult wrapper
+    if (isArray && baseType) {
+      config.schema = {
+        type: 'array',
+        items: {$ref: getSchemaPath(baseType)},
+      };
+    } else {
+      config.type = baseType;
+    }
   }
 }
 
@@ -330,7 +415,10 @@ function addResponseExampleConfig(
 function loadExampleDynamicallySync(exampleConfig: ExampleConfig): unknown {
   try {
     const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-    const baseModulePath = path.resolve(currentDirectory, './dto-examples/index');
+    const baseModulePath = path.resolve(
+      currentDirectory,
+      './dto-examples/index',
+    );
 
     // Determine the correct file extension
     const modulePath = getModulePath(baseModulePath);
@@ -342,13 +430,18 @@ function loadExampleDynamicallySync(exampleConfig: ExampleConfig): unknown {
     );
 
     if (!ExampleClass) {
-      console.warn(`Class ${exampleConfig.className} not found in module ${exampleConfig.modulePath || 'default'}`);
+      console.warn(
+        `Class ${exampleConfig.className} not found in module ${exampleConfig.modulePath || 'default'}`,
+      );
       return getPlaceholderExample(exampleConfig.className);
     }
 
     return createExampleInstance(ExampleClass);
   } catch (error: unknown) {
-    console.error(`Error loading example from ${exampleConfig.modulePath || 'default'}:`, error);
+    console.error(
+      `Error loading example from ${exampleConfig.modulePath || 'default'}:`,
+      error,
+    );
     return getPlaceholderExample(exampleConfig.className);
   }
 }
@@ -364,7 +457,6 @@ function getModulePath(baseModulePath: string): string {
   const allowedPaths = [jsPath, tsPath];
 
   for (const allowedPath of allowedPaths) {
-     
     if (existsSync(allowedPath)) {
       return allowedPath;
     }
@@ -394,14 +486,16 @@ function loadModule(modulePath: string): Record<string, unknown> {
 /**
  * Extracts the example class from the loaded module
  */
-function getExampleClass(moduleContent: Record<string, unknown>, className: string): ExampleClass | undefined {
+function getExampleClass(
+  moduleContent: Record<string, unknown>,
+  className: string,
+): ExampleClass | undefined {
   // Validate className to prevent object injection
   if (!isValidClassName(className)) {
     console.warn(`Invalid class name: ${className}`);
     return undefined;
   }
 
-   
   const directExport = moduleContent[className] as ExampleClass;
   if (directExport) {
     return directExport;
@@ -411,7 +505,6 @@ function getExampleClass(moduleContent: Record<string, unknown>, className: stri
   if (defaultExport && typeof defaultExport === 'object') {
     const defaultExportObject = defaultExport as Record<string, unknown>;
     if (Object.prototype.hasOwnProperty.call(defaultExportObject, className)) {
-       
       return defaultExportObject[className] as ExampleClass;
     }
   }
@@ -425,10 +518,12 @@ function getExampleClass(moduleContent: Record<string, unknown>, className: stri
 function isValidClassName(className: string): boolean {
   // Only allow alphanumeric characters and underscores
   const validClassNamePattern = /^[a-zA-Z_]\w*$/;
-  return validClassNamePattern.test(className) &&
+  return (
+    validClassNamePattern.test(className) &&
     className !== 'constructor' &&
     className !== '__proto__' &&
-    className !== 'prototype';
+    className !== 'prototype'
+  );
 }
 
 /**
@@ -444,7 +539,7 @@ function createExampleInstance(ExampleClass: ExampleClass): unknown {
   if (typeof ExampleClass === 'function') {
     const ClassConstructor = ExampleClass as unknown as {
       getExample?: () => unknown;
-      new(): unknown;
+      new (): unknown;
     };
     if (typeof ClassConstructor.getExample === 'function') {
       return ClassConstructor.getExample();
@@ -484,7 +579,6 @@ function getStatusDescription(status: HttpStatus): string {
     [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
   };
 
-   
   return descriptions[status] ?? 'Response';
 }
 
@@ -503,4 +597,3 @@ export function ApiDocumentation(options: {
 }) {
   return ApiDocumentationWithExample(options);
 }
-

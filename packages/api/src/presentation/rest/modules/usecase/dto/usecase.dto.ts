@@ -1,7 +1,7 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {IsArray, ArrayMaxSize} from 'class-validator';
 import {BaseComponentDto} from '../../../common/dto/base-component.dto.js';
-import {KVInfo, KeyValueInfo} from '../../../common/dto/kv.dto.js';
+import {KeyValuePairsInfo, KeyValueInfo} from '../../../common/dto/kv.dto.js';
 import {EndPointLink, ModificationAction} from '../../../common/utils/index.js';
 import {SubsystemDto} from '../../subsystem/dto/subsystem.dto.js';
 import {ModuleInstanceDto} from '../../module-instance/dto/module-instance.dto.js';
@@ -27,7 +27,7 @@ export enum ComponentsTypeInUsecase {
   AllComponents = 'AllComponents', //all components of a usecase, including subystem and its internal componnents (even nested subsystem and its internal components)
 }
 
-export class UsecaseIdentifier extends KVInfo {
+export class UsecaseIdentifier extends KeyValuePairsInfo {
   @ApiProperty({
     description: 'Optional alias identifier for the usecase',
     type: Number,
@@ -65,7 +65,7 @@ export class UsecaseIdentifier extends KVInfo {
   constructor(
     systemId: string,
     useCaseType: UsecaseType,
-    kvInfo: KVInfo,
+    kvInfo: KeyValuePairsInfo,
     aliasId?: number,
     aliasName?: string,
     category?: string,
@@ -116,13 +116,13 @@ export class UsecaseDto {
    */
   constructor(
     systemId: string,
-    filteredKv: KVInfo,
+    filteredKv: KeyValuePairsInfo,
     usecases: UsecaseIdentifier[],
   );
 
   constructor(
     rawUsecaseOrSystemId: UsecaseIdentifier | string,
-    filteredKv?: KVInfo,
+    filteredKv?: KeyValuePairsInfo,
     usecases?: UsecaseIdentifier[],
   ) {
     if (typeof rawUsecaseOrSystemId === 'string') {
@@ -151,7 +151,7 @@ export class UsecaseDto {
    */
   static createFilteredGKVResponse(
     systemId: string,
-    filteredKv: KVInfo,
+    filteredKv: KeyValuePairsInfo,
     usecases: UsecaseIdentifier[],
   ): UsecaseDto {
     return new UsecaseDto(systemId, filteredKv, usecases);
