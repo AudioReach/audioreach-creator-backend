@@ -8,4 +8,6 @@ export const subsystemApiExample = new SubsystemDto(
   undefined,
 );
 
-subsystemApiExample.filteredKeys = [new KeyInfo(0xa2_00_00_00, 'DeviceRX')];
+subsystemApiExample.filteredKeys = [
+  new KeyInfo(0xa2_00_00_00, 'DeviceRX', '1'),
+];

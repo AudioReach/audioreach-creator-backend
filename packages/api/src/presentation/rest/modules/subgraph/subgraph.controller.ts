@@ -15,6 +15,7 @@ import {SubgraphDto, SubgraphPropertiesDto} from './dto/subgraph.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {UsecaseIdentifier} from '../usecase/dto/usecase.dto.js';
 
 /**
  * Controller to support all subgraph related APIs for usecase design.
@@ -112,6 +113,48 @@ export class SubgraphController extends BaseController {
     );
     throw new HttpException(
       'Subgraph properties retrieval functionality is not implemented yet.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  /**
+   * Get all usecases for a given subgraph system id.
+   */
+  @Get('/:subgraphSystemId/usecases')
+  @ApiParam({
+    name: 'subgraphSystemId',
+    required: true,
+    type: 'string',
+    description: 'The system ID of the subgraph to get usecases for',
+    example: 'subgraph-123',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get all usecases for a given subgraph system id',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Usecases are returned successfully',
+        dto: [UsecaseIdentifier],
+        example: {
+          className: 'UseCaseIdentifierCollectionExample',
+        },
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Subgraph is not found',
+      },
+    ],
+  })
+  async getUsecasesForSubgraph(
+    @Param('projectId') projectId: string,
+    @Param('subgraphSystemId') subgraphSystemId: string,
+  ): Promise<ApiResult<UsecaseIdentifier[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      `Getting all usecases for project: ${projectId} and subgraph: ${subgraphSystemId}`,
+    );
+    throw new HttpException(
+      'Usecases retrieval functionality for subgraph is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
     );
   }

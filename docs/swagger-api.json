@@ -1598,7 +1598,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/allUsecases": {
+    "/arc-api/v1/projects/{projectId}/usecases": {
       "get": {
         "description": "Returns array of usecases in a unified format that handles two scenarios:\n\n**Scenario 1 (isFiltered=false):** No subsystem present\n- `isFiltered`: false\n- `filteredKV`: null\n- `usecases`: all UsecaseIdentifiers without subsystem filtered\n\n**Scenario 2 (isFiltered=true):** Subsystem present with filtered KV\n- `isFiltered`: true\n- `filteredKV`: Contains the subsystem filtered key-value\n- `usecases`: Array of UsecaseIdentifiers filtered by the filtered GKV\n\nEach response item uses the `isFiltered` boolean flag to indicate which scenario applies.",
         "operationId": "UseCaseController_getAllUsecases",
@@ -1620,10 +1620,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UsecaseDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UsecaseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 },
                 "examples": {
                   "default": {
@@ -1634,22 +1645,40 @@
                             {
                               "keyValueCollection": [
                                 {
-                                  "keyId": 2701131776,
-                                  "keyLabel": "StreamRX",
-                                  "valueId": 2701131777,
-                                  "valueLabel": "PCM_Deep_Buffer"
+                                  "keyInfo": {
+                                    "keyId": 2701131776,
+                                    "keyLabel": "StreamRX",
+                                    "keySystemId": "sys7"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2701131777,
+                                    "valueLabel": "PCM_Deep_Buffer",
+                                    "valueSystemId": "val7"
+                                  }
                                 },
                                 {
-                                  "keyId": 2885681152,
-                                  "keyLabel": "DevicePP_Rx",
-                                  "valueId": 2885681154,
-                                  "valueLabel": "Audio_MBDRC"
+                                  "keyInfo": {
+                                    "keyId": 2885681152,
+                                    "keyLabel": "DevicePP_Rx",
+                                    "keySystemId": "sys8"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2885681154,
+                                    "valueLabel": "Audio_MBDRC",
+                                    "valueSystemId": "val8"
+                                  }
                                 },
                                 {
-                                  "keyId": 2717908992,
-                                  "keyLabel": "DeviceRX",
-                                  "valueId": 2717908993,
-                                  "valueLabel": "Speaker"
+                                  "keyInfo": {
+                                    "keyId": 2717908992,
+                                    "keyLabel": "DeviceRX",
+                                    "keySystemId": "sys9"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2717908993,
+                                    "valueLabel": "Speaker",
+                                    "valueSystemId": "val9"
+                                  }
                                 }
                               ],
                               "systemId": "1",
@@ -1672,22 +1701,40 @@
                             {
                               "keyValueCollection": [
                                 {
-                                  "keyId": 2701131776,
-                                  "keyLabel": "StreamRX",
-                                  "valueId": 2701131777,
-                                  "valueLabel": "PCM_Deep_Buffer"
+                                  "keyInfo": {
+                                    "keyId": 2701131776,
+                                    "keyLabel": "StreamRX",
+                                    "keySystemId": "sys7"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2701131777,
+                                    "valueLabel": "PCM_Deep_Buffer",
+                                    "valueSystemId": "val7"
+                                  }
                                 },
                                 {
-                                  "keyId": 2885681152,
-                                  "keyLabel": "DevicePP_Rx",
-                                  "valueId": 2885681154,
-                                  "valueLabel": "Audio_MBDRC"
+                                  "keyInfo": {
+                                    "keyId": 2885681152,
+                                    "keyLabel": "DevicePP_Rx",
+                                    "keySystemId": "sys8"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2885681154,
+                                    "valueLabel": "Audio_MBDRC",
+                                    "valueSystemId": "val8"
+                                  }
                                 },
                                 {
-                                  "keyId": 2717908992,
-                                  "keyLabel": "DeviceRX",
-                                  "valueId": 2717908993,
-                                  "valueLabel": "Speaker"
+                                  "keyInfo": {
+                                    "keyId": 2717908992,
+                                    "keyLabel": "DeviceRX",
+                                    "keySystemId": "sys9"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2717908993,
+                                    "valueLabel": "Speaker",
+                                    "valueSystemId": "val9"
+                                  }
                                 }
                               ],
                               "systemId": "1",
@@ -1706,22 +1753,40 @@
                             {
                               "keyValueCollection": [
                                 {
-                                  "keyId": 2701131776,
-                                  "keyLabel": "StreamRX",
-                                  "valueId": 2701131791,
-                                  "valueLabel": "PCM_Offload"
+                                  "keyInfo": {
+                                    "keyId": 2701131776,
+                                    "keyLabel": "StreamRX",
+                                    "keySystemId": "sys10"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2701131791,
+                                    "valueLabel": "PCM_Offload",
+                                    "valueSystemId": "val10"
+                                  }
                                 },
                                 {
-                                  "keyId": 2885681152,
-                                  "keyLabel": "DevicePP_Rx",
-                                  "valueId": 2885681154,
-                                  "valueLabel": "Audio_MBDRC"
+                                  "keyInfo": {
+                                    "keyId": 2885681152,
+                                    "keyLabel": "DevicePP_Rx",
+                                    "keySystemId": "sys11"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2885681154,
+                                    "valueLabel": "Audio_MBDRC",
+                                    "valueSystemId": "val11"
+                                  }
                                 },
                                 {
-                                  "keyId": 2717908992,
-                                  "keyLabel": "DeviceRX",
-                                  "valueId": 2717908993,
-                                  "valueLabel": "Speaker"
+                                  "keyInfo": {
+                                    "keyId": 2717908992,
+                                    "keyLabel": "DeviceRX",
+                                    "keySystemId": "sys12"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 2717908993,
+                                    "valueLabel": "Speaker",
+                                    "valueSystemId": "val12"
+                                  }
                                 }
                               ],
                               "systemId": "2",
@@ -1755,131 +1820,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/subgraph": {
-      "get": {
-        "operationId": "UseCaseController_getUsecasesForSubgraph",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "subgraphSystemId",
-            "required": true,
-            "in": "query",
-            "description": "The system ID of the subgraph to get usecases for",
-            "schema": {
-              "example": "subgraph-123",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Usecases are returned successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UsecaseIdentifier"
-                  }
-                },
-                "examples": {
-                  "default": {
-                    "value": [
-                      [
-                        {
-                          "keyValueCollection": [
-                            {
-                              "keyId": 2701131776,
-                              "keyLabel": "StreamRX",
-                              "valueId": 2701131777,
-                              "valueLabel": "PCM_Deep_Buffer"
-                            },
-                            {
-                              "keyId": 2885681152,
-                              "keyLabel": "DevicePP_Rx",
-                              "valueId": 2885681154,
-                              "valueLabel": "Audio_MBDRC"
-                            },
-                            {
-                              "keyId": 2717908992,
-                              "keyLabel": "DeviceRX",
-                              "valueId": 2717908993,
-                              "valueLabel": "Speaker"
-                            }
-                          ],
-                          "systemId": "1",
-                          "usecaseAliasId": 101,
-                          "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                          "usecaseCategory": "default",
-                          "usecaseType": "Regular",
-                          "relatedEndPointLinks": [
-                            {
-                              "hypertextRef": "/usecases/components/get",
-                              "method": "POST",
-                              "description": "Get all components of usecase."
-                            }
-                          ]
-                        },
-                        {
-                          "keyValueCollection": [
-                            {
-                              "keyId": 2701131776,
-                              "keyLabel": "StreamRX",
-                              "valueId": 2701131791,
-                              "valueLabel": "PCM_Offload"
-                            },
-                            {
-                              "keyId": 2885681152,
-                              "keyLabel": "DevicePP_Rx",
-                              "valueId": 2885681154,
-                              "valueLabel": "Audio_MBDRC"
-                            },
-                            {
-                              "keyId": 2717908992,
-                              "keyLabel": "DeviceRX",
-                              "valueId": 2717908993,
-                              "valueLabel": "Speaker"
-                            }
-                          ],
-                          "systemId": "2",
-                          "usecaseAliasId": 102,
-                          "usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
-                          "usecaseType": "Regular",
-                          "relatedEndPointLinks": [
-                            {
-                              "hypertextRef": "/usecases/components/get",
-                              "method": "POST",
-                              "description": "Get all components of usecase."
-                            }
-                          ]
-                        }
-                      ]
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Subgraph is not found"
-          }
-        },
-        "summary": "Get all usecases for a given subgraph system id",
-        "tags": [
-          "usecases"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/usecases/components/get": {
+    "/arc-api/v1/projects/{projectId}/usecases/getComponents": {
       "post": {
         "description": "For components shared in different usecases, only one copy will be returned.",
         "operationId": "UseCaseController_getComponentsInUsecases",
@@ -1940,10 +1881,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UsecaseComponentsDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UsecaseComponentsDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 },
                 "examples": {
                   "default": {
@@ -1952,22 +1904,40 @@
                         "usecaseIdentifier": {
                           "keyValueCollection": [
                             {
-                              "keyId": 2701131776,
-                              "keyLabel": "StreamRX",
-                              "valueId": 2701131777,
-                              "valueLabel": "PCM_Deep_Buffer"
+                              "keyInfo": {
+                                "keyId": 2701131776,
+                                "keyLabel": "StreamRX",
+                                "keySystemId": "sys7"
+                              },
+                              "valueInfo": {
+                                "valueId": 2701131777,
+                                "valueLabel": "PCM_Deep_Buffer",
+                                "valueSystemId": "val7"
+                              }
                             },
                             {
-                              "keyId": 2885681152,
-                              "keyLabel": "DevicePP_Rx",
-                              "valueId": 2885681154,
-                              "valueLabel": "Audio_MBDRC"
+                              "keyInfo": {
+                                "keyId": 2885681152,
+                                "keyLabel": "DevicePP_Rx",
+                                "keySystemId": "sys8"
+                              },
+                              "valueInfo": {
+                                "valueId": 2885681154,
+                                "valueLabel": "Audio_MBDRC",
+                                "valueSystemId": "val8"
+                              }
                             },
                             {
-                              "keyId": 2717908992,
-                              "keyLabel": "DeviceRX",
-                              "valueId": 2717908993,
-                              "valueLabel": "Speaker"
+                              "keyInfo": {
+                                "keyId": 2717908992,
+                                "keyLabel": "DeviceRX",
+                                "keySystemId": "sys9"
+                              },
+                              "valueInfo": {
+                                "valueId": 2717908993,
+                                "valueLabel": "Speaker",
+                                "valueSystemId": "val9"
+                              }
                             }
                           ],
                           "systemId": "1",
@@ -1999,7 +1969,8 @@
                             "filteredKeys": [
                               {
                                 "keyId": 2717908992,
-                                "keyLabel": "DeviceRX"
+                                "keyLabel": "DeviceRX",
+                                "keySystemId": "1"
                               }
                             ]
                           }
@@ -2164,7 +2135,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/updates/summary": {
+    "/arc-api/v1/projects/{projectId}/usecases/modificationsSummary": {
       "get": {
         "operationId": "UseCaseController_getUsecaseModificationSummary",
         "parameters": [
@@ -2185,10 +2156,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UsecaseWithModificationSummary"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UsecaseWithModificationSummary"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2292,10 +2274,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ModuleInstanceDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ModuleInstanceDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2357,7 +2350,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ModuleInstanceDto"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ModuleInstanceDto"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "examples": {
                   "default": {
@@ -2433,7 +2437,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ModuleInstancePropertiesDto"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ModuleInstancePropertiesDto"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2446,6 +2461,435 @@
           }
         },
         "summary": "Get all property data for a module instance",
+        "tags": [
+          "module-instances"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/module-instances/{moduleInstanceSystemId}/tuning-config": {
+      "get": {
+        "description": "Retrieves the complete tuning configuration for a specific module instance, including:\n\n**CKVS (Calibration Key-Values):** Module-level calibration configuration parameters\n**Tags with TKVS:** Tag-specific configuration where each tag contains its own Tag Key-Values\n\nThe response structure includes:\n- Module CKVs for calibration (each CKV has systemId and key-value pairs)\n- Tags with their TKVs (each tag has systemId, tagId, tagName, and array of TKVs)\n- Each TKV has systemId and key-value pairs\n\nParameter payloads and UI persistence data are available through separate APIs.",
+        "operationId": "ModuleInstanceController_getModuleInstanceTuningConfig",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleInstanceSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a module instance",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tuning configuration retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ModuleInstanceTuningConfigDto"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "_note": "Placeholder for ModuleInstanceTuningConfigExample - dynamic loading failed",
+                      "exampleData": "Please check the module path and class name"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Module instance not found"
+          },
+          "422": {
+            "description": "Failed to get tuning configuration"
+          }
+        },
+        "summary": "Get all tuning configuration (CKVS and TKVS) for a module instance",
+        "tags": [
+          "module-instances"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/module-instances/{moduleInstanceSystemId}/cal-data/{ckvSystemId}": {
+      "get": {
+        "description": "Retrieves calibration data for a specific module instance with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101\nGET /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the module-instance\n\n**Response Format:**\nJSON format including all configElements with name, value, type, ranges etc.\n\n**isActive Flag:**\n- Default: `false` (for RTGM - Real-Time Graph Manager)\n- Set to `true` only in RTC (Real-Time Control) context",
+        "operationId": "ModuleInstanceController_getCalibrationData",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleInstanceSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a module instance",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "ckvSystemId",
+            "required": true,
+            "in": "path",
+            "description": "CKV (Calibration Key-Value) system ID for calibration data",
+            "schema": {
+              "example": "101",
+              "type": "string"
+            }
+          },
+          {
+            "name": "param-system-ids",
+            "required": false,
+            "in": "query",
+            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the module-instance.",
+            "schema": {
+              "example": "1,2,3",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calibration data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CalDataResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Module license required to access calibration data"
+          },
+          "404": {
+            "description": "Module instance or CKV system ID not found"
+          },
+          "422": {
+            "description": "Failed to get calibration data"
+          }
+        },
+        "summary": "Get calibration data for a module instance",
+        "tags": [
+          "module-instances"
+        ]
+      },
+      "put": {
+        "description": "Updates calibration data for a specific module instance. Supports updating multiple PIDs in a single request.\n\n**Example Usage:**\n```\nPUT /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Request Body:**\nArray of PID-specific calibration data updates. Each item contains:\n- `pid`: Parameter ID to update\n- `elements`: Array of calibration elements with updated values\n\n**Response Format:**\nReturns the updated calibration data in the same format as the GET endpoint.\n\n**Batch Updates:**\nMultiple PIDs can be updated in a single request by providing multiple items in the data array.",
+        "operationId": "ModuleInstanceController_updateCalibrationData",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleInstanceSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a module instance",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "ckvSystemId",
+            "required": true,
+            "in": "path",
+            "description": "CKV (Calibration Key-Value) system ID for calibration data",
+            "schema": {
+              "example": "101",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: UpdateCalDataRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCalDataRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calibration data updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CalDataResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "403": {
+            "description": "Module license required to update calibration data"
+          },
+          "404": {
+            "description": "Module instance or CKV system ID not found"
+          },
+          "422": {
+            "description": "Failed to update calibration data"
+          }
+        },
+        "summary": "Update calibration data for a module instance",
+        "tags": [
+          "module-instances"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/module-instances/{moduleInstanceSystemId}/tag-data/{tagSystemId}/{tkvSystemId}": {
+      "get": {
+        "description": "Retrieves tag-specific data for a module instance with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301\nGET /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the module-instance\n\n**Response Format:**\nJSON format including tagSystemId, tkvSystemId, and array of PID data with configElements.\n\n**Tag Context:**\nThe response includes tag-specific context (tagSystemId, tkvSystemId) along with the same\nPID data structure as calibration data, allowing for tag-specific configuration management.",
+        "operationId": "ModuleInstanceController_getTagData",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleInstanceSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a module instance",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSystemId",
+            "required": true,
+            "in": "path",
+            "description": "Tag system ID for tag data",
+            "schema": {
+              "example": "201",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tkvSystemId",
+            "required": true,
+            "in": "path",
+            "description": "TKV (Tag Key-Value) system ID for tag data",
+            "schema": {
+              "example": "301",
+              "type": "string"
+            }
+          },
+          {
+            "name": "param-system-ids",
+            "required": false,
+            "in": "query",
+            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the module-instance.",
+            "schema": {
+              "example": "1,2,3",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tag data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TkvDataDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Module license required to access tag data"
+          },
+          "404": {
+            "description": "Module instance, tag system ID, or TKV system ID not found"
+          },
+          "422": {
+            "description": "Failed to get tag data"
+          }
+        },
+        "summary": "Get tag data for a module instance",
+        "tags": [
+          "module-instances"
+        ]
+      },
+      "put": {
+        "description": "Updates tag-specific data for a module instance. Supports updating multiple PIDs in a single request.\n\n**Example Usage:**\n```\nPUT /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Request Body:**\nArray of PID-specific tag data updates. Each item contains:\n- `pid`: Parameter ID to update\n- `elements`: Array of configuration elements with updated values\n\n**Response Format:**\nReturns the updated tag data in the same format as the GET endpoint, including\ntagSystemId, tkvSystemId, and updated PID data.\n\n**Batch Updates:**\nMultiple PIDs can be updated in a single request by providing multiple items in the data array.\n\n**Tag-Specific Updates:**\nUpdates are scoped to the specific tag context identified by tagSystemId and tkvSystemId.",
+        "operationId": "ModuleInstanceController_updateTagData",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleInstanceSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a module instance",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSystemId",
+            "required": true,
+            "in": "path",
+            "description": "Tag system ID for tag data",
+            "schema": {
+              "example": "201",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tkvSystemId",
+            "required": true,
+            "in": "path",
+            "description": "TKV (Tag Key-Value) system ID for tag data",
+            "schema": {
+              "example": "301",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: UpdateTagDataRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTagDataRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tag data updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TkvDataDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "403": {
+            "description": "Module license required to update tag data"
+          },
+          "404": {
+            "description": "Module instance, tag system ID, or TKV system ID not found"
+          },
+          "422": {
+            "description": "Failed to update tag data"
+          }
+        },
+        "summary": "Update tag data for a module instance",
         "tags": [
           "module-instances"
         ]
@@ -2483,10 +2927,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SubgraphDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubgraphDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2534,7 +2989,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SubgraphPropertiesDto"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SubgraphPropertiesDto"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2547,6 +3013,177 @@
           }
         },
         "summary": "Get all property data for a subgraph",
+        "tags": [
+          "subgraphs"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/usecases": {
+      "get": {
+        "operationId": "SubgraphController_getUsecasesForSubgraph",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": true,
+            "in": "path",
+            "description": "The system ID of the subgraph to get usecases for",
+            "schema": {
+              "example": "subgraph-123",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usecases are returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UsecaseIdentifier"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "examples": {
+                  "default": {
+                    "value": [
+                      [
+                        {
+                          "keyValueCollection": [
+                            {
+                              "keyInfo": {
+                                "keyId": 2701131776,
+                                "keyLabel": "StreamRX",
+                                "keySystemId": "sys7"
+                              },
+                              "valueInfo": {
+                                "valueId": 2701131777,
+                                "valueLabel": "PCM_Deep_Buffer",
+                                "valueSystemId": "val7"
+                              }
+                            },
+                            {
+                              "keyInfo": {
+                                "keyId": 2885681152,
+                                "keyLabel": "DevicePP_Rx",
+                                "keySystemId": "sys8"
+                              },
+                              "valueInfo": {
+                                "valueId": 2885681154,
+                                "valueLabel": "Audio_MBDRC",
+                                "valueSystemId": "val8"
+                              }
+                            },
+                            {
+                              "keyInfo": {
+                                "keyId": 2717908992,
+                                "keyLabel": "DeviceRX",
+                                "keySystemId": "sys9"
+                              },
+                              "valueInfo": {
+                                "valueId": 2717908993,
+                                "valueLabel": "Speaker",
+                                "valueSystemId": "val9"
+                              }
+                            }
+                          ],
+                          "systemId": "1",
+                          "usecaseAliasId": 101,
+                          "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                          "usecaseCategory": "default",
+                          "usecaseType": "Regular",
+                          "relatedEndPointLinks": [
+                            {
+                              "hypertextRef": "/usecases/components/get",
+                              "method": "POST",
+                              "description": "Get all components of usecase."
+                            }
+                          ]
+                        },
+                        {
+                          "keyValueCollection": [
+                            {
+                              "keyInfo": {
+                                "keyId": 2701131776,
+                                "keyLabel": "StreamRX",
+                                "keySystemId": "sys10"
+                              },
+                              "valueInfo": {
+                                "valueId": 2701131791,
+                                "valueLabel": "PCM_Offload",
+                                "valueSystemId": "val10"
+                              }
+                            },
+                            {
+                              "keyInfo": {
+                                "keyId": 2885681152,
+                                "keyLabel": "DevicePP_Rx",
+                                "keySystemId": "sys11"
+                              },
+                              "valueInfo": {
+                                "valueId": 2885681154,
+                                "valueLabel": "Audio_MBDRC",
+                                "valueSystemId": "val11"
+                              }
+                            },
+                            {
+                              "keyInfo": {
+                                "keyId": 2717908992,
+                                "keyLabel": "DeviceRX",
+                                "keySystemId": "sys12"
+                              },
+                              "valueInfo": {
+                                "valueId": 2717908993,
+                                "valueLabel": "Speaker",
+                                "valueSystemId": "val12"
+                              }
+                            }
+                          ],
+                          "systemId": "2",
+                          "usecaseAliasId": 102,
+                          "usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
+                          "usecaseType": "Regular",
+                          "relatedEndPointLinks": [
+                            {
+                              "hypertextRef": "/usecases/components/get",
+                              "method": "POST",
+                              "description": "Get all components of usecase."
+                            }
+                          ]
+                        }
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subgraph is not found"
+          }
+        },
+        "summary": "Get all usecases for a given subgraph system id",
         "tags": [
           "subgraphs"
         ]
@@ -2584,10 +3221,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SubsystemDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubsystemDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2646,10 +3294,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BaseComponentDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/BaseComponentDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2699,10 +3358,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ContainerDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ContainerDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2750,7 +3420,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContainerPropertiesDto"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ContainerPropertiesDto"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2800,10 +3481,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DataLinkDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DataLinkDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2853,10 +3545,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DataLinkDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DataLinkDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2903,10 +3606,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ControlLinkDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -2956,10 +3670,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ControlLinkDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -3014,10 +3739,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ControlLinkDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -3063,7 +3799,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ControlLinkPropertiesDto"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ControlLinkPropertiesDto"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -3100,6 +3847,36 @@
       }
     },
     "schemas": {
+      "ApiResult": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ]
+      },
       "RegisterDto": {
         "type": "object",
         "properties": {
@@ -3132,36 +3909,6 @@
           "token",
           "clientId",
           "clientName"
-        ]
-      },
-      "ApiResult": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "object"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "warnings": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "success": {
-            "type": "boolean"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "success",
-          "message"
         ]
       },
       "ProjectInfoResponseDto": {
@@ -4235,7 +4982,7 @@
           "moduleInfo"
         ]
       },
-      "KeyValueInfo": {
+      "KeyInfo": {
         "type": "object",
         "properties": {
           "keyId": {
@@ -4246,6 +4993,20 @@
             "type": "string",
             "description": "Key name"
           },
+          "keySystemId": {
+            "type": "string",
+            "description": "Key system identifier"
+          }
+        },
+        "required": [
+          "keyId",
+          "keyLabel",
+          "keySystemId"
+        ]
+      },
+      "ValueInfo": {
+        "type": "object",
+        "properties": {
           "valueId": {
             "type": "number",
             "description": "Value id"
@@ -4253,13 +5014,41 @@
           "valueLabel": {
             "type": "string",
             "description": "Value name"
+          },
+          "valueSystemId": {
+            "type": "string",
+            "description": "Value system identifier"
           }
         },
         "required": [
-          "keyId",
-          "keyLabel",
           "valueId",
-          "valueLabel"
+          "valueLabel",
+          "valueSystemId"
+        ]
+      },
+      "KeyValueInfo": {
+        "type": "object",
+        "properties": {
+          "keyInfo": {
+            "description": "Key information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KeyInfo"
+              }
+            ]
+          },
+          "valueInfo": {
+            "description": "Value information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValueInfo"
+              }
+            ]
+          }
+        },
+        "required": [
+          "keyInfo",
+          "valueInfo"
         ]
       },
       "EndPointLink": {
@@ -4771,23 +5560,6 @@
           "systemIds"
         ]
       },
-      "KeyInfo": {
-        "type": "object",
-        "properties": {
-          "keyId": {
-            "type": "number",
-            "description": "Key id"
-          },
-          "keyLabel": {
-            "type": "string",
-            "description": "Key name"
-          }
-        },
-        "required": [
-          "keyId",
-          "keyLabel"
-        ]
-      },
       "SubsystemDto": {
         "type": "object",
         "properties": {
@@ -5135,6 +5907,1030 @@
           "controlLinks"
         ]
       },
+      "CkvDto": {
+        "type": "object",
+        "properties": {
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          },
+          "systemId": {
+            "type": "string",
+            "description": "CKV system ID",
+            "example": "101"
+          }
+        },
+        "required": [
+          "keyValueCollection",
+          "systemId"
+        ]
+      },
+      "TkvDto": {
+        "type": "object",
+        "properties": {
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          },
+          "systemId": {
+            "type": "string",
+            "description": "TKV system ID",
+            "example": "202"
+          }
+        },
+        "required": [
+          "keyValueCollection",
+          "systemId"
+        ]
+      },
+      "TagInfoDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "number",
+            "description": "Tag system ID",
+            "example": 201
+          },
+          "tagId": {
+            "type": "number",
+            "description": "Tag ID",
+            "example": 301
+          },
+          "tagName": {
+            "type": "string",
+            "description": "Tag name",
+            "example": "AudioProcessing"
+          },
+          "tkvs": {
+            "description": "Tag key-values configuration",
+            "example": [
+              {
+                "systemId": "202",
+                "keyValueCollection": [
+                  {
+                    "keyId": 2,
+                    "valueId": 20,
+                    "keyLabel": "Channels",
+                    "valueLabel": "Stereo"
+                  }
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TkvDto"
+            }
+          }
+        },
+        "required": [
+          "systemId",
+          "tagId",
+          "tagName"
+        ]
+      },
+      "ModuleInstanceTuningConfigDto": {
+        "type": "object",
+        "properties": {
+          "moduleInstanceSystemId": {
+            "type": "string",
+            "description": "Module instance system ID",
+            "example": "12345"
+          },
+          "ckvs": {
+            "description": "Calibration key-values configuration",
+            "example": [
+              {
+                "systemId": "101",
+                "keyValueCollection": [
+                  {
+                    "keyId": 1,
+                    "valueId": 10,
+                    "keyLabel": "SampleRate",
+                    "valueLabel": "48000"
+                  }
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CkvDto"
+            }
+          },
+          "tags": {
+            "description": "Tag information containing tag key-values",
+            "example": [
+              {
+                "systemId": 201,
+                "tagId": 301,
+                "tagName": "AudioProcessing",
+                "tkvs": [
+                  {
+                    "systemId": "202",
+                    "keyValueCollection": [
+                      {
+                        "keyId": 2,
+                        "valueId": 20,
+                        "keyLabel": "Channels",
+                        "valueLabel": "Stereo"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagInfoDto"
+            }
+          }
+        },
+        "required": [
+          "moduleInstanceSystemId",
+          "ckvs",
+          "tags"
+        ]
+      },
+      "PidDataDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System identifier",
+            "example": "SYS001"
+          },
+          "pid": {
+            "type": "string",
+            "description": "Parameter ID (PID) - Unique identifier for a module parameter.\n\nPIDs are used to organize calibration data where each PID represents:\n- A specific configurable parameter of the module\n- A logical grouping of related calibration elements\n- A distinct tuning aspect (e.g., volume, EQ, filters)\n\nExamples:\n- PID \"1\" might represent volume control parameters\n- PID \"2\" might represent equalizer band settings\n- PID \"3\" might represent filter coefficients",
+            "example": "1"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for this PID",
+            "example": "Volume Control Parameters"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of what this PID represents",
+            "example": "Contains all volume-related configuration parameters"
+          },
+          "elements": {
+            "type": "array",
+            "description": "Array of calibration elements for this Parameter ID.\n\nThis array can contain four different types of calibration elements:\n\n**1. ConfigElement (Simple Parameters):**\n   - Single configuration values (volume, gain, frequency)\n   - Rendered as UI controls like sliders, text boxes, dropdowns\n   - Example: volume_level with value \"75\" and unit \"dB\"\n\n**2. ConfigElementArray (Parameter Arrays):**\n   - Arrays of configuration values of the same type\n   - Used for multi-band EQs, filter coefficients, channel gains\n   - Contains template defining the structure of each array item\n   - Example: eq_bands array with 10 frequency band settings\n\n**3. Struct (Grouped Parameters):**\n   - Complex structured data grouping related parameters\n   - Contains nested elements of any calibration type\n   - Used for organizing related settings (audio_config, filter_settings)\n   - Example: audio_settings struct containing sample_rate, bit_depth, etc.\n\n**4. StructArray (Arrays of Structures):**\n   - Arrays of structured data for multi-instance configurations\n   - Used for multi-channel setups, multiple filter stages\n   - Contains template defining the structure of each array item\n   - Example: channel_configs array with settings for each audio channel\n\n**Element Relationships:**\n- Elements can be nested (Structs can contain other elements)\n- Elements can reference each other via linkedByForFormula\n- Array elements follow their template structure\n- All elements support grouping via group/subgroup for UI organization",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ConfigArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ConfigStructDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ConfigStructArrayDto"
+                }
+              ]
+            },
+            "example": [
+              {
+                "type": "ConfigElement",
+                "name": "volume_level",
+                "description": "Master volume control for audio output",
+                "group": "Audio Controls",
+                "subgroup": "Volume Settings",
+                "dataType": "UInt32",
+                "value": "75",
+                "unit": "dB",
+                "displayType": "Slider",
+                "policy": "Basic",
+                "precision": 1,
+                "min": "0",
+                "max": "100",
+                "validValues": [
+                  {
+                    "value": "0",
+                    "name": "Mute"
+                  },
+                  {
+                    "value": "25",
+                    "name": "Low"
+                  },
+                  {
+                    "value": "50",
+                    "name": "Medium"
+                  },
+                  {
+                    "value": "75",
+                    "name": "High"
+                  },
+                  {
+                    "value": "100",
+                    "name": "Maximum"
+                  }
+                ],
+                "isReadOnly": false,
+                "linkedByForFormula": [
+                  "gain_compensation"
+                ]
+              },
+              {
+                "type": "ConfigElementArray",
+                "name": "eq_bands",
+                "description": "Equalizer frequency band gain settings",
+                "group": "Audio Processing",
+                "subgroup": "Equalizer",
+                "length": 5,
+                "lengthFormula": "num_eq_bands",
+                "template": {
+                  "type": "ConfigElement",
+                  "name": "band_gain",
+                  "dataType": "Float",
+                  "value": "0.0",
+                  "unit": "dB",
+                  "displayType": "Slider",
+                  "qFormat": "Q15",
+                  "precision": 2
+                },
+                "elements": [
+                  {
+                    "type": "ConfigElement",
+                    "name": "eq_band_1",
+                    "dataType": "Float",
+                    "value": "2.5",
+                    "unit": "dB",
+                    "displayType": "Slider",
+                    "qFormat": "Q15",
+                    "precision": 2
+                  },
+                  {
+                    "type": "ConfigElement",
+                    "name": "eq_band_2",
+                    "dataType": "Float",
+                    "value": "-1.0",
+                    "unit": "dB",
+                    "displayType": "Slider",
+                    "qFormat": "Q15",
+                    "precision": 2
+                  },
+                  {
+                    "type": "ConfigElement",
+                    "name": "eq_band_3",
+                    "dataType": "Float",
+                    "value": "0.5",
+                    "unit": "dB",
+                    "displayType": "Slider",
+                    "qFormat": "Q15",
+                    "precision": 2
+                  }
+                ],
+                "isReadOnly": false
+              },
+              {
+                "type": "Struct",
+                "name": "filter_config",
+                "description": "Digital filter configuration parameters",
+                "group": "Audio Processing",
+                "subgroup": "Filters",
+                "structType": "FilterConfig",
+                "elements": [
+                  {
+                    "type": "ConfigElement",
+                    "name": "cutoff_frequency",
+                    "dataType": "UInt32",
+                    "value": "1000",
+                    "unit": "Hz",
+                    "displayType": "TextBox",
+                    "policy": "Advanced"
+                  },
+                  {
+                    "type": "ConfigElement",
+                    "name": "filter_type",
+                    "dataType": "UInt8",
+                    "value": "1",
+                    "displayType": "DropDown",
+                    "policy": "Basic"
+                  }
+                ]
+              },
+              {
+                "type": "StructArray",
+                "name": "channel_configs",
+                "description": "Per-channel audio configuration settings",
+                "group": "Channel Settings",
+                "length": 2,
+                "lengthFormula": "num_channels",
+                "template": {
+                  "type": "Struct",
+                  "name": "channel_config",
+                  "structType": "ChannelConfig",
+                  "elements": [
+                    {
+                      "type": "ConfigElement",
+                      "name": "channel_gain",
+                      "dataType": "Float",
+                      "value": "1.0",
+                      "unit": "linear",
+                      "displayType": "Slider"
+                    }
+                  ]
+                },
+                "elements": [
+                  {
+                    "type": "Struct",
+                    "name": "channel_config_left",
+                    "structType": "ChannelConfig",
+                    "elements": [
+                      {
+                        "type": "ConfigElement",
+                        "name": "channel_gain",
+                        "dataType": "Float",
+                        "value": "0.8",
+                        "unit": "linear",
+                        "displayType": "Slider"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Struct",
+                    "name": "channel_config_right",
+                    "structType": "ChannelConfig",
+                    "elements": [
+                      {
+                        "type": "ConfigElement",
+                        "name": "channel_gain",
+                        "dataType": "Float",
+                        "value": "0.9",
+                        "unit": "linear",
+                        "displayType": "Slider"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "systemId",
+          "elements"
+        ]
+      },
+      "CalDataResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Array of calibration data, one for each PID",
+            "example": [
+              {
+                "systemId": "SYS001",
+                "pid": "1",
+                "name": "Volume Control Parameters",
+                "description": "Contains all volume-related configuration parameters",
+                "elements": [
+                  {
+                    "type": "ConfigElement",
+                    "name": "volume_level",
+                    "description": "Audio volume level setting",
+                    "group": "Audio Controls",
+                    "subgroup": "Volume Settings",
+                    "dataType": "UInt32",
+                    "value": "75",
+                    "unit": "dB",
+                    "displayType": "Slider",
+                    "policy": "Basic",
+                    "precision": 1,
+                    "min": "0",
+                    "max": "100",
+                    "validValues": [
+                      {
+                        "value": "0",
+                        "name": "Mute"
+                      },
+                      {
+                        "value": "25",
+                        "name": "Low"
+                      },
+                      {
+                        "value": "50",
+                        "name": "Medium"
+                      },
+                      {
+                        "value": "75",
+                        "name": "High"
+                      },
+                      {
+                        "value": "100",
+                        "name": "Maximum"
+                      }
+                    ],
+                    "isReadOnly": false
+                  }
+                ]
+              },
+              {
+                "systemId": "SYS001",
+                "pid": "2",
+                "name": "Audio Processing Parameters",
+                "description": "Contains audio processing configuration parameters",
+                "elements": [
+                  {
+                    "type": "ConfigElement",
+                    "name": "sample_rate",
+                    "description": "Audio sample rate setting",
+                    "group": "Audio Processing",
+                    "dataType": "UInt32",
+                    "value": "48000",
+                    "unit": "Hz",
+                    "displayType": "DropDown",
+                    "policy": "Advanced"
+                  }
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PidDataDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UpdateCalDataRequestDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Array of calibration data updates for multiple PIDs",
+            "example": [
+              {
+                "systemId": "SYS001",
+                "pid": "1",
+                "name": "Volume Control Parameters",
+                "description": "Updated volume-related configuration parameters",
+                "elements": [
+                  {
+                    "type": "ConfigElement",
+                    "name": "volume_level",
+                    "description": "Audio volume level setting",
+                    "group": "Audio Controls",
+                    "subgroup": "Volume Settings",
+                    "dataType": "UInt32",
+                    "value": "80",
+                    "unit": "dB",
+                    "displayType": "Slider",
+                    "policy": "Basic",
+                    "precision": 1,
+                    "min": "0",
+                    "max": "100",
+                    "validValues": [
+                      {
+                        "value": "0",
+                        "name": "Mute"
+                      },
+                      {
+                        "value": "20",
+                        "name": "Low"
+                      },
+                      {
+                        "value": "50",
+                        "name": "Medium"
+                      },
+                      {
+                        "value": "80",
+                        "name": "High"
+                      },
+                      {
+                        "value": "100",
+                        "name": "Maximum"
+                      }
+                    ],
+                    "isReadOnly": false
+                  }
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PidDataDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "TkvDataDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Array of PID data for this tag",
+            "example": [
+              {
+                "systemId": "SYS002",
+                "pid": "1",
+                "name": "Tag Volume Control Parameters",
+                "description": "Tag-specific volume control configuration parameters",
+                "elements": [
+                  {
+                    "type": "ConfigElement",
+                    "name": "tag_volume_level",
+                    "description": "Tag-specific volume level setting",
+                    "group": "Tag Audio Controls",
+                    "subgroup": "Volume Settings",
+                    "dataType": "UInt32",
+                    "value": "75",
+                    "unit": "dB",
+                    "displayType": "Slider",
+                    "policy": "Basic",
+                    "precision": 1,
+                    "min": "0",
+                    "max": "100",
+                    "validValues": [
+                      {
+                        "value": "0",
+                        "name": "Mute"
+                      },
+                      {
+                        "value": "25",
+                        "name": "Low"
+                      },
+                      {
+                        "value": "50",
+                        "name": "Medium"
+                      },
+                      {
+                        "value": "75",
+                        "name": "High"
+                      },
+                      {
+                        "value": "100",
+                        "name": "Maximum"
+                      }
+                    ],
+                    "isReadOnly": false
+                  }
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PidDataDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UpdateTagDataRequestDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Array of tag data updates for multiple PIDs",
+            "example": [
+              {
+                "systemId": "SYS002",
+                "pid": "1",
+                "name": "Tag Volume Control Parameters",
+                "description": "Updated tag-specific volume control configuration parameters",
+                "elements": [
+                  {
+                    "type": "ConfigElement",
+                    "name": "tag_volume_level",
+                    "description": "Tag-specific volume level setting",
+                    "group": "Tag Audio Controls",
+                    "subgroup": "Volume Settings",
+                    "dataType": "UInt32",
+                    "value": "80",
+                    "unit": "dB",
+                    "displayType": "Slider",
+                    "policy": "Basic",
+                    "precision": 1,
+                    "min": "0",
+                    "max": "100",
+                    "validValues": [
+                      {
+                        "value": "0",
+                        "name": "Mute"
+                      },
+                      {
+                        "value": "20",
+                        "name": "Low"
+                      },
+                      {
+                        "value": "50",
+                        "name": "Medium"
+                      },
+                      {
+                        "value": "80",
+                        "name": "High"
+                      },
+                      {
+                        "value": "100",
+                        "name": "Maximum"
+                      }
+                    ],
+                    "isReadOnly": false
+                  }
+                ]
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PidDataDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ConfigElementDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "ConfigElement",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "volume_level"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Audio volume level setting"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Audio Controls"
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Volume Settings"
+          },
+          "dataType": {
+            "type": "string",
+            "description": "Data type of the configuration element",
+            "enum": [
+              "UInt8",
+              "UInt16",
+              "UInt32",
+              "UInt64",
+              "Int8",
+              "Int16",
+              "Int32",
+              "Int64",
+              "RawData",
+              "Double",
+              "Float"
+            ],
+            "example": "UInt32"
+          },
+          "value": {
+            "type": "string",
+            "description": "Current or default value",
+            "example": "75"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of measurement",
+            "example": "dB"
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether the element is read-only",
+            "example": false
+          },
+          "displayType": {
+            "type": "string",
+            "description": "Display type for UI rendering",
+            "enum": [
+              "TextBox",
+              "DbTextBox",
+              "QFormattedValue",
+              "Slider",
+              "CheckBox",
+              "DropDown",
+              "Dump",
+              "File",
+              "BitField",
+              "Formula",
+              "StringField"
+            ],
+            "example": "Slider"
+          },
+          "policy": {
+            "type": "string",
+            "description": "Element policy for visibility and access control",
+            "enum": [
+              "Hidden",
+              "Basic",
+              "Advanced"
+            ],
+            "example": "Basic"
+          },
+          "qFormat": {
+            "type": "string",
+            "description": "Q format string for fixed-point representation",
+            "example": "Q15"
+          },
+          "precision": {
+            "type": "number",
+            "description": "Precision value for decimal places",
+            "example": 2,
+            "minimum": 0
+          },
+          "min": {
+            "type": "string",
+            "description": "Minimum allowed value for this configuration element",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "description": "Maximum allowed value for this configuration element",
+            "example": "100"
+          },
+          "validValues": {
+            "type": "array",
+            "description": "Array of valid values with their display names",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "description": "The actual value"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the value"
+                }
+              }
+            },
+            "example": [
+              {
+                "value": "0",
+                "name": "Disabled"
+              },
+              {
+                "value": "1",
+                "name": "Low"
+              },
+              {
+                "value": "2",
+                "name": "Medium"
+              },
+              {
+                "value": "3",
+                "name": "High"
+              }
+            ]
+          },
+          "linkedByForFormula": {
+            "description": "List of elements linked by formula - important for calibration dependencies",
+            "example": [
+              "gain_factor",
+              "offset_value"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "dataType",
+          "value"
+        ]
+      },
+      "ConfigArrayDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "ConfigElementArray",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "eq_bands"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Equalizer band settings"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Audio Processing"
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Equalizer"
+          },
+          "length": {
+            "type": "number",
+            "description": "Array length",
+            "example": 10,
+            "minimum": 0
+          },
+          "lengthFormula": {
+            "type": "string",
+            "description": "Array length formula string",
+            "example": "num_channels * 2"
+          },
+          "template": {
+            "description": "Template configuration element for array items",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigElementDto"
+              }
+            ]
+          },
+          "elements": {
+            "description": "Array of configuration elements",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigElementDto"
+            }
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether the array is read-only",
+            "example": false
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "template",
+          "elements"
+        ]
+      },
+      "ConfigStructDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "Struct",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "audio_settings"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Audio configuration settings"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "System Config"
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Audio Settings"
+          },
+          "structType": {
+            "type": "string",
+            "description": "Structure type identifier",
+            "example": "AudioConfig"
+          },
+          "elements": {
+            "type": "array",
+            "description": "Child elements within the structure",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ConfigArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ConfigStructDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ConfigStructArrayDto"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "structType",
+          "elements"
+        ]
+      },
+      "ConfigStructArrayDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "StructArray",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "channel_configs"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Per-channel audio configuration settings"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Channel Settings"
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Multi-Channel"
+          },
+          "length": {
+            "type": "number",
+            "description": "Array length",
+            "example": 2,
+            "minimum": 0
+          },
+          "lengthFormula": {
+            "type": "string",
+            "description": "Array length formula string",
+            "example": "num_channels"
+          },
+          "template": {
+            "description": "Template structure for array items",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigStructDto"
+              }
+            ]
+          },
+          "elements": {
+            "description": "Array of structure elements",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigStructDto"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "template",
+          "elements"
+        ]
+      },
       "BaseModuleInstanceRequest": {
         "type": "object",
         "properties": {
@@ -5326,7 +7122,7 @@
           "properties"
         ]
       },
-      "KVInfo": {
+      "KeyValuePairsInfo": {
         "type": "object",
         "properties": {
           "keyValueCollection": {
@@ -5434,7 +7230,7 @@
             "description": "SGKV - List of KV information",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/KVInfo"
+              "$ref": "#/components/schemas/KeyValuePairsInfo"
             }
           }
         },
