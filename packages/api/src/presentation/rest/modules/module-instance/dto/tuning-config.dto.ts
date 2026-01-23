@@ -2,6 +2,51 @@ import {ApiProperty} from '@nestjs/swagger';
 import {KeyValuePairsInfo, KeyValueInfo} from '../../../common/dto/kv.dto.js';
 
 /**
+ * Parameter information DTO containing parameter ID, system ID, name and description
+ */
+export class ParamInfo {
+  @ApiProperty({
+    description: 'Parameter ID',
+    type: Number,
+    example: 1001,
+  })
+  paramId: number;
+
+  @ApiProperty({
+    description: 'Parameter system ID',
+    type: String,
+    example: 'PARAM_SYS_001',
+  })
+  paramSystemId: string;
+
+  @ApiProperty({
+    description: 'Parameter name',
+    type: String,
+    example: 'SampleRate',
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Parameter description',
+    type: String,
+    example: 'Audio sample rate configuration parameter',
+  })
+  description: string;
+
+  constructor(
+    paramId: number,
+    paramSystemId: string,
+    name: string,
+    description: string,
+  ) {
+    this.paramId = paramId;
+    this.paramSystemId = paramSystemId;
+    this.name = name;
+    this.description = description;
+  }
+}
+
+/**
  * CKV (Calibration Key-Value) DTO extending KeyValuePairsInfo
  */
 export class CkvDto extends KeyValuePairsInfo {
@@ -12,9 +57,34 @@ export class CkvDto extends KeyValuePairsInfo {
   })
   declare systemId: string;
 
-  constructor(systemId: string, keyValueCollection: KeyValueInfo[]) {
+  @ApiProperty({
+    description: 'Supported parameters for this CKV',
+    type: [ParamInfo],
+    example: [
+      {
+        paramId: 1001,
+        paramSystemId: 'PARAM_SYS_001',
+        name: 'SampleRate',
+        description: 'Audio sample rate configuration parameter',
+      },
+      {
+        paramId: 1002,
+        paramSystemId: 'PARAM_SYS_002',
+        name: 'BitDepth',
+        description: 'Audio bit depth configuration parameter',
+      },
+    ],
+  })
+  supportedParameters: ParamInfo[];
+
+  constructor(
+    systemId: string,
+    keyValueCollection: KeyValueInfo[],
+    supportedParameters: ParamInfo[],
+  ) {
     super(keyValueCollection);
     this.systemId = systemId;
+    this.supportedParameters = supportedParameters;
   }
 }
 
@@ -29,9 +99,34 @@ export class TkvDto extends KeyValuePairsInfo {
   })
   declare systemId: string;
 
-  constructor(systemId: string, keyValueCollection: KeyValueInfo[]) {
+  @ApiProperty({
+    description: 'Supported parameters for this TKV',
+    type: [ParamInfo],
+    example: [
+      {
+        paramId: 2001,
+        paramSystemId: 'PARAM_SYS_003',
+        name: 'Channels',
+        description: 'Audio channel configuration parameter',
+      },
+      {
+        paramId: 2002,
+        paramSystemId: 'PARAM_SYS_004',
+        name: 'Volume',
+        description: 'Audio volume level parameter',
+      },
+    ],
+  })
+  supportedParameters: ParamInfo[];
+
+  constructor(
+    systemId: string,
+    keyValueCollection: KeyValueInfo[],
+    supportedParameters: ParamInfo[],
+  ) {
     super(keyValueCollection);
     this.systemId = systemId;
+    this.supportedParameters = supportedParameters;
   }
 }
 
@@ -67,6 +162,20 @@ export class TagInfoDto {
     example: [
       {
         systemId: '202',
+        supportedParameters: [
+          {
+            paramId: 2001,
+            paramSystemId: 'PARAM_SYS_003',
+            name: 'Channels',
+            description: 'Audio channel configuration parameter',
+          },
+          {
+            paramId: 2002,
+            paramSystemId: 'PARAM_SYS_004',
+            name: 'Volume',
+            description: 'Audio volume level parameter',
+          },
+        ],
         keyValueCollection: [
           {keyId: 2, valueId: 20, keyLabel: 'Channels', valueLabel: 'Stereo'},
         ],
@@ -105,6 +214,20 @@ export class ModuleInstanceTuningConfigDto {
     example: [
       {
         systemId: '101',
+        supportedParameters: [
+          {
+            paramId: 1001,
+            paramSystemId: 'PARAM_SYS_001',
+            name: 'SampleRate',
+            description: 'Audio sample rate configuration parameter',
+          },
+          {
+            paramId: 1002,
+            paramSystemId: 'PARAM_SYS_002',
+            name: 'BitDepth',
+            description: 'Audio bit depth configuration parameter',
+          },
+        ],
         keyValueCollection: [
           {keyId: 1, valueId: 10, keyLabel: 'SampleRate', valueLabel: '48000'},
         ],
@@ -124,6 +247,20 @@ export class ModuleInstanceTuningConfigDto {
         tkvs: [
           {
             systemId: '202',
+            supportedParameters: [
+              {
+                paramId: 2001,
+                paramSystemId: 'PARAM_SYS_003',
+                name: 'Channels',
+                description: 'Audio channel configuration parameter',
+              },
+              {
+                paramId: 2002,
+                paramSystemId: 'PARAM_SYS_004',
+                name: 'Volume',
+                description: 'Audio volume level parameter',
+              },
+            ],
             keyValueCollection: [
               {
                 keyId: 2,
