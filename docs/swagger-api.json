@@ -5907,6 +5907,37 @@
           "controlLinks"
         ]
       },
+      "ParamInfo": {
+        "type": "object",
+        "properties": {
+          "paramId": {
+            "type": "number",
+            "description": "Parameter ID",
+            "example": 1001
+          },
+          "paramSystemId": {
+            "type": "string",
+            "description": "Parameter system ID",
+            "example": "PARAM_SYS_001"
+          },
+          "name": {
+            "type": "string",
+            "description": "Parameter name",
+            "example": "SampleRate"
+          },
+          "description": {
+            "type": "string",
+            "description": "Parameter description",
+            "example": "Audio sample rate configuration parameter"
+          }
+        },
+        "required": [
+          "paramId",
+          "paramSystemId",
+          "name",
+          "description"
+        ]
+      },
       "CkvDto": {
         "type": "object",
         "properties": {
@@ -5921,11 +5952,33 @@
             "type": "string",
             "description": "CKV system ID",
             "example": "101"
+          },
+          "supportedParameters": {
+            "description": "Supported parameters for this CKV",
+            "example": [
+              {
+                "paramId": 1001,
+                "paramSystemId": "PARAM_SYS_001",
+                "name": "SampleRate",
+                "description": "Audio sample rate configuration parameter"
+              },
+              {
+                "paramId": 1002,
+                "paramSystemId": "PARAM_SYS_002",
+                "name": "BitDepth",
+                "description": "Audio bit depth configuration parameter"
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamInfo"
+            }
           }
         },
         "required": [
           "keyValueCollection",
-          "systemId"
+          "systemId",
+          "supportedParameters"
         ]
       },
       "TkvDto": {
@@ -5942,11 +5995,33 @@
             "type": "string",
             "description": "TKV system ID",
             "example": "202"
+          },
+          "supportedParameters": {
+            "description": "Supported parameters for this TKV",
+            "example": [
+              {
+                "paramId": 2001,
+                "paramSystemId": "PARAM_SYS_003",
+                "name": "Channels",
+                "description": "Audio channel configuration parameter"
+              },
+              {
+                "paramId": 2002,
+                "paramSystemId": "PARAM_SYS_004",
+                "name": "Volume",
+                "description": "Audio volume level parameter"
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamInfo"
+            }
           }
         },
         "required": [
           "keyValueCollection",
-          "systemId"
+          "systemId",
+          "supportedParameters"
         ]
       },
       "TagInfoDto": {
@@ -5972,6 +6047,20 @@
             "example": [
               {
                 "systemId": "202",
+                "supportedParameters": [
+                  {
+                    "paramId": 2001,
+                    "paramSystemId": "PARAM_SYS_003",
+                    "name": "Channels",
+                    "description": "Audio channel configuration parameter"
+                  },
+                  {
+                    "paramId": 2002,
+                    "paramSystemId": "PARAM_SYS_004",
+                    "name": "Volume",
+                    "description": "Audio volume level parameter"
+                  }
+                ],
                 "keyValueCollection": [
                   {
                     "keyId": 2,
@@ -6007,6 +6096,20 @@
             "example": [
               {
                 "systemId": "101",
+                "supportedParameters": [
+                  {
+                    "paramId": 1001,
+                    "paramSystemId": "PARAM_SYS_001",
+                    "name": "SampleRate",
+                    "description": "Audio sample rate configuration parameter"
+                  },
+                  {
+                    "paramId": 1002,
+                    "paramSystemId": "PARAM_SYS_002",
+                    "name": "BitDepth",
+                    "description": "Audio bit depth configuration parameter"
+                  }
+                ],
                 "keyValueCollection": [
                   {
                     "keyId": 1,
@@ -6032,6 +6135,20 @@
                 "tkvs": [
                   {
                     "systemId": "202",
+                    "supportedParameters": [
+                      {
+                        "paramId": 2001,
+                        "paramSystemId": "PARAM_SYS_003",
+                        "name": "Channels",
+                        "description": "Audio channel configuration parameter"
+                      },
+                      {
+                        "paramId": 2002,
+                        "paramSystemId": "PARAM_SYS_004",
+                        "name": "Volume",
+                        "description": "Audio volume level parameter"
+                      }
+                    ],
                     "keyValueCollection": [
                       {
                         "keyId": 2,
