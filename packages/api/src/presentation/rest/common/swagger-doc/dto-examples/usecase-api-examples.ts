@@ -7,12 +7,9 @@ import {
   UsecaseIdentifierDto,
   SubsystemFilteredUsecasesDto,
   UsecaseType,
-  UsecaseWithModificationSummary,
-  UsecaseWithComponents,
 } from '../../../modules/usecase/dto/usecase.dto.js';
 import {ComponentCollectionDto} from '../../dto/component-collection.dto.js';
 import {
-  BaseComponentDto,
   KeyValuePairsInfo,
   KeyValueInfo,
   KeyInfo,
@@ -20,11 +17,7 @@ import {
   SystemIdsRequestDto,
   SubsystemFilteredKeyValuePairsInfo,
 } from '../../dto/index.js';
-import {
-  ModificationAction,
-  EndPointLink,
-  CONN_CTRL_TYPE,
-} from '../../../common/utils/index.js';
+import {CONN_CTRL_TYPE} from '../../../common/utils/index.js';
 import {SpfModuleDto} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
 import {DataPortDto, PortType, PortIoType} from '../../dto/data-port.dto.js';
 import {ControlPortDto} from '../../dto/control-port.dto.js';
@@ -296,200 +289,6 @@ export const UsecaseComponentsExample = {
 
     // Return the component collection directly (no wrapper)
     return componentCollection;
-  },
-};
-
-/**
- * Example provider for UsecaseWithComponents
- */
-export const UsecaseWithComponentsExample = {
-  getExample(): UsecaseWithComponents {
-    // Create a usecase with components using the UsecaseIdentifierDto example
-    const usecaseIdentifier = UsecaseIdentifierDtoExample.getExample();
-    const usecaseWithComponents = new UsecaseWithComponents(usecaseIdentifier);
-
-    // Get the component collection and flatten them for backward compatibility
-    const componentCollection = UsecaseComponentsExample.getExample();
-    const flatComponents: BaseComponentDto<number>[] = [
-      ...componentCollection.spfModules,
-      ...componentCollection.dataLinks,
-      ...componentCollection.controlLinks,
-    ];
-
-    // Add components to the usecase
-    usecaseWithComponents.components = flatComponents;
-
-    return usecaseWithComponents;
-  },
-
-  /**
-   * Get a more complex example with additional components
-   */
-  getComplexExample(): UsecaseWithComponents {
-    // Create a usecase with components using a custom UseCaseIdentifier
-    const keyvalueInfo = [
-      new KeyValueInfo(
-        new KeyInfo(0xa1_00_00_00, 'StreamRX', 'sys13'),
-        new ValueInfo(0xa1_00_00_02, 'PCM_Low_Latency', 'val13'),
-      ),
-      new KeyValueInfo(
-        new KeyInfo(0xac_00_00_00, 'DevicePP_Rx', 'sys14'),
-        new ValueInfo(0xac_00_00_03, 'Audio_EQ', 'val14'),
-      ),
-      new KeyValueInfo(
-        new KeyInfo(0xa2_00_00_00, 'DeviceRX', 'sys15'),
-        new ValueInfo(0xa2_00_00_02, 'Headphones', 'val15'),
-      ),
-    ];
-    const kvInfo = new KeyValuePairsInfo(keyvalueInfo);
-    const usecaseIdentifier = new UsecaseIdentifierDto(
-      '1',
-      UsecaseType.Regular,
-      kvInfo,
-      103,
-      'PCM_Low_Latency_EQ_Playback_Headphones',
-      'Headphone_Playback',
-    );
-
-    // Add endpoint links
-    const link1 = new EndPointLink();
-    link1.hypertextRef = `/usecases/${usecaseIdentifier.systemId}/components`;
-    link1.method = 'GET';
-    link1.description = 'Get all components of usecase.';
-
-    const link2 = new EndPointLink();
-    link2.hypertextRef = `/usecases/${usecaseIdentifier.systemId}/status`;
-    link2.method = 'GET';
-    link2.description = 'Get status of usecase.';
-
-    // Create the usecase with components
-    const usecaseWithComponents = new UsecaseWithComponents(usecaseIdentifier);
-
-    // Get base component collection
-    const baseComponentCollection = UsecaseComponentsExample.getExample();
-
-    // Add additional components
-
-    // Create an EQ module instance
-    const eqModule = new SpfModuleDto('1003', 1003, 0x07_00_10_17, 'Audio EQ');
-    eqModule.alias = 'Audio_EQ_1';
-    eqModule.subgraphId = 501;
-    eqModule.containerId = 601;
-    eqModule.maxInputPortsSupported = 1;
-    eqModule.maxOutputPortsSupported = 1;
-    eqModule.maxControlPortsSupported = 2;
-
-    // Add data ports to EQ module
-    const eqInputPort = new DataPortDto(
-      '2005',
-      2005,
-      'Input',
-      PortIoType.Input,
-      PortType.Static,
-    );
-    const eqOutputPort = new DataPortDto(
-      '2006',
-      2006,
-      'Output',
-      PortIoType.Output,
-      PortType.Static,
-    );
-    eqModule.dataPorts = [eqInputPort, eqOutputPort];
-
-    // Add control ports to EQ module
-    const eqControlPort1 = new ControlPortDto(
-      '3004',
-      3004,
-      'Control',
-      PortType.Static,
-      [],
-    );
-    const eqControlPort2 = new ControlPortDto(
-      '3005',
-      3005,
-      'Control',
-      PortType.Static,
-      [],
-    );
-    eqModule.controlPorts = [eqControlPort1, eqControlPort2];
-
-    // Find the MBDRC module from base components (for reference)
-    const mbdrcModule = baseComponentCollection.spfModules.find(
-      (c: SpfModuleDto) => c.id === 1002,
-    );
-    if (!mbdrcModule) {
-      throw new Error('MBDRC module not found in base components');
-    }
-
-    // Create a data connection from MBDRC to EQ
-    const dataConnection = new DataLinkDto(
-      '4002',
-      4002,
-      CONN_CTRL_TYPE.MODULE_MODULE,
-      1002, // sourceId (MBDRC module)
-      2004, // sourcePortId (MBDRC output port)
-      1003, // destinationId (EQ module)
-      2005, // destinationPortId (EQ input port)
-      false, // isDangling
-      601, // parentId (containerId)
-    );
-    dataConnection.name = 'MBDRC_to_EQ';
-
-    // Create a control connection to EQ
-    const controlConnection = new ControlLinkDto(
-      '5002',
-      5002,
-      CONN_CTRL_TYPE.MODULE_MODULE,
-      1002, // sourceId (MBDRC module)
-      3003, // sourcePortId (MBDRC control port)
-      1003, // destinationId (EQ module)
-      3004, // destinationPortId (EQ control port)
-      false, // isDangling
-      601, // parentId (containerId)
-    );
-
-    // Combine all components
-    const allComponents: BaseComponentDto<number>[] = [
-      ...baseComponentCollection.spfModules,
-      ...baseComponentCollection.dataLinks,
-      ...baseComponentCollection.controlLinks,
-      eqModule,
-      dataConnection,
-      controlConnection,
-    ];
-    usecaseWithComponents.components = allComponents;
-
-    return usecaseWithComponents;
-  },
-};
-
-/**
- * Example provider for UsecaseWithModificationSummary
- */
-export const UsecaseWithModificationSummaryExample = {
-  getExample(): UsecaseWithModificationSummary {
-    // Get a usecase with components
-    const usecaseWithComponents = UsecaseWithComponentsExample.getExample();
-
-    // Create a modification summary
-    return new UsecaseWithModificationSummary(
-      usecaseWithComponents,
-      ModificationAction.Add,
-      'Added new usecase for PCM Deep Buffer with MBDRC processing for Speaker playback',
-    );
-  },
-
-  getModifiedExample(): UsecaseWithModificationSummary {
-    // Get a complex usecase with components
-    const usecaseWithComponents =
-      UsecaseWithComponentsExample.getComplexExample();
-
-    // Create a modification summary for a modified usecase
-    return new UsecaseWithModificationSummary(
-      usecaseWithComponents,
-      ModificationAction.Update,
-      'Modified usecase to add EQ processing for Headphone playback',
-    );
   },
 };
 

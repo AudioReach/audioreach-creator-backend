@@ -138,7 +138,7 @@ export class PropertyDefinitionController {
       'Delete subgraph property definition based on project id and property definition system id',
   })
   @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
+    status: HttpStatus.OK,
     description: 'Successfully deleted',
     type: ApiResult,
   })
@@ -150,7 +150,7 @@ export class PropertyDefinitionController {
   async deleteSpfSubgraphPropertyDefinition(
     @Param('projectId') _projectId: string,
     @Param('propertySystemId') _propertySystemId: string,
-  ): Promise<ApiResult<null>> {
+  ): Promise<ApiResult<SubgraphPropertyDefinitionDetailResponseDto>> {
     // implement logic here
     await Promise.resolve();
     throw new NotImplementedException(
@@ -262,7 +262,7 @@ export class PropertyDefinitionController {
       'Delete container property definition based on project id and property definition system id',
   })
   @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
+    status: HttpStatus.OK,
     description: 'Successfully deleted',
     type: ApiResult,
   })
@@ -274,7 +274,7 @@ export class PropertyDefinitionController {
   async deleteContainerPropertyDefinition(
     @Param('projectId') _projectId: string,
     @Param('propertySystemId') _propertySystemId: string,
-  ): Promise<ApiResult<null>> {
+  ): Promise<ApiResult<ContainerPropertyDefinitionDetailResponseDto>> {
     await Promise.resolve();
     throw new NotImplementedException(
       'deleteContainerPropertyDefinition is not implemented yet',

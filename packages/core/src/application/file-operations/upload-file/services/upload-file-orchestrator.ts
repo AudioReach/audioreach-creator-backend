@@ -26,10 +26,7 @@ import {
   type MemorySnapshot,
 } from '../../../../shared/profiling/profiler-types.js';
 import {IssueCollector /*, ENTITY_TYPES*/} from '../types/issue-collection.js';
-import type {
-  ResultError,
-  ResultWarning,
-} from '../../../../shared/types/api-result.js';
+import type {ResultIssue} from '../../../../shared/types/api-result.js';
 import type {ValidationIssue} from '../../../../domain/validation/issue.js';
 import {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
@@ -69,8 +66,7 @@ export interface AcdbHeaderData {
  */
 export interface UploadOrchestratorResult {
   success: boolean;
-  errors?: ResultError[];
-  warnings?: ResultWarning[];
+  issues?: ResultIssue[];
   /**
    * DATA_LOSS issues collected during bulk-insert.
    * Each entry represents an entity that failed to insert into the DB.
@@ -296,8 +292,7 @@ export class UploadFileOrchestrator {
       success: !(
         this.dataLossIssues.length > 0 || this.issueCollector.hasErrors()
       ),
-      errors: formattedIssues.errors,
-      warnings: formattedIssues.warnings,
+      issues: formattedIssues.issues,
       dataLossIssues: [...this.dataLossIssues],
       headerData: this.extractHeaderData(),
     };

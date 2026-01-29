@@ -20,17 +20,13 @@ import {
   type FileOpenStatus,
 } from '../../../domain/entities/usecase-data/project/arc-db-file.js';
 import type {ValidationReport} from '../../../domain/validation/validation-report.js';
-import type {
-  ResultError,
-  ResultWarning,
-} from '../../../shared/types/api-result.js';
+import type {ResultIssue} from '../../../shared/types/api-result.js';
 
 export type UploadFileResult = {
   projectId: string;
   projectName: string;
   projectDescription: string;
-  errors?: ResultError[];
-  warnings?: ResultWarning[];
+  issues?: ResultIssue[];
   openStatus: FileOpenStatus;
   /**
    * Null for now — domain validation via fromEntities() will be added
@@ -170,8 +166,7 @@ export class UploadFileHandler implements CommandHandler<
       projectId: project.systemId.toString(),
       projectName: project.name,
       projectDescription: project.description,
-      errors: uploadResult.errors,
-      warnings: uploadResult.warnings,
+      issues: uploadResult.issues,
       openStatus: finalStatus,
       validationReport: null,
     };

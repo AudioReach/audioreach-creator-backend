@@ -292,25 +292,24 @@ describe('IssueCollector', () => {
 
       const formatted = collector.formatForApi();
 
-      expect(formatted.errors).toBeDefined();
-      expect(formatted.warnings).toBeDefined();
-      expect(formatted.errors).toHaveLength(1);
-      expect(formatted.warnings).toHaveLength(1);
-      expect(formatted.errors![0]).toEqual({
+      expect(formatted.issues).toBeDefined();
+      expect(formatted.issues).toHaveLength(2);
+      expect(formatted.issues![0]).toEqual({
         code: 'ERR_2004',
         message: 'KeyDefinition: Invalid data',
+        severity: 'ERROR',
       });
-      expect(formatted.warnings![0]).toEqual({
+      expect(formatted.issues![1]).toEqual({
         code: 'ERR_1002',
         message: 'SpfModule: Missing field',
+        severity: 'WARNING',
       });
     });
 
     it('should return empty object when no issues', () => {
       const formatted = collector.formatForApi();
 
-      expect(formatted.errors).toBeUndefined();
-      expect(formatted.warnings).toBeUndefined();
+      expect(formatted.issues).toBeUndefined();
     });
   });
 

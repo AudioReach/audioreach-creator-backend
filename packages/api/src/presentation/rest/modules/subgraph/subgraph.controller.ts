@@ -18,7 +18,9 @@ import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {SubgraphDto, SubgraphPropertiesDto} from './dto/subgraph.dto.js';
+import {SubgraphPairDto} from './dto/subgraph-pair.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
+import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
 import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
 import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
@@ -34,7 +36,12 @@ import {PartialSuccessInterceptor} from '../../common/interceptors/partial-succe
 @ApiTags('subgraphs')
 @Controller('arc-api/v1/projects/:projectId/subgraphs')
 @UseGuards(AuthGuard('jwt'))
-@ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
+@ApiExtraModels(
+  ConfigElementDto,
+  ElementTemplateArrayDto,
+  StructDto,
+  ComponentCollectionDto,
+)
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
@@ -198,6 +205,96 @@ export class SubgraphController extends BaseController {
     );
     throw new NotImplementedException(
       'getUsecasesForSubgraph is not implemented yet',
+    );
+  }
+
+  /**
+   * Get all components (modules, data links, control links) for a subgraph.
+   */
+  @Get('/:subgraphSystemId/components')
+  @ApiParam({
+    name: 'subgraphSystemId',
+    required: true,
+    type: 'string',
+    description: 'The system ID of the subgraph',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get all components for a subgraph',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Components returned successfully',
+        dto: ComponentCollectionDto,
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some components could not be retrieved (see errors array)',
+        dto: ComponentCollectionDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or subgraph not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get components',
+      },
+    ],
+  })
+  async getComponentsForSubgraph(
+    @Param('projectId') projectId: string,
+    @Param('subgraphSystemId') subgraphSystemId: string,
+  ): Promise<ApiResult<ComponentCollectionDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      `Getting components for project: ${projectId} and subgraph: ${subgraphSystemId}`,
+    );
+    throw new NotImplementedException(
+      'getComponentsForSubgraph is not implemented yet',
+    );
+  }
+
+  /**
+   * Get all subgraph pairs where the given subgraph is source or destination.
+   */
+  @Get('/:subgraphSystemId/subgraph-pairs')
+  @ApiParam({
+    name: 'subgraphSystemId',
+    required: true,
+    type: 'string',
+    description: 'The system ID of the subgraph',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get all subgraph pairs for a subgraph (as source or destination)',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Subgraph pairs returned successfully',
+        dto: [SubgraphPairDto],
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or subgraph not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get subgraph pairs',
+      },
+    ],
+  })
+  async getSubgraphPairs(
+    @Param('projectId') projectId: string,
+    @Param('subgraphSystemId') subgraphSystemId: string,
+  ): Promise<ApiResult<SubgraphPairDto[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      `Getting subgraph pairs for project: ${projectId} and subgraph: ${subgraphSystemId}`,
+    );
+    throw new NotImplementedException(
+      'getSubgraphPairs is not implemented yet',
     );
   }
 }

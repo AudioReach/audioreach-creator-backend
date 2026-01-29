@@ -239,7 +239,7 @@ export class ControlLinkController extends BaseController {
   async updateControlLinkProperties(
     @Param('controlLinkSystemId') controlLinkSystemId: string,
     @Body() properties: ControlLinkPropertiesDto,
-  ): Promise<void> {
+  ): Promise<ApiResult<ControlLinkDto[]>> {
     console.log(
       'Updating control link with properties:',
       controlLinkSystemId,

@@ -4,6 +4,9 @@
  */
 
 export enum SessionMode {
+  ReadOnly = 'READONLY',
+  Tuning = 'TUNING',
+  DiscoveryWizard = 'DISCOVERY_WIZARD',
   DiffMerge = 'DIFF_MERGE',
   Designer = 'DESIGNER',
   Simulation = 'SIMULATION',

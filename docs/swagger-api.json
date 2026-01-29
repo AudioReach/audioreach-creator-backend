@@ -626,6 +626,682 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/create-usecases": {
+      "post": {
+        "description": "Reconciles staged changes with the database using routing logic.\n\nThis endpoint processes all staged changes and reconciles them into the database state:\n- Analyzes staged modules, links, properties, and metadata\n- Uses routing logic to discover signal paths\n- Generates usecases that represent the discovered paths\n- Creates/updates/deletes usecases to match the reconciled state\n- Persists all changes to the database\n\nThe reconciliation process ensures the database state accurately reflects the staged modifications.\n\nThis operation is idempotent - multiple invocations produce the same result.\nIf no staged changes exist, returns empty arrays with success: true.\n\nNote: warnings and errors arrays are placeholders and will be populated when the validation framework is introduced.",
+        "operationId": "ProjectController_createUsecases",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUsecasesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully reconciled staged changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CreateUsecasesResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to reconcile staged changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reconcile staged changes with database",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/stage-changes": {
+      "post": {
+        "description": "Stage changes in the project based on project Id.",
+        "operationId": "ProjectController_stageChanges",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageChangesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully staged changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/StageChangesResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stage changes",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/unstage-changes": {
+      "post": {
+        "description": "Unstage changes in the project based on project Id.",
+        "operationId": "ProjectController_unstageChanges",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnstageChangesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully unstaged changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UnstageChangesResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Unstage changes",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/commit-changes": {
+      "post": {
+        "description": "Commit staged changes in the project based on project Id.\n\nBehavior:\n- If changeIds is not provided or empty, all staged changes will be committed\n- If changeIds is provided, only the specified changes will be committed\n- All dependencies of the specified changes must be staged, otherwise the commit will fail\n- The operation validates that all required dependencies are present before committing",
+        "operationId": "ProjectController_commitChanges",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitChangesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully committed changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CommitChangesResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or missing dependencies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Commit changes",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/discard-changes": {
+      "post": {
+        "description": "Discard uncommitted changes in the project based on project Id.\n\nBehavior:\n- If changeIds is not provided or empty, all changes will be discarded\n- If changeIds is provided, only the specified changes will be discarded\n- Dependent changes will be automatically discarded as well (cascade delete)\n- WARNING: Discarded changes cannot be recovered",
+        "operationId": "ProjectController_discardChanges",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscardChangesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully discarded changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DiscardChangesResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Discard changes",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/start-session": {
+      "post": {
+        "description": "Start a new session with specified mode. Returns error if a session is already active.\n\n## Session Modes & Supported Operations\n\n### READONLY\n- Only read APIs are supported\n- No modifications allowed\n\n### TUNING\n- Read APIs\n- Tuning/Calibration APIs (get-cal-data, set-cal-data, goto-change)\n- Change Management APIs\n\n### DESIGNER\n- Read APIs\n- Tuning APIs\n- Designer APIs (add-module, add-data-link, etc.)\n- Change Management APIs\n\n### DISCOVERY_WIZARD\n- Read APIs\n- Import/Discovery APIs (import-h2xml)\n- Change Management APIs\n\n### DIFF_MERGE\n- Read APIs\n- Tuning APIs\n- Designer APIs\n- Diff/Merge APIs (diff-files, merge-changes)\n- Change Management APIs\n\n**Important**: If an invalid API is called during a session, it will return `403 Forbidden` with error code `INVALID_OPERATION_FOR_MODE`.\n\nFor detailed workflow scenarios and complete API reference, see: `docs/modification-framework/modification-framework-api-reference.md`",
+        "operationId": "ProjectController_startSession",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session started successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SessionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or session already active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Start a new session",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/end-session": {
+      "post": {
+        "description": "End the current active session. This operation will:\n1. Commit all staged changes\n2. Clear all unstaged changes\n3. Move session to READONLY state\n4. Return a summary of all committed and cleared changes\n\nIf any issues occur while committing changes, an error will be returned and the session will remain active.",
+        "operationId": "ProjectController_endSession",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session ended successfully with change summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SessionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Failed to commit changes or no active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "End the current session",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/definitions/keys": {
       "get": {
         "description": "Return the list of key definitions based on project id",
@@ -778,7 +1454,7 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
             "description": "Successfully deleted",
             "content": {
               "application/json": {
@@ -957,7 +1633,7 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
             "description": "Successfully deleted",
             "content": {
               "application/json": {
@@ -1136,7 +1812,7 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
             "description": "Successfully deleted",
             "content": {
               "application/json": {
@@ -1315,7 +1991,7 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
             "description": "Successfully deleted",
             "content": {
               "application/json": {
@@ -4442,6 +5118,150 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/components": {
+      "get": {
+        "operationId": "SubgraphController_getComponentsForSubgraph",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": true,
+            "in": "path",
+            "description": "The system ID of the subgraph",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Components returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ComponentCollectionDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some components could not be retrieved (see errors array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ComponentCollectionDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or subgraph not found"
+          },
+          "422": {
+            "description": "Failed to get components"
+          }
+        },
+        "summary": "Get all components for a subgraph",
+        "tags": [
+          "subgraphs"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/subgraph-pairs": {
+      "get": {
+        "operationId": "SubgraphController_getSubgraphPairs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": true,
+            "in": "path",
+            "description": "The system ID of the subgraph",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subgraph pairs returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubgraphPairDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or subgraph not found"
+          },
+          "422": {
+            "description": "Failed to get subgraph pairs"
+          }
+        },
+        "summary": "Get all subgraph pairs for a subgraph (as source or destination)",
+        "tags": [
+          "subgraphs"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/subsystems/query": {
       "post": {
         "operationId": "SubsystemController_querySubsystems",
@@ -5454,42 +6274,182 @@
       }
     },
     "schemas": {
-      "ApiErrorItem": {
+      "IssueSeverity": {
+        "type": "string",
+        "enum": [
+          "FATAL",
+          "ERROR",
+          "WARNING"
+        ]
+      },
+      "IssueCategory": {
+        "type": "string",
+        "enum": [
+          "BLOCKING",
+          "NON_BLOCKING",
+          "DATA_LOSS"
+        ],
+        "description": "Present for domain validation issues; absent for operational failures"
+      },
+      "IssueEntityType": {
+        "type": "string",
+        "enum": [
+          "SpfModule",
+          "DataLink",
+          "ControlLink",
+          "Subgraph",
+          "UseCase",
+          "Container",
+          "SpfModuleDefinition"
+        ]
+      },
+      "ApiImpactedEntityDto": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueEntityType"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "number",
+            "description": "Database system ID of the impacted entity"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Human-readable name for display (e.g. module alias)"
+          }
+        },
+        "required": [
+          "entityType",
+          "systemId"
+        ]
+      },
+      "ClientInputType": {
+        "type": "string",
+        "enum": [
+          "NUMBER",
+          "STRING",
+          "BOOLEAN"
+        ],
+        "description": "Input type to render in the UI"
+      },
+      "ApiClientInputSpecDto": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Key in commandPayload the client must fill in before calling POST /apply-fix"
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label shown to the user"
+          },
+          "type": {
+            "description": "Input type to render in the UI",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClientInputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "field",
+          "label",
+          "type"
+        ]
+      },
+      "ApiFixOptionDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "description": "Identifier of the item that failed (if applicable)"
+            "description": "Unique identifier for this fix option (e.g. delete-duplicate-link)"
           },
-          "code": {
+          "description": {
             "type": "string",
-            "description": "Machine-readable error code (e.g., DB_QUERY_FAILED, PARSE_ERROR)"
+            "description": "Human-readable description of what this fix does"
           },
-          "message": {
+          "commandType": {
             "type": "string",
-            "description": "Human-readable error detail"
+            "description": "Command type string dispatched via POST /apply-fix"
+          },
+          "commandPayload": {
+            "type": "object",
+            "description": "Partial command payload; null fields must be filled by the client via requiredClientInputs"
+          },
+          "requiredClientInputs": {
+            "description": "Client inputs required before this fix can be dispatched",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiClientInputSpecDto"
+            }
           }
         },
         "required": [
-          "code",
-          "message"
+          "id",
+          "description",
+          "commandType",
+          "commandPayload",
+          "requiredClientInputs"
         ]
       },
-      "ApiWarningItem": {
+      "ApiIssueItem": {
         "type": "object",
         "properties": {
           "code": {
             "type": "string",
-            "description": "Machine-readable warning code (e.g., DEPRECATED_FORMAT, PARTIAL_DATA)"
+            "description": "Machine-readable issue code. Validation rules follow ARC-{ENTITY}-{SEQ} format (e.g. ARC-MOD-001). Operational failures use descriptive constants (e.g. DB_QUERY_FAILED)."
           },
           "message": {
             "type": "string",
-            "description": "Human-readable warning detail"
+            "description": "Human-readable issue detail"
+          },
+          "severity": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueSeverity"
+              }
+            ]
+          },
+          "category": {
+            "description": "Present for domain validation issues; absent for operational failures",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueCategory"
+              }
+            ]
+          },
+          "impactedEntity": {
+            "description": "Present for domain validation issues; absent for operational failures",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiImpactedEntityDto"
+              }
+            ]
+          },
+          "impactedUsecases": {
+            "description": "System IDs of use cases affected by this issue",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "fixOptions": {
+            "description": "Actionable fix commands the client can dispatch via POST /apply-fix",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiFixOptionDto"
+            }
           }
         },
         "required": [
           "code",
-          "message"
+          "message",
+          "severity"
         ]
       },
       "ApiResult": {
@@ -5498,16 +6458,10 @@
           "data": {
             "type": "object"
           },
-          "errors": {
+          "issues": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ApiErrorItem"
-            }
-          },
-          "warnings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiWarningItem"
+              "$ref": "#/components/schemas/ApiIssueItem"
             }
           },
           "success": {
@@ -5582,6 +6536,9 @@
           "sessionMode": {
             "type": "string",
             "enum": [
+              "READONLY",
+              "TUNING",
+              "DISCOVERY_WIZARD",
               "DIFF_MERGE",
               "DESIGNER",
               "SIMULATION",
@@ -5697,6 +6654,541 @@
           "codecInfos",
           "modifiedDate",
           "oemInfo"
+        ]
+      },
+      "ChangeInfoDto": {
+        "type": "object",
+        "properties": {
+          "changeType": {
+            "type": "string",
+            "description": "Type of change operation applied to this resource",
+            "enum": [
+              "NONE",
+              "CREATE",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Identifier of the change set this resource belongs to. Present only when changeType is not None."
+          },
+          "changeStatus": {
+            "type": "string",
+            "description": "Change status of this resource. Present only when changeType is not None.",
+            "enum": [
+              "STAGED",
+              "UNSTAGED"
+            ]
+          }
+        },
+        "required": [
+          "changeType"
+        ]
+      },
+      "KeyInfo": {
+        "type": "object",
+        "properties": {
+          "keyId": {
+            "type": "number",
+            "description": "Key id"
+          },
+          "keyLabel": {
+            "type": "string",
+            "description": "Key name"
+          },
+          "keySystemId": {
+            "type": "string",
+            "description": "Key system identifier"
+          }
+        },
+        "required": [
+          "keyId",
+          "keyLabel",
+          "keySystemId"
+        ]
+      },
+      "ValueInfo": {
+        "type": "object",
+        "properties": {
+          "valueId": {
+            "type": "number",
+            "description": "Value id"
+          },
+          "valueLabel": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "valueSystemId": {
+            "type": "string",
+            "description": "Value system identifier"
+          }
+        },
+        "required": [
+          "valueId",
+          "valueLabel",
+          "valueSystemId"
+        ]
+      },
+      "KeyValueInfo": {
+        "type": "object",
+        "properties": {
+          "keyInfo": {
+            "description": "Key information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KeyInfo"
+              }
+            ]
+          },
+          "valueInfo": {
+            "description": "Value information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValueInfo"
+              }
+            ]
+          }
+        },
+        "required": [
+          "keyInfo",
+          "valueInfo"
+        ]
+      },
+      "EndPointLink": {
+        "type": "object",
+        "properties": {
+          "hypertextRef": {
+            "type": "string",
+            "description": "Hypertext reference URL following 'project{projectId}'"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the endpoint"
+          }
+        },
+        "required": [
+          "hypertextRef",
+          "method",
+          "description"
+        ]
+      },
+      "UsecaseIdentifierDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "System identifier of the usecase"
+          },
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          },
+          "usecaseAliasId": {
+            "type": "number",
+            "description": "Optional alias identifier for the usecase"
+          },
+          "usecaseAliasName": {
+            "type": "string",
+            "description": "Alias name for the usecase"
+          },
+          "usecaseCategory": {
+            "type": "string",
+            "description": "Category of the usecase"
+          },
+          "usecaseType": {
+            "type": "string",
+            "description": "Type of the usecase",
+            "enum": [
+              "Ec",
+              "Regular",
+              "Manual"
+            ]
+          },
+          "relatedEndPointLinks": {
+            "description": "Related endpoint links for the usecase",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EndPointLink"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "keyValueCollection",
+          "usecaseType"
+        ]
+      },
+      "CreateUsecasesResponseDto": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "description": "Usecases created during reconciliation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          },
+          "updated": {
+            "description": "Usecases updated during reconciliation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          },
+          "deleted": {
+            "description": "Usecases deleted during reconciliation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          },
+          "issues": {
+            "description": "Issues encountered during reconciliation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiIssueItem"
+            }
+          }
+        },
+        "required": [
+          "created",
+          "updated",
+          "deleted",
+          "issues"
+        ]
+      },
+      "SubgraphKvSelectionDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System ID of the subgraph"
+          },
+          "valueSystemIds": {
+            "type": "array",
+            "description": "Selected SGKV cases for this subgraph — each inner array is one case, containing the value system IDs of the KVs active in that case",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "systemId",
+          "valueSystemIds"
+        ]
+      },
+      "CreateUsecasesRequestDto": {
+        "type": "object",
+        "properties": {
+          "selectedUsecaseSystemIds": {
+            "description": "System IDs of selected usecases",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "activeSubgraphs": {
+            "description": "Active subgraphs with their selected SGKV combinations",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubgraphKvSelectionDto"
+            }
+          },
+          "excludedDataLinkSystemIds": {
+            "description": "System IDs of data links to exclude from routing",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excludedControlLinkSystemIds": {
+            "description": "System IDs of control links to exclude from routing",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "selectedUsecaseSystemIds",
+          "activeSubgraphs"
+        ]
+      },
+      "StageChangesResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Overall operation success status"
+          },
+          "processedChangeIds": {
+            "description": "Successfully staged change IDs",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failedChangeIds": {
+            "description": "Change IDs that failed to stage",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string",
+            "description": "Descriptive message about the operation"
+          }
+        },
+        "required": [
+          "success",
+          "processedChangeIds",
+          "failedChangeIds",
+          "message"
+        ]
+      },
+      "StageChangesRequestDto": {
+        "type": "object",
+        "properties": {
+          "changeIds": {
+            "description": "Array of change IDs to stage",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "changeIds"
+        ]
+      },
+      "UnstageChangesResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Overall operation success status"
+          },
+          "processedChangeIds": {
+            "description": "Successfully unstaged change IDs",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failedChangeIds": {
+            "description": "Change IDs that failed to unstage",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string",
+            "description": "Descriptive message about the operation"
+          }
+        },
+        "required": [
+          "success",
+          "processedChangeIds",
+          "failedChangeIds",
+          "message"
+        ]
+      },
+      "UnstageChangesRequestDto": {
+        "type": "object",
+        "properties": {
+          "changeIds": {
+            "description": "Array of change IDs to unstage",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "changeIds"
+        ]
+      },
+      "CommitChangesResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Overall operation success status"
+          },
+          "processedChangeIds": {
+            "description": "Successfully committed change IDs",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failedChangeIds": {
+            "description": "Change IDs that failed to commit",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string",
+            "description": "Descriptive message about the operation"
+          },
+          "missingDependencies": {
+            "description": "Change IDs that were missing required dependencies",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "processedChangeIds",
+          "failedChangeIds",
+          "message"
+        ]
+      },
+      "CommitChangesRequestDto": {
+        "type": "object",
+        "properties": {
+          "changeIds": {
+            "description": "Optional array of change IDs to commit. If not provided, all staged changes will be committed.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DiscardChangesResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Overall operation success status"
+          },
+          "processedChangeIds": {
+            "description": "Successfully discarded change IDs",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failedChangeIds": {
+            "description": "Change IDs that failed to discard",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string",
+            "description": "Descriptive message about the operation"
+          },
+          "cascadedChangeIds": {
+            "description": "Change IDs that were discarded due to dependency cascade",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "processedChangeIds",
+          "failedChangeIds",
+          "message",
+          "cascadedChangeIds"
+        ]
+      },
+      "DiscardChangesRequestDto": {
+        "type": "object",
+        "properties": {
+          "changeIds": {
+            "description": "Optional array of change IDs to discard. If not provided, all changes will be discarded.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SessionMode": {
+        "type": "string",
+        "enum": [
+          "READONLY",
+          "TUNING",
+          "DISCOVERY_WIZARD",
+          "DIFF_MERGE",
+          "DESIGNER",
+          "SIMULATION",
+          "CONNECTED",
+          "DISCONNECTED"
+        ],
+        "description": "Current session mode"
+      },
+      "SessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "description": "Project identifier"
+          },
+          "sessionMode": {
+            "description": "Current session mode",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionMode"
+              }
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "description": "Summary of the session operation including any changes committed or cleared"
+          }
+        },
+        "required": [
+          "projectId",
+          "sessionMode",
+          "summary"
+        ]
+      },
+      "StartSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "description": "Session mode to start",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionMode"
+              }
+            ]
+          }
+        },
+        "required": [
+          "mode"
         ]
       },
       "TagValueDefinitionInfo": {
@@ -6574,36 +8066,6 @@
           "endPointFunctionTag"
         ]
       },
-      "ChangeInfoDto": {
-        "type": "object",
-        "properties": {
-          "changeType": {
-            "type": "string",
-            "description": "Type of change operation applied to this resource",
-            "enum": [
-              "NONE",
-              "CREATE",
-              "UPDATE",
-              "DELETE"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Identifier of the change set this resource belongs to. Present only when changeType is not None."
-          },
-          "changeStatus": {
-            "type": "string",
-            "description": "Change status of this resource. Present only when changeType is not None.",
-            "enum": [
-              "STAGED",
-              "UNSTAGED"
-            ]
-          }
-        },
-        "required": [
-          "changeType"
-        ]
-      },
       "DeleteSpfCustomModuleMetadataResponseDto": {
         "type": "object",
         "properties": {
@@ -7399,155 +8861,6 @@
         "required": [
           "allowedTypes",
           "allowedInterfaces"
-        ]
-      },
-      "KeyInfo": {
-        "type": "object",
-        "properties": {
-          "keyId": {
-            "type": "number",
-            "description": "Key id"
-          },
-          "keyLabel": {
-            "type": "string",
-            "description": "Key name"
-          },
-          "keySystemId": {
-            "type": "string",
-            "description": "Key system identifier"
-          }
-        },
-        "required": [
-          "keyId",
-          "keyLabel",
-          "keySystemId"
-        ]
-      },
-      "ValueInfo": {
-        "type": "object",
-        "properties": {
-          "valueId": {
-            "type": "number",
-            "description": "Value id"
-          },
-          "valueLabel": {
-            "type": "string",
-            "description": "Value name"
-          },
-          "valueSystemId": {
-            "type": "string",
-            "description": "Value system identifier"
-          }
-        },
-        "required": [
-          "valueId",
-          "valueLabel",
-          "valueSystemId"
-        ]
-      },
-      "KeyValueInfo": {
-        "type": "object",
-        "properties": {
-          "keyInfo": {
-            "description": "Key information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/KeyInfo"
-              }
-            ]
-          },
-          "valueInfo": {
-            "description": "Value information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ValueInfo"
-              }
-            ]
-          }
-        },
-        "required": [
-          "keyInfo",
-          "valueInfo"
-        ]
-      },
-      "EndPointLink": {
-        "type": "object",
-        "properties": {
-          "hypertextRef": {
-            "type": "string",
-            "description": "Hypertext reference URL following 'project{projectId}'"
-          },
-          "method": {
-            "type": "string",
-            "description": "HTTP method"
-          },
-          "description": {
-            "type": "string",
-            "description": "Description of the endpoint"
-          }
-        },
-        "required": [
-          "hypertextRef",
-          "method",
-          "description"
-        ]
-      },
-      "UsecaseIdentifierDto": {
-        "type": "object",
-        "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
-          "systemId": {
-            "type": "string",
-            "description": "System identifier of the usecase"
-          },
-          "keyValueCollection": {
-            "description": "Collection of key-value pairs",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/KeyValueInfo"
-            }
-          },
-          "usecaseAliasId": {
-            "type": "number",
-            "description": "Optional alias identifier for the usecase"
-          },
-          "usecaseAliasName": {
-            "type": "string",
-            "description": "Alias name for the usecase"
-          },
-          "usecaseCategory": {
-            "type": "string",
-            "description": "Category of the usecase"
-          },
-          "usecaseType": {
-            "type": "string",
-            "description": "Type of the usecase",
-            "enum": [
-              "Ec",
-              "Regular",
-              "Manual"
-            ]
-          },
-          "relatedEndPointLinks": {
-            "description": "Related endpoint links for the usecase",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EndPointLink"
-            }
-          }
-        },
-        "required": [
-          "changeInfo",
-          "systemId",
-          "keyValueCollection",
-          "usecaseType"
         ]
       },
       "UsecaseDto": {
@@ -9041,6 +10354,15 @@
             "type": "boolean",
             "description": "When true, indicates this parameter processing is offloaded to a separate processor or accelerator. Offloaded parameters may have different performance characteristics or constraints."
           },
+          "pidType": {
+            "type": "string",
+            "description": "PID type of the parameter. Indicates the sharing scope of the parameter ID:\n- `NONE`: Not shared (default)\n- `SHARED`: Shared across module instances\n- `GLOBAL_SHARED`: Globally shared across all modules",
+            "enum": [
+              "NONE",
+              "SHARED",
+              "GLOBAL_SHARED"
+            ]
+          },
           "elements": {
             "type": "array",
             "description": "Array of calibration elements for this Parameter ID.\n\nThis array can contain three different types of calibration elements:\n\n**1. ConfigElement (Simple Parameters):**\n   - Single configuration values (volume, gain, frequency)\n   - Rendered as UI controls like sliders, text boxes, dropdowns\n\n**2. ElementTemplateArray (Parameter Arrays):**\n   - Arrays of configuration values of the same type\n   - Used for multi-band EQs, filter coefficients, channel gains\n   - Contains template defining the structure of each array item\n\n**3. Struct (Grouped Parameters):**\n   - Complex structured data grouping related parameters\n   - Contains nested elements of any calibration type",
@@ -9119,6 +10441,23 @@
           "value": {
             "type": "string",
             "description": "Current value of the element as a string."
+          },
+          "dataType": {
+            "type": "string",
+            "description": "Data type of the element value (e.g. UInt32, Int16, Float). Determines how the raw binary value is interpreted.",
+            "enum": [
+              "UInt8",
+              "UInt16",
+              "UInt32",
+              "UInt64",
+              "Int8",
+              "Int16",
+              "Int32",
+              "Int64",
+              "RawData",
+              "Double",
+              "Float"
+            ]
           },
           "description": {
             "type": "string",
@@ -9209,6 +10548,7 @@
           "type",
           "name",
           "value",
+          "dataType",
           "isReadOnly"
         ]
       },
@@ -9680,6 +11020,10 @@
         "required": [
           "properties"
         ]
+      },
+      "SubgraphPairDto": {
+        "type": "object",
+        "properties": {}
       },
       "ContainerDto": {
         "type": "object",
