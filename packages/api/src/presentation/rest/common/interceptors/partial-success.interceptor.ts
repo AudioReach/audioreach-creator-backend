@@ -43,11 +43,11 @@ export class PartialSuccessInterceptor implements NestInterceptor {
 
   /**
    * Determines if the response represents a partial success scenario:
-   * - The response has a non-empty `errors` array
+   * - The response has a non-empty `issues` array with at least one ERROR or FATAL severity item
    *
    * This triggers 207 regardless of whether `data` is empty or populated.
    * When all items fail, `data` may be empty but the client still gets
-   * per-item error details in `errors[]`.
+   * per-item issue details in `issues[]`.
    */
   private isPartialSuccess(body: unknown): boolean {
     if (!body || typeof body !== 'object') {
@@ -57,9 +57,9 @@ export class PartialSuccessInterceptor implements NestInterceptor {
     const response = body as Record<string, unknown>;
 
     return (
-      'errors' in response &&
-      Array.isArray(response.errors) &&
-      response.errors.length > 0
+      'issues' in response &&
+      Array.isArray(response.issues) &&
+      response.issues.length > 0
     );
   }
 }

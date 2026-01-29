@@ -829,7 +829,7 @@ export class UseCaseController extends BaseController {
   async deleteUsecases(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<void> {
+  ): Promise<ApiResult<UsecaseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Deleting usecases for project:',

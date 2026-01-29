@@ -3,26 +3,46 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-/**
- * Represents a structured error in a command/query result.
- * Compatible with API-layer error DTOs via structural typing.
- */
-export interface ResultError {
-  /** Machine-readable error code (e.g., ERR_3001, ERR_4001) */
-  code: string;
-  /** Human-readable error detail */
-  message: string;
-  /** Identifier of the item that failed (if applicable) */
-  id?: string;
+import type {
+  IssueSeverity,
+  IssueCategory,
+  ValidationEntityType,
+  ClientInputType,
+} from '../../domain/validation/issue.js';
+
+export interface ResultFixOption {
+  id: string;
+  description: string;
+  commandType: string;
+  commandPayload: Record<string, unknown>;
+  requiredClientInputs: ResultClientInputSpec[];
+}
+
+export interface ResultClientInputSpec {
+  field: string;
+  label: string;
+  type: ClientInputType;
 }
 
 /**
- * Represents a structured warning in a command/query result.
- * Compatible with API-layer warning DTOs via structural typing.
+ * Unified issue type for command/query results — covers both domain validation
+ * issues and operational failures (parse errors, bulk item failures).
+ *
+ * Operational failures populate only {code, message, severity}.
+ * ValidationIssue-sourced items populate all fields.
+ *
+ * Compatible with API-layer ApiIssueItem DTO via structural typing.
  */
-export interface ResultWarning {
-  /** Machine-readable warning code */
+export interface ResultIssue {
   code: string;
-  /** Human-readable warning detail */
   message: string;
+  severity: IssueSeverity;
+  category?: IssueCategory;
+  impactedEntity?: {
+    entityType: ValidationEntityType;
+    systemId: number;
+    displayName?: string;
+  };
+  impactedUsecases?: number[];
+  fixOptions?: ResultFixOption[];
 }

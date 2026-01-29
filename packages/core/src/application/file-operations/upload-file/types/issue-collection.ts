@@ -4,10 +4,7 @@
  */
 
 import type {ErrorCode} from '../../../../shared/errors/error-codes.js';
-import type {
-  ResultError,
-  ResultWarning,
-} from '../../../../shared/types/api-result.js';
+import type {ResultIssue} from '../../../../shared/types/api-result.js';
 
 /**
  * Issue severity levels
@@ -133,19 +130,13 @@ export class IssueCollector {
   /**
    * Format issues for API response
    */
-  formatForApi(): {errors?: ResultError[]; warnings?: ResultWarning[]} {
-    const errors: ResultError[] = this.getErrors().map(err => ({
-      code: err.code,
-      message: `${err.entityType}: ${err.message}`,
-    }));
-    const warnings: ResultWarning[] = this.getWarnings().map(warn => ({
-      code: warn.code,
-      message: `${warn.entityType}: ${warn.message}`,
+  formatForApi(): {issues?: ResultIssue[]} {
+    const issues: ResultIssue[] = this.issues.map(issue => ({
+      code: issue.code,
+      message: `${issue.entityType}: ${issue.message}`,
+      severity: issue.severity === ISSUE_SEVERITY.ERROR ? 'ERROR' : 'WARNING',
     }));
 
-    return {
-      ...(errors.length > 0 && {errors}),
-      ...(warnings.length > 0 && {warnings}),
-    };
+    return issues.length > 0 ? {issues} : {};
   }
 }

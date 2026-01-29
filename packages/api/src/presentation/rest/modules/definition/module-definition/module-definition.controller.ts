@@ -367,7 +367,7 @@ export class ModuleDefinitionController {
   async deleteSpfCustomModuleMetadata(
     @Param('projectId') _projectId: string,
     @Param('moduleSystemId') _moduleSystemId: string,
-  ): Promise<DeleteSpfCustomModuleMetadataResponseDto> {
+  ): Promise<ApiResult<DeleteSpfCustomModuleMetadataResponseDto>> {
     await Promise.resolve();
     throw new NotImplementedException(
       'deleteSpfCustomModuleMetadata is not implemented yet',

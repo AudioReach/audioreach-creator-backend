@@ -36,7 +36,8 @@ import {
 } from './dto/request/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
-import {ApiErrorItem} from '../../common/dto/api-response/api-error-item.dto.js';
+import {ApiIssueItem} from '../../common/dto/api-response/api-issue-item.dto.js';
+import {IssueSeverity} from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {
   QueryBus,
@@ -358,11 +359,11 @@ export class SpfModuleController extends BaseController {
     );
     const model = await this.queryBus.execute<CkvCalibrationReadModel>(query);
 
-    const errors: ApiErrorItem[] = (model.missingParamSystemIds ?? []).map(
+    const issues: ApiIssueItem[] = (model.missingParamSystemIds ?? []).map(
       id => ({
-        id: String(id),
         code: 'PARAM_PAYLOAD_NOT_FOUND',
         message: `No calibration payload found for parameter system ID ${id}`,
+        severity: IssueSeverity.Error,
       }),
     );
 
@@ -370,7 +371,7 @@ export class SpfModuleController extends BaseController {
       data: this.transformToCalDataDto(model),
       success: true,
       message: 'Calibration data retrieved successfully',
-      ...(errors.length > 0 && {errors}),
+      ...(issues.length > 0 && {issues}),
     };
   }
 

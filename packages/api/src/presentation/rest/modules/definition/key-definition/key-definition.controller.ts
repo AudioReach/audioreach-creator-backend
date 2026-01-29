@@ -133,7 +133,7 @@ export class KeyDefinitionController {
     required: true,
   })
   @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
+    status: HttpStatus.OK,
     description: 'Successfully deleted',
     type: ApiResult,
   })
@@ -145,7 +145,7 @@ export class KeyDefinitionController {
   async deleteKeyDefinition(
     @Param('projectId') _projectId: string,
     @Param('keySystemId') _keySystemId: string,
-  ): Promise<ApiResult<null>> {
+  ): Promise<ApiResult<KeyDefinitionResponseDto>> {
     await Promise.resolve();
     throw new NotImplementedException(
       'deleteKeyDefinition is not implemented yet',
@@ -253,7 +253,7 @@ export class KeyDefinitionController {
     required: true,
   })
   @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
+    status: HttpStatus.OK,
     description: 'Successfully deleted',
     type: ApiResult,
   })
@@ -265,7 +265,7 @@ export class KeyDefinitionController {
   async deleteTagKeyDefinition(
     @Param('projectId') _projectId: string,
     @Param('tagSystemId') _tagSystemId: string,
-  ): Promise<ApiResult<null>> {
+  ): Promise<ApiResult<TagDefinitionResponseDto>> {
     await Promise.resolve();
     throw new NotImplementedException(
       'deleteTagKeyDefinition is not implemented yet',

@@ -11,6 +11,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotImplementedException,
   Param,
   Patch,
   Post,
@@ -60,9 +61,23 @@ import * as os from 'node:os';
 import path from 'node:path';
 import type {Response} from 'express';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {toApiIssueItems} from '../../common/dto/api-response/api-issue-item.mapper.js';
 import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
 import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
 import {ProjectFilePropertiesResponseDto} from './dto/project-file-properties.dto.js';
+import {
+  StageChangesRequestDto,
+  StageChangesResponseDto,
+  UnstageChangesRequestDto,
+  UnstageChangesResponseDto,
+  CommitChangesRequestDto,
+  CommitChangesResponseDto,
+  DiscardChangesRequestDto,
+  DiscardChangesResponseDto,
+} from './dto/changeset.dto.js';
+import {StartSessionRequestDto, SessionResponseDto} from './dto/session.dto.js';
+import {CreateUsecasesResponseDto} from './dto/create-usecases-response.dto.js';
+import {CreateUsecasesRequestDto} from './dto/create-usecases-request.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
@@ -273,16 +288,16 @@ export class ProjectController {
       sessionMode: SessionMode.Designer,
     };
 
-    const hasErrors = result.errors && result.errors.length > 0;
+    const apiIssues = toApiIssueItems(result.issues);
+    const hasIssues = apiIssues && apiIssues.length > 0;
 
     const projectResponse: ApiResult<ProjectInfoResponseDto> = {
       data: projectdetails,
-      success: !hasErrors,
-      message: hasErrors
-        ? `Project created with ${result.errors?.length} validation errors. Please review and fix the issues.`
+      success: !hasIssues,
+      message: hasIssues
+        ? `Project created with ${apiIssues?.length} issues. Please review and fix them.`
         : 'The file has been opened successfully',
-      errors: result.errors,
-      warnings: result.warnings,
+      issues: apiIssues,
     };
     return projectResponse;
   }
@@ -315,16 +330,9 @@ export class ProjectController {
   ): Promise<ApiResult<ProjectInfoResponseDto[]>> {
     // Extract client ID from JWT token
     const clientId = req.user?.clientId;
-
-    // return list of active projects for this client
-    const projectdetails: ProjectInfoResponseDto[] = [];
+    console.log('Getting projects for client:', clientId);
     await Promise.resolve();
-    const projectResponses: ApiResult<ProjectInfoResponseDto[]> = {
-      data: projectdetails,
-      success: true,
-      message: `Successfully fetch projects for client ${clientId}`,
-    };
-    return projectResponses;
+    throw new NotImplementedException('getProjects is not implemented yet');
   }
 
   @Get('/:projectId')
@@ -367,14 +375,8 @@ export class ProjectController {
   async getProject(
     @Param('projectId') _projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto(); // ToDo Need to update the project Info once services ready
     await Promise.resolve();
-    const projectResponse: ApiResult<ProjectInfoResponseDto> = {
-      data: projectdetail,
-      success: true,
-      message: 'Successfully fetch project',
-    };
-    return projectResponse;
+    throw new NotImplementedException('getProject is not implemented yet');
   }
 
   @Patch('/:projectId')
@@ -436,14 +438,10 @@ export class ProjectController {
     @Param('projectId') _projectId: string,
     @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const projectdetail: ProjectInfoResponseDto = new ProjectInfoResponseDto(); // ToDo Need to update the project Info once services ready
     await Promise.resolve();
-    const projectResponse: ApiResult<ProjectInfoResponseDto> = {
-      data: projectdetail,
-      success: true,
-      message: '',
-    };
-    return projectResponse;
+    throw new NotImplementedException(
+      'updateProjectInfo is not implemented yet',
+    );
   }
 
   @Post('/:projectId/connect')
@@ -486,10 +484,10 @@ export class ProjectController {
   async connectToProject(
     @Param('projectId') _projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    // Need a project Id to open the project. It will take from header
-
     await Promise.resolve();
-    return new ApiResult<ProjectInfoResponseDto>();
+    throw new NotImplementedException(
+      'connectToProject is not implemented yet',
+    );
   }
 
   @Post('/:projectId/disconnect')
@@ -533,11 +531,10 @@ export class ProjectController {
   async disconnectFromProject(
     @Param('projectId') _projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    // Need a project Id to open the project. It will take from header
-
     await Promise.resolve();
-
-    return new ApiResult<ProjectInfoResponseDto>();
+    throw new NotImplementedException(
+      'disconnectFromProject is not implemented yet',
+    );
   }
 
   /**
@@ -755,7 +752,613 @@ export class ProjectController {
     },
   })
   async deleteProject(@Param('projectId') _projectId: string): Promise<void> {
-    // Need a project Id to delete the project. It will take from header. Delete the project and clear the database for that Project Id
     await Promise.resolve();
+    throw new NotImplementedException('deleteProject is not implemented yet');
+  }
+
+  //TODO: Add this API when diff-merge is needed
+  /*@Get('/:projectId/preview-changes')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiOperation({
+    summary: 'Preview all ACDB data changes',
+    description:
+      'Returns a comprehensive summary of all ACDB data changes including:\n' +
+      '- Usecases: added, updated, and deleted usecases with unique changes\n' +
+      '- Definitions: keys, SPF modules, driver modules, SPF properties, and driver properties\n' +
+      '- Module Manager: custom module changes (AMDB)\n' +
+      '- Driver Module Data: driver module calibration data changes\n' +
+      '- Metadata: usecase categories and aliases\n\n' +
+      'This API:\n' +
+      '- Validates all staged changes in the database\n' +
+      '- Returns a summary of what would be changed\n' +
+      '- Does NOT modify the database\n' +
+      '- Does NOT perform routing, importing, or merging\n\n' +
+      'To actually reconcile staged changes and generate usecases, use the POST /create-usecases endpoint.',
+  })
+  @ApiExtraModels(
+    ApiResult,
+    PreviewChangesResponseDto,
+    UsecaseActionsResponseDto,
+    DefinitionActionsResponseDto,
+    ModuleManagerActionsResponseDto,
+    DriverModuleDataActionsResponseDto,
+    MetaDataActionsResponseDto,
+  )
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved changes preview',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(PreviewChangesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Failed to get changes preview',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  previewChanges(
+    @Param('projectId') _projectId: string,
+  ): ApiResult<PreviewChangesResponseDto> {
+    const mockResponse: PreviewChangesResponseDto = {
+      usecaseData: {
+        added: [],
+        updated: [],
+        deleted: [],
+        uniqueChanges: [],
+      },
+      definitions: {
+        keys: {added: [], updated: [], deleted: []},
+        spfModules: {added: [], updated: [], deleted: []},
+        driverModules: {added: [], updated: [], deleted: []},
+        spfProperties: {added: [], updated: [], deleted: []},
+        driverProperties: {added: [], updated: [], deleted: []},
+      },
+      moduleManager: {added: [], updated: [], deleted: []},
+      driverModuleData: {added: [], updated: [], deleted: []},
+      metadata: {
+        usecaseCategories: {added: [], updated: [], deleted: []},
+        usecaseAliases: {added: [], updated: [], deleted: []},
+      },
+    };
+
+    return {
+      data: mockResponse,
+      success: true,
+      message: 'Successfully retrieved changes preview',
+    };
+  }*/
+
+  @Post('/:projectId/create-usecases')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: CreateUsecasesRequestDto})
+  @ApiOperation({
+    summary: 'Reconcile staged changes with database',
+    description:
+      'Reconciles staged changes with the database using routing logic.\n\n' +
+      'This endpoint processes all staged changes and reconciles them into the database state:\n' +
+      '- Analyzes staged modules, links, properties, and metadata\n' +
+      '- Uses routing logic to discover signal paths\n' +
+      '- Generates usecases that represent the discovered paths\n' +
+      '- Creates/updates/deletes usecases to match the reconciled state\n' +
+      '- Persists all changes to the database\n\n' +
+      'The reconciliation process ensures the database state accurately reflects the staged modifications.\n\n' +
+      'This operation is idempotent - multiple invocations produce the same result.\n' +
+      'If no staged changes exist, returns empty arrays with success: true.\n\n' +
+      'Note: warnings and errors arrays are placeholders and will be populated when the validation framework is introduced.',
+  })
+  @ApiExtraModels(ApiResult, CreateUsecasesResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully reconciled staged changes',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(CreateUsecasesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Failed to reconcile staged changes',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  createUsecases(
+    @Param('projectId') _projectId: string,
+    @Body() _body: CreateUsecasesRequestDto,
+  ): ApiResult<CreateUsecasesResponseDto> {
+    throw new NotImplementedException('createUsecases is not implemented yet');
+  }
+
+  @Post('/:projectId/stage-changes')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: StageChangesRequestDto})
+  @ApiOperation({
+    summary: 'Stage changes',
+    description: 'Stage changes in the project based on project Id.',
+  })
+  @ApiExtraModels(ApiResult, StageChangesResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully staged changes',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(StageChangesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid input',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  stageChanges(
+    @Param('projectId') _projectId: string,
+    @Body() _stageChangesRequest: StageChangesRequestDto,
+  ): ApiResult<StageChangesResponseDto> {
+    throw new NotImplementedException('stageChanges is not implemented yet');
+  }
+
+  @Post('/:projectId/unstage-changes')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: UnstageChangesRequestDto})
+  @ApiOperation({
+    summary: 'Unstage changes',
+    description: 'Unstage changes in the project based on project Id.',
+  })
+  @ApiExtraModels(ApiResult, UnstageChangesResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully unstaged changes',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(UnstageChangesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid input',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  unstageChanges(
+    @Param('projectId') _projectId: string,
+    @Body() _unstageChangesRequest: UnstageChangesRequestDto,
+  ): ApiResult<UnstageChangesResponseDto> {
+    throw new NotImplementedException('unstageChanges is not implemented yet');
+  }
+
+  @Post('/:projectId/commit-changes')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: CommitChangesRequestDto})
+  @ApiOperation({
+    summary: 'Commit changes',
+    description:
+      'Commit staged changes in the project based on project Id.\n\n' +
+      'Behavior:\n' +
+      '- If changeIds is not provided or empty, all staged changes will be committed\n' +
+      '- If changeIds is provided, only the specified changes will be committed\n' +
+      '- All dependencies of the specified changes must be staged, otherwise the commit will fail\n' +
+      '- The operation validates that all required dependencies are present before committing',
+  })
+  @ApiExtraModels(ApiResult, CommitChangesResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully committed changes',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(CommitChangesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid input or missing dependencies',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  async commitChanges(
+    @Param('projectId') _projectId: string,
+    @Body() _commitChangesRequest: CommitChangesRequestDto,
+  ): Promise<ApiResult<CommitChangesResponseDto>> {
+    await Promise.resolve();
+    throw new NotImplementedException('commitChanges is not implemented yet');
+  }
+
+  @Post('/:projectId/discard-changes')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: DiscardChangesRequestDto})
+  @ApiOperation({
+    summary: 'Discard changes',
+    description:
+      'Discard uncommitted changes in the project based on project Id.\n\n' +
+      'Behavior:\n' +
+      '- If changeIds is not provided or empty, all changes will be discarded\n' +
+      '- If changeIds is provided, only the specified changes will be discarded\n' +
+      '- Dependent changes will be automatically discarded as well (cascade delete)\n' +
+      '- WARNING: Discarded changes cannot be recovered',
+  })
+  @ApiExtraModels(ApiResult, DiscardChangesResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully discarded changes',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(DiscardChangesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid input',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  async discardChanges(
+    @Param('projectId') _projectId: string,
+    @Body() _discardChangesRequest: DiscardChangesRequestDto,
+  ): Promise<ApiResult<DiscardChangesResponseDto>> {
+    await Promise.resolve();
+    throw new NotImplementedException('discardChanges is not implemented yet');
+  }
+
+  @Post('/:projectId/start-session')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: StartSessionRequestDto})
+  @ApiOperation({
+    summary: 'Start a new session',
+    description:
+      'Start a new session with specified mode. Returns error if a session is already active.\n\n' +
+      '## Session Modes & Supported Operations\n\n' +
+      '### READONLY\n' +
+      '- Only read APIs are supported\n' +
+      '- No modifications allowed\n\n' +
+      '### TUNING\n' +
+      '- Read APIs\n' +
+      '- Tuning/Calibration APIs (get-cal-data, set-cal-data, goto-change)\n' +
+      '- Change Management APIs\n\n' +
+      '### DESIGNER\n' +
+      '- Read APIs\n' +
+      '- Tuning APIs\n' +
+      '- Designer APIs (add-module, add-data-link, etc.)\n' +
+      '- Change Management APIs\n\n' +
+      '### DISCOVERY_WIZARD\n' +
+      '- Read APIs\n' +
+      '- Import/Discovery APIs (import-h2xml)\n' +
+      '- Change Management APIs\n\n' +
+      '### DIFF_MERGE\n' +
+      '- Read APIs\n' +
+      '- Tuning APIs\n' +
+      '- Designer APIs\n' +
+      '- Diff/Merge APIs (diff-files, merge-changes)\n' +
+      '- Change Management APIs\n\n' +
+      '**Important**: If an invalid API is called during a session, it will return `403 Forbidden` with error code `INVALID_OPERATION_FOR_MODE`.\n\n' +
+      'For detailed workflow scenarios and complete API reference, see: `docs/modification-framework/modification-framework-api-reference.md`',
+  })
+  @ApiExtraModels(ApiResult, SessionResponseDto, StartSessionRequestDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Session started successfully',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(SessionResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid input or session already active',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  async startSession(
+    @Param('projectId') _projectId: string,
+    @Body() _startSessionRequest: StartSessionRequestDto,
+  ): Promise<ApiResult<SessionResponseDto>> {
+    await Promise.resolve();
+    throw new NotImplementedException('startSession is not implemented yet');
+  }
+
+  @Post('/:projectId/end-session')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiOperation({
+    summary: 'End the current session',
+    description:
+      'End the current active session. This operation will:\n' +
+      '1. Commit all staged changes\n' +
+      '2. Clear all unstaged changes\n' +
+      '3. Move session to READONLY state\n' +
+      '4. Return a summary of all committed and cleared changes\n\n' +
+      'If any issues occur while committing changes, an error will be returned and the session will remain active.',
+  })
+  @ApiExtraModels(ApiResult, SessionResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Session ended successfully with change summary',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(SessionResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Failed to commit changes or no active session',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  async endSession(
+    @Param('projectId') _projectId: string,
+  ): Promise<ApiResult<SessionResponseDto>> {
+    await Promise.resolve();
+    throw new NotImplementedException('endSession is not implemented yet');
   }
 }
