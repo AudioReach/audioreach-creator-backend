@@ -3,53 +3,69 @@ import type {
   BulkImportRepository,
   ProjectRepository,
 } from '@arc/core';
-import {DataSource} from 'typeorm';
-import type {QueryRunner} from 'typeorm';
-import {TypeOrmBulkImportRepository,TypeOrmProjectRepository} from '@arc/persistence';
+import type {QueryRunner, EntityManager} from 'typeorm';
+import {TypeOrmBulkImportRepository, TypeOrmProjectRepository} from '@arc/persistence';
 
+/**
+ * TypeORM implementation of Unit of Work.
+ * 
+ * Lifecycle:
+ * 1. CommandBus creates QueryRunner and connects it
+ * 2. CommandBus creates TypeOrmUnitOfWork with QueryRunner
+ * 3. Handler uses UOW to manage transactions and access repositories
+ * 4. CommandBus releases QueryRunner in finally block
+ */
 export class TypeOrmUnitOfWork implements UnitOfWork {
-  private currentQueryRunner: QueryRunner | null = null;
+  private inTransaction: boolean = false;
 
-  constructor(private dataSource: DataSource) {}
+  /**
+   * @param queryRunner - Active QueryRunner injected by CommandBus
+   */
+  constructor(private readonly queryRunner: QueryRunner) {}
 
-  async executeInTransaction<T>(task: () => Promise<T>): Promise<T> {
-    const queryRunner = this.dataSource.createQueryRunner();
-
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      // Store the query runner in this instance
-      this.currentQueryRunner = queryRunner;
-
-      const result = await task();
-
-      await queryRunner.commitTransaction();
-      return result;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      // Clear the query runner and release it
-      this.currentQueryRunner = null;
-      await queryRunner.release();
+  async startTransaction(): Promise<void> {
+    if (this.inTransaction) {
+      throw new Error(
+        'Transaction already active. ' +
+          'Call commit() or rollback() before starting a new transaction.',
+      );
     }
+
+    await this.queryRunner.startTransaction();
+    this.inTransaction = true;
   }
 
-  // Method to check if currently in transaction
+  async commit(): Promise<void> {
+    if (!this.inTransaction) {
+      throw new Error('No active transaction to commit');
+    }
+
+    await this.queryRunner.commitTransaction();
+    this.inTransaction = false;
+  }
+
+  async rollback(): Promise<void> {
+    if (!this.inTransaction) {
+      throw new Error('No active transaction to rollback');
+    }
+
+    await this.queryRunner.rollbackTransaction();
+    this.inTransaction = false;
+  }
+
   isInTransaction(): boolean {
-    return this.currentQueryRunner !== null;
+    return this.inTransaction;
+  }
+
+  private getManager(): EntityManager {
+    return this.queryRunner.manager;
   }
 
   getBulkImportRepository(): BulkImportRepository {
-    // Always create a new QueryRunner for bulk import operations
-    const queryRunner = this.dataSource.createQueryRunner();
-    return new TypeOrmBulkImportRepository(queryRunner);
+    return new TypeOrmBulkImportRepository(this.getManager());
   }
 
   getProjectRepository(): ProjectRepository {
-    // Always create a new QueryRunner for bulk import operations
-    //const queryRunner = this.dataSource.createQueryRunner();
-    return new TypeOrmProjectRepository(this.dataSource);
+    return new TypeOrmProjectRepository(this.getManager());
   }
 }

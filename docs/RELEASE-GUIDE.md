@@ -1,8 +1,20 @@
 # Release Package Guide
 
-This guide explains how to create and distribute a release package of the AudioReach Creator API for easy sharing with colleagues.
+> **⚠️ IMPORTANT NOTICE - DEVELOPMENT/TESTING ONLY**
+> 
+> This release guide is a **temporary script for development and testing purposes only**. It is designed to help developers quickly share and test the API during the early development phase.
+> 
+> **This is NOT a production-grade release process.** The project is currently in its infant stage and open-source development phase. A comprehensive production release plan, including proper versioning, security hardening, deployment strategies, and distribution mechanisms, will be added in future iterations.
+> 
+> **For External Contributors**: Please understand that this guide is for internal development convenience. Do not use this process for production deployments or assume it meets production-grade standards.
+> 
+> **Timeline**: Production release planning will begin after the core features are stabilized (estimated 6-12 months from initial open-source release).
+
+---
 
 ## Overview
+
+This guide explains how to create and distribute a **development/testing** release package of the AudioReach Creator API for easy sharing with colleagues during development.
 
 The release package allows colleagues to run the API without:
 - Cloning the repository
@@ -11,6 +23,8 @@ The release package allows colleagues to run the API without:
 - Understanding the codebase structure
 
 They simply extract, run a single command, and start testing with Postman.
+
+**Use Case**: Quick sharing for development testing, not production deployment.
 
 ## Creating a Release Package
 
@@ -199,10 +213,16 @@ To automate releases in CI/CD:
 
 ## Security Notes
 
+⚠️ **Development/Testing Only - Not Production Ready**
+
 - The release package contains compiled JavaScript (not source TypeScript)
 - No `.env` files or secrets are included by default
 - Production dependencies only (no dev tools)
-- Consider adding authentication if sharing externally
+- **This is NOT hardened for production use**
+- **No security audit has been performed**
+- **Authentication/authorization is minimal**
+- Consider adding proper authentication if sharing externally
+- **Do not deploy this to production environments**
 
 ## Updating the Release
 
@@ -217,4 +237,6 @@ The version.json file will show the new build date.
 ---
 
 **Need Help?**
-Contact the development team for assistance with creating or distributing releases.
+Contact the development team for assistance with creating or distributing development releases.
+
+**Remember**: This is a development tool, not a production release process.

@@ -6,7 +6,7 @@ import {
   QueryHandlerRegistry,
 } from '@arc/core';
 import type {
-  UnitOfWork,
+  UnitOfWorkFactory,
   QueryServices,
   FileReaderPort,
   WorkerPoolPort,
@@ -14,9 +14,9 @@ import type {
   ProfilerPort,
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
-import {TypeOrmUnitOfWork} from './persistence/unit-of-work/typeorm-unit-of-work.js';
+import {createTypeOrmUnitOfWorkFactory} from './persistence/unit-of-work/typeorm-unit-of-work.factory.js';
 import {DbQueryServices} from '@arc/persistence';
-import {DataSource} from 'typeorm';
+import type {DataSource} from 'typeorm';
 import {
   NodeFileReaderAdapter,
   NodeProfilerAdapter,
@@ -32,12 +32,6 @@ import {ConsoleLoggerService} from './logger/index.js';
       useFactory: async (provider: DataSourceProvider) =>
         provider.getDataSource(),
       inject: [DataSourceProvider],
-    },
-    {
-      provide: 'UNIT_OF_WORK',
-      useFactory: (dataSource: DataSource) => new TypeOrmUnitOfWork(dataSource),
-      inject: ['DATA_SOURCE'],
-      scope: Scope.REQUEST,
     },
     {
       provide: 'NODE_FILE_READER_ADAPTER',
@@ -65,27 +59,33 @@ import {ConsoleLoggerService} from './logger/index.js';
       inject: ['DATA_SOURCE'],
     },
     {
+      provide: 'UNIT_OF_WORK_FACTORY',
+      useFactory: (dataSource: DataSource): UnitOfWorkFactory =>
+        createTypeOrmUnitOfWorkFactory(dataSource),
+      inject: ['DATA_SOURCE'],
+    },
+    {
       provide: CommandBus,
       useFactory: (
-        unitOfWork: UnitOfWork,
         registry: CommandHandlerRegistry,
         fileReader: FileReaderPort,
+        uowFactory: UnitOfWorkFactory,
         workerPool: WorkerPoolPort,
         logger: Logger,
         profiler: ProfilerPort,
       ) =>
         new CommandBus(
-          unitOfWork,
           registry,
           fileReader,
+          uowFactory,
           workerPool,
           logger,
           profiler,
         ),
       inject: [
-        'UNIT_OF_WORK',
         'COMMAND_HANDLER_REGISTRY',
         'NODE_FILE_READER_ADAPTER',
+        'UNIT_OF_WORK_FACTORY',
         'WORKER_POOL',
         'LOGGER',
         'PROFILER',
@@ -113,7 +113,6 @@ import {ConsoleLoggerService} from './logger/index.js';
   exports: [
     CommandBus,
     QueryBus,
-    'UNIT_OF_WORK',
     'QUERY_SERVICES',
     'COMMAND_HANDLER_REGISTRY',
     'QUERY_HANDLER_REGISTRY',
@@ -123,6 +122,4 @@ import {ConsoleLoggerService} from './logger/index.js';
     'WORKER_POOL',
   ],
 })
-export class ArcCqrsModule {
-  constructor() {}
-}
+export class ArcCqrsModule {}

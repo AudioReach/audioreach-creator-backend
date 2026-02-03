@@ -16,6 +16,7 @@ export * from './application/orchestration/middleware/transaction.middleware.js'
 export * from './application/shared/base-command.js';
 export * from './application/shared/base-query.js';
 export * from './application/ports/persistence/unit-of-work.js';
+export * from './application/ports/persistence/unit-of-work-factory.js';
 export * from './application/ports/persistence/repositories/bulk-import/insert-result.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 export * from './application/ports/persistence/repositories/bulk-import/link-insertion-report.js';
