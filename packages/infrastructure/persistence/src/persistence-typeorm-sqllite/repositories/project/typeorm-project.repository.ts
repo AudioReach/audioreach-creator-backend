@@ -11,7 +11,7 @@ import type {
   ProjectRow,
 } from '../../entity-schema/index.js';
 import {ArcDbFileSchema, ProjectSchema} from '../../entity-schema/index.js';
-import {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import {
   toProjectDomain,
   toArcDbFileDomain,
@@ -20,7 +20,7 @@ import {
 } from './project-mapper.js';
 
 export class TypeOrmProjectRepository implements ProjectRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(private readonly manager: EntityManager) {}
 
   async createOfflineProject(
     project: Omit<Project, 'systemId' | 'type'>,
@@ -31,44 +31,43 @@ export class TypeOrmProjectRepository implements ProjectRepository {
       type: PROJECT_TYPE.OFFLINE,
     } as Project);
 
-    return this.dataSource.transaction(async manager => {
-      const projectInsertResult = await manager.insert(
-        ProjectSchema.options.name,
-        projectRow,
-      );
-      const projectSystemId = projectInsertResult.identifiers[0]
-        .systemId as number;
-      // 2. Query back project to get complete row
-      const savedProjectRow = await manager.findOneOrFail(
-        ProjectSchema.options.name,
-        {
-          where: {systemId: projectSystemId},
-        },
-      );
+    const projectInsertResult = await this.manager.insert(
+      ProjectSchema.options.name,
+      projectRow,
+    );
+    const projectSystemId = projectInsertResult.identifiers[0]
+      .systemId as number;
 
-      // 3. Insert file with FK to project
-      const fileRow = toArcDbFileRow(file, projectSystemId);
+    // Query back project to get complete row
+    const savedProjectRow = await this.manager.findOneOrFail(
+      ProjectSchema.options.name,
+      {
+        where: {systemId: projectSystemId},
+      },
+    );
 
-      const fileInsertResult = await manager.insert(
-        ArcDbFileSchema.options.name,
-        fileRow,
-      );
-      const fileSystemId = fileInsertResult.identifiers[0].systemId as number;
+    // Insert file with FK to project
+    const fileRow = toArcDbFileRow(file, projectSystemId);
 
-      // 4. Query back file to get complete row
-      const savedFileRow = await manager.findOneOrFail(
-        ArcDbFileSchema.options.name,
-        {
-          where: {systemId: fileSystemId},
-        },
-      );
+    const fileInsertResult = await this.manager.insert(
+      ArcDbFileSchema.options.name,
+      fileRow,
+    );
+    const fileSystemId = fileInsertResult.identifiers[0].systemId as number;
 
-      // 5. Map to domain entities
-      return {
-        project: toProjectDomain(savedProjectRow as ProjectRow),
-        file: toArcDbFileDomain(savedFileRow as ArcDbFileRow),
-      };
-    });
+    // Query back file to get complete row
+    const savedFileRow = await this.manager.findOneOrFail(
+      ArcDbFileSchema.options.name,
+      {
+        where: {systemId: fileSystemId},
+      },
+    );
+
+    // Map to domain entities
+    return {
+      project: toProjectDomain(savedProjectRow as ProjectRow),
+      file: toArcDbFileDomain(savedFileRow as ArcDbFileRow),
+    };
   }
 
   createConnectedProject(

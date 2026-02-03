@@ -43,8 +43,6 @@ export class OpenFileHandler
   async handle(command: OpenFileCommand): Promise<OpenFileResult> {
     this.validateInputs(command.acdb, command.awsp);
 
-    // Create project and file first to get proper IDs
-    const projectRepo = this.uow.getProjectRepository();
     const projectName =
       this.extractProjectName(command.acdb, command.awsp) +
       '_' +
@@ -54,25 +52,54 @@ export class OpenFileHandler
       command.awsp,
     );
 
-    const {project, file} = await projectRepo.createOfflineProject(
-      new Project(0, projectName, projectDescription, PROJECT_TYPE.OFFLINE),
-      {
-        description: `ACDB: ${command.acdb.name}, AWSP: ${command.awsp.name}`,
-        metadata: 'upload',
-        fileName: JSON.stringify({
-          acdb: command.acdb.name,
-          awsp: command.awsp.name,
-          uploadedAt: new Date().toISOString(),
-        }),
-        isTarget: true,
-      },
-    );
+    // ========== PHASE 1: Project Creation (TRANSACTIONAL) ==========
+    let project: Project;
+    let fileSystemId: number;
 
-    // Orchestrate the process with proper file ID
+    await this.uow.startTransaction();
+
+    try {
+      const projectRepo = this.uow.getProjectRepository();
+      const result = await projectRepo.createOfflineProject(
+        new Project(0, projectName, projectDescription, PROJECT_TYPE.OFFLINE),
+        {
+          description: `ACDB: ${command.acdb.name}, AWSP: ${command.awsp.name}`,
+          metadata: 'upload',
+          fileName: JSON.stringify({
+            acdb: command.acdb.name,
+            awsp: command.awsp.name,
+            uploadedAt: new Date().toISOString(),
+          }),
+          isTarget: true,
+        },
+      );
+
+      project = result.project;
+      fileSystemId = result.file.systemId;
+
+      await this.uow.commit();
+    } catch (error) {
+      await this.uow.rollback();
+      throw new Error(
+        `Project creation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    // ========== VERIFICATION: Ensure transaction is closed ==========
+    if (this.uow.isInTransaction()) {
+      throw new Error(
+        'Transaction state error: Phase 1 commit succeeded but transaction is still active. ' +
+          'Cannot proceed to Phase 2 bulk upload. This indicates a critical issue with transaction management.',
+      );
+    }
+
+    // ========== PHASE 2: Bulk Upload (NON-TRANSACTIONAL) ==========
+    // Note: UOW still has active QueryRunner (CommandBus will release it)
+    // Bulk upload uses same connection but NO transaction
     await this.uploadOrchestrator.orchestrate(
       command.acdb,
       command.awsp,
-      file.systemId,
+      fileSystemId,
     );
 
     return {

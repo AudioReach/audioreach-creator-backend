@@ -17,7 +17,7 @@ import type {
   BulkModuleDefinitionInsertResult,
   BulkKeyDefinitionInsertResult,
 } from '@arc/core';
-import type {QueryRunner} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import {KeyDefinitionInserter} from './key-definition/key-definition.inserter.js';
 import {UseCaseInserter} from './usecase/usecase.inserter.js';
 import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
@@ -29,130 +29,65 @@ import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
- * Uses QueryRunner for consistent transaction management.
+ * Uses EntityManager from UOW's QueryRunner for consistent connection management.
  */
 export class TypeOrmBulkImportRepository implements BulkImportRepository {
-  constructor(private queryRunner: QueryRunner) {}
+  constructor(private readonly manager: EntityManager) {}
 
   async insertSpfModules(
     items: readonly Omit<SpfModule, 'systemId'>[],
   ): Promise<BulkModuleInsertResult> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new SpfModuleInserter(this.queryRunner.manager);
-      // SpfModule domain entities already have instanceId for natural key identification
-      return await inserter.insert(items as readonly SpfModule[]);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new SpfModuleInserter(this.manager);
+    return await inserter.insert(items as readonly SpfModule[]);
   }
 
   async insertContainers(
     items: readonly Omit<Container, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new ContainerInserter(this.queryRunner.manager);
-      return await inserter.insert(items);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new ContainerInserter(this.manager);
+    return await inserter.insert(items);
   }
 
   async insertSubgraphs(
     items: readonly Omit<Subgraph, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new SubgraphInserter(this.queryRunner.manager);
-      return await inserter.insert(items);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new SubgraphInserter(this.manager);
+    return await inserter.insert(items);
   }
 
   async insertDataLinks(
     items: readonly Omit<DataLink, 'systemId'>[],
   ): Promise<BulkDataLinkInsertResult> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new DataLinkInserter(this.queryRunner.manager);
-      return await inserter.insert(items);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new DataLinkInserter(this.manager);
+    return await inserter.insert(items);
   }
 
   async insertControlLinks(
     items: readonly Omit<ControlLink, 'systemId'>[],
   ): Promise<BulkControlLinkInsertResult> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new ControlLinkInserter(this.queryRunner.manager);
-      return await inserter.insert(items);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new ControlLinkInserter(this.manager);
+    return await inserter.insert(items);
   }
 
   async insertUseCases(
     items: readonly Omit<UseCase, 'systemId'>[],
   ): Promise<BulkEntityInsertResult<number>> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new UseCaseInserter(this.queryRunner.manager);
-      return await inserter.insert(items);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new UseCaseInserter(this.manager);
+    return await inserter.insert(items);
   }
 
   async insertModuleDefinitions(
     items: readonly Omit<ModuleDefinition, 'systemId'>[],
   ): Promise<BulkModuleDefinitionInsertResult> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new ModuleDefinitionInserter(this.queryRunner.manager);
-      return await inserter.insert(items);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new ModuleDefinitionInserter(this.manager);
+    return await inserter.insert(items);
   }
 
   async insertKeyDefinitions(
     items: readonly Omit<KeyDefinition, 'systemId'>[],
   ): Promise<BulkKeyDefinitionInsertResult> {
-    // Connect QueryRunner for database operations
-    await this.queryRunner.connect();
-
-    try {
-      const inserter = new KeyDefinitionInserter(this.queryRunner.manager);
-      return await inserter.insert(items);
-    } finally {
-      // Always release QueryRunner to prevent connection leaks
-      await this.queryRunner.release();
-    }
+    const inserter = new KeyDefinitionInserter(this.manager);
+    return await inserter.insert(items);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
