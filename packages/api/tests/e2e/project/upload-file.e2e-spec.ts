@@ -51,7 +51,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
 
     // Call get all usecases API
     const usecasesResponse = await request(SERVER_URL)
-      .get(`/arc-api/v1/projects/${projectId}/usecases/allUsecases`)
+      .get(`/arc-api/v1/projects/${projectId}/usecases/`)
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000) // 30 seconds timeout
       .expect(200);
@@ -116,7 +116,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
       const randomUsecaseSystemId = logLines[randomIndex].split(' : ')[0];
 
       const componentsResponse = await request(SERVER_URL)
-        .post(`/arc-api/v1/projects/${projectId}/usecases/components/get`)
+        .post(`/arc-api/v1/projects/${projectId}/usecases/getComponents/`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           systemIds: [randomUsecaseSystemId],
