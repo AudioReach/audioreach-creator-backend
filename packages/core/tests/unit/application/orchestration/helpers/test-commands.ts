@@ -1,5 +1,5 @@
-import {BaseCommand} from '@application/shared/base-command';
-import {BaseQuery} from '@application/shared/base-query';
+import {BaseCommand} from '../../../../../src/application/shared/base-command.js';
+import {BaseQuery} from '../../../../../src/application/shared/base-query.js';
 
 /**
  * Simple test command for testing command bus functionality

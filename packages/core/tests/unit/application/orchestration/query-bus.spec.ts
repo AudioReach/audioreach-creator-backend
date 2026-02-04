@@ -1,13 +1,13 @@
-import {QueryBus} from '@application/orchestration/query-bus';
-import {QueryHandlerRegistry} from '@application/orchestration/cqrs/registries/query-handler-registry';
-import {QueryHandlerNotFoundException} from '@application/orchestration/cqrs/exceptions/handler-not-found-exception';
-import {GetModuleCompactQuery} from '@application/usecase-designer/spf-module/get/get-module-compact.query';
-import {TestQuery, UnknownQuery} from './helpers/test-commands';
+import {QueryBus} from '../../../../src/application/orchestration/query-bus.js';
+import {QueryHandlerRegistry} from '../../../../src/application/orchestration/cqrs/registries/query-handler-registry.js';
+import {QueryHandlerNotFoundException} from '../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
+import {GetModuleCompactQuery} from '../../../../src/application/usecase-designer/spf-module/get/get-module-compact.query.js';
+import {TestQuery, UnknownQuery} from './helpers/test-commands.js';
 import {
   createMockQueryServices,
   createMockQueryHandlerRegistry,
   createMockQueryRegistryWithMissingHandler,
-} from './helpers/mock-factories';
+} from './helpers/mock-factories.js';
 
 describe('QueryBus', () => {
   let mockQueryServices: any;
@@ -18,16 +18,6 @@ describe('QueryBus', () => {
     mockQueryServices = createMockQueryServices();
     mockRegistry = createMockQueryHandlerRegistry();
     queryBus = new QueryBus(mockQueryServices, mockRegistry);
-
-    // Mock the middleware registration to avoid any potential issues
-    jest
-      .spyOn(queryBus as any, 'registerMiddlewares')
-      .mockImplementation(() => {
-        (queryBus as any).middlewares = []; // Empty middleware array
-      });
-
-    // Re-initialize after mocking middleware registration
-    (queryBus as any).registerMiddlewares();
   });
 
   describe('Query Execution', () => {
@@ -56,17 +46,9 @@ describe('QueryBus', () => {
     });
 
     it('should handle query execution with real registry', async () => {
-      // Given: QueryBus with real registry (but mocked middleware)
+      // Given: QueryBus with real registry
       const realRegistry = QueryHandlerRegistry.Instance;
       const realQueryBus = new QueryBus(mockQueryServices, realRegistry);
-
-      // Mock middleware for this instance too
-      jest
-        .spyOn(realQueryBus as any, 'registerMiddlewares')
-        .mockImplementation(() => {
-          (realQueryBus as any).middlewares = [];
-        });
-      (realQueryBus as any).registerMiddlewares();
 
       const query = new GetModuleCompactQuery(123, 'test-client');
 
@@ -175,12 +157,6 @@ describe('QueryBus', () => {
       });
 
       const strictQueryBus = new QueryBus(mockQueryServices, strictRegistry);
-      jest
-        .spyOn(strictQueryBus as any, 'registerMiddlewares')
-        .mockImplementation(() => {
-          (strictQueryBus as any).middlewares = [];
-        });
-      (strictQueryBus as any).registerMiddlewares();
 
       // When/Then: Should handle invalid input
       await expect(strictQueryBus.execute(null as any)).rejects.toThrow();

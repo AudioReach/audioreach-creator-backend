@@ -1,8 +1,8 @@
-import {QueryHandlerRegistry} from '@application/orchestration/cqrs/registries/query-handler-registry';
-import {QueryHandlerNotFoundException} from '@application/orchestration/cqrs/exceptions/handler-not-found-exception';
-import {GetModuleCompactQuery} from '@application/usecase-designer/spf-module/get/get-module-compact.query';
-import {TestQuery, UnknownQuery} from '../../helpers/test-commands';
-import {createMockQueryServices} from '../../helpers/mock-factories';
+import {QueryHandlerRegistry} from '../../../../../../src/application/orchestration/cqrs/registries/query-handler-registry.js';
+import {QueryHandlerNotFoundException} from '../../../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
+import {GetModuleCompactQuery} from '../../../../../../src/application/usecase-designer/spf-module/get/get-module-compact.query.js';
+import {TestQuery, UnknownQuery} from '../../helpers/test-commands.js';
+import {createMockQueryServices} from '../../helpers/mock-factories.js';
 
 describe('QueryHandlerRegistry', () => {
   let registry: QueryHandlerRegistry;
