@@ -1,17 +1,16 @@
 export default {
   // Use ES modules preset for ts-jest
   preset: 'ts-jest/presets/default-esm',
-  
-  // Treat .ts files as ES modules
-  extensionsToTreatAsEsm: ['.ts'],
-  
+
   // Use projects to run different test types separately
   projects: [
     {
       displayName: 'unit',
+      preset: 'ts-jest/presets/default-esm',
       testEnvironment: 'node',
-      roots: ['<rootDir>'],      
+      roots: ['<rootDir>'],
       testMatch: ['**/tests/unit/**/*.spec.ts'],
+      extensionsToTreatAsEsm: ['.ts'],
       transform: {
         '^.+\\.(t|j)s$': [
           'ts-jest',
@@ -20,7 +19,10 @@ export default {
             useESM: true,
           },
         ],
-      },      
+      },
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
+      },
       resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
@@ -29,9 +31,11 @@ export default {
     },
     {
       displayName: 'integration',
+      preset: 'ts-jest/presets/default-esm',
       testEnvironment: 'node',
       roots: ['<rootDir>'],
       testMatch: ['**/tests/integration/**/*.spec.ts'],
+      extensionsToTreatAsEsm: ['.ts'],
       transform: {
         '^.+\\.(t|j)s$': [
           'ts-jest',
@@ -40,7 +44,10 @@ export default {
             useESM: true,
           },
         ],
-      },      
+      },
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
+      },
       resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
@@ -48,7 +55,7 @@ export default {
       coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/index.ts'],
     },
   ],
-  
+
   // Global reporters for all projects - merged XML output
   reporters: [
     'default',

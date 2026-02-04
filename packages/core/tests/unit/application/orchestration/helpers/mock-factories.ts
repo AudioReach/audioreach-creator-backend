@@ -1,35 +1,26 @@
-import {UnitOfWork} from '@shared/repository/unit-of-work';
-import {QueryServices} from '@application/services/query-services';
-import {CommandHandlerRegistry} from '@application/orchestration/cqrs/registries/command-handler-registry';
-import {QueryHandlerRegistry} from '@application/orchestration/cqrs/registries/query-handler-registry';
-import {CommandHandler} from '@application/orchestration/cqrs/commands/command-handler';
-import {QueryHandler} from '@application/orchestration/cqrs/queries/query-handler';
+import {jest} from '@jest/globals';
+import {UnitOfWork} from '../../../../../src/application/ports/persistence/unit-of-work.js';
+import {QueryServices} from '../../../../../src/application/services/query-services.js';
+import {CommandHandlerRegistry} from '../../../../../src/application/orchestration/cqrs/registries/command-handler-registry.js';
+import {QueryHandlerRegistry} from '../../../../../src/application/orchestration/cqrs/registries/query-handler-registry.js';
+import {CommandHandler} from '../../../../../src/application/orchestration/cqrs/commands/command-handler.js';
+import {QueryHandler} from '../../../../../src/application/orchestration/cqrs/queries/query-handler.js';
 import {
   CommandHandlerNotFoundException,
   QueryHandlerNotFoundException,
-} from '@application/orchestration/cqrs/exceptions/handler-not-found-exception';
+} from '../../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
 
 /**
  * Mock UnitOfWork for testing command handlers and transaction middleware
  */
 export const createMockUnitOfWork = (): jest.Mocked<UnitOfWork> => {
-  // Create a fresh mock function each time to avoid Jest mock state corruption
-  const mockExecuteInTransaction = jest.fn();
-
-  // Use a simple implementation that doesn't cause recursion
-  mockExecuteInTransaction.mockImplementation(
-    async <T>(task: () => Promise<T>): Promise<T> => {
-      try {
-        return await task();
-      } catch (error) {
-        throw error;
-      }
-    },
-  );
-
   return {
-    executeInTransaction: mockExecuteInTransaction,
-  };
+    beginTransaction: jest.fn().mockResolvedValue(undefined),
+    commit: jest.fn().mockResolvedValue(undefined),
+    rollback: jest.fn().mockResolvedValue(undefined),
+    isInTransaction: jest.fn().mockReturnValue(false),
+    getRepository: jest.fn(),
+  } as any;
 };
 
 /**
@@ -42,6 +33,8 @@ export const createMockQueryServices = (): jest.Mocked<QueryServices> => ({
       name: 'Mock Module',
     }),
   } as any,
+  useCaseQueryService: {} as any,
+  projectQueryService: {} as any,
 });
 
 /**

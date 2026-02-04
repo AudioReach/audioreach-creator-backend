@@ -1,8 +1,8 @@
-import {CommandHandlerRegistry} from '@application/orchestration/cqrs/registries/command-handler-registry';
-import {CommandHandlerNotFoundException} from '@application/orchestration/cqrs/exceptions/handler-not-found-exception';
-import {AddModuleCommand} from '@application/usecase-designer';
-import {TestCommand, UnknownCommand} from '../../helpers/test-commands';
-import {createMockUnitOfWork} from '../../helpers/mock-factories';
+import {CommandHandlerRegistry} from '../../../../../../src/application/orchestration/cqrs/registries/command-handler-registry.js';
+import {CommandHandlerNotFoundException} from '../../../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
+import {AddModuleCommand} from '../../../../../../src/application/usecase-designer/index.js';
+import {TestCommand, UnknownCommand} from '../../helpers/test-commands.js';
+import {createMockUnitOfWork} from '../../helpers/mock-factories.js';
 
 describe('CommandHandlerRegistry', () => {
   let registry: CommandHandlerRegistry;
@@ -95,7 +95,7 @@ describe('CommandHandlerRegistry', () => {
       // Given: Registry and mock dependencies
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork};
+      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
 
       // When: Creating handler via factory
       const factory = registry.getCommandHandlerFactory(command);
@@ -111,7 +111,7 @@ describe('CommandHandlerRegistry', () => {
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const factory = registry.getCommandHandlerFactory(command);
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork};
+      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
 
       // When: Creating multiple handlers
       const handler1 = factory.create(dependencies);
@@ -128,7 +128,7 @@ describe('CommandHandlerRegistry', () => {
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const factory = registry.getCommandHandlerFactory(command);
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork};
+      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
 
       // When: Creating and calling handler
       const handler = factory.create(dependencies);
@@ -144,7 +144,7 @@ describe('CommandHandlerRegistry', () => {
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const factory = registry.getCommandHandlerFactory(command);
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork};
+      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
 
       // When: Creating handler
       const handler = factory.create(dependencies);

@@ -1,6 +1,6 @@
-import {DatapoolChunk} from '../../../../src/application/file-operations/open-file/services/parsers/chunks/datapool-chunk.js';
-import {DatapoolChunkParser} from '../../../../src/application/file-operations/open-file/services/parsers/datapool-chunk-parser.js';
-import {CHUNK_TYPES} from '../../../../src/application/file-operations/open-file/constants/chunk-types.js';
+import {DatapoolChunk} from '../../../../src/application/file-operations/shared/acdb-chunks/datapool-chunk.js';
+import {DatapoolChunkParser} from '../../../../src/application/file-operations/upload-file/services/acdb-chunk-parsers/datapool-chunk-parser.js';
+import {CHUNK_TYPES} from '../../../../src/application/file-operations/shared/constants/chunk-types.js';
 import {BinaryUtils} from '../../../../src/shared/utilities/binary-utils.js';
 
 describe('DatapoolChunk', () => {
@@ -38,14 +38,11 @@ describe('DatapoolChunk', () => {
 
     it('should parse empty datapool chunk', () => {
       const emptyData = new Uint8Array(0);
-      const chunkGroup = [
-        {
-          chunkType: CHUNK_TYPES.DATAPOOL,
-          chunkData: emptyData,
-        },
-      ];
+      const context = {
+        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, emptyData]]),
+      };
 
-      const result = parser.parse(chunkGroup, {});
+      const result = parser.parse(context);
 
       expect(result.payloads).toEqual([]);
       expect(result.offsets).toEqual([]);
@@ -65,14 +62,11 @@ describe('DatapoolChunk', () => {
       // Write payload data
       data.set(payload, 4);
 
-      const chunkGroup = [
-        {
-          chunkType: CHUNK_TYPES.DATAPOOL,
-          chunkData: data,
-        },
-      ];
+      const context = {
+        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+      };
 
-      const result = parser.parse(chunkGroup, {});
+      const result = parser.parse(context);
 
       expect(result.payloads).toHaveLength(1);
       expect(result.payloads[0]).toEqual(payload);
@@ -93,14 +87,11 @@ describe('DatapoolChunk', () => {
       data.set(payload, 4);
       // Padding bytes are already zero-initialized
 
-      const chunkGroup = [
-        {
-          chunkType: CHUNK_TYPES.DATAPOOL,
-          chunkData: data,
-        },
-      ];
+      const context = {
+        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+      };
 
-      const result = parser.parse(chunkGroup, {});
+      const result = parser.parse(context);
 
       expect(result.payloads).toHaveLength(1);
       expect(result.payloads[0]).toEqual(payload);
@@ -135,14 +126,11 @@ describe('DatapoolChunk', () => {
       pos += 4;
       data.set(payload2, pos);
 
-      const chunkGroup = [
-        {
-          chunkType: CHUNK_TYPES.DATAPOOL,
-          chunkData: data,
-        },
-      ];
+      const context = {
+        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+      };
 
-      const result = parser.parse(chunkGroup, {});
+      const result = parser.parse(context);
 
       expect(result.payloads).toHaveLength(2);
       expect(result.payloads[0]).toEqual(payload1);
@@ -151,30 +139,24 @@ describe('DatapoolChunk', () => {
       expect(result.totalLength).toBe(data.length);
     });
 
-    it('should throw error for invalid chunk group', () => {
-      const chunkGroup = [
-        {
-          chunkType: CHUNK_TYPES.HEADER,
-          chunkData: new Uint8Array([1, 2, 3]),
-        },
-      ];
+    it('should throw error for missing chunk in context', () => {
+      const context = {
+        rawChunks: new Map([[CHUNK_TYPES.HEADER, new Uint8Array([1, 2, 3])]]),
+      };
 
-      expect(() => parser.parse(chunkGroup, {})).toThrow(
-        'DATAPOOL chunk not found in chunk group',
+      expect(() => parser.parse(context)).toThrow(
+        'DATAPOOL chunk not found in context',
       );
     });
 
     it('should throw error for insufficient data', () => {
       // Data too short for payload size
       const data = new Uint8Array([0x01, 0x02]); // Only 2 bytes, need 4 for size
-      const chunkGroup = [
-        {
-          chunkType: CHUNK_TYPES.DATAPOOL,
-          chunkData: data,
-        },
-      ];
+      const context = {
+        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+      };
 
-      expect(() => parser.parse(chunkGroup, {})).toThrow(
+      expect(() => parser.parse(context)).toThrow(
         'insufficient data for payload size',
       );
     });

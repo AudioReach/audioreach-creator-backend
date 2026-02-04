@@ -1,6 +1,6 @@
 import {describe, it, expect} from '@jest/globals';
-import {UsecaseDataChunkParser} from '../../../../src/application/file-operations/open-file/services/parsers/chunk-parser/usecase-data-chunk-parser.js';
-import {CHUNK_TYPES} from '../../../../src/application/file-operations/open-file/constants/chunk-types.js';
+import {UsecaseDataChunkParser} from '../../../../src/application/file-operations/upload-file/services/acdb-chunk-parsers/usecase-data-chunk-parser.js';
+import {CHUNK_TYPES} from '../../../../src/application/file-operations/shared/constants/chunk-types.js';
 import {
   KeyValue,
   KeyValuePairList,
@@ -97,28 +97,24 @@ describe('UsecaseDataChunkParser', () => {
   });
 
   it('should throw error when GKV_TABLE chunk is missing', () => {
-    const chunkGroup = [
-      {
-        chunkType: CHUNK_TYPES.GKV_LUT,
-        chunkData: new Uint8Array([1, 2, 3, 4]),
-      },
-    ];
+    const context = {
+      rawChunks: new Map([[CHUNK_TYPES.GKV_LUT, new Uint8Array([1, 2, 3, 4])]]),
+    };
 
     expect(() => {
-      parser.parse(chunkGroup, {});
-    }).toThrow('GKV_TABLE chunk not found in chunk group');
+      parser.parse(context);
+    }).toThrow('GKV_TABLE chunk not found in context');
   });
 
   it('should throw error when GKV_LUT chunk is missing', () => {
-    const chunkGroup = [
-      {
-        chunkType: CHUNK_TYPES.GKV_TABLE,
-        chunkData: new Uint8Array([1, 2, 3, 4]),
-      },
-    ];
+    const context = {
+      rawChunks: new Map([
+        [CHUNK_TYPES.GKV_TABLE, new Uint8Array([1, 2, 3, 4])],
+      ]),
+    };
 
     expect(() => {
-      parser.parse(chunkGroup, {});
-    }).toThrow('GKV_LUT chunk not found in chunk group');
+      parser.parse(context);
+    }).toThrow('GKV_LUT chunk not found in context');
   });
 });

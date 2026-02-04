@@ -1,33 +1,34 @@
-import {CommandBus} from '@application/orchestration/command-bus';
-import {CommandHandlerRegistry} from '@application/orchestration/cqrs/registries/command-handler-registry';
-import {CommandHandlerNotFoundException} from '@application/orchestration/cqrs/exceptions/handler-not-found-exception';
-import {AddModuleCommand} from '@application/usecase-designer';
-import {TestCommand, UnknownCommand} from './helpers/test-commands';
+import {jest} from '@jest/globals';
+import {CommandBus} from '../../../../src/application/orchestration/command-bus.js';
+import {CommandHandlerRegistry} from '../../../../src/application/orchestration/cqrs/registries/command-handler-registry.js';
+import {CommandHandlerNotFoundException} from '../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
+import {AddModuleCommand} from '../../../../src/application/usecase-designer/index.js';
+import {TestCommand, UnknownCommand} from './helpers/test-commands.js';
 import {
   createMockUnitOfWork,
   createMockCommandHandlerRegistry,
   createMockRegistryWithMissingHandler,
-} from './helpers/mock-factories';
+} from './helpers/mock-factories.js';
 
 describe('CommandBus', () => {
   let mockUnitOfWork: any;
   let mockRegistry: any;
+  let mockFileReader: any;
+  let mockUowFactory: any;
   let commandBus: CommandBus;
 
   beforeEach(() => {
     mockUnitOfWork = createMockUnitOfWork();
     mockRegistry = createMockCommandHandlerRegistry();
-    commandBus = new CommandBus(mockUnitOfWork, mockRegistry);
+    mockFileReader = {} as any;
 
-    // Mock the middleware registration to avoid transaction middleware issues
-    jest
-      .spyOn(commandBus as any, 'registerMiddlewares')
-      .mockImplementation(() => {
-        (commandBus as any).middlewares = []; // Empty middleware array
-      });
+    // Mock UoW factory that returns the mock UoW and a release function
+    mockUowFactory = jest.fn().mockResolvedValue({
+      uow: mockUnitOfWork,
+      release: jest.fn().mockResolvedValue(undefined),
+    });
 
-    // Re-initialize after mocking middleware registration
-    (commandBus as any).registerMiddlewares();
+    commandBus = new CommandBus(mockRegistry, mockFileReader, mockUowFactory);
   });
 
   describe('Command Execution', () => {
@@ -58,17 +59,13 @@ describe('CommandBus', () => {
     });
 
     it('should handle command execution with real registry', async () => {
-      // Given: CommandBus with real registry (but mocked middleware)
+      // Given: CommandBus with real registry
       const realRegistry = CommandHandlerRegistry.Instance;
-      const realCommandBus = new CommandBus(mockUnitOfWork, realRegistry);
-
-      // Mock middleware for this instance too
-      jest
-        .spyOn(realCommandBus as any, 'registerMiddlewares')
-        .mockImplementation(() => {
-          (realCommandBus as any).middlewares = [];
-        });
-      (realCommandBus as any).registerMiddlewares();
+      const realCommandBus = new CommandBus(
+        realRegistry,
+        mockFileReader,
+        mockUowFactory,
+      );
 
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
 
@@ -106,9 +103,12 @@ describe('CommandBus', () => {
       // Then: Should create handler with UnitOfWork dependency
       const mockFactory =
         mockRegistry.getCommandHandlerFactory.mock.results[0].value;
-      expect(mockFactory.create).toHaveBeenCalledWith({
-        uow: mockUnitOfWork,
-      });
+      expect(mockFactory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          uow: mockUnitOfWork,
+          fileReader: mockFileReader,
+        }),
+      );
     });
 
     it('should call handler with command', async () => {
@@ -130,7 +130,11 @@ describe('CommandBus', () => {
     it('should throw exception when handler not found', async () => {
       // Given: CommandBus with registry that throws exception
       const failingRegistry = createMockRegistryWithMissingHandler();
-      const failingCommandBus = new CommandBus(mockUnitOfWork, failingRegistry);
+      const failingCommandBus = new CommandBus(
+        failingRegistry,
+        mockFileReader,
+        mockUowFactory,
+      );
       const unknownCommand = new UnknownCommand();
 
       // When/Then: Should throw CommandHandlerNotFoundException
@@ -173,13 +177,11 @@ describe('CommandBus', () => {
         );
       });
 
-      const strictCommandBus = new CommandBus(mockUnitOfWork, strictRegistry);
-      jest
-        .spyOn(strictCommandBus as any, 'registerMiddlewares')
-        .mockImplementation(() => {
-          (strictCommandBus as any).middlewares = [];
-        });
-      (strictCommandBus as any).registerMiddlewares();
+      const strictCommandBus = new CommandBus(
+        strictRegistry,
+        mockFileReader,
+        mockUowFactory,
+      );
 
       // When/Then: Should handle invalid input
       await expect(strictCommandBus.execute(null as any)).rejects.toThrow();
@@ -193,7 +195,11 @@ describe('CommandBus', () => {
     it('should handle real exception scenarios', async () => {
       // Given: Real registry and unregistered command
       const realRegistry = CommandHandlerRegistry.Instance;
-      const realCommandBus = new CommandBus(mockUnitOfWork, realRegistry);
+      const realCommandBus = new CommandBus(
+        realRegistry,
+        mockFileReader,
+        mockUowFactory,
+      );
       const unknownCommand = new UnknownCommand();
 
       // When/Then: Should throw real exception
