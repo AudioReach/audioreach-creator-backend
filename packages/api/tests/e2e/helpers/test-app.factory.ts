@@ -3,6 +3,7 @@ import {Test, TestingModule} from '@nestjs/testing';
 import {AppModule} from '../../../src/app.module.js';
 import {MockJwtStrategy} from './auth.helper.js';
 import {DataSource} from 'typeorm';
+import {NodeWorkerPoolSingleton} from '@arc/fs';
 
 /**
  * Create a NestJS application configured for E2E testing
@@ -91,6 +92,14 @@ export async function closeTestApp(app: INestApplication): Promise<void> {
       }
     } catch (error) {
       // DataSource might not be available, ignore
+    }
+
+    // Dispose worker pool to terminate worker threads
+    try {
+      const workerPool = new NodeWorkerPoolSingleton();
+      await workerPool.dispose();
+    } catch (error) {
+      // Worker pool might not be initialized, ignore
     }
 
     await app.close();
