@@ -2,32 +2,36 @@ import request from 'supertest';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import {writeFileSync, mkdirSync} from 'fs';
-import {generateMockJwtToken} from '../helpers/auth.helper.js';
+import {INestApplication} from '@nestjs/common';
+import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 import {ComponentGraphLogger} from '../helpers/component-graph-logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Server URL - change this if your server runs on a different port
-const SERVER_URL = 'http://localhost:3000';
-
 describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () => {
+  let app: INestApplication;
+  let httpServer: any;
   let authToken: string;
 
   beforeAll(async () => {
-    authToken = generateMockJwtToken();
+    // Create and initialize the test app with in-memory database
+    const testSetup = await setupE2ETest();
+    app = testSetup.app;
+    httpServer = testSetup.httpServer;
+    authToken = testSetup.authToken;
   });
 
   afterAll(async () => {
-    // Wait for any pending async operations to complete
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Properly close the application and clean up resources
+    await teardownE2ETest(app);
   });
 
   it('should successfully open acdb and awsp files and retrieve usecases', async () => {
     const acdbPath = join(__dirname, '../fixtures/acdb_cal.acdb');
     const awspPath = join(__dirname, '../fixtures/workspaceFileXml.awsp');
 
-    const response = await request(SERVER_URL)
+    const response = await request(httpServer)
       .post('/arc-api/v1/projects/offline/upload-files')
       .set('Authorization', `Bearer ${authToken}`)
       .attach('acdbFile', acdbPath)
@@ -50,7 +54,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
     const projectId = response.body.data.projectId;
 
     // Call get all usecases API
-    const usecasesResponse = await request(SERVER_URL)
+    const usecasesResponse = await request(httpServer)
       .get(`/arc-api/v1/projects/${projectId}/usecases/`)
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000) // 30 seconds timeout
@@ -115,7 +119,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
       const randomIndex = Math.floor(Math.random() * logLines.length);
       const randomUsecaseSystemId = logLines[randomIndex].split(' : ')[0];
 
-      const componentsResponse = await request(SERVER_URL)
+      const componentsResponse = await request(httpServer)
         .post(`/arc-api/v1/projects/${projectId}/usecases/getComponents/`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
