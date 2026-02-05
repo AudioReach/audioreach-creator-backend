@@ -7,6 +7,7 @@ import sonarjsPlugin from 'eslint-plugin-sonarjs';
 import unicornPlugin from 'eslint-plugin-unicorn';
 import promisePlugin from 'eslint-plugin-promise';
 import prettierConfig from 'eslint-config-prettier';
+import customRules from './eslint-rules/index.js';
 
 export default [
   {
@@ -18,6 +19,7 @@ export default [
       '**/.yarn/**',
       '**/build/**',
       'eslint.config.js',
+      'eslint-rules/**',
       '**/jest.config.js',
       '**/jest.config.mjs',
       '**/jest.config.ts',
@@ -42,6 +44,9 @@ export default [
   // Main configuration
   {
     files: ['**/*.{js,ts,mjs,cjs}'],
+    plugins: {
+      custom: customRules,
+    },
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: 'module',
@@ -81,6 +86,9 @@ export default [
       'import/parsers': {
         '@typescript-eslint/parser': ['.ts', '.tsx'],
       },
+    },
+    rules: {
+      'custom/no-banned-keywords': 'error',
     },
   },
 
