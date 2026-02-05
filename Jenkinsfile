@@ -64,7 +64,19 @@ pipeline {
                     echo '❌ Linting failed! Please fix code style issues.'
                 }
             }
-        }        
+        }
+
+        stage('Format Check') {
+            steps {
+                echo '🎨 Checking code formatting...'
+                bat 'yarn format:check'
+            }
+            post {
+                failure {
+                    echo '❌ Code formatting check failed! Please run "yarn format" to fix formatting issues.'
+                }
+            }
+        }
         
         stage('Type Check') {
             steps {
