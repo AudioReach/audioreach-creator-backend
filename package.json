@@ -70,5 +70,5 @@
     "yarn": ">=4.0.0"
   },
   "packageManager": "yarn@4.5.3",
-  "license": "BSD-3-Clause-Clear"
+  "license": "BSD-3-Clause"
 }
