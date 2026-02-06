@@ -18,7 +18,6 @@ import {
 
 /**
  * Main SPF Properties class that parses and contains all subgraph property data.
- * Based on C# GeckoPropertyData implementation.
  */
 export class SpfProperties {
   /** Subgraph configuration properties */

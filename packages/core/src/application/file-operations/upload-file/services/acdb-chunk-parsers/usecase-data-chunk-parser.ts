@@ -13,7 +13,7 @@ import type {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js'
 
 /**
  * Parser for usecase data chunks containing GKV_TABLE and GKV_LUT data.
- * Based on C# InitializeGraphData and GetGeckoPrptyDataPayload methods.
+ * Based on C# InitializeGraphData and GetSpfPrptyDataPayload methods.
  * Creates multiple usecase entries, each corresponding to a Keys->GraphData mapping.
  */
 export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {

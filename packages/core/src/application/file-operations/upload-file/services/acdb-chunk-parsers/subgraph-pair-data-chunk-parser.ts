@@ -11,7 +11,7 @@ import type {
 import {buildDataLinkNaturalKeyHash} from '../../../shared/utils/natural-key-utils.js';
 import type {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js';
 import {
-  GECKO_APM_MODULE_ID,
+  SPF_APM_MODULE_ID,
   PARAM_ID_MODULE_DATA_LINK,
   PARAM_ID_MODULE_CTRL_LINK,
   MODULE_PROP_ID_CTRL_HEAP_ID,
@@ -188,13 +188,13 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
 
       // Parse based on parameter type
       if (
-        apmModId === GECKO_APM_MODULE_ID &&
+        apmModId === SPF_APM_MODULE_ID &&
         apmParamId === PARAM_ID_MODULE_DATA_LINK
       ) {
         const parsedDataLinks = this.parseDataLinks(datapoolChunk, dataPoolPos);
         dataLinks.push(...parsedDataLinks);
       } else if (
-        apmModId === GECKO_APM_MODULE_ID &&
+        apmModId === SPF_APM_MODULE_ID &&
         apmParamId === PARAM_ID_MODULE_CTRL_LINK
       ) {
         const parsedControlLinks = this.parseControlLinks(

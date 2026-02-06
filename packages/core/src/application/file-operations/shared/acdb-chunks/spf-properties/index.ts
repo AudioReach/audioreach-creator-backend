@@ -1,8 +1,8 @@
 /**
  * SPF Properties - Signal Processing Framework property parsing and data structures
  *
- * This module provides TypeScript implementations for parsing SPF (formerly Gecko)
- * properties from binary data, based on the C# implementations in QACT.
+ * This module provides TypeScript implementations for parsing SPF
+ * properties from binary data
  */
 
 // Main SPF Properties class
