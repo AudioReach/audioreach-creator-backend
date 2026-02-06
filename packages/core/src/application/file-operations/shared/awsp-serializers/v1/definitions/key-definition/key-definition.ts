@@ -1,7 +1,15 @@
-import { Expose, Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsString, IsArray, ValidateNested, IsOptional, IsBoolean } from 'class-validator';
-import { ValueDefinition } from './value-definition.js';
-import type { SpecialKey } from './type/special-key-type.js';
+import {Expose, Type} from 'class-transformer';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsArray,
+  ValidateNested,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
+import {ValueDefinition} from './value-definition.js';
+import type {SpecialKey} from './type/special-key-type.js';
 
 /**
  * Represents a key definition with identifier, name, and associated values.
@@ -22,7 +30,7 @@ export class KeyDefinition {
   /** List of value definitions associated with this key */
   @Expose()
   @IsArray()
-  @ValidateNested({ each: true })
+  @ValidateNested({each: true})
   @Type(() => ValueDefinition)
   values!: ValueDefinition[];
 

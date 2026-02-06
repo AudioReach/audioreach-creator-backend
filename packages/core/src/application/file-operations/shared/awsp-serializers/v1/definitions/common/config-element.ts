@@ -1,7 +1,7 @@
-import { BaseElement } from './base-element.js';
-import type { DataType } from './type/data-type.js';
-import type { DisplayType } from './type/display-type.js';
-import type { ElementPolicy } from './type/element-policy.js';
+import {BaseElement} from './base-element.js';
+import type {DataType} from './type/data-type.js';
+import type {DisplayType} from './type/display-type.js';
+import type {ElementPolicy} from './type/element-policy.js';
 
 /**
  * Represents a configuration element with data type and display properties.

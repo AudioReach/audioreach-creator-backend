@@ -1,24 +1,16 @@
 {
   "$schema": "https://turborepo.org/schema.json",
-  "tasks": { 
+  "tasks": {
     "typecheck": {
       "dependsOn": ["^typecheck"],
-      "inputs": [
-        "src/**/*.ts",
-        "tsconfig.json",
-        "package.json"
-      ],
+      "inputs": ["src/**/*.ts", "tsconfig.json", "package.json"],
       "cache": true
     },
     "build": {
       "dependsOn": ["^build", "typecheck"],
       "outputs": ["dist/**", "*.tsbuildinfo"],
-      "inputs": [
-        "src/**/*.ts",
-        "tsconfig.json",
-        "package.json"
-      ]
-    },   
+      "inputs": ["src/**/*.ts", "tsconfig.json", "package.json"]
+    },
     "test:workspace": {
       "dependsOn": ["@arc/api#test:api", "@arc/core#test:core"],
       "outputs": ["coverage/**"],
@@ -84,7 +76,7 @@
       ],
       "cache": true
     },
-    "test:integration:api": {      
+    "test:integration:api": {
       "outputs": ["coverage/**"],
       "inputs": [
         "src/**/*.ts",
@@ -104,7 +96,7 @@
         "tsconfig.json",
         "jest.config.js",
         "package.json"
-      ],  
+      ],
       "cache": true
     },
     "coverage:api": {

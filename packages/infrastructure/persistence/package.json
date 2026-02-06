@@ -20,7 +20,7 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "shx rm -rf dist *.tsbuildinfo",
-    "format": "prettier --write persistence-typeorm-sqllite/**/*.ts",
+    "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects=integration",

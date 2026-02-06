@@ -1,6 +1,6 @@
-import { Expose } from 'class-transformer';
-import type { ToolPolicy } from '../type/tool-policy.js';
-import type { PidType } from '../type/pid-type.js';
+import {Expose} from 'class-transformer';
+import type {ToolPolicy} from '../type/tool-policy.js';
+import type {PidType} from '../type/pid-type.js';
 
 /**
  * Represents a parameter definition with tool policy and elements.
@@ -24,7 +24,7 @@ export class ParamDefinition {
 
   /** List of element associated with this ParamDefinition (required) */
   @Expose()
- elements!: any[];
+  elements!: any[];
 
   /** Parameter description (optional) */
   @Expose()

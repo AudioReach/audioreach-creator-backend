@@ -1,4 +1,4 @@
-import { BasePropertyDefinition } from './base-property-definition.js';
+import {BasePropertyDefinition} from './base-property-definition.js';
 
 /**
  * Represents a driver property definition.

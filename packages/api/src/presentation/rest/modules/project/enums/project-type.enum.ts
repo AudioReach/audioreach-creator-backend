@@ -1,6 +1,4 @@
-
 export enum ProjectType {
-  Offline = "OFFLINE",
-  Device = "DEVICE"
-
+  Offline = 'OFFLINE',
+  Device = 'DEVICE',
 }

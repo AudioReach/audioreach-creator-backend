@@ -1,6 +1,14 @@
-import { Expose, Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsString, IsOptional, IsBoolean, IsArray, ValidateNested } from 'class-validator';
-import { TagKeyDefinition } from './tag-key-definition.js';
+import {Expose, Type} from 'class-transformer';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import {TagKeyDefinition} from './tag-key-definition.js';
 
 /**
  * Represents a tag definition with metadata and supported keys.
@@ -28,7 +36,7 @@ export class TagDefinition {
   @Expose()
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
+  @ValidateNested({each: true})
   @Type(() => TagKeyDefinition)
   supportedKeys?: TagKeyDefinition[];
 

@@ -1,5 +1,6 @@
 import {performance} from 'node:perf_hooks';
-import type {ProfilerPort,
+import type {
+  ProfilerPort,
   ProfilerOperation,
   MemorySnapshotPoint,
   PerformanceMetrics,

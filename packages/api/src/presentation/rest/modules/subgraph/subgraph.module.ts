@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { SubgraphController } from './subgraph.controller.js';
+import {Module} from '@nestjs/common';
+import {SubgraphController} from './subgraph.controller.js';
 
 /**
  * Module for subgraph functionality
@@ -7,6 +7,6 @@ import { SubgraphController } from './subgraph.controller.js';
 @Module({
   controllers: [SubgraphController],
   providers: [],
-  exports: []
+  exports: [],
 })
 export class SubgraphModule {}

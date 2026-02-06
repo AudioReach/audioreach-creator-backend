@@ -1,6 +1,6 @@
-import { Expose } from 'class-transformer';
-import { IsBoolean, IsOptional } from 'class-validator';
-import { BaseModuleDefinition } from '../common/base-module-definition.js';
+import {Expose} from 'class-transformer';
+import {IsBoolean, IsOptional} from 'class-validator';
+import {BaseModuleDefinition} from '../common/base-module-definition.js';
 
 /**
  * Represents a driver module definition.

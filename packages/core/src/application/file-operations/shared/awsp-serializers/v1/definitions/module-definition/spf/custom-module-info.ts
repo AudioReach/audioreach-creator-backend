@@ -1,5 +1,5 @@
-import { Expose } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import {Expose} from 'class-transformer';
+import {IsNotEmpty, IsNumber, IsString} from 'class-validator';
 
 /**
  * Represents custom module information.

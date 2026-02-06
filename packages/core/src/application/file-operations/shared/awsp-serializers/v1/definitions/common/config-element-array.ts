@@ -1,8 +1,8 @@
-import { Type } from 'class-transformer';
-import { BaseArrayElement } from './base-array-element.js';
-import { ConfigElement } from './config-element.js';
-import type { DisplayType } from './type/display-type.js';
-import type { ElementPolicy } from './type/element-policy.js';
+import {Type} from 'class-transformer';
+import {BaseArrayElement} from './base-array-element.js';
+import {ConfigElement} from './config-element.js';
+import type {DisplayType} from './type/display-type.js';
+import type {ElementPolicy} from './type/element-policy.js';
 
 /**
  * Represents a configuration element array.

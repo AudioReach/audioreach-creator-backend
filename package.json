@@ -27,7 +27,7 @@
     "coverage:clean": "shx rm -rf coverage && turbo run coverage:clean",
     "clean": "yarn workspaces foreach --all run clean",
     "format": "yarn workspaces foreach --all run format",
-    "format:check": "prettier --check \"**/*.{js,ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,ts,json}\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "migration:run:tmp": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:run",

@@ -4,11 +4,14 @@ import type {
   ProjectRepository,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
-import {TypeOrmBulkImportRepository, TypeOrmProjectRepository} from '@arc/persistence';
+import {
+  TypeOrmBulkImportRepository,
+  TypeOrmProjectRepository,
+} from '@arc/persistence';
 
 /**
  * TypeORM implementation of Unit of Work.
- * 
+ *
  * Lifecycle:
  * 1. CommandBus creates QueryRunner and connects it
  * 2. CommandBus creates TypeOrmUnitOfWork with QueryRunner

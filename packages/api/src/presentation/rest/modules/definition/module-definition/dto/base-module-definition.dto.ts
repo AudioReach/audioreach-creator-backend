@@ -1,27 +1,27 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { ParameterDefinitionSummaryInfo } from "../info/parameter-definition-summary-info.js";
+import {ApiProperty} from '@nestjs/swagger';
+import {ParameterDefinitionSummaryInfo} from '../info/parameter-definition-summary-info.js';
 
 export abstract class BaseModuleDefinitionDto {
-
-  @ApiProperty({ description: 'Unique system identifier for the module' })
+  @ApiProperty({description: 'Unique system identifier for the module'})
   systemId!: string;
 
-  @ApiProperty({ description: 'Module identifier' })
+  @ApiProperty({description: 'Module identifier'})
   moduleId!: number; // uint
 
-  @ApiProperty({ description: 'Module name' })
+  @ApiProperty({description: 'Module name'})
   name!: string;
 
-  @ApiProperty({ description: 'Display name of the module' })
+  @ApiProperty({description: 'Display name of the module'})
   displayName!: string;
 
-  @ApiProperty({ description: 'Description of the module' })
+  @ApiProperty({description: 'Description of the module'})
   description!: string;
 
-
-  @ApiProperty({ description: 'Array of parameter definitions', type: [ParameterDefinitionSummaryInfo] })
+  @ApiProperty({
+    description: 'Array of parameter definitions',
+    type: [ParameterDefinitionSummaryInfo],
+  })
   paramDefinitionsSummaryInfo!: ParameterDefinitionSummaryInfo[];
-
 
   // @ApiProperty({ description: 'Indicates if this is a basic view' })
   // isBasicView!: boolean;
@@ -32,10 +32,9 @@ export abstract class BaseModuleDefinitionDto {
   //   @ApiProperty({ description: 'Ids of modules this one replaces', type: Number, isArray: true })
   //   replaces!: number[]; // List<uint>
 
-  @ApiProperty({ description: 'Deprecation flag', required: false })
+  @ApiProperty({description: 'Deprecation flag', required: false})
   deprecated?: boolean;
 
   // @ApiPropertyOptional({ description: 'Stub flag' })
   // stubbed?: boolean;
-
 }
