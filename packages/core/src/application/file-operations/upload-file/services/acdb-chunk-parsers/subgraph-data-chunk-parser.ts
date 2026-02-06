@@ -194,7 +194,7 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
         // Validate that we have enough data for the total property size
         const remainingDataStart = pos;
 
-        // Read driverPropSize (formerly gslPropSize)
+        // Read driverPropSize
         if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
           throw new Error(`Cannot read driverPropSize at position ${pos}`);
         }
@@ -210,7 +210,7 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
         const driverProperties = payload.slice(pos, pos + driverPropSize);
         pos += driverPropSize;
 
-        // Read spfPropSize (formerly geckoPropSize)
+        // Read spfPropSize
         if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
           throw new Error(`Cannot read spfPropSize at position ${pos}`);
         }

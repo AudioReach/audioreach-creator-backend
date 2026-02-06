@@ -4,8 +4,8 @@
  */
 
 // APM Module IDs
-export const GECKO_APM_MODULE_ID = 0x00_00_00_01;
-export const GECKO_VCPM_MODULE_ID = 0x00_00_00_04;
+export const SPF_APM_MODULE_ID = 0x00_00_00_01;
+export const SPF_VCPM_MODULE_ID = 0x00_00_00_04;
 
 // APM Parameter IDs
 export const PARAM_ID_SUB_GRAPH_CONFIG = 0x08_00_10_01;
@@ -16,7 +16,7 @@ export const PARAM_ID_MODULE_DATA_LINK = 0x08_00_10_04;
 export const PARAM_ID_MODULE_CTRL_LINK = 0x08_00_10_61;
 
 // VCPM Parameter IDs
-export const GECKO_VCPM_PARAM_ID_CAL_KEYS = 0x08_00_11_c1;
+export const SPF_VCPM_PARAM_ID_CAL_KEYS = 0x08_00_11_c1;
 export const PARAM_ID_VOICE_SG_CONFIG = 0x08_00_11_62;
 export const PARAM_ID_VOICE_CAL_TBL = 0x08_00_11_63;
 
@@ -57,4 +57,4 @@ export const HEAP_ID_LOW_POWER = 2;
 // Other Constants
 export const DEFAULT_CONTAINER_STACK_SIZE = 0xff_ff_ff_ff;
 export const ID_DONT_CARE_DUMMY = 0xff_ff_ff_ff;
-export const GECKO_ID = 0xff_ff_ff_fe;
+export const SPF_ID = 0xff_ff_ff_fe;

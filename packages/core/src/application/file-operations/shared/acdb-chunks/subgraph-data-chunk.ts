@@ -16,9 +16,9 @@ import type {
 export interface SubgraphDataEntry {
   /** Subgraph ID */
   subgraphId: number;
-  /** Driver properties data (formerly GSL) */
+  /** Driver properties data */
   driverProperties: Uint8Array;
-  /** Parsed SPF properties (formerly Gecko) */
+  /** Parsed SPF properties */
   spfProperties: SpfProperties;
 }
 
