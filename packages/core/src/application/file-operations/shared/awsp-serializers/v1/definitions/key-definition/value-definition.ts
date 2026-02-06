@@ -1,5 +1,5 @@
-import { Expose } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsString, IsOptional } from 'class-validator';
+import {Expose} from 'class-transformer';
+import {IsNotEmpty, IsNumber, IsString, IsOptional} from 'class-validator';
 
 /**
  * Represents a value definition with identifier and name properties.

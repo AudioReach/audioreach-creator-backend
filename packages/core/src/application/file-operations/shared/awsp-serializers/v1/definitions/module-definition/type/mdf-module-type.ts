@@ -1,8 +1,4 @@
 /**
  * MDF module type values
  */
-export type MdfModuleType =
-  | 'WRClient'
-  | 'WREP'
-  | 'RDClient'
-  | 'RDEP';
+export type MdfModuleType = 'WRClient' | 'WREP' | 'RDClient' | 'RDEP';

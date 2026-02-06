@@ -6,7 +6,7 @@
     "moduleResolution": "NodeNext",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "isolatedModules": true,
+    "isolatedModules": true
   },
   "include": ["**/*.spec.ts", "tests/**/*", "src/**/*"],
   "exclude": ["node_modules", "dist"]

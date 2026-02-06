@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import {Expose, Type} from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -7,15 +7,15 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import type { VocoderModuleType } from '../type/vocoder-module-type.js';
-import type { ModuleDirectionType } from '../type/module-direction-type.js';
-import type { MdfModuleType } from '../type/mdf-module-type.js';
-import type { MajorModuleType } from '../type/major-module-type.js';
-import type { BuildType } from '../type/build-type.js';
-import { DataPortsInfo } from './data-ports-info.js';
-import { ControlPortsInfo } from './control-ports-info.js';
-import { CustomModuleInfo } from './custom-module-info.js';
-import { BaseModuleDefinition } from '../common/base-module-definition.js';
+import type {VocoderModuleType} from '../type/vocoder-module-type.js';
+import type {ModuleDirectionType} from '../type/module-direction-type.js';
+import type {MdfModuleType} from '../type/mdf-module-type.js';
+import type {MajorModuleType} from '../type/major-module-type.js';
+import type {BuildType} from '../type/build-type.js';
+import {DataPortsInfo} from './data-ports-info.js';
+import {ControlPortsInfo} from './control-ports-info.js';
+import {CustomModuleInfo} from './custom-module-info.js';
+import {BaseModuleDefinition} from '../common/base-module-definition.js';
 
 /**
  * Represents an SPF module definition with comprehensive module information.
@@ -25,13 +25,13 @@ export class SpfModuleDefinition extends BaseModuleDefinition {
   /** List of supported processor IDs (required) */
   @Expose()
   @IsArray()
-  @IsNumber({}, { each: true })
+  @IsNumber({}, {each: true})
   supportedProcessorIds!: number[];
 
   /** Dictionary of supported container types (required) */
   @Expose()
   @IsArray()
-  @IsNumber({}, { each: true })
+  @IsNumber({}, {each: true})
   supportedContainerTypes!: number[];
 
   /** Input port information (optional) */

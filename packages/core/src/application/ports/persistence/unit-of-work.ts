@@ -3,7 +3,7 @@ import type {ProjectRepository} from './repositories/project/project.repostiory.
 
 /**
  * Unit of Work pattern for managing database transactions and repository access.
- * 
+ *
  * Lifecycle:
  * - Created by CommandBus with an active QueryRunner
  * - QueryRunner remains alive for the entire command execution

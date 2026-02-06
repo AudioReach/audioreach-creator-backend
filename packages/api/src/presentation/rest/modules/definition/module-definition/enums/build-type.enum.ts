@@ -1,6 +1,5 @@
-
 export enum BuildType {
-   Static = 'STATIC',
-   Dynamic = 'DYNAMIC' ,
-   Stub = 'STUB',
+  Static = 'STATIC',
+  Dynamic = 'DYNAMIC',
+  Stub = 'STUB',
 }

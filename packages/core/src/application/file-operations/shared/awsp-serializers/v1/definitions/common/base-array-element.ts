@@ -1,4 +1,4 @@
-import { BaseElement } from './base-element.js';
+import {BaseElement} from './base-element.js';
 
 /**
  * Represents an array element with array-specific properties.

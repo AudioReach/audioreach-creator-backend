@@ -25,7 +25,7 @@
     "test:integration:core": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects integration --passWithNoTests",
     "coverage:core": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage --passWithNoTests",
     "coverage:clean": "shx rm -rf coverage",
-    "format": "prettier --write src/**/*.ts",
+    "format": "prettier --write .",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

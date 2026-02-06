@@ -1,8 +1,3 @@
+import {BaseModuleDefinitionDto} from './base-module-definition.dto.js';
 
-import { BaseModuleDefinitionDto } from "./base-module-definition.dto.js";
-
-export class DriverModuleDefinitionResponseDto extends BaseModuleDefinitionDto {
-
-   
-
-}
+export class DriverModuleDefinitionResponseDto extends BaseModuleDefinitionDto {}

@@ -1,7 +1,7 @@
-import { Expose, Type } from 'class-transformer';
-import { IsArray, IsOptional, ValidateNested } from 'class-validator';
-import { StaticControlPort } from './static-control-port.js';
-import { Intent } from './intent.js';
+import {Expose, Type} from 'class-transformer';
+import {IsArray, IsOptional, ValidateNested} from 'class-validator';
+import {StaticControlPort} from './static-control-port.js';
+import {Intent} from './intent.js';
 
 /**
  * Represents control ports information with static ports and dynamic intents.
@@ -11,7 +11,7 @@ export class ControlPortsInfo {
   @Expose()
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
+  @ValidateNested({each: true})
   @Type(() => StaticControlPort)
   staticPorts?: StaticControlPort[];
 
@@ -19,7 +19,7 @@ export class ControlPortsInfo {
   @Expose()
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
+  @ValidateNested({each: true})
   @Type(() => Intent)
   dynamicIntents?: Intent[];
 }

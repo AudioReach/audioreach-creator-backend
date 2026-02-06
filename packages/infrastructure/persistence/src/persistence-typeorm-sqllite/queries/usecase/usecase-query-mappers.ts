@@ -94,9 +94,7 @@ export const UseCaseQueryMappers = {
     };
   },
 
-  mapToControlLinkReadModel(
-    controlLink: ControlLinkRow,
-  ): ControlLinkReadModel {
+  mapToControlLinkReadModel(controlLink: ControlLinkRow): ControlLinkReadModel {
     return {
       systemId: controlLink.systemId,
       peerNodeASystemId: controlLink.peerNodeASystemId,

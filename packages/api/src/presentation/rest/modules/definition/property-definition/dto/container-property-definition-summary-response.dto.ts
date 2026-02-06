@@ -1,7 +1,3 @@
+import {BasePropertyDescriptionResponseDto} from './base-property-definition-response.dto.js';
 
-import { BasePropertyDescriptionResponseDto } from "./base-property-definition-response.dto.js";
-
-export class ContainerPropertyDefinitionSummaryResponseDto extends BasePropertyDescriptionResponseDto
-{
-
-}
+export class ContainerPropertyDefinitionSummaryResponseDto extends BasePropertyDescriptionResponseDto {}

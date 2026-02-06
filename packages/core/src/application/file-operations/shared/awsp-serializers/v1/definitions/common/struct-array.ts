@@ -1,6 +1,6 @@
-import { Type } from 'class-transformer';
-import { BaseArrayElement } from './base-array-element.js';
-import { Struct } from './struct.js';
+import {Type} from 'class-transformer';
+import {BaseArrayElement} from './base-array-element.js';
+import {Struct} from './struct.js';
 
 /**
  * Represents a structure array element.

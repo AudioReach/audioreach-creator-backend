@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import {Expose, Type} from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -8,7 +8,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { ParamDefinition } from './param-definition.js';
+import {ParamDefinition} from './param-definition.js';
 
 /**
  * Abstract base class for module definitions.
@@ -30,7 +30,7 @@ export abstract class BaseModuleDefinition {
   /** List of parameter definitions (required) */
   @Expose()
   @IsArray()
-  @ValidateNested({ each: true })
+  @ValidateNested({each: true})
   @Type(() => ParamDefinition)
   paramDefinitions!: ParamDefinition[];
 

@@ -1,6 +1,12 @@
-import { Expose } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsString, IsOptional, IsBoolean } from 'class-validator';
-import { BasePropertyDefinition } from './base-property-definition.js';
+import {Expose} from 'class-transformer';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
+import {BasePropertyDefinition} from './base-property-definition.js';
 
 /**
  * Represents an SPF property definition with category and module instance information.
@@ -25,7 +31,7 @@ export class SpfPropertyDefinition extends BasePropertyDefinition {
   @IsNumber()
   apmModuleInstanceId!: number;
 
-    /** Indicates whether this property is voice-related (optional) */
+  /** Indicates whether this property is voice-related (optional) */
   @Expose()
   @IsOptional()
   @IsBoolean()

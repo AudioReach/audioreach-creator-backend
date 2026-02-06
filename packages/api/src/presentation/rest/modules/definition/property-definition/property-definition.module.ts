@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { PropertyDefinitionController } from './property-definition.controller.js';
+import {Module} from '@nestjs/common';
+import {PropertyDefinitionController} from './property-definition.controller.js';
 
 @Module({
-  controllers: [PropertyDefinitionController]
+  controllers: [PropertyDefinitionController],
 })
 export class PropertyDefinitionModule {}

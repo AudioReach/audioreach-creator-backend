@@ -1,7 +1,4 @@
 /**
  * Module direction type values
  */
-export type ModuleDirectionType =
-  | 'TX'
-  | 'RX'
-  | 'Both'
+export type ModuleDirectionType = 'TX' | 'RX' | 'Both';

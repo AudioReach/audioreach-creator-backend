@@ -1,6 +1,3 @@
-import { PropertyCategory } from "../../common/entities/property-category.js";
+import {PropertyCategory} from '../../common/entities/property-category.js';
 
-export class SubgraphSPFProperty extends PropertyCategory
-{
-
-}
+export class SubgraphSPFProperty extends PropertyCategory {}

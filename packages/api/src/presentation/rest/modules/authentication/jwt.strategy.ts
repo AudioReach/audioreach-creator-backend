@@ -1,7 +1,7 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { JWT_SECRET } from './dto/constants.js';
+import {Injectable, UnauthorizedException} from '@nestjs/common';
+import {PassportStrategy} from '@nestjs/passport';
+import {ExtractJwt, Strategy} from 'passport-jwt';
+import {JWT_SECRET} from './dto/constants.js';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -14,7 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  validate(payload: { clientId: string }) {
+  validate(payload: {clientId: string}) {
     // Validate that the token contains required clientId
     if (!payload.clientId) {
       throw new UnauthorizedException('Invalid token: missing clientId');
@@ -22,7 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     // The returned value will be attached to the Request object
     return {
-      clientId: payload.clientId
+      clientId: payload.clientId,
     };
   }
 }

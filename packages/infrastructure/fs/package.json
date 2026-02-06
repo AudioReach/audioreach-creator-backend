@@ -20,7 +20,7 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "shx rm -rf dist *.tsbuildinfo",
-    "format": "prettier --write src/**/*.ts",
+    "format": "prettier --write .",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

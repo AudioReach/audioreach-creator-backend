@@ -1,5 +1,5 @@
 export enum VocoderModuleType {
-   Static = 'STATIC',
-   Dynamic = 'DYNAMIC',
-   Volume = 'VOLUME',
+  Static = 'STATIC',
+  Dynamic = 'DYNAMIC',
+  Volume = 'VOLUME',
 }

@@ -1,7 +1,4 @@
 /**
  * Arc element policy values
  */
-export type ElementPolicy =
-  | 'Hidden'
-  | 'Basic'
-  | 'Advanced';
+export type ElementPolicy = 'Hidden' | 'Basic' | 'Advanced';

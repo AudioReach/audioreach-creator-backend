@@ -1,8 +1,3 @@
-import { ParameterDefinitionSummaryInfo } from "../info/parameter-definition-summary-info.js";
+import {ParameterDefinitionSummaryInfo} from '../info/parameter-definition-summary-info.js';
 
-
-
-export class ParameterDefinitionSummaryDto extends ParameterDefinitionSummaryInfo 
-{
- 
-}
+export class ParameterDefinitionSummaryDto extends ParameterDefinitionSummaryInfo {}
