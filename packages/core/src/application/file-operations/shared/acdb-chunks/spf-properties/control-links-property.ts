@@ -7,7 +7,6 @@ import {
 
 /**
  * Handles parsing of control links properties from binary data.
- * Based on C# CtrlLinkListProperty implementation.
  */
 export class ControlLinksProperty {
   /** List of control links */
@@ -118,7 +117,7 @@ export class ControlLinksProperty {
         properties.set(propId, propData);
       }
 
-      // Add default heap ID if not present (matching C# behavior)
+      // Add default heap ID if not present
       if (!properties.has(MODULE_PROP_ID_CTRL_HEAP_ID)) {
         const defaultHeapData = new Uint8Array(4);
         const defaultView = new DataView(defaultHeapData.buffer);

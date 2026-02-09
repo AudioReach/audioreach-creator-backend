@@ -3,7 +3,6 @@ import type {ContainerProperty} from './types.js';
 
 /**
  * Handles parsing of container configuration properties from binary data.
- * Based on C# ContainerConfigProperty implementation.
  */
 export class ContainerConfigProperty {
   /** List of container properties */

@@ -1,6 +1,5 @@
 /**
  * TypeScript interfaces for SPF Properties data structures
- * Simplified from C# implementations for better TypeScript usage
  */
 
 /**

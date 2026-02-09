@@ -2,9 +2,6 @@ import {ApiProperty} from '@nestjs/swagger';
 import {BaseComponentDto} from './base-component.dto.js';
 import {PortType} from './data-port.dto.js';
 
-/**
- * Converted from C# class ControlPortIntentDTO
- */
 export class ControlPortIntentDto {
   @ApiProperty({description: 'Intent ID'})
   id!: number;

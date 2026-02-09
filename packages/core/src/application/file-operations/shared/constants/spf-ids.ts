@@ -1,6 +1,5 @@
 /**
  * SPF (Signal Processing Framework) Parameter and Property IDs
- * Ported from C# Constants.cs
  */
 
 // APM Module IDs

@@ -20,7 +20,6 @@ import {UsecaseIdentifier} from '../usecase/dto/usecase.dto.js';
 /**
  * Controller to support all subgraph related APIs for usecase design.
  * Provides subgraph related APIs for usecase design.
- * Converted from C# UseCaseDesignController class
  */
 @ApiTags('subgraphs')
 @Controller('arc-api/v1/projects/:projectId/subgraphs')

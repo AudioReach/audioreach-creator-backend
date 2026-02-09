@@ -1,25 +1,16 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseComponentDto} from './base-component.dto.js';
 
-/**
- * Converted from C# enum PortIoType
- */
 export enum PortIoType {
   Input = 'Input',
   Output = 'Output',
 }
 
-/**
- * Converted from C# enum PortType
- */
 export enum PortType {
   Static = 'Static',
   Dynamic = 'Dynamic',
 }
 
-/**
- * Converted from C# class DataPortDTO
- */
 export class DataPortDto extends BaseComponentDto<number> {
   @ApiProperty({description: 'Port IO type', enum: PortIoType})
   portIoType!: PortIoType;

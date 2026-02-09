@@ -6,7 +6,6 @@ import type {
 /**
  * Header entity representing ACDB file metadata.
  * Created from HeaderChunk during Phase 2 domain assembly.
- * Based on correct C# ACDB header structure.
  */
 export class HeaderEntity {
   constructor(

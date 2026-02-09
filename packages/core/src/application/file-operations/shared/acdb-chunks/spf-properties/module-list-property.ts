@@ -3,7 +3,6 @@ import type {ModuleInstanceInfo, ModuleInstance} from './types.js';
 
 /**
  * Handles parsing of module list properties from binary data.
- * Based on C# ModuleListProperty implementation.
  */
 export class ModuleListProperty {
   /** List of module instance information */

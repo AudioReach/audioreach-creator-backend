@@ -6,7 +6,7 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 
 /**
  * Parser for DATAPOOL chunks.
- * Extracts payload data from ACDB datapool based on C# implementation.
+ * Extracts payload data from ACDB datapool.
  *
  * InitializeDataPool logic:
  * - Reads payload size and data
@@ -65,7 +65,7 @@ export class DatapoolChunkParser extends BaseChunkParser<DatapoolChunk> {
         const payload = data.slice(pos, pos + size);
         pos += size;
 
-        // Handle 8-byte padding alignment (matching C# logic)
+        // Handle 8-byte padding alignment
         if (size % 8 !== 0) {
           const paddedBytesLen = 8 - (size % 8);
           pos += paddedBytesLen;

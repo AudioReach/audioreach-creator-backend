@@ -4,7 +4,6 @@ import {buildDataLinkNaturalKeyHash} from '../../utils/natural-key-utils.js';
 
 /**
  * Handles parsing of data links properties from binary data.
- * Based on C# ConnectionListProperty implementation.
  */
 export class DataLinksProperty {
   /** List of data links */
