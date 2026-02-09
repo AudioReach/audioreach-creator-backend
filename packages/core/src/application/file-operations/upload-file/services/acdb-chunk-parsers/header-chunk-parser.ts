@@ -6,7 +6,6 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 
 /**
  * Parser factory for HEADER chunks.
- * Extracts file metadata from ACDB header based on C# implementation.
  */
 export class HeaderChunkParser extends BaseChunkParser<HeaderChunk> {
   readonly chunkType = CHUNK_TYPES.HEADER;

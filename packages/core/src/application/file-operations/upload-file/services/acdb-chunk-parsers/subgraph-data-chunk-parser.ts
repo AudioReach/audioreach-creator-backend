@@ -130,7 +130,6 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
 
   /**
    * Extract subgraph entries from a specific payload at the given relative offset.
-   * This implements the binary parsing logic matching the C# code structure.
    */
   private extractSubgraphEntriesFromPayload(
     payload: Uint8Array,

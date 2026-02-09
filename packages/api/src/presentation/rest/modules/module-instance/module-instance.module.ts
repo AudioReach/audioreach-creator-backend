@@ -3,7 +3,6 @@ import {ModuleInstanceController} from './module-instance.controller.js';
 
 /**
  * Module for module instance functionality
- * Converted from C# UseCaseDesignController class
  */
 @Module({
   controllers: [ModuleInstanceController],

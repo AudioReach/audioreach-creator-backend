@@ -26,7 +26,6 @@ export class KeyValue {
 
 /**
  * Represents a collection of key-value pairs with utility methods
- * Based on C# IKeyValuePairList interface
  */
 export class KeyValuePairList {
   private _keyValueList: KeyValue[];

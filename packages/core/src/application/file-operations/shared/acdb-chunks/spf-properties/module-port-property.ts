@@ -13,7 +13,6 @@ import {ModulePropertyConfigImpl} from './module-property-config-impl.js';
 
 /**
  * Handles parsing of module port properties from binary data.
- * Based on C# SGModulePortProperty implementation.
  */
 export class ModulePortProperty {
   /** List of module property configurations */

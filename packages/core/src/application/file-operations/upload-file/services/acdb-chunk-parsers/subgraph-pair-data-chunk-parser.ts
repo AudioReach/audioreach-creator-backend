@@ -20,7 +20,6 @@ import {
 
 /**
  * Parser for subgraph pair data chunks containing SCLU, SCDE, and SCDO data.
- * Based on C# subgraph connection parsing logic.
  * Creates subgraph pair entries with data and control links.
  */
 export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDataChunk> {
@@ -72,7 +71,6 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
 
   /**
    * Parse subgraph connections from SCLU, SCDE, SCDO chunks and datapool.
-   * Based on C# parsing logic for subgraph connections.
    */
   private parseSubgraphConnections(
     scluData: Uint8Array,

@@ -3,7 +3,7 @@
  * Provides standardized methods for reading/writing binary data with consistent endianness.
  */
 export class BinaryUtils {
-  // Size constants (matching C# sizeof behavior)
+  // Size constants
   static readonly SIZEOF_UINT32 = 4;
   static readonly SIZEOF_INT32 = 4;
   static readonly SIZEOF_UINT16 = 2;
@@ -11,7 +11,6 @@ export class BinaryUtils {
 
   /**
    * Convert 4-character ASCII string to UInt32 (little-endian).
-   * Equivalent to C#: BitConverter.ToUInt32(ASCIIEncoding.ASCII.GetBytes(str), 0)
    *
    * @param str - 4-character ASCII string
    * @returns UInt32 value in little-endian format
@@ -38,7 +37,6 @@ export class BinaryUtils {
 
   /**
    * Convert UInt32 to 4-character ASCII string (little-endian).
-   * Equivalent to reverse of C#: ASCIIEncoding.ASCII.GetBytes()
    *
    * @param value - UInt32 value
    * @returns 4-character ASCII string
@@ -56,7 +54,6 @@ export class BinaryUtils {
 
   /**
    * Read UInt32 from DataView (always little-endian).
-   * Consistent with C# BinaryReader.ReadUInt32() default behavior.
    *
    * @param view - DataView to read from
    * @param offset - Byte offset to read from
@@ -68,7 +65,6 @@ export class BinaryUtils {
 
   /**
    * Read Int32 from DataView (always little-endian).
-   * Consistent with C# BinaryReader.ReadInt32() default behavior.
    *
    * @param view - DataView to read from
    * @param offset - Byte offset to read from
@@ -80,7 +76,6 @@ export class BinaryUtils {
 
   /**
    * Write UInt32 to DataView (always little-endian).
-   * Consistent with C# BinaryWriter.Write(UInt32) default behavior.
    *
    * @param view - DataView to write to
    * @param offset - Byte offset to write to

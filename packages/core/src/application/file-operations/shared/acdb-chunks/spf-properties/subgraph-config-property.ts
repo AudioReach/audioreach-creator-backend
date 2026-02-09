@@ -3,7 +3,6 @@ import type {SubgraphProperty} from './types.js';
 
 /**
  * Handles parsing of subgraph configuration properties from binary data.
- * Based on C# SubgraphConfigProperty implementation.
  */
 export class SubgraphConfigProperty {
   /** List of subgraph properties */

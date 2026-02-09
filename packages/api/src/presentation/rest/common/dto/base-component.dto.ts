@@ -5,9 +5,6 @@ import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
 
 export type EditType = 'Added' | 'Updated' | 'Deleted' | 'None';
 
-/**
- * Converted from C# abstract class BaseComponentDTO<T>
- */
 export class BaseComponentDto<T> {
   @ApiProperty({description: 'System ID'})
   readonly systemId!: string;
