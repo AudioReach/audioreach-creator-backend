@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {ParamType} from '../enums/param-type.js';
 import type {ToolPolicy} from '../enums/tool-policy-type.js';
 

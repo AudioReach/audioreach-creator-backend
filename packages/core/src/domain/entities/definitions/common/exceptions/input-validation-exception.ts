@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {Attribute} from 'domain/entities/common/value-objects/attribute.js';
 
 export class DuplicateDataInputPortGroupException extends Error {

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 // IMPORTANT: reflect-metadata must be imported first, before any other imports
 // This polyfill is required for class-transformer decorators to work in worker threads
 import 'reflect-metadata';

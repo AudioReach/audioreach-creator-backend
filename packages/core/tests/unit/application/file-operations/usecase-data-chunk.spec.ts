@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {describe, it, expect} from '@jest/globals';
 import {UsecaseDataChunkParser} from '../../../../src/application/file-operations/upload-file/services/acdb-chunk-parsers/usecase-data-chunk-parser.js';
 import {CHUNK_TYPES} from '../../../../src/application/file-operations/shared/constants/chunk-types.js';

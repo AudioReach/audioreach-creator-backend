@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
 export class InitialCreate1767851801484 implements MigrationInterface {

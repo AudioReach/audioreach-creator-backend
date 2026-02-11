@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {jest} from '@jest/globals';
 import {UnitOfWork} from '../../../../../src/application/ports/persistence/unit-of-work.js';
 import {QueryServices} from '../../../../../src/application/services/query-services.js';

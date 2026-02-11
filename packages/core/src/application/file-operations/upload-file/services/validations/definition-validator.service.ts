@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {validate} from 'class-validator';
 import {DEFINITION_BLOCK_NAMES} from '../../../shared/constants/definition-block-names.js';
 

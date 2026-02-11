@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {QueryServices} from '../../../services/query-services.js';
 import type {Query} from '../queries/query.js';
 import type {QueryHandler} from '../queries/query-handler.js';

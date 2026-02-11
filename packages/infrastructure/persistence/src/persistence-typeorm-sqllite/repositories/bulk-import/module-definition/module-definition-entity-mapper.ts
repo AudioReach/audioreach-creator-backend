@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {ModuleDefinition} from '@arc/core';
 import type {SpfModuleDefinitionRow} from '../../../entity-schema/index.js';
 

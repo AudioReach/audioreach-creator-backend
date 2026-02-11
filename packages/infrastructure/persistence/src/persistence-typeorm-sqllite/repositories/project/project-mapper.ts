@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {ArcDbFile, Project, type ProjectType} from '@arc/core';
 import type {
   ArcDbFileRow,

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import type {Command} from '../cqrs/commands/command.js';
 import {TransactionScope} from '../cqrs/commands/command.js';

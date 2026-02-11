@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseKeyDefinitionDto} from '../dto/base-key-definition.dto.js';
 import {TagValueDefinitionInfo} from './tag-value-definition-info.js';

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {EntityManager, type EntityTarget, type ObjectLiteral} from 'typeorm';
 import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
 

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {NodeWorkerPoolAdapter} from './node-worker-pool.adapter.js';
 import type {WorkerPoolPort, Logger} from '@arc/core';
 import path from 'node:path';

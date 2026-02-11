@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {EndPointLink} from '../../utils/index.js';
 import {ModuleInstanceDto} from '../../../modules/module-instance/dto/module-instance.dto.js';
 import {BaseModuleInstanceRequest} from '../../../modules/module-instance/dto/module-instance-request.dto.js';

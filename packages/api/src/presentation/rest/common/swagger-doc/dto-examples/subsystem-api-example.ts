@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {SubsystemDto} from '../../../modules/subsystem/dto/subsystem.dto.js';
 import {KeyInfo} from '../../dto/kv.dto.js';
 

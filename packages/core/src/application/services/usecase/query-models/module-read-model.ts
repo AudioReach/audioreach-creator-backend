@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {ContainerReadModel} from './container-read-model.js';
 import type {SubgraphReadModel} from './subgraph-read-model.js';
 import type {DataPortReadModel} from './data-port-read-model.js';

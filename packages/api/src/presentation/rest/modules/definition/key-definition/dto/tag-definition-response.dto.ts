@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 // tag-definition.response.ts
 import {ApiProperty} from '@nestjs/swagger';
 import {Type} from 'class-transformer';

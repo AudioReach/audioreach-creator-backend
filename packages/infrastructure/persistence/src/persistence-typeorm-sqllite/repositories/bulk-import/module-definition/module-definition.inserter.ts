@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {
   type BulkModuleDefinitionInsertResult,
   MODULE_DEF_AGGREGATE_ENTITY_TYPES,

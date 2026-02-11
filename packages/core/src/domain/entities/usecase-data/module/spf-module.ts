@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {TagData} from './entities/spf-module-tag-data.js';
 import type {KvData} from '../../common/entities/kv-data.js';
 import {CkvCollection} from '../../common/entities/ckv-collection.js';

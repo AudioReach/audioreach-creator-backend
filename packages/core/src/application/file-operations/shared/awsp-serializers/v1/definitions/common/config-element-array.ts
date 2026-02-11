@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {Type} from 'class-transformer';
 import {BaseArrayElement} from './base-array-element.js';
 import {ConfigElement} from './config-element.js';
