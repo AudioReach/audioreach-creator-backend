@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {BaseChunk} from './base-chunk.js';
 import {CHUNK_TYPES} from '../constants/chunk-types.js';
 

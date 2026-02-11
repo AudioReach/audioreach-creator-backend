@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import AdmZip from 'adm-zip';
 import {promises as promises} from 'node:fs';
 import {promisify} from 'node:util';

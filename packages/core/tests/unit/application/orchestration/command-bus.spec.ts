@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {jest} from '@jest/globals';
 import {CommandBus} from '../../../../src/application/orchestration/command-bus.js';
 import {CommandHandlerRegistry} from '../../../../src/application/orchestration/cqrs/registries/command-handler-registry.js';

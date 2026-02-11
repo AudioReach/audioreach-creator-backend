@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {ApiProperty} from '@nestjs/swagger';
 import {DataPortInfo, StaticCtrlPortInfo, IntentInfo} from './port-info.js';
 import {ModuleTypeInfo} from './module-type-info.js';

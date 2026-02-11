@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {PortIoType} from '../../../common/enums/port-io-type.js';
 import {DataPortDefinition} from './data-port-definition.js';
 

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 // packages/infrastructure/persistence/persistence-typeorm-sqllite/orm-base.ts
 import {getAllEntitySchemas} from './entity-schema/index.js';
 import type {BlobBytesConverter} from './entity-schema/usecase-data/module/helper/blob-unit8array.converter.js';

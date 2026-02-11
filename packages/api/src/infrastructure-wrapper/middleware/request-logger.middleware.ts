@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {Injectable, Inject} from '@nestjs/common';
 import type {NestMiddleware} from '@nestjs/common';
 import type {Request, Response, NextFunction} from 'express';

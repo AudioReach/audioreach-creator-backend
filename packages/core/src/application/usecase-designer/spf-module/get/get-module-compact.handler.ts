@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {ModuleCompactView} from '../../../services/module/query-models/module-compact.js';
 import {GetModuleCompactQuery} from './get-module-compact.query.js';
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';

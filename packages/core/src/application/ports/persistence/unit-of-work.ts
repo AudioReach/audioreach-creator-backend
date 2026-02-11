@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {BulkImportRepository} from './repositories/bulk-import/bulk-import.repository.js';
 import type {ProjectRepository} from './repositories/project/project.repostiory.js';
 

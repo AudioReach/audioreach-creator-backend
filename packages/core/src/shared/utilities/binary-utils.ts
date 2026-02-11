@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /**
  * Binary data utilities for consistent cross-platform binary operations.
  * Provides standardized methods for reading/writing binary data with consistent endianness.

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {Controller, Post, Body, HttpStatus} from '@nestjs/common';
 import {ApiTags} from '@nestjs/swagger';
 import {AuthenticationService} from './authentication.service.js';

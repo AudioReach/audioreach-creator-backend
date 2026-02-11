@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {Worker} from 'node:worker_threads';
 import * as os from 'node:os';
 import type {WorkerPoolPort, WorkerTask, WorkerResult, Logger} from '@arc/core';

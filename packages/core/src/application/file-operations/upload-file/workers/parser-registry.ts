@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {HeaderChunkParser} from '../services/acdb-chunk-parsers/header-chunk-parser.js';
 import {DatapoolChunkParser} from '../services/acdb-chunk-parsers/datapool-chunk-parser.js';
 import type {ChunkParseContext} from '../models/chunk-parse-context.js';

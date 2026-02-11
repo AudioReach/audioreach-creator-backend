@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {DriverModuleDefinitionRow} from '../definitions/module/driver/driver-module-definition.schema.js';
 import type {DriverModuleParameterDefinitionRow} from '../definitions/module/driver/driver-module-parameter-definition.schema.js';
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../entity-base.js';

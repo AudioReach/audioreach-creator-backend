@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /**
  * Value object for a module property.
  * @param propertyDefinitionSystemId The system id of the property definition.

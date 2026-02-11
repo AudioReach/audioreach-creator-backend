@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import request from 'supertest';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';

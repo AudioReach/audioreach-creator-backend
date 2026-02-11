@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {ApiProperty} from '@nestjs/swagger';
 import {ToolPolicy} from '../enums/tool-policy.emum.js';
 import {PidType} from '../enums/pid-type.enum.js';

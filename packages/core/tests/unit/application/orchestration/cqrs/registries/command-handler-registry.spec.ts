@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {CommandHandlerRegistry} from '../../../../../../src/application/orchestration/cqrs/registries/command-handler-registry.js';
 import {CommandHandlerNotFoundException} from '../../../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
 import {AddModuleCommand} from '../../../../../../src/application/usecase-designer/index.js';

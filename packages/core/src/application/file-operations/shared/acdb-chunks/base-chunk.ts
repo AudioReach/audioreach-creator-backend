@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /**
  * Abstract base class for all ACDB chunk types.
  * Chunks are pure data structures representing parsed sections of an ACDB file.

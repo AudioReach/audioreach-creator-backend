@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {ValidationPipe} from '@nestjs/common';
 import {NestFactory} from '@nestjs/core';
 import {setupSwagger} from './presentation/rest/common/services/swagger-service.js';

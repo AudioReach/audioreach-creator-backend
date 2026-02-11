@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {IsDefined, IsNotEmpty, IsString, ValidateIf} from 'class-validator';
 import {ComponentInfoType} from '../utils/enums.js';
 import {EndPointLink} from '../utils/utilities.js';

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {ContainerPropertyRow} from '../../definitions/container/container-property-definition.schema.js';
 import {BaseColumnSchemaPart} from '../../entity-base.js';
 import type {EntityBaseRow} from '../../entity-base.js';

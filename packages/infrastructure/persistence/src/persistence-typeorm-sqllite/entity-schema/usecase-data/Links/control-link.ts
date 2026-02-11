@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import type {NodeRow} from '../node/node.schema.js';
 import type {UseCaseRow} from '../use-case.js';

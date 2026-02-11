@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {HandlerRegistryPort, Handler} from '@arc/core';
 import {createParserRegistry, createEntityBuilderRegistry} from '@arc/core';
 

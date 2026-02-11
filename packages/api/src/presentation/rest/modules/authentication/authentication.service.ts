@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {Injectable} from '@nestjs/common';
 import {JwtService} from '@nestjs/jwt';
 import {RegisterDto, RegisterResponseData} from './dto/authentication.dto.js';

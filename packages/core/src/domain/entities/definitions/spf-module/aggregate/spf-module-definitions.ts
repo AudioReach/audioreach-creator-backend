@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {Attribute} from '../../../common/value-objects/attribute.js';
 import {DataPortGroupDefinition} from '../value-objects/data-port-group-definition.js';
 import {DynamicIntentDefinition} from '../value-objects/dynamic-intent-definition.js';

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /**
  * Reusable base for value-objects that carry a binary payload (Uint8Array)
  * Provides defensive-copy semantics and a protected setter for subclasses.

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {Catch, HttpException, HttpStatus, Inject} from '@nestjs/common';
 import type {ExceptionFilter, ArgumentsHost} from '@nestjs/common';
 import type {Request, Response} from 'express';

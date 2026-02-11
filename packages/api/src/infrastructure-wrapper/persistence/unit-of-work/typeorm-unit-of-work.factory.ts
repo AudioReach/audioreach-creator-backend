@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {DataSource} from 'typeorm';
 import type {UnitOfWorkFactory} from '@arc/core';
 import {TypeOrmUnitOfWork} from './typeorm-unit-of-work.js';

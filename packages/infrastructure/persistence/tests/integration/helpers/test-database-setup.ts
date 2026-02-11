@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {DataSource, Repository, QueryRunner, EntityManager} from 'typeorm';
 import {getAllEntitySchemas} from '../../../src/persistence-typeorm-sqllite/entity-schema/index.js';
 import {TestBlobConverter} from './test-blob-converter.js';
