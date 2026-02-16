@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 import {Subgraph} from '../../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {SubgraphProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';

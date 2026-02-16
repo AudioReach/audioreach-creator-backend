@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 import type {WorkerPoolPort} from '../../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';

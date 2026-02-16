@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 import {Container} from '../../../../../domain/entities/usecase-data/container/container.js';
 import type {ContainerProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
