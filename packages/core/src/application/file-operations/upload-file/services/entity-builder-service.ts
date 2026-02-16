@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';

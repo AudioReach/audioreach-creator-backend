@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 import {SpfModule} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 import {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';

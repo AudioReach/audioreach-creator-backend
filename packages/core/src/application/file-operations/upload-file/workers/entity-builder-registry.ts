@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {HeaderEntityBuilder} from '../services/entity-builders/header-entity.builder.js';
 import type {BaseEntityBuilder} from '../services/entity-builders/base-entity-builder.js';
 import type {EntityBuilderInput} from '../types/entity-builder.types.js';

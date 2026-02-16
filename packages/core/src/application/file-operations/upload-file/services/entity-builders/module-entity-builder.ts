@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 import {SpfModule} from 'domain/entities/usecase-data/module/spf-module.js';
 
 export function buildModules(): SpfModule[] {
