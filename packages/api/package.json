@@ -19,7 +19,6 @@
     "coverage:api": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage --passWithNoTests --forceExit",
     "coverage:workspace": "cd ../.. && yarn run coverage:workspace",
     "coverage:clean": "shx rm -rf coverage",
-    "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "clean": "shx rm -rf dist *.tsbuildinfo"
   },
