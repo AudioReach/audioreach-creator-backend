@@ -1,0 +1,129 @@
+{
+  "extends": "https://raw.githubusercontent.com/qualcomm/.github/main/repolint.json",
+  "rules": {
+    "source-license-headers-exist": {
+      "level": "error",
+      "rule": {
+        "type": "file-starts-with",
+        "options": {
+          "globsAll": [
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.mts",
+            "**/*.cts",
+            "**/*.js",
+            "**/*.mjs",
+            "**/*.cjs"
+          ],
+          "skip-paths-matching": {
+            "patterns": [
+              "node_modules/",
+              "dist/",
+              "build/",
+              "out/",
+              "coverage/",
+              ".next/",
+              ".turbo/",
+              ".cache/",
+              ".yarn/",
+              ".pnpm-store/",
+              "tmp/",
+              "temp/",
+              "generated/",
+              "__generated__/",
+              "vendor/",
+              "third[_-]party/",
+              "docs/",
+              "scripts/",
+              "tools/",
+              "examples?/",
+              "fixtures?/",
+              "tests?/",
+              "__tests__/",
+              "__mocks__/",
+              "__spec__/",
+              "test-utils/",
+              ".*\\.spec\\.(ts|tsx|js)$",
+              ".*\\.test\\.(ts|tsx|js)$",
+              ".*\\.d\\.ts$",
+              ".*\\.config\\.(ts|js|mjs|cjs)$",
+              "eslint-config.*/",
+              "prettier.*/",
+              "tsup\\.config\\.(ts|js)$",
+              "vite\\.config\\.(ts|js)$",
+              "rollup\\.config\\.(ts|js)$",
+              "jest\\.config\\.(ts|js)$",
+
+              "(.*/)?index\\.(ts|tsx|js|mts|cts|mjs|cjs)$"
+            ]
+          },
+          "lineCount": 40,
+          "patterns": [
+            "Copyright \\(c\\) Qualcomm Technologies, Inc\\. and/or its subsidiaries\\.",
+            "SPDX-License-Identifier:\\s*BSD-3-Clause"
+          ],
+          "flags": "i"
+        }
+      }
+    },
+
+    "source-qualcomm-license-headers-exist": {
+      "level": "error",
+      "rule": {
+        "type": "file-starts-with",
+        "options": {
+          "globsAll": [
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.mts",
+            "**/*.cts",
+            "**/*.js",
+            "**/*.mjs",
+            "**/*.cjs"
+          ],
+          "skip-paths-matching": {
+            "patterns": [
+              "node_modules/",
+              "dist/",
+              "build/",
+              "out/",
+              "coverage/",
+              ".next/",
+              ".turbo/",
+              ".cache/",
+              ".yarn/",
+              ".pnpm-store/",
+              "tmp/",
+              "temp/",
+              "generated/",
+              "__generated__/",
+              "vendor/",
+              "third[_-]party/",
+              "docs/",
+              "scripts/",
+              "tools/",
+              "examples?/",
+              "fixtures?/",
+              "tests?/",
+              "__tests__/",
+              "__mocks__/",
+              "__spec__/",
+              "test-utils/",
+              ".*\\.spec\\.(ts|tsx|js)$",
+              ".*\\.test\\.(ts|tsx|js)$",
+              ".*\\.d\\.ts$",
+              ".*\\.config\\.(ts|js|mjs|cjs)$",
+
+              "(.*/)?index\\.(ts|tsx|js|mts|cts|mjs|cjs)$"
+            ]
+          },
+          "lineCount": 40,
+          "patterns": [
+            "Copyright \\(c\\) Qualcomm Technologies, Inc\\. and/or its subsidiaries\\."
+          ],
+          "flags": "i"
+        }
+      }
+    }
+  }
+}
