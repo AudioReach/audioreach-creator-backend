@@ -5,6 +5,7 @@
 
 // IMPORTANT: reflect-metadata must be imported first, before any other imports
 // This polyfill is required for class-transformer decorators to work in worker threads
+// eslint-disable-next-line n/no-extraneous-import -- Required polyfill for class-transformer decorators
 import 'reflect-metadata';
 import {parentPort, workerData} from 'node:worker_threads';
 import type {WorkerTask, WorkerResult} from '@arc/core';
@@ -19,7 +20,13 @@ if (!parentPort) {
 const registry = new NodeRegistry();
 
 // Get worker ID from workerData
-const workerId = workerData?.workerId || 'unknown-worker';
+interface WorkerDataType {
+  workerId?: string;
+  hasLogger?: boolean;
+}
+
+const typedWorkerData = workerData as WorkerDataType | undefined;
+const workerId = typedWorkerData?.workerId ?? 'unknown-worker';
 
 /**
  * Generic worker message handler.
@@ -28,46 +35,50 @@ const workerId = workerData?.workerId || 'unknown-worker';
  * This worker can handle ANY task type (chunk parsing, entity assembly, validation, etc.)
  * as long as the handler is registered in the registry.
  */
-parentPort.on('message', async (task: WorkerTask) => {
-  const startTime = new Date();
+parentPort.on('message', (task: WorkerTask) => {
+  void (async () => {
+    const startTime = new Date();
 
-  try {
-    // 1. Lookup handler by key from registry
-    const handler = registry.get(task.handlerKey);
+    try {
+      // 1. Lookup handler by key from registry
+      const handler = registry.get(task.handlerKey);
 
-    // 2. Execute handler with input and context
-    const result = await handler(task.input, task.context);
+      // 2. Execute handler with input and context
+      const result = await handler(task.input, task.context);
 
-    // 3. Send success response
-    const response: WorkerResult = {
-      success: true,
-      data: result,
-    };
+      // 3. Send success response
+      const response: WorkerResult = {
+        success: true,
+        data: result,
+      };
 
-    parentPort!.postMessage(response);
-  } catch (error) {
-    // 4. Send detailed error response for proper logging
-    const endTime = new Date();
-    const duration = endTime.getTime() - startTime.getTime();
+      parentPort!.postMessage(response);
+    } catch (error_) {
+      // 4. Send detailed error response for proper logging
+      const endTime = new Date();
+      const duration = endTime.getTime() - startTime.getTime();
 
-    const response: WorkerResult = {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      errorDetails: {
-        stack: error instanceof Error ? error.stack : undefined,
-        type: error instanceof Error ? error.constructor.name : 'Unknown',
-        handlerKey: task.handlerKey,
-        workerId,
-        startTime,
-        duration,
-        context: {
-          taskInput:
-            typeof task.input === 'object' ? 'object' : typeof task.input,
-          taskContext: task.context ? Object.keys(task.context) : undefined,
+      const error =
+        error_ instanceof Error ? error_ : new Error(String(error_));
+      const response: WorkerResult = {
+        success: false,
+        error: error.message,
+        errorDetails: {
+          stack: error.stack,
+          type: error.constructor.name,
+          handlerKey: task.handlerKey,
+          workerId,
+          startTime,
+          duration,
+          context: {
+            taskInput:
+              typeof task.input === 'object' ? 'object' : typeof task.input,
+            taskContext: task.context ? Object.keys(task.context) : undefined,
+          },
         },
-      },
-    } as WorkerResult;
+      } as WorkerResult;
 
-    parentPort!.postMessage(response);
-  }
+      parentPort!.postMessage(response);
+    }
+  })();
 });

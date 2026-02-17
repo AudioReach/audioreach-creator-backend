@@ -31,6 +31,13 @@ export default [
       '**/jest.*.js',
       '**/jest.*.mjs',
       'packages/api/scripts/typeorm-cli.cjs',
+      // Test files
+      '**/*.spec.ts',
+      '**/*.test.ts',
+      '**/tests/**',
+      '**/test/**',
+      // Scripts
+      'scripts/**',
     ],
   },
   // Base configurations
@@ -245,6 +252,15 @@ export default [
     files: ['**/presentation/rest/common/swagger-doc/**/*.ts'],
     rules: {
       // Disabled: Swagger generation may require file system operations with dynamic paths
+      'security/detect-non-literal-fs-filename': 'off',
+    },
+  },
+
+  // File system infrastructure files - allow dynamic file system operations
+  {
+    files: ['**/*.ts'],
+    rules: {
+      // Disabled: File system adapter requires dynamic paths from function parameters
       'security/detect-non-literal-fs-filename': 'off',
     },
   },

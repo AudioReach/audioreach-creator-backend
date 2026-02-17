@@ -8,6 +8,19 @@ import type {ExceptionFilter, ArgumentsHost} from '@nestjs/common';
 import type {Request, Response} from 'express';
 import type {Logger} from '@arc/core';
 
+interface ValidationExceptionResponse {
+  message: string | string[];
+  error?: string;
+  statusCode?: number;
+}
+
+type HeaderValue = string | string[] | undefined;
+
+interface SanitizedHeaders {
+  [key: string]: HeaderValue;
+  authorization?: string;
+}
+
 @Catch(BadRequestException)
 export class ValidationExceptionFilter implements ExceptionFilter {
   constructor(@Inject('LOGGER') private readonly logger: Logger) {}
@@ -18,8 +31,10 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     // Extract validation errors if available
-    const exceptionResponse = exception.getResponse() as any;
-    const validationErrors = exceptionResponse.message || 'Validation failed';
+    const exceptionResponse =
+      exception.getResponse() as ValidationExceptionResponse;
+    const validationErrors: string | string[] =
+      exceptionResponse.message || 'Validation failed';
 
     // Log detailed information about the validation error
     this.logger.logError({
@@ -43,11 +58,13 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       error: new Error(
         JSON.stringify(
           {
-            body: request.body,
+            body: request.body as Record<string, unknown>,
             query: request.query,
             params: request.params,
-            files: request.files,
-            headers: this.sanitizeHeaders(request.headers),
+            files: request.files as unknown,
+            headers: this.sanitizeHeaders(
+              request.headers as Record<string, string | string[] | undefined>,
+            ),
             contentType: request.headers['content-type'],
           },
           null,
@@ -65,8 +82,10 @@ export class ValidationExceptionFilter implements ExceptionFilter {
   }
 
   // Remove sensitive information from headers
-  private sanitizeHeaders(headers: any): any {
-    const sanitized = {...headers};
+  private sanitizeHeaders(
+    headers: Record<string, string | string[] | undefined>,
+  ): SanitizedHeaders {
+    const sanitized: SanitizedHeaders = {...headers};
     if (sanitized.authorization) {
       sanitized.authorization = 'Bearer [REDACTED]';
     }

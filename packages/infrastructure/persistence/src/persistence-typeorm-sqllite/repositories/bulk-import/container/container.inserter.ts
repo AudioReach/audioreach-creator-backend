@@ -66,7 +66,7 @@ export class ContainerInserter extends BaseInserter<
           (row as EntityRowForInsert<ContainerRow> & {containerId: number})
             .containerId,
       )
-      .filter((id): id is number => id !== undefined);
+      .filter((id): id is number => id != null);
     const mappings = await this.queryBackContainers(successfulContainerIds);
 
     // ============================================
@@ -100,11 +100,11 @@ export class ContainerInserter extends BaseInserter<
   ): Promise<NaturalIdMapping<number>[]> {
     if (containerIds.length === 0) return [];
 
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('Container', 'c')
       .select(['c.systemId', 'c.containerId'])
       .where('c.containerId IN (:...containerIds)', {containerIds})
-      .getMany();
+      .getMany()) as Array<{systemId: number; containerId: number}>;
 
     return results.map(r => ({
       naturalId: r.containerId,

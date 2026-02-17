@@ -181,11 +181,11 @@ export class UseCaseInserter extends BaseInserter<
   ): Promise<NaturalIdMapping<string>[]> {
     if (kvHashes.length === 0) return [];
 
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('KeyVector', 'kv')
       .select(['kv.systemId', 'kv.kvHash'])
       .where('kv.kvHash IN (:...hashes)', {hashes: kvHashes})
-      .getMany();
+      .getMany()) as Array<{kvHash: string; systemId: number}>;
 
     return results.map(r => ({
       naturalId: r.kvHash,
@@ -256,8 +256,8 @@ export class UseCaseInserter extends BaseInserter<
       .getRawMany<{uc_system_id: number; kv_kv_hash: string}>();
 
     return results.map(r => ({
-      naturalId: r.kv_kv_hash,
-      systemId: r.uc_system_id,
+      naturalId: String(r.kv_kv_hash),
+      systemId: Number(r.uc_system_id),
     }));
   }
 
@@ -369,11 +369,11 @@ export class UseCaseInserter extends BaseInserter<
   ): Promise<NaturalIdMapping<string>[]> {
     if (names.length === 0) return [];
 
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('UseCaseCategory', 'cat')
       .select(['cat.systemId', 'cat.name'])
       .where('cat.name IN (:...names)', {names})
-      .getMany();
+      .getMany()) as Array<{name: string; systemId: number}>;
 
     return results.map(r => ({
       naturalId: r.name,
@@ -568,8 +568,8 @@ export class UseCaseInserter extends BaseInserter<
 
       // Check for KeyVector failure first
       if (!keyVectorSystemId) {
-        const error = failedKvMap.get(kvHash);
-        results.push({
+        const error: Error | undefined = failedKvMap.get(kvHash);
+        const errorResult: EntityInsertResult<number> = {
           errors: [
             this.buildError(
               'KeyVector',
@@ -578,14 +578,15 @@ export class UseCaseInserter extends BaseInserter<
             ),
           ],
           success: false,
-        });
+        };
+        results.push(errorResult);
         continue;
       }
 
       // Check for UseCase failure
       if (!useCaseSystemId) {
-        const error = failedUseCaseMap.get(kvHash);
-        results.push({
+        const error: Error | undefined = failedUseCaseMap.get(kvHash);
+        const errorResult: EntityInsertResult<number> = {
           errors: [
             this.buildError(
               'UseCase',
@@ -594,7 +595,8 @@ export class UseCaseInserter extends BaseInserter<
             ),
           ],
           success: false,
-        });
+        };
+        results.push(errorResult);
         continue;
       }
 

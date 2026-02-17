@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {BaseEntityBuilder} from './entity-builders/base-entity-builder.js';
 import type {EntityBuilderInput} from '../types/entity-builder.types.js';
 import type {Handler} from '../../../ports/worker/handler-registry.port.js';
+import type {
+  AnyEntityBuilder,
+  EntityAssemblyResult,
+} from '../types/entity-builder-registry.types.js';
 
 /**
  * Creates a registry of entity assembly handlers using factory pattern.
@@ -18,7 +21,7 @@ import type {Handler} from '../../../ports/worker/handler-registry.port.js';
  * @returns Map of handler keys to handler functions
  */
 export function createEntityAssemblyRegistry(
-  entityBuilders?: Map<string, BaseEntityBuilder<any>>,
+  entityBuilders?: Map<string, AnyEntityBuilder>,
 ): Map<string, Handler> {
   const registry = new Map<string, Handler>();
 
@@ -31,7 +34,9 @@ export function createEntityAssemblyRegistry(
    * Handler for assembling domain entities.
    * Uses registered builder factories to create entities from extracted data.
    */
-  registry.set('assembleEntity', ((input: EntityBuilderInput): any => {
+  registry.set('assembleEntity', ((
+    input: EntityBuilderInput,
+  ): EntityAssemblyResult => {
     // Get builder factory for this entity type
     const builder = entityBuilders.get(input.entityType);
 
@@ -43,7 +48,10 @@ export function createEntityAssemblyRegistry(
     const entity = builder.createFromData(input.requiredData);
 
     // Serialize entity for transfer back
-    const entityData = entity.toJSON ? entity.toJSON() : {...entity};
+    const entityData =
+      entity && typeof entity === 'object' && 'toJSON' in entity
+        ? (entity.toJSON as () => Record<string, unknown>)()
+        : (entity as Record<string, unknown>);
 
     return {
       entityType: input.entityType,

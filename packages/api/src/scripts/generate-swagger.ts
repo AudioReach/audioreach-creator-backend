@@ -6,12 +6,12 @@
 import {NestFactory} from '@nestjs/core';
 import {DocumentBuilder, SwaggerModule} from '@nestjs/swagger';
 import {writeFileSync, mkdirSync} from 'node:fs';
-import {join, dirname} from 'node:path';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {AppModule} from '../app.module.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 /**
  * Generates Swagger API documentation as JSON file
@@ -53,9 +53,9 @@ async function generateSwaggerJson(): Promise<void> {
     const document = SwaggerModule.createDocument(app, config);
 
     // Determine output path (project root/docs/swagger-api.json)
-    const projectRoot = join(__dirname, '../../../..');
-    const docsDir = join(projectRoot, 'docs');
-    const outputPath = join(docsDir, 'swagger-api.json');
+    const projectRoot = path.join(__dirname, '../../../..');
+    const docsDir = path.join(projectRoot, 'docs');
+    const outputPath = path.join(docsDir, 'swagger-api.json');
 
     // Ensure docs directory exists
     console.log('📁 Ensuring docs directory exists...');
@@ -69,7 +69,7 @@ async function generateSwaggerJson(): Promise<void> {
     console.log(`📄 File saved to: ${outputPath}`);
   } catch (error) {
     console.error('❌ Error generating Swagger JSON:', error);
-    process.exit(1);
+    throw error;
   } finally {
     // Ensure the application is properly closed
     if (app) {
@@ -83,15 +83,13 @@ async function generateSwaggerJson(): Promise<void> {
 const isMainModule =
   process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMainModule) {
-  generateSwaggerJson()
-    .then(() => {
-      console.log('🎉 Swagger generation process completed!');
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('💥 Fatal error during Swagger generation:', error);
-      process.exit(1);
-    });
+  try {
+    await generateSwaggerJson();
+    console.log('🎉 Swagger generation process completed!');
+  } catch (error) {
+    console.error('💥 Fatal error during Swagger generation:', error);
+    throw error;
+  }
 }
 
 export {generateSwaggerJson};

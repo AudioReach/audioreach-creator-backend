@@ -4,6 +4,12 @@
  */
 
 import type {UnitOfWork} from 'application/ports/persistence/unit-of-work.js';
+import type {BulkImportRepository} from '../../../ports/persistence/repositories/bulk-import/bulk-import.repository.js';
+import type {BulkEntityInsertResult} from '../../../ports/persistence/repositories/bulk-import/insert-result.js';
+import type {BulkKeyDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
+import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
+import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
+import type {BulkDataLinkInsertResult} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
 import {EntityBuilderService} from './entity-builder-service.js';
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
@@ -125,7 +131,12 @@ export class UploadFileOrchestrator {
    */
   private logEntityInsertMetrics(
     metrics: PerformanceMetrics | undefined,
-    insertResult: any,
+    insertResult:
+      | BulkEntityInsertResult<number>
+      | BulkModuleInsertResult
+      | BulkDataLinkInsertResult
+      | BulkKeyDefinitionInsertResult
+      | BulkModuleDefinitionInsertResult,
   ): void {
     if (!metrics || !insertResult) return;
 
@@ -135,7 +146,7 @@ export class UploadFileOrchestrator {
 
     const totalEntities = insertResult.results?.length || 0;
     const successfulInserts =
-      insertResult.results?.filter((r: any) => r.success)?.length || 0;
+      insertResult.results?.filter(r => r.success)?.length || 0;
     const successRate =
       totalEntities > 0
         ? ((successfulInserts / totalEntities) * 100).toFixed(1)
@@ -294,7 +305,9 @@ export class UploadFileOrchestrator {
   /**
    * Phase 1a: Build and Insert Key Definitions
    */
-  private async buildAndInsertKeyDefinitions(bulkRepo: any): Promise<void> {
+  private async buildAndInsertKeyDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
     if (!this.parsedAcdb || !this.parsedAwsp) {
       throw new Error('Parsed data not available for building definitions');
     }
@@ -306,18 +319,16 @@ export class UploadFileOrchestrator {
     );
 
     if (keyDefinitions && keyDefinitions.length > 0) {
-      const keyDefResult = await bulkRepo.insertKeyDefinitions(
-        keyDefinitions.map((kd: KeyDefinition) => ({
-          ...kd,
-          systemId: undefined,
-        })) as any,
-      );
+      const keyDefResult: BulkKeyDefinitionInsertResult =
+        await bulkRepo.insertKeyDefinitions(
+          keyDefinitions as readonly Omit<KeyDefinition, 'systemId'>[],
+        );
 
       // Store foreign key mappings for subsequent phases
       this.foreignKeyMapper.setKeyDefinitionMappings(keyDefResult);
 
       const successfulInserts = keyDefResult.results.filter(
-        (r: any) => r.success,
+        r => r.success,
       ).length;
 
       this.logger?.logInfo({
@@ -334,7 +345,7 @@ export class UploadFileOrchestrator {
    * Phase 1b: Build and Insert SPF Module Definitions
    */
   private async buildAndInsertSpfModuleDefinitions(
-    bulkRepo: any,
+    bulkRepo: BulkImportRepository,
   ): Promise<void> {
     if (!this.parsedAcdb || !this.parsedAwsp) {
       throw new Error(
@@ -350,18 +361,19 @@ export class UploadFileOrchestrator {
       );
 
     if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
-      const spfModuleDefResult = await bulkRepo.insertModuleDefinitions(
-        spfModuleDefinitions.map((smd: SpfModuleDefinition) => ({
-          ...smd,
-          systemId: undefined,
-        })) as any,
-      );
+      const spfModuleDefResult: BulkModuleDefinitionInsertResult =
+        await bulkRepo.insertModuleDefinitions(
+          spfModuleDefinitions as readonly Omit<
+            SpfModuleDefinition,
+            'systemId'
+          >[],
+        );
 
       // Store foreign key mappings for subsequent phases
       this.foreignKeyMapper.setModuleDefinitionMappings(spfModuleDefResult);
 
       const successfulInserts = spfModuleDefResult.results.filter(
-        (r: any) => r.success,
+        r => r.success,
       ).length;
 
       this.logger?.logInfo({
@@ -377,14 +389,16 @@ export class UploadFileOrchestrator {
   /**
    * Phase 2: Build and Insert Subgraphs
    */
-  private async buildAndInsertSubgraphs(bulkRepo: any): Promise<void> {
+  private async buildAndInsertSubgraphs(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
     if (!this.parsedAcdb || !this.parsedAwsp) {
       throw new Error('Parsed data not available for building subgraphs');
     }
 
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_BUILDING);
-    const subgraphs = await this.builderService.buildSubgraphs(
+    const subgraphs = this.builderService.buildSubgraphs(
       this.parsedAcdb,
       this.currentFileId,
     );
@@ -399,12 +413,10 @@ export class UploadFileOrchestrator {
     if (subgraphs && subgraphs.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_INSERT);
-      const subgraphResult = await bulkRepo.insertSubgraphs(
-        subgraphs.map((sg: Subgraph) => ({
-          ...sg,
-          systemId: undefined,
-        })) as any,
-      );
+      const subgraphResult: BulkEntityInsertResult<number> =
+        await bulkRepo.insertSubgraphs(
+          subgraphs as readonly Omit<Subgraph, 'systemId'>[],
+        );
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.SUBGRAPH_INSERT,
       );
@@ -417,7 +429,7 @@ export class UploadFileOrchestrator {
       this.foreignKeyMapper.setSubgraphMappings(subgraphResult);
 
       const successfulInserts = subgraphResult.results.filter(
-        (r: any) => r.success,
+        r => r.success,
       ).length;
 
       this.logger?.logInfo({
@@ -433,14 +445,16 @@ export class UploadFileOrchestrator {
   /**
    * Phase 3: Build and Insert Containers
    */
-  private async buildAndInsertContainers(bulkRepo: any): Promise<void> {
+  private async buildAndInsertContainers(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
     if (!this.parsedAcdb || !this.parsedAwsp) {
       throw new Error('Parsed data not available for building containers');
     }
 
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_BUILDING);
-    const containers = await this.builderService.buildContainers(
+    const containers = this.builderService.buildContainers(
       this.parsedAcdb,
       this.currentFileId,
     );
@@ -455,12 +469,10 @@ export class UploadFileOrchestrator {
     if (containers && containers.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_INSERT);
-      const containerResult = await bulkRepo.insertContainers(
-        containers.map((c: Container) => ({
-          ...c,
-          systemId: undefined,
-        })) as any,
-      );
+      const containerResult: BulkEntityInsertResult<number> =
+        await bulkRepo.insertContainers(
+          containers as readonly Omit<Container, 'systemId'>[],
+        );
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.CONTAINER_INSERT,
       );
@@ -473,7 +485,7 @@ export class UploadFileOrchestrator {
       this.foreignKeyMapper.setContainerMappings(containerResult);
 
       const successfulInserts = containerResult.results.filter(
-        (r: any) => r.success,
+        r => r.success,
       ).length;
 
       this.logger?.logInfo({
@@ -489,14 +501,16 @@ export class UploadFileOrchestrator {
   /**
    * Phase 4: Build and Insert SPF Modules
    */
-  private async buildAndInsertSpfModules(bulkRepo: any): Promise<void> {
+  private async buildAndInsertSpfModules(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
     if (!this.parsedAcdb || !this.parsedAwsp) {
       throw new Error('Parsed data not available for building SPF modules');
     }
 
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_BUILDING);
-    const spfModules = await this.builderService.buildSpfModules(
+    const spfModules = this.builderService.buildSpfModules(
       this.parsedAcdb,
       this.currentFileId,
       this.parsedAwsp,
@@ -512,12 +526,10 @@ export class UploadFileOrchestrator {
     if (spfModules && spfModules.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_INSERT);
-      const spfModuleResult = await bulkRepo.insertSpfModules(
-        spfModules.map((sm: SpfModule) => ({
-          ...sm,
-          systemId: undefined,
-        })) as any,
-      );
+      const spfModuleResult: BulkModuleInsertResult =
+        await bulkRepo.insertSpfModules(
+          spfModules as readonly Omit<SpfModule, 'systemId'>[],
+        );
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.SPF_MODULE_INSERT,
       );
@@ -530,7 +542,7 @@ export class UploadFileOrchestrator {
       this.foreignKeyMapper.setModuleInstanceMappings(spfModuleResult);
 
       const successfulInserts = spfModuleResult.results.filter(
-        (r: any) => r.success,
+        r => r.success,
       ).length;
 
       this.logger?.logInfo({
@@ -546,14 +558,16 @@ export class UploadFileOrchestrator {
   /**
    * Phase 5: Build and Insert Data Links
    */
-  private async buildAndInsertDataLinks(bulkRepo: any): Promise<void> {
+  private async buildAndInsertDataLinks(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
     if (!this.parsedAcdb || !this.parsedAwsp) {
       throw new Error('Parsed data not available for building data links');
     }
 
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_BUILDING);
-    const dataLinks = await this.builderService.buildDataLinks(
+    const dataLinks = this.builderService.buildDataLinks(
       this.parsedAcdb,
       this.currentFileId,
     );
@@ -568,12 +582,10 @@ export class UploadFileOrchestrator {
     if (dataLinks && dataLinks.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_INSERT);
-      const dataLinkResult = await bulkRepo.insertDataLinks(
-        dataLinks.map((dl: DataLink) => ({
-          ...dl,
-          systemId: undefined,
-        })) as any,
-      );
+      const dataLinkResult: BulkDataLinkInsertResult =
+        await bulkRepo.insertDataLinks(
+          dataLinks as readonly Omit<DataLink, 'systemId'>[],
+        );
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.DATA_LINK_INSERT,
       );
@@ -586,7 +598,7 @@ export class UploadFileOrchestrator {
       this.foreignKeyMapper.setDataLinkMappings(dataLinkResult);
 
       const successfulInserts = dataLinkResult.results.filter(
-        (r: any) => r.success,
+        r => r.success,
       ).length;
 
       this.logger?.logInfo({
@@ -640,14 +652,16 @@ export class UploadFileOrchestrator {
   /**
    * Phase 7: Build and Insert Usecases
    */
-  private async buildAndInsertUsecases(bulkRepo: any): Promise<void> {
+  private async buildAndInsertUsecases(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
     if (!this.parsedAcdb || !this.parsedAwsp) {
       throw new Error('Parsed data not available for building usecases');
     }
 
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.USECASE_BUILDING);
-    const usecases = await this.builderService.buildUsecases(
+    const usecases = this.builderService.buildUsecases(
       this.parsedAcdb,
       this.currentFileId,
     );
@@ -662,12 +676,10 @@ export class UploadFileOrchestrator {
     if (usecases && usecases.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.USECASE_INSERT);
-      const usecaseResult = await bulkRepo.insertUseCases(
-        usecases.map((uc: UseCase) => ({
-          ...uc,
-          systemId: undefined,
-        })) as any,
-      );
+      const usecaseResult: BulkEntityInsertResult<number> =
+        await bulkRepo.insertUseCases(
+          usecases as readonly Omit<UseCase, 'systemId'>[],
+        );
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.USECASE_INSERT,
       );
@@ -677,7 +689,7 @@ export class UploadFileOrchestrator {
       );
 
       const successfulInserts = usecaseResult.results.filter(
-        (r: any) => r.success,
+        r => r.success,
       ).length;
 
       this.logger?.logInfo({

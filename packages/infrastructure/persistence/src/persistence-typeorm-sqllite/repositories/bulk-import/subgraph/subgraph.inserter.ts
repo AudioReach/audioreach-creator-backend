@@ -66,7 +66,7 @@ export class SubgraphInserter extends BaseInserter<
           (row as EntityRowForInsert<SubgraphRow> & {subgraphId: number})
             .subgraphId,
       )
-      .filter((id): id is number => id !== undefined);
+      .filter((id): id is number => id != null);
     const mappings = await this.queryBackSubgraphs(successfulSubgraphIds);
 
     // ============================================
@@ -108,8 +108,8 @@ export class SubgraphInserter extends BaseInserter<
       .getMany();
 
     return results.map(r => ({
-      naturalId: r.subgraphId,
-      systemId: r.systemId,
+      naturalId: r.subgraphId as number,
+      systemId: r.systemId as number,
     }));
   }
 

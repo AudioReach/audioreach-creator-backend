@@ -16,8 +16,10 @@ export interface EntityBuilderContext {
 /**
  * Abstract base class for entity factories.
  * Each factory knows how to create a specific domain entity from chunks.
+ * @template T - The domain entity type this builder creates
+ * @template TData - The data transfer object type for worker serialization (defaults to unknown)
  */
-export abstract class BaseEntityBuilder<T> {
+export abstract class BaseEntityBuilder<T, TData = unknown> {
   /** Unique identifier for the entity type this factory creates */
   abstract readonly entityType: string;
 
@@ -39,11 +41,11 @@ export abstract class BaseEntityBuilder<T> {
    * Extract only the required data for this entity (for worker transfer).
    * Returns a plain object with only primitives for fast serialization.
    */
-  abstract extractRequiredData(context: EntityBuilderContext): any;
+  abstract extractRequiredData(context: EntityBuilderContext): TData;
 
   /**
    * Create entity from extracted data (used in worker).
    * This method receives the plain object from extractRequiredData.
    */
-  abstract createFromData(data: any): T;
+  abstract createFromData(data: TData): T;
 }

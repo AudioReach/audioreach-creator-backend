@@ -5,6 +5,7 @@
 
 // IMPORTANT: reflect-metadata must be imported first, before any other imports
 // This polyfill is required for class-transformer decorators to work
+// eslint-disable-next-line n/no-extraneous-import -- Required polyfill for class-transformer decorators
 import 'reflect-metadata';
 
 import {plainToInstance} from 'class-transformer';
@@ -14,6 +15,7 @@ import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-na
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../ports/worker/worker-types.js';
+import type {JsonObject} from '../../../../shared/types/json-types.js';
 import {
   type DefinitionBlockName,
   type DefinitionCollection,
@@ -34,7 +36,7 @@ import {
  */
 export interface DefinitionParseInput {
   /** Object containing definition blocks to parse */
-  definitionBlocks: Record<string, any[]>;
+  definitionBlocks: Record<string, JsonObject[]>;
   /** Human-readable name for error messages */
   taskName: string;
 }
@@ -54,13 +56,12 @@ export class AwspParser {
    * Static method for parsing definitions in worker threads.
    * This method is called by the worker registry and contains the core parsing logic.
    * @param input - Definition parsing input containing blocks to parse
-   * @returns Parsed definitions object
+   * @returns Parsed definitions object (only includes blocks with data)
    */
   static parse(
     input: DefinitionParseInput,
-  ): Record<DefinitionBlockName, DefinitionCollection> {
-    const results: Record<DefinitionBlockName, DefinitionCollection> =
-      {} as Record<DefinitionBlockName, DefinitionCollection>;
+  ): Record<string, DefinitionCollection> {
+    const results: Record<string, DefinitionCollection> = {};
 
     // Process each definition block provided in the input
     for (const [blockName, blockData] of Object.entries(
@@ -76,8 +77,7 @@ export class AwspParser {
             excludeExtraneousValues: true,
           });
 
-          results[blockName as DefinitionBlockName] =
-            parsedData as DefinitionCollection;
+          results[blockName] = parsedData as DefinitionCollection;
         } catch (error) {
           if (error instanceof Error) {
             throw new Error(`Failed to parse ${blockName}: ${error.message}`);
@@ -85,8 +85,10 @@ export class AwspParser {
           throw new Error(`Failed to parse ${blockName}: Unknown error`);
         }
       } else {
-        // Set null for empty or missing blocks
-        results[blockName as DefinitionBlockName] = null as any;
+        // Log warning for empty or missing blocks
+        console.warn(
+          `Definition block '${blockName}' is empty or missing - skipping`,
+        );
       }
     }
 
@@ -99,8 +101,8 @@ export class AwspParser {
    */
   private static getClassTypeForBlock(
     blockName: string,
-  ): ClassConstructor<any> {
-    const classMap: Record<string, ClassConstructor<any>> = {
+  ): ClassConstructor<unknown> {
+    const classMap: Record<string, ClassConstructor<unknown>> = {
       [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: KeyDefinition,
       [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: TagDefinition,
       [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: SpfPropertyDefinition,
@@ -124,15 +126,15 @@ export class AwspParser {
   /**
    * Parse all definitions from pre-parsed JSON data with parallel/sequential strategy
    * @param jsonData - Pre-parsed JSON object containing definition blocks
-   * @returns Promise resolving to structured definitions with DefinitionBlockName keys
+   * @returns Promise resolving to structured definitions (only includes blocks with data)
    */
   async parseDefinitions(
-    jsonData: Record<string, any>,
-  ): Promise<Record<DefinitionBlockName, DefinitionCollection>> {
+    jsonData: Record<string, JsonObject[]>,
+  ): Promise<Record<string, DefinitionCollection>> {
     // Determine parsing strategy
     const useParallel = this.shouldUseParallelParsing();
 
-    let parsedDefinitions: Record<DefinitionBlockName, DefinitionCollection>;
+    let parsedDefinitions: Record<string, DefinitionCollection>;
 
     // Step 1: Parse definitions using selected strategy
     try {
@@ -181,8 +183,8 @@ export class AwspParser {
    * Parse definitions using worker pool - SPF modules in one worker, others in another
    */
   private async parseDefinitionsParallel(
-    jsonData: Record<string, any>,
-  ): Promise<Record<DefinitionBlockName, DefinitionCollection>> {
+    jsonData: Record<string, JsonObject[]>,
+  ): Promise<Record<string, DefinitionCollection>> {
     if (!this.workerPool) {
       throw new Error('Worker pool not available for parallel parsing');
     }
@@ -210,7 +212,7 @@ export class AwspParser {
     }
 
     // Task 2: All other definitions (combined in one worker)
-    const otherDefinitionBlocks: Record<string, any[]> = {};
+    const otherDefinitionBlocks: Record<string, JsonObject[]> = {};
 
     // Add each definition type if it has data
     const otherBlockNames = [
@@ -244,12 +246,11 @@ export class AwspParser {
     const results = await this.workerPool.executeParallel<
       DefinitionParseInput,
       unknown,
-      any
+      Record<DefinitionBlockName, DefinitionCollection>
     >(tasks);
 
     // Process results
-    const parsedDefinitions: Record<DefinitionBlockName, DefinitionCollection> =
-      {} as Record<DefinitionBlockName, DefinitionCollection>;
+    const parsedDefinitions: Record<string, DefinitionCollection> = {};
 
     for (const [i, result] of results.entries()) {
       const task = tasks[i];
@@ -261,10 +262,7 @@ export class AwspParser {
       }
 
       // Merge results from worker into final definitions object
-      const workerResults = result.data as Record<
-        DefinitionBlockName,
-        DefinitionCollection
-      >;
+      const workerResults = result.data as Record<string, DefinitionCollection>;
       Object.assign(parsedDefinitions, workerResults);
     }
 
@@ -275,10 +273,10 @@ export class AwspParser {
    * Parse definitions sequentially using the same static parse method as workers (optimized)
    */
   private parseDefinitionsSequential(
-    jsonData: Record<string, any>,
-  ): Record<DefinitionBlockName, DefinitionCollection> {
+    jsonData: Record<string, JsonObject[]>,
+  ): Record<string, DefinitionCollection> {
     // Collect all definition blocks that have data
-    const definitionBlocks: Record<string, any[]> = {};
+    const definitionBlocks: Record<string, JsonObject[]> = {};
 
     const allBlockNames = [
       DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS,

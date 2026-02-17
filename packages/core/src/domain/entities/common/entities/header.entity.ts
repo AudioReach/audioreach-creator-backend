@@ -9,6 +9,18 @@ import type {
 } from '../../../../application/file-operations/shared/acdb-chunks/header-chunk.js';
 
 /**
+ * Interface for HeaderEntity JSON representation
+ */
+interface HeaderEntityJSON {
+  headerVersion: number;
+  version: ACDBVersionInfo;
+  codecInfos: CodecInfo[];
+  modifiedDate: number;
+  oemInfo: string;
+  createdAt: string | number | Date;
+}
+
+/**
  * Header entity representing ACDB file metadata.
  * Created from HeaderChunk during Phase 2 domain assembly.
  */
@@ -80,7 +92,7 @@ export class HeaderEntity {
   /**
    * Create entity from plain object (for deserialization)
    */
-  static fromJSON(data: any): HeaderEntity {
+  static fromJSON(data: HeaderEntityJSON): HeaderEntity {
     return new HeaderEntity(
       data.headerVersion,
       data.version,

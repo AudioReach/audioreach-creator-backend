@@ -86,11 +86,11 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     // Deduplicate and map to read models
     const moduleMap = new Map<number, ModuleReadModel>();
     for (const node of nodes) {
-      if (node.spfModule && !moduleMap.has(node.systemId)) {
-        const moduleReadModel = UseCaseQueryMappers.mapNodeToModuleReadModel(
-          node as NodeRow,
-        );
-        moduleMap.set(node.systemId, moduleReadModel);
+      const nodeRow = node as NodeRow;
+      if (nodeRow.spfModule && !moduleMap.has(nodeRow.systemId)) {
+        const moduleReadModel =
+          UseCaseQueryMappers.mapNodeToModuleReadModel(nodeRow);
+        moduleMap.set(nodeRow.systemId, moduleReadModel);
       }
     }
 
@@ -119,11 +119,11 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     // Deduplicate and map to read models
     const dataLinkMap = new Map<number, DataLinkReadModel>();
     for (const dataLink of dataLinks) {
-      if (!dataLinkMap.has(dataLink.systemId)) {
-        const dataLinkReadModel = UseCaseQueryMappers.mapToDataLinkReadModel(
-          dataLink as DataLinkRow,
-        );
-        dataLinkMap.set(dataLink.systemId, dataLinkReadModel);
+      const dataLinkRow = dataLink as DataLinkRow;
+      if (!dataLinkMap.has(dataLinkRow.systemId)) {
+        const dataLinkReadModel =
+          UseCaseQueryMappers.mapToDataLinkReadModel(dataLinkRow);
+        dataLinkMap.set(dataLinkRow.systemId, dataLinkReadModel);
       }
     }
 
@@ -152,12 +152,11 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     // Deduplicate and map to read models
     const controlLinkMap = new Map<number, ControlLinkReadModel>();
     for (const controlLink of controlLinks) {
-      if (!controlLinkMap.has(controlLink.systemId)) {
+      const controlLinkRow = controlLink as ControlLinkRow;
+      if (!controlLinkMap.has(controlLinkRow.systemId)) {
         const controlLinkReadModel =
-          UseCaseQueryMappers.mapToControlLinkReadModel(
-            controlLink as ControlLinkRow,
-          );
-        controlLinkMap.set(controlLink.systemId, controlLinkReadModel);
+          UseCaseQueryMappers.mapToControlLinkReadModel(controlLinkRow);
+        controlLinkMap.set(controlLinkRow.systemId, controlLinkReadModel);
       }
     }
 

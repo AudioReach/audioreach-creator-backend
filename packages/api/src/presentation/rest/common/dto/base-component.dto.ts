@@ -40,7 +40,7 @@ export class BaseComponentDto<T> {
       "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
     example: 'chg-12345',
   })
-  @ValidateIf(o => o.editType !== 'None')
+  @ValidateIf((o: BaseComponentDto<unknown>) => o.editType !== 'None')
   @IsDefined({message: 'changeId is required when editType is not None'})
   @IsString()
   @IsNotEmpty({message: 'changeId must not be empty when editType is not None'})
@@ -49,7 +49,7 @@ export class BaseComponentDto<T> {
   constructor(systemId: string, id?: T) {
     this.systemId = systemId;
     if (id !== undefined) {
-      (this as any).id = id;
+      Object.assign(this, {id});
     }
   }
 }

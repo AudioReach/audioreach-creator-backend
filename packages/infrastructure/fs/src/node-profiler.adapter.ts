@@ -20,7 +20,7 @@ interface OperationData {
   operation: ProfilerOperation;
   startTime: number;
   startMemory: MemoryUsage;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

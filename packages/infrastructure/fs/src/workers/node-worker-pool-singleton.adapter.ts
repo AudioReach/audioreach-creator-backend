@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {WorkerPoolPort} from '@arc/core';
+import type {WorkerPoolPort, WorkerTask, WorkerResult} from '@arc/core';
 import {createWorkerPool} from './worker-pool.factory.js';
 
 /**
@@ -25,8 +25,8 @@ export class NodeWorkerPoolSingleton implements WorkerPoolPort {
   }
 
   async executeTask<TInput = unknown, TContext = unknown, TData = unknown>(
-    task: any,
-  ): Promise<any> {
+    task: WorkerTask<TInput, TContext>,
+  ): Promise<WorkerResult<TData>> {
     return NodeWorkerPoolSingleton.instance!.executeTask<
       TInput,
       TContext,
@@ -35,8 +35,8 @@ export class NodeWorkerPoolSingleton implements WorkerPoolPort {
   }
 
   async executeParallel<TInput = unknown, TContext = unknown, TData = unknown>(
-    tasks: any[],
-  ): Promise<any[]> {
+    tasks: WorkerTask<TInput, TContext>[],
+  ): Promise<WorkerResult<TData>[]> {
     return NodeWorkerPoolSingleton.instance!.executeParallel<
       TInput,
       TContext,

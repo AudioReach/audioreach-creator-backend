@@ -10,6 +10,10 @@ export interface EntityBuilderInput {
   /** Type of entity to build (e.g., 'HEADER_ENTITY') */
   entityType: string;
 
-  /** Extracted data required for entity creation */
-  requiredData: any;
+  /**
+   * Extracted data required for entity creation.
+   * The actual type depends on the entityType and is defined by each entity builder.
+   * Examples: HeaderEntityData, KeyDefinitionData, etc.
+   */
+  requiredData: unknown;
 }

@@ -25,6 +25,12 @@ import {ApiResult} from '../../../common/dto/api-response/api-result.dto.js';
 import {SpfModuleDefinitionResponseDto} from './dto/spf-module-definition-response.dto.js';
 import {DriverModuleDefinitionResponseDto} from './dto/driver-module-definition-response.dto.js';
 import {ParameterDefinitionSummaryDto} from './dto/parameter-definition-summary-response.dto.js';
+import {
+  DefinitionConfigElementDto,
+  DefinitionConfigElementArrayDto,
+  DefinitionStructDto,
+  DefinitionStructArrayDto,
+} from './dto/definition-element.dto.js';
 
 @ApiTags('module-definition')
 @Controller('arc-api/v1/projects')
@@ -32,6 +38,12 @@ import {ParameterDefinitionSummaryDto} from './dto/parameter-definition-summary-
 @ApiExtraModels(ApiResult, SpfModuleDefinitionResponseDto)
 @ApiExtraModels(ApiResult, ParameterDefinitionSummaryDto)
 @ApiExtraModels(ApiResult, DriverModuleDefinitionResponseDto)
+@ApiExtraModels(
+  DefinitionConfigElementDto,
+  DefinitionConfigElementArrayDto,
+  DefinitionStructDto,
+  DefinitionStructArrayDto,
+)
 export class ModuleDefinitionController {
   @Get('/:projectId/definitions/modules/spf')
   @ApiOperation({

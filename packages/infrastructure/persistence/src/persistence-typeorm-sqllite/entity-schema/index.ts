@@ -64,7 +64,7 @@ import {SubgraphSchema} from './usecase-data/subgraph/subgraph.schema.js';
 import {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
 import {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
 import {EditSessionSchema} from './edit-session/edit-session.schema.js';
-import {EditActionSchema} from './edit-session/edit_action.schema.js';
+import {EditActionSchema} from './edit-session/edit-action.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
 import {ProjectActivitySchema} from './edit-session/project-activity.schema.js';
 
@@ -234,13 +234,13 @@ export {EditSessionSchema} from './edit-session/edit-session.schema.js';
 export {
   EDIT_OPERATION,
   CHANGE_STATUS,
-} from './edit-session/edit_action.schema.js';
+} from './edit-session/edit-action.schema.js';
 export type {
   EditOperation,
   ChangeStatus,
   EditActionRow,
-} from './edit-session/edit_action.schema.js';
-export {EditActionSchema} from './edit-session/edit_action.schema.js';
+} from './edit-session/edit-action.schema.js';
+export {EditActionSchema} from './edit-session/edit-action.schema.js';
 export {RESTORE_TYPE} from './edit-session/restore-point.schema.js';
 export type {
   RestoreType,

@@ -25,6 +25,10 @@ import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
+import type {
+  DataLink as DataLinkProperty,
+  ControlLink as ControlLinkProperty,
+} from '../../shared/acdb-chunks/spf-properties/types.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ForeignKeyMapper} from './foreign-key-mapper.js';
@@ -50,17 +54,17 @@ export type EntityModelKey =
  * Container for all domain entities created from parsed chunks
  */
 export class EntityModel {
-  private entities = new Map<string, any>();
+  private entities = new Map<string, unknown>();
 
-  addEntity(type: EntityModelKey | string, entity: any): void {
+  addEntity(type: string, entity: unknown): void {
     this.entities.set(type, entity);
   }
 
-  getEntity<T>(type: EntityModelKey | string): T | undefined {
+  getEntity<T>(type: string): T | undefined {
     return this.entities.get(type) as T | undefined;
   }
 
-  getAllEntities(): Map<string, any> {
+  getAllEntities(): Map<string, unknown> {
     return new Map(this.entities);
   }
 
@@ -259,7 +263,7 @@ export class EntityBuilderService {
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
   buildDataLinks(parsedAcdb: ParsedAcdb, fileSystemId: number): DataLink[] {
-    const allDataLinkProperties: any[] = [];
+    const allDataLinkProperties: DataLinkProperty[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
 
@@ -317,7 +321,7 @@ export class EntityBuilderService {
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
   buildControlLinks(parsedAcdb: ParsedAcdb): ControlLink[] {
-    const allControlLinkProperties: any[] = [];
+    const allControlLinkProperties: ControlLinkProperty[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
 

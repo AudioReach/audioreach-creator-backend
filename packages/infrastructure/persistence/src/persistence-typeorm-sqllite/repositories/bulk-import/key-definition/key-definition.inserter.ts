@@ -222,11 +222,11 @@ export class KeyDefinitionInserter extends BaseInserter<
   ): Promise<NaturalIdMapping<number>[]> {
     if (keyIds.length === 0) return [];
 
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('KeyDefinition', 'k')
       .select(['k.systemId', 'k.keyId'])
       .where('k.keyId IN (:...ids)', {ids: keyIds})
-      .getMany();
+      .getMany()) as Array<{systemId: number; keyId: number}>;
 
     return results.map(r => ({
       naturalId: r.keyId,
@@ -256,17 +256,24 @@ export class KeyDefinitionInserter extends BaseInserter<
     ];
 
     // Query using composite key constraints
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('ValueDefinition', 'v')
       .select(['v.systemId', 'v.valueId', 'v.keySystemId'])
       .where('v.valueId IN (:...valueIds)', {valueIds})
       .andWhere('v.keySystemId IN (:...keySystemIds)', {keySystemIds})
-      .getMany();
+      .getMany()) as Array<{
+      systemId: number;
+      valueId: number;
+      keySystemId: number;
+    }>;
 
     // Build reverse lookup: keySystemId → keyId
     const systemIdToKeyId = new Map<number, number>();
     for (const {row, keyId} of valueRowsWithKeyId) {
-      systemIdToKeyId.set(row.keySystemId as number, keyId);
+      const keySystemId = row.keySystemId;
+      if (typeof keySystemId === 'number') {
+        systemIdToKeyId.set(keySystemId, keyId);
+      }
     }
 
     // Map results back to domain format with keyId context

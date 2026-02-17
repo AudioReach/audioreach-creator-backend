@@ -98,11 +98,11 @@ export class DataLinkInserter extends BaseInserter<
     if (naturalKeys.length === 0) return [];
 
     // Use efficient IN query with naturalKeyHash
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('DataLink', 'dl')
       .select(['dl.systemId', 'dl.naturalKeyHash'])
       .where('dl.naturalKeyHash IN (:...naturalKeys)', {naturalKeys})
-      .getMany();
+      .getMany()) as Array<{systemId: number; naturalKeyHash: string}>;
 
     return results.map(result => ({
       naturalId: result.naturalKeyHash,
@@ -124,7 +124,7 @@ export class DataLinkInserter extends BaseInserter<
       insertResult.failed
         .map(f => ({hash: f.row.naturalKeyHash, error: f.error}))
         .filter(
-          (item): item is {hash: string; error: any} =>
+          (item): item is {hash: string; error: Error} =>
             typeof item.hash === 'string',
         )
         .map(item => [item.hash, item.error]),
@@ -142,7 +142,7 @@ export class DataLinkInserter extends BaseInserter<
           idMapping: {naturalId: naturalKey, systemId},
           success: true,
         });
-      } else if (error) {
+      } else if (error instanceof Error) {
         results.push({
           error: this.buildError('DATA_LINK', naturalKey, error),
           success: false,

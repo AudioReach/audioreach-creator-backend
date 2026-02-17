@@ -5,6 +5,7 @@
 
 // IMPORTANT: reflect-metadata must be imported first, before any other imports
 // This polyfill is required for class-transformer decorators to work
+// eslint-disable-next-line n/no-extraneous-import -- Required polyfill for class-transformer decorators
 import 'reflect-metadata';
 
 import {AwspParser} from './awsp-parser.js';
@@ -16,7 +17,12 @@ import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.j
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
-import {ParsedAwsp, type DefinitionBlockName} from '../models/parsed-awsp.js';
+import type {JsonObject} from '../../../../shared/types/json-types.js';
+import {
+  ParsedAwsp,
+  type DefinitionBlockName,
+  type DefinitionCollection,
+} from '../models/parsed-awsp.js';
 
 /**
  * Orchestrator for AWSP file parsing.
@@ -78,7 +84,20 @@ export class AwspFileOrchestrator {
       };
       const fileBytes = await this.fs.readAll(fileRef);
       const jsonContent = new TextDecoder('utf8').decode(fileBytes);
-      const jsonData = JSON.parse(jsonContent);
+      const jsonData: Record<string, JsonObject[]> | null = JSON.parse(
+        jsonContent,
+      ) as Record<string, JsonObject[]> | null;
+
+      // Validate that jsonData is an object and not an array
+      if (
+        typeof jsonData !== 'object' ||
+        jsonData === null ||
+        Array.isArray(jsonData)
+      ) {
+        throw new Error(
+          'Invalid JSON structure: expected an object with definition blocks',
+        );
+      }
 
       // Parse all definitions using the AwspParser
       const definitions =
@@ -178,19 +197,18 @@ export class AwspFileOrchestrator {
   /**
    * Populate ParsedAwsp instance with parsed definitions
    * @param parsedAwsp - The ParsedAwsp instance to populate
-   * @param definitions - The parsed definitions from AwspParser (already structured with DefinitionBlockName keys)
+   * @param definitions - The parsed definitions from AwspParser (only includes blocks with data)
    */
   private populateParsedAwsp(
     parsedAwsp: ParsedAwsp,
-    definitions: Record<DefinitionBlockName, any>,
+    definitions: Record<string, DefinitionCollection>,
   ): void {
-    // Since the parser now returns structured definitions with DefinitionBlockName keys,
-    // we can directly iterate and add them to ParsedAwsp
+    // Iterate through parsed definitions and add them to ParsedAwsp
     for (const [definitionType, definitionCollection] of Object.entries(
       definitions,
     )) {
+      // All entries in definitions already have data (no null values)
       if (
-        definitionCollection &&
         Array.isArray(definitionCollection) &&
         definitionCollection.length > 0
       ) {

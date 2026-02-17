@@ -158,10 +158,11 @@ export class ControlLinkInserter extends BaseInserter<
         .getOne();
 
       if (result) {
-        const naturalKey = this.buildNaturalKeyFromRow(result);
+        const typedResult = result as ControlLinkRow;
+        const naturalKey = this.buildNaturalKeyFromRow(typedResult);
         results.push({
           naturalId: naturalKey,
-          systemId: result.systemId,
+          systemId: typedResult.systemId,
         });
       }
     }
