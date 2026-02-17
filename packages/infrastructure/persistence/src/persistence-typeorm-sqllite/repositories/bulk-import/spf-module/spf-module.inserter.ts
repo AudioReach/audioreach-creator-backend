@@ -80,12 +80,11 @@ export class SpfModuleInserter extends BaseInserter<
     const instanceIdToSystemId = new Map<number, number>();
 
     for (let i = 0; i < nodeInsertResult.succeeded.length; i++) {
-      const nodeRow = nodeInsertResult.succeeded[
-        i
-      ] as QueryDeepPartialEntity<NodeRow> & {systemId: number};
+      const nodeRow = nodeInsertResult.succeeded[i];
+      const nodeSystemId = (nodeRow as {systemId?: number}).systemId;
       const spfModule = spfModules[i];
-      if (nodeRow.systemId && spfModule) {
-        instanceIdToSystemId.set(spfModule.instanceId, nodeRow.systemId);
+      if (nodeSystemId && spfModule) {
+        instanceIdToSystemId.set(spfModule.instanceId, nodeSystemId);
       }
     }
 
@@ -101,9 +100,12 @@ export class SpfModuleInserter extends BaseInserter<
 
       const spfModuleRow = mapSpfModuleToRow(spfModule);
       // Use Node's systemId as SpfModule's systemId (shared primary key)
-      (spfModuleRow as any).systemId = nodeSystemId;
+      const rowWithSystemId = {
+        ...spfModuleRow,
+        systemId: nodeSystemId,
+      };
 
-      spfModuleRowsWithSystemId.push(spfModuleRow);
+      spfModuleRowsWithSystemId.push(rowWithSystemId);
     }
 
     const spfModuleInsertResult =
@@ -227,7 +229,7 @@ export class SpfModuleInserter extends BaseInserter<
     ];
 
     // Bulk query all ports whose nodeSystemId is in the list, including portIoType
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('DataPort', 'dp')
       .select([
         'dp.systemId',
@@ -236,12 +238,20 @@ export class SpfModuleInserter extends BaseInserter<
         'dp.portIoType',
       ])
       .where('dp.nodeSystemId IN (:...nodeSystemIds)', {nodeSystemIds})
-      .getMany();
+      .getMany()) as Array<{
+      systemId: number;
+      dataPortId: number;
+      nodeSystemId: number;
+      portIoType: 'Input' | 'Output';
+    }>;
 
     // Build reverse lookup: nodeSystemId → instanceId
     const nodeSystemIdToInstanceId = new Map<number, number>();
     for (const {row, instanceId} of dataPortRowsWithInstanceId) {
-      nodeSystemIdToInstanceId.set(row.nodeSystemId as number, instanceId);
+      const nodeSystemId = row.nodeSystemId;
+      if (typeof nodeSystemId === 'number') {
+        nodeSystemIdToInstanceId.set(nodeSystemId, instanceId);
+      }
     }
 
     const mappings: Array<{
@@ -284,16 +294,23 @@ export class SpfModuleInserter extends BaseInserter<
     ];
 
     // Bulk query all ports whose nodeSystemId is in the list
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('ControlPort', 'cp')
       .select(['cp.systemId', 'cp.portId', 'cp.nodeSystemId'])
       .where('cp.nodeSystemId IN (:...nodeSystemIds)', {nodeSystemIds})
-      .getMany();
+      .getMany()) as Array<{
+      systemId: number;
+      portId: number;
+      nodeSystemId: number;
+    }>;
 
     // Build reverse lookup: nodeSystemId → instanceId
     const nodeSystemIdToInstanceId = new Map<number, number>();
     for (const {row, instanceId} of controlPortRowsWithInstanceId) {
-      nodeSystemIdToInstanceId.set(row.nodeSystemId as number, instanceId);
+      const nodeSystemId = row.nodeSystemId;
+      if (typeof nodeSystemId === 'number') {
+        nodeSystemIdToInstanceId.set(nodeSystemId, instanceId);
+      }
     }
 
     const mappings: Array<{

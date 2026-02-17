@@ -13,7 +13,7 @@ export interface FileReaderPort {
    */
   readAll(ref: PathRef): Promise<Uint8Array>;
 
-  parseBlock(filePath: string, blockName: string): Promise<any[]>;
+  parseBlock(filePath: string, blockName: string): Promise<unknown[]>;
 
   exists(filePath: string): Promise<boolean>;
 

@@ -28,7 +28,10 @@ export interface HeaderEntityData {
 /**
  * Builder for creating HeaderEntity from HeaderChunk
  */
-export class HeaderEntityBuilder extends BaseEntityBuilder<HeaderEntity> {
+export class HeaderEntityBuilder extends BaseEntityBuilder<
+  HeaderEntity,
+  HeaderEntityData
+> {
   readonly entityType = 'HEADER_ENTITY';
   readonly requiredChunks = [CHUNK_TYPES.HEADER];
   readonly isSimple = true; // Simple entity, prefer direct creation

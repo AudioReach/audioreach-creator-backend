@@ -144,7 +144,7 @@ export interface PerformanceMetrics {
   endTime: number;
 
   /** Optional metadata associated with the operation */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -161,5 +161,5 @@ export interface MemorySnapshot {
   timestamp: number;
 
   /** Optional metadata for the snapshot */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

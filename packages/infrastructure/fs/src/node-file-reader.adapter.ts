@@ -16,6 +16,43 @@ import {access} from 'node:fs/promises';
 //import {unzip} from 'zlib';
 
 const mkdir = promisify(fs.mkdir);
+
+/**
+ * Safely resolves a path within a base directory to prevent directory traversal
+ * @param baseDir - The base directory
+ * @param targetPath - The target path to resolve
+ * @returns The resolved path if safe
+ * @throws Error if the resolved path escapes the base directory
+ */
+function safeResolvePath(baseDir: string, targetPath: string): string {
+  const resolvedBase = path.resolve(baseDir);
+  const resolvedTarget = path.resolve(baseDir, targetPath);
+
+  // Ensure the resolved path is within the base directory
+  if (
+    !resolvedTarget.startsWith(resolvedBase + path.sep) &&
+    resolvedTarget !== resolvedBase
+  ) {
+    throw new Error(
+      `Path traversal detected: "${targetPath}" resolves outside base directory`,
+    );
+  }
+
+  return resolvedTarget;
+}
+
+/**
+ * Interface for JSON parsing errors with position information
+ */
+interface JsonParseError extends Error {
+  position?: {
+    line?: number;
+    column?: number;
+  };
+  line?: number;
+  column?: number;
+  offset?: number;
+}
 /**
  * Node adapter implementing FileReaderPort.
  * Supports only PathRef; reads from absolute path or file:// URI and returns Uint8Array.
@@ -74,8 +111,25 @@ export class NodeFileReaderAdapter implements FileReaderPort {
     // Create destination folder if it doesn't exist
     await this.mkdir(destinationPath);
 
-    // Extract all files to the destination folder
-    zip.extractAllTo(destinationPath, true);
+    // Safely extract files with path validation to prevent zip slip attacks
+    const zipEntries = zip.getEntries();
+    const resolvedDestination = path.resolve(destinationPath);
+
+    for (const entry of zipEntries) {
+      // Validate each entry path to prevent directory traversal
+      const entryPath = safeResolvePath(resolvedDestination, entry.entryName);
+
+      if (entry.isDirectory) {
+        await mkdir(entryPath, {recursive: true});
+      } else {
+        // Ensure parent directory exists
+        const entryDir = path.dirname(entryPath);
+        await mkdir(entryDir, {recursive: true});
+
+        // Extract file to validated path
+        await promises.writeFile(entryPath, entry.getData());
+      }
+    }
   }
 
   deleteDirectory(dirPath: string): void {
@@ -89,7 +143,7 @@ export class NodeFileReaderAdapter implements FileReaderPort {
    * Parse JSON file and extract specific block
    * Automatically uses streaming for large files
    */
-  parseBlock(filePath: string, blockName: string): Promise<any[]> {
+  parseBlock(filePath: string, blockName: string): Promise<unknown[]> {
     // Validate file extension
     const fileExtension = path.extname(filePath).toLowerCase();
     if (fileExtension !== '.json') {
@@ -115,9 +169,9 @@ export class NodeFileReaderAdapter implements FileReaderPort {
   private parseWithStreaming(
     filePath: string,
     blockName: string,
-  ): Promise<any[]> {
+  ): Promise<unknown[]> {
     return new Promise((resolve, reject) => {
-      let blockData: any[] = [];
+      let blockData: unknown[] = [];
       let found = false;
       const pipeline = fs
         .createReadStream(filePath)
@@ -144,7 +198,7 @@ export class NodeFileReaderAdapter implements FileReaderPort {
         resolve(blockData);
       });
 
-      pipeline.on('error', (error: any) => {
+      pipeline.on('error', (error: JsonParseError) => {
         // Enhanced error reporting with multiple position formats
         let errorMessage = `Error parsing JSON file: ${error.message}`;
 

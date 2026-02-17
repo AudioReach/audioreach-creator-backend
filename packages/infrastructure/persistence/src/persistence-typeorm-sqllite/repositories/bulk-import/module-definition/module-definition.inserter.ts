@@ -165,11 +165,11 @@ export class ModuleDefinitionInserter extends BaseInserter<
   ): Promise<NaturalIdMapping<number>[]> {
     if (moduleDefinitionIds.length === 0) return [];
 
-    const results = await this.manager
+    const results = (await this.manager
       .createQueryBuilder('SpfModuleDefinition', 'md')
       .select(['md.systemId', 'md.moduleDefinitionId'])
       .where('md.moduleDefinitionId IN (:...ids)', {ids: moduleDefinitionIds})
-      .getMany();
+      .getMany()) as Array<{systemId: number; moduleDefinitionId: number}>;
 
     return results.map(r => ({
       naturalId: r.moduleDefinitionId,

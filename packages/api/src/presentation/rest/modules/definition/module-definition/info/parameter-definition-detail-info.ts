@@ -5,12 +5,20 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {ParameterDefinitionSummaryInfo} from './parameter-definition-summary-info.js';
+import type {DefinitionElementDto} from '../dto/definition-element.dto.js';
 
 export class ParameterDefinitionDetailInfo extends ParameterDefinitionSummaryInfo {
   @ApiProperty({
     description: 'Parameter structure elements',
     type: 'array',
-    items: {type: 'object'},
+    items: {
+      oneOf: [
+        {$ref: '#/components/schemas/DefinitionConfigElementDto'},
+        {$ref: '#/components/schemas/DefinitionConfigElementArrayDto'},
+        {$ref: '#/components/schemas/DefinitionStructDto'},
+        {$ref: '#/components/schemas/DefinitionStructArrayDto'},
+      ],
+    },
   })
-  elements!: any[];
+  elements!: DefinitionElementDto[];
 }

@@ -3,8 +3,17 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {validate} from 'class-validator';
+import {validate, type ValidationError} from 'class-validator';
 import {DEFINITION_BLOCK_NAMES} from '../../../shared/constants/definition-block-names.js';
+
+/**
+ * Represents a validation error for a specific definition category
+ */
+interface CategoryValidationError {
+  category: string;
+  index: number;
+  errors: string[];
+}
 
 /**
  * Service for validating definition objects using class-validator
@@ -58,7 +67,9 @@ export class DefinitionValidatorService {
   /**
    * Validate key definitions
    */
-  async validateKeyDefinitions(definitions: unknown): Promise<any[]> {
+  async validateKeyDefinitions(
+    definitions: unknown,
+  ): Promise<CategoryValidationError[]> {
     return this.validateCategory(
       DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS,
       definitions,
@@ -68,7 +79,9 @@ export class DefinitionValidatorService {
   /**
    * Validate tag definitions
    */
-  async validateTagDefinitions(definitions: unknown): Promise<any[]> {
+  async validateTagDefinitions(
+    definitions: unknown,
+  ): Promise<CategoryValidationError[]> {
     return this.validateCategory(
       DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS,
       definitions,
@@ -78,7 +91,9 @@ export class DefinitionValidatorService {
   /**
    * Validate SPF property definitions
    */
-  async validateSpfPropertyDefinitions(definitions: unknown): Promise<any[]> {
+  async validateSpfPropertyDefinitions(
+    definitions: unknown,
+  ): Promise<CategoryValidationError[]> {
     return this.validateCategory(
       DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS,
       definitions,
@@ -90,7 +105,7 @@ export class DefinitionValidatorService {
    */
   async validateDriverPropertyDefinitions(
     definitions: unknown,
-  ): Promise<any[]> {
+  ): Promise<CategoryValidationError[]> {
     return this.validateCategory(
       DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS,
       definitions,
@@ -100,7 +115,9 @@ export class DefinitionValidatorService {
   /**
    * Validate SPF module definitions
    */
-  async validateSpfModuleDefinitions(definitions: unknown): Promise<any[]> {
+  async validateSpfModuleDefinitions(
+    definitions: unknown,
+  ): Promise<CategoryValidationError[]> {
     return this.validateCategory(
       DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS,
       definitions,
@@ -110,7 +127,9 @@ export class DefinitionValidatorService {
   /**
    * Validate driver module definitions
    */
-  async validateDriverModuleDefinitions(definitions: unknown): Promise<any[]> {
+  async validateDriverModuleDefinitions(
+    definitions: unknown,
+  ): Promise<CategoryValidationError[]> {
     return this.validateCategory(
       DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS,
       definitions,
@@ -126,14 +145,14 @@ export class DefinitionValidatorService {
   private async validateCategory(
     categoryName: string,
     definitions: unknown,
-  ): Promise<any[]> {
+  ): Promise<CategoryValidationError[]> {
     if (!definitions || !Array.isArray(definitions)) {
       return [];
     }
 
     // Validate all items in parallel
     const validationPromises = definitions.map(async (item, index) => {
-      const errors = await validate(item);
+      const errors = await validate(item as object);
       if (errors.length === 0) {
         return null;
       }
@@ -157,7 +176,7 @@ export class DefinitionValidatorService {
    * @param path - Current path in the object hierarchy
    * @returns Formatted error string with hierarchy
    */
-  private formatValidationError(error: any, path: string): string {
+  private formatValidationError(error: ValidationError, path: string): string {
     const currentPath = `${path}.${error.property}`;
     const messages: string[] = [];
 

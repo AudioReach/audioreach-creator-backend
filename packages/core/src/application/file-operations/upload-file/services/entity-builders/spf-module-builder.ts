@@ -7,6 +7,7 @@ import {DataPort} from '../../../../../domain/entities/usecase-data/node/entitie
 import {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {
   ModuleInstanceInfo,
+  ModuleInstance,
   ModulePropertyConfig,
 } from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
@@ -116,7 +117,7 @@ export class SpfModuleBuilder {
    * Convert single ModuleInstance to SpfModule entity
    */
   private convertModuleInstance(
-    moduleInstance: any,
+    moduleInstance: ModuleInstance,
     moduleInfo: ModuleInstanceInfo,
     fileSystemId: number,
     modulePropertyConfig?: ModulePropertyConfig,

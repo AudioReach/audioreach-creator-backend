@@ -4,20 +4,23 @@
  */
 
 import {HeaderEntityBuilder} from '../services/entity-builders/header-entity.builder.js';
-import type {BaseEntityBuilder} from '../services/entity-builders/base-entity-builder.js';
 import type {EntityBuilderInput} from '../types/entity-builder.types.js';
 import type {Handler} from '../../../ports/worker/handler-registry.port.js';
 import {
   ENTITY_BUILDER_KEYS,
   ENTITY_HANDLER_KEYS,
 } from '../../shared/constants/registry-keys.js';
+import type {
+  AnyEntityBuilder,
+  EntityAssemblyResult,
+} from '../types/entity-builder-registry.types.js';
 
 /**
  * Creates default entity builder factories.
  * These are the standard builders used across the application.
  */
-function createDefaultEntityBuilders(): Map<string, BaseEntityBuilder<any>> {
-  return new Map<string, BaseEntityBuilder<any>>([
+function createDefaultEntityBuilders(): Map<string, AnyEntityBuilder> {
+  return new Map<string, AnyEntityBuilder>([
     [ENTITY_BUILDER_KEYS.HEADER_ENTITY, new HeaderEntityBuilder()],
     // Add more default entity builders here as they are created
   ]);
@@ -46,7 +49,7 @@ export function createEntityBuilderRegistry(): Map<string, Handler> {
    */
   registry.set(ENTITY_HANDLER_KEYS.BUILD_ENTITY, ((
     input: EntityBuilderInput,
-  ): any => {
+  ): EntityAssemblyResult => {
     // Get builder factory for this entity type
     const builder = builders.get(input.entityType);
 
@@ -58,7 +61,10 @@ export function createEntityBuilderRegistry(): Map<string, Handler> {
     const entity = builder.createFromData(input.requiredData);
 
     // Serialize entity for transfer back
-    const entityData = entity.toJSON ? entity.toJSON() : {...entity};
+    const entityData =
+      entity && typeof entity === 'object' && 'toJSON' in entity
+        ? (entity.toJSON as () => Record<string, unknown>)()
+        : (entity as Record<string, unknown>);
 
     return {
       entityType: input.entityType,

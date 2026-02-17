@@ -52,9 +52,27 @@ export class ParamInfo {
 }
 
 /**
- * CKV (Calibration Key-Value) DTO extending KeyValuePairsInfo
+ * Base class for key-value DTOs with system ID and supported parameters
  */
-export class CkvDto extends KeyValuePairsInfo {
+abstract class BaseKeyValueDto extends KeyValuePairsInfo {
+  declare systemId: string;
+  supportedParameters: ParamInfo[];
+
+  constructor(
+    systemId: string,
+    keyValueCollection: KeyValueInfo[],
+    supportedParameters: ParamInfo[],
+  ) {
+    super(keyValueCollection);
+    this.systemId = systemId;
+    this.supportedParameters = supportedParameters;
+  }
+}
+
+/**
+ * CKV (Calibration Key-Value) DTO extending BaseKeyValueDto
+ */
+export class CkvDto extends BaseKeyValueDto {
   @ApiProperty({
     description: 'CKV system ID',
     type: String,
@@ -80,23 +98,13 @@ export class CkvDto extends KeyValuePairsInfo {
       },
     ],
   })
-  supportedParameters: ParamInfo[];
-
-  constructor(
-    systemId: string,
-    keyValueCollection: KeyValueInfo[],
-    supportedParameters: ParamInfo[],
-  ) {
-    super(keyValueCollection);
-    this.systemId = systemId;
-    this.supportedParameters = supportedParameters;
-  }
+  declare supportedParameters: ParamInfo[];
 }
 
 /**
- * TKV (Tag Key-Value) DTO extending KeyValuePairsInfo
+ * TKV (Tag Key-Value) DTO extending BaseKeyValueDto
  */
-export class TkvDto extends KeyValuePairsInfo {
+export class TkvDto extends BaseKeyValueDto {
   @ApiProperty({
     description: 'TKV system ID',
     type: String,
@@ -122,17 +130,7 @@ export class TkvDto extends KeyValuePairsInfo {
       },
     ],
   })
-  supportedParameters: ParamInfo[];
-
-  constructor(
-    systemId: string,
-    keyValueCollection: KeyValueInfo[],
-    supportedParameters: ParamInfo[],
-  ) {
-    super(keyValueCollection);
-    this.systemId = systemId;
-    this.supportedParameters = supportedParameters;
-  }
+  declare supportedParameters: ParamInfo[];
 }
 
 /**

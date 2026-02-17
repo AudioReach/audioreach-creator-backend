@@ -13,9 +13,9 @@ const DEFAULT_WORKER_POOL_SIZE = Math.max(1, os.cpus().length - 1);
 // Default task timeout: 30 seconds
 const DEFAULT_TASK_TIMEOUT_MS = 30_000;
 
-interface QueuedTask {
-  task: any;
-  resolve: (result: any) => void;
+interface QueuedTask<TInput = unknown, TContext = unknown, TData = unknown> {
+  task: WorkerTask<TInput, TContext>;
+  resolve: (result: WorkerResult<TData>) => void;
   reject: (error: Error) => void;
 }
 
@@ -26,7 +26,7 @@ interface QueuedTask {
 export class NodeWorkerPoolAdapter implements WorkerPoolPort {
   private workers: Worker[] = [];
   private availableWorkers: Worker[] = [];
-  private taskQueue: QueuedTask[] = [];
+  private taskQueue: QueuedTask<unknown, unknown, unknown>[] = [];
   private isDisposed = false;
 
   constructor(
@@ -49,8 +49,12 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
       throw new Error('Worker pool has been disposed');
     }
 
-    return new Promise((resolve, reject) => {
-      this.taskQueue.push({task: task as any, resolve, reject});
+    return new Promise<WorkerResult<TData>>((resolve, reject) => {
+      this.taskQueue.push({
+        task,
+        resolve: resolve as (result: WorkerResult<unknown>) => void,
+        reject,
+      });
       this.processQueue();
     });
   }
@@ -162,33 +166,31 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         cleanup();
 
         // Log worker task errors if the result indicates failure
-        const resultWithDetails = result as any;
-        if (!result.success && resultWithDetails.errorDetails && this.logger) {
+        if (!result.success && result.errorDetails && this.logger) {
+          const errorDetails = result.errorDetails;
           this.logger.logError({
             component: 'WorkerPool',
             action: 'worker_task_error',
             tag: 'worker-task',
-            msg: `Worker task failed: ${result.error}`,
+            msg: `Worker task failed: ${result.error ?? 'Unknown error'}`,
             timestamp: new Date(),
-            error: new Error(result.error || 'Unknown worker error'),
-            clientId: resultWithDetails.errorDetails.context
-              ?.clientId as string,
-            projectId: resultWithDetails.errorDetails.context
-              ?.projectId as string,
+            error: new Error(result.error ?? 'Unknown worker error'),
+            clientId: errorDetails.context?.clientId as string | undefined,
+            projectId: errorDetails.context?.projectId as string | undefined,
           });
 
           // Log additional context if available
-          if (resultWithDetails.errorDetails.stack) {
+          if (errorDetails.stack) {
             this.logger.logError({
               component: 'WorkerPool',
               action: 'worker_task_stack_trace',
               tag: 'worker-task',
-              msg: `Stack trace for handler ${resultWithDetails.errorDetails.handlerKey} in ${resultWithDetails.errorDetails.workerId}`,
+              msg: `Stack trace for handler ${errorDetails.handlerKey ?? 'unknown'} in ${errorDetails.workerId ?? 'unknown'}`,
               timestamp: new Date(),
               error: {
-                name: resultWithDetails.errorDetails.type || 'Error',
-                message: result.error || 'Unknown error',
-                stack: resultWithDetails.errorDetails.stack,
+                name: errorDetails.type ?? 'Error',
+                message: result.error ?? 'Unknown error',
+                stack: errorDetails.stack,
               } as Error,
             });
           }

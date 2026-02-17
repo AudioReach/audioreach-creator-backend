@@ -7,13 +7,19 @@ import {Injectable, Inject} from '@nestjs/common';
 import type {NestMiddleware} from '@nestjs/common';
 import type {Request, Response, NextFunction} from 'express';
 import type {Logger} from '@arc/core';
+import {randomUUID} from 'node:crypto';
+
+interface JwtPayload {
+  sub?: string;
+  [key: string]: unknown;
+}
 
 @Injectable()
 export class RequestLoggerMiddleware implements NestMiddleware {
   constructor(@Inject('LOGGER') private readonly logger: Logger) {}
 
   use(req: Request, res: Response, next: NextFunction) {
-    const requestId = Math.random().toString(36).slice(2, 15);
+    const requestId = randomUUID();
     const startTime = Date.now();
 
     this.logger.logInfo({
@@ -46,7 +52,10 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         tag: `request-${requestId}`,
         clientId: this.extractClientId(req),
       });
-    } else if (req.body && Object.keys(req.body).length > 0) {
+    } else if (
+      req.body &&
+      Object.keys(req.body as Record<string, unknown>).length > 0
+    ) {
       this.logger.logDebug({
         component: 'RequestLogger',
         action: 'requestBody',
@@ -62,7 +71,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     const logger = this.logger;
     const extractClientId = this.extractClientId.bind(this);
 
-    res.send = function (body) {
+    res.send = function (body: unknown) {
       const responseBody = body instanceof Buffer ? '[Buffer]' : body;
       const responseTime = Date.now() - startTime;
 
@@ -99,8 +108,8 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         const token = authHeader.slice(7);
         const payload = JSON.parse(
           Buffer.from(token.split('.')[1], 'base64').toString(),
-        );
-        return payload.sub || 'unknown';
+        ) as JwtPayload;
+        return payload.sub ?? 'unknown';
       }
     } catch {
       // Ignore parsing errors

@@ -5,6 +5,7 @@
 
 import {ValidationPipe} from '@nestjs/common';
 import {NestFactory} from '@nestjs/core';
+import type {Logger} from '@arc/core';
 import {setupSwagger} from './presentation/rest/common/services/swagger-service.js';
 import {AppModule} from './app.module.js';
 import {Tokens} from './presentation/rest/common/utils/index.js';
@@ -27,7 +28,7 @@ async function bootstrap() {
   app.enableCors();
 
   // Register global exception filters
-  const logger = app.get('LOGGER');
+  const logger = app.get<Logger>('LOGGER');
   app.useGlobalFilters(
     new AllExceptionsFilter(logger),
     new ValidationExceptionFilter(logger),

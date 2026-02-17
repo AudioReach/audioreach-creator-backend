@@ -1,6 +1,5 @@
 // Export all entity schemas
 export * from './entity-schema/index.js';
-export * from './entity-schema/entity-base.js';
 
 // Export query services
 export * from './queries/usecase/index.js';
