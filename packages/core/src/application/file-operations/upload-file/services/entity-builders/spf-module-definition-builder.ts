@@ -243,34 +243,7 @@ export class SpfModuleDefinitionBuilder {
         validModuleDefinitions.push(domainModuleDef);
       } catch (error) {
         errorCount++;
-
-        // Create diagnostic information for better error analysis
-        const diagnosticInfo = {
-          moduleId: awspModuleDef.id,
-          moduleName: awspModuleDef.name,
-          supportedProcessorsCount:
-            awspModuleDef.supportedProcessorIds?.length || 0,
-          supportedContainersCount:
-            awspModuleDef.supportedContainerTypes?.length || 0,
-          hasInputPorts: !!awspModuleDef.inputPortsInfo,
-          hasOutputPorts: !!awspModuleDef.outputPortsInfo,
-          hasControlPorts: !!awspModuleDef.controlPortsInfo,
-          errorType:
-            error instanceof Error ? error.constructor.name : 'Unknown',
-        };
-
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        const detailedMessage = `${errorMessage} | Diagnostic: ${JSON.stringify(diagnosticInfo)}`;
-
-        this.logger?.logError({
-          msg: `Failed to build SPF module definition ${awspModuleDef.id} (${awspModuleDef.name}): ${detailedMessage}`,
-          action: 'spf_module_definition_transform_error',
-          component: 'SpfModuleDefinitionBuilder',
-          tag: 'spf-module-definitions',
-          error: error instanceof Error ? error : new Error(String(error)),
-          timestamp: new Date(),
-        });
+        this.logTransformError(awspModuleDef, error);
       }
     }
 
@@ -285,6 +258,42 @@ export class SpfModuleDefinitionBuilder {
     return validModuleDefinitions;
   }
 
+  private logTransformError(
+    awspModuleDef: AwspSpfModuleDefinition,
+    error: unknown,
+  ): void {
+    const diagnosticInfo = this.createDiagnosticInfo(awspModuleDef, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const detailedMessage = `${errorMessage} | Diagnostic: ${JSON.stringify(diagnosticInfo)}`;
+
+    this.logger?.logError({
+      msg: `Failed to build SPF module definition ${awspModuleDef.id} (${awspModuleDef.name}): ${detailedMessage}`,
+      action: 'spf_module_definition_transform_error',
+      component: 'SpfModuleDefinitionBuilder',
+      tag: 'spf-module-definitions',
+      error: error instanceof Error ? error : new Error(String(error)),
+      timestamp: new Date(),
+    });
+  }
+
+  private createDiagnosticInfo(
+    awspModuleDef: AwspSpfModuleDefinition,
+    error: unknown,
+  ): Record<string, unknown> {
+    return {
+      moduleId: awspModuleDef.id,
+      moduleName: awspModuleDef.name,
+      supportedProcessorsCount:
+        awspModuleDef.supportedProcessorIds?.length || 0,
+      supportedContainersCount:
+        awspModuleDef.supportedContainerTypes?.length || 0,
+      hasInputPorts: !!awspModuleDef.inputPortsInfo,
+      hasOutputPorts: !!awspModuleDef.outputPortsInfo,
+      hasControlPorts: !!awspModuleDef.controlPortsInfo,
+      errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+    };
+  }
+
   /**
    * Static method for transforming AWSP SpfModuleDefinition to Domain SpfModuleDefinition
    * This method is used both in sequential processing and worker threads
@@ -293,37 +302,9 @@ export class SpfModuleDefinitionBuilder {
     awsp: AwspSpfModuleDefinition,
     fileSystemId: number,
   ): DomainSpfModuleDefinition {
-    // Create input data port group
-    const inputDataPortsGroup = new DataPortGroupDefinition({
-      max: awsp.inputPortsInfo?.maxPortCount || 0,
-      portIoType: 'Input', // TODO: Map from AWSP when available
-      staticPortDefinitions: [], // TODO: Map ports when available
-    });
-
-    // Create output data port group
-    const outputDataPortsGroup = new DataPortGroupDefinition({
-      max: awsp.outputPortsInfo?.maxPortCount || 0,
-      portIoType: 'Output', // TODO: Map from AWSP when available
-      staticPortDefinitions: [], // TODO: Map ports when available
-    });
-
-    // Transform static control ports
-    const staticControlPorts: StaticControlPortDefinition[] = [];
-    if (awsp.controlPortsInfo?.staticPorts) {
-      for (const awspPort of awsp.controlPortsInfo.staticPorts) {
-        try {
-          const staticPort = new StaticControlPortDefinition({
-            portId: awspPort.id,
-            portName: awspPort.name || `Port_${awspPort.id}`,
-          });
-          staticControlPorts.push(staticPort);
-        } catch (error) {
-          throw new Error(
-            `Failed to transform static control port ${awspPort.id}: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      }
-    }
+    const inputDataPortsGroup = this.createInputPortGroup(awsp);
+    const outputDataPortsGroup = this.createOutputPortGroup(awsp);
+    const staticControlPorts = this.transformStaticControlPorts(awsp);
 
     // Create domain SPF module definition
     const domainModuleDef = new DomainSpfModuleDefinition({
@@ -340,25 +321,79 @@ export class SpfModuleDefinitionBuilder {
       containerTypesSystemIds: awsp.supportedContainerTypes || [],
     });
 
-    // Add dynamic intents if available
-    if (awsp.controlPortsInfo?.dynamicIntents) {
-      for (const awspIntent of awsp.controlPortsInfo.dynamicIntents) {
-        try {
-          const dynamicIntent = new DynamicIntentDefinition({
-            intentId: awspIntent.id,
-            name: awspIntent.name || `Intent_${awspIntent.id}`,
-            maxPort: awspIntent.maxports,
-          });
-          domainModuleDef.AddDynamicIntentDefinition(dynamicIntent);
-        } catch (error) {
-          throw new Error(
-            `Failed to transform dynamic intent ${awspIntent.id}: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
+    this.addDynamicIntents(awsp, domainModuleDef);
+
+    return domainModuleDef;
+  }
+
+  private static createInputPortGroup(
+    awsp: AwspSpfModuleDefinition,
+  ): DataPortGroupDefinition {
+    return new DataPortGroupDefinition({
+      max: awsp.inputPortsInfo?.maxPortCount || 0,
+      portIoType: 'Input', // TODO: Map from AWSP when available
+      staticPortDefinitions: [], // TODO: Map ports when available
+    });
+  }
+
+  private static createOutputPortGroup(
+    awsp: AwspSpfModuleDefinition,
+  ): DataPortGroupDefinition {
+    return new DataPortGroupDefinition({
+      max: awsp.outputPortsInfo?.maxPortCount || 0,
+      portIoType: 'Output', // TODO: Map from AWSP when available
+      staticPortDefinitions: [], // TODO: Map ports when available
+    });
+  }
+
+  private static transformStaticControlPorts(
+    awsp: AwspSpfModuleDefinition,
+  ): StaticControlPortDefinition[] {
+    const staticControlPorts: StaticControlPortDefinition[] = [];
+
+    if (!awsp.controlPortsInfo?.staticPorts) {
+      return staticControlPorts;
+    }
+
+    for (const awspPort of awsp.controlPortsInfo.staticPorts) {
+      try {
+        const staticPort = new StaticControlPortDefinition({
+          portId: awspPort.id,
+          portName: awspPort.name || `Port_${awspPort.id}`,
+        });
+        staticControlPorts.push(staticPort);
+      } catch (error) {
+        throw new Error(
+          `Failed to transform static control port ${awspPort.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
-    return domainModuleDef;
+    return staticControlPorts;
+  }
+
+  private static addDynamicIntents(
+    awsp: AwspSpfModuleDefinition,
+    domainModuleDef: DomainSpfModuleDefinition,
+  ): void {
+    if (!awsp.controlPortsInfo?.dynamicIntents) {
+      return;
+    }
+
+    for (const awspIntent of awsp.controlPortsInfo.dynamicIntents) {
+      try {
+        const dynamicIntent = new DynamicIntentDefinition({
+          intentId: awspIntent.id,
+          name: awspIntent.name || `Intent_${awspIntent.id}`,
+          maxPort: awspIntent.maxports,
+        });
+        domainModuleDef.AddDynamicIntentDefinition(dynamicIntent);
+      } catch (error) {
+        throw new Error(
+          `Failed to transform dynamic intent ${awspIntent.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   }
 
   /**

@@ -148,11 +148,6 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
       let pos = 0;
       const subgraphEntries: SubgraphDataEntry[] = [];
 
-      // Read the data length (first uint32 at the offset)
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read data length at relative offset ${pos}`);
-      }
-
       // Read the subgraph count (sgCount)
       if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
         throw new Error(`Cannot read sgCount at relative offset ${pos}`);
@@ -163,102 +158,146 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
 
       // Loop through each subgraph
       for (let j = 0; j < sgCount; j++) {
-        // Read curSGId
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read curSGId at position ${pos}`);
+        const result = this.processSubgraphEntry(payload, view, pos);
+        pos = result.newPos;
+
+        if (result.entry) {
+          subgraphEntries.push(result.entry);
         }
-        const curSGId = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Skip if this subgraph ID was already processed
-        if (this.processedSubgraphIds.has(curSGId)) {
-          // Skip the rest of this subgraph's data
-          // Read totalPropSize to know how much to skip
-          if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-            throw new Error(`Cannot read totalPropSize at position ${pos}`);
-          }
-          const totalPropSize = BinaryUtils.readUint32(view, pos);
-          pos += BinaryUtils.SIZEOF_UINT32;
-
-          // Skip the entire property data
-          pos += totalPropSize;
-          continue;
-        }
-
-        // Mark this subgraph ID as processed
-        this.processedSubgraphIds.add(curSGId);
-
-        // Read totalPropSize
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read totalPropSize at position ${pos}`);
-        }
-        const totalPropSize = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Validate that we have enough data for the total property size
-        const remainingDataStart = pos;
-
-        // Read driverPropSize
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read driverPropSize at position ${pos}`);
-        }
-        const driverPropSize = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read driverProperties data
-        if (pos + driverPropSize > payload.length) {
-          throw new Error(
-            `Cannot read driverProperties data at position ${pos}`,
-          );
-        }
-        const driverProperties = payload.slice(pos, pos + driverPropSize);
-        pos += driverPropSize;
-
-        // Read spfPropSize
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read spfPropSize at position ${pos}`);
-        }
-        const spfPropSize = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read spfProperties data
-        if (pos + spfPropSize > payload.length) {
-          throw new Error(`Cannot read spfProperties data at position ${pos}`);
-        }
-        const spfProperties = payload.slice(pos, pos + spfPropSize);
-        pos += spfPropSize;
-
-        // Validate that we consumed exactly the expected amount of data
-        const actualDataConsumed = pos - remainingDataStart;
-        const expectedDataSize =
-          BinaryUtils.SIZEOF_UINT32 +
-          driverPropSize +
-          BinaryUtils.SIZEOF_UINT32 +
-          spfPropSize;
-
-        if (actualDataConsumed !== expectedDataSize) {
-          throw new Error(
-            `Data size mismatch: expected ${expectedDataSize}, consumed ${actualDataConsumed}, totalPropSize was ${totalPropSize}`,
-          );
-        }
-
-        // Parse SPF properties from binary data
-        const parsedSpfProperties = SpfProperties.fromPayload(spfProperties);
-
-        // Create SubgraphDataEntry
-        const entry: SubgraphDataEntry = {
-          subgraphId: curSGId,
-          driverProperties,
-          spfProperties: parsedSpfProperties,
-        };
-
-        subgraphEntries.push(entry);
       }
 
       return subgraphEntries;
     } catch (error) {
       throw new Error(
         `Failed to extract subgraph entries from payload: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  private processSubgraphEntry(
+    payload: Uint8Array,
+    view: DataView,
+    pos: number,
+  ): {newPos: number; entry: SubgraphDataEntry | null} {
+    // Read curSGId
+    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+      throw new Error(`Cannot read curSGId at position ${pos}`);
+    }
+    const curSGId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Skip if this subgraph ID was already processed
+    if (this.processedSubgraphIds.has(curSGId)) {
+      const newPos = this.skipSubgraphData(payload, view, pos);
+      return {newPos, entry: null};
+    }
+
+    // Mark this subgraph ID as processed
+    this.processedSubgraphIds.add(curSGId);
+
+    // Read totalPropSize
+    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+      throw new Error(`Cannot read totalPropSize at position ${pos}`);
+    }
+    const totalPropSize = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    const remainingDataStart = pos;
+    const {driverProperties, spfProperties, newPos} =
+      this.readSubgraphProperties(payload, view, pos);
+    pos = newPos;
+
+    // Validate data consumption
+    this.validateDataConsumption(
+      pos,
+      remainingDataStart,
+      totalPropSize,
+      driverProperties.length,
+      spfProperties.length,
+    );
+
+    // Parse SPF properties from binary data
+    const parsedSpfProperties = SpfProperties.fromPayload(spfProperties);
+
+    // Create SubgraphDataEntry
+    const entry: SubgraphDataEntry = {
+      subgraphId: curSGId,
+      driverProperties,
+      spfProperties: parsedSpfProperties,
+    };
+
+    return {newPos: pos, entry};
+  }
+
+  private skipSubgraphData(
+    payload: Uint8Array,
+    view: DataView,
+    pos: number,
+  ): number {
+    // Read totalPropSize to know how much to skip
+    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+      throw new Error(`Cannot read totalPropSize at position ${pos}`);
+    }
+    const totalPropSize = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Skip the entire property data
+    return pos + totalPropSize;
+  }
+
+  private readSubgraphProperties(
+    payload: Uint8Array,
+    view: DataView,
+    pos: number,
+  ): {driverProperties: Uint8Array; spfProperties: Uint8Array; newPos: number} {
+    // Read driverPropSize
+    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+      throw new Error(`Cannot read driverPropSize at position ${pos}`);
+    }
+    const driverPropSize = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read driverProperties data
+    if (pos + driverPropSize > payload.length) {
+      throw new Error(`Cannot read driverProperties data at position ${pos}`);
+    }
+    const driverProperties = payload.slice(pos, pos + driverPropSize);
+    pos += driverPropSize;
+
+    // Read spfPropSize
+    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+      throw new Error(`Cannot read spfPropSize at position ${pos}`);
+    }
+    const spfPropSize = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read spfProperties data
+    if (pos + spfPropSize > payload.length) {
+      throw new Error(`Cannot read spfProperties data at position ${pos}`);
+    }
+    const spfProperties = payload.slice(pos, pos + spfPropSize);
+    pos += spfPropSize;
+
+    return {driverProperties, spfProperties, newPos: pos};
+  }
+
+  private validateDataConsumption(
+    currentPos: number,
+    startPos: number,
+    totalPropSize: number,
+    driverPropSize: number,
+    spfPropSize: number,
+  ): void {
+    const actualDataConsumed = currentPos - startPos;
+    const expectedDataSize =
+      BinaryUtils.SIZEOF_UINT32 +
+      driverPropSize +
+      BinaryUtils.SIZEOF_UINT32 +
+      spfPropSize;
+
+    if (actualDataConsumed !== expectedDataSize) {
+      throw new Error(
+        `Data size mismatch: expected ${expectedDataSize}, consumed ${actualDataConsumed}, totalPropSize was ${totalPropSize}`,
       );
     }
   }

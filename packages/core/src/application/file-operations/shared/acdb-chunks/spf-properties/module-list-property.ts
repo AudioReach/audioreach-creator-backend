@@ -36,77 +36,149 @@ export class ModuleListProperty {
     let pos = 0;
 
     // Read count of module instance info entries
-    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-      throw new Error('Cannot read module instance info count from payload');
-    }
-
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'module instance info count',
+    );
     const count = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Parse each module instance info entry
     for (let i = 0; i < count; i++) {
-      // Read subgraph ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read subgraph ID at position ${pos}`);
-      }
-
-      const subgraphId = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Read container ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read container ID at position ${pos}`);
-      }
-
-      const containerId = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Read module instance count
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read module instance count at position ${pos}`);
-      }
-
-      const moduleInstCount = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Parse module instances
-      const moduleInstances: ModuleInstance[] = [];
-
-      for (let j = 0; j < moduleInstCount; j++) {
-        // Read module ID
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read module ID at position ${pos}`);
-        }
-
-        const moduleId = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read instance ID
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read instance ID at position ${pos}`);
-        }
-
-        const instanceId = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Create module instance
-        const moduleInstance: ModuleInstance = {
-          moduleId,
-          instanceId,
-        };
-
-        moduleInstances.push(moduleInstance);
-      }
-
-      // Create module instance info
-      const moduleInstanceInfo: ModuleInstanceInfo = {
-        subgraphId,
-        containerId,
-        moduleInstances,
-      };
-
-      this.moduleInstanceInfos.push(moduleInstanceInfo);
+      const result = this.parseModuleInstanceInfo(view, payload, pos);
+      this.moduleInstanceInfos.push(result.info);
+      pos = result.newPos;
     }
+  }
+
+  /**
+   * Validate that there are enough bytes remaining in the payload
+   */
+  private validateLength(
+    pos: number,
+    requiredBytes: number,
+    totalLength: number,
+    fieldName: string,
+  ): void {
+    if (pos + requiredBytes > totalLength) {
+      throw new Error(`Cannot read ${fieldName} at position ${pos}`);
+    }
+  }
+
+  /**
+   * Parse a single module instance info entry
+   */
+  private parseModuleInstanceInfo(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {info: ModuleInstanceInfo; newPos: number} {
+    let pos = startPos;
+
+    // Read subgraph ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'subgraph ID',
+    );
+    const subgraphId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read container ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'container ID',
+    );
+    const containerId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Parse module instances
+    const result = this.parseModuleInstances(view, payload, pos);
+    const moduleInstances = result.instances;
+    pos = result.newPos;
+
+    // Create module instance info
+    const info: ModuleInstanceInfo = {
+      subgraphId,
+      containerId,
+      moduleInstances,
+    };
+
+    return {info, newPos: pos};
+  }
+
+  /**
+   * Parse module instances for a module instance info entry
+   */
+  private parseModuleInstances(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {instances: ModuleInstance[]; newPos: number} {
+    let pos = startPos;
+
+    // Read module instance count
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'module instance count',
+    );
+    const moduleInstCount = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    const moduleInstances: ModuleInstance[] = [];
+
+    for (let j = 0; j < moduleInstCount; j++) {
+      const result = this.parseModuleInstance(view, payload, pos);
+      moduleInstances.push(result.instance);
+      pos = result.newPos;
+    }
+
+    return {instances: moduleInstances, newPos: pos};
+  }
+
+  /**
+   * Parse a single module instance
+   */
+  private parseModuleInstance(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {instance: ModuleInstance; newPos: number} {
+    let pos = startPos;
+
+    // Read module ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'module ID',
+    );
+    const moduleId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read instance ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'instance ID',
+    );
+    const instanceId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    const instance: ModuleInstance = {
+      moduleId,
+      instanceId,
+    };
+
+    return {instance, newPos: pos};
   }
 
   /**

@@ -46,78 +46,140 @@ export class ModulePortProperty {
     let pos = 0;
 
     // Read count of module property configurations
-    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-      throw new Error('Cannot read module property config count from payload');
-    }
-
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'module property config count',
+    );
     const count = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Parse each module property configuration
     for (let i = 0; i < count; i++) {
-      // Read module instance ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read module instance ID at position ${pos}`);
-      }
-
-      const moduleInstanceId = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Read property count
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read property count at position ${pos}`);
-      }
-
-      const propCount = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Parse properties for this module
-      const properties: ModuleProperty[] = [];
-
-      for (let j = 0; j < propCount; j++) {
-        // Read property ID
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read property ID at position ${pos}`);
-        }
-
-        const propId = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read property size
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read property size at position ${pos}`);
-        }
-
-        const propSize = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read property data
-        if (pos + propSize > payload.length) {
-          throw new Error(
-            `Cannot read property data at position ${pos}, size ${propSize}`,
-          );
-        }
-
-        const propData = payload.slice(pos, pos + propSize);
-        pos += propSize;
-
-        // Create module property
-        const moduleProperty: ModuleProperty = {
-          propertyId: propId,
-          data: propData,
-        };
-
-        properties.push(moduleProperty);
-      }
-
-      // Create module property configuration with implementation
-      const modulePropertyConfig = new ModulePropertyConfigImpl(
-        moduleInstanceId,
-        properties,
-      );
-
-      this.modulePropertyConfigs.push(modulePropertyConfig);
+      const result = this.parseModulePropertyConfig(view, payload, pos);
+      this.modulePropertyConfigs.push(result.config);
+      pos = result.newPos;
     }
+  }
+
+  /**
+   * Validate that there are enough bytes remaining in the payload
+   */
+  private validateLength(
+    pos: number,
+    requiredBytes: number,
+    totalLength: number,
+    fieldName: string,
+  ): void {
+    if (pos + requiredBytes > totalLength) {
+      throw new Error(`Cannot read ${fieldName} at position ${pos}`);
+    }
+  }
+
+  /**
+   * Parse a single module property configuration
+   */
+  private parseModulePropertyConfig(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {config: ModulePropertyConfig; newPos: number} {
+    let pos = startPos;
+
+    // Read module instance ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'module instance ID',
+    );
+    const moduleInstanceId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Parse properties for this module
+    const result = this.parseModuleProperties(view, payload, pos);
+    const properties = result.properties;
+    pos = result.newPos;
+
+    // Create module property configuration with implementation
+    const config = new ModulePropertyConfigImpl(moduleInstanceId, properties);
+
+    return {config, newPos: pos};
+  }
+
+  /**
+   * Parse module properties for a module property configuration
+   */
+  private parseModuleProperties(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {properties: ModuleProperty[]; newPos: number} {
+    let pos = startPos;
+
+    // Read property count
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'property count',
+    );
+    const propCount = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    const properties: ModuleProperty[] = [];
+
+    for (let j = 0; j < propCount; j++) {
+      const result = this.parseModuleProperty(view, payload, pos);
+      properties.push(result.property);
+      pos = result.newPos;
+    }
+
+    return {properties, newPos: pos};
+  }
+
+  /**
+   * Parse a single module property
+   */
+  private parseModuleProperty(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {property: ModuleProperty; newPos: number} {
+    let pos = startPos;
+
+    // Read property ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'property ID',
+    );
+    const propId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read property size
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'property size',
+    );
+    const propSize = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read property data
+    this.validateLength(pos, propSize, payload.length, 'property data');
+    const propData = payload.slice(pos, pos + propSize);
+    pos += propSize;
+
+    const property: ModuleProperty = {
+      propertyId: propId,
+      data: propData,
+    };
+
+    return {property, newPos: pos};
   }
 
   /**
