@@ -45,63 +45,95 @@ export class ContainerConfigProperty {
 
     // Parse each container configuration
     for (let i = 0; i < configCount; i++) {
-      // Read container instance ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read container instance ID at position ${pos}`);
-      }
-
-      const containerId = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Read property count
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read property count at position ${pos}`);
-      }
-
-      const propCount = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Parse properties for this container
-      const properties = new Map<number, Uint8Array>();
-
-      for (let j = 0; j < propCount; j++) {
-        // Read property ID
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read property ID at position ${pos}`);
-        }
-
-        const propId = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read property data length
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read property length at position ${pos}`);
-        }
-
-        const length = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read property data
-        if (pos + length > payload.length) {
-          throw new Error(
-            `Cannot read property data at position ${pos}, length ${length}`,
-          );
-        }
-
-        const propData = payload.slice(pos, pos + length);
-        pos += length;
-
-        properties.set(propId, propData);
-      }
-
-      // Create container property
-      const containerProperty: ContainerProperty = {
-        containerId,
-        properties,
-      };
-
-      this.containerProperties.push(containerProperty);
+      pos = this.parseContainer(view, payload, pos);
     }
+  }
+
+  /**
+   * Parse a single container configuration
+   */
+  private parseContainer(
+    view: DataView,
+    payload: Uint8Array,
+    pos: number,
+  ): number {
+    // Read container instance ID
+    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+      throw new Error(`Cannot read container instance ID at position ${pos}`);
+    }
+
+    const containerId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read property count
+    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+      throw new Error(`Cannot read property count at position ${pos}`);
+    }
+
+    const propCount = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Parse properties for this container
+    const {properties, newPos} = this.parseContainerProperties(
+      view,
+      payload,
+      pos,
+      propCount,
+    );
+
+    // Create container property
+    const containerProperty: ContainerProperty = {
+      containerId,
+      properties,
+    };
+
+    this.containerProperties.push(containerProperty);
+
+    return newPos;
+  }
+
+  /**
+   * Parse properties for a container
+   */
+  private parseContainerProperties(
+    view: DataView,
+    payload: Uint8Array,
+    pos: number,
+    propCount: number,
+  ): {properties: Map<number, Uint8Array>; newPos: number} {
+    const properties = new Map<number, Uint8Array>();
+
+    for (let j = 0; j < propCount; j++) {
+      // Read property ID
+      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+        throw new Error(`Cannot read property ID at position ${pos}`);
+      }
+
+      const propId = BinaryUtils.readUint32(view, pos);
+      pos += BinaryUtils.SIZEOF_UINT32;
+
+      // Read property data length
+      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
+        throw new Error(`Cannot read property length at position ${pos}`);
+      }
+
+      const length = BinaryUtils.readUint32(view, pos);
+      pos += BinaryUtils.SIZEOF_UINT32;
+
+      // Read property data
+      if (pos + length > payload.length) {
+        throw new Error(
+          `Cannot read property data at position ${pos}, length ${length}`,
+        );
+      }
+
+      const propData = payload.slice(pos, pos + length);
+      pos += length;
+
+      properties.set(propId, propData);
+    }
+
+    return {properties, newPos: pos};
   }
 
   /**

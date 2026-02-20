@@ -234,6 +234,71 @@ function shouldTreatAsArray(
 }
 
 /**
+ * Generates ApiResult wrapper schema for response
+ */
+function generateWrappedResponseSchema(
+  baseType: Type<unknown>,
+  isArray: boolean,
+): Record<string, unknown> {
+  const dataProperty = isArray
+    ? {
+        type: 'array',
+        items: {$ref: getSchemaPath(baseType)},
+      }
+    : {$ref: getSchemaPath(baseType)};
+
+  return {
+    allOf: [
+      {$ref: getSchemaPath(ApiResult)},
+      {
+        properties: {
+          data: dataProperty,
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Generates direct DTO schema without ApiResult wrapper
+ */
+function generateDirectResponseSchema(
+  baseType: Type<unknown>,
+  isArray: boolean,
+): Record<string, unknown> | Type<unknown> {
+  if (isArray) {
+    return {
+      type: 'array',
+      items: {$ref: getSchemaPath(baseType)},
+    };
+  }
+  return baseType;
+}
+
+/**
+ * Adds example to response configuration
+ */
+function addMultipleResponseExample(
+  config: Record<string, unknown>,
+  exampleConfig: ExampleConfig,
+  isArray: boolean,
+): void {
+  try {
+    const example = loadExampleDynamicallySync(exampleConfig);
+    const exampleValue = isArray ? [example] : example;
+
+    config.examples = {
+      default: {
+        value: exampleValue,
+      },
+    };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`Failed to load response example: ${errorMessage}`);
+  }
+}
+
+/**
  * Creates response configuration for multiple responses
  */
 function createMultipleResponseConfig(
@@ -250,62 +315,28 @@ function createMultipleResponseConfig(
     return config;
   }
 
-  // Handle response type configuration with ApiResult wrapper
   const isArray = shouldTreatAsArray(
     responseConfig.dto,
     responseConfig.isArray,
   );
   const baseType = getBaseType(responseConfig.dto);
-
-  // Check if we should wrap in ApiResult (default: true for backward compatibility)
   const shouldWrap = options.wrapInApiResult !== false;
 
+  // Generate schema based on wrapping preference
   if (shouldWrap) {
-    // Generate ApiResult wrapper schema (same pattern as module definition APIs)
-    config.schema = {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data:
-              isArray && baseType
-                ? {
-                    type: 'array',
-                    items: {$ref: getSchemaPath(baseType)},
-                  }
-                : {$ref: getSchemaPath(baseType)},
-          },
-        },
-      ],
-    };
+    config.schema = generateWrappedResponseSchema(baseType, isArray);
   } else {
-    // Direct DTO schema without ApiResult wrapper
-    if (isArray && baseType) {
-      config.schema = {
-        type: 'array',
-        items: {$ref: getSchemaPath(baseType)},
-      };
+    const schema = generateDirectResponseSchema(baseType, isArray);
+    if (typeof schema === 'object') {
+      config.schema = schema;
     } else {
-      config.type = baseType;
+      config.type = schema;
     }
   }
 
-  // Handle response example configuration
+  // Add example if provided
   if (responseConfig.example) {
-    try {
-      const example = loadExampleDynamicallySync(responseConfig.example);
-      const exampleValue = isArray ? [example] : example;
-
-      config.examples = {
-        default: {
-          value: exampleValue,
-        },
-      };
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.warn(`Failed to load response example: ${errorMessage}`);
-    }
+    addMultipleResponseExample(config, responseConfig.example, isArray);
   }
 
   return config;

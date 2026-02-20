@@ -228,28 +228,12 @@ export class ForeignKeyMapper {
         mappingsCount++;
 
         // Process data port mappings by type
-        if (entityResult.portMappings?.dataPorts) {
-          const inputPortMap = new Map<number, number>();
-          const outputPortMap = new Map<number, number>();
-
-          for (const portMapping of entityResult.portMappings.dataPorts) {
-            if (portMapping.portIoType === PORT_IO_TYPE.Input) {
-              inputPortMap.set(portMapping.naturalId, portMapping.systemId);
-              inputPortMappingsCount++;
-            } else if (portMapping.portIoType === PORT_IO_TYPE.Output) {
-              outputPortMap.set(portMapping.naturalId, portMapping.systemId);
-              outputPortMappingsCount++;
-            }
-          }
-
-          // Store port mappings under the module's systemId
-          if (inputPortMap.size > 0) {
-            this.moduleInputPortMappings.set(moduleSystemId, inputPortMap);
-          }
-          if (outputPortMap.size > 0) {
-            this.moduleOutputPortMappings.set(moduleSystemId, outputPortMap);
-          }
-        }
+        const portCounts = this.processDataPortMappings(
+          entityResult,
+          moduleSystemId,
+        );
+        inputPortMappingsCount += portCounts.inputCount;
+        outputPortMappingsCount += portCounts.outputCount;
       }
     }
 
@@ -260,6 +244,41 @@ export class ForeignKeyMapper {
       tag: 'foreign-key-mapping',
       timestamp: new Date(),
     });
+  }
+
+  private processDataPortMappings(
+    entityResult: BulkModuleInsertResult['results'][0],
+    moduleSystemId: number,
+  ): {inputCount: number; outputCount: number} {
+    let inputCount = 0;
+    let outputCount = 0;
+
+    if (!entityResult.portMappings?.dataPorts) {
+      return {inputCount, outputCount};
+    }
+
+    const inputPortMap = new Map<number, number>();
+    const outputPortMap = new Map<number, number>();
+
+    for (const portMapping of entityResult.portMappings.dataPorts) {
+      if (portMapping.portIoType === PORT_IO_TYPE.Input) {
+        inputPortMap.set(portMapping.naturalId, portMapping.systemId);
+        inputCount++;
+      } else if (portMapping.portIoType === PORT_IO_TYPE.Output) {
+        outputPortMap.set(portMapping.naturalId, portMapping.systemId);
+        outputCount++;
+      }
+    }
+
+    // Store port mappings under the module's systemId
+    if (inputPortMap.size > 0) {
+      this.moduleInputPortMappings.set(moduleSystemId, inputPortMap);
+    }
+    if (outputPortMap.size > 0) {
+      this.moduleOutputPortMappings.set(moduleSystemId, outputPortMap);
+    }
+
+    return {inputCount, outputCount};
   }
 
   /**

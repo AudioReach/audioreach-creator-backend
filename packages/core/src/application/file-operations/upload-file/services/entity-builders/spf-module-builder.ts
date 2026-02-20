@@ -37,37 +37,47 @@ export class SpfModuleBuilder {
   ): SpfModule[] {
     // Input validation
     if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
-      this.logger?.logDebug({
-        msg: 'No module instance infos provided for building',
-        action: 'no_module_instance_infos',
-        component: 'SpfModuleBuilder',
-        tag: 'spf-module-building',
-        timestamp: new Date(),
-      });
       return [];
     }
 
-    // Build display name lookup map from SPF module definitions
-    const moduleDisplayNames = new Map<number, string>();
-    if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
-      for (const moduleDef of spfModuleDefinitions) {
-        // Use displayName if available, fallback to name
-        const displayName = moduleDef.displayName || moduleDef.name;
-        if (displayName) {
-          moduleDisplayNames.set(moduleDef.id, displayName);
-        }
-      }
+    const moduleDisplayNames =
+      this.buildDisplayNameLookup(spfModuleDefinitions);
+    const {spfModules, successCount, errorCount} = this.convertModuleInstances(
+      moduleInstanceInfos,
+      fileSystemId,
+      modulePropertyConfigs,
+      moduleDisplayNames,
+    );
 
-      this.logger?.logDebug({
-        msg: `Built display name lookup for ${moduleDisplayNames.size} module definitions`,
-        action: 'module_display_name_lookup_built',
-        component: 'SpfModuleBuilder',
-        tag: 'spf-module-building',
-        timestamp: new Date(),
-      });
+    this.logConversionComplete(successCount, errorCount);
+    return spfModules;
+  }
+
+  private buildDisplayNameLookup(
+    spfModuleDefinitions: SpfModuleDefinition[],
+  ): Map<number, string> {
+    const moduleDisplayNames = new Map<number, string>();
+
+    if (!spfModuleDefinitions || spfModuleDefinitions.length === 0) {
+      return moduleDisplayNames;
     }
 
-    // Direct conversion logic
+    for (const moduleDef of spfModuleDefinitions) {
+      const displayName = moduleDef.displayName || moduleDef.name;
+      if (displayName) {
+        moduleDisplayNames.set(moduleDef.id, displayName);
+      }
+    }
+
+    return moduleDisplayNames;
+  }
+
+  private convertModuleInstances(
+    moduleInstanceInfos: ModuleInstanceInfo[],
+    fileSystemId: number,
+    modulePropertyConfigs: ModulePropertyConfig[],
+    moduleDisplayNames: Map<number, string>,
+  ): {spfModules: SpfModule[]; successCount: number; errorCount: number} {
     const spfModules: SpfModule[] = [];
     let successCount = 0;
     let errorCount = 0;
@@ -75,7 +85,6 @@ export class SpfModuleBuilder {
     for (const moduleInfo of moduleInstanceInfos) {
       for (const moduleInstance of moduleInfo.moduleInstances) {
         try {
-          // Find the specific property config for this module instance
           const modulePropertyConfig = modulePropertyConfigs.find(
             config => config.moduleInstanceId === moduleInstance.instanceId,
           );
@@ -91,17 +100,28 @@ export class SpfModuleBuilder {
           successCount++;
         } catch (error) {
           errorCount++;
-          this.logger?.logWarn({
-            msg: `Failed to convert module instance ${moduleInstance.instanceId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            action: 'spf_module_conversion_failed',
-            component: 'SpfModuleBuilder',
-            tag: 'spf-module-building',
-            timestamp: new Date(),
-          });
+          this.logConversionError(moduleInstance.instanceId, error);
         }
       }
     }
 
+    return {spfModules, successCount, errorCount};
+  }
+
+  private logConversionError(instanceId: number, error: unknown): void {
+    this.logger?.logWarn({
+      msg: `Failed to convert module instance ${instanceId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      action: 'spf_module_conversion_failed',
+      component: 'SpfModuleBuilder',
+      tag: 'spf-module-building',
+      timestamp: new Date(),
+    });
+  }
+
+  private logConversionComplete(
+    successCount: number,
+    errorCount: number,
+  ): void {
     this.logger?.logInfo({
       msg: `Converted ${successCount} SPF modules successfully, ${errorCount} failed`,
       action: 'spf_module_conversion_complete',
@@ -109,8 +129,6 @@ export class SpfModuleBuilder {
       tag: 'spf-module-building',
       timestamp: new Date(),
     });
-
-    return spfModules;
   }
 
   /**

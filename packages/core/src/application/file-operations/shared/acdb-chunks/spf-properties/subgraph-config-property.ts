@@ -36,72 +36,137 @@ export class SubgraphConfigProperty {
     let pos = 0;
 
     // Read count of subgraph configurations
-    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-      throw new Error('Cannot read subgraph count from payload');
-    }
-
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'subgraph count',
+    );
     const count = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Parse each subgraph configuration
     for (let i = 0; i < count; i++) {
-      // Read subgraph ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read subgraph ID at position ${pos}`);
-      }
-
-      const subgraphId = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Read property count
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read property count at position ${pos}`);
-      }
-
-      const propCount = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Parse properties for this subgraph
-      const properties = new Map<number, Uint8Array>();
-
-      for (let j = 0; j < propCount; j++) {
-        // Read property ID
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read property ID at position ${pos}`);
-        }
-
-        const propId = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read property data length
-        if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-          throw new Error(`Cannot read property length at position ${pos}`);
-        }
-
-        const length = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-
-        // Read property data
-        if (pos + length > payload.length) {
-          throw new Error(
-            `Cannot read property data at position ${pos}, length ${length}`,
-          );
-        }
-
-        const propData = payload.slice(pos, pos + length);
-        pos += length;
-
-        properties.set(propId, propData);
-      }
-
-      // Create subgraph property
-      const subgraphProperty: SubgraphProperty = {
-        subgraphId,
-        properties,
-      };
-
-      this.subgraphProperties.push(subgraphProperty);
+      const result = this.parseSubgraphProperty(view, payload, pos);
+      this.subgraphProperties.push(result.property);
+      pos = result.newPos;
     }
+  }
+
+  /**
+   * Validate that there are enough bytes remaining in the payload
+   */
+  private validateLength(
+    pos: number,
+    requiredBytes: number,
+    totalLength: number,
+    fieldName: string,
+  ): void {
+    if (pos + requiredBytes > totalLength) {
+      throw new Error(`Cannot read ${fieldName} at position ${pos}`);
+    }
+  }
+
+  /**
+   * Parse a single subgraph property
+   */
+  private parseSubgraphProperty(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {property: SubgraphProperty; newPos: number} {
+    let pos = startPos;
+
+    // Read subgraph ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'subgraph ID',
+    );
+    const subgraphId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Parse properties for this subgraph
+    const result = this.parseProperties(view, payload, pos);
+    const properties = result.properties;
+    pos = result.newPos;
+
+    const property: SubgraphProperty = {
+      subgraphId,
+      properties,
+    };
+
+    return {property, newPos: pos};
+  }
+
+  /**
+   * Parse properties for a subgraph
+   */
+  private parseProperties(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {properties: Map<number, Uint8Array>; newPos: number} {
+    let pos = startPos;
+
+    // Read property count
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'property count',
+    );
+    const propCount = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    const properties = new Map<number, Uint8Array>();
+
+    for (let j = 0; j < propCount; j++) {
+      const result = this.parseProperty(view, payload, pos);
+      properties.set(result.propId, result.propData);
+      pos = result.newPos;
+    }
+
+    return {properties, newPos: pos};
+  }
+
+  /**
+   * Parse a single property
+   */
+  private parseProperty(
+    view: DataView,
+    payload: Uint8Array,
+    startPos: number,
+  ): {propId: number; propData: Uint8Array; newPos: number} {
+    let pos = startPos;
+
+    // Read property ID
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'property ID',
+    );
+    const propId = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read property data length
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'property length',
+    );
+    const length = BinaryUtils.readUint32(view, pos);
+    pos += BinaryUtils.SIZEOF_UINT32;
+
+    // Read property data
+    this.validateLength(pos, length, payload.length, 'property data');
+    const propData = payload.slice(pos, pos + length);
+    pos += length;
+
+    return {propId, propData, newPos: pos};
   }
 
   /**

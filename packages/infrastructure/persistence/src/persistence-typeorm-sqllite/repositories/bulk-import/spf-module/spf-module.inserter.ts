@@ -63,9 +63,52 @@ export class SpfModuleInserter extends BaseInserter<
       return {results: []};
     }
 
-    // ============================================
-    // Step 1: Bulk Insert Nodes FIRST (SpfModule depends on Node)
-    // ============================================
+    // Step 1: Insert Nodes and map systemIds
+    const {nodeInsertResult, instanceIdToSystemId} =
+      await this.insertNodesAndMapSystemIds(spfModules);
+
+    // Step 2: Insert SpfModules using Node systemIds
+    const spfModuleInsertResult = await this.insertSpfModules(
+      spfModules,
+      instanceIdToSystemId,
+    );
+
+    // Step 3: Insert DataPorts and ControlPorts
+    const {allDataPortRows, dataPortInsertResult} = await this.insertDataPorts(
+      spfModules,
+      instanceIdToSystemId,
+    );
+
+    const {allControlPortRows, controlPortInsertResult} =
+      await this.insertControlPorts(spfModules, instanceIdToSystemId);
+
+    // Step 4: Query back port systemIds and build results
+    const dataPortMappings = await this.queryBackDataPorts(
+      allDataPortRows,
+      dataPortInsertResult.succeeded,
+    );
+
+    const controlPortMappings = await this.queryBackControlPorts(
+      allControlPortRows,
+      controlPortInsertResult.succeeded,
+    );
+
+    return this.buildResults(
+      spfModules,
+      instanceIdToSystemId,
+      dataPortMappings,
+      controlPortMappings,
+      spfModuleInsertResult,
+      nodeInsertResult,
+    );
+  }
+
+  private async insertNodesAndMapSystemIds(
+    spfModules: readonly SpfModule[],
+  ): Promise<{
+    nodeInsertResult: BatchInsertResult<QueryDeepPartialEntity<NodeRow>>;
+    instanceIdToSystemId: Map<number, number>;
+  }> {
     const nodeRows = spfModules.map(sm => mapNodeToRow(sm));
     const nodeInsertResult = await BatchInserter.insert(
       this.manager,
@@ -73,12 +116,7 @@ export class SpfModuleInserter extends BaseInserter<
       nodeRows,
     );
 
-    // ============================================
-    // Step 2: Map Node SystemIds to SpfModules (using insertion order)
-    // ============================================
-    // Assumption: successful inserts are in the same order as input
     const instanceIdToSystemId = new Map<number, number>();
-
     for (let i = 0; i < nodeInsertResult.succeeded.length; i++) {
       const nodeRow = nodeInsertResult.succeeded[i];
       const nodeSystemId = (nodeRow as {systemId?: number}).systemId;
@@ -88,18 +126,21 @@ export class SpfModuleInserter extends BaseInserter<
       }
     }
 
-    // ============================================
-    // Step 3: Bulk Insert SpfModules using Node SystemIds (Shared Primary Key)
-    // ============================================
+    return {nodeInsertResult, instanceIdToSystemId};
+  }
+
+  private async insertSpfModules(
+    spfModules: readonly SpfModule[],
+    instanceIdToSystemId: Map<number, number>,
+  ): Promise<BatchInsertResult<QueryDeepPartialEntity<SpfModuleRow>>> {
     const spfModuleRowsWithSystemId: QueryDeepPartialEntity<SpfModuleRow>[] =
       [];
 
     for (const spfModule of spfModules) {
       const nodeSystemId = instanceIdToSystemId.get(spfModule.instanceId);
-      if (!nodeSystemId) continue; // Skip if Node insertion failed
+      if (!nodeSystemId) continue;
 
       const spfModuleRow = mapSpfModuleToRow(spfModule);
-      // Use Node's systemId as SpfModule's systemId (shared primary key)
       const rowWithSystemId = {
         ...spfModuleRow,
         systemId: nodeSystemId,
@@ -108,18 +149,28 @@ export class SpfModuleInserter extends BaseInserter<
       spfModuleRowsWithSystemId.push(rowWithSystemId);
     }
 
-    const spfModuleInsertResult =
-      spfModuleRowsWithSystemId.length > 0
-        ? await BatchInserter.insert(
-            this.manager,
-            'SpfModule',
-            spfModuleRowsWithSystemId,
-          )
-        : {succeeded: [], failed: []};
+    return spfModuleRowsWithSystemId.length > 0
+      ? await BatchInserter.insert(
+          this.manager,
+          'SpfModule',
+          spfModuleRowsWithSystemId,
+        )
+      : {succeeded: [], failed: []};
+  }
 
-    // ============================================
-    // Step 4: Bulk Insert All DataPorts
-    // ============================================
+  private async insertDataPorts(
+    spfModules: readonly SpfModule[],
+    instanceIdToSystemId: Map<number, number>,
+  ): Promise<{
+    allDataPortRows: Array<{
+      row: QueryDeepPartialEntity<DataPortRow>;
+      instanceId: number;
+      dataPortId: number;
+    }>;
+    dataPortInsertResult: BatchInsertResult<
+      QueryDeepPartialEntity<DataPortRow>
+    >;
+  }> {
     const allDataPortRows: Array<{
       row: QueryDeepPartialEntity<DataPortRow>;
       instanceId: number;
@@ -152,9 +203,22 @@ export class SpfModuleInserter extends BaseInserter<
           )
         : {succeeded: [], failed: []};
 
-    // ============================================
-    // Step 5: Bulk Insert All ControlPorts (without intents)
-    // ============================================
+    return {allDataPortRows, dataPortInsertResult};
+  }
+
+  private async insertControlPorts(
+    spfModules: readonly SpfModule[],
+    instanceIdToSystemId: Map<number, number>,
+  ): Promise<{
+    allControlPortRows: Array<{
+      row: QueryDeepPartialEntity<ControlPortRow>;
+      instanceId: number;
+      portId: number;
+    }>;
+    controlPortInsertResult: BatchInsertResult<
+      QueryDeepPartialEntity<ControlPortRow>
+    >;
+  }> {
     const allControlPortRows: Array<{
       row: QueryDeepPartialEntity<ControlPortRow>;
       instanceId: number;
@@ -187,27 +251,7 @@ export class SpfModuleInserter extends BaseInserter<
           )
         : {succeeded: [], failed: []};
 
-    // ============================================
-    // Step 6: Query Back Port SystemIds and Build Results
-    // ============================================
-    const dataPortMappings = await this.queryBackDataPorts(
-      allDataPortRows,
-      dataPortInsertResult.succeeded,
-    );
-
-    const controlPortMappings = await this.queryBackControlPorts(
-      allControlPortRows,
-      controlPortInsertResult.succeeded,
-    );
-
-    return this.buildResults(
-      spfModules,
-      instanceIdToSystemId,
-      dataPortMappings,
-      controlPortMappings,
-      spfModuleInsertResult,
-      nodeInsertResult,
-    );
+    return {allControlPortRows, controlPortInsertResult};
   }
 
   /**
@@ -353,18 +397,50 @@ export class SpfModuleInserter extends BaseInserter<
     >,
     nodeInsertResult: BatchInsertResult<QueryDeepPartialEntity<NodeRow>>,
   ): BulkModuleInsertResult {
-    const results: ModuleInsertResult[] = [];
+    const failedSpfModuleMap = this.buildFailedSpfModuleMap(
+      spfModuleInsertResult,
+    );
+    const failedNodeMap = this.buildFailedNodeMap(
+      nodeInsertResult,
+      spfModules,
+      instanceIdToSystemId,
+    );
+    const dataPortMappingsByInstance =
+      this.groupDataPortMappings(dataPortMappings);
+    const controlPortMappingsByInstance =
+      this.groupControlPortMappings(controlPortMappings);
 
-    // Build failure lookup maps
-    const failedSpfModuleMap = new Map<number, Error>(
+    const results = this.buildModuleResults(
+      spfModules,
+      instanceIdToSystemId,
+      failedSpfModuleMap,
+      failedNodeMap,
+      dataPortMappingsByInstance,
+      controlPortMappingsByInstance,
+    );
+
+    return {results};
+  }
+
+  private buildFailedSpfModuleMap(
+    spfModuleInsertResult: BatchInsertResult<
+      QueryDeepPartialEntity<SpfModuleRow>
+    >,
+  ): Map<number, Error> {
+    return new Map<number, Error>(
       spfModuleInsertResult.failed.map(f => [
         f.row.instanceId as number,
         f.error,
       ]),
     );
+  }
 
+  private buildFailedNodeMap(
+    nodeInsertResult: BatchInsertResult<QueryDeepPartialEntity<NodeRow>>,
+    spfModules: readonly SpfModule[],
+    instanceIdToSystemId: Map<number, number>,
+  ): Map<number, Error> {
     const failedNodeMap = new Map<number, Error>();
-    // Map Node failures back to instanceId using position correlation
     const nodeRowsAttempted = spfModules
       .filter(sm => instanceIdToSystemId.has(sm.instanceId))
       .map(sm => sm.instanceId);
@@ -377,7 +453,15 @@ export class SpfModuleInserter extends BaseInserter<
       }
     }
 
-    // Group port mappings by instanceId
+    return failedNodeMap;
+  }
+
+  private groupDataPortMappings(
+    dataPortMappings: Array<{
+      mapping: DataPortMapping;
+      instanceId: number;
+    }>,
+  ): Map<number, DataPortMapping[]> {
     const dataPortMappingsByInstance = new Map<number, DataPortMapping[]>();
     for (const {mapping, instanceId} of dataPortMappings) {
       if (!dataPortMappingsByInstance.has(instanceId)) {
@@ -385,7 +469,15 @@ export class SpfModuleInserter extends BaseInserter<
       }
       dataPortMappingsByInstance.get(instanceId)!.push(mapping);
     }
+    return dataPortMappingsByInstance;
+  }
 
+  private groupControlPortMappings(
+    controlPortMappings: Array<{
+      mapping: NaturalIdMapping<number>;
+      instanceId: number;
+    }>,
+  ): Map<number, NaturalIdMapping<number>[]> {
     const controlPortMappingsByInstance = new Map<
       number,
       NaturalIdMapping<number>[]
@@ -396,39 +488,28 @@ export class SpfModuleInserter extends BaseInserter<
       }
       controlPortMappingsByInstance.get(instanceId)!.push(mapping);
     }
+    return controlPortMappingsByInstance;
+  }
 
-    // Build result for each input SpfModule
+  private buildModuleResults(
+    spfModules: readonly SpfModule[],
+    instanceIdToSystemId: Map<number, number>,
+    failedSpfModuleMap: Map<number, Error>,
+    failedNodeMap: Map<number, Error>,
+    dataPortMappingsByInstance: Map<number, DataPortMapping[]>,
+    controlPortMappingsByInstance: Map<number, NaturalIdMapping<number>[]>,
+  ): ModuleInsertResult[] {
+    const results: ModuleInsertResult[] = [];
+
     for (const spfModule of spfModules) {
       const spfModuleSystemId = instanceIdToSystemId.get(spfModule.instanceId);
-      const errors: ModuleInsertError[] = [];
+      const errors = this.collectModuleErrors(
+        spfModule,
+        failedSpfModuleMap,
+        failedNodeMap,
+      );
 
-      // Check for SpfModule failure
-      const spfModuleError = failedSpfModuleMap.get(spfModule.instanceId);
-      if (spfModuleError) {
-        errors.push(
-          this.buildError(
-            MODULE_AGGREGATE_ENTITY_TYPES.MODULE,
-            spfModule.instanceId,
-            spfModuleError,
-          ),
-        );
-      }
-
-      // Check for Node failure
-      const nodeError = failedNodeMap.get(spfModule.instanceId);
-      if (nodeError) {
-        errors.push(
-          this.buildError(
-            MODULE_AGGREGATE_ENTITY_TYPES.MODULE, // Use MODULE for Node errors as they're part of the same aggregate
-            spfModule.instanceId,
-            nodeError,
-          ),
-        );
-      }
-
-      // Success = SpfModule insert success AND Node insert success
-      const success =
-        !spfModuleError && !nodeError && spfModuleSystemId !== undefined;
+      const success = errors.length === 0 && spfModuleSystemId !== undefined;
 
       if (success) {
         results.push({
@@ -457,6 +538,38 @@ export class SpfModuleInserter extends BaseInserter<
       }
     }
 
-    return {results};
+    return results;
+  }
+
+  private collectModuleErrors(
+    spfModule: SpfModule,
+    failedSpfModuleMap: Map<number, Error>,
+    failedNodeMap: Map<number, Error>,
+  ): ModuleInsertError[] {
+    const errors: ModuleInsertError[] = [];
+
+    const spfModuleError = failedSpfModuleMap.get(spfModule.instanceId);
+    if (spfModuleError) {
+      errors.push(
+        this.buildError(
+          MODULE_AGGREGATE_ENTITY_TYPES.MODULE,
+          spfModule.instanceId,
+          spfModuleError,
+        ),
+      );
+    }
+
+    const nodeError = failedNodeMap.get(spfModule.instanceId);
+    if (nodeError) {
+      errors.push(
+        this.buildError(
+          MODULE_AGGREGATE_ENTITY_TYPES.MODULE,
+          spfModule.instanceId,
+          nodeError,
+        ),
+      );
+    }
+
+    return errors;
   }
 }

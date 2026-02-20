@@ -305,7 +305,22 @@ export class UseCaseInserter extends BaseInserter<
     useCasesWithHash: readonly UseCaseWithHash[],
     kvHashToUseCaseSystemId: Map<string, number>,
   ): Promise<void> {
-    // Collect all unique category names
+    const allCategories = this.collectUniqueCategories(useCasesWithHash);
+    if (allCategories.size === 0) return;
+
+    await this.insertCategories(allCategories);
+    const categoryNameToSystemId =
+      await this.queryCategorySystemIds(allCategories);
+    await this.createUseCaseCategoryRelationships(
+      useCasesWithHash,
+      kvHashToUseCaseSystemId,
+      categoryNameToSystemId,
+    );
+  }
+
+  private collectUniqueCategories(
+    useCasesWithHash: readonly UseCaseWithHash[],
+  ): Set<string> {
     const allCategories = new Set<string>();
     for (const {useCase} of useCasesWithHash) {
       if (useCase.categories) {
@@ -314,20 +329,48 @@ export class UseCaseInserter extends BaseInserter<
         }
       }
     }
+    return allCategories;
+  }
 
-    if (allCategories.size === 0) return;
-
-    // Insert categories (ignore duplicates)
+  private async insertCategories(allCategories: Set<string>): Promise<void> {
     const categoryRows = [...allCategories].map(name => toCategoryRow(name));
     await BatchInserter.insert(this.manager, 'UseCaseCategory', categoryRows);
+  }
 
-    // Query back category systemIds
+  private async queryCategorySystemIds(
+    allCategories: Set<string>,
+  ): Promise<Map<string, number>> {
     const categoryMappings = await this.queryBackCategories([...allCategories]);
-    const categoryNameToSystemId = new Map(
-      categoryMappings.map(m => [m.naturalId, m.systemId]),
+    return new Map(categoryMappings.map(m => [m.naturalId, m.systemId]));
+  }
+
+  private async createUseCaseCategoryRelationships(
+    useCasesWithHash: readonly UseCaseWithHash[],
+    kvHashToUseCaseSystemId: Map<string, number>,
+    categoryNameToSystemId: Map<string, number>,
+  ): Promise<void> {
+    const relationships = this.buildCategoryRelationships(
+      useCasesWithHash,
+      kvHashToUseCaseSystemId,
+      categoryNameToSystemId,
     );
 
-    // Create UseCase-Category relationships
+    if (relationships.length > 0) {
+      await this.manager
+        .createQueryBuilder()
+        .insert()
+        .into('use_case_categories')
+        .values(relationships)
+        .orIgnore()
+        .execute();
+    }
+  }
+
+  private buildCategoryRelationships(
+    useCasesWithHash: readonly UseCaseWithHash[],
+    kvHashToUseCaseSystemId: Map<string, number>,
+    categoryNameToSystemId: Map<string, number>,
+  ): Array<{use_case_system_id: number; category_system_id: number}> {
     const relationships: Array<{
       use_case_system_id: number;
       category_system_id: number;
@@ -335,9 +378,7 @@ export class UseCaseInserter extends BaseInserter<
 
     for (const {useCase, kvHash} of useCasesWithHash) {
       const useCaseSystemId = kvHashToUseCaseSystemId.get(kvHash);
-
-      if (!useCaseSystemId) continue;
-      if (!useCase.categories) continue;
+      if (!useCaseSystemId || !useCase.categories) continue;
 
       for (const categoryName of useCase.categories) {
         const categorySystemId = categoryNameToSystemId.get(categoryName);
@@ -350,15 +391,7 @@ export class UseCaseInserter extends BaseInserter<
       }
     }
 
-    if (relationships.length > 0) {
-      await this.manager
-        .createQueryBuilder()
-        .insert()
-        .into('use_case_categories')
-        .values(relationships)
-        .orIgnore()
-        .execute();
-    }
+    return relationships;
   }
 
   /**
@@ -528,16 +561,39 @@ export class UseCaseInserter extends BaseInserter<
     >,
     useCaseInsertResult: BatchInsertResult<QueryDeepPartialEntity<UseCaseRow>>,
   ): BulkEntityInsertResult<number> {
-    const results: EntityInsertResult<number>[] = [];
-
-    // Build failure lookup maps from batch results
-    const failedKvMap = new Map<string, Error>(
-      keyVectorInsertResult.failed.map(f => [f.row.kvHash as string, f.error]),
+    const failedKvMap = this.buildFailedKeyVectorMap(keyVectorInsertResult);
+    const failedUseCaseMap = this.buildFailedUseCaseMap(
+      useCaseInsertResult,
+      useCasesWithHash,
+      kvHashToSystemId,
     );
 
-    // Build UseCase failure map - need to correlate back to kvHash
-    // Since we filtered out failed KeyVectors before inserting UseCases,
-    // we need to map UseCase failures back to their kvHash
+    const results = this.buildUseCaseResults(
+      useCasesWithHash,
+      kvHashToSystemId,
+      kvHashToUseCaseSystemId,
+      failedKvMap,
+      failedUseCaseMap,
+    );
+
+    return {results};
+  }
+
+  private buildFailedKeyVectorMap(
+    keyVectorInsertResult: BatchInsertResult<
+      QueryDeepPartialEntity<KeyVectorRow>
+    >,
+  ): Map<string, Error> {
+    return new Map<string, Error>(
+      keyVectorInsertResult.failed.map(f => [f.row.kvHash as string, f.error]),
+    );
+  }
+
+  private buildFailedUseCaseMap(
+    useCaseInsertResult: BatchInsertResult<QueryDeepPartialEntity<UseCaseRow>>,
+    useCasesWithHash: readonly UseCaseWithHash[],
+    kvHashToSystemId: Map<string, number>,
+  ): Map<string, Error> {
     const failedUseCaseMap = new Map<string, Error>();
 
     // TODO: Fix #3 - Error correlation fragility
@@ -548,7 +604,6 @@ export class UseCaseInserter extends BaseInserter<
     // - Using a different correlation mechanism that's not order-dependent
     // - Restructuring the error handling to be more explicit about which entity failed
 
-    // Create reverse mapping: row index -> kvHash for UseCases that were attempted
     const useCaseRowsAttempted = useCasesWithHash
       .filter(({kvHash}) => kvHashToSystemId.has(kvHash))
       .map(({kvHash}) => kvHash);
@@ -561,56 +616,82 @@ export class UseCaseInserter extends BaseInserter<
       }
     }
 
-    // Build result for each input UseCase
+    return failedUseCaseMap;
+  }
+
+  private buildUseCaseResults(
+    useCasesWithHash: readonly UseCaseWithHash[],
+    kvHashToSystemId: Map<string, number>,
+    kvHashToUseCaseSystemId: Map<string, number>,
+    failedKvMap: Map<string, Error>,
+    failedUseCaseMap: Map<string, Error>,
+  ): EntityInsertResult<number>[] {
+    const results: EntityInsertResult<number>[] = [];
+
     for (const {kvHash} of useCasesWithHash) {
       const keyVectorSystemId = kvHashToSystemId.get(kvHash);
       const useCaseSystemId = kvHashToUseCaseSystemId.get(kvHash);
 
-      // Check for KeyVector failure first
       if (!keyVectorSystemId) {
-        const error: Error | undefined = failedKvMap.get(kvHash);
-        const errorResult: EntityInsertResult<number> = {
-          errors: [
-            this.buildError(
-              'KeyVector',
-              kvHash,
-              error || new Error('KeyVector insert failed'),
-            ),
-          ],
-          success: false,
-        };
-        results.push(errorResult);
+        results.push(this.buildKeyVectorErrorResult(kvHash, failedKvMap));
         continue;
       }
 
-      // Check for UseCase failure
       if (!useCaseSystemId) {
-        const error: Error | undefined = failedUseCaseMap.get(kvHash);
-        const errorResult: EntityInsertResult<number> = {
-          errors: [
-            this.buildError(
-              'UseCase',
-              kvHash,
-              error || new Error('UseCase insert failed'),
-            ),
-          ],
-          success: false,
-        };
-        results.push(errorResult);
+        results.push(this.buildUseCaseErrorResult(kvHash, failedUseCaseMap));
         continue;
       }
 
-      // Success case - return useCaseSystemId as both naturalId and systemId
-      results.push({
-        idMapping: {
-          naturalId: useCaseSystemId,
-          systemId: useCaseSystemId,
-        },
-        errors: [],
-        success: true,
-      });
+      results.push(this.buildSuccessResult(useCaseSystemId));
     }
 
-    return {results};
+    return results;
+  }
+
+  private buildKeyVectorErrorResult(
+    kvHash: string,
+    failedKvMap: Map<string, Error>,
+  ): EntityInsertResult<number> {
+    const error = failedKvMap.get(kvHash);
+    return {
+      errors: [
+        this.buildError(
+          'KeyVector',
+          kvHash,
+          error || new Error('KeyVector insert failed'),
+        ),
+      ],
+      success: false,
+    };
+  }
+
+  private buildUseCaseErrorResult(
+    kvHash: string,
+    failedUseCaseMap: Map<string, Error>,
+  ): EntityInsertResult<number> {
+    const error = failedUseCaseMap.get(kvHash);
+    return {
+      errors: [
+        this.buildError(
+          'UseCase',
+          kvHash,
+          error || new Error('UseCase insert failed'),
+        ),
+      ],
+      success: false,
+    };
+  }
+
+  private buildSuccessResult(
+    useCaseSystemId: number,
+  ): EntityInsertResult<number> {
+    return {
+      idMapping: {
+        naturalId: useCaseSystemId,
+        systemId: useCaseSystemId,
+      },
+      errors: [],
+      success: true,
+    };
   }
 }
