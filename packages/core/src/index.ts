@@ -26,6 +26,7 @@ export * from './application/ports/persistence/repositories/bulk-import/key-defi
 export * from './application/ports/persistence/repositories/project/project.repostiory.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
+export * from './shared/types/json-types.js';
 
 // Application services
 export * from './application/services/query-services.js';

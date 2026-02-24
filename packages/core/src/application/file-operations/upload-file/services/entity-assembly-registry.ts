@@ -48,15 +48,12 @@ export function createEntityAssemblyRegistry(
     const entity = builder.createFromData(input.requiredData);
 
     // Serialize entity for transfer back
-    const entityData =
-      entity && typeof entity === 'object' && 'toJSON' in entity
-        ? (entity.toJSON as () => Record<string, unknown>)()
-        : (entity as Record<string, unknown>);
+    const entityData = entity.toJSON();
 
     return {
       entityType: input.entityType,
       entityData,
-    };
+    } as EntityAssemblyResult;
   }) as Handler);
 
   // Future handlers can be registered here

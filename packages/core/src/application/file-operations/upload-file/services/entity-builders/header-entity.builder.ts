@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+import type {JsonObject} from '../../../../../shared/types/json-types.js';
 import {HeaderEntity} from '../../../../../domain/entities/common/entities/header.entity.js';
 import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import {
@@ -15,9 +16,10 @@ import {
 } from './base-entity-builder.js';
 
 /**
- * Data transfer object for HeaderEntity creation
+ * Data transfer object for HeaderEntity creation.
+ * This is the serializable data structure used for worker transfer.
  */
-export interface HeaderEntityData {
+export interface HeaderEntityData extends JsonObject {
   headerVersion: number;
   version: ACDBVersionInfo;
   codecInfos: CodecInfo[];

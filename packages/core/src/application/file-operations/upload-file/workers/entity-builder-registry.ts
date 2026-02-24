@@ -60,16 +60,13 @@ export function createEntityBuilderRegistry(): Map<string, Handler> {
     // Create entity from extracted data
     const entity = builder.createFromData(input.requiredData);
 
-    // Serialize entity for transfer back
-    const entityData =
-      entity && typeof entity === 'object' && 'toJSON' in entity
-        ? (entity.toJSON as () => Record<string, unknown>)()
-        : (entity as Record<string, unknown>);
+    // Serialize entity for transfer back (all entities extend BaseEntity with toJSON())
+    const entityData = entity.toJSON();
 
     return {
       entityType: input.entityType,
       entityData,
-    };
+    } as EntityAssemblyResult;
   }) as Handler);
 
   // Future handlers can be registered here

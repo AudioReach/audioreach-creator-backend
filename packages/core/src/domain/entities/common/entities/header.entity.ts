@@ -3,28 +3,30 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {JsonObject} from '../../../../shared/types/json-types.js';
 import type {
   ACDBVersionInfo,
   CodecInfo,
 } from '../../../../application/file-operations/shared/acdb-chunks/header-chunk.js';
+import {BaseEntity} from '../base-entity.js';
 
 /**
  * Interface for HeaderEntity JSON representation
  */
-interface HeaderEntityJSON {
+export interface HeaderEntityJSON extends JsonObject {
   headerVersion: number;
   version: ACDBVersionInfo;
   codecInfos: CodecInfo[];
   modifiedDate: number;
   oemInfo: string;
-  createdAt: string | number | Date;
+  createdAt: string;
 }
 
 /**
  * Header entity representing ACDB file metadata.
  * Created from HeaderChunk during Phase 2 domain assembly.
  */
-export class HeaderEntity {
+export class HeaderEntity extends BaseEntity<HeaderEntityJSON> {
   constructor(
     public readonly headerVersion: number,
     public readonly version: ACDBVersionInfo,
@@ -33,6 +35,7 @@ export class HeaderEntity {
     public readonly oemInfo: string,
     public readonly createdAt: Date = new Date(),
   ) {
+    super();
     this.validate();
   }
 
@@ -78,7 +81,7 @@ export class HeaderEntity {
   /**
    * Serialize entity to plain object
    */
-  toJSON() {
+  toJSON(): HeaderEntityJSON {
     return {
       headerVersion: this.headerVersion,
       version: this.version,

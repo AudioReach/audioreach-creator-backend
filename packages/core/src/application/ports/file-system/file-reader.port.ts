@@ -4,6 +4,7 @@
  */
 
 import type {PathRef} from '../../file-operations/shared/utils/file-ref.js';
+import type {JsonValue} from '../../../shared/types/json-types.js';
 
 export interface FileReaderPort {
   /**
@@ -13,7 +14,7 @@ export interface FileReaderPort {
    */
   readAll(ref: PathRef): Promise<Uint8Array>;
 
-  parseBlock(filePath: string, blockName: string): Promise<unknown[]>;
+  parseBlock(filePath: string, blockName: string): Promise<JsonValue[]>;
 
   exists(filePath: string): Promise<boolean>;
 
