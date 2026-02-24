@@ -11,7 +11,7 @@ import path from 'node:path';
 import Parser from 'stream-json/Parser.js';
 import Pick from 'stream-json/filters/Pick.js';
 import StreamValues from 'stream-json/streamers/StreamValues.js';
-import type {FileReaderPort, PathRef} from '@arc/core';
+import type {FileReaderPort, PathRef, JsonValue} from '@arc/core';
 import {access} from 'node:fs/promises';
 //import {unzip} from 'zlib';
 
@@ -143,7 +143,7 @@ export class NodeFileReaderAdapter implements FileReaderPort {
    * Parse JSON file and extract specific block
    * Automatically uses streaming for large files
    */
-  parseBlock(filePath: string, blockName: string): Promise<unknown[]> {
+  parseBlock(filePath: string, blockName: string): Promise<JsonValue[]> {
     // Validate file extension
     const fileExtension = path.extname(filePath).toLowerCase();
     if (fileExtension !== '.json') {
@@ -169,9 +169,9 @@ export class NodeFileReaderAdapter implements FileReaderPort {
   private parseWithStreaming(
     filePath: string,
     blockName: string,
-  ): Promise<unknown[]> {
+  ): Promise<JsonValue[]> {
     return new Promise((resolve, reject) => {
-      let blockData: unknown[] = [];
+      let blockData: JsonValue[] = [];
       let found = false;
       const pipeline = fs
         .createReadStream(filePath)
@@ -179,11 +179,11 @@ export class NodeFileReaderAdapter implements FileReaderPort {
         .pipe(new Pick({filter: blockName}))
         .pipe(new StreamValues());
 
-      pipeline.on('data', ({value}) => {
+      pipeline.on('data', ({value}: {value: JsonValue}) => {
         found = true;
         // If the value is already an array, use it directly instead of wrapping it
         if (Array.isArray(value)) {
-          blockData = value;
+          blockData = value as JsonValue[];
         } else {
           blockData.push(value);
         }
