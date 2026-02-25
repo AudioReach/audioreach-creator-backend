@@ -10,36 +10,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0          # Full history so we can diff properly
-          persist-credentials: true  # Keeps GITHUB_TOKEN as git credentials so
-                                     # subsequent `git fetch origin` calls work on
-                                     # both public AND private repos — no PAT needed.
+          fetch-depth: 0          # Full history so we can diff properly.
+                                  # On pull_request events, actions/checkout fetches
+                                  # refs/pull/N/merge whose parents are base.sha and
+                                  # head.sha — both are already present after this step.
 
       - name: Get base and head SHAs (from event payload, no token needed)
         id: shas
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          # These values come directly from the webhook event payload.
-          # GitHub injects them automatically — no API call or token required.
+          
           echo "Base SHA: ${BASE_SHA}"
           echo "Head SHA: ${HEAD_SHA}"
+          
           echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
           echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Ensure base commit is fetched
-        run: |
-          # For private repos: GITHUB_TOKEN (configured by actions/checkout via
-          # persist-credentials) grants read access to the repo, so `git fetch origin`
-          # works without any extra token.
-          #
-          # Private repos cannot have public forks, so PRs always originate from
-          # branches within the same repo — origin always has both base and head.
-          #
-          # For public repos with fork PRs: actions/checkout already fetches
-          # refs/pull/N/merge (which includes both parents), but we fetch the base
-          # ref explicitly to be safe.
-          git fetch origin "${{ github.event.pull_request.base.ref }}"
 
       - name: Generate patch between base and head
         run: |
