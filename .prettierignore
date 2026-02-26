@@ -44,3 +44,9 @@ package-lock.json
 .env
 .env.local
 .env.production
+
+# Documentation files
+*.md
+
+# GitHub folder (all workflow and configuration files)
+.github/
