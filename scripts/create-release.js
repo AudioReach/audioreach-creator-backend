@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-
 /**
  * Release Package Creator
  * Creates a distributable release package with all necessary files
