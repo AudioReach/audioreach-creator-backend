@@ -599,7 +599,7 @@
     },
     "/arc-api/v1/projects/{projectId}/definitions/keys": {
       "get": {
-        "description": "Return the list of key definitions based on project id",
+        "description": "Return the list of key definitions based on project id\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/definitions/keys\nGET /arc-api/v1/projects/proj-001/definitions/keys?keyDefinitionId=1\n```\n\n**Optional Query Parameters:**\n- `keyDefinitionId`: Filter results to a specific key definition by its id",
         "operationId": "KeyDefinitionController_getKeyDefinitions",
         "parameters": [
           {
@@ -608,6 +608,7 @@
             "in": "path",
             "description": "Id of project",
             "schema": {
+              "example": "proj-001",
               "type": "string"
             }
           },
@@ -617,6 +618,7 @@
             "in": "query",
             "description": "Filter by key definition id",
             "schema": {
+              "example": "1",
               "type": "string"
             }
           }
@@ -647,17 +649,73 @@
             }
           },
           "404": {
-            "description": "Project or key definition does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
-                }
+            "description": "Project or key definition does not exist"
+          }
+        },
+        "summary": "Return the list of key definitions",
+        "tags": [
+          "key-definition"
+        ]
+      },
+      "post": {
+        "description": "Create a new key definition for the given project\n\n**Example Usage:**\n```\nPOST /arc-api/v1/projects/proj-001/definitions/keys\n```\n\n**Request Body (optional):**\nAll fields in the request body are optional. The behavior depends on what is provided:\n\n**Without request body:**\n- A key definition is created with system-generated defaults\n- `keyId`, `name`, `description`, `keyType`, `cHeaderAttribute` will be empty or default values\n- No values will be associated\n\n**With request body:**\n- `keyId`: Unique numeric identifier for the key (optional — auto-assigned if omitted)\n- `name`: Human-readable name for the key definition\n- `description`: Optional description of the key\n- `keyType`: Type of key (e.g. `Calibration`, `Tag`)\n- `cHeaderAttribute`: C-header enum metadata (`enumValue`, `enumName`)\n- `values`: Array of initial value definitions to associate with the key\n\n**Conflict:**\nReturns 409 if a key definition with the same `keyId` already exists in the project.",
+        "operationId": "KeyDefinitionController_createKeyDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "description": "Key definition data to create (all fields optional)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateKeyDefinitionRequestDto"
               }
             }
           }
         },
-        "summary": "Return the list of key definitions",
+        "responses": {
+          "201": {
+            "description": "Successfully created key definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/KeyDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "404": {
+            "description": "Project does not exist"
+          },
+          "409": {
+            "description": "Key definition with the same keyId already exists"
+          }
+        },
+        "summary": "Create a new key definition",
         "tags": [
           "key-definition"
         ]
@@ -665,7 +723,7 @@
     },
     "/arc-api/v1/projects/{projectId}/definitions/keys/{keySystemId}": {
       "get": {
-        "description": "Return key definition based on project id and key definition system id",
+        "description": "Return key definition based on project id and key definition system id\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/definitions/keys/key-sys-001\n```",
         "operationId": "KeyDefinitionController_getKeyDefinition",
         "parameters": [
           {
@@ -674,6 +732,7 @@
             "in": "path",
             "description": "Id of project",
             "schema": {
+              "example": "proj-001",
               "type": "string"
             }
           },
@@ -683,6 +742,7 @@
             "in": "path",
             "description": "System id of key definition",
             "schema": {
+              "example": "key-sys-001",
               "type": "string"
             }
           }
@@ -710,14 +770,7 @@
             }
           },
           "404": {
-            "description": "Project or key definition not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
-                }
-              }
-            }
+            "description": "Project or key definition not found"
           }
         },
         "summary": "Return key definition by key system id",
@@ -725,9 +778,9 @@
           "key-definition"
         ]
       },
-      "delete": {
-        "description": "Delete key definition based on project id and key definition system id",
-        "operationId": "KeyDefinitionController_deleteKeyDefinition",
+      "patch": {
+        "description": "Partially update an existing key definition based on project id and key definition system id\n\n**Example Usage:**\n```\nPATCH /arc-api/v1/projects/proj-001/definitions/keys/key-sys-001\n```\n\n**Request Body:**\nAll fields are optional — only the provided fields will be updated:\n- `keyId`: Update the numeric key identifier\n- `name`: Update the human-readable name\n- `description`: Update the description\n- `keyType`: Update the key type (e.g. `Calibration`, `Tag`)\n- `cHeaderAttribute`: Update C-header enum metadata (`enumValue`, `enumName`)\n- `values`: Update the associated value definitions",
+        "operationId": "KeyDefinitionController_updateKeyDefinition",
         "parameters": [
           {
             "name": "projectId",
@@ -735,6 +788,7 @@
             "in": "path",
             "description": "Id of project",
             "schema": {
+              "example": "proj-001",
               "type": "string"
             }
           },
@@ -744,30 +798,105 @@
             "in": "path",
             "description": "System id of key definition",
             "schema": {
+              "example": "key-sys-001",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Fields to update on the key definition (all optional)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchKeyDefinitionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully updated key definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/KeyDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "404": {
+            "description": "Project or key definition not found"
+          }
+        },
+        "summary": "Update a key definition",
+        "tags": [
+          "key-definition"
+        ]
+      },
+      "delete": {
+        "description": "Delete key definition based on project id and key definition system id\n\n**Example Usage:**\n```\nDELETE /arc-api/v1/projects/proj-001/definitions/keys/key-sys-001\n```\n\n**Response:**\nReturns the deleted key definition data.",
+        "operationId": "KeyDefinitionController_deleteKeyDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keySystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of key definition",
+            "schema": {
+              "example": "key-sys-001",
               "type": "string"
             }
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successfully deleted",
+          "200": {
+            "description": "Successfully deleted key definition",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/KeyDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
           },
           "404": {
-            "description": "Project or key definition not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
-                }
-              }
-            }
+            "description": "Project or key definition not found"
           }
         },
         "summary": "Delete key definition",
@@ -776,9 +905,232 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/definitions/keys/{keySystemId}/values": {
+      "post": {
+        "description": "Add a new value to an existing key definition\n\n**Example Usage:**\n```\nPOST /arc-api/v1/projects/proj-001/definitions/keys/key-sys-001/values\n```\n\n**Request Body (optional):**\nAll fields in the request body are optional:\n\n**Without request body:**\n- A value is created with system-generated defaults\n- `valueId`, `name`, `description` will be empty or default values\n\n**With request body:**\n- `valueId`: Unique numeric identifier for the value (optional — auto-assigned if omitted)\n- `name`: Human-readable name for the value\n- `description`: Optional description of the value\n\n**Conflict:**\nReturns 409 if a value with the same `valueId` already exists under the key definition.",
+        "operationId": "KeyDefinitionController_createValueDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keySystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of key definition",
+            "schema": {
+              "example": "key-sys-001",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "description": "Value definition data to add (all fields optional)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateValueDefinitionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successfully added value to key definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ValueDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "404": {
+            "description": "Project or key definition not found"
+          },
+          "409": {
+            "description": "Value with the same valueId already exists"
+          }
+        },
+        "summary": "Add a value to a key definition",
+        "tags": [
+          "key-definition"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/definitions/keys/{keySystemId}/values/{valueSystemId}": {
+      "patch": {
+        "description": "Partially update an existing value in a key definition\n\n**Example Usage:**\n```\nPATCH /arc-api/v1/projects/proj-001/definitions/keys/key-sys-001/values/val-sys-001\n```\n\n**Request Body:**\nAll fields are optional — only the provided fields will be updated:\n- `valueId`: Update the numeric value identifier\n- `name`: Update the human-readable name\n- `description`: Update the description",
+        "operationId": "KeyDefinitionController_updateValueDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keySystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of key definition",
+            "schema": {
+              "example": "key-sys-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "valueSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of value definition",
+            "schema": {
+              "example": "val-sys-001",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Fields to update on the value definition (all optional)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchValueDefinitionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully updated value",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ValueDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "404": {
+            "description": "Project, key definition or value not found"
+          }
+        },
+        "summary": "Update a value in a key definition",
+        "tags": [
+          "key-definition"
+        ]
+      },
+      "delete": {
+        "description": "Delete a specific value from an existing key definition\n\n**Example Usage:**\n```\nDELETE /arc-api/v1/projects/proj-001/definitions/keys/key-sys-001/values/val-sys-001\n```\n\n**Response:**\nReturns the deleted value definition data.",
+        "operationId": "KeyDefinitionController_deleteValueDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keySystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of key definition",
+            "schema": {
+              "example": "key-sys-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "valueSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of value definition",
+            "schema": {
+              "example": "val-sys-001",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully deleted value",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ValueDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project, key definition or value not found"
+          }
+        },
+        "summary": "Delete a value from a key definition",
+        "tags": [
+          "key-definition"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/definitions/tags": {
       "get": {
-        "description": "Return list of tag definitions based on project id",
+        "description": "Return list of tag definitions based on project id\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/definitions/tags\nGET /arc-api/v1/projects/proj-001/definitions/tags?tagDefinitionId=1\n```\n\n**Optional Query Parameters:**\n- `tagDefinitionId`: Filter results to a specific tag definition by its id",
         "operationId": "KeyDefinitionController_getTagDefinitions",
         "parameters": [
           {
@@ -787,6 +1139,7 @@
             "in": "path",
             "description": "Id of project",
             "schema": {
+              "example": "proj-001",
               "type": "string"
             }
           },
@@ -796,6 +1149,7 @@
             "in": "query",
             "description": "Filter by tag definition id",
             "schema": {
+              "example": "1",
               "type": "string"
             }
           }
@@ -826,17 +1180,73 @@
             }
           },
           "404": {
-            "description": "Project or tag definition does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
-                }
+            "description": "Project or tag definition does not exist"
+          }
+        },
+        "summary": "Return list of tag definitions",
+        "tags": [
+          "key-definition"
+        ]
+      },
+      "post": {
+        "description": "Create a new tag definition for the given project\n\n**Example Usage:**\n```\nPOST /arc-api/v1/projects/proj-001/definitions/tags\n```\n\n**Request Body (optional):**\nAll fields in the request body are optional:\n\n**Without request body:**\n- A tag definition is created with system-generated defaults\n- `tagId`, `name`, `description` will be empty or default values\n\n**With request body:**\n- `tagId`: Unique numeric identifier for the tag (optional — auto-assigned if omitted)\n- `name`: Human-readable name for the tag definition\n- `description`: Optional description of the tag\n\n**Conflict:**\nReturns 409 if a tag definition with the same `tagId` already exists in the project.",
+        "operationId": "KeyDefinitionController_createTagDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "description": "Tag definition data to create (all fields optional)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTagDefinitionRequestDto"
               }
             }
           }
         },
-        "summary": "Return list of tag definitions",
+        "responses": {
+          "201": {
+            "description": "Successfully created tag definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TagDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "404": {
+            "description": "Project does not exist"
+          },
+          "409": {
+            "description": "Tag definition with the same tagId already exists"
+          }
+        },
+        "summary": "Create a new tag definition",
         "tags": [
           "key-definition"
         ]
@@ -844,7 +1254,7 @@
     },
     "/arc-api/v1/projects/{projectId}/definitions/tags/{tagSystemId}": {
       "get": {
-        "description": "Return tag definition based on project id and tag definition system id",
+        "description": "Return tag definition based on project id and tag definition system id\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/definitions/tags/tag-sys-001\n```",
         "operationId": "KeyDefinitionController_getTagDefinition",
         "parameters": [
           {
@@ -853,6 +1263,7 @@
             "in": "path",
             "description": "Id of project",
             "schema": {
+              "example": "proj-001",
               "type": "string"
             }
           },
@@ -862,6 +1273,7 @@
             "in": "path",
             "description": "System id of tag definition",
             "schema": {
+              "example": "tag-sys-001",
               "type": "string"
             }
           }
@@ -889,14 +1301,7 @@
             }
           },
           "404": {
-            "description": "Project or tag definition not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
-                }
-              }
-            }
+            "description": "Project or tag definition not found"
           }
         },
         "summary": "Return tag definition by tag system id",
@@ -904,9 +1309,9 @@
           "key-definition"
         ]
       },
-      "delete": {
-        "description": "Delete tag definition based on project id and tag definition system id",
-        "operationId": "KeyDefinitionController_deleteTagKeyDefinition",
+      "patch": {
+        "description": "Partially update an existing tag definition based on project id and tag definition system id\n\n**Example Usage:**\n```\nPATCH /arc-api/v1/projects/proj-001/definitions/tags/tag-sys-001\n```\n\n**Request Body:**\nAll fields are optional — only the provided fields will be updated:\n- `tagId`: Update the numeric tag identifier\n- `name`: Update the human-readable name\n- `description`: Update the description",
+        "operationId": "KeyDefinitionController_updateTagDefinition",
         "parameters": [
           {
             "name": "projectId",
@@ -914,6 +1319,7 @@
             "in": "path",
             "description": "Id of project",
             "schema": {
+              "example": "proj-001",
               "type": "string"
             }
           },
@@ -923,33 +1329,290 @@
             "in": "path",
             "description": "System id of tag definition",
             "schema": {
+              "example": "tag-sys-001",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Fields to update on the tag definition (all optional)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchTagDefinitionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully updated tag definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TagDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "404": {
+            "description": "Project or tag definition not found"
+          }
+        },
+        "summary": "Update a tag definition",
+        "tags": [
+          "key-definition"
+        ]
+      },
+      "delete": {
+        "description": "Delete tag definition based on project id and tag definition system id\n\n**Example Usage:**\n```\nDELETE /arc-api/v1/projects/proj-001/definitions/tags/tag-sys-001\n```\n\n**Response:**\nReturns the deleted tag definition data.",
+        "operationId": "KeyDefinitionController_deleteTagDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of tag definition",
+            "schema": {
+              "example": "tag-sys-001",
               "type": "string"
             }
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successfully deleted",
+          "200": {
+            "description": "Successfully deleted tag definition",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TagDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
           },
           "404": {
-            "description": "Project or tag definition not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResult"
+            "description": "Project or tag definition not found"
+          }
+        },
+        "summary": "Delete tag definition",
+        "tags": [
+          "key-definition"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/definitions/tags/{tagSystemId}/keys": {
+      "post": {
+        "description": "Add one or more existing key definitions to a tag based on project id and tag definition system id\n\n**Example Usage:**\n```\nPOST /arc-api/v1/projects/proj-001/definitions/tags/tag-sys-001/keys\n```\n\n**Request Body (required):**\n- `keySystemIds`: Array of existing key definition system ids to associate with the tag\n\n**Example request body:**\n```json\n{ \"keySystemIds\": [\"key-sys-001\", \"key-sys-002\"] }\n```\n\n**Partial Success (207):**\nIf some system ids are invalid or already associated, the successfully added keys are returned in `data`.\nThe `message` field describes which ids failed and why.",
+        "operationId": "KeyDefinitionController_createTagKeyDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of tag definition",
+            "schema": {
+              "example": "tag-sys-001",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "keySystemIds"
+                ],
+                "properties": {
+                  "keySystemIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of system ids of key definitions to add to the tag",
+                    "example": [
+                      "key-sys-001",
+                      "key-sys-002"
+                    ]
+                  }
                 }
               }
             }
           }
         },
-        "summary": "Delete tag key definition",
+        "responses": {
+          "201": {
+            "description": "Successfully added all key definitions to tag",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TagKeyDefinitionResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partially fulfilled - successfully added keys are returned in data, message field describes which systemIds are invalid or already exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TagKeyDefinitionResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "404": {
+            "description": "Project or tag definition not found"
+          }
+        },
+        "summary": "Add key definitions to a tag",
+        "tags": [
+          "key-definition"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/definitions/tags/{tagSystemId}/keys/{keySystemId}": {
+      "delete": {
+        "description": "Delete a specific key definition from an existing tag definition\n\n**Example Usage:**\n```\nDELETE /arc-api/v1/projects/proj-001/definitions/tags/tag-sys-001/keys/key-sys-001\n```\n\n**Response:**\nReturns the removed tag-key association data.",
+        "operationId": "KeyDefinitionController_deleteTagKeyDefinitionFromTag",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "example": "proj-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of tag definition",
+            "schema": {
+              "example": "tag-sys-001",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keySystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of key definition",
+            "schema": {
+              "example": "key-sys-001",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully deleted key definition from tag",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TagKeyDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project, tag definition or key definition not found"
+          }
+        },
+        "summary": "Delete a key definition from a tag",
         "tags": [
           "key-definition"
         ]
@@ -4026,111 +4689,47 @@
           "workspaceFile"
         ]
       },
-      "TagValueDefinitionInfo": {
+      "ChangeInfoDto": {
         "type": "object",
         "properties": {
-          "systemId": {
+          "changeType": {
             "type": "string",
-            "description": "Unique system identifier for the value"
+            "description": "Type of change operation applied to this resource",
+            "enum": [
+              "NONE",
+              "CREATE",
+              "UPDATE",
+              "DELETE"
+            ]
           },
-          "valueId": {
-            "type": "number",
-            "description": "Value identifier"
-          },
-          "name": {
+          "changeId": {
             "type": "string",
-            "description": "Value name"
+            "description": "Identifier of the change set this resource belongs to. Present only when changeType is not None."
           },
-          "description": {
+          "changeStatus": {
             "type": "string",
-            "description": "Value description"
+            "description": "Change status of this resource. Present only when changeType is not None.",
+            "enum": [
+              "STAGED",
+              "UNSTAGED"
+            ]
           }
         },
         "required": [
-          "systemId",
-          "valueId",
-          "name"
+          "changeType"
         ]
       },
-      "TagKeyDefinitionInfo": {
+      "ValueDefinitionResponseDto": {
         "type": "object",
         "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "Unique system identifier for the key"
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
           },
-          "keyId": {
-            "type": "number",
-            "description": "Key identifier"
-          },
-          "name": {
-            "type": "string",
-            "description": "Key name"
-          },
-          "description": {
-            "type": "string",
-            "description": "Key description"
-          },
-          "cHeaderEnumValue": {
-            "type": "string",
-            "description": "Tag key enum value for .c header file"
-          },
-          "values": {
-            "description": "Values",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TagValueDefinitionInfo"
-            }
-          }
-        },
-        "required": [
-          "systemId",
-          "keyId",
-          "name",
-          "description",
-          "values"
-        ]
-      },
-      "TagDefinitionResponseDto": {
-        "type": "object",
-        "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "Unique system identifier for the tag"
-          },
-          "tagId": {
-            "type": "number",
-            "description": "Tag identifier"
-          },
-          "name": {
-            "type": "string",
-            "description": "Tag name"
-          },
-          "cHeaderEnumValue": {
-            "type": "string",
-            "description": "Tag enum value for pseudo header file"
-          },
-          "cHeaderEnumName": {
-            "type": "string",
-            "description": "Tag enum name for pseudo header file"
-          },
-          "keyDefinitions": {
-            "description": "List of tag key supported",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TagKeyDefinitionInfo"
-            }
-          }
-        },
-        "required": [
-          "systemId",
-          "tagId",
-          "name"
-        ]
-      },
-      "ValueDefinitionInfo": {
-        "type": "object",
-        "properties": {
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the value"
@@ -4157,18 +4756,61 @@
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "valueId",
-          "name",
-          "cHeaderEnumValue"
+          "name"
         ]
       },
-      "KeyDefinitionResponseDto": {
+      "TagValueDefinitionDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
-            "description": "Unique system identifier for the key"
+            "description": "Unique system identifier for the value"
+          },
+          "valueId": {
+            "type": "number",
+            "description": "Value identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Value description"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "valueId",
+          "name"
+        ]
+      },
+      "TagKeyDefinitionResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for key"
           },
           "keyId": {
             "type": "number",
@@ -4184,11 +4826,240 @@
           },
           "cHeaderEnumValue": {
             "type": "string",
+            "description": "Tag key enum value for .c header file"
+          },
+          "values": {
+            "description": "List of value definitions associated with this tag key",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagValueDefinitionDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "keyId",
+          "name",
+          "values"
+        ]
+      },
+      "TagDefinitionCHeaderDto": {
+        "type": "object",
+        "properties": {
+          "enumValue": {
+            "type": "string",
+            "description": "Tag enum value for pseudo header file"
+          },
+          "enumName": {
+            "type": "string",
+            "description": "Tag enum name for pseudo header file"
+          }
+        }
+      },
+      "TagKeyDefinitionDetailDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for key"
+          },
+          "keyId": {
+            "type": "number",
+            "description": "Key identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Key name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Key description"
+          },
+          "cHeaderEnumValue": {
+            "type": "string",
+            "description": "Tag key enum value for .c header file"
+          },
+          "values": {
+            "description": "List of value definitions associated with this tag key",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagValueDefinitionDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "keyId",
+          "name",
+          "values"
+        ]
+      },
+      "TagDefinitionResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the tag"
+          },
+          "tagId": {
+            "type": "number",
+            "description": "Tag identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tag name"
+          },
+          "cHeaderAttribute": {
+            "description": "C header enum fields for pseudo header file. Null if not applicable.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TagDefinitionCHeaderDto"
+              }
+            ]
+          },
+          "keys": {
+            "description": "List of key definitions associated with this tag",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagKeyDefinitionDetailDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "tagId",
+          "name",
+          "cHeaderAttribute",
+          "keys"
+        ]
+      },
+      "KeyDefinitionCHeaderDto": {
+        "type": "object",
+        "properties": {
+          "enumValue": {
+            "type": "string",
             "description": "Key enum value for pseudo header file"
           },
-          "cHeaderEnumName": {
+          "enumName": {
             "type": "string",
             "description": "Key enum name for pseudo header file"
+          },
+          "calibrationKeyEnumValue": {
+            "type": "string",
+            "description": "Calibration key enum value for pseudo header file"
+          },
+          "graphKeyEnumValue": {
+            "type": "string",
+            "description": "Graph key enum value for pseudo header file"
+          }
+        }
+      },
+      "ValueDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the value"
+          },
+          "valueId": {
+            "type": "number",
+            "description": "Value identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Value description"
+          },
+          "cHeaderEnumValue": {
+            "type": "string",
+            "description": "Value enum value for pseudo header file"
+          },
+          "specialValue": {
+            "type": "string",
+            "description": "Special value (present if specialKey is SampleRate or Volume)"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "valueId",
+          "name"
+        ]
+      },
+      "KeyDefinitionResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for key"
+          },
+          "keyId": {
+            "type": "number",
+            "description": "Key identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Key name"
+          },
+          "keyType": {
+            "type": "string",
+            "description": "Key type",
+            "enum": [
+              "CALIBRATION",
+              "GRAPH"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Key description"
+          },
+          "cHeaderAttribute": {
+            "description": "C header enum fields for pseudo header file. Null if not applicable.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KeyDefinitionCHeaderDto"
+              }
+            ]
           },
           "isVoice": {
             "type": "boolean",
@@ -4207,42 +5078,255 @@
             ]
           },
           "values": {
-            "description": "Values",
+            "description": "List of value definitions associated with this key",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ValueDefinitionInfo"
+              "$ref": "#/components/schemas/ValueDefinitionDto"
             }
-          },
-          "isCalibrationKey": {
-            "type": "boolean",
-            "description": "Indicates if the key is a calibration key"
-          },
-          "isGraphKey": {
-            "type": "boolean",
-            "description": "Indicates if the key is a graph key"
-          },
-          "cHeaderCalibrationKeyEnumValue": {
-            "type": "string",
-            "description": "Calibration key enum value for pseudo header file (required when isCalibrationKey is true)"
-          },
-          "cHeaderGraphKeyEnumValue": {
-            "type": "string",
-            "description": "Graph key enum value for pseudo header file (required when isGraphKey is true)"
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "keyId",
           "name",
-          "description",
-          "cHeaderEnumValue",
-          "cHeaderEnumName",
-          "isVoice",
-          "isDynamic",
-          "values",
-          "isCalibrationKey",
-          "isGraphKey"
+          "keyType",
+          "cHeaderAttribute",
+          "values"
         ]
+      },
+      "CreateValueDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "valueId": {
+            "type": "number",
+            "description": "Value identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Value description"
+          },
+          "cHeaderEnumValue": {
+            "type": "string",
+            "description": "Value enum value for pseudo header file"
+          },
+          "specialValue": {
+            "type": "string",
+            "description": "Special value (present if specialKey is SampleRate or Volume)"
+          }
+        }
+      },
+      "CreateKeyDefinitionRequestDto": {
+        "type": "object",
+        "properties": {
+          "keyId": {
+            "type": "number",
+            "description": "Key identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Key name"
+          },
+          "keyType": {
+            "type": "string",
+            "description": "Key type",
+            "enum": [
+              "CALIBRATION",
+              "GRAPH"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Key description"
+          },
+          "cHeaderAttribute": {
+            "description": "C header enum fields for pseudo header file. Null if not applicable.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KeyDefinitionCHeaderDto"
+              }
+            ]
+          },
+          "isVoice": {
+            "type": "boolean",
+            "description": "Indicates if the key is a voice key"
+          },
+          "isDynamic": {
+            "type": "boolean",
+            "description": "Indicates if the key is dynamic"
+          },
+          "specialKey": {
+            "type": "string",
+            "description": "Special key",
+            "enum": [
+              "SAMPLE_RATE",
+              "VOLUME"
+            ]
+          },
+          "values": {
+            "description": "Values associated with the key",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateValueDefinitionDto"
+            }
+          }
+        }
+      },
+      "CreateValueDefinitionRequestDto": {
+        "type": "object",
+        "properties": {
+          "valueId": {
+            "type": "number",
+            "description": "Value identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Value description"
+          },
+          "cHeaderEnumValue": {
+            "type": "string",
+            "description": "Value enum value for pseudo header file"
+          },
+          "specialValue": {
+            "type": "string",
+            "description": "Special value (present if specialKey is SampleRate or Volume)"
+          }
+        }
+      },
+      "PatchKeyDefinitionRequestDto": {
+        "type": "object",
+        "properties": {
+          "keyId": {
+            "type": "number",
+            "description": "Key identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Key name"
+          },
+          "keyType": {
+            "type": "string",
+            "description": "Key type",
+            "enum": [
+              "CALIBRATION",
+              "GRAPH"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Key description"
+          },
+          "cHeaderAttribute": {
+            "description": "C header enum fields for pseudo header file. Null if not applicable.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KeyDefinitionCHeaderDto"
+              }
+            ]
+          },
+          "isVoice": {
+            "type": "boolean",
+            "description": "Indicates if the key is a voice key"
+          },
+          "isDynamic": {
+            "type": "boolean",
+            "description": "Indicates if the key is dynamic"
+          },
+          "specialKey": {
+            "type": "string",
+            "description": "Special key",
+            "enum": [
+              "SAMPLE_RATE",
+              "VOLUME"
+            ]
+          }
+        }
+      },
+      "PatchValueDefinitionRequestDto": {
+        "type": "object",
+        "properties": {
+          "valueId": {
+            "type": "number",
+            "description": "Value identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Value description"
+          },
+          "cHeaderEnumValue": {
+            "type": "string",
+            "description": "Value enum value for pseudo header file"
+          },
+          "specialValue": {
+            "type": "string",
+            "description": "Special value (present if specialKey is SampleRate or Volume)"
+          }
+        }
+      },
+      "CreateTagDefinitionRequestDto": {
+        "type": "object",
+        "properties": {
+          "tagId": {
+            "type": "number",
+            "description": "Tag identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tag name"
+          },
+          "cHeaderAttribute": {
+            "description": "C header enum fields for pseudo header file. Null if not applicable.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TagDefinitionCHeaderDto"
+              }
+            ]
+          },
+          "keySystemIds": {
+            "description": "List of system ids of key definitions to associate with the tag",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PatchTagDefinitionRequestDto": {
+        "type": "object",
+        "properties": {
+          "tagId": {
+            "type": "number",
+            "description": "Tag identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tag name"
+          },
+          "cHeaderAttribute": {
+            "description": "C header enum fields for pseudo header file. Null if not applicable.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TagDefinitionCHeaderDto"
+              }
+            ]
+          }
+        }
       },
       "ContainerPropertyDefinitionSummaryResponseDto": {
         "type": "object",
@@ -4311,7 +5395,20 @@
             "type": "array",
             "description": "Property structure elements",
             "items": {
-              "type": "object"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructArrayDto"
+                }
+              ]
             }
           }
         },
@@ -4400,7 +5497,20 @@
             "type": "array",
             "description": "Property structure elements",
             "items": {
-              "type": "object"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructArrayDto"
+                }
+              ]
             }
           }
         },
@@ -4412,6 +5522,492 @@
           "type",
           "isVoice",
           "elements"
+        ]
+      },
+      "DefinitionConfigElementDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "ConfigElement",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "volume_level"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Audio volume level setting"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Audio Controls"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Volume Settings"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "dataType": {
+            "type": "string",
+            "description": "Data type of the configuration element",
+            "enum": [
+              "UInt8",
+              "UInt16",
+              "UInt32",
+              "UInt64",
+              "Int8",
+              "Int16",
+              "Int32",
+              "Int64",
+              "RawData",
+              "Double",
+              "Float"
+            ],
+            "example": "UInt32"
+          },
+          "defaultValue": {
+            "type": "string",
+            "description": "Default value for the configuration element",
+            "example": "75"
+          },
+          "displayType": {
+            "type": "string",
+            "description": "Display type for UI rendering",
+            "enum": [
+              "TextBox",
+              "DbTextBox",
+              "QFormattedValue",
+              "Slider",
+              "CheckBox",
+              "DropDown",
+              "Dump",
+              "File",
+              "BitField",
+              "Formula",
+              "StringField"
+            ],
+            "example": "Slider"
+          },
+          "policy": {
+            "type": "string",
+            "description": "Element policy for visibility and access control",
+            "enum": [
+              "Hidden",
+              "Basic",
+              "Advanced"
+            ],
+            "example": "Basic"
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether the element is read-only",
+            "example": false
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name for the configuration element",
+            "example": "Volume Level"
+          },
+          "unitStr": {
+            "type": "string",
+            "description": "Unit of measurement",
+            "example": "dB"
+          },
+          "qFormat": {
+            "type": "string",
+            "description": "Q format string for fixed-point representation",
+            "example": "Q15"
+          },
+          "precision": {
+            "type": "number",
+            "description": "Precision value for decimal places",
+            "example": 2,
+            "minimum": 0
+          },
+          "linkedByForFormula": {
+            "description": "List of elements linked by formula",
+            "example": [
+              "gain_factor",
+              "offset_value"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultDataDepends": {
+            "description": "List of default data dependencies",
+            "example": [
+              "dependency1",
+              "dependency2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "dataType",
+          "defaultValue"
+        ]
+      },
+      "DefinitionConfigElementArrayDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "ConfigElementArray",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "eq_bands"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Equalizer band settings"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Audio Processing"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Equalizer"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "arrayLength": {
+            "type": "number",
+            "description": "Array length",
+            "example": 10,
+            "minimum": 0
+          },
+          "arrayLenFormulaStr": {
+            "type": "string",
+            "description": "Array length formula string",
+            "example": "num_channels * 2"
+          },
+          "copySrcInfoList": {
+            "description": "List of copy source information",
+            "example": [
+              "source1",
+              "source2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "keyConfigElement": {
+            "description": "Key configuration element defining the array item structure",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DefinitionConfigElementDto"
+              }
+            ]
+          },
+          "displayType": {
+            "type": "string",
+            "description": "Display type for the configuration element array",
+            "enum": [
+              "TextBox",
+              "DbTextBox",
+              "QFormattedValue",
+              "Slider",
+              "CheckBox",
+              "DropDown",
+              "Dump",
+              "File",
+              "BitField",
+              "Formula",
+              "StringField"
+            ],
+            "example": "Slider"
+          },
+          "policy": {
+            "type": "string",
+            "description": "Element policy for visibility and access control",
+            "enum": [
+              "Hidden",
+              "Basic",
+              "Advanced"
+            ],
+            "example": "Basic"
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether the element array is read-only",
+            "example": false
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "arrayLength",
+          "arrayLenFormulaStr",
+          "copySrcInfoList",
+          "keyConfigElement"
+        ]
+      },
+      "DefinitionStructDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "Struct",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "audio_settings"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Audio configuration settings"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "System Config"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Audio Settings"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "structureType": {
+            "type": "string",
+            "description": "Structure type identifier",
+            "example": "AudioConfig"
+          },
+          "children": {
+            "type": "array",
+            "description": "Child elements within the structure",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructDto"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "structureType",
+          "children"
+        ]
+      },
+      "DefinitionStructArrayDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "StructArray",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "channel_configs"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Per-channel audio configuration settings"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Channel Settings"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Multi-Channel"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "arrayLength": {
+            "type": "number",
+            "description": "Array length",
+            "example": 2,
+            "minimum": 0
+          },
+          "arrayLenFormulaStr": {
+            "type": "string",
+            "description": "Array length formula string",
+            "example": "num_channels"
+          },
+          "copySrcInfoList": {
+            "description": "List of copy source information",
+            "example": [
+              "source1",
+              "source2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "keyStructureDefinition": {
+            "description": "Key structure definition for array items",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DefinitionStructDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "arrayLength",
+          "arrayLenFormulaStr",
+          "copySrcInfoList",
+          "keyStructureDefinition"
         ]
       },
       "ParameterDefinitionSummaryInfo": {
