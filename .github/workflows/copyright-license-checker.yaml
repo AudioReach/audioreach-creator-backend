@@ -1,0 +1,43 @@
+name: Run Copyright and License Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  copyright-license-detector:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR HEAD
+        uses: actions/checkout@v4
+        with:
+          # Check out the PR's actual head commit (not the synthetic merge ref).
+          # This avoids failures when the PR has merge conflicts, and ensures
+          # the diff matches exactly what GitHub shows in the PR UI.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: |
+          git fetch --no-tags --prune origin \
+            "+refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+
+      - name: Generate patch for PR changes only (GitHub PR-style 3-dot diff)
+        run: |
+          BASE="origin/${{ github.event.pull_request.base.ref }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          # GitHub PRs show a three-dot diff: merge-base(base, head) -> head.
+          # Using the live base branch tip (not the stale SHA from the event
+          # payload) ensures the patch always matches the GitHub PR UI diff.
+          git diff "${BASE}...${HEAD}" > pr.patch
+          head -n 400 pr.patch
+
+      - name: Run copyright/license detector
+        uses: qualcomm/copyright-license-checker-action@main
+        with:
+          patch_file: pr.patch
+          repo_name: ${{ github.repository }}
