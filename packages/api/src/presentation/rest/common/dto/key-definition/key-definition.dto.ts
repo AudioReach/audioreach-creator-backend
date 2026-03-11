@@ -7,7 +7,7 @@ import {ApiProperty} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
 import {BaseDto} from '../base.dto.js';
 import {SpecialKey} from '../../enums/key-definition/special-key.enum.js';
-import {KeyDefinitionCHeaderDto} from './key-definition-cheader.dto.js';
+import {KeyDefinitionCHeaderDto} from './key-definition-c-header.dto.js';
 import {KeyType} from '../../enums/key-definition/key-type.enum.js';
 import {ValueDefinitionDto} from './value-definition.dto.js';
 

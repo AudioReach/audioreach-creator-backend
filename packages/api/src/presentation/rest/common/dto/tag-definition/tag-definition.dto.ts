@@ -6,8 +6,8 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {Type} from 'class-transformer';
 import {BaseDto} from '../base.dto.js';
-import {TagDefinitionCHeaderDto} from './tag-definition-cheader.dto.js';
-import {TagKeyDefinitionDetailDto} from './tag-key-definition.dto.js';
+import {TagDefinitionCHeaderDto} from './tag-definition-c-header.dto.js';
+import {TagDefinitionKeyDetailDto} from './tag-definition-key.dto.js';
 
 export class TagDefinitionSummaryDto extends BaseDto {
   @ApiProperty({description: 'Unique system identifier for the tag'})
@@ -34,9 +34,9 @@ export class TagDefinitionDto extends TagDefinitionSummaryDto {
 export class TagDefinitionDetailDto extends TagDefinitionDto {
   @ApiProperty({
     description: 'List of key definitions associated with this tag',
-    type: () => TagKeyDefinitionDetailDto,
+    type: () => TagDefinitionKeyDetailDto,
     isArray: true,
   })
-  @Type(() => TagKeyDefinitionDetailDto)
-  keys!: TagKeyDefinitionDetailDto[];
+  @Type(() => TagDefinitionKeyDetailDto)
+  keys!: TagDefinitionKeyDetailDto[];
 }

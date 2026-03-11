@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty, OmitType, PartialType} from '@nestjs/swagger';
-import {TagDefinitionDto} from '../../../../../common/dto/key-definition/tag-definition.dto.js';
+import {TagDefinitionDto} from '../../../../../common/dto/tag-definition/tag-definition.dto.js';
 
 export class CreateTagDefinitionRequestDto extends PartialType(
   OmitType(TagDefinitionDto, ['systemId', 'changeInfo'] as const),

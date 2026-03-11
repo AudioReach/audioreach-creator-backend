@@ -597,7 +597,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/definitions/keys": {
+    "/arc-api/v1/projects/{projectId}/key-definitions": {
       "get": {
         "description": "Return the list of key definitions based on project id",
         "operationId": "KeyDefinitionController_getKeyDefinitions",
@@ -618,6 +618,28 @@
             "description": "Filter by key definition id",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "keyType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by key type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CALIBRATION",
+                "GRAPH"
+              ]
+            }
+          },
+          {
+            "name": "isVoice",
+            "required": false,
+            "in": "query",
+            "description": "Filter by voice keys only (true/false)",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -646,6 +668,9 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid query parameters (e.g., invalid keyType or isVoice value)"
+          },
           "404": {
             "description": "Project or key definition does not exist",
             "content": {
@@ -659,11 +684,11 @@
         },
         "summary": "Return the list of key definitions",
         "tags": [
-          "key-definition"
+          "key-definitions"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/definitions/keys/{keySystemId}": {
+    "/arc-api/v1/projects/{projectId}/key-definitions/{keySystemId}": {
       "get": {
         "description": "Return key definition based on project id and key definition system id",
         "operationId": "KeyDefinitionController_getKeyDefinition",
@@ -709,6 +734,9 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid parameters"
+          },
           "404": {
             "description": "Project or key definition not found",
             "content": {
@@ -722,7 +750,7 @@
         },
         "summary": "Return key definition by key system id",
         "tags": [
-          "key-definition"
+          "key-definitions"
         ]
       },
       "delete": {
@@ -772,7 +800,7 @@
         },
         "summary": "Delete key definition",
         "tags": [
-          "key-definition"
+          "key-definitions"
         ]
       }
     },
@@ -825,6 +853,9 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid query parameters"
+          },
           "404": {
             "description": "Project or tag definition does not exist",
             "content": {
@@ -838,11 +869,11 @@
         },
         "summary": "Return list of tag definitions",
         "tags": [
-          "key-definition"
+          "tag-definitions"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/definitions/tags/{tagSystemId}": {
+    "/arc-api/v1/projects/{projectId}/tag-definitions/{tagSystemId}": {
       "get": {
         "description": "Return tag definition based on project id and tag definition system id",
         "operationId": "KeyDefinitionController_getTagDefinition",
@@ -888,6 +919,9 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid parameters"
+          },
           "404": {
             "description": "Project or tag definition not found",
             "content": {
@@ -901,7 +935,7 @@
         },
         "summary": "Return tag definition by tag system id",
         "tags": [
-          "key-definition"
+          "tag-definitions"
         ]
       },
       "delete": {
@@ -951,7 +985,7 @@
         },
         "summary": "Delete tag key definition",
         "tags": [
-          "key-definition"
+          "tag-definitions"
         ]
       }
     },

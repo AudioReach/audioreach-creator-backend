@@ -4,7 +4,7 @@
  */
 
 import {OmitType, PartialType} from '@nestjs/swagger';
-import {TagDefinitionDto} from '../../../../../common/dto/key-definition/tag-definition.dto.js';
+import {TagDefinitionDto} from '../../../../../common/dto/tag-definition/tag-definition.dto.js';
 
 export class PatchTagDefinitionRequestDto extends PartialType(
   OmitType(TagDefinitionDto, ['systemId', 'changeInfo'] as const),
