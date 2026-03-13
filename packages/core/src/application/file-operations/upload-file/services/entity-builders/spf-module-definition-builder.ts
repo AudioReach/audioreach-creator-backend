@@ -9,6 +9,7 @@ import {HANDLER_KEYS} from '../../../shared/constants/registry-keys.js';
 import {SpfModuleDefinition as AwspSpfModuleDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
 import {SpfModuleDefinition as DomainSpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 import {DataPortGroupDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
+import {DataPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 import {StaticControlPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
 import {DynamicIntentDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/dynamic-intent-definition.js';
 
@@ -329,20 +330,56 @@ export class SpfModuleDefinitionBuilder {
   private static createInputPortGroup(
     awsp: AwspSpfModuleDefinition,
   ): DataPortGroupDefinition {
+    const staticPortDefinitions: DataPortDefinition[] = [];
+
+    if (awsp.inputPortsInfo?.ports) {
+      for (const awspPort of awsp.inputPortsInfo.ports) {
+        try {
+          const dataPort = new DataPortDefinition({
+            dataPortId: awspPort.id,
+            dataPortName: awspPort.name || `Port_${awspPort.id}`,
+          });
+          staticPortDefinitions.push(dataPort);
+        } catch (error) {
+          throw new Error(
+            `Failed to transform input data port ${awspPort.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    }
+
     return new DataPortGroupDefinition({
       max: awsp.inputPortsInfo?.maxPortCount || 0,
-      portIoType: 'Input', // TODO: Map from AWSP when available
-      staticPortDefinitions: [], // TODO: Map ports when available
+      portIoType: 'Input',
+      staticPortDefinitions,
     });
   }
 
   private static createOutputPortGroup(
     awsp: AwspSpfModuleDefinition,
   ): DataPortGroupDefinition {
+    const staticPortDefinitions: DataPortDefinition[] = [];
+
+    if (awsp.outputPortsInfo?.ports) {
+      for (const awspPort of awsp.outputPortsInfo.ports) {
+        try {
+          const dataPort = new DataPortDefinition({
+            dataPortId: awspPort.id,
+            dataPortName: awspPort.name || `Port_${awspPort.id}`,
+          });
+          staticPortDefinitions.push(dataPort);
+        } catch (error) {
+          throw new Error(
+            `Failed to transform output data port ${awspPort.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    }
+
     return new DataPortGroupDefinition({
       max: awsp.outputPortsInfo?.maxPortCount || 0,
-      portIoType: 'Output', // TODO: Map from AWSP when available
-      staticPortDefinitions: [], // TODO: Map ports when available
+      portIoType: 'Output',
+      staticPortDefinitions,
     });
   }
 
