@@ -102,6 +102,7 @@ export * from './domain/entities/usecase-data/usecase/usecase.js';
 
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
+export * from './domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 export * from './domain/entities/definitions/key-value/aggregate/key-definition.js';
 export * from './domain/entities/definitions/key-value/entities/value-definition.js';
 
