@@ -22,16 +22,22 @@ export class ControlLinksProperty {
   /**
    * Create ControlLinksProperty from binary payload
    */
-  static fromPayload(payload: Uint8Array): ControlLinksProperty {
+  static fromPayload(
+    payload: Uint8Array,
+    currentSubgraphModuleInstanceIds: number[] = [],
+  ): ControlLinksProperty {
     const instance = new ControlLinksProperty();
-    instance.parsePayload(payload);
+    instance.parsePayload(payload, currentSubgraphModuleInstanceIds);
     return instance;
   }
 
   /**
    * Parse binary payload into control links
    */
-  private parsePayload(payload: Uint8Array): void {
+  private parsePayload(
+    payload: Uint8Array,
+    currentSubgraphModuleInstanceIds: number[] = [],
+  ): void {
     const view = new DataView(
       payload.buffer,
       payload.byteOffset,
@@ -51,7 +57,12 @@ export class ControlLinksProperty {
 
     // Parse each control link
     for (let i = 0; i < count; i++) {
-      const result = this.parseControlLink(view, payload, pos);
+      const result = this.parseControlLink(
+        view,
+        payload,
+        pos,
+        currentSubgraphModuleInstanceIds,
+      );
       this.controlLinks.push(result.controlLink);
       pos = result.newPos;
     }
@@ -78,6 +89,7 @@ export class ControlLinksProperty {
     view: DataView,
     payload: Uint8Array,
     startPos: number,
+    currentSubgraphModuleInstanceIds: number[],
   ): {controlLink: ControlLink; newPos: number} {
     let pos = startPos;
 
@@ -129,6 +141,13 @@ export class ControlLinksProperty {
     // Add default heap ID if not present
     this.addDefaultHeapIdIfNeeded(properties);
 
+    // Calculate isInterGraph based on module instance membership
+    const isInterGraph = this.calculateIsInterGraph(
+      peer1InstanceId,
+      peer2InstanceId,
+      currentSubgraphModuleInstanceIds,
+    );
+
     // Create control link
     const controlLink: ControlLink = {
       peer1InstanceId,
@@ -136,6 +155,7 @@ export class ControlLinksProperty {
       peer2InstanceId,
       peer2PortId,
       properties,
+      isInterGraph,
     };
 
     return {controlLink, newPos: pos};
@@ -286,5 +306,22 @@ export class ControlLinksProperty {
       instanceIds.add(link.peer2InstanceId);
     }
     return [...instanceIds];
+  }
+
+  /**
+   * Calculate whether a control link crosses subgraph boundaries
+   */
+  private calculateIsInterGraph(
+    peer1InstanceId: number,
+    peer2InstanceId: number,
+    currentSubgraphModuleInstanceIds: number[],
+  ): boolean {
+    const peer1InCurrentSubgraph =
+      currentSubgraphModuleInstanceIds.includes(peer1InstanceId);
+    const peer2InCurrentSubgraph =
+      currentSubgraphModuleInstanceIds.includes(peer2InstanceId);
+
+    // If either peer is not in current subgraph, it's inter-graph
+    return !peer1InCurrentSubgraph || !peer2InCurrentSubgraph;
   }
 }

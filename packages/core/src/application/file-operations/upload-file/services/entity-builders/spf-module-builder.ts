@@ -16,7 +16,19 @@ import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-
 import type {SpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 
 /**
- * Builder for converting SpfModuleInfo data to SpfModule domain entities.
+ * Dynamic control port ID starts from this value
+ */
+const DYNAMIC_CONTROL_PORT_ID_START = 0x80_00_00_00;
+
+/**
+ * Information about dynamic control ports usage per module
+ */
+export interface DynamicControlPortInfo {
+  maxDynamicPortIdPerModule: Map<number, number>;
+}
+
+/**
+ * Builder for converting ModuleInstanceInfo data to SpfModule domain entities.
  * Handles creation of modules with ports and foreign key mappings.
  */
 export class SpfModuleBuilder {
@@ -34,6 +46,7 @@ export class SpfModuleBuilder {
     fileSystemId: number,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
     spfModuleDefinitions: SpfModuleDefinition[] = [],
+    dynamicControlPortInfo?: DynamicControlPortInfo,
   ): SpfModule[] {
     // Input validation
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
@@ -47,6 +60,8 @@ export class SpfModuleBuilder {
       fileSystemId,
       modulePropertyConfigs,
       moduleDisplayNames,
+      spfModuleDefinitions,
+      dynamicControlPortInfo,
     );
 
     this.logConversionComplete(successCount, errorCount);
@@ -77,6 +92,8 @@ export class SpfModuleBuilder {
     fileSystemId: number,
     modulePropertyConfigs: ModulePropertyConfig[],
     moduleDisplayNames: Map<number, string>,
+    spfModuleDefinitions: SpfModuleDefinition[],
+    dynamicControlPortInfo?: DynamicControlPortInfo,
   ): {spfModules: SpfModule[]; successCount: number; errorCount: number} {
     const spfModules: SpfModule[] = [];
     let successCount = 0;
@@ -89,12 +106,19 @@ export class SpfModuleBuilder {
             config => config.spfModuleInstanceId === moduleInstance.instanceId,
           );
 
+          // TODO: Get processorId from container property to match with definition's supportedProcessorIds
+          const moduleDefinition = spfModuleDefinitions.find(
+            def => def.id === moduleInstance.moduleId,
+          );
+
           const spfModule = this.convertSpfModuleInstance(
             moduleInstance,
             moduleInfo,
             fileSystemId,
             modulePropertyConfig,
             moduleDisplayNames,
+            moduleDefinition,
+            dynamicControlPortInfo,
           );
           spfModules.push(spfModule);
           successCount++;
@@ -140,6 +164,8 @@ export class SpfModuleBuilder {
     fileSystemId: number,
     modulePropertyConfig?: ModulePropertyConfig,
     moduleDisplayNames?: Map<number, string>,
+    moduleDefinition?: SpfModuleDefinition,
+    dynamicControlPortInfo?: DynamicControlPortInfo,
   ): SpfModule {
     // Get foreign key mappings
     const subgraphSystemId = this.getSubgraphSystemId(moduleInfo.subgraphId);
@@ -154,9 +180,18 @@ export class SpfModuleBuilder {
       // Intentionally empty - reserved for future property-based configuration
     }
 
-    // Create data ports using module property config
-    const dataPorts = this.createDataPortsFromProperties(modulePropertyConfig);
-    const controlPorts = this.createDefaultControlPorts();
+    // Create data ports using module property config and definition
+    const dataPorts = this.createDataPortsFromProperties(
+      modulePropertyConfig,
+      moduleDefinition,
+    );
+
+    // Create control ports using module definition and dynamic port info
+    const controlPorts = this.createControlPortsFromProperties(
+      moduleInstance.instanceId,
+      moduleDefinition,
+      dynamicControlPortInfo,
+    );
 
     // Get display name from module definition, fallback to default alias
     const displayName = moduleDisplayNames?.get(moduleInstance.moduleId);
@@ -217,16 +252,17 @@ export class SpfModuleBuilder {
   }
 
   /**
-   * Create data ports from module properties using the interface API
+   * Create data ports from module properties and definition.
+   * Static ports are created from the module definition, dynamic ports from the property config.
    */
   createDataPortsFromProperties(
     modulePropertyConfig?: ModulePropertyConfig,
+    moduleDefinition?: SpfModuleDefinition,
   ): DataPort[] {
     if (!modulePropertyConfig) {
       return [];
     }
 
-    // Use the interface method directly - clean and simple!
     const portInfo = modulePropertyConfig.getPortInfo();
 
     if (!portInfo) {
@@ -235,9 +271,30 @@ export class SpfModuleBuilder {
 
     const dataPorts: DataPort[] = [];
 
-    // Create input ports with EVEN IDs starting from 2 (2, 4, 6, ...)
-    for (let i = 0; i < portInfo.maxInputPorts; i++) {
-      const portId = i * 2 + 2;
+    // Get static ports from module definition
+    const staticInputPorts = moduleDefinition?.inputPortsInfo?.ports || [];
+    const staticOutputPorts = moduleDefinition?.outputPortsInfo?.ports || [];
+
+    // Create static input ports with EVEN IDs starting from 2 (2, 4, 6, ...)
+    for (const staticPort of staticInputPorts) {
+      dataPorts.push(
+        new DataPort({
+          systemId: 0,
+          dataPortId: staticPort.id,
+          portIoType: PORT_IO_TYPE.Input,
+          isStatic: true,
+          name: staticPort.name || `Input_${staticPort.id}`,
+        }),
+      );
+    }
+
+    // Calculate dynamic input port count
+    const dynamicInputPortCount =
+      portInfo.maxInputPorts - staticInputPorts.length;
+
+    // Create dynamic input ports with EVEN IDs continuing from static ports
+    for (let i = 0; i < dynamicInputPortCount; i++) {
+      const portId = (staticInputPorts.length + i) * 2 + 2;
       dataPorts.push(
         new DataPort({
           systemId: 0,
@@ -249,9 +306,26 @@ export class SpfModuleBuilder {
       );
     }
 
-    // Create output ports with ODD IDs starting from 1 (1, 3, 5, ...)
-    for (let i = 0; i < portInfo.maxOutputPorts; i++) {
-      const portId = i * 2 + 1;
+    // Create static output ports with ODD IDs starting from 1 (1, 3, 5, ...)
+    for (const staticPort of staticOutputPorts) {
+      dataPorts.push(
+        new DataPort({
+          systemId: 0,
+          dataPortId: staticPort.id,
+          portIoType: PORT_IO_TYPE.Output,
+          isStatic: true,
+          name: staticPort.name || `Output_${staticPort.id}`,
+        }),
+      );
+    }
+
+    // Calculate dynamic output port count
+    const dynamicOutputPortCount =
+      portInfo.maxOutputPorts - staticOutputPorts.length;
+
+    // Create dynamic output ports with ODD IDs continuing from static ports
+    for (let i = 0; i < dynamicOutputPortCount; i++) {
+      const portId = (staticOutputPorts.length + i) * 2 + 1;
       dataPorts.push(
         new DataPort({
           systemId: 0,
@@ -267,10 +341,89 @@ export class SpfModuleBuilder {
   }
 
   /**
-   * Create default control ports (will be enhanced with actual port data)
+   * Create control ports from module properties and definition.
+   * Static ports are created from the module definition.
+   * Dynamic ports are created based on actual usage in control links (dense creation from 0x80000000 to max).
    */
-  private createDefaultControlPorts(): ControlPort[] {
-    // TODO: For now, create empty array - will be populated with actual port data
-    return [];
+  createControlPortsFromProperties(
+    instanceId: number,
+    moduleDefinition?: SpfModuleDefinition,
+    dynamicControlPortInfo?: DynamicControlPortInfo,
+  ): ControlPort[] {
+    const controlPorts: ControlPort[] = [];
+
+    if (!moduleDefinition?.controlPortsInfo) {
+      return controlPorts;
+    }
+
+    const controlPortsInfo = moduleDefinition.controlPortsInfo;
+
+    // 1. Create ALL STATIC control ports from definition
+    // These are added to every module instance
+    if (controlPortsInfo.staticPorts) {
+      for (const staticPort of controlPortsInfo.staticPorts) {
+        // Store intent IDs directly as data
+        const intentSystemIds = staticPort.supportedIntents.map(
+          intent => intent.id,
+        );
+
+        controlPorts.push(
+          new ControlPort({
+            systemId: 0,
+            portId: staticPort.id,
+            isStatic: true,
+            nodeSystemId: 0, // Will be set after module insertion
+            name: staticPort.name || `ControlPort_${staticPort.id}`,
+            intentSystemIds,
+          }),
+        );
+      }
+    }
+
+    // 2. Create DYNAMIC control ports (dense creation from 0x80000000 to max)
+    if (controlPortsInfo.dynamicIntents && dynamicControlPortInfo) {
+      const maxDynamicPortId =
+        dynamicControlPortInfo.maxDynamicPortIdPerModule.get(instanceId);
+
+      if (
+        maxDynamicPortId &&
+        maxDynamicPortId >= DYNAMIC_CONTROL_PORT_ID_START
+      ) {
+        // Calculate number of dynamic ports needed
+        const numDynamicPorts =
+          maxDynamicPortId - DYNAMIC_CONTROL_PORT_ID_START + 1;
+
+        // All dynamic ports support all dynamic intents
+        const dynamicIntentSystemIds = controlPortsInfo.dynamicIntents.map(
+          intent => intent.id,
+        );
+
+        // Create all ports from 0x80000000 to maxDynamicPortId (dense)
+        for (let i = 0; i < numDynamicPorts; i++) {
+          const portId = DYNAMIC_CONTROL_PORT_ID_START + i;
+
+          controlPorts.push(
+            new ControlPort({
+              systemId: 0,
+              portId: portId,
+              isStatic: false,
+              nodeSystemId: 0,
+              name: `DynamicControlPort_0x${portId.toString(16)}`, // Hex format
+              intentSystemIds: dynamicIntentSystemIds,
+            }),
+          );
+        }
+
+        this.logger?.logDebug({
+          msg: `Created ${numDynamicPorts} dynamic control ports for module instance ${instanceId} (0x${DYNAMIC_CONTROL_PORT_ID_START.toString(16)} to 0x${maxDynamicPortId.toString(16)})`,
+          action: 'dynamic_control_ports_created',
+          component: 'SpfModuleBuilder',
+          tag: 'control-port-building',
+          timestamp: new Date(),
+        });
+      }
+    }
+
+    return controlPorts;
   }
 }
