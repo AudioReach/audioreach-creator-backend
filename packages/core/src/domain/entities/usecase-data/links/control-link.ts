@@ -7,27 +7,33 @@ import {SameNodeException} from './exceptions.js';
 
 export class ControlLink {
   public systemId: number;
+  public fileSystemId: number;
   public peerNodeASystemId: number;
   public peerNodeBSystemId: number;
   public nodeAPortSystemId: number;
   public nodeBPortSystemId: number;
+  public intents: number[];
   public heapId: number;
   public isInterGraph: boolean;
 
   constructor(
     systemId: number,
+    fileSystemId: number,
     peerNodeASystemId: number,
     peerNodeBSystemId: number,
     nodeAPortSystemId: number,
     nodeBPortSystemId: number,
+    intents: number[],
     heapId: number,
     isInterGraph: boolean,
   ) {
     this.systemId = systemId;
+    this.fileSystemId = fileSystemId;
     this.peerNodeASystemId = peerNodeASystemId;
     this.peerNodeBSystemId = peerNodeBSystemId;
     this.nodeAPortSystemId = nodeAPortSystemId;
     this.nodeBPortSystemId = nodeBPortSystemId;
+    this.intents = intents;
     this.heapId = heapId;
     this.isInterGraph = isInterGraph;
     if (this.peerNodeASystemId == this.peerNodeBSystemId) {

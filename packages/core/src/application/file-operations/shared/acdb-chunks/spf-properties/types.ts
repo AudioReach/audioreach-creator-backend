@@ -108,6 +108,8 @@ export interface ControlLink {
   peer2PortId: number;
   /** Map of property ID to property data */
   properties: Map<number, Uint8Array>;
+  /** Whether this link crosses subgraph boundaries */
+  isInterGraph: boolean;
 }
 
 /**

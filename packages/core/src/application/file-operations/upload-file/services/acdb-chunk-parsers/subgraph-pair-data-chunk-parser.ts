@@ -255,7 +255,7 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
           sourcePortId: srcPortId,
           destinationInstanceId: dstMid,
           destinationPortId: dstPortId,
-          isInterGraph: true, // Always true for subgraph connections
+          isInterGraph: false, // Subgraph pair connections are intra-graph
           naturalKeyHash,
         });
       }
@@ -334,6 +334,7 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
           peer2InstanceId: dstMid,
           peer2PortId: dstPortId,
           properties,
+          isInterGraph: false, // Subgraph pair connections are intra-graph
         });
       }
 

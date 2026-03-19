@@ -76,10 +76,12 @@ export class ControlLinkInserter extends BaseInserter<
     controlLink: Omit<ControlLink, 'systemId'>,
   ): QueryDeepPartialEntity<ControlLinkRow> {
     return {
+      fileSystemId: controlLink.fileSystemId,
       peerNodeASystemId: controlLink.peerNodeASystemId,
       peerNodeBSystemId: controlLink.peerNodeBSystemId,
       nodeAPortSystemId: controlLink.nodeAPortSystemId,
       nodeBPortSystemId: controlLink.nodeBPortSystemId,
+      intents: controlLink.intents,
       heapId: controlLink.heapId,
       isInterGraph: controlLink.isInterGraph,
     };

@@ -6,6 +6,11 @@ import {ControlLink} from '../../../../../domain/entities/usecase-data/links/con
 import type {ControlLink as ControlLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
+import {
+  MODULE_PROP_ID_CTRL_HEAP_ID,
+  MODULE_PROP_ID_CTRL_LINK_INTENTS,
+} from '../../../shared/constants/spf-ids.js';
 
 /**
  * Builder for converting ControlLink property data to ControlLink domain entities.
@@ -24,6 +29,7 @@ export class ControlLinkBuilder {
    */
   buildControlLinks(
     controlLinkProperties: ControlLinkProperty[],
+    fileSystemId: number,
   ): ControlLink[] {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
@@ -68,7 +74,10 @@ export class ControlLinkBuilder {
 
     for (const property of uniqueProperties.values()) {
       try {
-        const controlLink = this.convertControlLinkProperty(property);
+        const controlLink = this.convertControlLinkProperty(
+          property,
+          fileSystemId,
+        );
         controlLinks.push(controlLink);
         successCount++;
       } catch (error) {
@@ -100,6 +109,7 @@ export class ControlLinkBuilder {
    */
   private convertControlLinkProperty(
     property: ControlLinkProperty,
+    fileSystemId: number,
   ): ControlLink {
     // Get node systemIds from foreign key mapper
     const peerNodeASystemId = this.getSpfModuleSystemId(
@@ -109,21 +119,114 @@ export class ControlLinkBuilder {
       property.peer2InstanceId,
     );
 
-    // For now, use port IDs directly as port systemIds
-    // TODO: Implement proper port systemId mapping when port creation is implemented
-    const nodeAPortSystemId = property.peer1PortId;
-    const nodeBPortSystemId = property.peer2PortId;
+    // Get port systemIds from foreign key mapper
+    const nodeAPortSystemId = this.getControlPortSystemId(
+      peerNodeASystemId,
+      property.peer1PortId,
+    );
+    const nodeBPortSystemId = this.getControlPortSystemId(
+      peerNodeBSystemId,
+      property.peer2PortId,
+    );
+
+    // Extract intents from properties map
+    const intents = this.extractIntents(property.properties);
+
+    // Extract heapId from properties map
+    const heapId = this.extractHeapId(property.properties);
 
     // Create ControlLink entity
     return new ControlLink(
       0, // systemId - Will be generated during insertion
+      fileSystemId, // Associate with the file being uploaded
       peerNodeASystemId,
       peerNodeBSystemId,
       nodeAPortSystemId,
       nodeBPortSystemId,
-      0, // heapId - Default to 0, could be enhanced with actual heap data
-      false, // isInterGraph - Default to false, could be enhanced with actual logic
+      intents,
+      heapId,
+      property.isInterGraph, // Use the calculated value from parser
     );
+  }
+
+  /**
+   * Extract heapId from properties map
+   */
+  private extractHeapId(properties: Map<number, Uint8Array>): number {
+    const heapIdData = properties.get(MODULE_PROP_ID_CTRL_HEAP_ID);
+
+    if (!heapIdData || heapIdData.length < BinaryUtils.SIZEOF_UINT32) {
+      this.logger?.logWarn({
+        msg: 'HeapId property not found or invalid, using default value 0',
+        action: 'heap_id_default',
+        component: 'ControlLinkBuilder',
+        tag: 'control-link-building',
+        timestamp: new Date(),
+      });
+      return 0; // Default value
+    }
+
+    const view = new DataView(
+      heapIdData.buffer,
+      heapIdData.byteOffset,
+      heapIdData.byteLength,
+    );
+    return BinaryUtils.readUint32(view, 0);
+  }
+
+  /**
+   * Extract intents from properties map
+   */
+  private extractIntents(properties: Map<number, Uint8Array>): number[] {
+    const intentsData = properties.get(MODULE_PROP_ID_CTRL_LINK_INTENTS);
+
+    if (!intentsData || intentsData.length === 0) {
+      return []; // No intents property found, return empty array
+    }
+
+    try {
+      const view = new DataView(
+        intentsData.buffer,
+        intentsData.byteOffset,
+        intentsData.byteLength,
+      );
+      let pos = 0;
+
+      // Read count of intents
+      if (intentsData.length < BinaryUtils.SIZEOF_UINT32) {
+        throw new Error('Intents data too short to read count');
+      }
+      const count = BinaryUtils.readUint32(view, pos);
+      pos += BinaryUtils.SIZEOF_UINT32;
+
+      // Validate we have enough data for all intents
+      const expectedLength =
+        BinaryUtils.SIZEOF_UINT32 + count * BinaryUtils.SIZEOF_UINT32;
+      if (intentsData.length < expectedLength) {
+        throw new Error(
+          `Intents data too short: expected ${expectedLength} bytes, got ${intentsData.length}`,
+        );
+      }
+
+      // Read each intent ID
+      const intents: number[] = [];
+      for (let i = 0; i < count; i++) {
+        const intent = BinaryUtils.readUint32(view, pos);
+        pos += BinaryUtils.SIZEOF_UINT32;
+        intents.push(intent);
+      }
+
+      return intents;
+    } catch (error) {
+      this.logger?.logWarn({
+        msg: `Failed to extract intents: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        action: 'intents_extraction_failed',
+        component: 'ControlLinkBuilder',
+        tag: 'control-link-building',
+        timestamp: new Date(),
+      });
+      return []; // Return empty array on error
+    }
   }
 
   /**
@@ -134,6 +237,25 @@ export class ControlLinkBuilder {
     if (!systemId) {
       throw new Error(
         `No module instance systemId mapping found for instanceId ${instanceId}`,
+      );
+    }
+    return systemId;
+  }
+
+  /**
+   * Get control port systemId from foreign key mapper
+   */
+  private getControlPortSystemId(
+    moduleSystemId: number,
+    portNaturalId: number,
+  ): number {
+    const systemId = this.foreignKeyMapper.getControlPortSystemId(
+      moduleSystemId,
+      portNaturalId,
+    );
+    if (!systemId) {
+      throw new Error(
+        `No control port systemId mapping found for module ${moduleSystemId}, port ${portNaturalId}`,
       );
     }
     return systemId;

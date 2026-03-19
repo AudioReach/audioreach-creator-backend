@@ -9,7 +9,10 @@ import type {BulkEntityInsertResult} from '../../../ports/persistence/repositori
 import type {BulkKeyDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
 import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
-import type {BulkDataLinkInsertResult} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
+import type {
+  BulkDataLinkInsertResult,
+  BulkControlLinkInsertResult,
+} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
 import {EntityBuilderService} from './entity-builder-service.js';
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
@@ -18,6 +21,7 @@ import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/s
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
+import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import {ForeignKeyMapper} from './foreign-key-mapper.js';
 import {AcdbFileOrchestrator} from './acdb-file-orchestrator.js';
 import {AwspFileOrchestrator} from './awsp-file-orchestrator.js';
@@ -135,6 +139,7 @@ export class UploadFileOrchestrator {
       | BulkEntityInsertResult<number>
       | BulkModuleInsertResult
       | BulkDataLinkInsertResult
+      | BulkControlLinkInsertResult
       | BulkKeyDefinitionInsertResult
       | BulkModuleDefinitionInsertResult,
   ): void {
@@ -276,9 +281,8 @@ export class UploadFileOrchestrator {
       // Phase 5: Build and Insert Data Links (depend on modules)
       await this.buildAndInsertDataLinks(bulkRepo);
 
-      // TODO: Re-enable control links insertion once implementation is complete
-      // Phase 6: Build and Insert Control Links (depend on modules) - Currently disabled
-      // await this.buildAndInsertControlLinks(bulkRepo);
+      // Phase 6: Build and Insert Control Links (depend on modules)
+      await this.buildAndInsertControlLinks(bulkRepo);
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
@@ -614,40 +618,58 @@ export class UploadFileOrchestrator {
   /**
    * Phase 6: Build and Insert Control Links
    */
-  //   private async buildAndInsertControlLinks(bulkRepo: any): Promise<void> {
-  //     if (!this.parsedAcdb || !this.parsedAwsp) {
-  //       throw new Error('Parsed data not available for building control links');
-  //     }
+  private async buildAndInsertControlLinks(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building control links');
+    }
 
-  //     // Build control links (now that we have module systemIds)
-  //     const controlLinks = await this.builderService.buildControlLinks(
-  //       this.parsedAcdb,
-  //     );
+    // Profile building phase
+    this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING);
+    const controlLinks = this.builderService.buildControlLinks(
+      this.parsedAcdb,
+      this.currentFileId,
+    );
+    const buildMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.CONTROL_LINK_BUILDING,
+    );
+    this.logEntityBuildMetrics(buildMetrics, controlLinks?.length || 0);
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_BUILD),
+    );
 
-  //     if (controlLinks && controlLinks.length > 0) {
-  //       const controlLinkResult = await bulkRepo.insertControlLinks(
-  //         controlLinks.map((cl: ControlLink) => ({
-  //           ...cl,
-  //           systemId: undefined,
-  //         })) as any,
-  //       );
+    if (controlLinks && controlLinks.length > 0) {
+      // Profile insertion phase
+      this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_INSERT);
+      const controlLinkResult: BulkControlLinkInsertResult =
+        await bulkRepo.insertControlLinks(
+          controlLinks as readonly Omit<ControlLink, 'systemId'>[],
+        );
+      const insertMetrics = this.profiler?.end(
+        PROFILER_OPERATIONS.CONTROL_LINK_INSERT,
+      );
+      this.logEntityInsertMetrics(insertMetrics, controlLinkResult);
+      this.logMemorySnapshot(
+        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_INSERT),
+      );
 
-  //       // Store control link mappings for usecases
-  //       this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
+      // Store control link mappings for usecases
+      this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
 
-  //       const successfulInserts = controlLinkResult.results.filter(
-  //         (r: any) => r.success,
-  //       ).length;
+      const successfulInserts = controlLinkResult.results.filter(
+        r => r.success,
+      ).length;
 
-  //       this.logger?.logInfo({
-  //         msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
-  //         action: 'control_links_persisted',
-  //         component: 'UploadFileOrchestrator',
-  //         tag: 'database-persistence',
-  //         timestamp: new Date(),
-  //       });
-  //     }
-  //   }
+      this.logger?.logInfo({
+        msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
+        action: 'control_links_persisted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
+    }
+  }
 
   /**
    * Phase 7: Build and Insert Usecases
