@@ -1,7 +1,12 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1774246361713 implements MigrationInterface {
-  name = 'InitialCreate1774246361713';
+export class InitialCreate1774258410902 implements MigrationInterface {
+  name = 'InitialCreate1774258410902';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -122,7 +127,7 @@ export class InitialCreate1774246361713 implements MigrationInterface {
       `CREATE TABLE "module_manager_data" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_type" integer NOT NULL, "interface_type" integer NOT NULL, "interface_version" integer NOT NULL, "file_name" varchar(255) NOT NULL, "tag" varchar(100) NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "project_system_id" integer NOT NULL)`,
+      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_entity_id" integer NOT NULL DEFAULT (0), "project_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_files_project_filename" ON "files" ("project_system_id", "file_name") `,
@@ -290,18 +295,6 @@ export class InitialCreate1774246361713 implements MigrationInterface {
       `CREATE TABLE "use_case_categories_master" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, CONSTRAINT "UQ_80233ed2a392151aa4f419b079e" UNIQUE ("name"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "edit_sessions" ("session_id" varchar(36) PRIMARY KEY NOT NULL, "user_id" varchar(255), "client_id" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "mode_id" varchar(36) NOT NULL, "edit_status" varchar CHECK( "edit_status" IN ('ACTIVE','COMMITTED') ) NOT NULL, "committed_at" datetime, "commit_message" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_edit_sessions_file" ON "edit_sessions" ("file_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_edit_sessions_status" ON "edit_sessions" ("edit_status") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_edit_sessions_mode" ON "edit_sessions" ("mode_id") `,
-    );
-    await queryRunner.query(
       `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('ADD','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('UNSTAGED','STAGED','DISCARDED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
     );
     await queryRunner.query(
@@ -330,15 +323,6 @@ export class InitialCreate1774246361713 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_restore_points_file" ON "restore_points" ("file_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "project_activities" ("activity_id" varchar(36) PRIMARY KEY NOT NULL, "file_system_id" integer NOT NULL, "activity_type" varchar CHECK( "activity_type" IN ('DESIGNER','DIFF_MERGE','SIMULATION') ) NOT NULL, "ended_at" datetime, "started_at" datetime NOT NULL DEFAULT (datetime('now')))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_project_activities_file" ON "project_activities" ("file_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_project_activities_active" ON "project_activities" ("file_system_id", "ended_at") `,
     );
     await queryRunner.query(
       `CREATE TABLE "project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "client_id" varchar(255) NOT NULL, "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime)`,
@@ -652,10 +636,10 @@ export class InitialCreate1774246361713 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "uk_files_project_filename"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "project_system_id" integer NOT NULL, CONSTRAINT "FK_aac4841c3940d3251cc25b6c3be" FOREIGN KEY ("project_system_id") REFERENCES "projects" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_entity_id" integer NOT NULL DEFAULT (0), "project_system_id" integer NOT NULL, CONSTRAINT "FK_aac4841c3940d3251cc25b6c3be" FOREIGN KEY ("project_system_id") REFERENCES "projects" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "project_system_id" FROM "files"`,
+      `INSERT INTO "temporary_files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_entity_id", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_entity_id", "project_system_id" FROM "files"`,
     );
     await queryRunner.query(`DROP TABLE "files"`);
     await queryRunner.query(`ALTER TABLE "temporary_files" RENAME TO "files"`);
@@ -1044,24 +1028,6 @@ export class InitialCreate1774246361713 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
     );
-    await queryRunner.query(`DROP INDEX "idx_project_activities_file"`);
-    await queryRunner.query(`DROP INDEX "idx_project_activities_active"`);
-    await queryRunner.query(
-      `CREATE TABLE "temporary_project_activities" ("activity_id" varchar(36) PRIMARY KEY NOT NULL, "file_system_id" integer NOT NULL, "activity_type" varchar CHECK( "activity_type" IN ('DESIGNER','DIFF_MERGE','SIMULATION') ) NOT NULL, "ended_at" datetime, "started_at" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "FK_67d5e1e4fca6555928811066838" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "temporary_project_activities"("activity_id", "file_system_id", "activity_type", "ended_at", "started_at") SELECT "activity_id", "file_system_id", "activity_type", "ended_at", "started_at" FROM "project_activities"`,
-    );
-    await queryRunner.query(`DROP TABLE "project_activities"`);
-    await queryRunner.query(
-      `ALTER TABLE "temporary_project_activities" RENAME TO "project_activities"`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_project_activities_file" ON "project_activities" ("file_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_project_activities_active" ON "project_activities" ("file_system_id", "ended_at") `,
-    );
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_session_commits" ("commit_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "commit_message" text NOT NULL, "committed_at" datetime NOT NULL DEFAULT (datetime('now')), "change_count" integer NOT NULL DEFAULT (0), CONSTRAINT "FK_6a755b7e63615bb9a58f76f6dfc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -1350,24 +1316,6 @@ export class InitialCreate1774246361713 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "temporary_session_commits"`);
     await queryRunner.query(
       `CREATE INDEX "idx_session_commits_session" ON "session_commits" ("session_id") `,
-    );
-    await queryRunner.query(`DROP INDEX "idx_project_activities_active"`);
-    await queryRunner.query(`DROP INDEX "idx_project_activities_file"`);
-    await queryRunner.query(
-      `ALTER TABLE "project_activities" RENAME TO "temporary_project_activities"`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "project_activities" ("activity_id" varchar(36) PRIMARY KEY NOT NULL, "file_system_id" integer NOT NULL, "activity_type" varchar CHECK( "activity_type" IN ('DESIGNER','DIFF_MERGE','SIMULATION') ) NOT NULL, "ended_at" datetime, "started_at" datetime NOT NULL DEFAULT (datetime('now')))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "project_activities"("activity_id", "file_system_id", "activity_type", "ended_at", "started_at") SELECT "activity_id", "file_system_id", "activity_type", "ended_at", "started_at" FROM "temporary_project_activities"`,
-    );
-    await queryRunner.query(`DROP TABLE "temporary_project_activities"`);
-    await queryRunner.query(
-      `CREATE INDEX "idx_project_activities_active" ON "project_activities" ("file_system_id", "ended_at") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_project_activities_file" ON "project_activities" ("file_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
@@ -1756,10 +1704,10 @@ export class InitialCreate1774246361713 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "uk_files_project_filename"`);
     await queryRunner.query(`ALTER TABLE "files" RENAME TO "temporary_files"`);
     await queryRunner.query(
-      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "project_system_id" integer NOT NULL)`,
+      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_entity_id" integer NOT NULL DEFAULT (0), "project_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "project_system_id" FROM "temporary_files"`,
+      `INSERT INTO "files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_entity_id", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_entity_id", "project_system_id" FROM "temporary_files"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_files"`);
     await queryRunner.query(
@@ -2039,9 +1987,6 @@ export class InitialCreate1774246361713 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_project_sessions_status"`);
     await queryRunner.query(`DROP INDEX "idx_project_sessions_file"`);
     await queryRunner.query(`DROP TABLE "project_sessions"`);
-    await queryRunner.query(`DROP INDEX "idx_project_activities_active"`);
-    await queryRunner.query(`DROP INDEX "idx_project_activities_file"`);
-    await queryRunner.query(`DROP TABLE "project_activities"`);
     await queryRunner.query(`DROP INDEX "idx_restore_points_file"`);
     await queryRunner.query(`DROP INDEX "idx_restore_points_session"`);
     await queryRunner.query(`DROP TABLE "restore_points"`);
@@ -2052,10 +1997,6 @@ export class InitialCreate1774246361713 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_edit_actions_entity_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
     await queryRunner.query(`DROP TABLE "edit_actions"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_sessions_mode"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_sessions_status"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_sessions_file"`);
-    await queryRunner.query(`DROP TABLE "edit_sessions"`);
     await queryRunner.query(`DROP TABLE "use_case_categories_master"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_key_vector"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
