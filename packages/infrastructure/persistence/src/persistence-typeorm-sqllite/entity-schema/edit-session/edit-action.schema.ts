@@ -4,36 +4,37 @@
  */
 
 import {EntitySchema} from 'typeorm';
-import type {EditSessionRow} from './edit-session.schema.js';
+import type {ProjectSessionRow} from './project-session.schema.js';
 
 export const EDIT_OPERATION = {
-  ADD: 'ADD',
-  UPDATE: 'UPDATE',
-  DELETE: 'DELETE',
+  Add: 'ADD',
+  Update: 'UPDATE',
+  Delete: 'DELETE',
 } as const;
 export type EditOperation =
   (typeof EDIT_OPERATION)[keyof typeof EDIT_OPERATION];
 
 export const CHANGE_STATUS = {
-  UNSTAGED: 'UNSTAGED',
-  STAGED: 'STAGED',
-  DISCARDED: 'DISCARDED',
+  Unstaged: 'UNSTAGED',
+  Staged: 'STAGED',
+  Discarded: 'DISCARDED',
 } as const;
 export type ChangeStatus = (typeof CHANGE_STATUS)[keyof typeof CHANGE_STATUS];
 
 export interface EditActionRow {
-  changeId: string;
-  systemId: string;
-  sessionId: string;
+  changeId: number;
+  systemId: number;
+  aggregateId: number;
+  sessionId: number;
   tableName: string;
   operation: EditOperation;
-  payload: unknown; //json
+  payload: unknown; // json
   changeStatus: ChangeStatus;
   baseVersion: number | null;
   groupId: string | null;
   createdAt: Date;
   validUntil: Date | null;
-  session?: EditSessionRow;
+  session?: ProjectSessionRow;
 }
 
 export const EditActionSchema = new EntitySchema<EditActionRow>({
@@ -42,20 +43,24 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
   columns: {
     changeId: {
       name: 'change_id',
-      type: 'varchar',
-      length: 36,
+      type: 'integer',
       primary: true,
+      generated: 'increment',
     },
     systemId: {
       name: 'system_id',
-      type: 'varchar',
-      length: 36,
+      type: 'integer',
       nullable: false,
+    },
+    aggregateId: {
+      name: 'aggregate_id',
+      type: 'integer',
+      nullable: false,
+      default: 0,
     },
     sessionId: {
       name: 'session_id',
-      type: 'varchar',
-      length: 36,
+      type: 'integer',
       nullable: false,
     },
     tableName: {
@@ -78,7 +83,7 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       name: 'change_status',
       type: 'simple-enum',
       enum: Object.values(CHANGE_STATUS),
-      default: CHANGE_STATUS.STAGED,
+      default: CHANGE_STATUS.Staged,
     },
     baseVersion: {
       name: 'base_version',
@@ -104,7 +109,7 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
   relations: {
     session: {
       type: 'many-to-one',
-      target: 'EditSession',
+      target: 'ProjectSession',
       joinColumn: {name: 'session_id'},
       onDelete: 'CASCADE',
     },
@@ -115,16 +120,30 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       columns: ['sessionId'],
     },
     {
-      name: 'idx_edit_actions_system_id',
-      columns: ['systemId', 'tableName'],
+      name: 'idx_edit_actions_entity_active',
+      columns: ['sessionId', 'systemId'],
+      where: '"valid_until" IS NULL',
     },
     {
-      name: 'idx_edit_actions_valid',
-      columns: ['validUntil'],
+      name: 'idx_edit_actions_table_active',
+      columns: ['sessionId', 'tableName'],
+      where: '"valid_until" IS NULL',
     },
     {
-      name: 'idx_edit_actions_status',
+      name: 'idx_edit_actions_agg_active',
+      columns: ['sessionId', 'aggregateId'],
+      where: '"valid_until" IS NULL',
+    },
+    {
+      name: 'idx_edit_actions_status_active',
       columns: ['sessionId', 'changeStatus'],
+      where: '"valid_until" IS NULL',
+    },
+    {
+      name: 'uniq_edit_actions_current',
+      columns: ['sessionId', 'systemId'],
+      unique: true,
+      where: '"valid_until" IS NULL',
     },
   ],
 });

@@ -15,17 +15,13 @@ import {
   EditActionRow,
   EDIT_OPERATION,
   CHANGE_STATUS,
-} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit_action.schema.js';
+} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 import {
-  EditSessionSchema,
-  EditSessionRow,
-  EDIT_STATUS,
-} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-session.schema.js';
-import {
-  ProjectActivitySchema,
-  ProjectActivityRow,
-  PROJECT_ACTIVITY_TYPE,
-} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-activity.schema.js';
+  ProjectSessionSchema,
+  ProjectSessionRow,
+  SESSION_STATUS,
+  SESSION_MODE,
+} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
 import {
   ProjectSchema,
   ProjectRow,
@@ -34,27 +30,29 @@ import {
   ArcDbFileSchema,
   ArcDbFileRow,
 } from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
-import {generateUuid} from '@arc/core';
 
 /**
- * Integration tests for EditAction entity (Modification Framework)
+ * Integration tests for EditAction entity (Modification Framework v2)
  * Focus: Data insertion, FK constraints, cascade delete, query operations, and index validation
+ *
+ * v2 changes from v1:
+ * - changeId: auto-generated integer (was UUID string primary key)
+ * - systemId: integer (was UUID string)
+ * - sessionId: integer FK → project_sessions (was UUID string FK → edit_sessions)
+ * - aggregateId: new integer column (default 0)
+ * - EDIT_OPERATION / CHANGE_STATUS keys are now PascalCase
  */
 describe('EditAction CRUD Integration Tests', () => {
   let editActionRepository: Repository<EditActionRow>;
-  let editSessionRepository: Repository<EditSessionRow>;
-  let projectActivityRepository: Repository<ProjectActivityRow>;
+  let projectSessionRepository: Repository<ProjectSessionRow>;
   let projectRepository: Repository<ProjectRow>;
   let arcDbFileRepository: Repository<ArcDbFileRow>;
 
   beforeAll(async () => {
     await setupIntegrationTest();
     editActionRepository = getTestRepository<EditActionRow>(EditActionSchema);
-    editSessionRepository =
-      getTestRepository<EditSessionRow>(EditSessionSchema);
-    projectActivityRepository = getTestRepository<ProjectActivityRow>(
-      ProjectActivitySchema,
-    );
+    projectSessionRepository =
+      getTestRepository<ProjectSessionRow>(ProjectSessionSchema);
     projectRepository = getTestRepository<ProjectRow>(ProjectSchema);
     arcDbFileRepository = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
   });
@@ -67,10 +65,14 @@ describe('EditAction CRUD Integration Tests', () => {
     await setupEachTest();
   });
 
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
   /**
-   * Helper function to create required dependencies for edit session
+   * Create a project + file and return the auto-generated fileSystemId.
    */
-  async function createEditSessionDependencies() {
+  async function createFileDependency(): Promise<{fileSystemId: number}> {
     const project = await projectRepository.save({
       name: 'Test Project',
       description: 'Test',
@@ -85,36 +87,32 @@ describe('EditAction CRUD Integration Tests', () => {
       isTarget: false,
     });
 
-    const activityId = generateUuid();
-    await projectActivityRepository.save({
-      activityId,
-      fileSystemId: file.systemId,
-      activityType: PROJECT_ACTIVITY_TYPE.DESIGNER,
-      endedAt: null,
-    });
-
-    return {fileSystemId: file.systemId, modeId: activityId};
+    return {fileSystemId: file.systemId};
   }
 
-  describe('Data Insertion - ADD Operations', () => {
-    it('should create edit_action for ADD operation on SpfModule with CKVs (Level_0 and Level_1)', async () => {
-      // Arrange - Create dependencies and edit session
-      const {fileSystemId, modeId} = await createEditSessionDependencies();
+  /**
+   * Create a ProjectSession and return the saved row (with auto-generated sessionId).
+   */
+  async function createSession(
+    fileSystemId: number,
+  ): Promise<ProjectSessionRow> {
+    return projectSessionRepository.save({
+      fileSystemId,
+      userId: 'test-user-123',
+      clientId: 'test-client-456',
+      sessionMode: SESSION_MODE.Designer,
+      status: SESSION_STATUS.Active,
+      endedAt: null,
+    });
+  }
 
-      const sessionId = generateUuid();
-      const session: Omit<EditSessionRow, 'createdAt'> = {
-        sessionId,
-        userId: 'test-user-123',
-        clientId: 'test-client-456',
-        fileSystemId,
-        modeId,
-        editStatus: EDIT_STATUS.ACTIVE,
-        committedAt: null,
-        commitMessage: null,
-      };
-      await editSessionRepository.save(session);
+  // ---------------------------------------------------------------------------
+  describe('Data Insertion - Add Operations', () => {
+    it('should create edit_action for Add operation on SpfModule with CKVs (Level_0 and Level_1)', async () => {
+      // Arrange
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
 
-      // Prepare payload for adding Volume Control module with 2 CKVs
       const modulePayload = {
         tableName: 'spf_modules',
         operation: 'ADD',
@@ -143,35 +141,36 @@ describe('EditAction CRUD Integration Tests', () => {
         ],
       };
 
-      const changeId = generateUuid();
-      const systemId = generateUuid();
-      const action: Omit<EditActionRow, 'createdAt'> = {
-        changeId,
-        systemId,
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.ADD,
-        payload: JSON.stringify(modulePayload),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        validUntil: null,
-      };
+      const action: Omit<EditActionRow, 'changeId' | 'createdAt' | 'session'> =
+        {
+          systemId: 100,
+          aggregateId: 10,
+          sessionId: session.sessionId,
+          tableName: 'spf_modules',
+          operation: EDIT_OPERATION.Add,
+          payload: JSON.stringify(modulePayload),
+          changeStatus: CHANGE_STATUS.Staged,
+          baseVersion: null,
+          groupId: null,
+          validUntil: null,
+        };
 
       // Act
       const savedAction = await editActionRepository.save(action);
 
       // Assert
       expect(savedAction).toBeDefined();
-      expect(savedAction.changeId).toBe(changeId);
-      expect(savedAction.sessionId).toBe(sessionId);
+      expect(typeof savedAction.changeId).toBe('number');
+      expect(savedAction.sessionId).toBe(session.sessionId);
+      expect(savedAction.systemId).toBe(100);
+      expect(savedAction.aggregateId).toBe(10);
       expect(savedAction.tableName).toBe('spf_modules');
-      expect(savedAction.operation).toBe(EDIT_OPERATION.ADD);
-      expect(savedAction.changeStatus).toBe(CHANGE_STATUS.STAGED);
+      expect(savedAction.operation).toBe(EDIT_OPERATION.Add);
+      expect(savedAction.changeStatus).toBe(CHANGE_STATUS.Staged);
       expect(savedAction.createdAt).toBeInstanceOf(Date);
 
       // Verify payload structure
-      const parsedPayload = JSON.parse(savedAction.payload);
+      const parsedPayload = JSON.parse(savedAction.payload as string);
       expect(parsedPayload.moduleData.alias).toBe('VolumeControl_Module');
       expect(parsedPayload.ckvs).toHaveLength(2);
       expect(parsedPayload.ckvs[0].keyVectorSystemId).toBe(456);
@@ -179,28 +178,19 @@ describe('EditAction CRUD Integration Tests', () => {
 
       // Verify we can query it back
       const foundAction = await editActionRepository.findOne({
-        where: {changeId},
+        where: {changeId: savedAction.changeId},
       });
       expect(foundAction).toBeDefined();
-      expect(foundAction?.sessionId).toBe(sessionId);
+      expect(foundAction?.sessionId).toBe(session.sessionId);
     });
   });
 
-  describe('Data Insertion - UPDATE Operations', () => {
-    it('should create edit_action for UPDATE operation on SpfModule', async () => {
+  // ---------------------------------------------------------------------------
+  describe('Data Insertion - Update Operations', () => {
+    it('should create edit_action for Update operation on SpfModule', async () => {
       // Arrange
-      const {fileSystemId, modeId} = await createEditSessionDependencies();
-      const sessionId = generateUuid();
-      await editSessionRepository.save({
-        sessionId,
-        userId: 'test-user',
-        clientId: 'test-client',
-        fileSystemId,
-        modeId,
-        editStatus: EDIT_STATUS.ACTIVE,
-        committedAt: null,
-        commitMessage: null,
-      });
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
 
       const updatePayload = {
         tableName: 'spf_modules',
@@ -214,45 +204,37 @@ describe('EditAction CRUD Integration Tests', () => {
         },
       };
 
-      const action: Omit<EditActionRow, 'createdAt'> = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.UPDATE,
-        payload: JSON.stringify(updatePayload),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: 1,
-        groupId: null,
-        validUntil: null,
-      };
+      const action: Omit<EditActionRow, 'changeId' | 'createdAt' | 'session'> =
+        {
+          systemId: 100,
+          aggregateId: 0,
+          sessionId: session.sessionId,
+          tableName: 'spf_modules',
+          operation: EDIT_OPERATION.Update,
+          payload: JSON.stringify(updatePayload),
+          changeStatus: CHANGE_STATUS.Staged,
+          baseVersion: 1,
+          groupId: null,
+          validUntil: null,
+        };
 
       // Act
       const savedAction = await editActionRepository.save(action);
 
       // Assert
-      expect(savedAction.operation).toBe(EDIT_OPERATION.UPDATE);
+      expect(savedAction.operation).toBe(EDIT_OPERATION.Update);
       expect(savedAction.baseVersion).toBe(1);
-      const parsedPayload = JSON.parse(savedAction.payload);
+      const parsedPayload = JSON.parse(savedAction.payload as string);
       expect(parsedPayload.changes.alias.after).toBe('VolumeControl_New');
     });
   });
 
-  describe('Data Insertion - DELETE Operations', () => {
-    it('should create edit_action for DELETE operation on SpfModule', async () => {
+  // ---------------------------------------------------------------------------
+  describe('Data Insertion - Delete Operations', () => {
+    it('should create edit_action for Delete operation on SpfModule', async () => {
       // Arrange
-      const {fileSystemId, modeId} = await createEditSessionDependencies();
-      const sessionId = generateUuid();
-      await editSessionRepository.save({
-        sessionId,
-        userId: 'test-user',
-        clientId: 'test-client',
-        fileSystemId,
-        modeId,
-        editStatus: EDIT_STATUS.ACTIVE,
-        committedAt: null,
-        commitMessage: null,
-      });
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
 
       const deletePayload = {
         tableName: 'spf_modules',
@@ -264,99 +246,84 @@ describe('EditAction CRUD Integration Tests', () => {
         },
       };
 
-      const action: Omit<EditActionRow, 'createdAt'> = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.DELETE,
-        payload: JSON.stringify(deletePayload),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        validUntil: null,
-      };
+      const action: Omit<EditActionRow, 'changeId' | 'createdAt' | 'session'> =
+        {
+          systemId: 100,
+          aggregateId: 0,
+          sessionId: session.sessionId,
+          tableName: 'spf_modules',
+          operation: EDIT_OPERATION.Delete,
+          payload: JSON.stringify(deletePayload),
+          changeStatus: CHANGE_STATUS.Staged,
+          baseVersion: null,
+          groupId: null,
+          validUntil: null,
+        };
 
       // Act
       const savedAction = await editActionRepository.save(action);
 
       // Assert
-      expect(savedAction.operation).toBe(EDIT_OPERATION.DELETE);
-      const parsedPayload = JSON.parse(savedAction.payload);
+      expect(savedAction.operation).toBe(EDIT_OPERATION.Delete);
+      const parsedPayload = JSON.parse(savedAction.payload as string);
       expect(parsedPayload.deletedEntity.alias).toBe('VolumeControl_ToDelete');
     });
   });
 
+  // ---------------------------------------------------------------------------
   describe('Query and Ordering', () => {
-    it('should maintain action ordering by createdAt within a session', async () => {
+    it('should maintain action ordering by changeId (insertion order) within a session', async () => {
       // Arrange
-      const {fileSystemId, modeId} = await createEditSessionDependencies();
-      const sessionId = generateUuid();
-      await editSessionRepository.save({
-        sessionId,
-        userId: 'test-user',
-        clientId: 'test-client',
-        fileSystemId,
-        modeId,
-        editStatus: EDIT_STATUS.ACTIVE,
-        committedAt: null,
-        commitMessage: null,
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
+
+      // Insert three actions in sequence — changeId auto-increment guarantees insertion order
+      await editActionRepository.save({
+        systemId: 101,
+        aggregateId: 0,
+        sessionId: session.sessionId,
+        tableName: 'spf_modules',
+        operation: EDIT_OPERATION.Add,
+        payload: JSON.stringify({order: 1}),
+        changeStatus: CHANGE_STATUS.Staged,
+        baseVersion: null,
+        groupId: null,
+        validUntil: null,
+      });
+      await editActionRepository.save({
+        systemId: 102,
+        aggregateId: 0,
+        sessionId: session.sessionId,
+        tableName: 'spf_modules',
+        operation: EDIT_OPERATION.Update,
+        payload: JSON.stringify({order: 2}),
+        changeStatus: CHANGE_STATUS.Staged,
+        baseVersion: null,
+        groupId: null,
+        validUntil: null,
+      });
+      await editActionRepository.save({
+        systemId: 103,
+        aggregateId: 0,
+        sessionId: session.sessionId,
+        tableName: 'spf_modules',
+        operation: EDIT_OPERATION.Delete,
+        payload: JSON.stringify({order: 3}),
+        changeStatus: CHANGE_STATUS.Staged,
+        baseVersion: null,
+        groupId: null,
+        validUntil: null,
       });
 
-      // Create actions with different timestamps
-      const action1: EditActionRow = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.ADD,
-        payload: JSON.stringify({order: 1}),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        createdAt: new Date(Date.now() - 3000), // 3 seconds ago
-        validUntil: null,
-      };
-
-      const action2: EditActionRow = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.UPDATE,
-        payload: JSON.stringify({order: 2}),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        createdAt: new Date(Date.now() - 2000), // 2 seconds ago
-        validUntil: null,
-      };
-
-      const action3: EditActionRow = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.DELETE,
-        payload: JSON.stringify({order: 3}),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        createdAt: new Date(Date.now() - 1000), // 1 second ago
-        validUntil: null,
-      };
-
-      await editActionRepository.save([action1, action2, action3]);
-
-      // Act - Query ordered by createdAt
+      // Act — order by changeId ASC (auto-increment reflects insertion order)
       const orderedActions = await editActionRepository.find({
-        where: {sessionId},
-        order: {createdAt: 'ASC'},
+        where: {sessionId: session.sessionId},
+        order: {changeId: 'ASC'},
       });
 
       // Assert
       expect(orderedActions).toHaveLength(3);
-      const payloads = orderedActions.map(a => JSON.parse(a.payload));
+      const payloads = orderedActions.map(a => JSON.parse(a.payload as string));
       expect(payloads[0].order).toBe(1);
       expect(payloads[1].order).toBe(2);
       expect(payloads[2].order).toBe(3);
@@ -364,201 +331,158 @@ describe('EditAction CRUD Integration Tests', () => {
 
     it('should query actions by sessionId and changeStatus', async () => {
       // Arrange
-      const {fileSystemId, modeId} = await createEditSessionDependencies();
-      const sessionId = generateUuid();
-      await editSessionRepository.save({
-        sessionId,
-        userId: 'test-user',
-        clientId: 'test-client',
-        fileSystemId,
-        modeId,
-        editStatus: EDIT_STATUS.ACTIVE,
-        committedAt: null,
-        commitMessage: null,
-      });
-
-      // Create 2 STAGED and 1 UNSTAGED action
-      const stagedAction1: Omit<EditActionRow, 'createdAt'> = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.ADD,
-        payload: JSON.stringify({status: 'staged1'}),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        validUntil: null,
-      };
-
-      const stagedAction2: Omit<EditActionRow, 'createdAt'> = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.UPDATE,
-        payload: JSON.stringify({status: 'staged2'}),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        validUntil: null,
-      };
-
-      const unstagedAction: Omit<EditActionRow, 'createdAt'> = {
-        changeId: generateUuid(),
-        systemId: generateUuid(),
-        sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.DELETE,
-        payload: JSON.stringify({status: 'unstaged'}),
-        changeStatus: CHANGE_STATUS.UNSTAGED,
-        baseVersion: null,
-        groupId: null,
-        validUntil: null,
-      };
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
 
       await editActionRepository.save([
-        stagedAction1,
-        stagedAction2,
-        unstagedAction,
+        {
+          systemId: 101,
+          aggregateId: 0,
+          sessionId: session.sessionId,
+          tableName: 'spf_modules',
+          operation: EDIT_OPERATION.Add,
+          payload: JSON.stringify({status: 'staged1'}),
+          changeStatus: CHANGE_STATUS.Staged,
+          baseVersion: null,
+          groupId: null,
+          validUntil: null,
+        },
+        {
+          systemId: 102,
+          aggregateId: 0,
+          sessionId: session.sessionId,
+          tableName: 'spf_modules',
+          operation: EDIT_OPERATION.Update,
+          payload: JSON.stringify({status: 'staged2'}),
+          changeStatus: CHANGE_STATUS.Staged,
+          baseVersion: null,
+          groupId: null,
+          validUntil: null,
+        },
+        {
+          systemId: 103,
+          aggregateId: 0,
+          sessionId: session.sessionId,
+          tableName: 'spf_modules',
+          operation: EDIT_OPERATION.Delete,
+          payload: JSON.stringify({status: 'unstaged'}),
+          changeStatus: CHANGE_STATUS.Unstaged,
+          baseVersion: null,
+          groupId: null,
+          validUntil: null,
+        },
       ]);
 
-      // Act - Query only STAGED actions
+      // Act — query only Staged actions
       const stagedActions = await editActionRepository.find({
         where: {
-          sessionId,
-          changeStatus: CHANGE_STATUS.STAGED,
+          sessionId: session.sessionId,
+          changeStatus: CHANGE_STATUS.Staged,
         },
       });
 
       // Assert
       expect(stagedActions).toHaveLength(2);
       stagedActions.forEach(action => {
-        expect(action.changeStatus).toBe(CHANGE_STATUS.STAGED);
+        expect(action.changeStatus).toBe(CHANGE_STATUS.Staged);
       });
     });
   });
 
+  // ---------------------------------------------------------------------------
   describe('Foreign Key Constraints', () => {
     it('should fail when creating action with non-existent session (Orphan Check)', async () => {
-      // Arrange
-      const changeId = generateUuid();
-      const systemId = generateUuid();
-      const nonExistentSessionId = generateUuid();
-
-      const action: Omit<EditActionRow, 'createdAt'> = {
-        changeId,
-        systemId,
-        sessionId: nonExistentSessionId, // This session does not exist
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.ADD,
-        payload: JSON.stringify({test: 'orphan'}),
-        changeStatus: CHANGE_STATUS.STAGED,
-        baseVersion: null,
-        groupId: null,
-        validUntil: null,
-      };
+      // Arrange — integer session ID that does not exist
+      const action: Omit<EditActionRow, 'changeId' | 'createdAt' | 'session'> =
+        {
+          systemId: 100,
+          aggregateId: 0,
+          sessionId: 99999, // This session does not exist
+          tableName: 'spf_modules',
+          operation: EDIT_OPERATION.Add,
+          payload: JSON.stringify({test: 'orphan'}),
+          changeStatus: CHANGE_STATUS.Staged,
+          baseVersion: null,
+          groupId: null,
+          validUntil: null,
+        };
 
       // Act & Assert
-      // TypeORM throws QueryFailedError for FK violations
       await expect(editActionRepository.save(action)).rejects.toThrow();
     });
 
     it('should delete actions when session is deleted (Cascade Delete)', async () => {
       // Arrange
-      const {fileSystemId, modeId} = await createEditSessionDependencies();
-      const sessionId = generateUuid();
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
 
-      // Create session
-      await editSessionRepository.save({
-        sessionId,
-        userId: 'test-user',
-        clientId: 'test-client',
-        fileSystemId,
-        modeId,
-        editStatus: EDIT_STATUS.ACTIVE,
-        committedAt: null,
-        commitMessage: null,
-      });
-
-      // Create action linked to session
-      const changeId = generateUuid();
-      await editActionRepository.save({
-        changeId,
-        systemId: generateUuid(),
-        sessionId,
+      const savedAction = await editActionRepository.save({
+        systemId: 100,
+        aggregateId: 0,
+        sessionId: session.sessionId,
         tableName: 'spf_modules',
-        operation: EDIT_OPERATION.ADD,
+        operation: EDIT_OPERATION.Add,
         payload: JSON.stringify({test: 'cascade'}),
-        changeStatus: CHANGE_STATUS.STAGED,
+        changeStatus: CHANGE_STATUS.Staged,
         baseVersion: null,
         groupId: null,
-        createdAt: new Date(),
         validUntil: null,
       });
 
       // Verify action exists
-      let action = await editActionRepository.findOne({where: {changeId}});
+      let action = await editActionRepository.findOne({
+        where: {changeId: savedAction.changeId},
+      });
       expect(action).toBeDefined();
 
-      // Act - Delete session
-      await editSessionRepository.delete(sessionId);
+      // Act — delete the session (should cascade to edit_actions)
+      await projectSessionRepository.delete(session.sessionId);
 
-      // Assert - Verify action is gone
-      action = await editActionRepository.findOne({where: {changeId}});
+      // Assert — action is gone
+      action = await editActionRepository.findOne({
+        where: {changeId: savedAction.changeId},
+      });
       expect(action).toBeNull();
     });
   });
 
+  // ---------------------------------------------------------------------------
   describe('Indexes', () => {
     it('should efficiently query by sessionId using idx_edit_actions_session', async () => {
       // Arrange
-      const {fileSystemId, modeId} = await createEditSessionDependencies();
-      const sessionId = generateUuid();
-      await editSessionRepository.save({
-        sessionId,
-        userId: 'test-user',
-        clientId: 'test-client',
-        fileSystemId,
-        modeId,
-        editStatus: EDIT_STATUS.ACTIVE,
-        committedAt: null,
-        commitMessage: null,
-      });
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
 
-      // Create multiple actions
       await editActionRepository.save([
         {
-          changeId: generateUuid(),
-          systemId: generateUuid(),
-          sessionId,
+          systemId: 101,
+          aggregateId: 0,
+          sessionId: session.sessionId,
           tableName: 'spf_modules',
-          operation: EDIT_OPERATION.ADD,
+          operation: EDIT_OPERATION.Add,
           payload: JSON.stringify({test: 1}),
-          changeStatus: CHANGE_STATUS.STAGED,
+          changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
           groupId: null,
-          createdAt: new Date(),
           validUntil: null,
         },
         {
-          changeId: generateUuid(),
-          systemId: generateUuid(),
-          sessionId,
+          systemId: 102,
+          aggregateId: 0,
+          sessionId: session.sessionId,
           tableName: 'spf_modules',
-          operation: EDIT_OPERATION.UPDATE,
+          operation: EDIT_OPERATION.Update,
           payload: JSON.stringify({test: 2}),
-          changeStatus: CHANGE_STATUS.STAGED,
+          changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
           groupId: null,
-          createdAt: new Date(),
           validUntil: null,
         },
       ]);
 
-      // Act - Query by sessionId (should use index)
+      // Act — query by sessionId (should use idx_edit_actions_session)
       const actions = await editActionRepository.find({
-        where: {sessionId},
+        where: {sessionId: session.sessionId},
       });
 
       // Assert
@@ -566,7 +490,6 @@ describe('EditAction CRUD Integration Tests', () => {
     });
 
     it('should have required indexes on edit_actions table', async () => {
-      // Query SQLite system tables to verify indexes exist
       const dataSource = editActionRepository.manager.connection;
 
       const indexes = await dataSource.query(
@@ -575,11 +498,13 @@ describe('EditAction CRUD Integration Tests', () => {
 
       const indexNames = indexes.map((idx: {name: string}) => idx.name);
 
-      // Assert - Verify expected indexes exist
+      // Assert — verify all v2 indexes exist
       expect(indexNames).toContain('idx_edit_actions_session');
-      expect(indexNames).toContain('idx_edit_actions_system_id');
-      expect(indexNames).toContain('idx_edit_actions_valid');
-      expect(indexNames).toContain('idx_edit_actions_status');
+      expect(indexNames).toContain('idx_edit_actions_entity_active');
+      expect(indexNames).toContain('idx_edit_actions_table_active');
+      expect(indexNames).toContain('idx_edit_actions_agg_active');
+      expect(indexNames).toContain('idx_edit_actions_status_active');
+      expect(indexNames).toContain('uniq_edit_actions_current');
     });
   });
 });

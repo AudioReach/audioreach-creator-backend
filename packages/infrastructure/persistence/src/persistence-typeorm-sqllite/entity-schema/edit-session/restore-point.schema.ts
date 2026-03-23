@@ -6,18 +6,18 @@
 import {EntitySchema} from 'typeorm';
 
 export const RESTORE_TYPE = {
-  EDIT_SNAPSHOT: 'EDIT_SNAPSHOT',
-  FULL_SNAPSHOT: 'FULL_SNAPSHOT',
-};
+  EditSnapshot: 'EDIT_SNAPSHOT',
+  FullSnapshot: 'FULL_SNAPSHOT',
+} as const;
 
 export type RestoreType = (typeof RESTORE_TYPE)[keyof typeof RESTORE_TYPE];
 
 export interface RestorePointRow {
-  systemId: string; // Primary key (GUID)
-  sessionId: string | null;
+  systemId: number;
+  sessionId: number | null;
   fileSystemId: number;
   restoreType: RestoreType;
-  snapshotData: string; //json
+  snapshotData: string; // json
   description: string | null;
   createdAt: Date;
 }
@@ -28,14 +28,13 @@ export const RestorePointSchema = new EntitySchema<RestorePointRow>({
   columns: {
     systemId: {
       name: 'system_id',
-      type: 'varchar',
-      length: 36,
+      type: 'integer',
       primary: true,
+      generated: 'increment',
     },
     sessionId: {
       name: 'session_id',
-      type: 'varchar',
-      length: 36,
+      type: 'integer',
       nullable: true,
     },
     fileSystemId: {
