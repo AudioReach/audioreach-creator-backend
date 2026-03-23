@@ -2242,6 +2242,222 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/driver-modules": {
+      "get": {
+        "description": "Returns all driver modules available for the given project\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/driver-modules?moduleId=12345&includeTuningConfiguration=true\n```\n\n**Query Parameters:**\n- `moduleId` (optional): Filter results by specific module ID. If provided, only driver modules with this module ID will be returned\n- `includeTuningConfiguration` (optional, default: false): \n  - When set to `true`: CKV tuning configuration will be included in the response\n  - When set to `false` or not provided: CKV tuning configuration will NOT be included in the response\n\n**Response:**\nReturns an array of driver modules, each containing:\n- `systemId`: Unique system identifier of the driver module\n- `moduleId`: Numeric identifier of the driver module\n- `name`: Name of the driver module\n- `displayName`: Display name of the driver module\n- `description`: Description of the driver module\n- `deprecated`: Optional deprecation flag\n- `ckvTuningConfiguration`: CKV tuning configuration (only included when includeTuningConfiguration=true)\n- `changeInfo`: Change tracking information\n  - `changeType`: Type of change (NONE, CREATE, UPDATE, DELETE)\n  - `changeId`: Change set identifier (present when changeType is not NONE)\n  - `changeStatus`: Change status (STAGED, UNSTAGED)",
+        "operationId": "DriverModuleController_getDriverModules",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleId",
+            "required": false,
+            "in": "query",
+            "description": "Filter driver modules by module ID",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "includeTuningConfiguration",
+            "required": false,
+            "in": "query",
+            "description": "When set to true, includes CKV tuning configuration in the response. If not set or set to false, CKV tuning configuration will not be included.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved driver modules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DriverModuleResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input parameters"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get list of driver modules for a project",
+        "tags": [
+          "driver-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/driver-modules/{moduleInstanceSystemId}": {
+      "get": {
+        "description": "Returns detailed information about a specific driver module instance for the given project\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/driver-modules/driver-mod-001?includeTuningConfiguration=true\n```\n\n**Query Parameters:**\n- `includeTuningConfiguration` (optional, default: false): \n  - When set to `true`: CKV tuning configuration will be included in the response\n  - When set to `false` or not provided: CKV tuning configuration will NOT be included in the response\n\n**Response:**\nReturns a driver module object containing:\n- `systemId`: Unique system identifier of the driver module instance\n- `moduleId`: Numeric identifier of the driver module\n- `name`: Name of the driver module\n- `displayName`: Display name of the driver module\n- `description`: Description of the driver module\n- `deprecated`: Optional deprecation flag\n- `ckvTuningConfiguration`: CKV tuning configuration (only included when includeTuningConfiguration=true)\n- `changeInfo`: Change tracking information\n  - `changeType`: Type of change (NONE, CREATE, UPDATE, DELETE)\n  - `changeId`: Change set identifier (present when changeType is not NONE)\n  - `changeStatus`: Change status (STAGED, UNSTAGED)",
+        "operationId": "DriverModuleController_getDriverModuleById",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleInstanceSystemId",
+            "required": true,
+            "in": "path",
+            "description": "The unique system identifier of the driver module instance",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeTuningConfiguration",
+            "required": false,
+            "in": "query",
+            "description": "When set to true, includes CKV tuning configuration in the response. If not set or set to false, CKV tuning configuration will not be included.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved driver module",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DriverModuleResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input parameters"
+          },
+          "404": {
+            "description": "Project or driver module not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get a specific driver module by instance system ID",
+        "tags": [
+          "driver-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/driver-modules/{moduleInstanceSystemId}/cal-data/{ckvSystemId}": {
+      "get": {
+        "description": "Returns the calibration data for a given module system ID and CKV system ID.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/driver-modules/driver-mod-001/cal-data/ckv-sys-001\n```\n\n**Response:**\nReturns a `CalDataResponseDto` containing an array of parameter data, one entry per PID. Each entry includes:\n- `systemId`: System identifier\n- `pid`: Parameter ID\n- `name`: Human-readable parameter name\n- `description`: Description of the parameter\n- `elements`: Array of calibration elements (ConfigElement, ConfigElementArray, Struct, StructArray)",
+        "operationId": "DriverModuleController_getModuleCalData",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleInstanceSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System identifier of the module instance",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ckvSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System identifier of the Calibration Key-Value (CKV)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved calibration data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DriverModuleCalDataResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input parameters"
+          },
+          "404": {
+            "description": "Project, module, or CKV not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get calibration data for a specific driver module and CKV",
+        "tags": [
+          "driver-modules"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/module-instances/get": {
       "post": {
         "operationId": "ModuleInstanceController_getModuleInstances",
@@ -4311,7 +4527,20 @@
             "type": "array",
             "description": "Property structure elements",
             "items": {
-              "type": "object"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructArrayDto"
+                }
+              ]
             }
           }
         },
@@ -4400,7 +4629,20 @@
             "type": "array",
             "description": "Property structure elements",
             "items": {
-              "type": "object"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructArrayDto"
+                }
+              ]
             }
           }
         },
@@ -4412,6 +4654,492 @@
           "type",
           "isVoice",
           "elements"
+        ]
+      },
+      "DefinitionConfigElementDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "ConfigElement",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "volume_level"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Audio volume level setting"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Audio Controls"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Volume Settings"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "dataType": {
+            "type": "string",
+            "description": "Data type of the configuration element",
+            "enum": [
+              "UInt8",
+              "UInt16",
+              "UInt32",
+              "UInt64",
+              "Int8",
+              "Int16",
+              "Int32",
+              "Int64",
+              "RawData",
+              "Double",
+              "Float"
+            ],
+            "example": "UInt32"
+          },
+          "defaultValue": {
+            "type": "string",
+            "description": "Default value for the configuration element",
+            "example": "75"
+          },
+          "displayType": {
+            "type": "string",
+            "description": "Display type for UI rendering",
+            "enum": [
+              "TextBox",
+              "DbTextBox",
+              "QFormattedValue",
+              "Slider",
+              "CheckBox",
+              "DropDown",
+              "Dump",
+              "File",
+              "BitField",
+              "Formula",
+              "StringField"
+            ],
+            "example": "Slider"
+          },
+          "policy": {
+            "type": "string",
+            "description": "Element policy for visibility and access control",
+            "enum": [
+              "Hidden",
+              "Basic",
+              "Advanced"
+            ],
+            "example": "Basic"
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether the element is read-only",
+            "example": false
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name for the configuration element",
+            "example": "Volume Level"
+          },
+          "unitStr": {
+            "type": "string",
+            "description": "Unit of measurement",
+            "example": "dB"
+          },
+          "qFormat": {
+            "type": "string",
+            "description": "Q format string for fixed-point representation",
+            "example": "Q15"
+          },
+          "precision": {
+            "type": "number",
+            "description": "Precision value for decimal places",
+            "example": 2,
+            "minimum": 0
+          },
+          "linkedByForFormula": {
+            "description": "List of elements linked by formula",
+            "example": [
+              "gain_factor",
+              "offset_value"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultDataDepends": {
+            "description": "List of default data dependencies",
+            "example": [
+              "dependency1",
+              "dependency2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "dataType",
+          "defaultValue"
+        ]
+      },
+      "DefinitionConfigElementArrayDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "ConfigElementArray",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "eq_bands"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Equalizer band settings"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Audio Processing"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Equalizer"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "arrayLength": {
+            "type": "number",
+            "description": "Array length",
+            "example": 10,
+            "minimum": 0
+          },
+          "arrayLenFormulaStr": {
+            "type": "string",
+            "description": "Array length formula string",
+            "example": "num_channels * 2"
+          },
+          "copySrcInfoList": {
+            "description": "List of copy source information",
+            "example": [
+              "source1",
+              "source2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "keyConfigElement": {
+            "description": "Key configuration element defining the array item structure",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DefinitionConfigElementDto"
+              }
+            ]
+          },
+          "displayType": {
+            "type": "string",
+            "description": "Display type for the configuration element array",
+            "enum": [
+              "TextBox",
+              "DbTextBox",
+              "QFormattedValue",
+              "Slider",
+              "CheckBox",
+              "DropDown",
+              "Dump",
+              "File",
+              "BitField",
+              "Formula",
+              "StringField"
+            ],
+            "example": "Slider"
+          },
+          "policy": {
+            "type": "string",
+            "description": "Element policy for visibility and access control",
+            "enum": [
+              "Hidden",
+              "Basic",
+              "Advanced"
+            ],
+            "example": "Basic"
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether the element array is read-only",
+            "example": false
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "arrayLength",
+          "arrayLenFormulaStr",
+          "copySrcInfoList",
+          "keyConfigElement"
+        ]
+      },
+      "DefinitionStructDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "Struct",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "audio_settings"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Audio configuration settings"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "System Config"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Audio Settings"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "structureType": {
+            "type": "string",
+            "description": "Structure type identifier",
+            "example": "AudioConfig"
+          },
+          "children": {
+            "type": "array",
+            "description": "Child elements within the structure",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionConfigElementArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DefinitionStructDto"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "structureType",
+          "children"
+        ]
+      },
+      "DefinitionStructArrayDto": {
+        "type": "object",
+        "properties": {
+          "elementType": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "StructArray",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "channel_configs"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Per-channel audio configuration settings"
+          },
+          "channel": {
+            "type": "number",
+            "description": "Channel identifier",
+            "example": 0
+          },
+          "groupSet": {
+            "type": "number",
+            "description": "Group set identifier",
+            "example": 0
+          },
+          "alignment": {
+            "type": "number",
+            "description": "Alignment value",
+            "example": 4
+          },
+          "rtmPlotType": {
+            "type": "string",
+            "description": "RTM plot type",
+            "example": "Line"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Channel Settings"
+          },
+          "subGroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Multi-Channel"
+          },
+          "copySrc": {
+            "type": "string",
+            "description": "Copy source reference",
+            "example": "source_element"
+          },
+          "arrayLength": {
+            "type": "number",
+            "description": "Array length",
+            "example": 2,
+            "minimum": 0
+          },
+          "arrayLenFormulaStr": {
+            "type": "string",
+            "description": "Array length formula string",
+            "example": "num_channels"
+          },
+          "copySrcInfoList": {
+            "description": "List of copy source information",
+            "example": [
+              "source1",
+              "source2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "keyStructureDefinition": {
+            "description": "Key structure definition for array items",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DefinitionStructDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "elementType",
+          "name",
+          "arrayLength",
+          "arrayLenFormulaStr",
+          "copySrcInfoList",
+          "keyStructureDefinition"
         ]
       },
       "ParameterDefinitionSummaryInfo": {
@@ -5907,6 +6635,715 @@
           "controlLinks"
         ]
       },
+      "ChangeInfoDto": {
+        "type": "object",
+        "properties": {
+          "changeType": {
+            "type": "string",
+            "description": "Type of change operation applied to this resource",
+            "enum": [
+              "NONE",
+              "CREATE",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Identifier of the change set this resource belongs to. Present only when changeType is not None."
+          },
+          "changeStatus": {
+            "type": "string",
+            "description": "Change status of this resource. Present only when changeType is not None.",
+            "enum": [
+              "STAGED",
+              "UNSTAGED"
+            ]
+          }
+        },
+        "required": [
+          "changeType"
+        ]
+      },
+      "KeyDto": {
+        "type": "object",
+        "properties": {
+          "keyId": {
+            "type": "number",
+            "description": "Key id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Key name"
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Key system identifier"
+          }
+        },
+        "required": [
+          "keyId",
+          "name",
+          "systemId"
+        ]
+      },
+      "ValueDto": {
+        "type": "object",
+        "properties": {
+          "valueId": {
+            "type": "number",
+            "description": "Value id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Value system identifier"
+          }
+        },
+        "required": [
+          "valueId",
+          "name",
+          "systemId"
+        ]
+      },
+      "KeyValueDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KeyDto"
+              }
+            ]
+          },
+          "value": {
+            "description": "Value information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValueDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      },
+      "KeyValuePairsDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the key-value pair collection"
+          },
+          "keyValuePairs": {
+            "description": "Array of key-value pair",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "keyValuePairs"
+        ]
+      },
+      "ParameterSummaryDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique identifier for the system containing this parameter",
+            "example": "SYS001"
+          },
+          "parameterId": {
+            "type": "string",
+            "description": "parameterId"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable display name for the parameter"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "parameterId",
+          "name"
+        ]
+      },
+      "CkvTuningConfigDto": {
+        "type": "object",
+        "properties": {
+          "associatedKvs": {
+            "description": "Associated key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValuePairsDto"
+            }
+          },
+          "supportedParameters": {
+            "description": "Supported parameter information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ParameterSummaryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "associatedKvs",
+          "supportedParameters"
+        ]
+      },
+      "DriverModuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the module instance"
+          },
+          "moduleDefinitionId": {
+            "type": "number",
+            "description": "Module identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Module name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the module"
+          },
+          "deprecated": {
+            "type": "boolean",
+            "description": "Deprecation flag"
+          },
+          "supportedCkvs": {
+            "description": "Supported Calibration Key-Values (CKVs) tuning configuration with associated parameters. This field is only included when includeTuningConfiguration query parameter is set to true. If data is not available, the value will be null.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CkvTuningConfigDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "moduleDefinitionId",
+          "name"
+        ]
+      },
+      "ParameterDetailDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique identifier for the system containing this parameter",
+            "example": "SYS001"
+          },
+          "parameterId": {
+            "type": "string",
+            "description": "parameterId"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable display name for the parameter"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of what this Parameter ID represents"
+          },
+          "isHidden": {
+            "type": "boolean",
+            "description": "When true, this parameter should be hidden from the UI. Hidden parameters are typically used for internal system configuration."
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "When true, this parameter cannot be modified by the user. The UI should render all elements of this parameter in a read-only state."
+          },
+          "deprecated": {
+            "type": "boolean",
+            "description": "Indicates whether this parameter is deprecated. When true, the UI may show a deprecation warning. When false or undefined, the parameter is not deprecated."
+          },
+          "isNeuralNet": {
+            "type": "boolean",
+            "description": "When true, indicates this parameter is related to neural network processing. Neural network parameters may require special handling or processing in the UI."
+          },
+          "isOffloaded": {
+            "type": "boolean",
+            "description": "When true, indicates this parameter processing is offloaded to a separate processor or accelerator. Offloaded parameters may have different performance characteristics or constraints."
+          },
+          "elements": {
+            "type": "array",
+            "description": "Array of calibration elements for this Parameter ID.\n\nThis array can contain three different types of calibration elements:\n\n**1. ConfigElement (Simple Parameters):**\n   - Single configuration values (volume, gain, frequency)\n   - Rendered as UI controls like sliders, text boxes, dropdowns\n\n**2. ElementTemplateArray (Parameter Arrays):**\n   - Arrays of configuration values of the same type\n   - Used for multi-band EQs, filter coefficients, channel gains\n   - Contains template defining the structure of each array item\n\n**3. Struct (Grouped Parameters):**\n   - Complex structured data grouping related parameters\n   - Contains nested elements of any calibration type",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ElementTemplateArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StructDto"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "parameterId",
+          "name",
+          "elements"
+        ]
+      },
+      "DriverModuleCalDataResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the ckv"
+          },
+          "Ckv": {
+            "description": "Array of Calibration Key-Value pairs. Each entry contains key and value information with their respective IDs, names, and system identifiers.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueDto"
+            }
+          },
+          "parameters": {
+            "description": "Array of parameter data, one entry per PID. Each entry contains the system identifier, PID, name, description, and the list of calibration elements belonging to that parameter.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParameterDetailDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "Ckv",
+          "parameters"
+        ]
+      },
+      "ConfigElementDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Element type identifier",
+            "example": "ConfigElement",
+            "enum": [
+              "ConfigElement",
+              "ConfigElementArray",
+              "Struct",
+              "StructArray"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Element name",
+            "example": "volume_level"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional element description",
+            "example": "Audio volume level setting"
+          },
+          "group": {
+            "type": "string",
+            "description": "Group name for organizing elements",
+            "example": "Audio Controls"
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Sub-group name for further categorization",
+            "example": "Volume Settings"
+          },
+          "dataType": {
+            "type": "string",
+            "description": "Data type of the configuration element",
+            "enum": [
+              "UInt8",
+              "UInt16",
+              "UInt32",
+              "UInt64",
+              "Int8",
+              "Int16",
+              "Int32",
+              "Int64",
+              "RawData",
+              "Double",
+              "Float"
+            ],
+            "example": "UInt32"
+          },
+          "value": {
+            "type": "string",
+            "description": "Current or default value",
+            "example": "75"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of measurement",
+            "example": "dB"
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether the element is read-only",
+            "example": false
+          },
+          "displayType": {
+            "type": "string",
+            "description": "Display type for UI rendering",
+            "enum": [
+              "TextBox",
+              "DbTextBox",
+              "QFormattedValue",
+              "Slider",
+              "CheckBox",
+              "DropDown",
+              "Dump",
+              "File",
+              "BitField",
+              "Formula",
+              "StringField"
+            ],
+            "example": "Slider"
+          },
+          "policy": {
+            "type": "string",
+            "description": "Element policy for visibility and access control",
+            "enum": [
+              "Hidden",
+              "Basic",
+              "Advanced"
+            ],
+            "example": "Basic"
+          },
+          "qFormat": {
+            "type": "string",
+            "description": "Q format string for fixed-point representation",
+            "example": "Q15"
+          },
+          "precision": {
+            "type": "number",
+            "description": "Precision value for decimal places",
+            "example": 2,
+            "minimum": 0
+          },
+          "min": {
+            "type": "string",
+            "description": "Minimum allowed value for this configuration element",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "description": "Maximum allowed value for this configuration element",
+            "example": "100"
+          },
+          "validValues": {
+            "type": "array",
+            "description": "Array of valid values with their display names",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "description": "The actual value"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the value"
+                }
+              }
+            },
+            "example": [
+              {
+                "value": "0",
+                "name": "Disabled"
+              },
+              {
+                "value": "1",
+                "name": "Low"
+              },
+              {
+                "value": "2",
+                "name": "Medium"
+              },
+              {
+                "value": "3",
+                "name": "High"
+              }
+            ]
+          },
+          "linkedByForFormula": {
+            "description": "List of elements linked by formula - important for calibration dependencies",
+            "example": [
+              "gain_factor",
+              "offset_value"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "dataType",
+          "value"
+        ]
+      },
+      "ElementTemplateArrayDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Discriminator field identifying this as an ElementTemplateArray.",
+            "default": "ELEMENT_TEMPLATE_ARRAY"
+          },
+          "name": {
+            "type": "string",
+            "description": "Unique name of the array element within its parent scope."
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "When true, none of the array elements can be modified by the user."
+          },
+          "template": {
+            "type": "array",
+            "description": "Array of prototype elements defining the structure of each item in the array. Each entry carries the default or definition value as specified in the module definition — not the current calibrated value. May contain a mix of ConfigElement, ElementTemplateArray, and Struct entries.",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ElementTemplateArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StructDto"
+                }
+              ]
+            }
+          },
+          "value": {
+            "type": "array",
+            "description": "Ordered list of concrete element instances in the array. Each item follows the structure defined by the template and may be a ConfigElement, ElementTemplateArray, or Struct.",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ElementTemplateArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StructDto"
+                }
+              ]
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of what this array represents."
+          },
+          "group": {
+            "type": "string",
+            "description": "Logical group this array belongs to for UI organization."
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Optional sub-group within the group for finer-grained UI organization."
+          },
+          "length": {
+            "type": "number",
+            "description": "Fixed number of elements in the array. If absent, the length is determined at runtime by lengthFormula.",
+            "minimum": 0
+          },
+          "lengthFormula": {
+            "type": "string",
+            "description": "Expression evaluated at runtime to determine the array length when the length is not statically known (e.g. \"num_channels * 2\"). Variables in the formula (like num_channels) are linked to other config elements, "
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "isReadOnly",
+          "template",
+          "value"
+        ]
+      },
+      "StructDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Discriminator field identifying this as a Struct.",
+            "default": "STRUCT"
+          },
+          "name": {
+            "type": "string",
+            "description": "Unique name of the struct element within its parent scope."
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "When true, none of the struct elements can be modified by the user."
+          },
+          "structType": {
+            "type": "string",
+            "description": "Type identifier for the struct, corresponding to the named struct type in the module definition (e.g. \"AudioConfig\", \"FilterSettings\")."
+          },
+          "value": {
+            "type": "array",
+            "description": "Child elements contained within this struct. May be any mix of ConfigElement, ElementTemplateArray, or Struct.",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ElementTemplateArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StructDto"
+                }
+              ]
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of what this struct represents."
+          },
+          "group": {
+            "type": "string",
+            "description": "Logical group this struct belongs to for UI organization."
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Optional sub-group within the group for finer-grained UI organization."
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "isReadOnly",
+          "structType",
+          "value"
+        ]
+      },
+      "NameValuePairDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Discriminator identifying this entry as an allowed value option.",
+            "default": "NAME_VALUE_PAIR"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for this allowed value"
+          },
+          "value": {
+            "type": "string",
+            "description": "The actual value"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "value"
+        ]
+      },
+      "BitFieldDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Discriminator identifying this entry as a bit field item.",
+            "default": "BIT_FIELD"
+          },
+          "bitMask": {
+            "type": "string",
+            "description": "Bit mask value"
+          },
+          "name": {
+            "type": "string",
+            "description": "Bit field name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the bit field"
+          },
+          "allowedValues": {
+            "description": "Enumerated set of allowed values the client may choose from for this bit field. Example: [{name: \"Enable\", value: \"1\"}, {name: \"Disable\", value: \"0\"}]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NameValuePairDto"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "bitMask",
+          "name",
+          "allowedValues"
+        ]
+      },
       "ParamInfo": {
         "type": "object",
         "properties": {
@@ -6668,176 +8105,6 @@
         },
         "required": [
           "data"
-        ]
-      },
-      "ConfigElementDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Element type identifier",
-            "example": "ConfigElement",
-            "enum": [
-              "ConfigElement",
-              "ConfigElementArray",
-              "Struct",
-              "StructArray"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "description": "Element name",
-            "example": "volume_level"
-          },
-          "description": {
-            "type": "string",
-            "description": "Optional element description",
-            "example": "Audio volume level setting"
-          },
-          "group": {
-            "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "Audio Controls"
-          },
-          "subgroup": {
-            "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Volume Settings"
-          },
-          "dataType": {
-            "type": "string",
-            "description": "Data type of the configuration element",
-            "enum": [
-              "UInt8",
-              "UInt16",
-              "UInt32",
-              "UInt64",
-              "Int8",
-              "Int16",
-              "Int32",
-              "Int64",
-              "RawData",
-              "Double",
-              "Float"
-            ],
-            "example": "UInt32"
-          },
-          "value": {
-            "type": "string",
-            "description": "Current or default value",
-            "example": "75"
-          },
-          "unit": {
-            "type": "string",
-            "description": "Unit of measurement",
-            "example": "dB"
-          },
-          "isReadOnly": {
-            "type": "boolean",
-            "description": "Whether the element is read-only",
-            "example": false
-          },
-          "displayType": {
-            "type": "string",
-            "description": "Display type for UI rendering",
-            "enum": [
-              "TextBox",
-              "DbTextBox",
-              "QFormattedValue",
-              "Slider",
-              "CheckBox",
-              "DropDown",
-              "Dump",
-              "File",
-              "BitField",
-              "Formula",
-              "StringField"
-            ],
-            "example": "Slider"
-          },
-          "policy": {
-            "type": "string",
-            "description": "Element policy for visibility and access control",
-            "enum": [
-              "Hidden",
-              "Basic",
-              "Advanced"
-            ],
-            "example": "Basic"
-          },
-          "qFormat": {
-            "type": "string",
-            "description": "Q format string for fixed-point representation",
-            "example": "Q15"
-          },
-          "precision": {
-            "type": "number",
-            "description": "Precision value for decimal places",
-            "example": 2,
-            "minimum": 0
-          },
-          "min": {
-            "type": "string",
-            "description": "Minimum allowed value for this configuration element",
-            "example": "0"
-          },
-          "max": {
-            "type": "string",
-            "description": "Maximum allowed value for this configuration element",
-            "example": "100"
-          },
-          "validValues": {
-            "type": "array",
-            "description": "Array of valid values with their display names",
-            "items": {
-              "type": "object",
-              "properties": {
-                "value": {
-                  "type": "string",
-                  "description": "The actual value"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Display name for the value"
-                }
-              }
-            },
-            "example": [
-              {
-                "value": "0",
-                "name": "Disabled"
-              },
-              {
-                "value": "1",
-                "name": "Low"
-              },
-              {
-                "value": "2",
-                "name": "Medium"
-              },
-              {
-                "value": "3",
-                "name": "High"
-              }
-            ]
-          },
-          "linkedByForFormula": {
-            "description": "List of elements linked by formula - important for calibration dependencies",
-            "example": [
-              "gain_factor",
-              "offset_value"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "type",
-          "name",
-          "dataType",
-          "value"
         ]
       },
       "ConfigArrayDto": {
