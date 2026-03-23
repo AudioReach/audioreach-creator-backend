@@ -63,10 +63,10 @@ import {
 import {SubgraphSchema} from './usecase-data/subgraph/subgraph.schema.js';
 import {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
 import {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
-import {EditSessionSchema} from './edit-session/edit-session.schema.js';
 import {EditActionSchema} from './edit-session/edit-action.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
-import {ProjectActivitySchema} from './edit-session/project-activity.schema.js';
+import {ProjectSessionSchema} from './edit-session/project-session.schema.js';
+import {SessionCommitSchema} from './edit-session/session-commit.schema.js';
 
 // ===== DEFINITION SCHEMAS =====
 // Common
@@ -223,14 +223,6 @@ export {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
 // Use Case Data - Main
 export type {UseCaseRow, UseCaseCategoryRow} from './usecase-data/use-case.js';
 export {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
-
-// ===== EDIT SESSION SCHEMAS =====
-export {EDIT_STATUS} from './edit-session/edit-session.schema.js';
-export type {
-  EditStatus,
-  EditSessionRow,
-} from './edit-session/edit-session.schema.js';
-export {EditSessionSchema} from './edit-session/edit-session.schema.js';
 export {
   EDIT_OPERATION,
   CHANGE_STATUS,
@@ -247,12 +239,20 @@ export type {
   RestorePointRow,
 } from './edit-session/restore-point.schema.js';
 export {RestorePointSchema} from './edit-session/restore-point.schema.js';
-export {PROJECT_ACTIVITY_TYPE} from './edit-session/project-activity.schema.js';
+
+// ===== PROJECT SESSION SCHEMAS (v2) =====
+export {
+  SESSION_MODE,
+  SESSION_STATUS,
+} from './edit-session/project-session.schema.js';
 export type {
-  ProjectActivityType,
-  ProjectActivityRow,
-} from './edit-session/project-activity.schema.js';
-export {ProjectActivitySchema} from './edit-session/project-activity.schema.js';
+  SessionMode,
+  SessionStatus,
+  ProjectSessionRow,
+} from './edit-session/project-session.schema.js';
+export {ProjectSessionSchema} from './edit-session/project-session.schema.js';
+export type {SessionCommitRow} from './edit-session/session-commit.schema.js';
+export {SessionCommitSchema} from './edit-session/session-commit.schema.js';
 
 // ===== HELPER TYPES =====
 export type {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
@@ -322,10 +322,11 @@ export function getAllEntitySchemas(
     UseCaseSchema,
     UseCaseCategorySchema,
 
-    // Edit Session Schemas
-    EditSessionSchema,
     EditActionSchema,
     RestorePointSchema,
-    ProjectActivitySchema,
+
+    // Project Session Schemas (v2)
+    ProjectSessionSchema,
+    SessionCommitSchema,
   ];
 }
