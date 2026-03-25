@@ -108,3 +108,6 @@ export * from './domain/entities/definitions/container/container-type-definition
 // Profiling
 export * from './application/ports/profiling/profiler.port.js';
 export * from './shared/profiling/profiler-types.js';
+
+// ID generation port
+export * from './application/ports/id-generation/id-generation.port.js';

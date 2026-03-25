@@ -17,10 +17,11 @@ import type {
   WorkerPoolPort,
   Logger,
   ProfilerPort,
+  IdGenerationPort,
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {createTypeOrmUnitOfWorkFactory} from './persistence/unit-of-work/typeorm-unit-of-work.factory.js';
-import {DbQueryServices} from '@arc/persistence';
+import {DbQueryServices, EntityIdServiceRegistry} from '@arc/persistence';
 import type {DataSource} from 'typeorm';
 import {
   NodeFileReaderAdapter,
@@ -73,6 +74,7 @@ import {ConsoleLoggerService} from './logger/index.js';
       provide: CommandBus,
       useFactory: (
         registry: CommandHandlerRegistry,
+        idGeneration: IdGenerationPort,
         fileReader: FileReaderPort,
         uowFactory: UnitOfWorkFactory,
         workerPool: WorkerPoolPort,
@@ -81,6 +83,7 @@ import {ConsoleLoggerService} from './logger/index.js';
       ) =>
         new CommandBus(
           registry,
+          idGeneration,
           fileReader,
           uowFactory,
           workerPool,
@@ -89,6 +92,7 @@ import {ConsoleLoggerService} from './logger/index.js';
         ),
       inject: [
         'COMMAND_HANDLER_REGISTRY',
+        'ID_GENERATION',
         'NODE_FILE_READER_ADAPTER',
         'UNIT_OF_WORK_FACTORY',
         'WORKER_POOL',
@@ -113,6 +117,12 @@ import {ConsoleLoggerService} from './logger/index.js';
     {
       provide: 'PROFILER',
       useFactory: () => new NodeProfilerAdapter(),
+    },
+    {
+      provide: 'ID_GENERATION',
+      useFactory: (dataSource: DataSource): IdGenerationPort =>
+        new EntityIdServiceRegistry(dataSource),
+      inject: ['DATA_SOURCE'],
     },
   ],
   exports: [

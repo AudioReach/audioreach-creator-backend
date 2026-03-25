@@ -12,10 +12,12 @@ import type {Logger} from '../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../ports/profiling/profiler.port.js';
 import type {UnitOfWorkFactory} from '../ports/persistence/unit-of-work-factory.js';
 import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
+import type {IdGenerationPort} from '../ports/id-generation/id-generation.port.js';
 
 export class CommandBus {
   constructor(
     private readonly handlerRegistry: CommandHandlerRegistry,
+    private readonly idGeneration: IdGenerationPort,
     private readonly fileReader: FileReaderPort,
     private readonly uowFactory: UnitOfWorkFactory,
     private readonly workerPool?: WorkerPoolPort,
@@ -107,6 +109,7 @@ export class CommandBus {
     const factory = this.handlerRegistry.getCommandHandlerFactory(command);
     const dependencies: CommandHandlerDependencies = {
       uow,
+      idGeneration: this.idGeneration,
       fileReader: this.fileReader,
       workerPool: this.workerPool,
       logger: this.logger,
