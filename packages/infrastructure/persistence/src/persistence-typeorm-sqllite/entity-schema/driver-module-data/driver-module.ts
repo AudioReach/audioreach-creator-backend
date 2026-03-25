@@ -17,7 +17,7 @@ export interface DriverModuleRow extends EntityBaseRow {
 }
 
 export interface DkvRow extends EntityBaseRow {
-  moduleInstanceId: number;
+  driverModuleId: number;
   keyVectorSystemId: number;
 
   driverModule: DriverModuleRow;
@@ -68,7 +68,7 @@ export const DkvSchema = new EntitySchema<DkvRow>({
   tableName: 'dkv',
   columns: {
     ...BaseColumnSchemaPart,
-    moduleInstanceId: {
+    driverModuleId: {
       name: 'module_instance_id',
       type: 'integer',
     },
