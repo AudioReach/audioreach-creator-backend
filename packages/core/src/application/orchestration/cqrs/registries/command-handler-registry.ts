@@ -60,9 +60,11 @@ import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.j
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
+  idGeneration: IdGenerationPort;
   fileReader: FileReaderPort;
   workerPool?: WorkerPoolPort;
   logger?: Logger;

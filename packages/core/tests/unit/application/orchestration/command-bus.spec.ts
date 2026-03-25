@@ -20,12 +20,17 @@ describe('CommandBus', () => {
   let mockRegistry: any;
   let mockFileReader: any;
   let mockUowFactory: any;
+  let mockIdGeneration: any;
   let commandBus: CommandBus;
 
   beforeEach(() => {
     mockUnitOfWork = createMockUnitOfWork();
     mockRegistry = createMockCommandHandlerRegistry();
     mockFileReader = {} as any;
+    mockIdGeneration = {
+      getNextId: jest.fn().mockReturnValue(8_388_613),
+      reserveBlock: jest.fn().mockResolvedValue(8_388_613),
+    };
 
     // Mock UoW factory that returns the mock UoW and a release function
     mockUowFactory = jest.fn().mockResolvedValue({
@@ -33,7 +38,12 @@ describe('CommandBus', () => {
       release: jest.fn().mockResolvedValue(undefined),
     });
 
-    commandBus = new CommandBus(mockRegistry, mockFileReader, mockUowFactory);
+    commandBus = new CommandBus(
+      mockRegistry,
+      mockIdGeneration,
+      mockFileReader,
+      mockUowFactory,
+    );
   });
 
   describe('Command Execution', () => {
@@ -68,6 +78,7 @@ describe('CommandBus', () => {
       const realRegistry = CommandHandlerRegistry.Instance;
       const realCommandBus = new CommandBus(
         realRegistry,
+        mockIdGeneration,
         mockFileReader,
         mockUowFactory,
       );
@@ -137,6 +148,7 @@ describe('CommandBus', () => {
       const failingRegistry = createMockRegistryWithMissingHandler();
       const failingCommandBus = new CommandBus(
         failingRegistry,
+        mockIdGeneration,
         mockFileReader,
         mockUowFactory,
       );
@@ -184,6 +196,7 @@ describe('CommandBus', () => {
 
       const strictCommandBus = new CommandBus(
         strictRegistry,
+        mockIdGeneration,
         mockFileReader,
         mockUowFactory,
       );
@@ -202,6 +215,7 @@ describe('CommandBus', () => {
       const realRegistry = CommandHandlerRegistry.Instance;
       const realCommandBus = new CommandBus(
         realRegistry,
+        mockIdGeneration,
         mockFileReader,
         mockUowFactory,
       );
