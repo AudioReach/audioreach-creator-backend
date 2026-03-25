@@ -24,7 +24,7 @@ import {
   UsecaseWithModificationSummary,
   UsecaseType,
 } from './dto/usecase.dto.js';
-import {ModuleInstanceDto} from '../module-instance/dto/module-instance.dto.js';
+import {SpfModuleDto} from '../spf-module/dto/spf-module.dto.js';
 import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
 import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
 import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
@@ -71,7 +71,7 @@ import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
   UsecaseDto,
   UsecaseWithModificationSummary,
   BaseComponentDto,
-  ModuleInstanceDto,
+  SpfModuleDto,
 )
 export class UseCaseController extends BaseController {
   constructor(private readonly queryBus: QueryBus) {
@@ -208,9 +208,9 @@ export class UseCaseController extends BaseController {
       dummyUsecaseIdentifier,
     );
 
-    // Transform modules to ModuleInstanceDto
-    usecaseComponentsDto.moduleInstances = components.modules.map(module => {
-      const moduleDto = new ModuleInstanceDto(
+    // Transform modules to SpfModuleDto
+    usecaseComponentsDto.spfModules = components.modules.map(module => {
+      const moduleDto = new SpfModuleDto(
         module.systemId.toString(),
         module.instanceId,
         module.definitionSystemId,

@@ -154,7 +154,7 @@ All operations are modeled as Commands (writes) or Queries (reads):
 
 Rich domain models encapsulate business logic:
 
-- **Aggregates**: Project, Usecase, Subgraph, ModuleInstance
+- **Aggregates**: Project, Usecase, Subgraph, SpfModule
 - **Entities**: Audio modules, connections, definitions
 - **Value Objects**: Parameters, port configurations
 - **Domain Services**: Graph validation, connection rules

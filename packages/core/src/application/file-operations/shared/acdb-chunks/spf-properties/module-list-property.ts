@@ -4,14 +4,14 @@
  */
 
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
-import type {ModuleInstanceInfo, ModuleInstance} from './types.js';
+import type {SpfModuleInfo, SpfModuleInstance} from './types.js';
 
 /**
  * Handles parsing of module list properties from binary data.
  */
 export class ModuleListProperty {
   /** List of module instance information */
-  readonly moduleInstanceInfos: ModuleInstanceInfo[] = [];
+  readonly spfModuleInfos: SpfModuleInfo[] = [];
 
   private constructor() {}
 
@@ -47,8 +47,8 @@ export class ModuleListProperty {
 
     // Parse each module instance info entry
     for (let i = 0; i < count; i++) {
-      const result = this.parseModuleInstanceInfo(view, payload, pos);
-      this.moduleInstanceInfos.push(result.info);
+      const result = this.parseSpfModuleInfo(view, payload, pos);
+      this.spfModuleInfos.push(result.info);
       pos = result.newPos;
     }
   }
@@ -70,11 +70,11 @@ export class ModuleListProperty {
   /**
    * Parse a single module instance info entry
    */
-  private parseModuleInstanceInfo(
+  private parseSpfModuleInfo(
     view: DataView,
     payload: Uint8Array,
     startPos: number,
-  ): {info: ModuleInstanceInfo; newPos: number} {
+  ): {info: SpfModuleInfo; newPos: number} {
     let pos = startPos;
 
     // Read subgraph ID
@@ -98,15 +98,15 @@ export class ModuleListProperty {
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Parse module instances
-    const result = this.parseModuleInstances(view, payload, pos);
-    const moduleInstances = result.instances;
+    const result = this.parseSpfModules(view, payload, pos);
+    const spfModules = result.instances;
     pos = result.newPos;
 
     // Create module instance info
-    const info: ModuleInstanceInfo = {
+    const info: SpfModuleInfo = {
       subgraphId,
       containerId,
-      moduleInstances,
+      spfModules: spfModules,
     };
 
     return {info, newPos: pos};
@@ -115,11 +115,11 @@ export class ModuleListProperty {
   /**
    * Parse module instances for a module instance info entry
    */
-  private parseModuleInstances(
+  private parseSpfModules(
     view: DataView,
     payload: Uint8Array,
     startPos: number,
-  ): {instances: ModuleInstance[]; newPos: number} {
+  ): {instances: SpfModuleInstance[]; newPos: number} {
     let pos = startPos;
 
     // Read module instance count
@@ -132,25 +132,25 @@ export class ModuleListProperty {
     const moduleInstCount = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
-    const moduleInstances: ModuleInstance[] = [];
+    const spfModules: SpfModuleInstance[] = [];
 
     for (let j = 0; j < moduleInstCount; j++) {
-      const result = this.parseModuleInstance(view, payload, pos);
-      moduleInstances.push(result.instance);
+      const result = this.parseSpfModule(view, payload, pos);
+      spfModules.push(result.instance);
       pos = result.newPos;
     }
 
-    return {instances: moduleInstances, newPos: pos};
+    return {instances: spfModules, newPos: pos};
   }
 
   /**
    * Parse a single module instance
    */
-  private parseModuleInstance(
+  private parseSpfModule(
     view: DataView,
     payload: Uint8Array,
     startPos: number,
-  ): {instance: ModuleInstance; newPos: number} {
+  ): {instance: SpfModuleInstance; newPos: number} {
     let pos = startPos;
 
     // Read module ID
@@ -173,7 +173,7 @@ export class ModuleListProperty {
     const instanceId = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
-    const instance: ModuleInstance = {
+    const instance: SpfModuleInstance = {
       moduleId,
       instanceId,
     };
@@ -184,24 +184,22 @@ export class ModuleListProperty {
   /**
    * Get module instances for a specific subgraph and container
    */
-  getModuleInstances(
+  getSpfModules(
     subgraphId: number,
     containerId: number,
-  ): ModuleInstance[] | null {
-    const info = this.moduleInstanceInfos.find(
+  ): SpfModuleInstance[] | null {
+    const info = this.spfModuleInfos.find(
       mi => mi.subgraphId === subgraphId && mi.containerId === containerId,
     );
-    return info?.moduleInstances || null;
+    return info?.spfModules || null;
   }
 
   /**
    * Get module ID for a specific instance ID
    */
   getModuleId(instanceId: number): number | null {
-    for (const info of this.moduleInstanceInfos) {
-      const instance = info.moduleInstances.find(
-        mi => mi.instanceId === instanceId,
-      );
+    for (const info of this.spfModuleInfos) {
+      const instance = info.spfModules.find(mi => mi.instanceId === instanceId);
       if (instance) {
         return instance.moduleId;
       }
@@ -212,17 +210,15 @@ export class ModuleListProperty {
   /**
    * Get all module instance infos for a specific subgraph
    */
-  getModuleInstanceInfosBySubgraph(subgraphId: number): ModuleInstanceInfo[] {
-    return this.moduleInstanceInfos.filter(mi => mi.subgraphId === subgraphId);
+  getSpfModuleInfosBySubgraph(subgraphId: number): SpfModuleInfo[] {
+    return this.spfModuleInfos.filter(mi => mi.subgraphId === subgraphId);
   }
 
   /**
    * Get all unique subgraph IDs
    */
   getSubgraphIds(): number[] {
-    const subgraphIds = new Set(
-      this.moduleInstanceInfos.map(mi => mi.subgraphId),
-    );
+    const subgraphIds = new Set(this.spfModuleInfos.map(mi => mi.subgraphId));
     return [...subgraphIds];
   }
 
@@ -230,9 +226,7 @@ export class ModuleListProperty {
    * Get all unique container IDs
    */
   getContainerIds(): number[] {
-    const containerIds = new Set(
-      this.moduleInstanceInfos.map(mi => mi.containerId),
-    );
+    const containerIds = new Set(this.spfModuleInfos.map(mi => mi.containerId));
     return [...containerIds];
   }
 }

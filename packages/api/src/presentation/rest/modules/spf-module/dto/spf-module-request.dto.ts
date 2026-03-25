@@ -7,9 +7,9 @@ import {ApiProperty} from '@nestjs/swagger';
 import {IsNotEmpty, IsOptional, IsNumber} from 'class-validator';
 
 /**
- * Base class for module instance creation requests
+ * Base class for SPF module creation requests
  */
-export class BaseModuleInstanceRequest {
+export class BaseSpfModuleRequest {
   @ApiProperty({
     description: 'Module ID',
     required: true,
@@ -54,19 +54,19 @@ export class BaseModuleInstanceRequest {
 }
 
 /**
- * Request for creating a module instance with basic information only.
+ * Request for creating an SPF module with basic information only.
  * Backend will create default data for ckvData, tkvData, and tagData.
  */
-export class BasicModuleInstanceRequest extends BaseModuleInstanceRequest {
+export class BasicSpfModuleRequest extends BaseSpfModuleRequest {
   @ApiProperty({description: 'Request type', enum: ['basic'], default: 'basic'})
   requestType = 'basic' as const;
 }
 
 /**
- * Request for creating a module instance with detailed calibration and tag data.
+ * Request for creating an SPF module with detailed calibration and tag data.
  * Backend will use the provided data instead of defaults.
  */
-export class DetailedModuleInstanceRequest extends BaseModuleInstanceRequest {
+export class DetailedSpfModuleRequest extends BaseSpfModuleRequest {
   @ApiProperty({
     description: 'Request type',
     enum: ['detailed'],
@@ -97,14 +97,14 @@ export class DetailedModuleInstanceRequest extends BaseModuleInstanceRequest {
 }
 
 /**
- * Union type for module instance creation requests.
- * Use BasicModuleInstanceRequest for basic creation or DetailedModuleInstanceRequest for detailed creation.
+ * Union type for SPF module creation requests.
+ * Use BasicSpfModuleRequest for basic creation or DetailedSpfModuleRequest for detailed creation.
  */
-export type NewModuleInstanceRequest =
-  | BasicModuleInstanceRequest
-  | DetailedModuleInstanceRequest;
+export type NewSpfModuleRequest =
+  | BasicSpfModuleRequest
+  | DetailedSpfModuleRequest;
 
-export class CloneModuleInstanceRequest {
+export class CloneSpfModuleRequest {
   @ApiProperty({
     description: 'Reference Module instance ID',
     required: true,
@@ -144,12 +144,12 @@ export class CloneModuleInstanceRequest {
   }
 }
 
-export class AddModuleInstanceDataRequest {
+export class AddSpfModuleDataRequest {
   @ApiProperty({
     description: 'Module inforamtion',
     required: true,
   })
-  readonly moduleInfo: NewModuleInstanceRequest;
+  readonly moduleInfo: NewSpfModuleRequest;
 
   @ApiProperty({
     description: 'ckv calibration data',
@@ -170,7 +170,7 @@ export class AddModuleInstanceDataRequest {
   readonly tagData?: object;
 
   constructor(
-    moduleInfo: NewModuleInstanceRequest,
+    moduleInfo: NewSpfModuleRequest,
     ckv?: object,
     tkv?: object,
     tag?: object,

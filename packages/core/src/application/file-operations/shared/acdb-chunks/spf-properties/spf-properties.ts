@@ -241,16 +241,16 @@ export class SpfProperties {
 
       case PARAM_ID_MODULE_DATA_LINK:
         if (payloadSize > 0) {
-          const moduleInstanceIds = moduleList
-            ? moduleList.moduleInstanceInfos.flatMap(info =>
-                info.moduleInstances.map(instance => instance.instanceId),
+          const spfModuleInstanceIds = moduleList
+            ? moduleList.spfModuleInfos.flatMap(info =>
+                info.spfModules.map(instance => instance.instanceId),
               )
             : [];
 
           return {
             dataLinks: DataLinksProperty.fromPayload(
               payloadData,
-              moduleInstanceIds,
+              spfModuleInstanceIds,
             ),
           };
         }

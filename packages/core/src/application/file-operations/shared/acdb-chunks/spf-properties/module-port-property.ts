@@ -94,7 +94,7 @@ export class ModulePortProperty {
       payload.length,
       'module instance ID',
     );
-    const moduleInstanceId = BinaryUtils.readUint32(view, pos);
+    const spfModuleInstanceId = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Parse properties for this module
@@ -103,7 +103,10 @@ export class ModulePortProperty {
     pos = result.newPos;
 
     // Create module property configuration with implementation
-    const config = new ModulePropertyConfigImpl(moduleInstanceId, properties);
+    const config = new ModulePropertyConfigImpl(
+      spfModuleInstanceId,
+      properties,
+    );
 
     return {config, newPos: pos};
   }
@@ -185,9 +188,9 @@ export class ModulePortProperty {
   /**
    * Get properties for a specific module instance
    */
-  getModuleProperties(moduleInstanceId: number): ModuleProperty[] | null {
+  getModuleProperties(spfModuleInstanceId: number): ModuleProperty[] | null {
     const config = this.modulePropertyConfigs.find(
-      c => c.moduleInstanceId === moduleInstanceId,
+      c => c.spfModuleInstanceId === spfModuleInstanceId,
     );
     return config?.properties || null;
   }
@@ -196,11 +199,11 @@ export class ModulePortProperty {
    * Get specific property data for a module instance
    */
   getPropertyData(
-    moduleInstanceId: number,
+    spfModuleInstanceId: number,
     propertyId: number,
   ): Uint8Array | null {
     const config = this.modulePropertyConfigs.find(
-      c => c.moduleInstanceId === moduleInstanceId,
+      c => c.spfModuleInstanceId === spfModuleInstanceId,
     );
     const property = config?.properties.find(p => p.propertyId === propertyId);
     return property?.data || null;
@@ -209,9 +212,9 @@ export class ModulePortProperty {
   /**
    * Get port information for a module instance
    */
-  getPortInfo(moduleInstanceId: number): PortInfo | null {
+  getPortInfo(spfModuleInstanceId: number): PortInfo | null {
     const portData = this.getPropertyData(
-      moduleInstanceId,
+      spfModuleInstanceId,
       MODULE_PROP_ID_PORT_INFO,
     );
     if (!portData || portData.length < 8) {
@@ -232,9 +235,9 @@ export class ModulePortProperty {
   /**
    * Get heap information for a module instance
    */
-  getHeapInfo(moduleInstanceId: number): HeapInfo | null {
+  getHeapInfo(spfModuleInstanceId: number): HeapInfo | null {
     const heapData = this.getPropertyData(
-      moduleInstanceId,
+      spfModuleInstanceId,
       MODULE_PROP_ID_HEAP_ID,
     );
     if (!heapData || heapData.length < 4) {
@@ -254,7 +257,7 @@ export class ModulePortProperty {
   /**
    * Get all module instance IDs
    */
-  getModuleInstanceIds(): number[] {
-    return this.modulePropertyConfigs.map(c => c.moduleInstanceId);
+  getSpfModuleInstanceIds(): number[] {
+    return this.modulePropertyConfigs.map(c => c.spfModuleInstanceId);
   }
 }

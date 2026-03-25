@@ -102,10 +102,10 @@ export class ControlLinkBuilder {
     property: ControlLinkProperty,
   ): ControlLink {
     // Get node systemIds from foreign key mapper
-    const peerNodeASystemId = this.getModuleInstanceSystemId(
+    const peerNodeASystemId = this.getSpfModuleSystemId(
       property.peer1InstanceId,
     );
-    const peerNodeBSystemId = this.getModuleInstanceSystemId(
+    const peerNodeBSystemId = this.getSpfModuleSystemId(
       property.peer2InstanceId,
     );
 
@@ -129,9 +129,8 @@ export class ControlLinkBuilder {
   /**
    * Get module instance systemId from foreign key mapper
    */
-  private getModuleInstanceSystemId(instanceId: number): number {
-    const systemId =
-      this.foreignKeyMapper.getModuleInstanceSystemId(instanceId);
+  private getSpfModuleSystemId(instanceId: number): number {
+    const systemId = this.foreignKeyMapper.getSpfModuleSystemId(instanceId);
     if (!systemId) {
       throw new Error(
         `No module instance systemId mapping found for instanceId ${instanceId}`,

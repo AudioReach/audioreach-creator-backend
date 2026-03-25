@@ -135,7 +135,7 @@ The domain layer contains rich models with business logic:
 - `Project` - Root aggregate for workspace
 - `Usecase` - Audio processing usecase
 - `Subgraph` - Graph of connected modules
-- `ModuleInstance` - Instance of a module definition
+- `SpfModule` - Spf modules
 - `SpfModuleDefinition` - Module type definition
 
 **Entities/Value Objects**:
@@ -504,10 +504,10 @@ packages/infrastructure/
 **Relationships**:
 - Project → Usecases (1:N)
 - Usecase → Subgraphs (1:N)
-- Subgraph → ModuleInstances (1:N)
-- ModuleInstance → Definition (N:1)
-- ModuleInstance → DataLinks (1:N)
-- ModuleInstance → ControlLinks (1:N)
+- Subgraph → SpfModules (1:N)
+- SpfModules → Definition (N:1)
+- SpfModules → DataLinks (1:N)
+- SpfModules → ControlLinks (1:N)
 
 ### 5.4 Modification Framework
 
@@ -553,7 +553,7 @@ const usecases = await queryBus.execute(new GetAllUseCasesQuery(projectId, clien
 - `Project` - Root aggregate
 - `Usecase` - Usecase aggregate
 - `Subgraph` - Graph aggregate
-- `ModuleInstance` - Module entity
+- `SpfModule` - Module entity
 - `SpfModuleDefinition` - Definition entity
 
 ### 6.3 Repository Pattern
@@ -686,10 +686,10 @@ const instance = handler.create(dependencies);
 
 **Example**:
 ```typescript
-describe('ModuleInstance', () => {
+describe('SpfModule', () => {
   it('should validate connection compatibility', () => {
-    const source = new ModuleInstance(...);
-    const target = new ModuleInstance(...);
+    const source = new SpfModules(...);
+    const target = new SpfModules(...);
     expect(source.canConnectTo(target)).toBe(true);
   });
 });
@@ -727,7 +727,7 @@ describe('POST /api/v1/projects/upload', () => {
       .post('/api/v1/projects/upload')
       .attach('file', 'fixtures/workspaceFileXml.awsp')
       .expect(201);
-    
+
     expect(response.body.projectId).toBeDefined();
   });
 });
@@ -873,7 +873,7 @@ yarn clean
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-01-30 | Architecture Team | Initial project architecture overview 
+| 1.0 | 2026-01-30 | Architecture Team | Initial project architecture overview
 
 ---
 

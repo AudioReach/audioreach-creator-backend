@@ -18,11 +18,8 @@ import {
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {
-  ModuleInstanceDto,
-  ModuleInstancePropertiesDto,
-} from './dto/module-instance.dto.js';
-import {ModuleInstanceTuningConfigDto} from './dto/tuning-config.dto.js';
+import {SpfModuleDto, SpfModulePropertiesDto} from './dto/spf-module.dto.js';
+import {SpfModuleTuningConfigDto} from './dto/tuning-config.dto.js';
 import {
   CalDataResponseDto,
   UpdateCalDataRequestDto,
@@ -36,10 +33,10 @@ import {
 } from './dto/cal-tag-data.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
-  BaseModuleInstanceRequest,
-  DetailedModuleInstanceRequest,
-  CloneModuleInstanceRequest,
-} from './dto/module-instance-request.dto.js';
+  BaseSpfModuleRequest,
+  DetailedSpfModuleRequest,
+  CloneSpfModuleRequest,
+} from './dto/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 
@@ -47,8 +44,8 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  * Controller to support all module related APIs for usecase design
  * Provides module related APIs for usecase design.
  */
-@ApiTags('module-instances')
-@Controller('arc-api/v1/projects/:projectId/module-instances')
+@ApiTags('spf-modules')
+@Controller('arc-api/v1/projects/:projectId/spf-modules')
 @UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',
@@ -57,8 +54,8 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
   example: '12345',
 })
 @ApiExtraModels(
-  ModuleInstanceDto,
-  ModuleInstanceTuningConfigDto,
+  SpfModuleDto,
+  SpfModuleTuningConfigDto,
   CalDataResponseDto,
   UpdateCalDataRequestDto,
   TkvDataDto,
@@ -68,71 +65,71 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
   ConfigArrayDto,
   ConfigStructDto,
   ConfigStructArrayDto,
-  BaseModuleInstanceRequest,
-  DetailedModuleInstanceRequest,
-  CloneModuleInstanceRequest,
+  BaseSpfModuleRequest,
+  DetailedSpfModuleRequest,
+  CloneSpfModuleRequest,
 )
-export class ModuleInstanceController extends BaseController {
+export class SpfModuleController extends BaseController {
   constructor() {
     super();
   }
 
   /**
-   * Get module instances.
+   * Get SPF modules.
    */
   @Post('get')
   @ApiDocumentationWithExample({
-    summary: 'Get module instances for provided systemIds',
+    summary: 'Get SPF modules for provided systemIds',
     requestDto: SystemIdsRequestDto,
-    requestDtoDescription: 'List of module instance system ids',
+    requestDtoDescription: 'List of SPF module system ids',
 
     responses: [
       {
         status: HttpStatus.OK,
         description: 'Success',
-        dto: [ModuleInstanceDto],
+        dto: [SpfModuleDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some module instances are not found',
+        description: 'Some SPF modules are not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get module instances',
+        description: 'Failed to get SPF modules',
       },
     ],
   })
-  async getModuleInstances(
+  async getSpfModules(
     @Param('projectId') projectId: string,
-    @Body() moduleInstanceSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<ModuleInstanceDto[]>> {
+    @Body() spfModuleSystemIds: SystemIdsRequestDto,
+  ): Promise<ApiResult<SpfModuleDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting module instances in project ${projectId}: ${JSON.stringify(moduleInstanceSystemIds)}`,
+      `Getting SPF modules in project ${projectId}: ${JSON.stringify(spfModuleSystemIds)}`,
     );
     throw new HttpException(
-      'module instances retrieval functionality is not implemented yet.',
+      'SPF modules retrieval functionality is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
     );
   }
 
   /**
-   * Create a new module instance for a given module id and processor id.
+   * Create a new SPF module for a given module id and processor id.
    */
   @Post()
   @ApiDocumentationWithExample({
-    summary: 'Create a new module instance for a given module id',
-    requestDto: BaseModuleInstanceRequest,
+    summary: 'Create a new SPF module for a given module id',
+    requestDto: BaseSpfModuleRequest,
     requestDtoExample: {
-      className: 'NewModuleInstanceRequestExample',
+      className: 'NewSpfModuleRequestExample',
     },
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'New created module information',
-        dto: ModuleInstanceDto,
+        description: 'New created SPF module information',
+        dto: SpfModuleDto,
         example: {
-          className: 'ModuleInstanceDTOExample',
+          className: 'SpfModuleDTOExample',
         },
       },
       {
@@ -141,17 +138,17 @@ export class ModuleInstanceController extends BaseController {
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to add a new module',
+        description: 'Failed to add a new SPF module',
       },
     ],
   })
-  async addModuleInstance(
+  async addSpfModule(
     @Param('projectId') projectId: string,
-    @Body() request: BaseModuleInstanceRequest,
-  ): Promise<ApiResult<ModuleInstanceDto>> {
+    @Body() request: BaseSpfModuleRequest,
+  ): Promise<ApiResult<SpfModuleDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      'addModuleInstance request received for projectId:',
+      'addSpfModule request received for projectId:',
       projectId,
       'with request:',
       request,
@@ -163,63 +160,62 @@ export class ModuleInstanceController extends BaseController {
   }
 
   /**
-   * Get all property data for a module instance (subgraph, container, subsystem, module).
+   * Get all property data for an SPF module (subgraph, container, subsystem, module).
    */
-  @Get('/:moduleInstanceSystemId/properties')
+  @Get('/:spfModuleSystemId/properties')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'spfModuleSystemId',
     required: true,
     type: String,
-    description: 'System id of a module instance',
+    description: 'System id of an SPF module',
   })
   @ApiDocumentationWithExample({
-    summary: 'Get all property data for a module instance',
+    summary: 'Get all property data for an SPF module',
     responses: [
       {
         status: HttpStatus.OK,
         description: 'Success',
-        dto: ModuleInstancePropertiesDto,
+        dto: SpfModulePropertiesDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Module instance is not found',
+        description: 'SPF module is not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get module instance properties',
+        description: 'Failed to get SPF module properties',
       },
     ],
   })
-  async getModuleInstanceProperties(
+  async getSpfModuleProperties(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
-  ): Promise<ApiResult<ModuleInstancePropertiesDto>> {
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+  ): Promise<ApiResult<SpfModulePropertiesDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting properties in project ${projectId} for module instance ${moduleInstanceSystemId}`,
+      `Getting properties in project ${projectId} for SPF module ${spfModuleSystemId}`,
     );
     throw new HttpException(
-      'Module instance properties retrieval functionality is not implemented yet.',
+      'SPF module properties retrieval functionality is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
     );
   }
 
   /**
-   * Get all tuning configuration (CKVS and TKVS) for a module instance.
+   * Get all tuning configuration (CKVS and TKVS) for an SPF module.
    */
-  @Get('/:moduleInstanceSystemId/tuning-config')
+  @Get('/:spfModuleSystemId/tuning-config')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'spfModuleSystemId',
     required: true,
     type: String,
-    description: 'System id of a module instance',
+    description: 'System id of an SPF module',
     example: '12345',
   })
   @ApiDocumentationWithExample({
-    summary:
-      'Get all tuning configuration (CKVS and TKVS) for a module instance',
+    summary: 'Get all tuning configuration (CKVS and TKVS) for an SPF module',
     description:
-      'Retrieves the complete tuning configuration for a specific module instance, including:\n\n' +
+      'Retrieves the complete tuning configuration for a specific SPF module, including:\n\n' +
       '**CKVS (Calibration Key-Values):** Module-level calibration configuration parameters\n' +
       '**Tags with TKVS:** Tag-specific configuration where each tag contains its own Tag Key-Values\n\n' +
       'The response structure includes:\n' +
@@ -231,14 +227,14 @@ export class ModuleInstanceController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tuning configuration retrieved successfully',
-        dto: ModuleInstanceTuningConfigDto,
+        dto: SpfModuleTuningConfigDto,
         example: {
-          className: 'ModuleInstanceTuningConfigExample',
+          className: 'SpfModuleTuningConfigExample',
         },
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Module instance not found',
+        description: 'SPF module not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -246,29 +242,29 @@ export class ModuleInstanceController extends BaseController {
       },
     ],
   })
-  async getModuleInstanceTuningConfig(
+  async getSpfModuleTuningConfig(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
-  ): Promise<ApiResult<ModuleInstanceTuningConfigDto>> {
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+  ): Promise<ApiResult<SpfModuleTuningConfigDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting tuning config for module instance ${moduleInstanceSystemId} in project ${projectId}`,
+      `Getting tuning config for SPF module ${spfModuleSystemId} in project ${projectId}`,
     );
     throw new HttpException(
-      'Module instance tuning configuration retrieval functionality is not implemented yet.',
+      'SPF module tuning configuration retrieval functionality is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
     );
   }
 
   /**
-   * Get calibration data for a module instance.
+   * Get calibration data for an SPF module.
    */
-  @Get('/:moduleInstanceSystemId/cal-data/:ckvSystemId')
+  @Get('/:spfModuleSystemId/cal-data/:ckvSystemId')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'spfModuleSystemId',
     required: true,
     type: String,
-    description: 'System id of a module instance',
+    description: 'System id of an SPF module',
     example: '12345',
   })
   @ApiParam({
@@ -283,17 +279,17 @@ export class ModuleInstanceController extends BaseController {
     required: false,
     type: String,
     description:
-      'Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the module-instance.',
+      'Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.',
     example: '1,2,3',
   })
   @ApiDocumentationWithExample({
-    summary: 'Get calibration data for a module instance',
+    summary: 'Get calibration data for an SPF module',
     description:
-      'Retrieves calibration data for a specific module instance with configElements containing name, value, type, ranges etc.\n\n' +
+      'Retrieves calibration data for a specific SPF module with configElements containing name, value, type, ranges etc.\n\n' +
       '**Example Usage:**\n' +
       '```\n' +
-      'GET /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101\n' +
-      'GET /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101?param-system-ids=1,2,3\n' +
+      'GET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101\n' +
+      'GET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101?param-system-ids=1,2,3\n' +
       '```\n\n' +
       '**Required Parameters:**\n' +
       '- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n' +
@@ -301,7 +297,7 @@ export class ModuleInstanceController extends BaseController {
       '- `param-system-ids`: Comma-separated list of parameter system IDs\n\n' +
       '**Parameter Filtering Logic:**\n' +
       '- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n' +
-      '- If `param-system-ids` are not provided: Return all parameter data under the module-instance\n\n' +
+      '- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n' +
       '**Response Format:**\n' +
       'JSON format including all configElements with name, value, type, ranges etc.\n\n' +
       '**isActive Flag:**\n' +
@@ -319,7 +315,7 @@ export class ModuleInstanceController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Module instance or CKV system ID not found',
+        description: 'SPF module or CKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -329,13 +325,13 @@ export class ModuleInstanceController extends BaseController {
   })
   async getCalibrationData(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
   ): Promise<ApiResult<CalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting calibration data for module instance ${moduleInstanceSystemId} in project ${projectId}`,
+      `Getting calibration data for SPF module ${spfModuleSystemId} in project ${projectId}`,
       `with CKV system ID: ${ckvSystemId}`,
       paramSystemIds
         ? `and parameter system IDs: ${paramSystemIds}`
@@ -348,14 +344,14 @@ export class ModuleInstanceController extends BaseController {
   }
 
   /**
-   * Update calibration data for a module instance.
+   * Update calibration data for an SPF module.
    */
-  @Put('/:moduleInstanceSystemId/cal-data/:ckvSystemId')
+  @Put('/:spfModuleSystemId/cal-data/:ckvSystemId')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'spfModuleSystemId',
     required: true,
     type: String,
-    description: 'System id of a module instance',
+    description: 'System id of an SPF module',
     example: '12345',
   })
   @ApiParam({
@@ -366,12 +362,12 @@ export class ModuleInstanceController extends BaseController {
     example: '101',
   })
   @ApiDocumentationWithExample({
-    summary: 'Update calibration data for a module instance',
+    summary: 'Update calibration data for an SPF module',
     description:
-      'Updates calibration data for a specific module instance. Supports updating multiple PIDs in a single request.\n\n' +
+      'Updates calibration data for a specific SPF module. Supports updating multiple PIDs in a single request.\n\n' +
       '**Example Usage:**\n' +
       '```\n' +
-      'PUT /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101\n' +
+      'PUT /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101\n' +
       '```\n\n' +
       '**Required Parameters:**\n' +
       '- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n' +
@@ -400,7 +396,7 @@ export class ModuleInstanceController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Module instance or CKV system ID not found',
+        description: 'SPF module or CKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -410,13 +406,13 @@ export class ModuleInstanceController extends BaseController {
   })
   async updateCalibrationData(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
     @Body() updateRequest: UpdateCalDataRequestDto,
   ): Promise<ApiResult<CalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Updating calibration data for module instance ${moduleInstanceSystemId} in project ${projectId}`,
+      `Updating calibration data for SPF module ${spfModuleSystemId} in project ${projectId}`,
       `with CKV system ID: ${ckvSystemId}`,
       `for PIDs: ${updateRequest.data.map(item => item.pid).join(', ')}`,
     );
@@ -427,14 +423,14 @@ export class ModuleInstanceController extends BaseController {
   }
 
   /**
-   * Get tag data for a module instance.
+   * Get tag data for an SPF module.
    */
-  @Get('/:moduleInstanceSystemId/tag-data/:tagSystemId/:tkvSystemId')
+  @Get('/:spfModuleSystemId/tag-data/:tagSystemId/:tkvSystemId')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'spfModuleSystemId',
     required: true,
     type: String,
-    description: 'System id of a module instance',
+    description: 'System id of an SPF module',
     example: '12345',
   })
   @ApiParam({
@@ -456,17 +452,17 @@ export class ModuleInstanceController extends BaseController {
     required: false,
     type: String,
     description:
-      'Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the module-instance.',
+      'Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.',
     example: '1,2,3',
   })
   @ApiDocumentationWithExample({
-    summary: 'Get tag data for a module instance',
+    summary: 'Get tag data for an SPF module',
     description:
-      'Retrieves tag-specific data for a module instance with configElements containing name, value, type, ranges etc.\n\n' +
+      'Retrieves tag-specific data for an SPF module with configElements containing name, value, type, ranges etc.\n\n' +
       '**Example Usage:**\n' +
       '```\n' +
-      'GET /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301\n' +
-      'GET /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301?param-system-ids=1,2,3\n' +
+      'GET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301\n' +
+      'GET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301?param-system-ids=1,2,3\n' +
       '```\n\n' +
       '**Required Parameters:**\n' +
       '- `tagSystemId`: Tag system ID for tag data (path parameter)\n' +
@@ -475,7 +471,7 @@ export class ModuleInstanceController extends BaseController {
       '- `param-system-ids`: Comma-separated list of parameter system IDs\n\n' +
       '**Parameter Filtering Logic:**\n' +
       '- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n' +
-      '- If `param-system-ids` are not provided: Return all parameter data under the module-instance\n\n' +
+      '- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n' +
       '**Response Format:**\n' +
       'JSON format including tagSystemId, tkvSystemId, and array of PID data with configElements.\n\n' +
       '**Tag Context:**\n' +
@@ -493,8 +489,7 @@ export class ModuleInstanceController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description:
-          'Module instance, tag system ID, or TKV system ID not found',
+        description: 'SPF module, tag system ID, or TKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -504,14 +499,14 @@ export class ModuleInstanceController extends BaseController {
   })
   async getTagData(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
   ): Promise<ApiResult<TkvDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting tag data for module instance ${moduleInstanceSystemId} in project ${projectId}`,
+      `Getting tag data for SPF module ${spfModuleSystemId} in project ${projectId}`,
       `with tag system ID: ${tagSystemId} and TKV system ID: ${tkvSystemId}`,
       paramSystemIds
         ? `and parameter system IDs: ${paramSystemIds}`
@@ -524,14 +519,14 @@ export class ModuleInstanceController extends BaseController {
   }
 
   /**
-   * Update tag data for a module instance.
+   * Update tag data for an SPF module.
    */
-  @Put('/:moduleInstanceSystemId/tag-data/:tagSystemId/:tkvSystemId')
+  @Put('/:spfModuleSystemId/tag-data/:tagSystemId/:tkvSystemId')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'spfModuleSystemId',
     required: true,
     type: String,
-    description: 'System id of a module instance',
+    description: 'System id of an SPF module',
     example: '12345',
   })
   @ApiParam({
@@ -549,12 +544,12 @@ export class ModuleInstanceController extends BaseController {
     example: '301',
   })
   @ApiDocumentationWithExample({
-    summary: 'Update tag data for a module instance',
+    summary: 'Update tag data for an SPF module',
     description:
-      'Updates tag-specific data for a module instance. Supports updating multiple PIDs in a single request.\n\n' +
+      'Updates tag-specific data for an SPF module. Supports updating multiple PIDs in a single request.\n\n' +
       '**Example Usage:**\n' +
       '```\n' +
-      'PUT /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301\n' +
+      'PUT /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301\n' +
       '```\n\n' +
       '**Required Parameters:**\n' +
       '- `tagSystemId`: Tag system ID for tag data (path parameter)\n' +
@@ -587,8 +582,7 @@ export class ModuleInstanceController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description:
-          'Module instance, tag system ID, or TKV system ID not found',
+        description: 'SPF module, tag system ID, or TKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -598,14 +592,14 @@ export class ModuleInstanceController extends BaseController {
   })
   async updateTagData(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
     @Body() updateRequest: UpdateTagDataRequestDto,
   ): Promise<ApiResult<TkvDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Updating tag data for module instance ${moduleInstanceSystemId} in project ${projectId}`,
+      `Updating tag data for SPF module ${spfModuleSystemId} in project ${projectId}`,
       `with tag system ID: ${tagSystemId} and TKV system ID: ${tkvSystemId}`,
       `for PIDs: ${updateRequest.data.map(item => item.pid).join(', ')}`,
     );

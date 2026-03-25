@@ -202,8 +202,8 @@ export class UsecaseBuilder {
     // Filter modules that belong to the specified subgraphs
     for (const moduleInfo of allModules) {
       if (sgList.includes(moduleInfo.subgraphId)) {
-        for (const moduleInstance of moduleInfo.moduleInstances) {
-          const systemId = this.foreignKeyMapper.getModuleInstanceSystemId(
+        for (const moduleInstance of moduleInfo.spfModules) {
+          const systemId = this.foreignKeyMapper.getSpfModuleSystemId(
             moduleInstance.instanceId,
           );
           if (systemId) {

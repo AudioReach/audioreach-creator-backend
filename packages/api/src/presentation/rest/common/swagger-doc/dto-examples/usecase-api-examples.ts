@@ -24,7 +24,7 @@ import {
   EndPointLink,
   CONN_CTRL_TYPE,
 } from '../../../common/utils/index.js';
-import {ModuleInstanceDto} from '../../../modules/module-instance/dto/module-instance.dto.js';
+import {SpfModuleDto} from '../../../modules/spf-module/dto/spf-module.dto.js';
 import {DataPortDto, PortType, PortIoType} from '../../dto/data-port.dto.js';
 import {ControlPortDto} from '../../dto/control-port.dto.js';
 import {DataLinkDto} from '../../../modules/data-link/dto/data-link.dto.js';
@@ -218,33 +218,33 @@ export const UsecaseComponentsExample = {
     usecaseComponents.subsystems = [subsystemApiExample];
 
     // Create module instances
-    const moduleInstance1 = new ModuleInstanceDto(
+    const spfModule1 = new SpfModuleDto(
       '1001',
       1001,
       0x07_01_01_05,
       'PCM Decoder',
     );
-    moduleInstance1.alias = 'PCM_Decoder_1';
-    moduleInstance1.subgraphId = 501;
-    moduleInstance1.containerId = 601;
-    moduleInstance1.maxInputPortsSupported = 2;
-    moduleInstance1.maxOutputPortsSupported = 2;
-    moduleInstance1.maxControlPortsSupported = 1;
-    moduleInstance1.heapId = 1;
+    spfModule1.alias = 'PCM_Decoder_1';
+    spfModule1.subgraphId = 501;
+    spfModule1.containerId = 601;
+    spfModule1.maxInputPortsSupported = 2;
+    spfModule1.maxOutputPortsSupported = 2;
+    spfModule1.maxControlPortsSupported = 1;
+    spfModule1.heapId = 1;
 
-    const moduleInstance2 = new ModuleInstanceDto(
+    const spfModule2 = new SpfModuleDto(
       '1002',
       1002,
       0x07_01_01_06,
       'Audio MBDRC',
     );
-    moduleInstance2.alias = 'Audio_MBDRC_1';
-    moduleInstance2.subgraphId = 501;
-    moduleInstance2.containerId = 601;
-    moduleInstance2.maxInputPortsSupported = 1;
-    moduleInstance2.maxOutputPortsSupported = 1;
-    moduleInstance2.maxControlPortsSupported = 2;
-    moduleInstance2.heapId = 1;
+    spfModule2.alias = 'Audio_MBDRC_1';
+    spfModule2.subgraphId = 501;
+    spfModule2.containerId = 601;
+    spfModule2.maxInputPortsSupported = 1;
+    spfModule2.maxOutputPortsSupported = 1;
+    spfModule2.maxControlPortsSupported = 2;
+    spfModule2.heapId = 1;
 
     // Add data ports to modules
     const inputPort1 = new DataPortDto(
@@ -261,7 +261,7 @@ export const UsecaseComponentsExample = {
       PortIoType.Output,
       PortType.Static,
     );
-    moduleInstance1.dataPorts = [inputPort1, outputPort1];
+    spfModule1.dataPorts = [inputPort1, outputPort1];
 
     const inputPort2 = new DataPortDto(
       '2003',
@@ -277,7 +277,7 @@ export const UsecaseComponentsExample = {
       PortIoType.Output,
       PortType.Static,
     );
-    moduleInstance2.dataPorts = [inputPort2, outputPort2];
+    spfModule2.dataPorts = [inputPort2, outputPort2];
 
     // Add control ports to modules
     const controlPort1 = new ControlPortDto(
@@ -287,7 +287,7 @@ export const UsecaseComponentsExample = {
       PortType.Static,
       [],
     );
-    moduleInstance1.controlPorts = [controlPort1];
+    spfModule1.controlPorts = [controlPort1];
 
     const controlPort2 = new ControlPortDto(
       '3002',
@@ -303,18 +303,18 @@ export const UsecaseComponentsExample = {
       PortType.Static,
       [],
     );
-    moduleInstance2.controlPorts = [controlPort2, controlPort3];
+    spfModule2.controlPorts = [controlPort2, controlPort3];
 
-    usecaseComponents.moduleInstances = [moduleInstance1, moduleInstance2];
+    usecaseComponents.spfModules = [spfModule1, spfModule2];
 
     // Create data links
     const dataConnection = new DataLinkDto(
       '4001',
       4001,
       CONN_CTRL_TYPE.MODULE_MODULE,
-      1001, // sourceId (moduleInstance1)
+      1001, // sourceId (spfModule1)
       2002, // sourcePortId (outputPort1)
-      1002, // destinationId (moduleInstance2)
+      1002, // destinationId (spfModule2)
       2003, // destinationPortId (inputPort2)
       false, // isDangling
       601, // parentId (containerId)
@@ -328,9 +328,9 @@ export const UsecaseComponentsExample = {
       '5001',
       5001,
       CONN_CTRL_TYPE.MODULE_MODULE,
-      1001, // sourceId (moduleInstance1)
+      1001, // sourceId (spfModule1)
       3001, // sourcePortId (controlPort1)
-      1002, // destinationId (moduleInstance2)
+      1002, // destinationId (spfModule2)
       3002, // destinationPortId (controlPort2)
       false, // isDangling
       601, // parentId (containerId)
@@ -356,7 +356,7 @@ export const UsecaseWithComponentsExample = {
     const groupedComponents = UsecaseComponentsExample.getExample();
     const flatComponents: BaseComponentDto<number>[] = [
       ...groupedComponents.subsystems,
-      ...groupedComponents.moduleInstances,
+      ...groupedComponents.spfModules,
       ...groupedComponents.dataLinks,
       ...groupedComponents.controlLinks,
     ];
@@ -416,12 +416,7 @@ export const UsecaseWithComponentsExample = {
     // Add additional components
 
     // Create an EQ module instance
-    const eqModule = new ModuleInstanceDto(
-      '1003',
-      1003,
-      0x07_00_10_17,
-      'Audio EQ',
-    );
+    const eqModule = new SpfModuleDto('1003', 1003, 0x07_00_10_17, 'Audio EQ');
     eqModule.alias = 'Audio_EQ_1';
     eqModule.subgraphId = 501;
     eqModule.containerId = 601;
@@ -465,7 +460,7 @@ export const UsecaseWithComponentsExample = {
     eqModule.controlPorts = [eqControlPort1, eqControlPort2];
 
     // Find the MBDRC module from base components (for reference)
-    const mbdrcModule = baseComponents.moduleInstances.find(c => c.id === 1002);
+    const mbdrcModule = baseComponents.spfModules.find(c => c.id === 1002);
     if (!mbdrcModule) {
       throw new Error('MBDRC module not found in base components');
     }
@@ -500,7 +495,7 @@ export const UsecaseWithComponentsExample = {
     // Combine all components
     const allComponents: BaseComponentDto<number>[] = [
       ...baseComponents.subsystems,
-      ...baseComponents.moduleInstances,
+      ...baseComponents.spfModules,
       ...baseComponents.dataLinks,
       ...baseComponents.controlLinks,
       eqModule,
