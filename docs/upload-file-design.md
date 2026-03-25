@@ -176,10 +176,10 @@ ACDB File (.acdb)                    AWSP File (.awsp)
    try {
      // Create project entity
      const project = new Project(0, projectName, projectDescription, PROJECT_TYPE.OFFLINE);
-     
+
      // Create file system record
      const result = await projectRepo.createOfflineProject(project, fileMetadata);
-     
+
      await uow.commit();
    } catch (error) {
      await uow.rollback();
@@ -280,7 +280,7 @@ const result = await bulkRepo.insertSpfModules(
 );
 
 // Mapping Phase: Store systemId mappings
-foreignKeyMapper.setModuleInstanceMappings(result);
+foreignKeyMapper.setSpfModuleMappings(result);
 // Now we can use these systemIds when building DataLinks
 ```
 
@@ -397,7 +397,7 @@ foreignKeyMapper.setModuleInstanceMappings(result);
 - `setModuleDefinitionMappings(result): void`
 - `setSubgraphMappings(result): void`
 - `setContainerMappings(result): void`
-- `setModuleInstanceMappings(result): void`
+- `setSpfModuleMappings(result): void`
 - `setDataLinkMappings(result): void`
 - `getSubgraphSystemId(naturalId): number | undefined`
 - `getContainerSystemId(naturalId): number | undefined`
@@ -745,7 +745,7 @@ The profiler captures memory state at key points during the workflow:
 ```typescript
 class ForeignKeyMapper {
   private subgraphMap = new Map<number, number>();  // naturalId → systemId
-  
+
   setSubgraphMappings(result: InsertResult): void {
     result.results
       .filter(r => r.success)
@@ -753,7 +753,7 @@ class ForeignKeyMapper {
         this.subgraphMap.set(r.idMapping.naturalId, r.idMapping.systemId);
       });
   }
-  
+
   getSubgraphSystemId(naturalId: number): number | undefined {
     return this.subgraphMap.get(naturalId);  // O(1) lookup
   }
@@ -772,7 +772,7 @@ for (const moduleData of parsedData.modules) {
   // O(1) lookup instead of O(n) .find()
   const subgraphSystemId = foreignKeyMapper.getSubgraphSystemId(moduleData.subgraphId);
   const containerSystemId = foreignKeyMapper.getContainerSystemId(moduleData.containerId);
-  
+
   const module = new SpfModule(
     0,  // systemId assigned by database
     moduleData.instanceId,

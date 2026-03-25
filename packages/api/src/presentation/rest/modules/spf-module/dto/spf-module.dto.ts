@@ -9,9 +9,9 @@ import {PropertyDto} from '../../../common/dto/index.js';
 import {ComponentInfoType} from '../../../common/utils/enums.js';
 
 /**
- * DTO for module instance properties
+ * DTO for SPF module properties
  */
-export class ModuleInstancePropertiesDto {
+export class SpfModulePropertiesDto {
   @ApiProperty({
     description: 'Array of module instance properties',
     type: [PropertyDto],
@@ -23,7 +23,7 @@ export class ModuleInstancePropertiesDto {
   }
 }
 
-export class ModuleInstanceDto extends BaseConnectableComponentDto {
+export class SpfModuleDto extends BaseConnectableComponentDto {
   @ApiProperty({description: 'Module alias'})
   alias!: string;
 

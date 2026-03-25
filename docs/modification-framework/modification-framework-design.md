@@ -366,7 +366,7 @@ CREATE TABLE edit_actions (
   table_name VARCHAR(100) NOT NULL,
   operation VARCHAR(10) NOT NULL CHECK (operation IN ('ADD', 'UPDATE', 'DELETE')),
   payload TEXT NOT NULL,  -- JSON
-  change_status VARCHAR(20) NOT NULL DEFAULT 'STAGED' 
+  change_status VARCHAR(20) NOT NULL DEFAULT 'STAGED'
     CHECK (change_status IN ('UNSTAGED', 'STAGED', 'DISCARDED')),
   base_version INTEGER,  -- NULL for Add operations
   group_id VARCHAR(36),
@@ -379,8 +379,8 @@ CREATE INDEX idx_edit_actions_session ON edit_actions(session_id);
 CREATE INDEX idx_edit_actions_system_id ON edit_actions(system_id, table_name);
 CREATE INDEX idx_edit_actions_valid ON edit_actions(valid_until);
 CREATE INDEX idx_edit_actions_status ON edit_actions(session_id, change_status);
-CREATE UNIQUE INDEX uniq_edit_actions_current 
-  ON edit_actions(session_id, system_id, table_name) 
+CREATE UNIQUE INDEX uniq_edit_actions_current
+  ON edit_actions(session_id, system_id, table_name)
   WHERE valid_until IS NULL;
 ```
 
@@ -430,7 +430,7 @@ CREATE INDEX idx_restore_points_file ON restore_points(file_system_id);
 **SystemId Strategy**:
 - **During Edit Mode**: Use GUID (UUID v4) for all new entities in edit_actions
 - **Cross-References**: Pending entities reference each other via GUIDs (e.g., DataLink references Module GUID)
-- **At Commit Time**: 
+- **At Commit Time**:
   1. Insert entities into actual tables → DB auto-generates integer system_id
   2. Build GUID→Integer mapping: `Map<string, number>`
   3. Update dependent entities using the mapping before insertion
@@ -474,7 +474,7 @@ DELETE /arcapi/v1/projects/:projectId/modules-instance/:systemId
 async getOrCreateSession(userId: string, projectId: number): Promise<EditSession> {
   // Check for existing active session
   let session = await this.sessionRepo.findActiveSession(userId, projectId);
-  
+
   if (!session) {
     // Auto-create new session
     session = await this.sessionRepo.create({
@@ -484,12 +484,12 @@ async getOrCreateSession(userId: string, projectId: number): Promise<EditSession
       status: 'Active'
     });
   }
-  
+
   return session;
 }
 ```
 
-**Request Headers**: 
+**Request Headers**:
 - `Authorization: Bearer <JWT>` (contains userId)
 - `X-Client-Id`: Optional client application identifier (e.g., "GraphDesigner", "ModuleTuner")
 
@@ -515,7 +515,7 @@ async getOrCreateSession(userId: string, projectId: number): Promise<EditSession
 #### Session Status Transitions
 
 ```
-[No Session] 
+[No Session]
     │
     │ First edit operation
     ▼
@@ -812,15 +812,15 @@ export interface IUnitOfWork {
   // Existing repositories
   moduleRepository: IModuleRepository;
   subgraphRepository: ISubgraphRepository;
-  
+
   // NEW: Edit repositories
   moduleEditRepository: ModuleEditRepository;
   subgraphEditRepository: SubgraphEditRepository;
   moduleDefinitionEditRepository: ModuleDefinitionEditRepository;
-  
+
   // NEW: Shared edit actions service
   editActionsService: EditActionsService;
-  
+
   commit(): Promise<void>;
   rollback(): Promise<void>;
 }
@@ -867,7 +867,7 @@ Client
   │ POST /projects/123/modules-instance
   │ { definitionSystemId: 456, ... }
   ▼
-ModuleInstanceController
+SpfModuleController
   │ • Validate DTO
   │ • Extract user context from JWT
   │ • Check/create edit session
@@ -894,7 +894,7 @@ EditActionsService
 TypeORM Unit of Work
   │ • COMMIT transaction
   ▼
-Controller maps to ModuleInstanceDto
+Controller maps to SpfModuleDto
   │ • systemId: guid-1234
   │ • diffType: 'Added'
   │ • changeId: 'uuid'
@@ -1158,14 +1158,14 @@ const commitDurationHistogram = meter.createHistogram('edit.commits.duration', {
 });
 
 // Usage
-operationCounter.add(1, { 
-  operation: 'Add', 
-  table_name: 'spf_modules', 
-  status: 'success' 
+operationCounter.add(1, {
+  operation: 'Add',
+  table_name: 'spf_modules',
+  status: 'success'
 });
 
-commitDurationHistogram.record(duration, { 
-  status: success ? 'success' : 'failure' 
+commitDurationHistogram.record(duration, {
+  status: success ? 'success' : 'failure'
 });
 ```
 
@@ -1253,11 +1253,11 @@ export const dataSourceProvider = {
     });
 
     await dataSource.initialize();
-    
+
     // Enable WAL mode for better concurrency
     await dataSource.query('PRAGMA journal_mode=WAL');
     await dataSource.query('PRAGMA synchronous=NORMAL');
-    
+
     return dataSource;
   }
 };

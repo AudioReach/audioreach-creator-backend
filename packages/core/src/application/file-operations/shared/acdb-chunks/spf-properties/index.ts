@@ -22,8 +22,8 @@ export {VcpmConfigProperty} from './vcpm-config-property.js';
 export type {
   SubgraphProperty,
   ContainerProperty,
-  ModuleInstance,
-  ModuleInstanceInfo,
+  SpfModuleInstance,
+  SpfModuleInfo,
   ModuleProperty,
   ModulePropertyConfig,
   DataLink,

@@ -227,9 +227,9 @@ export class EntityBuilderService {
     }
 
     // Extract module instance info from SPF data
-    const moduleInstanceInfos = subgraphDataChunk.getAllModules();
+    const spfModuleInfos = subgraphDataChunk.getAllModules();
 
-    if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
+    if (!spfModuleInfos || spfModuleInfos.length === 0) {
       return [];
     }
 
@@ -241,7 +241,7 @@ export class EntityBuilderService {
 
     // Build domain SPF modules with module properties and definitions
     const spfModules = this.spfModuleBuilder.buildSpfModules(
-      moduleInstanceInfos,
+      spfModuleInfos,
       fileSystemId,
       modulePropertyConfigs,
       spfModuleDefinitions,

@@ -4,13 +4,13 @@
  */
 
 import {EndPointLink} from '../../utils/index.js';
-import {ModuleInstanceDto} from '../../../modules/module-instance/dto/module-instance.dto.js';
-import {BaseModuleInstanceRequest} from '../../../modules/module-instance/dto/module-instance-request.dto.js';
+import {SpfModuleDto} from '../../../modules/spf-module/dto/spf-module.dto.js';
+import {BaseSpfModuleRequest} from '../../../modules/spf-module/dto/spf-module-request.dto.js';
 
 /**
- * Interface for NewModuleInstanceRequest
+ * Interface for NewSpfModuleRequest
  */
-export interface NewModuleInstanceRequest {
+export interface NewSpfModuleRequest {
   moduleId: number;
   heapId?: number;
   parentId?: number;
@@ -19,9 +19,9 @@ export interface NewModuleInstanceRequest {
 }
 
 /**
- * Interface for CloneModuleInstanceRequest
+ * Interface for CloneSpfModuleRequest
  */
-export interface CloneModuleInstanceRequest {
+export interface CloneSpfModuleRequest {
   moduleId: number;
   alias?: string;
   parentId?: number;
@@ -29,10 +29,10 @@ export interface CloneModuleInstanceRequest {
 }
 
 /**
- * Example provider for NewModuleInstanceRequest
+ * Example provider for NewSpfModuleRequestExample
  */
-export const NewModuleInstanceRequestExample = {
-  getExample(): BaseModuleInstanceRequest {
+export const NewSpfModuleRequestExample = {
+  getExample(): BaseSpfModuleRequest {
     return {
       moduleId: 0x07_00_10_15,
       procId: 2,
@@ -44,10 +44,10 @@ export const NewModuleInstanceRequestExample = {
 };
 
 /**
- * Example provider for CloneModuleInstanceRequest
+ * Example provider for CloneSpfModuleRequestExample
  */
-export const CloneModuleInstanceRequestExample = {
-  getExample(): CloneModuleInstanceRequest {
+export const CloneSpfModuleRequestExample = {
+  getExample(): CloneSpfModuleRequest {
     return {
       moduleId: 0x07_00_10_15,
       alias: undefined,
@@ -58,33 +58,33 @@ export const CloneModuleInstanceRequestExample = {
 };
 
 /**
- * Example provider for ModuleInstanceDTO
+ * Example provider for SpfModuleDTO
  */
-export const ModuleInstanceDTOExample = {
-  getExample(): ModuleInstanceDto {
-    const moduleInstance = new ModuleInstanceDto('1', 1, 123, 'Example Module');
+export const SpfModuleDTOExample = {
+  getExample(): SpfModuleDto {
+    const spfModule = new SpfModuleDto('1', 1, 123, 'Example Module');
 
     // Set all required properties
-    moduleInstance.alias = 'ExampleAlias';
-    moduleInstance.subgraphId = 456;
-    moduleInstance.containerId = 789;
-    moduleInstance.maxInputPortsSupported = 5;
-    moduleInstance.maxOutputPortsSupported = 3;
-    moduleInstance.maxControlPortsSupported = 2;
-    moduleInstance.heapId = 101;
-    moduleInstance.parentId = 202;
+    spfModule.alias = 'ExampleAlias';
+    spfModule.subgraphId = 456;
+    spfModule.containerId = 789;
+    spfModule.maxInputPortsSupported = 5;
+    spfModule.maxOutputPortsSupported = 3;
+    spfModule.maxControlPortsSupported = 2;
+    spfModule.heapId = 101;
+    spfModule.parentId = 202;
 
     // Set inherited properties
-    moduleInstance.dataPorts = [];
-    moduleInstance.controlPorts = [];
+    spfModule.dataPorts = [];
+    spfModule.controlPorts = [];
 
     // Add a related endpoint link
     const endPointLink = new EndPointLink();
     endPointLink.hypertextRef = `/components/1/properties`;
     endPointLink.method = 'GET';
     endPointLink.description = 'Get properties for this module instance.';
-    moduleInstance.relatedEndPointLinks = [endPointLink];
+    spfModule.relatedEndPointLinks = [endPointLink];
 
-    return moduleInstance;
+    return spfModule;
   },
 };

@@ -6,8 +6,8 @@ import {SpfModule} from '../../../../../domain/entities/usecase-data/module/spf-
 import {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {
-  ModuleInstanceInfo,
-  ModuleInstance,
+  SpfModuleInfo,
+  SpfModuleInstance,
   ModulePropertyConfig,
 } from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
@@ -16,7 +16,7 @@ import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-
 import type {SpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 
 /**
- * Builder for converting ModuleInstanceInfo data to SpfModule domain entities.
+ * Builder for converting SpfModuleInfo data to SpfModule domain entities.
  * Handles creation of modules with ports and foreign key mappings.
  */
 export class SpfModuleBuilder {
@@ -30,20 +30,20 @@ export class SpfModuleBuilder {
    * Main API method similar to UsecaseBuilder.buildUsecases()
    */
   buildSpfModules(
-    moduleInstanceInfos: ModuleInstanceInfo[],
+    spfModuleInfos: SpfModuleInfo[],
     fileSystemId: number,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
     spfModuleDefinitions: SpfModuleDefinition[] = [],
   ): SpfModule[] {
     // Input validation
-    if (!moduleInstanceInfos || moduleInstanceInfos.length === 0) {
+    if (!spfModuleInfos || spfModuleInfos.length === 0) {
       return [];
     }
 
     const moduleDisplayNames =
       this.buildDisplayNameLookup(spfModuleDefinitions);
-    const {spfModules, successCount, errorCount} = this.convertModuleInstances(
-      moduleInstanceInfos,
+    const {spfModules, successCount, errorCount} = this.convertSpfModuleInfos(
+      spfModuleInfos,
       fileSystemId,
       modulePropertyConfigs,
       moduleDisplayNames,
@@ -72,8 +72,8 @@ export class SpfModuleBuilder {
     return moduleDisplayNames;
   }
 
-  private convertModuleInstances(
-    moduleInstanceInfos: ModuleInstanceInfo[],
+  private convertSpfModuleInfos(
+    spfModuleInfos: SpfModuleInfo[],
     fileSystemId: number,
     modulePropertyConfigs: ModulePropertyConfig[],
     moduleDisplayNames: Map<number, string>,
@@ -82,14 +82,14 @@ export class SpfModuleBuilder {
     let successCount = 0;
     let errorCount = 0;
 
-    for (const moduleInfo of moduleInstanceInfos) {
-      for (const moduleInstance of moduleInfo.moduleInstances) {
+    for (const moduleInfo of spfModuleInfos) {
+      for (const moduleInstance of moduleInfo.spfModules) {
         try {
           const modulePropertyConfig = modulePropertyConfigs.find(
-            config => config.moduleInstanceId === moduleInstance.instanceId,
+            config => config.spfModuleInstanceId === moduleInstance.instanceId,
           );
 
-          const spfModule = this.convertModuleInstance(
+          const spfModule = this.convertSpfModuleInstance(
             moduleInstance,
             moduleInfo,
             fileSystemId,
@@ -134,9 +134,9 @@ export class SpfModuleBuilder {
   /**
    * Convert single ModuleInstance to SpfModule entity
    */
-  private convertModuleInstance(
-    moduleInstance: ModuleInstance,
-    moduleInfo: ModuleInstanceInfo,
+  private convertSpfModuleInstance(
+    moduleInstance: SpfModuleInstance,
+    moduleInfo: SpfModuleInfo,
     fileSystemId: number,
     modulePropertyConfig?: ModulePropertyConfig,
     moduleDisplayNames?: Map<number, string>,

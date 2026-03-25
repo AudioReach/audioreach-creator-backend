@@ -4,14 +4,14 @@
  */
 
 import {Module} from '@nestjs/common';
-import {ModuleInstanceController} from './module-instance.controller.js';
+import {SpfModuleController} from './spf-module.controller.js';
 
 /**
- * Module for module instance functionality
+ * Module for SPF module functionality
  */
 @Module({
-  controllers: [ModuleInstanceController],
+  controllers: [SpfModuleController],
   providers: [],
   exports: [],
 })
-export class ModuleInstanceModule {}
+export class SpfModuleModule {}

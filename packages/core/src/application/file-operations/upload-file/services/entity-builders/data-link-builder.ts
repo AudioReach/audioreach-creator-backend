@@ -98,10 +98,10 @@ export class DataLinkBuilder {
   ): DataLink | null {
     try {
       // Get node systemIds from foreign key mapper
-      const sourceNodeSystemId = this.getModuleInstanceSystemId(
+      const sourceNodeSystemId = this.getSpfModuleSystemId(
         property.sourceInstanceId,
       );
-      const destinationNodeSystemId = this.getModuleInstanceSystemId(
+      const destinationNodeSystemId = this.getSpfModuleSystemId(
         property.destinationInstanceId,
       );
 
@@ -187,9 +187,8 @@ export class DataLinkBuilder {
   /**
    * Get module instance systemId from foreign key mapper
    */
-  private getModuleInstanceSystemId(instanceId: number): number | null {
-    const systemId =
-      this.foreignKeyMapper.getModuleInstanceSystemId(instanceId);
+  private getSpfModuleSystemId(instanceId: number): number | null {
+    const systemId = this.foreignKeyMapper.getSpfModuleSystemId(instanceId);
     return systemId || null;
   }
 

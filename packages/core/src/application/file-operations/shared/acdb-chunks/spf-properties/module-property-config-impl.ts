@@ -20,7 +20,7 @@ import {
  */
 export class ModulePropertyConfigImpl implements ModulePropertyConfig {
   constructor(
-    public readonly moduleInstanceId: number,
+    public readonly spfModuleInstanceId: number,
     public readonly properties: ModuleProperty[],
   ) {}
 

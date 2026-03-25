@@ -539,7 +539,7 @@ export class UploadFileOrchestrator {
       );
 
       // Store module instance mappings from bulk insertion result
-      this.foreignKeyMapper.setModuleInstanceMappings(spfModuleResult);
+      this.foreignKeyMapper.setSpfModuleMappings(spfModuleResult);
 
       const successfulInserts = spfModuleResult.results.filter(
         r => r.success,

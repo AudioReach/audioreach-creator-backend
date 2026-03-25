@@ -9,7 +9,7 @@ import {ConfigModule} from '@nestjs/config';
 import {AuthenticationModule} from './presentation/rest/modules/authentication/authentication.module.js';
 import {UseCaseModule} from './presentation/rest/modules/usecase/usecase.module.js';
 import {DriverModuleModule} from './presentation/rest/modules/driver-module/driver-module.module.js';
-import {ModuleInstanceModule} from './presentation/rest/modules/module-instance/module-instance.module.js';
+import {SpfModuleModule} from './presentation/rest/modules/spf-module/spf-module.module.js';
 import {SubgraphModule} from './presentation/rest/modules/subgraph/subgraph.module.js';
 import {SubsystemModule} from './presentation/rest/modules/subsystem/subsystem.module.js';
 import {ContainerModule} from './presentation/rest/modules/container/container.module.js';
@@ -35,7 +35,7 @@ import {RequestLoggerMiddleware} from './infrastructure-wrapper/middleware/reque
     ModuleDefinitionModule,
     UseCaseModule,
     DriverModuleModule,
-    ModuleInstanceModule,
+    SpfModuleModule,
     SubgraphModule,
     SubsystemModule,
     ContainerModule,

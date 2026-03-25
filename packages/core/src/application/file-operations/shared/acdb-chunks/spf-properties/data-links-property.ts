@@ -21,10 +21,10 @@ export class DataLinksProperty {
    */
   static fromPayload(
     payload: Uint8Array,
-    currentSubgraphModuleInstanceIds: number[] = [],
+    currentSubgraphSpfModuleIds: number[] = [],
   ): DataLinksProperty {
     const instance = new DataLinksProperty();
-    instance.parsePayload(payload, currentSubgraphModuleInstanceIds);
+    instance.parsePayload(payload, currentSubgraphSpfModuleIds);
     return instance;
   }
 
@@ -33,7 +33,7 @@ export class DataLinksProperty {
    */
   private parsePayload(
     payload: Uint8Array,
-    currentSubgraphModuleInstanceIds: number[] = [],
+    currentSubgraphSpfModuleIds: number[] = [],
   ): void {
     const view = new DataView(
       payload.buffer,
@@ -90,7 +90,7 @@ export class DataLinksProperty {
       const isInterGraph = this.calculateIsInterGraph(
         sourceInstanceId,
         destinationInstanceId,
-        currentSubgraphModuleInstanceIds,
+        currentSubgraphSpfModuleIds,
       );
 
       // Generate natural key hash based on natural IDs
@@ -191,11 +191,11 @@ export class DataLinksProperty {
   private calculateIsInterGraph(
     sourceInstanceId: number,
     destinationInstanceId: number,
-    currentSubgraphModuleInstanceIds: number[],
+    currentSubgraphSpfModuleInstanceIds: number[],
   ): boolean {
     const sourceInCurrentSubgraph =
-      currentSubgraphModuleInstanceIds.includes(sourceInstanceId);
-    const destInCurrentSubgraph = currentSubgraphModuleInstanceIds.includes(
+      currentSubgraphSpfModuleInstanceIds.includes(sourceInstanceId);
+    const destInCurrentSubgraph = currentSubgraphSpfModuleInstanceIds.includes(
       destinationInstanceId,
     );
 

@@ -201,15 +201,15 @@ export class TagInfoDto {
 }
 
 /**
- * Main response DTO for module instance tuning configuration
+ * Main response DTO for SPF module tuning configuration
  */
-export class ModuleInstanceTuningConfigDto {
+export class SpfModuleTuningConfigDto {
   @ApiProperty({
-    description: 'Module instance system ID',
+    description: 'SPF module system ID',
     type: String,
     example: '12345',
   })
-  moduleInstanceSystemId: string;
+  spfModuleSystemId: string;
 
   @ApiProperty({
     description: 'Calibration key-values configuration',
@@ -280,11 +280,11 @@ export class ModuleInstanceTuningConfigDto {
   tags: TagInfoDto[];
 
   constructor(
-    moduleInstanceSystemId: string,
+    spfModuleSystemId: string,
     ckvs: CkvDto[] = [],
     tags: TagInfoDto[] = [],
   ) {
-    this.moduleInstanceSystemId = moduleInstanceSystemId;
+    this.spfModuleSystemId = spfModuleSystemId;
     this.ckvs = ckvs;
     this.tags = tags;
   }

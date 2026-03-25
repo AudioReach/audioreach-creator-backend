@@ -30,7 +30,7 @@ export interface ContainerProperty {
 /**
  * Represents a module instance
  */
-export interface ModuleInstance {
+export interface SpfModuleInstance {
   /** Module ID */
   moduleId: number;
   /** Instance ID */
@@ -40,13 +40,13 @@ export interface ModuleInstance {
 /**
  * Represents module instance information for a subgraph/container pair
  */
-export interface ModuleInstanceInfo {
+export interface SpfModuleInfo {
   /** Subgraph ID */
   subgraphId: number;
   /** Container ID */
   containerId: number;
   /** List of module instances */
-  moduleInstances: ModuleInstance[];
+  spfModules: SpfModuleInstance[];
 }
 
 /**
@@ -64,7 +64,7 @@ export interface ModuleProperty {
  */
 export interface ModulePropertyConfig {
   /** Module instance ID */
-  moduleInstanceId: number;
+  spfModuleInstanceId: number;
   /** List of properties for this module */
   properties: ModuleProperty[];
 

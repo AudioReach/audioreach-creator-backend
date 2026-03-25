@@ -9,7 +9,7 @@ import type {SpfProperties} from './spf-properties/index.js';
 import type {
   SubgraphProperty,
   ContainerProperty,
-  ModuleInstanceInfo,
+  SpfModuleInfo,
   ModulePropertyConfig,
   DataLink,
   ControlLink,
@@ -109,12 +109,12 @@ export class SubgraphDataChunk extends BaseChunk {
   /**
    * Extract all modules from SPF properties
    */
-  getAllModules(): ModuleInstanceInfo[] {
-    const modules: ModuleInstanceInfo[] = [];
+  getAllModules(): SpfModuleInfo[] {
+    const modules: SpfModuleInfo[] = [];
 
     for (const entry of this.subgraphData) {
       if (entry.spfProperties.moduleList) {
-        modules.push(...entry.spfProperties.moduleList.moduleInstanceInfos);
+        modules.push(...entry.spfProperties.moduleList.spfModuleInfos);
       }
     }
 

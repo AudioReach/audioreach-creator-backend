@@ -25,7 +25,7 @@ export class ForeignKeyMapper {
   private subgraphMappings = new Map<number, number>(); // subgraphId -> systemId
   private containerMappings = new Map<number, number>(); // containerId -> systemId
   private moduleDefinitionMappings = new Map<number, number>(); // moduleId -> systemId
-  private moduleInstanceMappings = new Map<number, number>(); // instanceId -> systemId
+  private spfModuleMappings = new Map<number, number>(); // instanceId -> systemId
   private moduleInputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
   private moduleOutputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
   private dataLinkMappings = new Map<string, number>(); // naturalKey -> systemId
@@ -211,7 +211,7 @@ export class ForeignKeyMapper {
   /**
    * Set module instance mappings from bulk insertion result
    */
-  setModuleInstanceMappings(result: BulkModuleInsertResult): void {
+  setSpfModuleMappings(result: BulkModuleInsertResult): void {
     let mappingsCount = 0;
     let inputPortMappingsCount = 0;
     let outputPortMappingsCount = 0;
@@ -221,7 +221,7 @@ export class ForeignKeyMapper {
         const moduleSystemId = entityResult.moduleIdMapping.systemId;
 
         // Store module instance mapping
-        this.moduleInstanceMappings.set(
+        this.spfModuleMappings.set(
           entityResult.moduleIdMapping.naturalId,
           moduleSystemId,
         );
@@ -305,8 +305,8 @@ export class ForeignKeyMapper {
   /**
    * Get systemId for a given module instanceId
    */
-  getModuleInstanceSystemId(instanceId: number): number | undefined {
-    return this.moduleInstanceMappings.get(instanceId);
+  getSpfModuleSystemId(instanceId: number): number | undefined {
+    return this.spfModuleMappings.get(instanceId);
   }
 
   /**
@@ -418,7 +418,7 @@ export class ForeignKeyMapper {
     this.subgraphMappings.clear();
     this.containerMappings.clear();
     this.moduleDefinitionMappings.clear();
-    this.moduleInstanceMappings.clear();
+    this.spfModuleMappings.clear();
     this.moduleInputPortMappings.clear();
     this.moduleOutputPortMappings.clear();
     this.dataLinkMappings.clear();
@@ -434,7 +434,7 @@ export class ForeignKeyMapper {
     subgraphMappings: number;
     containerMappings: number;
     moduleDefinitionMappings: number;
-    moduleInstanceMappings: number;
+    spfModuleMappings: number;
     moduleInputPortMappings: number;
     moduleOutputPortMappings: number;
     dataLinkMappings: number;
@@ -446,7 +446,7 @@ export class ForeignKeyMapper {
       subgraphMappings: this.subgraphMappings.size,
       containerMappings: this.containerMappings.size,
       moduleDefinitionMappings: this.moduleDefinitionMappings.size,
-      moduleInstanceMappings: this.moduleInstanceMappings.size,
+      spfModuleMappings: this.spfModuleMappings.size,
       moduleInputPortMappings: this.moduleInputPortMappings.size,
       moduleOutputPortMappings: this.moduleOutputPortMappings.size,
       dataLinkMappings: this.dataLinkMappings.size,
