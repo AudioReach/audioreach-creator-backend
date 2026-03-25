@@ -144,9 +144,9 @@ export class DriverModuleController extends BaseController {
   /**
    * Get a specific driver module by its instance system ID.
    */
-  @Get(':moduleInstanceSystemId')
+  @Get(':driverModuleSystemId')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'driverModuleSystemId',
     type: 'string',
     description: 'The unique system identifier of the driver module instance',
   })
@@ -204,13 +204,13 @@ export class DriverModuleController extends BaseController {
   })
   async getDriverModuleById(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
+    @Param('driverModuleSystemId') driverModuleSystemId: string,
     @Query('includeTuningConfiguration')
     includeTuningConfiguration?: boolean,
   ): Promise<ApiResult<DriverModuleResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting driver module ${moduleInstanceSystemId} for project ${projectId}, includeTuningConfiguration: ${includeTuningConfiguration}`,
+      `Getting driver module ${driverModuleSystemId} for project ${projectId}, includeTuningConfiguration: ${includeTuningConfiguration}`,
     );
     throw new HttpException(
       'Driver module retrieval by ID functionality is not implemented yet.',
@@ -233,12 +233,12 @@ export class DriverModuleController extends BaseController {
   /**
    * Get calibration data for a specific driver module and CKV.
    */
-  @Get(':moduleInstanceSystemId/cal-data/:ckvSystemId')
+  @Get(':driverModuleSystemId/cal-data/:ckvSystemId')
   @ApiParam({
-    name: 'moduleInstanceSystemId',
+    name: 'driverModuleSystemId',
     required: true,
     type: String,
-    description: 'System identifier of the module instance',
+    description: 'System identifier of the driver module',
   })
   @ApiParam({
     name: 'ckvSystemId',
@@ -284,12 +284,12 @@ export class DriverModuleController extends BaseController {
   })
   async getModuleCalData(
     @Param('projectId') projectId: string,
-    @Param('moduleInstanceSystemId') moduleInstanceSystemId: string,
+    @Param('driverModuleSystemId') driverModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
   ): Promise<ApiResult<DriverModuleCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting cal data for module ${moduleInstanceSystemId}, CKV ${ckvSystemId} in project ${projectId}`,
+      `Getting cal data for module ${driverModuleSystemId}, CKV ${ckvSystemId} in project ${projectId}`,
     );
     throw new HttpException(
       'Calibration data retrieval functionality is not implemented yet.',
