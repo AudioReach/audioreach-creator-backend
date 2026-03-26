@@ -105,7 +105,7 @@ export const DkvSchema = new EntitySchema<DkvRow>({
   indices: [
     {
       name: 'uk_dkv_module_keyvector',
-      columns: ['moduleInstanceId', 'keyVectorSystemId'],
+      columns: ['driverModuleId', 'keyVectorSystemId'],
       unique: true,
     },
   ],
