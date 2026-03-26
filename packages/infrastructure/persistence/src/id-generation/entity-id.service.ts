@@ -4,7 +4,9 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
+import {LessThanOrEqual} from 'typeorm';
 import {FILE_ID_MODULUS} from './composite-id.js';
+import {ArcDbFileSchema} from '../persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 
 /**
  * Per-file in-memory ID block manager.
@@ -67,17 +69,16 @@ export class EntityIdService {
     const increment = blockSize * FILE_ID_MODULUS;
 
     const newHighWaterMark = await this.dataSource.transaction(async em => {
-      await em.query(
-        `UPDATE files
-            SET last_entity_id = last_entity_id + ?
-          WHERE system_id = ?`,
-        [increment, this.fileId],
+      await em.increment(
+        ArcDbFileSchema,
+        {systemId: this.fileId},
+        'lastEntityId',
+        increment,
       );
-      const rows = (await em.query(
-        `SELECT last_entity_id FROM files WHERE system_id = ?`,
-        [this.fileId],
-      )) as Array<{last_entity_id: number}>;
-      return rows[0].last_entity_id;
+      const row = await em.findOne(ArcDbFileSchema, {
+        where: {systemId: this.fileId},
+      });
+      return row!.lastEntityId;
     });
 
     this.blockEnd = newHighWaterMark;
@@ -98,11 +99,10 @@ export class EntityIdService {
     // Only reclaim if no concurrent request has advanced the watermark
     // beyond our reserved block. If last_entity_id > blockEnd, another
     // request owns those IDs and we must not go backwards.
-    await queryRunner.query(
-      `UPDATE files
-          SET last_entity_id = ?
-        WHERE system_id = ? AND last_entity_id <= ?`,
-      [this.current, this.fileId, this.blockEnd],
+    await queryRunner.manager.update(
+      ArcDbFileSchema,
+      {systemId: this.fileId, lastEntityId: LessThanOrEqual(this.blockEnd)},
+      {lastEntityId: this.current},
     );
   }
 }

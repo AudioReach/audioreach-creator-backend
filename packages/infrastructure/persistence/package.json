@@ -24,7 +24,9 @@
     "test": "jest",
     "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects=integration",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "coverage:persistence": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage --passWithNoTests",
+    "coverage:clean": "shx rm -rf coverage"
   },
   "keywords": [
     "arc-api-persistence",
