@@ -1975,7 +1975,7 @@
                             ]
                           }
                         ],
-                        "moduleInstances": [
+                        "spfModules": [
                           {
                             "systemId": "1001",
                             "id": 1001,
@@ -2316,7 +2316,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/driver-modules/{moduleInstanceSystemId}": {
+    "/arc-api/v1/projects/{projectId}/driver-modules/{driverModuleSystemId}": {
       "get": {
         "description": "Returns detailed information about a specific driver module instance for the given project\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/driver-modules/driver-mod-001?includeTuningConfiguration=true\n```\n\n**Query Parameters:**\n- `includeTuningConfiguration` (optional, default: false): \n  - When set to `true`: CKV tuning configuration will be included in the response\n  - When set to `false` or not provided: CKV tuning configuration will NOT be included in the response\n\n**Response:**\nReturns a driver module object containing:\n- `systemId`: Unique system identifier of the driver module instance\n- `moduleId`: Numeric identifier of the driver module\n- `name`: Name of the driver module\n- `displayName`: Display name of the driver module\n- `description`: Description of the driver module\n- `deprecated`: Optional deprecation flag\n- `ckvTuningConfiguration`: CKV tuning configuration (only included when includeTuningConfiguration=true)\n- `changeInfo`: Change tracking information\n  - `changeType`: Type of change (NONE, CREATE, UPDATE, DELETE)\n  - `changeId`: Change set identifier (present when changeType is not NONE)\n  - `changeStatus`: Change status (STAGED, UNSTAGED)",
         "operationId": "DriverModuleController_getDriverModuleById",
@@ -2331,7 +2331,7 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "driverModuleSystemId",
             "required": true,
             "in": "path",
             "description": "The unique system identifier of the driver module instance",
@@ -2387,7 +2387,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/driver-modules/{moduleInstanceSystemId}/cal-data/{ckvSystemId}": {
+    "/arc-api/v1/projects/{projectId}/driver-modules/{driverModuleSystemId}/cal-data/{ckvSystemId}": {
       "get": {
         "description": "Returns the calibration data for a given module system ID and CKV system ID.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/driver-modules/driver-mod-001/cal-data/ckv-sys-001\n```\n\n**Response:**\nReturns a `CalDataResponseDto` containing an array of parameter data, one entry per PID. Each entry includes:\n- `systemId`: System identifier\n- `pid`: Parameter ID\n- `name`: Human-readable parameter name\n- `description`: Description of the parameter\n- `elements`: Array of calibration elements (ConfigElement, ConfigElementArray, Struct, StructArray)",
         "operationId": "DriverModuleController_getModuleCalData",
@@ -2402,10 +2402,10 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "driverModuleSystemId",
             "required": true,
             "in": "path",
-            "description": "System identifier of the module instance",
+            "description": "System identifier of the driver module",
             "schema": {
               "type": "string"
             }
@@ -2458,9 +2458,9 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/module-instances/get": {
+    "/arc-api/v1/projects/{projectId}/spf-modules/get": {
       "post": {
-        "operationId": "ModuleInstanceController_getModuleInstances",
+        "operationId": "SpfModuleController_getSpfModules",
         "parameters": [
           {
             "name": "projectId",
@@ -2475,7 +2475,7 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "List of module instance system ids",
+          "description": "List of SPF module system ids",
           "content": {
             "application/json": {
               "schema": {
@@ -2499,7 +2499,7 @@
                         "data": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/ModuleInstanceDto"
+                            "$ref": "#/components/schemas/SpfModuleDto"
                           }
                         }
                       }
@@ -2510,21 +2510,21 @@
             }
           },
           "404": {
-            "description": "Some module instances are not found"
+            "description": "Some SPF modules are not found"
           },
           "422": {
-            "description": "Failed to get module instances"
+            "description": "Failed to get SPF modules"
           }
         },
-        "summary": "Get module instances for provided systemIds",
+        "summary": "Get SPF modules for provided systemIds",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/module-instances": {
+    "/arc-api/v1/projects/{projectId}/spf-modules": {
       "post": {
-        "operationId": "ModuleInstanceController_addModuleInstance",
+        "operationId": "SpfModuleController_addSpfModule",
         "parameters": [
           {
             "name": "projectId",
@@ -2539,15 +2539,15 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: BaseModuleInstanceRequest",
+          "description": "Request body parameter type: BaseSpfModuleRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BaseModuleInstanceRequest"
+                "$ref": "#/components/schemas/BaseSpfModuleRequest"
               },
               "examples": {
                 "default": {
-                  "summary": "Example BaseModuleInstanceRequest",
+                  "summary": "Example BaseSpfModuleRequest",
                   "value": {
                     "moduleId": 117444629,
                     "procId": 2,
@@ -2562,7 +2562,7 @@
         },
         "responses": {
           "200": {
-            "description": "New created module information",
+            "description": "New created SPF module information",
             "content": {
               "application/json": {
                 "schema": {
@@ -2573,7 +2573,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ModuleInstanceDto"
+                          "$ref": "#/components/schemas/SpfModuleDto"
                         }
                       }
                     }
@@ -2614,18 +2614,18 @@
             "description": "Invalid input"
           },
           "422": {
-            "description": "Failed to add a new module"
+            "description": "Failed to add a new SPF module"
           }
         },
-        "summary": "Create a new module instance for a given module id",
+        "summary": "Create a new SPF module for a given module id",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/module-instances/{moduleInstanceSystemId}/properties": {
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/properties": {
       "get": {
-        "operationId": "ModuleInstanceController_getModuleInstanceProperties",
+        "operationId": "SpfModuleController_getSpfModuleProperties",
         "parameters": [
           {
             "name": "projectId",
@@ -2638,10 +2638,10 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "spfModuleSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of a module instance",
+            "description": "System id of an SPF module",
             "schema": {
               "type": "string"
             }
@@ -2660,7 +2660,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ModuleInstancePropertiesDto"
+                          "$ref": "#/components/schemas/SpfModulePropertiesDto"
                         }
                       }
                     }
@@ -2670,22 +2670,22 @@
             }
           },
           "404": {
-            "description": "Module instance is not found"
+            "description": "SPF module is not found"
           },
           "422": {
-            "description": "Failed to get module instance properties"
+            "description": "Failed to get SPF module properties"
           }
         },
-        "summary": "Get all property data for a module instance",
+        "summary": "Get all property data for an SPF module",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/module-instances/{moduleInstanceSystemId}/tuning-config": {
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/tuning-config": {
       "get": {
-        "description": "Retrieves the complete tuning configuration for a specific module instance, including:\n\n**CKVS (Calibration Key-Values):** Module-level calibration configuration parameters\n**Tags with TKVS:** Tag-specific configuration where each tag contains its own Tag Key-Values\n\nThe response structure includes:\n- Module CKVs for calibration (each CKV has systemId and key-value pairs)\n- Tags with their TKVs (each tag has systemId, tagId, tagName, and array of TKVs)\n- Each TKV has systemId and key-value pairs\n\nParameter payloads and UI persistence data are available through separate APIs.",
-        "operationId": "ModuleInstanceController_getModuleInstanceTuningConfig",
+        "description": "Retrieves the complete tuning configuration for a specific SPF module, including:\n\n**CKVS (Calibration Key-Values):** Module-level calibration configuration parameters\n**Tags with TKVS:** Tag-specific configuration where each tag contains its own Tag Key-Values\n\nThe response structure includes:\n- Module CKVs for calibration (each CKV has systemId and key-value pairs)\n- Tags with their TKVs (each tag has systemId, tagId, tagName, and array of TKVs)\n- Each TKV has systemId and key-value pairs\n\nParameter payloads and UI persistence data are available through separate APIs.",
+        "operationId": "SpfModuleController_getSpfModuleTuningConfig",
         "parameters": [
           {
             "name": "projectId",
@@ -2698,10 +2698,10 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "spfModuleSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of a module instance",
+            "description": "System id of an SPF module",
             "schema": {
               "example": "12345",
               "type": "string"
@@ -2721,7 +2721,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ModuleInstanceTuningConfigDto"
+                          "$ref": "#/components/schemas/SpfModuleTuningConfigDto"
                         }
                       }
                     }
@@ -2730,8 +2730,80 @@
                 "examples": {
                   "default": {
                     "value": {
-                      "_note": "Placeholder for ModuleInstanceTuningConfigExample - dynamic loading failed",
-                      "exampleData": "Please check the module path and class name"
+                      "spfModuleSystemId": "12345",
+                      "ckvs": [
+                        {
+                          "keyValueCollection": [
+                            {
+                              "keyInfo": {
+                                "keyId": 1,
+                                "keyLabel": "SampleRate",
+                                "keySystemId": "KEY_SYS_001"
+                              },
+                              "valueInfo": {
+                                "valueId": 10,
+                                "valueLabel": "48000",
+                                "valueSystemId": "VAL_SYS_001"
+                              }
+                            }
+                          ],
+                          "systemId": "101",
+                          "supportedParameters": [
+                            {
+                              "paramId": 1001,
+                              "paramSystemId": "PARAM_SYS_001",
+                              "name": "SampleRate",
+                              "description": "Audio sample rate configuration parameter"
+                            },
+                            {
+                              "paramId": 1002,
+                              "paramSystemId": "PARAM_SYS_002",
+                              "name": "BitDepth",
+                              "description": "Audio bit depth configuration parameter"
+                            }
+                          ]
+                        }
+                      ],
+                      "tags": [
+                        {
+                          "systemId": 201,
+                          "tagId": 301,
+                          "tagName": "AudioProcessing",
+                          "tkvs": [
+                            {
+                              "keyValueCollection": [
+                                {
+                                  "keyInfo": {
+                                    "keyId": 2,
+                                    "keyLabel": "Channels",
+                                    "keySystemId": "KEY_SYS_002"
+                                  },
+                                  "valueInfo": {
+                                    "valueId": 20,
+                                    "valueLabel": "Stereo",
+                                    "valueSystemId": "VAL_SYS_002"
+                                  }
+                                }
+                              ],
+                              "systemId": "202",
+                              "supportedParameters": [
+                                {
+                                  "paramId": 2001,
+                                  "paramSystemId": "PARAM_SYS_003",
+                                  "name": "Channels",
+                                  "description": "Audio channel configuration parameter"
+                                },
+                                {
+                                  "paramId": 2002,
+                                  "paramSystemId": "PARAM_SYS_004",
+                                  "name": "Volume",
+                                  "description": "Audio volume level parameter"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
                     }
                   }
                 }
@@ -2739,22 +2811,22 @@
             }
           },
           "404": {
-            "description": "Module instance not found"
+            "description": "SPF module not found"
           },
           "422": {
             "description": "Failed to get tuning configuration"
           }
         },
-        "summary": "Get all tuning configuration (CKVS and TKVS) for a module instance",
+        "summary": "Get all tuning configuration (CKVS and TKVS) for an SPF module",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/module-instances/{moduleInstanceSystemId}/cal-data/{ckvSystemId}": {
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/cal-data/{ckvSystemId}": {
       "get": {
-        "description": "Retrieves calibration data for a specific module instance with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101\nGET /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the module-instance\n\n**Response Format:**\nJSON format including all configElements with name, value, type, ranges etc.\n\n**isActive Flag:**\n- Default: `false` (for RTGM - Real-Time Graph Manager)\n- Set to `true` only in RTC (Real-Time Control) context",
-        "operationId": "ModuleInstanceController_getCalibrationData",
+        "description": "Retrieves calibration data for a specific SPF module with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101\nGET /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n**Response Format:**\nJSON format including all configElements with name, value, type, ranges etc.\n\n**isActive Flag:**\n- Default: `false` (for RTGM - Real-Time Graph Manager)\n- Set to `true` only in RTC (Real-Time Control) context",
+        "operationId": "SpfModuleController_getCalibrationData",
         "parameters": [
           {
             "name": "projectId",
@@ -2767,10 +2839,10 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "spfModuleSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of a module instance",
+            "description": "System id of an SPF module",
             "schema": {
               "example": "12345",
               "type": "string"
@@ -2790,7 +2862,7 @@
             "name": "param-system-ids",
             "required": false,
             "in": "query",
-            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the module-instance.",
+            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.",
             "schema": {
               "example": "1,2,3",
               "type": "string"
@@ -2823,20 +2895,20 @@
             "description": "Module license required to access calibration data"
           },
           "404": {
-            "description": "Module instance or CKV system ID not found"
+            "description": "SPF module or CKV system ID not found"
           },
           "422": {
             "description": "Failed to get calibration data"
           }
         },
-        "summary": "Get calibration data for a module instance",
+        "summary": "Get calibration data for an SPF module",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       },
       "put": {
-        "description": "Updates calibration data for a specific module instance. Supports updating multiple PIDs in a single request.\n\n**Example Usage:**\n```\nPUT /arc-api/v1/projects/proj123/module-instances/12345/cal-data/101\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Request Body:**\nArray of PID-specific calibration data updates. Each item contains:\n- `pid`: Parameter ID to update\n- `elements`: Array of calibration elements with updated values\n\n**Response Format:**\nReturns the updated calibration data in the same format as the GET endpoint.\n\n**Batch Updates:**\nMultiple PIDs can be updated in a single request by providing multiple items in the data array.",
-        "operationId": "ModuleInstanceController_updateCalibrationData",
+        "description": "Updates calibration data for a specific SPF module. Supports updating multiple PIDs in a single request.\n\n**Example Usage:**\n```\nPUT /arc-api/v1/projects/proj123/spf-modules/12345/cal-data/101\n```\n\n**Required Parameters:**\n- `ckvSystemId`: CKV system ID for calibration data (path parameter)\n\n**Request Body:**\nArray of PID-specific calibration data updates. Each item contains:\n- `pid`: Parameter ID to update\n- `elements`: Array of calibration elements with updated values\n\n**Response Format:**\nReturns the updated calibration data in the same format as the GET endpoint.\n\n**Batch Updates:**\nMultiple PIDs can be updated in a single request by providing multiple items in the data array.",
+        "operationId": "SpfModuleController_updateCalibrationData",
         "parameters": [
           {
             "name": "projectId",
@@ -2849,10 +2921,10 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "spfModuleSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of a module instance",
+            "description": "System id of an SPF module",
             "schema": {
               "example": "12345",
               "type": "string"
@@ -2909,22 +2981,22 @@
             "description": "Module license required to update calibration data"
           },
           "404": {
-            "description": "Module instance or CKV system ID not found"
+            "description": "SPF module or CKV system ID not found"
           },
           "422": {
             "description": "Failed to update calibration data"
           }
         },
-        "summary": "Update calibration data for a module instance",
+        "summary": "Update calibration data for an SPF module",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/module-instances/{moduleInstanceSystemId}/tag-data/{tagSystemId}/{tkvSystemId}": {
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/tag-data/{tagSystemId}/{tkvSystemId}": {
       "get": {
-        "description": "Retrieves tag-specific data for a module instance with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301\nGET /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the module-instance\n\n**Response Format:**\nJSON format including tagSystemId, tkvSystemId, and array of PID data with configElements.\n\n**Tag Context:**\nThe response includes tag-specific context (tagSystemId, tkvSystemId) along with the same\nPID data structure as calibration data, allowing for tag-specific configuration management.",
-        "operationId": "ModuleInstanceController_getTagData",
+        "description": "Retrieves tag-specific data for an SPF module with configElements containing name, value, type, ranges etc.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301\nGET /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301?param-system-ids=1,2,3\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Optional Parameters:**\n- `param-system-ids`: Comma-separated list of parameter system IDs\n\n**Parameter Filtering Logic:**\n- If `param-system-ids` are provided: Only return data for the specified parameter system IDs\n- If `param-system-ids` are not provided: Return all parameter data under the SPF module\n\n**Response Format:**\nJSON format including tagSystemId, tkvSystemId, and array of PID data with configElements.\n\n**Tag Context:**\nThe response includes tag-specific context (tagSystemId, tkvSystemId) along with the same\nPID data structure as calibration data, allowing for tag-specific configuration management.",
+        "operationId": "SpfModuleController_getTagData",
         "parameters": [
           {
             "name": "projectId",
@@ -2937,10 +3009,10 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "spfModuleSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of a module instance",
+            "description": "System id of an SPF module",
             "schema": {
               "example": "12345",
               "type": "string"
@@ -2970,7 +3042,7 @@
             "name": "param-system-ids",
             "required": false,
             "in": "query",
-            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the module-instance.",
+            "description": "Optional comma-separated list of parameter system IDs. Example: ?param-system-ids=1,2,3 or omit for all parameter IDs under the SPF module.",
             "schema": {
               "example": "1,2,3",
               "type": "string"
@@ -3003,20 +3075,20 @@
             "description": "Module license required to access tag data"
           },
           "404": {
-            "description": "Module instance, tag system ID, or TKV system ID not found"
+            "description": "SPF module, tag system ID, or TKV system ID not found"
           },
           "422": {
             "description": "Failed to get tag data"
           }
         },
-        "summary": "Get tag data for a module instance",
+        "summary": "Get tag data for an SPF module",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       },
       "put": {
-        "description": "Updates tag-specific data for a module instance. Supports updating multiple PIDs in a single request.\n\n**Example Usage:**\n```\nPUT /arc-api/v1/projects/proj123/module-instances/12345/tag-data/201/301\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Request Body:**\nArray of PID-specific tag data updates. Each item contains:\n- `pid`: Parameter ID to update\n- `elements`: Array of configuration elements with updated values\n\n**Response Format:**\nReturns the updated tag data in the same format as the GET endpoint, including\ntagSystemId, tkvSystemId, and updated PID data.\n\n**Batch Updates:**\nMultiple PIDs can be updated in a single request by providing multiple items in the data array.\n\n**Tag-Specific Updates:**\nUpdates are scoped to the specific tag context identified by tagSystemId and tkvSystemId.",
-        "operationId": "ModuleInstanceController_updateTagData",
+        "description": "Updates tag-specific data for an SPF module. Supports updating multiple PIDs in a single request.\n\n**Example Usage:**\n```\nPUT /arc-api/v1/projects/proj123/spf-modules/12345/tag-data/201/301\n```\n\n**Required Parameters:**\n- `tagSystemId`: Tag system ID for tag data (path parameter)\n- `tkvSystemId`: TKV system ID for tag data (path parameter)\n\n**Request Body:**\nArray of PID-specific tag data updates. Each item contains:\n- `pid`: Parameter ID to update\n- `elements`: Array of configuration elements with updated values\n\n**Response Format:**\nReturns the updated tag data in the same format as the GET endpoint, including\ntagSystemId, tkvSystemId, and updated PID data.\n\n**Batch Updates:**\nMultiple PIDs can be updated in a single request by providing multiple items in the data array.\n\n**Tag-Specific Updates:**\nUpdates are scoped to the specific tag context identified by tagSystemId and tkvSystemId.",
+        "operationId": "SpfModuleController_updateTagData",
         "parameters": [
           {
             "name": "projectId",
@@ -3029,10 +3101,10 @@
             }
           },
           {
-            "name": "moduleInstanceSystemId",
+            "name": "spfModuleSystemId",
             "required": true,
             "in": "path",
-            "description": "System id of a module instance",
+            "description": "System id of an SPF module",
             "schema": {
               "example": "12345",
               "type": "string"
@@ -3099,15 +3171,15 @@
             "description": "Module license required to update tag data"
           },
           "404": {
-            "description": "Module instance, tag system ID, or TKV system ID not found"
+            "description": "SPF module, tag system ID, or TKV system ID not found"
           },
           "422": {
             "description": "Failed to update tag data"
           }
         },
-        "summary": "Update tag data for a module instance",
+        "summary": "Update tag data for an SPF module",
         "tags": [
-          "module-instances"
+          "spf-modules"
         ]
       }
     },
@@ -6154,7 +6226,7 @@
           "intents"
         ]
       },
-      "ModuleInstanceDto": {
+      "SpfModuleDto": {
         "type": "object",
         "properties": {
           "systemId": {
@@ -6605,11 +6677,11 @@
               "$ref": "#/components/schemas/SubsystemDto"
             }
           },
-          "moduleInstances": {
+          "spfModules": {
             "description": "List of module instances in the usecase",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ModuleInstanceDto"
+              "$ref": "#/components/schemas/SpfModuleDto"
             }
           },
           "dataLinks": {
@@ -6630,7 +6702,7 @@
         "required": [
           "usecaseIdentifier",
           "subsystems",
-          "moduleInstances",
+          "spfModules",
           "dataLinks",
           "controlLinks"
         ]
@@ -6983,158 +7055,96 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "Element type identifier",
-            "example": "ConfigElement",
-            "enum": [
-              "ConfigElement",
-              "ConfigElementArray",
-              "Struct",
-              "StructArray"
-            ]
+            "description": "Discriminator field identifying this as a ConfigElement.",
+            "default": "CONFIG_ELEMENT"
           },
           "name": {
             "type": "string",
-            "description": "Element name",
-            "example": "volume_level"
-          },
-          "description": {
-            "type": "string",
-            "description": "Optional element description",
-            "example": "Audio volume level setting"
-          },
-          "group": {
-            "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "Audio Controls"
-          },
-          "subgroup": {
-            "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Volume Settings"
-          },
-          "dataType": {
-            "type": "string",
-            "description": "Data type of the configuration element",
-            "enum": [
-              "UInt8",
-              "UInt16",
-              "UInt32",
-              "UInt64",
-              "Int8",
-              "Int16",
-              "Int32",
-              "Int64",
-              "RawData",
-              "Double",
-              "Float"
-            ],
-            "example": "UInt32"
+            "description": "Unique name of the element within its parent scope. Used as the key when reading or writing the parameter value."
           },
           "value": {
             "type": "string",
-            "description": "Current or default value",
-            "example": "75"
+            "description": "Current value of the element as a string."
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of what this element controls or represents. Displayed as a tooltip or label in the UI."
+          },
+          "group": {
+            "type": "string",
+            "description": "Logical group this element belongs to. Used to visually cluster related elements together in the UI."
+          },
+          "subgroup": {
+            "type": "string",
+            "description": "Optional sub-group within the group for finer-grained UI organization."
           },
           "unit": {
             "type": "string",
-            "description": "Unit of measurement",
-            "example": "dB"
+            "description": "Unit of measurement for the value (e.g. dB, Hz, ms). Displayed alongside the value in the UI for context."
           },
           "isReadOnly": {
             "type": "boolean",
-            "description": "Whether the element is read-only",
-            "example": false
+            "description": "When true, the element value cannot be modified by the user. The UI should render this element in a read-only state."
           },
           "displayType": {
             "type": "string",
-            "description": "Display type for UI rendering",
+            "description": "Hint for how the element should be rendered in the UI. For example: Slider for continuous ranges, DropDown for discrete valid values, CheckBox for boolean flags, TextBox for free-form numeric entry.",
             "enum": [
-              "TextBox",
-              "DbTextBox",
-              "QFormattedValue",
-              "Slider",
-              "CheckBox",
-              "DropDown",
-              "Dump",
-              "File",
-              "BitField",
-              "Formula",
-              "StringField"
-            ],
-            "example": "Slider"
+              "TEXT_BOX",
+              "DB_TEXT_BOX",
+              "Q_FORMATTED_VALUE",
+              "SLIDER",
+              "CHECK_BOX",
+              "DROP_DOWN",
+              "DUMP",
+              "FILE",
+              "BIT_FIELD",
+              "FORMULA",
+              "STRING_FIELD"
+            ]
           },
           "policy": {
             "type": "string",
-            "description": "Element policy for visibility and access control",
+            "description": "Visibility and access-control policy for this element. Hidden elements are not shown in the UI. Basic elements are shown in the default view. Advanced elements are shown only in the advanced/expert view.",
             "enum": [
-              "Hidden",
-              "Basic",
-              "Advanced"
-            ],
-            "example": "Basic"
+              "HIDDEN",
+              "BASIC",
+              "ADVANCED"
+            ]
           },
           "qFormat": {
             "type": "string",
-            "description": "Q format string for fixed-point representation",
-            "example": "Q15"
+            "description": "Q-format notation string indicating the fixed-point scaling of the value (e.g. Q15 means the value is scaled by 2^15). Used when displayType is QFormattedValue."
           },
           "precision": {
             "type": "number",
-            "description": "Precision value for decimal places",
-            "example": 2,
+            "description": "Number of decimal places to display when rendering the value in the UI. Applies to floating-point and Q-formatted values.",
             "minimum": 0
           },
           "min": {
-            "type": "string",
-            "description": "Minimum allowed value for this configuration element",
-            "example": "0"
+            "type": "number",
+            "description": "Minimum allowed value for this element. The UI should prevent the user from entering a value below this bound. Not applicable when dataType is RawData."
           },
           "max": {
-            "type": "string",
-            "description": "Maximum allowed value for this configuration element",
-            "example": "100"
+            "type": "number",
+            "description": "Maximum allowed value for this element. The UI should prevent the user from entering a value above this bound. Not applicable when dataType is RawData."
           },
-          "validValues": {
+          "allowedValues": {
             "type": "array",
-            "description": "Array of valid values with their display names",
+            "description": "Enumerated set of allowed values the client may choose from. When present, the UI should restrict input to these values only (typically rendered as a DropDown). Each entry may be a NameValuePairDto or BitFieldDto.",
             "items": {
-              "type": "object",
-              "properties": {
-                "value": {
-                  "type": "string",
-                  "description": "The actual value"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NameValuePairDto"
                 },
-                "name": {
-                  "type": "string",
-                  "description": "Display name for the value"
+                {
+                  "$ref": "#/components/schemas/BitFieldDto"
                 }
-              }
-            },
-            "example": [
-              {
-                "value": "0",
-                "name": "Disabled"
-              },
-              {
-                "value": "1",
-                "name": "Low"
-              },
-              {
-                "value": "2",
-                "name": "Medium"
-              },
-              {
-                "value": "3",
-                "name": "High"
-              }
-            ]
+              ]
+            }
           },
-          "linkedByForFormula": {
-            "description": "List of elements linked by formula - important for calibration dependencies",
-            "example": [
-              "gain_factor",
-              "offset_value"
-            ],
+          "linkedElementNames": {
+            "description": "List of element names that are linked to this element. These elements have a relationship with this element, typically through formula calculations. Used by the UI to understand and manage element relationships.",
             "type": "array",
             "items": {
               "type": "string"
@@ -7144,8 +7154,8 @@
         "required": [
           "type",
           "name",
-          "dataType",
-          "value"
+          "value",
+          "isReadOnly"
         ]
       },
       "ElementTemplateArrayDto": {
@@ -7520,12 +7530,12 @@
           "tagName"
         ]
       },
-      "ModuleInstanceTuningConfigDto": {
+      "SpfModuleTuningConfigDto": {
         "type": "object",
         "properties": {
-          "moduleInstanceSystemId": {
+          "spfModuleSystemId": {
             "type": "string",
-            "description": "Module instance system ID",
+            "description": "SPF module system ID",
             "example": "12345"
           },
           "ckvs": {
@@ -7605,248 +7615,27 @@
           }
         },
         "required": [
-          "moduleInstanceSystemId",
+          "spfModuleSystemId",
           "ckvs",
           "tags"
-        ]
-      },
-      "PidDataDto": {
-        "type": "object",
-        "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "System identifier",
-            "example": "SYS001"
-          },
-          "pid": {
-            "type": "string",
-            "description": "Parameter ID (PID) - Unique identifier for a module parameter.\n\nPIDs are used to organize calibration data where each PID represents:\n- A specific configurable parameter of the module\n- A logical grouping of related calibration elements\n- A distinct tuning aspect (e.g., volume, EQ, filters)\n\nExamples:\n- PID \"1\" might represent volume control parameters\n- PID \"2\" might represent equalizer band settings\n- PID \"3\" might represent filter coefficients",
-            "example": "1"
-          },
-          "name": {
-            "type": "string",
-            "description": "Human-readable name for this PID",
-            "example": "Volume Control Parameters"
-          },
-          "description": {
-            "type": "string",
-            "description": "Description of what this PID represents",
-            "example": "Contains all volume-related configuration parameters"
-          },
-          "elements": {
-            "type": "array",
-            "description": "Array of calibration elements for this Parameter ID.\n\nThis array can contain four different types of calibration elements:\n\n**1. ConfigElement (Simple Parameters):**\n   - Single configuration values (volume, gain, frequency)\n   - Rendered as UI controls like sliders, text boxes, dropdowns\n   - Example: volume_level with value \"75\" and unit \"dB\"\n\n**2. ConfigElementArray (Parameter Arrays):**\n   - Arrays of configuration values of the same type\n   - Used for multi-band EQs, filter coefficients, channel gains\n   - Contains template defining the structure of each array item\n   - Example: eq_bands array with 10 frequency band settings\n\n**3. Struct (Grouped Parameters):**\n   - Complex structured data grouping related parameters\n   - Contains nested elements of any calibration type\n   - Used for organizing related settings (audio_config, filter_settings)\n   - Example: audio_settings struct containing sample_rate, bit_depth, etc.\n\n**4. StructArray (Arrays of Structures):**\n   - Arrays of structured data for multi-instance configurations\n   - Used for multi-channel setups, multiple filter stages\n   - Contains template defining the structure of each array item\n   - Example: channel_configs array with settings for each audio channel\n\n**Element Relationships:**\n- Elements can be nested (Structs can contain other elements)\n- Elements can reference each other via linkedByForFormula\n- Array elements follow their template structure\n- All elements support grouping via group/subgroup for UI organization",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/ConfigElementDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ConfigArrayDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ConfigStructDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ConfigStructArrayDto"
-                }
-              ]
-            },
-            "example": [
-              {
-                "type": "ConfigElement",
-                "name": "volume_level",
-                "description": "Master volume control for audio output",
-                "group": "Audio Controls",
-                "subgroup": "Volume Settings",
-                "dataType": "UInt32",
-                "value": "75",
-                "unit": "dB",
-                "displayType": "Slider",
-                "policy": "Basic",
-                "precision": 1,
-                "min": "0",
-                "max": "100",
-                "validValues": [
-                  {
-                    "value": "0",
-                    "name": "Mute"
-                  },
-                  {
-                    "value": "25",
-                    "name": "Low"
-                  },
-                  {
-                    "value": "50",
-                    "name": "Medium"
-                  },
-                  {
-                    "value": "75",
-                    "name": "High"
-                  },
-                  {
-                    "value": "100",
-                    "name": "Maximum"
-                  }
-                ],
-                "isReadOnly": false,
-                "linkedByForFormula": [
-                  "gain_compensation"
-                ]
-              },
-              {
-                "type": "ConfigElementArray",
-                "name": "eq_bands",
-                "description": "Equalizer frequency band gain settings",
-                "group": "Audio Processing",
-                "subgroup": "Equalizer",
-                "length": 5,
-                "lengthFormula": "num_eq_bands",
-                "template": {
-                  "type": "ConfigElement",
-                  "name": "band_gain",
-                  "dataType": "Float",
-                  "value": "0.0",
-                  "unit": "dB",
-                  "displayType": "Slider",
-                  "qFormat": "Q15",
-                  "precision": 2
-                },
-                "elements": [
-                  {
-                    "type": "ConfigElement",
-                    "name": "eq_band_1",
-                    "dataType": "Float",
-                    "value": "2.5",
-                    "unit": "dB",
-                    "displayType": "Slider",
-                    "qFormat": "Q15",
-                    "precision": 2
-                  },
-                  {
-                    "type": "ConfigElement",
-                    "name": "eq_band_2",
-                    "dataType": "Float",
-                    "value": "-1.0",
-                    "unit": "dB",
-                    "displayType": "Slider",
-                    "qFormat": "Q15",
-                    "precision": 2
-                  },
-                  {
-                    "type": "ConfigElement",
-                    "name": "eq_band_3",
-                    "dataType": "Float",
-                    "value": "0.5",
-                    "unit": "dB",
-                    "displayType": "Slider",
-                    "qFormat": "Q15",
-                    "precision": 2
-                  }
-                ],
-                "isReadOnly": false
-              },
-              {
-                "type": "Struct",
-                "name": "filter_config",
-                "description": "Digital filter configuration parameters",
-                "group": "Audio Processing",
-                "subgroup": "Filters",
-                "structType": "FilterConfig",
-                "elements": [
-                  {
-                    "type": "ConfigElement",
-                    "name": "cutoff_frequency",
-                    "dataType": "UInt32",
-                    "value": "1000",
-                    "unit": "Hz",
-                    "displayType": "TextBox",
-                    "policy": "Advanced"
-                  },
-                  {
-                    "type": "ConfigElement",
-                    "name": "filter_type",
-                    "dataType": "UInt8",
-                    "value": "1",
-                    "displayType": "DropDown",
-                    "policy": "Basic"
-                  }
-                ]
-              },
-              {
-                "type": "StructArray",
-                "name": "channel_configs",
-                "description": "Per-channel audio configuration settings",
-                "group": "Channel Settings",
-                "length": 2,
-                "lengthFormula": "num_channels",
-                "template": {
-                  "type": "Struct",
-                  "name": "channel_config",
-                  "structType": "ChannelConfig",
-                  "elements": [
-                    {
-                      "type": "ConfigElement",
-                      "name": "channel_gain",
-                      "dataType": "Float",
-                      "value": "1.0",
-                      "unit": "linear",
-                      "displayType": "Slider"
-                    }
-                  ]
-                },
-                "elements": [
-                  {
-                    "type": "Struct",
-                    "name": "channel_config_left",
-                    "structType": "ChannelConfig",
-                    "elements": [
-                      {
-                        "type": "ConfigElement",
-                        "name": "channel_gain",
-                        "dataType": "Float",
-                        "value": "0.8",
-                        "unit": "linear",
-                        "displayType": "Slider"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "Struct",
-                    "name": "channel_config_right",
-                    "structType": "ChannelConfig",
-                    "elements": [
-                      {
-                        "type": "ConfigElement",
-                        "name": "channel_gain",
-                        "dataType": "Float",
-                        "value": "0.9",
-                        "unit": "linear",
-                        "displayType": "Slider"
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        },
-        "required": [
-          "systemId",
-          "elements"
         ]
       },
       "CalDataResponseDto": {
         "type": "object",
         "properties": {
           "data": {
-            "description": "Array of calibration data, one for each PID",
+            "description": "Array of calibration data, one for each parameter",
             "example": [
               {
                 "systemId": "SYS001",
-                "pid": "1",
+                "parameterId": "1",
                 "name": "Volume Control Parameters",
                 "description": "Contains all volume-related configuration parameters",
+                "isHidden": false,
+                "isReadOnly": false,
+                "deprecated": false,
+                "isNeuralNet": false,
+                "isOffloaded": false,
                 "elements": [
                   {
                     "type": "ConfigElement",
@@ -7890,9 +7679,14 @@
               },
               {
                 "systemId": "SYS001",
-                "pid": "2",
+                "parameterId": "2",
                 "name": "Audio Processing Parameters",
                 "description": "Contains audio processing configuration parameters",
+                "isHidden": false,
+                "isReadOnly": false,
+                "deprecated": false,
+                "isNeuralNet": false,
+                "isOffloaded": false,
                 "elements": [
                   {
                     "type": "ConfigElement",
@@ -7910,7 +7704,7 @@
             ],
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PidDataDto"
+              "$ref": "#/components/schemas/ParameterDetailDto"
             }
           }
         },
@@ -7922,13 +7716,18 @@
         "type": "object",
         "properties": {
           "data": {
-            "description": "Array of calibration data updates for multiple PIDs",
+            "description": "Array of calibration data updates for multiple parameters",
             "example": [
               {
                 "systemId": "SYS001",
-                "pid": "1",
+                "parameterId": "1",
                 "name": "Volume Control Parameters",
                 "description": "Updated volume-related configuration parameters",
+                "isHidden": false,
+                "isReadOnly": false,
+                "deprecated": false,
+                "isNeuralNet": false,
+                "isOffloaded": false,
                 "elements": [
                   {
                     "type": "ConfigElement",
@@ -7973,7 +7772,7 @@
             ],
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PidDataDto"
+              "$ref": "#/components/schemas/ParameterDetailDto"
             }
           }
         },
@@ -7985,13 +7784,18 @@
         "type": "object",
         "properties": {
           "data": {
-            "description": "Array of PID data for this tag",
+            "description": "Array of parameter data for this tag",
             "example": [
               {
                 "systemId": "SYS002",
-                "pid": "1",
+                "parameterId": "1",
                 "name": "Tag Volume Control Parameters",
                 "description": "Tag-specific volume control configuration parameters",
+                "isHidden": false,
+                "isReadOnly": false,
+                "deprecated": false,
+                "isNeuralNet": false,
+                "isOffloaded": false,
                 "elements": [
                   {
                     "type": "ConfigElement",
@@ -8036,7 +7840,7 @@
             ],
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PidDataDto"
+              "$ref": "#/components/schemas/ParameterDetailDto"
             }
           }
         },
@@ -8048,13 +7852,18 @@
         "type": "object",
         "properties": {
           "data": {
-            "description": "Array of tag data updates for multiple PIDs",
+            "description": "Array of tag data updates for multiple parameters",
             "example": [
               {
                 "systemId": "SYS002",
-                "pid": "1",
+                "parameterId": "1",
                 "name": "Tag Volume Control Parameters",
                 "description": "Updated tag-specific volume control configuration parameters",
+                "isHidden": false,
+                "isReadOnly": false,
+                "deprecated": false,
+                "isNeuralNet": false,
+                "isOffloaded": false,
                 "elements": [
                   {
                     "type": "ConfigElement",
@@ -8099,7 +7908,7 @@
             ],
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PidDataDto"
+              "$ref": "#/components/schemas/ParameterDetailDto"
             }
           }
         },
@@ -8107,215 +7916,7 @@
           "data"
         ]
       },
-      "ConfigArrayDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Element type identifier",
-            "example": "ConfigElementArray",
-            "enum": [
-              "ConfigElement",
-              "ConfigElementArray",
-              "Struct",
-              "StructArray"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "description": "Element name",
-            "example": "eq_bands"
-          },
-          "description": {
-            "type": "string",
-            "description": "Optional element description",
-            "example": "Equalizer band settings"
-          },
-          "group": {
-            "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "Audio Processing"
-          },
-          "subgroup": {
-            "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Equalizer"
-          },
-          "length": {
-            "type": "number",
-            "description": "Array length",
-            "example": 10,
-            "minimum": 0
-          },
-          "lengthFormula": {
-            "type": "string",
-            "description": "Array length formula string",
-            "example": "num_channels * 2"
-          },
-          "template": {
-            "description": "Template configuration element for array items",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfigElementDto"
-              }
-            ]
-          },
-          "elements": {
-            "description": "Array of configuration elements",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ConfigElementDto"
-            }
-          },
-          "isReadOnly": {
-            "type": "boolean",
-            "description": "Whether the array is read-only",
-            "example": false
-          }
-        },
-        "required": [
-          "type",
-          "name",
-          "template",
-          "elements"
-        ]
-      },
-      "ConfigStructDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Element type identifier",
-            "example": "Struct",
-            "enum": [
-              "ConfigElement",
-              "ConfigElementArray",
-              "Struct",
-              "StructArray"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "description": "Element name",
-            "example": "audio_settings"
-          },
-          "description": {
-            "type": "string",
-            "description": "Optional element description",
-            "example": "Audio configuration settings"
-          },
-          "group": {
-            "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "System Config"
-          },
-          "subgroup": {
-            "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Audio Settings"
-          },
-          "structType": {
-            "type": "string",
-            "description": "Structure type identifier",
-            "example": "AudioConfig"
-          },
-          "elements": {
-            "type": "array",
-            "description": "Child elements within the structure",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/ConfigElementDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ConfigArrayDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ConfigStructDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ConfigStructArrayDto"
-                }
-              ]
-            }
-          }
-        },
-        "required": [
-          "type",
-          "name",
-          "structType",
-          "elements"
-        ]
-      },
-      "ConfigStructArrayDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Element type identifier",
-            "example": "StructArray",
-            "enum": [
-              "ConfigElement",
-              "ConfigElementArray",
-              "Struct",
-              "StructArray"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "description": "Element name",
-            "example": "channel_configs"
-          },
-          "description": {
-            "type": "string",
-            "description": "Optional element description",
-            "example": "Per-channel audio configuration settings"
-          },
-          "group": {
-            "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "Channel Settings"
-          },
-          "subgroup": {
-            "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Multi-Channel"
-          },
-          "length": {
-            "type": "number",
-            "description": "Array length",
-            "example": 2,
-            "minimum": 0
-          },
-          "lengthFormula": {
-            "type": "string",
-            "description": "Array length formula string",
-            "example": "num_channels"
-          },
-          "template": {
-            "description": "Template structure for array items",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfigStructDto"
-              }
-            ]
-          },
-          "elements": {
-            "description": "Array of structure elements",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ConfigStructDto"
-            }
-          }
-        },
-        "required": [
-          "type",
-          "name",
-          "template",
-          "elements"
-        ]
-      },
-      "BaseModuleInstanceRequest": {
+      "BaseSpfModuleRequest": {
         "type": "object",
         "properties": {
           "moduleId": {
@@ -8344,7 +7945,7 @@
           "procId"
         ]
       },
-      "DetailedModuleInstanceRequest": {
+      "DetailedSpfModuleRequest": {
         "type": "object",
         "properties": {
           "moduleId": {
@@ -8397,7 +7998,7 @@
           "tagData"
         ]
       },
-      "CloneModuleInstanceRequest": {
+      "CloneSpfModuleRequest": {
         "type": "object",
         "properties": {
           "referenceModuleIid": {
@@ -8491,7 +8092,7 @@
           "propertyValues"
         ]
       },
-      "ModuleInstancePropertiesDto": {
+      "SpfModulePropertiesDto": {
         "type": "object",
         "properties": {
           "properties": {
