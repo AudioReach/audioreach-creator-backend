@@ -25,12 +25,11 @@ import {
   UpdateCalDataRequestDto,
   TkvDataDto,
   UpdateTagDataRequestDto,
-  PidDataDto,
-  ConfigElementDto,
-  ConfigArrayDto,
-  ConfigStructDto,
-  ConfigStructArrayDto,
 } from './dto/cal-tag-data.dto.js';
+import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
+import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
+import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
+import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
   BaseSpfModuleRequest,
@@ -60,11 +59,10 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
   UpdateCalDataRequestDto,
   TkvDataDto,
   UpdateTagDataRequestDto,
-  PidDataDto,
+  ParameterDetailDto,
   ConfigElementDto,
-  ConfigArrayDto,
-  ConfigStructDto,
-  ConfigStructArrayDto,
+  ElementTemplateArrayDto,
+  StructDto,
   BaseSpfModuleRequest,
   DetailedSpfModuleRequest,
   CloneSpfModuleRequest,
@@ -414,7 +412,7 @@ export class SpfModuleController extends BaseController {
     console.log(
       `Updating calibration data for SPF module ${spfModuleSystemId} in project ${projectId}`,
       `with CKV system ID: ${ckvSystemId}`,
-      `for PIDs: ${updateRequest.data.map(item => item.pid).join(', ')}`,
+      `for parameters: ${updateRequest.data.map(item => item.parameterId).join(', ')}`,
     );
     throw new HttpException(
       'Calibration data update functionality is not implemented yet.',
@@ -601,7 +599,7 @@ export class SpfModuleController extends BaseController {
     console.log(
       `Updating tag data for SPF module ${spfModuleSystemId} in project ${projectId}`,
       `with tag system ID: ${tagSystemId} and TKV system ID: ${tkvSystemId}`,
-      `for PIDs: ${updateRequest.data.map(item => item.pid).join(', ')}`,
+      `for parameters: ${updateRequest.data.map(item => item.parameterId).join(', ')}`,
     );
     throw new HttpException(
       'Tag data update functionality is not implemented yet.',
