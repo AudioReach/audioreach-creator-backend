@@ -20,12 +20,10 @@ import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {SpfModuleDto, SpfModulePropertiesDto} from './dto/spf-module.dto.js';
 import {SpfModuleTuningConfigDto} from './dto/tuning-config.dto.js';
-import {
-  CalDataResponseDto,
-  UpdateCalDataRequestDto,
-  TkvDataDto,
-  UpdateTagDataRequestDto,
-} from './dto/cal-tag-data.dto.js';
+import {SpfModuleCalDataResponseDto} from './dto/spf-module-cal-data-response.dto.js';
+import {UpdateCalDataRequestDto} from './dto/update-cal-data-request.dto.js';
+import {UpdateTagDataRequestDto} from './dto/update-tag-data-request.dto.js';
+import {TkvDataDto} from '../../common/dto/tuningData/tag-data.dto.js';
 import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
 import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
@@ -55,7 +53,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 @ApiExtraModels(
   SpfModuleDto,
   SpfModuleTuningConfigDto,
-  CalDataResponseDto,
+  SpfModuleCalDataResponseDto,
   UpdateCalDataRequestDto,
   TkvDataDto,
   UpdateTagDataRequestDto,
@@ -305,7 +303,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Calibration data retrieved successfully',
-        dto: CalDataResponseDto,
+        dto: SpfModuleCalDataResponseDto,
       },
       {
         status: HttpStatus.FORBIDDEN,
@@ -326,7 +324,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
-  ): Promise<ApiResult<CalDataResponseDto>> {
+  ): Promise<ApiResult<SpfModuleCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Getting calibration data for SPF module ${spfModuleSystemId} in project ${projectId}`,
@@ -382,7 +380,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Calibration data updated successfully',
-        dto: CalDataResponseDto,
+        dto: SpfModuleCalDataResponseDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -407,7 +405,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
     @Body() updateRequest: UpdateCalDataRequestDto,
-  ): Promise<ApiResult<CalDataResponseDto>> {
+  ): Promise<ApiResult<SpfModuleCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Updating calibration data for SPF module ${spfModuleSystemId} in project ${projectId}`,
