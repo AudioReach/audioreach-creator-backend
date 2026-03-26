@@ -23,7 +23,7 @@ import {SpfModuleTuningConfigDto} from './dto/tuning-config.dto.js';
 import {SpfModuleCalDataResponseDto} from './dto/spf-module-cal-data-response.dto.js';
 import {UpdateCalDataRequestDto} from './dto/update-cal-data-request.dto.js';
 import {UpdateTagDataRequestDto} from './dto/update-tag-data-request.dto.js';
-import {TkvDataDto} from '../../common/dto/tuningData/tag-data.dto.js';
+import {TkvDataDto} from '../../common/dto/tuning-data/tag-data.dto.js';
 import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
 import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
