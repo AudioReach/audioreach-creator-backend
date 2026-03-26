@@ -6,6 +6,14 @@
 import {EndPointLink} from '../../utils/index.js';
 import {SpfModuleDto} from '../../../modules/spf-module/dto/spf-module.dto.js';
 import {BaseSpfModuleRequest} from '../../../modules/spf-module/dto/spf-module-request.dto.js';
+import {
+  SpfModuleTuningConfigDto,
+  CkvDto,
+  TagInfoDto,
+  TkvDto,
+  ParamInfo,
+} from '../../../modules/spf-module/dto/tuning-config.dto.js';
+import {KeyValueInfo, KeyInfo, ValueInfo} from '../../dto/kv.dto.js';
 
 /**
  * Interface for NewSpfModuleRequest
@@ -86,5 +94,62 @@ export const SpfModuleDTOExample = {
     spfModule.relatedEndPointLinks = [endPointLink];
 
     return spfModule;
+  },
+};
+
+/**
+ * Example provider for SpfModuleTuningConfigExample
+ */
+export const SpfModuleTuningConfigExample = {
+  getExample(): SpfModuleTuningConfigDto {
+    // Create sample parameters for CKV
+    const ckvParam1 = new ParamInfo(
+      1001,
+      'PARAM_SYS_001',
+      'SampleRate',
+      'Audio sample rate configuration parameter',
+    );
+    const ckvParam2 = new ParamInfo(
+      1002,
+      'PARAM_SYS_002',
+      'BitDepth',
+      'Audio bit depth configuration parameter',
+    );
+
+    // Create sample key-value for CKV
+    const ckvKey = new KeyInfo(1, 'SampleRate', 'KEY_SYS_001');
+    const ckvValue = new ValueInfo(10, '48000', 'VAL_SYS_001');
+    const ckvKeyValue = new KeyValueInfo(ckvKey, ckvValue);
+
+    // Create CKV
+    const ckv = new CkvDto('101', [ckvKeyValue], [ckvParam1, ckvParam2]);
+
+    // Create sample parameters for TKV
+    const tkvParam1 = new ParamInfo(
+      2001,
+      'PARAM_SYS_003',
+      'Channels',
+      'Audio channel configuration parameter',
+    );
+    const tkvParam2 = new ParamInfo(
+      2002,
+      'PARAM_SYS_004',
+      'Volume',
+      'Audio volume level parameter',
+    );
+
+    // Create sample key-value for TKV
+    const tkvKey = new KeyInfo(2, 'Channels', 'KEY_SYS_002');
+    const tkvValue = new ValueInfo(20, 'Stereo', 'VAL_SYS_002');
+    const tkvKeyValue = new KeyValueInfo(tkvKey, tkvValue);
+
+    // Create TKV
+    const tkv = new TkvDto('202', [tkvKeyValue], [tkvParam1, tkvParam2]);
+
+    // Create Tag with TKVs
+    const tag = new TagInfoDto(201, 301, 'AudioProcessing', [tkv]);
+
+    // Create and return the complete tuning configuration
+    return new SpfModuleTuningConfigDto('12345', [ckv], [tag]);
   },
 };
