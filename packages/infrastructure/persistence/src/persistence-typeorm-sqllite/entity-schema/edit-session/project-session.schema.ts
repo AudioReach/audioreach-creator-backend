@@ -4,6 +4,7 @@
  */
 
 import {EntitySchema} from 'typeorm';
+import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 
 export const SESSION_MODE = {
   Tuning: 'TUNING',
@@ -29,6 +30,7 @@ export interface ProjectSessionRow {
   status: SessionStatus;
   startedAt: Date;
   endedAt: Date | null;
+  file?: ArcDbFileRow;
 }
 
 export const ProjectSessionSchema = new EntitySchema<ProjectSessionRow>({
@@ -82,6 +84,14 @@ export const ProjectSessionSchema = new EntitySchema<ProjectSessionRow>({
       nullable: true,
     },
   },
+  relations: {
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+      onDelete: 'CASCADE',
+    },
+  },
   indices: [
     {
       name: 'idx_project_sessions_file',
@@ -90,6 +100,12 @@ export const ProjectSessionSchema = new EntitySchema<ProjectSessionRow>({
     {
       name: 'idx_project_sessions_status',
       columns: ['status'],
+    },
+    {
+      name: 'uq_project_sessions_one_active_per_file',
+      columns: ['fileSystemId'],
+      unique: true,
+      where: `status = 'ACTIVE'`,
     },
   ],
 });

@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1774258410902 implements MigrationInterface {
-  name = 'InitialCreate1774258410902';
+export class InitialCreate1774499229109 implements MigrationInterface {
+  name = 'InitialCreate1774499229109';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -332,6 +332,9 @@ export class InitialCreate1774258410902 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_project_sessions_status" ON "project_sessions" ("status") `,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_project_sessions_one_active_per_file" ON "project_sessions" ("file_system_id") WHERE status = 'ACTIVE'`,
     );
     await queryRunner.query(
       `CREATE TABLE "session_commits" ("commit_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "commit_message" text NOT NULL, "committed_at" datetime NOT NULL DEFAULT (datetime('now')), "change_count" integer NOT NULL DEFAULT (0))`,
@@ -1028,6 +1031,30 @@ export class InitialCreate1774258410902 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
     );
+    await queryRunner.query(`DROP INDEX "idx_project_sessions_file"`);
+    await queryRunner.query(`DROP INDEX "idx_project_sessions_status"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_project_sessions_one_active_per_file"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "client_id" varchar(255) NOT NULL, "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime, CONSTRAINT "FK_d62028536776bb550ec2985f58c" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_project_sessions"("session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at") SELECT "session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at" FROM "project_sessions"`,
+    );
+    await queryRunner.query(`DROP TABLE "project_sessions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_project_sessions" RENAME TO "project_sessions"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_sessions_file" ON "project_sessions" ("file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_sessions_status" ON "project_sessions" ("status") `,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_project_sessions_one_active_per_file" ON "project_sessions" ("file_system_id") WHERE status = 'ACTIVE'`,
+    );
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_session_commits" ("commit_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "commit_message" text NOT NULL, "committed_at" datetime NOT NULL DEFAULT (datetime('now')), "change_count" integer NOT NULL DEFAULT (0), CONSTRAINT "FK_6a755b7e63615bb9a58f76f6dfc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -1316,6 +1343,30 @@ export class InitialCreate1774258410902 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "temporary_session_commits"`);
     await queryRunner.query(
       `CREATE INDEX "idx_session_commits_session" ON "session_commits" ("session_id") `,
+    );
+    await queryRunner.query(
+      `DROP INDEX "uq_project_sessions_one_active_per_file"`,
+    );
+    await queryRunner.query(`DROP INDEX "idx_project_sessions_status"`);
+    await queryRunner.query(`DROP INDEX "idx_project_sessions_file"`);
+    await queryRunner.query(
+      `ALTER TABLE "project_sessions" RENAME TO "temporary_project_sessions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "client_id" varchar(255) NOT NULL, "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "project_sessions"("session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at") SELECT "session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at" FROM "temporary_project_sessions"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_project_sessions"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_project_sessions_one_active_per_file" ON "project_sessions" ("file_system_id") WHERE status = 'ACTIVE'`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_sessions_status" ON "project_sessions" ("status") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_project_sessions_file" ON "project_sessions" ("file_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
@@ -1984,6 +2035,9 @@ export class InitialCreate1774258410902 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "key_vector_values"`);
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(`DROP TABLE "session_commits"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_project_sessions_one_active_per_file"`,
+    );
     await queryRunner.query(`DROP INDEX "idx_project_sessions_status"`);
     await queryRunner.query(`DROP INDEX "idx_project_sessions_file"`);
     await queryRunner.query(`DROP TABLE "project_sessions"`);

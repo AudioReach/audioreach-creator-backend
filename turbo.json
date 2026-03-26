@@ -121,14 +121,26 @@
       ],
       "cache": true
     },
+    "coverage:persistence": {
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "tests/**/*.ts",
+        "jest.config.mjs",
+        "package.json"
+      ],
+      "cache": true
+    },
     "coverage:workspace": {
-      "dependsOn": ["coverage:api", "coverage:core"],
+      "dependsOn": ["coverage:api", "coverage:core", "coverage:persistence"],
       "outputs": ["coverage/**", "temp-coverage/**"],
       "inputs": [
         "packages/api/coverage/coverage-final.json",
         "packages/core/coverage/coverage-final.json",
+        "packages/infrastructure/persistence/coverage/coverage-final.json",
         "packages/api/src/**/*.ts",
-        "packages/core/src/**/*.ts"
+        "packages/core/src/**/*.ts",
+        "packages/infrastructure/persistence/src/**/*.ts"
       ],
       "cache": true
     },
