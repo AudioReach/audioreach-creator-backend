@@ -2882,7 +2882,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/CalDataResponseDto"
+                          "$ref": "#/components/schemas/SpfModuleCalDataResponseDto"
                         }
                       }
                     }
@@ -2965,7 +2965,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/CalDataResponseDto"
+                          "$ref": "#/components/schemas/SpfModuleCalDataResponseDto"
                         }
                       }
                     }
@@ -7620,88 +7620,30 @@
           "tags"
         ]
       },
-      "CalDataResponseDto": {
+      "SpfModuleCalDataResponseDto": {
         "type": "object",
         "properties": {
-          "data": {
-            "description": "Array of calibration data, one for each parameter",
-            "example": [
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
               {
-                "systemId": "SYS001",
-                "parameterId": "1",
-                "name": "Volume Control Parameters",
-                "description": "Contains all volume-related configuration parameters",
-                "isHidden": false,
-                "isReadOnly": false,
-                "deprecated": false,
-                "isNeuralNet": false,
-                "isOffloaded": false,
-                "elements": [
-                  {
-                    "type": "ConfigElement",
-                    "name": "volume_level",
-                    "description": "Audio volume level setting",
-                    "group": "Audio Controls",
-                    "subgroup": "Volume Settings",
-                    "dataType": "UInt32",
-                    "value": "75",
-                    "unit": "dB",
-                    "displayType": "Slider",
-                    "policy": "Basic",
-                    "precision": 1,
-                    "min": "0",
-                    "max": "100",
-                    "validValues": [
-                      {
-                        "value": "0",
-                        "name": "Mute"
-                      },
-                      {
-                        "value": "25",
-                        "name": "Low"
-                      },
-                      {
-                        "value": "50",
-                        "name": "Medium"
-                      },
-                      {
-                        "value": "75",
-                        "name": "High"
-                      },
-                      {
-                        "value": "100",
-                        "name": "Maximum"
-                      }
-                    ],
-                    "isReadOnly": false
-                  }
-                ]
-              },
-              {
-                "systemId": "SYS001",
-                "parameterId": "2",
-                "name": "Audio Processing Parameters",
-                "description": "Contains audio processing configuration parameters",
-                "isHidden": false,
-                "isReadOnly": false,
-                "deprecated": false,
-                "isNeuralNet": false,
-                "isOffloaded": false,
-                "elements": [
-                  {
-                    "type": "ConfigElement",
-                    "name": "sample_rate",
-                    "description": "Audio sample rate setting",
-                    "group": "Audio Processing",
-                    "dataType": "UInt32",
-                    "value": "48000",
-                    "unit": "Hz",
-                    "displayType": "DropDown",
-                    "policy": "Advanced"
-                  }
-                ]
+                "$ref": "#/components/schemas/ChangeInfoDto"
               }
-            ],
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the ckv"
+          },
+          "Ckv": {
+            "description": "Array of Calibration Key-Value pairs. Each entry contains key and value information with their respective IDs, names, and system identifiers.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueDto"
+            }
+          },
+          "parameters": {
+            "description": "Array of parameter data, one entry per PID. Each entry contains the system identifier, PID, name, description, and the list of calibration elements belonging to that parameter.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ParameterDetailDto"
@@ -7709,7 +7651,10 @@
           }
         },
         "required": [
-          "data"
+          "changeInfo",
+          "systemId",
+          "Ckv",
+          "parameters"
         ]
       },
       "UpdateCalDataRequestDto": {
