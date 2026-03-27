@@ -101,7 +101,10 @@ export class SpfModuleController extends BaseController {
   ): Promise<ApiResult<SpfModuleDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting SPF modules in project ${projectId}: ${JSON.stringify(spfModuleSystemIds)}`,
+      'Getting SPF modules in project:',
+      projectId,
+      'with system IDs:',
+      spfModuleSystemIds,
     );
     throw new HttpException(
       'SPF modules retrieval functionality is not implemented yet.',
@@ -189,7 +192,10 @@ export class SpfModuleController extends BaseController {
   ): Promise<ApiResult<SpfModulePropertiesDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting properties in project ${projectId} for SPF module ${spfModuleSystemId}`,
+      'Getting properties in project:',
+      projectId,
+      'for SPF module:',
+      spfModuleSystemId,
     );
     throw new HttpException(
       'SPF module properties retrieval functionality is not implemented yet.',
@@ -244,7 +250,10 @@ export class SpfModuleController extends BaseController {
   ): Promise<ApiResult<SpfModuleTuningConfigDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting tuning config for SPF module ${spfModuleSystemId} in project ${projectId}`,
+      'Getting tuning config for SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
     );
     throw new HttpException(
       'SPF module tuning configuration retrieval functionality is not implemented yet.',
@@ -327,11 +336,16 @@ export class SpfModuleController extends BaseController {
   ): Promise<ApiResult<SpfModuleCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting calibration data for SPF module ${spfModuleSystemId} in project ${projectId}`,
-      `with CKV system ID: ${ckvSystemId}`,
+      'Getting calibration data for SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with CKV system ID:',
+      ckvSystemId,
       paramSystemIds
-        ? `and parameter system IDs: ${paramSystemIds}`
+        ? 'and parameter system IDs:'
         : 'for all parameter system IDs',
+      paramSystemIds || '',
     );
     throw new HttpException(
       'Calibration data retrieval functionality is not implemented yet.',
@@ -408,9 +422,14 @@ export class SpfModuleController extends BaseController {
   ): Promise<ApiResult<SpfModuleCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Updating calibration data for SPF module ${spfModuleSystemId} in project ${projectId}`,
-      `with CKV system ID: ${ckvSystemId}`,
-      `for parameters: ${updateRequest.data.map(item => item.parameterId).join(', ')}`,
+      'Updating calibration data for SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with CKV system ID:',
+      ckvSystemId,
+      'for parameters:',
+      updateRequest.data.map(item => item.parameterId).join(', '),
     );
     throw new HttpException(
       'Calibration data update functionality is not implemented yet.',
@@ -502,11 +521,18 @@ export class SpfModuleController extends BaseController {
   ): Promise<ApiResult<TkvDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Getting tag data for SPF module ${spfModuleSystemId} in project ${projectId}`,
-      `with tag system ID: ${tagSystemId} and TKV system ID: ${tkvSystemId}`,
+      'Getting tag data for SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with tag system ID:',
+      tagSystemId,
+      'and TKV system ID:',
+      tkvSystemId,
       paramSystemIds
-        ? `and parameter system IDs: ${paramSystemIds}`
+        ? 'and parameter system IDs:'
         : 'for all parameter system IDs',
+      paramSystemIds || '',
     );
     throw new HttpException(
       'Tag data retrieval functionality is not implemented yet.',
@@ -595,9 +621,16 @@ export class SpfModuleController extends BaseController {
   ): Promise<ApiResult<TkvDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Updating tag data for SPF module ${spfModuleSystemId} in project ${projectId}`,
-      `with tag system ID: ${tagSystemId} and TKV system ID: ${tkvSystemId}`,
-      `for parameters: ${updateRequest.data.map(item => item.parameterId).join(', ')}`,
+      'Updating tag data for SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with tag system ID:',
+      tagSystemId,
+      'and TKV system ID:',
+      tkvSystemId,
+      'for parameters:',
+      updateRequest.data.map(item => item.parameterId).join(', '),
     );
     throw new HttpException(
       'Tag data update functionality is not implemented yet.',

@@ -62,11 +62,11 @@ async function generateSwaggerJson(): Promise<void> {
     mkdirSync(docsDir, {recursive: true});
 
     // Write the Swagger JSON to file
-    console.log(`💾 Writing Swagger JSON to: ${outputPath}`);
+    console.log('💾 Writing Swagger JSON to:', outputPath);
     writeFileSync(outputPath, JSON.stringify(document, null, 2), 'utf8');
 
     console.log('✅ Swagger JSON generation completed successfully!');
-    console.log(`📄 File saved to: ${outputPath}`);
+    console.log('📄 File saved to:', outputPath);
   } catch (error) {
     console.error('❌ Error generating Swagger JSON:', error);
     throw error;

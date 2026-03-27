@@ -116,7 +116,8 @@ export class UseCaseController extends BaseController {
   ): Promise<ApiResult<UsecaseDto[]>> {
     try {
       console.log(
-        `Getting subsystem filtered usecases for project: ${projectId}`,
+        'Getting subsystem filtered usecases for project:',
+        projectId,
       );
 
       // Execute the query using the existing handler
@@ -367,7 +368,12 @@ export class UseCaseController extends BaseController {
   ): Promise<ApiResult<UsecaseComponentsDto[]>> {
     try {
       console.log(
-        `Getting components for usecases in project ${projectId}: ${JSON.stringify(usecaseSystemIds)}, contentsType: ${contentsType}`,
+        'Getting components for usecases in project:',
+        projectId,
+        'with system IDs:',
+        usecaseSystemIds,
+        'contentsType:',
+        contentsType,
       );
 
       // Validate input
@@ -445,9 +451,7 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
   ): Promise<ApiResult<UsecaseWithModificationSummary[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting usecase modification summary for project: ${projectId}`,
-    );
+    console.log('Getting usecase modification summary for project:', projectId);
     throw new HttpException(
       'This getUsecaseModificationSummary API endpoint is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
@@ -485,7 +489,10 @@ export class UseCaseController extends BaseController {
   ): Promise<void> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
-      `Deleting usecases for project ${projectId}: ${JSON.stringify(usecaseSystemIds)}`,
+      'Deleting usecases for project:',
+      projectId,
+      'with system IDs:',
+      usecaseSystemIds,
     );
     throw new HttpException(
       'This API endpoint is not implemented yet.',
