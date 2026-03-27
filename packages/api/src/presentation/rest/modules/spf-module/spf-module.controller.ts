@@ -23,7 +23,7 @@ import {SpfModuleTuningConfigDto} from './dto/tuning-config.dto.js';
 import {SpfModuleCalDataResponseDto} from './dto/spf-module-cal-data-response.dto.js';
 import {UpdateCalDataRequestDto} from './dto/update-cal-data-request.dto.js';
 import {UpdateTagDataRequestDto} from './dto/update-tag-data-request.dto.js';
-import {TkvDataDto} from '../../common/dto/tuning-data/tag-data.dto.js';
+import {TagDataDto} from '../../common/dto/tuning-data/tag-data.dto.js';
 import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
 import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
@@ -55,7 +55,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
   SpfModuleTuningConfigDto,
   SpfModuleCalDataResponseDto,
   UpdateCalDataRequestDto,
-  TkvDataDto,
+  TagDataDto,
   UpdateTagDataRequestDto,
   ParameterDetailDto,
   ConfigElementDto,
@@ -496,7 +496,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tag data retrieved successfully',
-        dto: TkvDataDto,
+        dto: TagDataDto,
       },
       {
         status: HttpStatus.FORBIDDEN,
@@ -518,7 +518,7 @@ export class SpfModuleController extends BaseController {
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
-  ): Promise<ApiResult<TkvDataDto>> {
+  ): Promise<ApiResult<TagDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Getting tag data for SPF module:',
@@ -592,7 +592,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tag data updated successfully',
-        dto: TkvDataDto,
+        dto: TagDataDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -618,7 +618,7 @@ export class SpfModuleController extends BaseController {
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
     @Body() updateRequest: UpdateTagDataRequestDto,
-  ): Promise<ApiResult<TkvDataDto>> {
+  ): Promise<ApiResult<TagDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Updating tag data for SPF module:',

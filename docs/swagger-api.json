@@ -3062,7 +3062,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/TkvDataDto"
+                          "$ref": "#/components/schemas/TagDataDto"
                         }
                       }
                     }
@@ -3155,7 +3155,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/TkvDataDto"
+                          "$ref": "#/components/schemas/TagDataDto"
                         }
                       }
                     }
@@ -7725,64 +7725,30 @@
           "data"
         ]
       },
-      "TkvDataDto": {
+      "TagDataDto": {
         "type": "object",
         "properties": {
-          "data": {
-            "description": "Array of parameter data for this tag",
-            "example": [
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
               {
-                "systemId": "SYS002",
-                "parameterId": "1",
-                "name": "Tag Volume Control Parameters",
-                "description": "Tag-specific volume control configuration parameters",
-                "isHidden": false,
-                "isReadOnly": false,
-                "deprecated": false,
-                "isNeuralNet": false,
-                "isOffloaded": false,
-                "elements": [
-                  {
-                    "type": "ConfigElement",
-                    "name": "tag_volume_level",
-                    "description": "Tag-specific volume level setting",
-                    "group": "Tag Audio Controls",
-                    "subgroup": "Volume Settings",
-                    "dataType": "UInt32",
-                    "value": "75",
-                    "unit": "dB",
-                    "displayType": "Slider",
-                    "policy": "Basic",
-                    "precision": 1,
-                    "min": "0",
-                    "max": "100",
-                    "validValues": [
-                      {
-                        "value": "0",
-                        "name": "Mute"
-                      },
-                      {
-                        "value": "25",
-                        "name": "Low"
-                      },
-                      {
-                        "value": "50",
-                        "name": "Medium"
-                      },
-                      {
-                        "value": "75",
-                        "name": "High"
-                      },
-                      {
-                        "value": "100",
-                        "name": "Maximum"
-                      }
-                    ],
-                    "isReadOnly": false
-                  }
-                ]
+                "$ref": "#/components/schemas/ChangeInfoDto"
               }
-            ],
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the tkv"
+          },
+          "Tkv": {
+            "description": "Array of Tag Key-Value pairs. Each entry contains key and value information with their respective IDs, names, and system identifiers.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueDto"
+            }
+          },
+          "parameters": {
+            "description": "Array of parameter data, one entry per PID. Each entry contains the system identifier, PID, name, description, and the list of tag elements belonging to that parameter.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ParameterDetailDto"
@@ -7790,7 +7756,10 @@
           }
         },
         "required": [
-          "data"
+          "changeInfo",
+          "systemId",
+          "Tkv",
+          "parameters"
         ]
       },
       "UpdateTagDataRequestDto": {

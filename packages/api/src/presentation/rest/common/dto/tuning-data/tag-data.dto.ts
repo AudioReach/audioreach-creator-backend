@@ -5,52 +5,35 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {ParameterDetailDto} from '../parameter.dto.js';
+import {BaseDto} from '../base.dto.js';
+import {KeyValueDto} from '../key-value.dto.js';
 
 /**
- * Response DTO for tag data API - supports multiple parameters with tag context
+ * DTO for tag data.
+ * Extends BaseDto with an array of parameters containing their tag elements
+ * and an array of TKV (Tag Key-Value) pairs.
  */
-export class TkvDataDto {
+export class TagDataDto extends BaseDto {
   @ApiProperty({
-    description: 'Array of parameter data for this tag',
-    type: [ParameterDetailDto],
-    example: [
-      {
-        systemId: 'SYS002',
-        parameterId: '1',
-        name: 'Tag Volume Control Parameters',
-        description: 'Tag-specific volume control configuration parameters',
-        isHidden: false,
-        isReadOnly: false,
-        deprecated: false,
-        isNeuralNet: false,
-        isOffloaded: false,
-        elements: [
-          {
-            type: 'ConfigElement',
-            name: 'tag_volume_level',
-            description: 'Tag-specific volume level setting',
-            group: 'Tag Audio Controls',
-            subgroup: 'Volume Settings',
-            dataType: 'UInt32',
-            value: '75',
-            unit: 'dB',
-            displayType: 'Slider',
-            policy: 'Basic',
-            precision: 1,
-            min: '0',
-            max: '100',
-            validValues: [
-              {value: '0', name: 'Mute'},
-              {value: '25', name: 'Low'},
-              {value: '50', name: 'Medium'},
-              {value: '75', name: 'High'},
-              {value: '100', name: 'Maximum'},
-            ],
-            isReadOnly: false,
-          },
-        ],
-      },
-    ],
+    description: 'Unique system identifier for the tkv',
+    type: String,
   })
-  data!: ParameterDetailDto[];
+  systemId!: string;
+
+  @ApiProperty({
+    description:
+      'Array of Tag Key-Value pairs. ' +
+      'Each entry contains key and value information with their respective IDs, names, and system identifiers.',
+    type: [KeyValueDto],
+  })
+  Tkv!: KeyValueDto[];
+
+  @ApiProperty({
+    description:
+      'Array of parameter data, one entry per PID. ' +
+      'Each entry contains the system identifier, PID, name, description, ' +
+      'and the list of tag elements belonging to that parameter.',
+    type: [ParameterDetailDto],
+  })
+  parameters!: ParameterDetailDto[];
 }
