@@ -2721,7 +2721,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SpfModuleTuningConfigDto"
+                          "$ref": "#/components/schemas/SpfModuleTuningConfigResponseDto"
                         }
                       }
                     }
@@ -4734,7 +4734,6 @@
           "elementType": {
             "type": "string",
             "description": "Element type identifier",
-            "example": "ConfigElement",
             "enum": [
               "ConfigElement",
               "ConfigElementArray",
@@ -4744,48 +4743,39 @@
           },
           "name": {
             "type": "string",
-            "description": "Element name",
-            "example": "volume_level"
+            "description": "Element name"
           },
           "description": {
             "type": "string",
-            "description": "Optional element description",
-            "example": "Audio volume level setting"
+            "description": "Optional element description"
           },
           "channel": {
             "type": "number",
-            "description": "Channel identifier",
-            "example": 0
+            "description": "Channel identifier"
           },
           "groupSet": {
             "type": "number",
-            "description": "Group set identifier",
-            "example": 0
+            "description": "Group set identifier"
           },
           "alignment": {
             "type": "number",
-            "description": "Alignment value",
-            "example": 4
+            "description": "Alignment value"
           },
           "rtmPlotType": {
             "type": "string",
-            "description": "RTM plot type",
-            "example": "Line"
+            "description": "RTM plot type"
           },
           "group": {
             "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "Audio Controls"
+            "description": "Group name for organizing elements"
           },
           "subGroup": {
             "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Volume Settings"
+            "description": "Sub-group name for further categorization"
           },
           "copySrc": {
             "type": "string",
-            "description": "Copy source reference",
-            "example": "source_element"
+            "description": "Copy source reference"
           },
           "dataType": {
             "type": "string",
@@ -4802,13 +4792,11 @@
               "RawData",
               "Double",
               "Float"
-            ],
-            "example": "UInt32"
+            ]
           },
           "defaultValue": {
             "type": "string",
-            "description": "Default value for the configuration element",
-            "example": "75"
+            "description": "Default value for the configuration element"
           },
           "displayType": {
             "type": "string",
@@ -4825,8 +4813,7 @@
               "BitField",
               "Formula",
               "StringField"
-            ],
-            "example": "Slider"
+            ]
           },
           "policy": {
             "type": "string",
@@ -4835,41 +4822,31 @@
               "Hidden",
               "Basic",
               "Advanced"
-            ],
-            "example": "Basic"
+            ]
           },
           "isReadOnly": {
             "type": "boolean",
-            "description": "Whether the element is read-only",
-            "example": false
+            "description": "Whether the element is read-only"
           },
           "displayName": {
             "type": "string",
-            "description": "Display name for the configuration element",
-            "example": "Volume Level"
+            "description": "Display name for the configuration element"
           },
           "unitStr": {
             "type": "string",
-            "description": "Unit of measurement",
-            "example": "dB"
+            "description": "Unit of measurement"
           },
           "qFormat": {
             "type": "string",
-            "description": "Q format string for fixed-point representation",
-            "example": "Q15"
+            "description": "Q format string for fixed-point representation"
           },
           "precision": {
             "type": "number",
             "description": "Precision value for decimal places",
-            "example": 2,
             "minimum": 0
           },
           "linkedByForFormula": {
             "description": "List of elements linked by formula",
-            "example": [
-              "gain_factor",
-              "offset_value"
-            ],
             "type": "array",
             "items": {
               "type": "string"
@@ -4877,10 +4854,6 @@
           },
           "defaultDataDepends": {
             "description": "List of default data dependencies",
-            "example": [
-              "dependency1",
-              "dependency2"
-            ],
             "type": "array",
             "items": {
               "type": "string"
@@ -4900,7 +4873,6 @@
           "elementType": {
             "type": "string",
             "description": "Element type identifier",
-            "example": "ConfigElementArray",
             "enum": [
               "ConfigElement",
               "ConfigElementArray",
@@ -4910,66 +4882,51 @@
           },
           "name": {
             "type": "string",
-            "description": "Element name",
-            "example": "eq_bands"
+            "description": "Element name"
           },
           "description": {
             "type": "string",
-            "description": "Optional element description",
-            "example": "Equalizer band settings"
+            "description": "Optional element description"
           },
           "channel": {
             "type": "number",
-            "description": "Channel identifier",
-            "example": 0
+            "description": "Channel identifier"
           },
           "groupSet": {
             "type": "number",
-            "description": "Group set identifier",
-            "example": 0
+            "description": "Group set identifier"
           },
           "alignment": {
             "type": "number",
-            "description": "Alignment value",
-            "example": 4
+            "description": "Alignment value"
           },
           "rtmPlotType": {
             "type": "string",
-            "description": "RTM plot type",
-            "example": "Line"
+            "description": "RTM plot type"
           },
           "group": {
             "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "Audio Processing"
+            "description": "Group name for organizing elements"
           },
           "subGroup": {
             "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Equalizer"
+            "description": "Sub-group name for further categorization"
           },
           "copySrc": {
             "type": "string",
-            "description": "Copy source reference",
-            "example": "source_element"
+            "description": "Copy source reference"
           },
           "arrayLength": {
             "type": "number",
             "description": "Array length",
-            "example": 10,
             "minimum": 0
           },
           "arrayLenFormulaStr": {
             "type": "string",
-            "description": "Array length formula string",
-            "example": "num_channels * 2"
+            "description": "Array length formula string"
           },
           "copySrcInfoList": {
             "description": "List of copy source information",
-            "example": [
-              "source1",
-              "source2"
-            ],
             "type": "array",
             "items": {
               "type": "string"
@@ -4998,8 +4955,7 @@
               "BitField",
               "Formula",
               "StringField"
-            ],
-            "example": "Slider"
+            ]
           },
           "policy": {
             "type": "string",
@@ -5008,13 +4964,11 @@
               "Hidden",
               "Basic",
               "Advanced"
-            ],
-            "example": "Basic"
+            ]
           },
           "isReadOnly": {
             "type": "boolean",
-            "description": "Whether the element array is read-only",
-            "example": false
+            "description": "Whether the element array is read-only"
           }
         },
         "required": [
@@ -5032,7 +4986,6 @@
           "elementType": {
             "type": "string",
             "description": "Element type identifier",
-            "example": "Struct",
             "enum": [
               "ConfigElement",
               "ConfigElementArray",
@@ -5042,53 +4995,43 @@
           },
           "name": {
             "type": "string",
-            "description": "Element name",
-            "example": "audio_settings"
+            "description": "Element name"
           },
           "description": {
             "type": "string",
-            "description": "Optional element description",
-            "example": "Audio configuration settings"
+            "description": "Optional element description"
           },
           "channel": {
             "type": "number",
-            "description": "Channel identifier",
-            "example": 0
+            "description": "Channel identifier"
           },
           "groupSet": {
             "type": "number",
-            "description": "Group set identifier",
-            "example": 0
+            "description": "Group set identifier"
           },
           "alignment": {
             "type": "number",
-            "description": "Alignment value",
-            "example": 4
+            "description": "Alignment value"
           },
           "rtmPlotType": {
             "type": "string",
-            "description": "RTM plot type",
-            "example": "Line"
+            "description": "RTM plot type"
           },
           "group": {
             "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "System Config"
+            "description": "Group name for organizing elements"
           },
           "subGroup": {
             "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Audio Settings"
+            "description": "Sub-group name for further categorization"
           },
           "copySrc": {
             "type": "string",
-            "description": "Copy source reference",
-            "example": "source_element"
+            "description": "Copy source reference"
           },
           "structureType": {
             "type": "string",
-            "description": "Structure type identifier",
-            "example": "AudioConfig"
+            "description": "Structure type identifier"
           },
           "children": {
             "type": "array",
@@ -5121,7 +5064,6 @@
           "elementType": {
             "type": "string",
             "description": "Element type identifier",
-            "example": "StructArray",
             "enum": [
               "ConfigElement",
               "ConfigElementArray",
@@ -5131,66 +5073,51 @@
           },
           "name": {
             "type": "string",
-            "description": "Element name",
-            "example": "channel_configs"
+            "description": "Element name"
           },
           "description": {
             "type": "string",
-            "description": "Optional element description",
-            "example": "Per-channel audio configuration settings"
+            "description": "Optional element description"
           },
           "channel": {
             "type": "number",
-            "description": "Channel identifier",
-            "example": 0
+            "description": "Channel identifier"
           },
           "groupSet": {
             "type": "number",
-            "description": "Group set identifier",
-            "example": 0
+            "description": "Group set identifier"
           },
           "alignment": {
             "type": "number",
-            "description": "Alignment value",
-            "example": 4
+            "description": "Alignment value"
           },
           "rtmPlotType": {
             "type": "string",
-            "description": "RTM plot type",
-            "example": "Line"
+            "description": "RTM plot type"
           },
           "group": {
             "type": "string",
-            "description": "Group name for organizing elements",
-            "example": "Channel Settings"
+            "description": "Group name for organizing elements"
           },
           "subGroup": {
             "type": "string",
-            "description": "Sub-group name for further categorization",
-            "example": "Multi-Channel"
+            "description": "Sub-group name for further categorization"
           },
           "copySrc": {
             "type": "string",
-            "description": "Copy source reference",
-            "example": "source_element"
+            "description": "Copy source reference"
           },
           "arrayLength": {
             "type": "number",
             "description": "Array length",
-            "example": 2,
             "minimum": 0
           },
           "arrayLenFormulaStr": {
             "type": "string",
-            "description": "Array length formula string",
-            "example": "num_channels"
+            "description": "Array length formula string"
           },
           "copySrcInfoList": {
             "description": "List of copy source information",
-            "example": [
-              "source1",
-              "source2"
-            ],
             "type": "array",
             "items": {
               "type": "string"
@@ -5860,8 +5787,7 @@
           },
           "method": {
             "type": "string",
-            "description": "HTTP method",
-            "example": "GET"
+            "description": "HTTP method"
           },
           "description": {
             "type": "string",
@@ -5928,8 +5854,7 @@
         "properties": {
           "usecases": {
             "type": "boolean",
-            "description": "Indicates whether this usecase has subsystem filtering applied. false = No FilteredKV (null). All UsecaseIdentifiers without subsystem are grouped together.true = Has a FilteredKV. All UsecaseIdentifiers filtered by this FilteredKV are grouped together",
-            "example": false
+            "description": "Indicates whether this usecase has subsystem filtering applied. false = No FilteredKV (null). All UsecaseIdentifiers without subsystem are grouped together.true = Has a FilteredKV. All UsecaseIdentifiers filtered by this FilteredKV are grouped together"
           }
         },
         "required": [
@@ -5982,8 +5907,7 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           }
         },
         "required": [
@@ -6097,8 +6021,7 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "portIoType": {
             "type": "string",
@@ -6191,8 +6114,7 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "portType": {
             "type": "string",
@@ -6272,8 +6194,7 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "parentId": {
             "type": "number",
@@ -6406,8 +6327,7 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "parentId": {
             "type": "number",
@@ -6493,38 +6413,31 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "sourceId": {
             "type": "number",
-            "description": "Source component ID",
-            "example": 12345
+            "description": "Source component ID"
           },
           "sourcePortId": {
             "type": "number",
-            "description": "Source port ID",
-            "example": 1
+            "description": "Source port ID"
           },
           "destinationId": {
             "type": "number",
-            "description": "Destination component ID",
-            "example": 67890
+            "description": "Destination component ID"
           },
           "destinationPortId": {
             "type": "number",
-            "description": "Destination port ID",
-            "example": 2
+            "description": "Destination port ID"
           },
           "parentId": {
             "type": "number",
-            "description": "Parent ID",
-            "example": 54321
+            "description": "Parent ID"
           },
           "isDangling": {
             "type": "boolean",
-            "description": "Is dangling",
-            "example": false
+            "description": "Is dangling"
           },
           "connectionType": {
             "type": "string",
@@ -6534,8 +6447,7 @@
               "MODULE_SUBSYSTEM",
               "SUBSYSTEM_MODULE",
               "SUBSYSTEM_SUBSYSTEM"
-            ],
-            "example": "MODULE_MODULE"
+            ]
           }
         },
         "required": [
@@ -6599,38 +6511,31 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "sourceId": {
             "type": "number",
-            "description": "Source component ID",
-            "example": 12345
+            "description": "Source component ID"
           },
           "sourcePortId": {
             "type": "number",
-            "description": "Source port ID",
-            "example": 1
+            "description": "Source port ID"
           },
           "destinationId": {
             "type": "number",
-            "description": "Destination component ID",
-            "example": 67890
+            "description": "Destination component ID"
           },
           "destinationPortId": {
             "type": "number",
-            "description": "Destination port ID",
-            "example": 2
+            "description": "Destination port ID"
           },
           "parentId": {
             "type": "number",
-            "description": "Parent ID",
-            "example": 54321
+            "description": "Parent ID"
           },
           "isDangling": {
             "type": "boolean",
-            "description": "Is dangling",
-            "example": false
+            "description": "Is dangling"
           },
           "connectionType": {
             "type": "string",
@@ -6640,8 +6545,7 @@
               "MODULE_SUBSYSTEM",
               "SUBSYSTEM_MODULE",
               "SUBSYSTEM_SUBSYSTEM"
-            ],
-            "example": "MODULE_MODULE"
+            ]
           }
         },
         "required": [
@@ -6848,8 +6752,7 @@
           },
           "systemId": {
             "type": "string",
-            "description": "Unique identifier for the system containing this parameter",
-            "example": "SYS001"
+            "description": "Unique identifier for the system containing this parameter"
           },
           "parameterId": {
             "type": "string",
@@ -6952,8 +6855,7 @@
           },
           "systemId": {
             "type": "string",
-            "description": "Unique identifier for the system containing this parameter",
-            "example": "SYS001"
+            "description": "Unique identifier for the system containing this parameter"
           },
           "parameterId": {
             "type": "string",
@@ -7359,23 +7261,19 @@
         "properties": {
           "paramId": {
             "type": "number",
-            "description": "Parameter ID",
-            "example": 1001
+            "description": "Parameter ID"
           },
           "paramSystemId": {
             "type": "string",
-            "description": "Parameter system ID",
-            "example": "PARAM_SYS_001"
+            "description": "Parameter system ID"
           },
           "name": {
             "type": "string",
-            "description": "Parameter name",
-            "example": "SampleRate"
+            "description": "Parameter name"
           },
           "description": {
             "type": "string",
-            "description": "Parameter description",
-            "example": "Audio sample rate configuration parameter"
+            "description": "Parameter description"
           }
         },
         "required": [
@@ -7397,25 +7295,10 @@
           },
           "systemId": {
             "type": "string",
-            "description": "CKV system ID",
-            "example": "101"
+            "description": "CKV system ID"
           },
           "supportedParameters": {
             "description": "Supported parameters for this CKV",
-            "example": [
-              {
-                "paramId": 1001,
-                "paramSystemId": "PARAM_SYS_001",
-                "name": "SampleRate",
-                "description": "Audio sample rate configuration parameter"
-              },
-              {
-                "paramId": 1002,
-                "paramSystemId": "PARAM_SYS_002",
-                "name": "BitDepth",
-                "description": "Audio bit depth configuration parameter"
-              }
-            ],
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ParamInfo"
@@ -7440,25 +7323,10 @@
           },
           "systemId": {
             "type": "string",
-            "description": "TKV system ID",
-            "example": "202"
+            "description": "TKV system ID"
           },
           "supportedParameters": {
             "description": "Supported parameters for this TKV",
-            "example": [
-              {
-                "paramId": 2001,
-                "paramSystemId": "PARAM_SYS_003",
-                "name": "Channels",
-                "description": "Audio channel configuration parameter"
-              },
-              {
-                "paramId": 2002,
-                "paramSystemId": "PARAM_SYS_004",
-                "name": "Volume",
-                "description": "Audio volume level parameter"
-              }
-            ],
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ParamInfo"
@@ -7476,48 +7344,18 @@
         "properties": {
           "systemId": {
             "type": "number",
-            "description": "Tag system ID",
-            "example": 201
+            "description": "Tag system ID"
           },
           "tagId": {
             "type": "number",
-            "description": "Tag ID",
-            "example": 301
+            "description": "Tag ID"
           },
           "tagName": {
             "type": "string",
-            "description": "Tag name",
-            "example": "AudioProcessing"
+            "description": "Tag name"
           },
           "tkvs": {
             "description": "Tag key-values configuration",
-            "example": [
-              {
-                "systemId": "202",
-                "supportedParameters": [
-                  {
-                    "paramId": 2001,
-                    "paramSystemId": "PARAM_SYS_003",
-                    "name": "Channels",
-                    "description": "Audio channel configuration parameter"
-                  },
-                  {
-                    "paramId": 2002,
-                    "paramSystemId": "PARAM_SYS_004",
-                    "name": "Volume",
-                    "description": "Audio volume level parameter"
-                  }
-                ],
-                "keyValueCollection": [
-                  {
-                    "keyId": 2,
-                    "valueId": 20,
-                    "keyLabel": "Channels",
-                    "valueLabel": "Stereo"
-                  }
-                ]
-              }
-            ],
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TkvDto"
@@ -7530,43 +7368,15 @@
           "tagName"
         ]
       },
-      "SpfModuleTuningConfigDto": {
+      "SpfModuleTuningConfigResponseDto": {
         "type": "object",
         "properties": {
           "spfModuleSystemId": {
             "type": "string",
-            "description": "SPF module system ID",
-            "example": "12345"
+            "description": "SPF module system ID"
           },
           "ckvs": {
             "description": "Calibration key-values configuration",
-            "example": [
-              {
-                "systemId": "101",
-                "supportedParameters": [
-                  {
-                    "paramId": 1001,
-                    "paramSystemId": "PARAM_SYS_001",
-                    "name": "SampleRate",
-                    "description": "Audio sample rate configuration parameter"
-                  },
-                  {
-                    "paramId": 1002,
-                    "paramSystemId": "PARAM_SYS_002",
-                    "name": "BitDepth",
-                    "description": "Audio bit depth configuration parameter"
-                  }
-                ],
-                "keyValueCollection": [
-                  {
-                    "keyId": 1,
-                    "valueId": 10,
-                    "keyLabel": "SampleRate",
-                    "valueLabel": "48000"
-                  }
-                ]
-              }
-            ],
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CkvDto"
@@ -7574,40 +7384,6 @@
           },
           "tags": {
             "description": "Tag information containing tag key-values",
-            "example": [
-              {
-                "systemId": 201,
-                "tagId": 301,
-                "tagName": "AudioProcessing",
-                "tkvs": [
-                  {
-                    "systemId": "202",
-                    "supportedParameters": [
-                      {
-                        "paramId": 2001,
-                        "paramSystemId": "PARAM_SYS_003",
-                        "name": "Channels",
-                        "description": "Audio channel configuration parameter"
-                      },
-                      {
-                        "paramId": 2002,
-                        "paramSystemId": "PARAM_SYS_004",
-                        "name": "Volume",
-                        "description": "Audio volume level parameter"
-                      }
-                    ],
-                    "keyValueCollection": [
-                      {
-                        "keyId": 2,
-                        "valueId": 20,
-                        "keyLabel": "Channels",
-                        "valueLabel": "Stereo"
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TagInfoDto"
@@ -7662,59 +7438,6 @@
         "properties": {
           "data": {
             "description": "Array of calibration data updates for multiple parameters",
-            "example": [
-              {
-                "systemId": "SYS001",
-                "parameterId": "1",
-                "name": "Volume Control Parameters",
-                "description": "Updated volume-related configuration parameters",
-                "isHidden": false,
-                "isReadOnly": false,
-                "deprecated": false,
-                "isNeuralNet": false,
-                "isOffloaded": false,
-                "elements": [
-                  {
-                    "type": "ConfigElement",
-                    "name": "volume_level",
-                    "description": "Audio volume level setting",
-                    "group": "Audio Controls",
-                    "subgroup": "Volume Settings",
-                    "dataType": "UInt32",
-                    "value": "80",
-                    "unit": "dB",
-                    "displayType": "Slider",
-                    "policy": "Basic",
-                    "precision": 1,
-                    "min": "0",
-                    "max": "100",
-                    "validValues": [
-                      {
-                        "value": "0",
-                        "name": "Mute"
-                      },
-                      {
-                        "value": "20",
-                        "name": "Low"
-                      },
-                      {
-                        "value": "50",
-                        "name": "Medium"
-                      },
-                      {
-                        "value": "80",
-                        "name": "High"
-                      },
-                      {
-                        "value": "100",
-                        "name": "Maximum"
-                      }
-                    ],
-                    "isReadOnly": false
-                  }
-                ]
-              }
-            ],
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ParameterDetailDto"
@@ -7767,59 +7490,6 @@
         "properties": {
           "data": {
             "description": "Array of tag data updates for multiple parameters",
-            "example": [
-              {
-                "systemId": "SYS002",
-                "parameterId": "1",
-                "name": "Tag Volume Control Parameters",
-                "description": "Updated tag-specific volume control configuration parameters",
-                "isHidden": false,
-                "isReadOnly": false,
-                "deprecated": false,
-                "isNeuralNet": false,
-                "isOffloaded": false,
-                "elements": [
-                  {
-                    "type": "ConfigElement",
-                    "name": "tag_volume_level",
-                    "description": "Tag-specific volume level setting",
-                    "group": "Tag Audio Controls",
-                    "subgroup": "Volume Settings",
-                    "dataType": "UInt32",
-                    "value": "80",
-                    "unit": "dB",
-                    "displayType": "Slider",
-                    "policy": "Basic",
-                    "precision": 1,
-                    "min": "0",
-                    "max": "100",
-                    "validValues": [
-                      {
-                        "value": "0",
-                        "name": "Mute"
-                      },
-                      {
-                        "value": "20",
-                        "name": "Low"
-                      },
-                      {
-                        "value": "50",
-                        "name": "Medium"
-                      },
-                      {
-                        "value": "80",
-                        "name": "High"
-                      },
-                      {
-                        "value": "100",
-                        "name": "Maximum"
-                      }
-                    ],
-                    "isReadOnly": false
-                  }
-                ]
-              }
-            ],
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ParameterDetailDto"
@@ -8087,8 +7757,7 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "scenarioType": {
             "type": "string",
@@ -8207,8 +7876,7 @@
           },
           "changeId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-            "example": "chg-12345"
+            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           }
         },
         "required": [
@@ -8240,33 +7908,27 @@
         "properties": {
           "startComponentId": {
             "type": "number",
-            "description": "Start component ID",
-            "example": 12345
+            "description": "Start component ID"
           },
           "startPortId": {
             "type": "number",
-            "description": "Start port ID",
-            "example": 1
+            "description": "Start port ID"
           },
           "endComponentId": {
             "type": "number",
-            "description": "End component ID",
-            "example": 67890
+            "description": "End component ID"
           },
           "endPortId": {
             "type": "number",
-            "description": "End port ID",
-            "example": 2
+            "description": "End port ID"
           },
           "parentId": {
             "type": "number",
-            "description": "Parent ID",
-            "example": 54321
+            "description": "Parent ID"
           },
           "isDangling": {
             "type": "boolean",
             "description": "Is dangling",
-            "example": false,
             "default": false
           }
         },
@@ -8283,33 +7945,27 @@
         "properties": {
           "startComponentId": {
             "type": "number",
-            "description": "Start component ID",
-            "example": 12345
+            "description": "Start component ID"
           },
           "startPortId": {
             "type": "number",
-            "description": "Start port ID",
-            "example": 1
+            "description": "Start port ID"
           },
           "endComponentId": {
             "type": "number",
-            "description": "End component ID",
-            "example": 67890
+            "description": "End component ID"
           },
           "endPortId": {
             "type": "number",
-            "description": "End port ID",
-            "example": 2
+            "description": "End port ID"
           },
           "parentId": {
             "type": "number",
-            "description": "Parent ID",
-            "example": 54321
+            "description": "Parent ID"
           },
           "isDangling": {
             "type": "boolean",
             "description": "Is dangling",
-            "example": false,
             "default": false
           }
         },

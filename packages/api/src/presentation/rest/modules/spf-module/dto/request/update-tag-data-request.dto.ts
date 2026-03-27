@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ParameterDetailDto} from '../../../common/dto/parameter.dto.js';
+import {ParameterDetailDto} from '../../../../common/dto/parameter.dto.js';
 
 /**
  * Request DTO for updating tag data - supports multiple parameters

@@ -24,7 +24,7 @@ import {
   EndPointLink,
   CONN_CTRL_TYPE,
 } from '../../../common/utils/index.js';
-import {SpfModuleDto} from '../../../modules/spf-module/dto/spf-module.dto.js';
+import {SpfModuleDto} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
 import {DataPortDto, PortType, PortIoType} from '../../dto/data-port.dto.js';
 import {ControlPortDto} from '../../dto/control-port.dto.js';
 import {DataLinkDto} from '../../../modules/data-link/dto/data-link.dto.js';

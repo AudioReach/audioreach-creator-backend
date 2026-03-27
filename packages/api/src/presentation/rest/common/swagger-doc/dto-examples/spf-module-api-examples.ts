@@ -4,15 +4,15 @@
  */
 
 import {EndPointLink} from '../../utils/index.js';
-import {SpfModuleDto} from '../../../modules/spf-module/dto/spf-module.dto.js';
-import {BaseSpfModuleRequest} from '../../../modules/spf-module/dto/spf-module-request.dto.js';
+import {SpfModuleDto} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
+import {BaseSpfModuleRequest} from '../../../modules/spf-module/dto/request/spf-module-request.dto.js';
 import {
-  SpfModuleTuningConfigDto,
+  SpfModuleTuningConfigResponseDto,
   CkvDto,
   TagInfoDto,
   TkvDto,
   ParamInfo,
-} from '../../../modules/spf-module/dto/tuning-config.dto.js';
+} from '../../../modules/spf-module/dto/response/spf-module-tuning-config-response.dto.js';
 import {KeyValueInfo, KeyInfo, ValueInfo} from '../../dto/kv.dto.js';
 
 /**
@@ -101,7 +101,7 @@ export const SpfModuleDTOExample = {
  * Example provider for SpfModuleTuningConfigExample
  */
 export const SpfModuleTuningConfigExample = {
-  getExample(): SpfModuleTuningConfigDto {
+  getExample(): SpfModuleTuningConfigResponseDto {
     // Create sample parameters for CKV
     const ckvParam1 = new ParamInfo(
       1001,
@@ -150,6 +150,6 @@ export const SpfModuleTuningConfigExample = {
     const tag = new TagInfoDto(201, 301, 'AudioProcessing', [tkv]);
 
     // Create and return the complete tuning configuration
-    return new SpfModuleTuningConfigDto('12345', [ckv], [tag]);
+    return new SpfModuleTuningConfigResponseDto('12345', [ckv], [tag]);
   },
 };
