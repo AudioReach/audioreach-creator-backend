@@ -38,7 +38,6 @@ export class BaseComponentDto<T> {
   @ApiPropertyOptional({
     description:
       "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'.",
-    example: 'chg-12345',
   })
   @ValidateIf((o: BaseComponentDto<unknown>) => o.editType !== 'None')
   @IsDefined({message: 'changeId is required when editType is not None'})

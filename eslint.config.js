@@ -101,6 +101,7 @@ export default [
     },
     rules: {
       'custom/no-banned-keywords': 'error',
+      'custom/no-api-property-example': 'error',
     },
   },
 

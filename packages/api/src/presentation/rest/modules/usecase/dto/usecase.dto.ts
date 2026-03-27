@@ -97,7 +97,6 @@ export class UsecaseDto {
       'false = No FilteredKV (null). All UsecaseIdentifiers without subsystem are grouped together.' +
       'true = Has a FilteredKV. All UsecaseIdentifiers filtered by this FilteredKV are grouped together',
     type: Boolean,
-    example: false,
   })
   @ApiProperty({
     description: 'Array of usecase identifiers. ',

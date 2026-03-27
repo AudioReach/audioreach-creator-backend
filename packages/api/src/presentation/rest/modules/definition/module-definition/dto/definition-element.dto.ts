@@ -80,69 +80,59 @@ export type DefinitionElementBase = {
 export class DefinitionConfigElementDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Element type identifier',
-    example: 'ConfigElement',
     enum: Object.values(DefinitionElementTypeEnum),
   })
   elementType!: DefinitionElementTypeEnum;
 
   @ApiProperty({
     description: 'Element name',
-    example: 'volume_level',
   })
   name!: string;
 
   @ApiProperty({
     description: 'Optional element description',
-    example: 'Audio volume level setting',
     required: false,
   })
   description?: string;
 
   @ApiProperty({
     description: 'Channel identifier',
-    example: 0,
     required: false,
   })
   channel?: number;
 
   @ApiProperty({
     description: 'Group set identifier',
-    example: 0,
     required: false,
   })
   groupSet?: number;
 
   @ApiProperty({
     description: 'Alignment value',
-    example: 4,
     required: false,
   })
   alignment?: number;
 
   @ApiProperty({
     description: 'RTM plot type',
-    example: 'Line',
     required: false,
   })
   rtmPlotType?: string;
 
   @ApiProperty({
     description: 'Group name for organizing elements',
-    example: 'Audio Controls',
     required: false,
   })
   group?: string;
 
   @ApiProperty({
     description: 'Sub-group name for further categorization',
-    example: 'Volume Settings',
     required: false,
   })
   subGroup?: string;
 
   @ApiProperty({
     description: 'Copy source reference',
-    example: 'source_element',
     required: false,
   })
   copySrc?: string;
@@ -150,20 +140,17 @@ export class DefinitionConfigElementDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Data type of the configuration element',
     enum: Object.values(DataTypeEnum),
-    example: 'UInt32',
   })
   dataType!: DataTypeEnum;
 
   @ApiProperty({
     description: 'Default value for the configuration element',
-    example: '75',
   })
   defaultValue!: string;
 
   @ApiProperty({
     description: 'Display type for UI rendering',
     enum: Object.values(DisplayTypeEnum),
-    example: 'Slider',
     required: false,
   })
   displayType?: DisplayTypeEnum;
@@ -171,42 +158,36 @@ export class DefinitionConfigElementDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Element policy for visibility and access control',
     enum: Object.values(ElementPolicyEnum),
-    example: 'Basic',
     required: false,
   })
   policy?: ElementPolicyEnum;
 
   @ApiProperty({
     description: 'Whether the element is read-only',
-    example: false,
     required: false,
   })
   isReadOnly?: boolean;
 
   @ApiProperty({
     description: 'Display name for the configuration element',
-    example: 'Volume Level',
     required: false,
   })
   displayName?: string;
 
   @ApiProperty({
     description: 'Unit of measurement',
-    example: 'dB',
     required: false,
   })
   unitStr?: string;
 
   @ApiProperty({
     description: 'Q format string for fixed-point representation',
-    example: 'Q15',
     required: false,
   })
   qFormat?: string;
 
   @ApiProperty({
     description: 'Precision value for decimal places',
-    example: 2,
     minimum: 0,
     required: false,
   })
@@ -215,7 +196,6 @@ export class DefinitionConfigElementDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'List of elements linked by formula',
     type: [String],
-    example: ['gain_factor', 'offset_value'],
     required: false,
   })
   linkedByForFormula?: string[];
@@ -223,7 +203,6 @@ export class DefinitionConfigElementDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'List of default data dependencies',
     type: [String],
-    example: ['dependency1', 'dependency2'],
     required: false,
   })
   defaultDataDepends?: string[];
@@ -235,90 +214,77 @@ export class DefinitionConfigElementDto implements DefinitionElementBase {
 export class DefinitionConfigElementArrayDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Element type identifier',
-    example: 'ConfigElementArray',
     enum: Object.values(DefinitionElementTypeEnum),
   })
   elementType!: DefinitionElementTypeEnum;
 
   @ApiProperty({
     description: 'Element name',
-    example: 'eq_bands',
   })
   name!: string;
 
   @ApiProperty({
     description: 'Optional element description',
-    example: 'Equalizer band settings',
     required: false,
   })
   description?: string;
 
   @ApiProperty({
     description: 'Channel identifier',
-    example: 0,
     required: false,
   })
   channel?: number;
 
   @ApiProperty({
     description: 'Group set identifier',
-    example: 0,
     required: false,
   })
   groupSet?: number;
 
   @ApiProperty({
     description: 'Alignment value',
-    example: 4,
     required: false,
   })
   alignment?: number;
 
   @ApiProperty({
     description: 'RTM plot type',
-    example: 'Line',
     required: false,
   })
   rtmPlotType?: string;
 
   @ApiProperty({
     description: 'Group name for organizing elements',
-    example: 'Audio Processing',
     required: false,
   })
   group?: string;
 
   @ApiProperty({
     description: 'Sub-group name for further categorization',
-    example: 'Equalizer',
     required: false,
   })
   subGroup?: string;
 
   @ApiProperty({
     description: 'Copy source reference',
-    example: 'source_element',
     required: false,
   })
   copySrc?: string;
 
   @ApiProperty({
     description: 'Array length',
-    example: 10,
     minimum: 0,
   })
   arrayLength!: number;
 
   @ApiProperty({
     description: 'Array length formula string',
-    example: 'num_channels * 2',
   })
   arrayLenFormulaStr!: string;
 
   @ApiProperty({
     description: 'List of copy source information',
     type: [String],
-    example: ['source1', 'source2'],
   })
   copySrcInfoList!: string[];
 
@@ -331,7 +297,6 @@ export class DefinitionConfigElementArrayDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Display type for the configuration element array',
     enum: Object.values(DisplayTypeEnum),
-    example: 'Slider',
     required: false,
   })
   displayType?: DisplayTypeEnum;
@@ -339,14 +304,12 @@ export class DefinitionConfigElementArrayDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Element policy for visibility and access control',
     enum: Object.values(ElementPolicyEnum),
-    example: 'Basic',
     required: false,
   })
   policy?: ElementPolicyEnum;
 
   @ApiProperty({
     description: 'Whether the element array is read-only',
-    example: false,
     required: false,
   })
   isReadOnly?: boolean;
@@ -358,76 +321,65 @@ export class DefinitionConfigElementArrayDto implements DefinitionElementBase {
 export class DefinitionStructDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Element type identifier',
-    example: 'Struct',
     enum: Object.values(DefinitionElementTypeEnum),
   })
   elementType!: DefinitionElementTypeEnum;
 
   @ApiProperty({
     description: 'Element name',
-    example: 'audio_settings',
   })
   name!: string;
 
   @ApiProperty({
     description: 'Optional element description',
-    example: 'Audio configuration settings',
     required: false,
   })
   description?: string;
 
   @ApiProperty({
     description: 'Channel identifier',
-    example: 0,
     required: false,
   })
   channel?: number;
 
   @ApiProperty({
     description: 'Group set identifier',
-    example: 0,
     required: false,
   })
   groupSet?: number;
 
   @ApiProperty({
     description: 'Alignment value',
-    example: 4,
     required: false,
   })
   alignment?: number;
 
   @ApiProperty({
     description: 'RTM plot type',
-    example: 'Line',
     required: false,
   })
   rtmPlotType?: string;
 
   @ApiProperty({
     description: 'Group name for organizing elements',
-    example: 'System Config',
     required: false,
   })
   group?: string;
 
   @ApiProperty({
     description: 'Sub-group name for further categorization',
-    example: 'Audio Settings',
     required: false,
   })
   subGroup?: string;
 
   @ApiProperty({
     description: 'Copy source reference',
-    example: 'source_element',
     required: false,
   })
   copySrc?: string;
 
   @ApiProperty({
     description: 'Structure type identifier',
-    example: 'AudioConfig',
   })
   structureType!: string;
 
@@ -451,90 +403,77 @@ export class DefinitionStructDto implements DefinitionElementBase {
 export class DefinitionStructArrayDto implements DefinitionElementBase {
   @ApiProperty({
     description: 'Element type identifier',
-    example: 'StructArray',
     enum: Object.values(DefinitionElementTypeEnum),
   })
   elementType!: DefinitionElementTypeEnum;
 
   @ApiProperty({
     description: 'Element name',
-    example: 'channel_configs',
   })
   name!: string;
 
   @ApiProperty({
     description: 'Optional element description',
-    example: 'Per-channel audio configuration settings',
     required: false,
   })
   description?: string;
 
   @ApiProperty({
     description: 'Channel identifier',
-    example: 0,
     required: false,
   })
   channel?: number;
 
   @ApiProperty({
     description: 'Group set identifier',
-    example: 0,
     required: false,
   })
   groupSet?: number;
 
   @ApiProperty({
     description: 'Alignment value',
-    example: 4,
     required: false,
   })
   alignment?: number;
 
   @ApiProperty({
     description: 'RTM plot type',
-    example: 'Line',
     required: false,
   })
   rtmPlotType?: string;
 
   @ApiProperty({
     description: 'Group name for organizing elements',
-    example: 'Channel Settings',
     required: false,
   })
   group?: string;
 
   @ApiProperty({
     description: 'Sub-group name for further categorization',
-    example: 'Multi-Channel',
     required: false,
   })
   subGroup?: string;
 
   @ApiProperty({
     description: 'Copy source reference',
-    example: 'source_element',
     required: false,
   })
   copySrc?: string;
 
   @ApiProperty({
     description: 'Array length',
-    example: 2,
     minimum: 0,
   })
   arrayLength!: number;
 
   @ApiProperty({
     description: 'Array length formula string',
-    example: 'num_channels',
   })
   arrayLenFormulaStr!: string;
 
   @ApiProperty({
     description: 'List of copy source information',
     type: [String],
-    example: ['source1', 'source2'],
   })
   copySrcInfoList!: string[];
 
