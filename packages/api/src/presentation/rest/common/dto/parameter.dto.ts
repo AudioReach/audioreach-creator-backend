@@ -16,7 +16,6 @@ import {StructDto} from './element-data/elements/struct.dto.js';
 export class ParameterSummaryDto extends BaseDto {
   @ApiProperty({
     description: 'Unique identifier for the system containing this parameter',
-    example: 'SYS001',
   })
   systemId!: string;
 

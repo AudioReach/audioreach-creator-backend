@@ -13,28 +13,24 @@ export class ParamInfo {
   @ApiProperty({
     description: 'Parameter ID',
     type: Number,
-    example: 1001,
   })
   paramId: number;
 
   @ApiProperty({
     description: 'Parameter system ID',
     type: String,
-    example: 'PARAM_SYS_001',
   })
   paramSystemId: string;
 
   @ApiProperty({
     description: 'Parameter name',
     type: String,
-    example: 'SampleRate',
   })
   name: string;
 
   @ApiProperty({
     description: 'Parameter description',
     type: String,
-    example: 'Audio sample rate configuration parameter',
   })
   description: string;
 
@@ -76,27 +72,12 @@ export class CkvDto extends BaseKeyValueDto {
   @ApiProperty({
     description: 'CKV system ID',
     type: String,
-    example: '101',
   })
   declare systemId: string;
 
   @ApiProperty({
     description: 'Supported parameters for this CKV',
     type: [ParamInfo],
-    example: [
-      {
-        paramId: 1001,
-        paramSystemId: 'PARAM_SYS_001',
-        name: 'SampleRate',
-        description: 'Audio sample rate configuration parameter',
-      },
-      {
-        paramId: 1002,
-        paramSystemId: 'PARAM_SYS_002',
-        name: 'BitDepth',
-        description: 'Audio bit depth configuration parameter',
-      },
-    ],
   })
   declare supportedParameters: ParamInfo[];
 }
@@ -108,27 +89,12 @@ export class TkvDto extends BaseKeyValueDto {
   @ApiProperty({
     description: 'TKV system ID',
     type: String,
-    example: '202',
   })
   declare systemId: string;
 
   @ApiProperty({
     description: 'Supported parameters for this TKV',
     type: [ParamInfo],
-    example: [
-      {
-        paramId: 2001,
-        paramSystemId: 'PARAM_SYS_003',
-        name: 'Channels',
-        description: 'Audio channel configuration parameter',
-      },
-      {
-        paramId: 2002,
-        paramSystemId: 'PARAM_SYS_004',
-        name: 'Volume',
-        description: 'Audio volume level parameter',
-      },
-    ],
   })
   declare supportedParameters: ParamInfo[];
 }
@@ -140,21 +106,18 @@ export class TagInfoDto {
   @ApiProperty({
     description: 'Tag system ID',
     type: Number,
-    example: 201,
   })
   systemId: number;
 
   @ApiProperty({
     description: 'Tag ID',
     type: Number,
-    example: 301,
   })
   tagId: number;
 
   @ApiProperty({
     description: 'Tag name',
     type: String,
-    example: 'AudioProcessing',
   })
   tagName: string;
 
@@ -162,28 +125,6 @@ export class TagInfoDto {
     description: 'Tag key-values configuration',
     type: [TkvDto],
     required: false,
-    example: [
-      {
-        systemId: '202',
-        supportedParameters: [
-          {
-            paramId: 2001,
-            paramSystemId: 'PARAM_SYS_003',
-            name: 'Channels',
-            description: 'Audio channel configuration parameter',
-          },
-          {
-            paramId: 2002,
-            paramSystemId: 'PARAM_SYS_004',
-            name: 'Volume',
-            description: 'Audio volume level parameter',
-          },
-        ],
-        keyValueCollection: [
-          {keyId: 2, valueId: 20, keyLabel: 'Channels', valueLabel: 'Stereo'},
-        ],
-      },
-    ],
   })
   tkvs: TkvDto[];
 
@@ -207,75 +148,18 @@ export class SpfModuleTuningConfigDto {
   @ApiProperty({
     description: 'SPF module system ID',
     type: String,
-    example: '12345',
   })
   spfModuleSystemId: string;
 
   @ApiProperty({
     description: 'Calibration key-values configuration',
     type: [CkvDto],
-    example: [
-      {
-        systemId: '101',
-        supportedParameters: [
-          {
-            paramId: 1001,
-            paramSystemId: 'PARAM_SYS_001',
-            name: 'SampleRate',
-            description: 'Audio sample rate configuration parameter',
-          },
-          {
-            paramId: 1002,
-            paramSystemId: 'PARAM_SYS_002',
-            name: 'BitDepth',
-            description: 'Audio bit depth configuration parameter',
-          },
-        ],
-        keyValueCollection: [
-          {keyId: 1, valueId: 10, keyLabel: 'SampleRate', valueLabel: '48000'},
-        ],
-      },
-    ],
   })
   ckvs: CkvDto[];
 
   @ApiProperty({
     description: 'Tag information containing tag key-values',
     type: [TagInfoDto],
-    example: [
-      {
-        systemId: 201,
-        tagId: 301,
-        tagName: 'AudioProcessing',
-        tkvs: [
-          {
-            systemId: '202',
-            supportedParameters: [
-              {
-                paramId: 2001,
-                paramSystemId: 'PARAM_SYS_003',
-                name: 'Channels',
-                description: 'Audio channel configuration parameter',
-              },
-              {
-                paramId: 2002,
-                paramSystemId: 'PARAM_SYS_004',
-                name: 'Volume',
-                description: 'Audio volume level parameter',
-              },
-            ],
-            keyValueCollection: [
-              {
-                keyId: 2,
-                valueId: 20,
-                keyLabel: 'Channels',
-                valueLabel: 'Stereo',
-              },
-            ],
-          },
-        ],
-      },
-    ],
   })
   tags: TagInfoDto[];
 

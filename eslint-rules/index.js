@@ -4,9 +4,11 @@
  */
 
 import noBannedKeywords from './no-banned-keywords.js';
+import noApiPropertyExample from './no-api-property-example.js';
 
 export default {
   rules: {
     'no-banned-keywords': noBannedKeywords,
+    'no-api-property-example': noApiPropertyExample,
   },
 };

@@ -11,7 +11,7 @@ export class EndPointLink {
   })
   hypertextRef: string = '';
 
-  @ApiProperty({description: 'HTTP method', example: 'GET'})
+  @ApiProperty({description: 'HTTP method'})
   method: string = '';
 
   @ApiProperty({description: 'Description of the endpoint'})
