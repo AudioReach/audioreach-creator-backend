@@ -4,7 +4,10 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {KeyValuePairsInfo, KeyValueInfo} from '../../../common/dto/kv.dto.js';
+import {
+  KeyValuePairsInfo,
+  KeyValueInfo,
+} from '../../../../common/dto/kv.dto.js';
 
 /**
  * Parameter information DTO containing parameter ID, system ID, name and description
@@ -144,7 +147,7 @@ export class TagInfoDto {
 /**
  * Main response DTO for SPF module tuning configuration
  */
-export class SpfModuleTuningConfigDto {
+export class SpfModuleTuningConfigResponseDto {
   @ApiProperty({
     description: 'SPF module system ID',
     type: String,

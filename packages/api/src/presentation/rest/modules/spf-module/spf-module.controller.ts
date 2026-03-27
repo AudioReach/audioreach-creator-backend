@@ -18,11 +18,14 @@ import {
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {SpfModuleDto, SpfModulePropertiesDto} from './dto/spf-module.dto.js';
-import {SpfModuleTuningConfigDto} from './dto/tuning-config.dto.js';
-import {SpfModuleCalDataResponseDto} from './dto/spf-module-cal-data-response.dto.js';
-import {UpdateCalDataRequestDto} from './dto/update-cal-data-request.dto.js';
-import {UpdateTagDataRequestDto} from './dto/update-tag-data-request.dto.js';
+import {
+  SpfModuleDto,
+  SpfModulePropertiesDto,
+} from './dto/shared/spf-module.dto.js';
+import {SpfModuleTuningConfigResponseDto} from './dto/response/spf-module-tuning-config-response.dto.js';
+import {SpfModuleCalDataResponseDto} from './dto/response/spf-module-cal-data-response.dto.js';
+import {UpdateCalDataRequestDto} from './dto/request/update-cal-data-request.dto.js';
+import {UpdateTagDataRequestDto} from './dto/request/update-tag-data-request.dto.js';
 import {TagDataDto} from '../../common/dto/tuning-data/tag-data.dto.js';
 import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
@@ -33,7 +36,7 @@ import {
   BaseSpfModuleRequest,
   DetailedSpfModuleRequest,
   CloneSpfModuleRequest,
-} from './dto/spf-module-request.dto.js';
+} from './dto/request/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 
@@ -52,7 +55,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 })
 @ApiExtraModels(
   SpfModuleDto,
-  SpfModuleTuningConfigDto,
+  SpfModuleTuningConfigResponseDto,
   SpfModuleCalDataResponseDto,
   UpdateCalDataRequestDto,
   TagDataDto,
@@ -229,7 +232,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tuning configuration retrieved successfully',
-        dto: SpfModuleTuningConfigDto,
+        dto: SpfModuleTuningConfigResponseDto,
         example: {
           className: 'SpfModuleTuningConfigExample',
         },
@@ -247,7 +250,7 @@ export class SpfModuleController extends BaseController {
   async getSpfModuleTuningConfig(
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
-  ): Promise<ApiResult<SpfModuleTuningConfigDto>> {
+  ): Promise<ApiResult<SpfModuleTuningConfigResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Getting tuning config for SPF module:',

@@ -9,7 +9,7 @@ import {BaseComponentDto} from '../../../common/dto/base-component.dto.js';
 import {KeyValuePairsInfo, KeyValueInfo} from '../../../common/dto/kv.dto.js';
 import {EndPointLink, ModificationAction} from '../../../common/utils/index.js';
 import {SubsystemDto} from '../../subsystem/dto/subsystem.dto.js';
-import {SpfModuleDto} from '../../spf-module/dto/spf-module.dto.js';
+import {SpfModuleDto} from '../../spf-module/dto/shared/spf-module.dto.js';
 import {DataLinkDto} from '../../data-link/dto/data-link.dto.js';
 import {ControlLinkDto} from '../../control-link/dto/control-link.dto.js';
 

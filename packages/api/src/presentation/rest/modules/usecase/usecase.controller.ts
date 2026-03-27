@@ -24,7 +24,7 @@ import {
   UsecaseWithModificationSummary,
   UsecaseType,
 } from './dto/usecase.dto.js';
-import {SpfModuleDto} from '../spf-module/dto/spf-module.dto.js';
+import {SpfModuleDto} from '../spf-module/dto/shared/spf-module.dto.js';
 import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
 import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
 import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
