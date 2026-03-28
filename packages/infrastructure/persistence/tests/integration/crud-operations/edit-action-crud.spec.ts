@@ -10,12 +10,12 @@ import {
   setupEachTest,
   getTestRepository,
 } from '../helpers/test-database-setup.js';
+import {CHANGE_OPERATION, CHANGE_STATUS} from '@arc/core';
 import {
   EditActionSchema,
   EditActionRow,
-  EDIT_OPERATION,
-  CHANGE_STATUS,
 } from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
+import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {
   ProjectSessionSchema,
   ProjectSessionRow,
@@ -146,8 +146,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 100,
           aggregateId: 10,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Add,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Create,
           payload: JSON.stringify(modulePayload),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
@@ -164,8 +164,8 @@ describe('EditAction CRUD Integration Tests', () => {
       expect(savedAction.sessionId).toBe(session.sessionId);
       expect(savedAction.systemId).toBe(100);
       expect(savedAction.aggregateId).toBe(10);
-      expect(savedAction.tableName).toBe('spf_modules');
-      expect(savedAction.operation).toBe(EDIT_OPERATION.Add);
+      expect(savedAction.tableName).toBe(ENTITY_NAMES.SpfModule);
+      expect(savedAction.operation).toBe(CHANGE_OPERATION.Create);
       expect(savedAction.changeStatus).toBe(CHANGE_STATUS.Staged);
       expect(savedAction.createdAt).toBeInstanceOf(Date);
 
@@ -209,8 +209,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 100,
           aggregateId: 0,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Update,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Update,
           payload: JSON.stringify(updatePayload),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: 1,
@@ -222,7 +222,7 @@ describe('EditAction CRUD Integration Tests', () => {
       const savedAction = await editActionRepository.save(action);
 
       // Assert
-      expect(savedAction.operation).toBe(EDIT_OPERATION.Update);
+      expect(savedAction.operation).toBe(CHANGE_OPERATION.Update);
       expect(savedAction.baseVersion).toBe(1);
       const parsedPayload = JSON.parse(savedAction.payload as string);
       expect(parsedPayload.changes.alias.after).toBe('VolumeControl_New');
@@ -251,8 +251,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 100,
           aggregateId: 0,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Delete,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Delete,
           payload: JSON.stringify(deletePayload),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
@@ -264,7 +264,7 @@ describe('EditAction CRUD Integration Tests', () => {
       const savedAction = await editActionRepository.save(action);
 
       // Assert
-      expect(savedAction.operation).toBe(EDIT_OPERATION.Delete);
+      expect(savedAction.operation).toBe(CHANGE_OPERATION.Delete);
       const parsedPayload = JSON.parse(savedAction.payload as string);
       expect(parsedPayload.deletedEntity.alias).toBe('VolumeControl_ToDelete');
     });
@@ -282,8 +282,8 @@ describe('EditAction CRUD Integration Tests', () => {
         systemId: 101,
         aggregateId: 0,
         sessionId: session.sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.Add,
+        tableName: ENTITY_NAMES.SpfModule,
+        operation: CHANGE_OPERATION.Create,
         payload: JSON.stringify({order: 1}),
         changeStatus: CHANGE_STATUS.Staged,
         baseVersion: null,
@@ -294,8 +294,8 @@ describe('EditAction CRUD Integration Tests', () => {
         systemId: 102,
         aggregateId: 0,
         sessionId: session.sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.Update,
+        tableName: ENTITY_NAMES.SpfModule,
+        operation: CHANGE_OPERATION.Update,
         payload: JSON.stringify({order: 2}),
         changeStatus: CHANGE_STATUS.Staged,
         baseVersion: null,
@@ -306,8 +306,8 @@ describe('EditAction CRUD Integration Tests', () => {
         systemId: 103,
         aggregateId: 0,
         sessionId: session.sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.Delete,
+        tableName: ENTITY_NAMES.SpfModule,
+        operation: CHANGE_OPERATION.Delete,
         payload: JSON.stringify({order: 3}),
         changeStatus: CHANGE_STATUS.Staged,
         baseVersion: null,
@@ -339,8 +339,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 101,
           aggregateId: 0,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Add,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Create,
           payload: JSON.stringify({status: 'staged1'}),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
@@ -351,8 +351,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 102,
           aggregateId: 0,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Update,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Update,
           payload: JSON.stringify({status: 'staged2'}),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
@@ -363,8 +363,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 103,
           aggregateId: 0,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Delete,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Delete,
           payload: JSON.stringify({status: 'unstaged'}),
           changeStatus: CHANGE_STATUS.Unstaged,
           baseVersion: null,
@@ -398,8 +398,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 100,
           aggregateId: 0,
           sessionId: 99999, // This session does not exist
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Add,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Create,
           payload: JSON.stringify({test: 'orphan'}),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
@@ -420,8 +420,8 @@ describe('EditAction CRUD Integration Tests', () => {
         systemId: 100,
         aggregateId: 0,
         sessionId: session.sessionId,
-        tableName: 'spf_modules',
-        operation: EDIT_OPERATION.Add,
+        tableName: ENTITY_NAMES.SpfModule,
+        operation: CHANGE_OPERATION.Create,
         payload: JSON.stringify({test: 'cascade'}),
         changeStatus: CHANGE_STATUS.Staged,
         baseVersion: null,
@@ -458,8 +458,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 101,
           aggregateId: 0,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Add,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Create,
           payload: JSON.stringify({test: 1}),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,
@@ -470,8 +470,8 @@ describe('EditAction CRUD Integration Tests', () => {
           systemId: 102,
           aggregateId: 0,
           sessionId: session.sessionId,
-          tableName: 'spf_modules',
-          operation: EDIT_OPERATION.Update,
+          tableName: ENTITY_NAMES.SpfModule,
+          operation: CHANGE_OPERATION.Update,
           payload: JSON.stringify({test: 2}),
           changeStatus: CHANGE_STATUS.Staged,
           baseVersion: null,

@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1774499229109 implements MigrationInterface {
-  name = 'InitialCreate1774499229109';
+export class InitialCreate1774703025307 implements MigrationInterface {
+  name = 'InitialCreate1774703025307';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -295,7 +295,7 @@ export class InitialCreate1774499229109 implements MigrationInterface {
       `CREATE TABLE "use_case_categories_master" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, CONSTRAINT "UQ_80233ed2a392151aa4f419b079e" UNIQUE ("name"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('ADD','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('UNSTAGED','STAGED','DISCARDED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
+      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_session" ON "edit_actions" ("session_id") `,
@@ -1004,7 +1004,7 @@ export class InitialCreate1774499229109 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
     await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('ADD','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('UNSTAGED','STAGED','DISCARDED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime, CONSTRAINT "FK_56f75f850acdde5e18d4eebdbdc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime, CONSTRAINT "FK_56f75f850acdde5e18d4eebdbdc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_edit_actions"("change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until") SELECT "change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until" FROM "edit_actions"`,
@@ -1378,7 +1378,7 @@ export class InitialCreate1774499229109 implements MigrationInterface {
       `ALTER TABLE "edit_actions" RENAME TO "temporary_edit_actions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('ADD','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('UNSTAGED','STAGED','DISCARDED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
+      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
     );
     await queryRunner.query(
       `INSERT INTO "edit_actions"("change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until") SELECT "change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until" FROM "temporary_edit_actions"`,

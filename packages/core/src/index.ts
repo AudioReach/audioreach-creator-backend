@@ -28,6 +28,9 @@ export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
 
+// Shared Change Types
+export * from './application/shared/change-vocabulary.js';
+
 // Application services
 export * from './application/services/query-services.js';
 export * from './application/services/module/module-query-service.js';
