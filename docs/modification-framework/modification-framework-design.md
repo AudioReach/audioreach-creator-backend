@@ -1,70 +1,46 @@
 <!--
-Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-SPDX-License-Identifier: BSD-3-Clause
+ Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ SPDX-License-Identifier: BSD-3-Clause
 -->
 
 # Modification Framework: Design Document
 
-## Document Information
-- **Version**: 2.0
-- **Date**: December 2025
-- **Status**: Final Design
-- **Author**: Nithin Simon
-
 **Related Documents:**
-- `modification-framework-testing.md` - Testing strategy
-- `modification-framework-logging.md` - Logging architecture
+- `modification-framework-testing.md` — Testing strategy
+- `../entity-id-generation.md` — Entity ID generation scheme (composite integers, reserve-block pattern)
 
 ---
 
 ## 1) Context & Goals
 
+### Deployment Context
+
+**Current deployment**: This server runs on the **same machine** as the client applications. It is a local IPC (inter-process communication) server, not a networked service. Multiple processes on the same machine — the graph designer UI, MATLAB toolboxes, module tuner apps — all communicate with this server over localhost HTTP.
+
+**Future deployment**: A true multi-machine server with multiple concurrent users is a planned but distant future concern. The API is designed stateless so that it can be extended to a networked deployment without architectural changes. Multi-user implementation is **not required now** and is explicitly out of scope for the current phase.
+
 ### Business Goals
-The Modification Framework enables collaborative, transactional editing of AudioReach graph designer projects with the following capabilities:
 
-1. **Multi-Client Editing**: Single user can operate multiple specialized client applications (e.g., graph designer, module tuner) simultaneously, all sharing the same edit session
-2. **Optimistic Concurrency**: Multiple users can work on the same project; conflicts detected at commit time via version checking
-3. **Staged Workflow**: User-initiated changes are automatically staged; algorithm-generated changes (e.g., auto-routing) require user review before commit
-4. **Transactional Commits**: All-or-nothing commit semantics with automatic usecase generation for graph topology changes
-5. **Restore Points**: User-requested snapshots for undo/redo and experimentation
-6. **Edit-Aware Reads**: Query services transparently overlay pending changes on committed data
+The Modification Framework enables transactional editing of AudioReach graph designer projects across multiple local client processes:
 
-### Non-Functional Requirements (NFRs)
+1. **Multi-Process Editing**: Multiple local client applications share the same edit session on the same machine
+2. **Mode-Gated Operations**: Each session mode restricts which operations are permitted; invalid operations return `403 Forbidden`
+3. **Staged Workflow**: User-initiated changes are automatically staged; algorithm-generated changes (e.g., auto-routing) require explicit user review before commit
+4. **Transactional Commits**: All-or-nothing commit semantics; committed changes are applied to actual tables and removed from the pending layer
+5. **Commit Audit Log**: Every `commit-changes` call is recorded with a commit message; users can review the history of what was committed in a session
+6. **Restore Points**: User-requested snapshots for undo/redo and experimentation
+7. **Edit-Aware Reads**: Query services transparently overlay pending changes on committed data
+
+### Non-Functional Requirements
 
 | NFR | Priority | Target | Notes |
 |-----|----------|--------|-------|
-| **Consistency** | Critical | ACID transactions | Optimistic locking, version-based conflict detection |
-| **Availability** | High | 99.5% uptime | Stateless API, session state in DB |
-| **Performance** | Medium | <500ms edit operations | Acceptable degradation for read overlay in DiffMerge scenarios |
-| **Scalability** | Medium | 10 concurrent editors/project | SQLite limitations; future migration to PostgreSQL |
-| **Usability** | High | Clear staging/commit UX | Visual diff indicators, conflict resolution guidance |
+| **Consistency** | Critical | ACID transactions; optimistic locking | Core requirement |
+| **Performance** | High | <500ms per edit operation | Local SQLite; no network latency |
+| **Extensibility** | Medium | Stateless API; all state in DB | Enables future networked deployment |
+| **Usability** | High | Clear staging/commit UX; mode-based guidance | Primary concern for local tool |
 
-### Constraints
-- **Database**: SQLite (current); must support future migration to PostgreSQL/MySQL
-- **Architecture**: Existing NestJS + TypeORM + CQRS patterns in `audioreach-creator-api` monorepo
-- **Stateless API**: No server-side session state beyond database
-- **Backward Compatibility**: Existing read-only query services must continue to work
-- **SystemId Strategy**: Use GUID (UUID) for pending entities in edit_actions; map to auto-generated integer IDs at commit time
-- **Session Management**: One active session per user per project; implicit session handling (no client-side session IDs)
-
-### Assumptions
-1. Edit sessions are typically short-lived (minutes to hours, not days)
-2. Most edit operations affect <100 entities per transaction
-3. DiffMerge edit type may create 1000+ pending changes (acceptable performance impact)
-4. Users understand optimistic locking and will handle commit conflicts
-5. Automatic usecase generation algorithm is deterministic (same graph → same usecases)
-6. One user cannot have multiple active sessions per project simultaneously
-7. Clients do not manage session IDs; backend handles session lifecycle implicitly
-
-### Module Mapping
-This framework spans multiple bounded contexts:
-
-| Bounded Context | Modules Affected | Edit Operations |
-|----------------|------------------|-----------------|
-| **Graph Designer** | `usecase`, `subgraph`, `module-instance`, `container` | Add/Update/Delete modules, links, subgraphs |
-| **Link Management** | `data-link`, `control-link` | Add/Update/Delete connections |
-| **Calibration** | `module-instance` (properties) | Update module calibration data (SetCalData) |
-| **Project Management** | `project` | Session lifecycle, restore points |
+> **Note on multi-user**: The data model includes `user_id` on `project_sessions` and a unique constraint per user per file. This is a forward-compatible design hook — it costs nothing now and avoids a schema migration when multi-user support is added. No multi-user enforcement logic needs to be implemented in the current phase.
 
 ---
 
@@ -73,1358 +49,810 @@ This framework spans multiple bounded contexts:
 ### High-Level Component Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Client Applications                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
-│  │ Graph Designer│  │ Module Tuner │  │ Diff Viewer  │              │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘              │
-│         │                  │                  │                       │
-│         └──────────────────┴──────────────────┘                      │
-│                            │                                          │
-│                    HTTP/REST (JSON)                                  │
-└────────────────────────────┼────────────────────────────────────────┘
-                             │
-┌────────────────────────────┼────────────────────────────────────────┐
-│                  packages/api (NestJS)                               │
-│                            │                                          │
-│  ┌─────────────────────────▼──────────────────────────────┐         │
-│  │         REST Controllers (Presentation Layer)           │         │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │         │
-│  │  │ Module   │ │ DataLink │ │ Subgraph │ │ Session  │  │         │
-│  │  │Controller│ │Controller│ │Controller│ │Controller│  │         │
-│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘  │         │
-│  └───────┼────────────┼────────────┼────────────┼─────────┘         │
-│          │            │            │            │                    │
-│  ┌───────▼────────────▼────────────▼────────────▼─────────┐         │
-│  │           DTOs & Validation (class-validator)           │         │
-│  └───────┬────────────┬────────────┬────────────┬─────────┘         │
-│          │            │            │            │                    │
-│  ┌───────▼────────────▼────────────▼────────────▼─────────┐         │
-│  │        Infrastructure Wrappers & Middleware             │         │
-│  │  • Request Logger  • Exception Filters                  │         │
-│  │  • Unit of Work (TypeORM)  • Session Context Injection  │         │
-│  └───────┬────────────┬────────────┬────────────┬─────────┘         │
-└──────────┼────────────┼────────────┼────────────┼───────────────────┘
-           │            │            │            │
-┌──────────▼────────────▼────────────▼────────────▼───────────────────┐
-│                  packages/core (Application + Domain)                │
-│                                                                       │
-│  ┌────────────────────────────────────────────────────────┐         │
-│  │              CQRS Orchestration Layer                  │         │
-│  │  ┌──────────────────┐      ┌──────────────────┐       │         │
-│  │  │   Command Bus    │      │    Query Bus     │       │         │
-│  │  └────────┬─────────┘      └────────┬─────────┘       │         │
-│  └───────────┼──────────────────────────┼─────────────────┘         │
-│              │                          │                            │
-│  ┌───────────▼──────────────┐  ┌───────▼──────────────────┐        │
-│  │   Edit Commands          │  │  Edit-Aware Queries      │        │
-│  │  • AddModuleCommand      │  │  • GetModulesQuery       │        │
-│  │  • UpdateModuleCommand   │  │  • GetSubgraphQuery      │        │
-│  │  • DeleteModuleCommand   │  │  • GetLinksQuery         │        │
-│  │  • StageChangesCommand   │  │  (with read overlay)     │        │
-│  │  • CommitSessionCommand  │  │                          │        │
-│  │  • RejectChangesCommand  │  │                          │        │
-│  │  • CreateRestoreCommand  │  │                          │        │
-│  └───────────┬──────────────┘  └───────┬──────────────────┘        │
-│              │                          │                            │
-│  ┌───────────▼──────────────────────────▼──────────────────┐       │
-│  │              Command/Query Handlers                      │       │
-│  │  • Session Management  • Change Tracking                 │       │
-│  │  • Validation  • Conflict Detection                      │       │
-│  └───────────┬──────────────────────────┬──────────────────┘       │
-│              │                          │                            │
-│  ┌───────────▼──────────────────────────▼──────────────────┐       │
-│  │              Domain Services & Entities                  │       │
-│  │  • EditSession (Aggregate)  • EditAction (Entity)        │       │
-│  │  • Module, Subgraph, Link entities (existing)            │       │
-│  │  • Version conflict detection logic                      │       │
-│  └───────────┬──────────────────────────┬──────────────────┘       │
-│              │                          │                            │
-│  ┌───────────▼──────────────────────────▼──────────────────┐       │
-│  │                  Ports (Interfaces)                      │       │
-│  │  • IEditSessionRepository  • IEditActionRepository       │       │
-│  │  • IRestorePointRepository • IVersionChecker             │       │
-│  └───────────┬──────────────────────────┬──────────────────┘       │
-└──────────────┼──────────────────────────┼────────────────────────────┘
-               │                          │
-┌──────────────▼──────────────────────────▼────────────────────────────┐
-│         packages/infrastructure/persistence (TypeORM + SQLite)        │
-│                                                                        │
-│  ┌──────────────────────────────────────────────────────────┐        │
-│  │         Aggregate-Specific Edit Repositories             │        │
-│  │  • ModuleEditRepository                                  │        │
-│  │  • SubgraphEditRepository                                │        │
-│  │  • ModuleDefinitionEditRepository                        │        │
-│  │  (Each knows its aggregate structure)                    │        │
-│  └───────────┬──────────────────────────┬───────────────────┘        │
-│              │                          │                             │
-│  ┌───────────▼──────────────────────────▼───────────────────┐        │
-│  │              EditActionsService (Common)                 │        │
-│  │  • Generic insert/update/delete for edit_actions table  │        │
-│  │  • No domain knowledge                                   │        │
-│  │  • Reusable across all aggregates                        │        │
-│  └───────────┬──────────────────────────┬───────────────────┘        │
-│              │                          │                             │
-│  ┌───────────▼──────────────────────────▼───────────────────┐        │
-│  │              Read Overlay Service                        │        │
-│  │  • Merges pending changes with actual data              │        │
-│  │  • Caching layer for performance                         │        │
-│  └───────────┬──────────────────────────┬───────────────────┘        │
-│              │                          │                             │
-│  ┌───────────▼──────────────────────────▼───────────────────┐        │
-│  │                  TypeORM Entity Schemas                   │        │
-│  │  • edit_sessions  • edit_actions  • restore_points        │        │
-│  │  • spf_modules, data_links, etc. (existing tables)        │        │
-│  └───────────┬──────────────────────────┬───────────────────┘        │
-│              │                          │                             │
-│  ┌───────────▼──────────────────────────▼───────────────────┐        │
-│  │                    SQLite Database                        │        │
-│  │  • ACID transactions  • Auto-increment systemIds          │        │
-│  │  • Foreign key constraints  • Unique constraints          │        │
-│  └───────────────────────────────────────────────────────────┘        │
-└───────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│              Local Client Applications (same machine)             │
+│   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐        │
+│   │ Graph Designer│   │ Module Tuner │   │ MATLAB App   │        │
+│   └──────┬───────┘   └──────┬───────┘   └──────┬───────┘        │
+└──────────┼───────────────────┼───────────────────┼───────────────┘
+           └───────────────────┴───────────────────┘
+                               │  HTTP/REST (localhost)
+┌──────────────────────────────┼───────────────────────────────────┐
+│              packages/api (NestJS)                                │
+│                                                                   │
+│   REST Controllers → DTOs + Validation → SessionModeGuard         │
+│   Infrastructure Wrappers (Logger, Filters, UoW)                  │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+┌──────────────────────────────┼───────────────────────────────────┐
+│              packages/core (Application + Domain)                 │
+│                                                                   │
+│   CQRS Orchestration (CommandBus / QueryBus)                      │
+│                                                                   │
+│   Session Commands:          Edit-Aware Queries:                  │
+│   • StartSession             • GetModules (with overlay)          │
+│   • EndSession               • GetSubgraph (with overlay)         │
+│   • CommitChanges            • GetLinks (with overlay)            │
+│   • StageChanges                                                  │
+│   • UnstageChanges                                                │
+│   • DiscardChanges                                                │
+│   • AutoCreateUsecases                                            │
+│   • AddModule / UpdateModule / DeleteModule                       │
+│                                                                   │
+│   Ports: IProjectSessionRepository, ISessionCommitRepository,     │
+│          IEditActionRepository, IRestorePointRepository,          │
+│          IVersionChecker, IdGenerationPort                        │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+┌──────────────────────────────┼───────────────────────────────────┐
+│              packages/infrastructure/persistence                   │
+│                                                                   │
+│   Aggregate Edit Repositories (Module, Subgraph, Definition)      │
+│   EditActionsService (common DB writes)                           │
+│   EntityIdServiceRegistry (IdGenerationPort implementation)       │
+│   TypeORM Schemas: files, project_sessions, session_commits,      │
+│                    edit_actions, restore_points, spf_modules, ... │
+│   SQLite Database                                                 │
+└───────────────────────────────────────────────────────────────────┘
 ```
-
-### Unit of Work Integration
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Command Handler                           │
-│  UpdateModuleAliasCommandHandler                             │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Transaction Middleware                          │
-│  • Creates UoW                                               │
-│  • Starts transaction (creates QueryRunner)                  │
-│  • Passes UoW to handler                                     │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Unit of Work                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  QueryRunner (shared)                                   │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                         │                                    │
-│         ┌───────────────┼───────────────┐                   │
-│         │               │               │                   │
-│         ▼               ▼               ▼                   │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │ Regular  │  │EditActions   │  │ Edit Repos   │         │
-│  │ Repos    │  │Service       │  │ (Module,     │         │
-│  │          │  │(uses QR)     │  │  Subgraph)   │         │
-│  └──────────┘  └──────────────┘  └──────────────┘         │
-│                         ▲                  │                │
-│                         └──────────────────┘                │
-│                         (Edit repos use service)            │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Key Points**:
-1. **EditActionsService** created inside UoW with shared QueryRunner
-2. **Aggregate-specific edit repositories** receive EditActionsService from UoW
-3. **All operations share same transaction** via QueryRunner
-4. **Transaction middleware** handles commit/rollback
-5. **Clean separation** between domain logic and infrastructure
 
 ### Key Architectural Patterns
 
-#### 1. **CQRS (Command Query Responsibility Segregation)**
-- **Commands**: All edit operations (Add/Update/Delete) go through command bus
-- **Queries**: Read operations use query bus with edit-aware overlay logic
-- **Separation**: Write model (edit_actions) separate from read model (actual tables + overlay)
-
-#### 2. **Hexagonal Architecture (Ports & Adapters)**
-- **Domain Core** (`packages/core`): Pure business logic, no infrastructure dependencies
-- **Ports**: Interfaces for persistence, session management, version checking
-- **Adapters**: TypeORM implementations in `packages/infrastructure/persistence`
-
-#### 3. **Optimistic Locking**
-- **Version Tracking**: `baseVersion` captured on first Update/Delete per entity during session
-- **Conflict Detection**: At commit time, compare `baseVersion` with current version in actual table
-- **Resolution**: Reject commit if versions mismatch; user must refresh and retry
-
-#### 4. **Event Sourcing (Lightweight)**
-- **Edit Actions as Events**: Each change recorded as immutable event in `edit_actions` table
-- **Replay**: Read overlay reconstructs current state by applying events to base data
-- **Audit Trail**: Complete history of changes within session
-
-#### 5. **Aggregate-Specific Repositories**
-- **ModuleEditRepository**: Knows SpfModule aggregate structure
-- **SubgraphEditRepository**: Knows Subgraph aggregate structure
-- **ModuleDefinitionEditRepository**: Knows ModuleDefinition aggregate structure
-- **Benefits**: Domain knowledge encapsulated, maintainable, testable
+| Pattern | Where | Purpose |
+|---------|-------|---------|
+| CQRS | `packages/core` | Write model is `edit_actions`; read model is actual tables + overlay |
+| Hexagonal / Ports & Adapters | All packages | Domain core has zero infrastructure dependencies |
+| Mode-Gated Operations | `packages/api` guard | `SessionModeGuard` validates every edit request |
+| Optimistic Locking | `edit_actions.base_version` | Conflict detection at commit time |
+| Temporal Versioning | `edit_actions.valid_until` | Undo/redo without deletion |
 
 ---
 
 ## 3) Data Design
 
+### Entity IDs
+
+All entity primary keys are **composite integers** pre-assigned by `IdGenerationPort` before any database write. See `../entity-id-generation.md` for the full scheme, bit layout, capacity analysis, and infrastructure implementation.
+
 ### Entity-Relationship Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         session_modes                                │
-├─────────────────────────────────────────────────────────────────────┤
-│ PK  mode_id               VARCHAR(36)                                │
-│ FK  file_system_id        INTEGER       -- FK to arc_db_files        │
-│     mode                  ENUM('DESIGNER','DIFF_MERGE','SIMULATION') │
-│     deactivated_at        TIMESTAMP     -- NULL if active            │
-│     created_at            TIMESTAMP     -- Activation time           │
-└─────────────────────────────────────────────────────────────────────┘
-                │
-                │ 1:N
-                ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         edit_sessions                                │
-├─────────────────────────────────────────────────────────────────────┤
-│ PK  session_id            VARCHAR(36)                                │
-│     user_id               VARCHAR(255)  -- Nullable                  │
-│     client_id             VARCHAR(255)  -- Client app identifier     │
-│ FK  file_system_id        INTEGER       -- FK to arc_db_files        │
-│ FK  mode_id               VARCHAR(36)   -- FK to session_modes       │
-│     edit_status           ENUM('ACTIVE','COMMITTED')                 │
-│     committed_at          TIMESTAMP     -- NULL if active            │
-│     commit_message        TEXT          -- NULL if not committed     │
-│     created_at            TIMESTAMP                                  │
-└─────────────────────────────────────────────────────────────────────┘
-                │                                    │
-                │ 1:N                                │ 1:N
-                ▼                                    ▼
-┌───────────────────────────────┐    ┌───────────────────────────────┐
-│       edit_actions            │    │      restore_points           │
-├───────────────────────────────┤    ├───────────────────────────────┤
-│ PK  change_id                 │    │ PK  restore_id                │
-│     system_id                 │    │ FK  session_id (nullable)     │
-│ FK  session_id                │    │ FK  file_system_id            │
-│     table_name                │    │     restore_type              │
-│     operation                 │    │     snapshot_data             │
-│     payload                   │    │     description               │
-│     change_status             │    │     created_at                │
-│     base_version              │    │     system_id                 │
-│     group_id                  │    │     updated_at                │
-│     created_at                │    │     version                   │
-│     valid_until               │    └───────────────────────────────┘
-├───────────────────────────────┤
-│ IDX idx_edit_actions_session  │
-│ IDX idx_edit_actions_system_id│
-│ IDX idx_edit_actions_valid    │
-│ IDX idx_edit_actions_status   │
-│ UNIQUE uniq_edit_actions_...  │
-└───────────────────────────────┘
+files (system_id PK, last_entity_id, ...)
+  │
+  ├─── 1:N ──► project_sessions (session_id PK, file_system_id FK)
+  │                │
+  │                ├─── 1:N ──► session_commits (commit_id PK, session_id FK)
+  │                │
+  │                └─── 1:N ──► edit_actions (change_id PK, session_id FK)
+  │
+  └─── 1:N ──► restore_points (system_id PK, file_system_id FK,
+                                session_id FK nullable → project_sessions)
 ```
 
 ### Table Schemas
 
-#### session_modes
+#### `project_sessions`
+
 ```sql
-CREATE TABLE session_modes (
-  mode_id VARCHAR(36) PRIMARY KEY,
-  file_system_id INTEGER NOT NULL,
-  mode VARCHAR(20) NOT NULL CHECK (mode IN ('DESIGNER', 'DIFF_MERGE', 'SIMULATION')),
-  deactivated_at TIMESTAMP,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (file_system_id) REFERENCES arc_db_files(system_id) ON DELETE CASCADE
+CREATE TABLE project_sessions (
+  session_id     INTEGER      PRIMARY KEY,
+  file_system_id INTEGER      NOT NULL,
+  user_id        VARCHAR(255),            -- NULL in current single-user phase; reserved for future
+  client_id      VARCHAR(255) NOT NULL,
+  session_mode   VARCHAR(20)  NOT NULL
+    CHECK (session_mode IN ('TUNING', 'DESIGNER', 'DISCOVERY_WIZARD', 'DIFF_MERGE')),
+  status         VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE'
+    CHECK (status IN ('ACTIVE', 'ENDED')),
+  started_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ended_at       TIMESTAMP,
+  FOREIGN KEY (file_system_id) REFERENCES files(system_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_session_modes_file ON session_modes(file_system_id);
-CREATE INDEX idx_session_modes_active ON session_modes(file_system_id, deactivated_at);
+-- One active session per file (single-user phase: user_id = NULL)
+-- Forward-compatible: when user_id is populated, enforces one active session per user per file
+CREATE UNIQUE INDEX uq_project_sessions_one_active_per_file
+  ON project_sessions(file_system_id)
+  WHERE status = 'ACTIVE';
+
+CREATE INDEX idx_project_sessions_file   ON project_sessions(file_system_id);
+CREATE INDEX idx_project_sessions_status ON project_sessions(status);
 ```
 
-**Purpose**: Tracks the current mode of a project. Only one active mode per project (WHERE deactivated_at IS NULL). The `created_at` timestamp serves as the activation time.
+**READ-ONLY mode** is the absence of an ACTIVE `project_sessions` row for a given file. No separate table or column is needed.
 
-#### edit_sessions
+**Enums:**
+```typescript
+export const SESSION_MODE = {
+  Tuning: 'TUNING',
+  Designer: 'DESIGNER',
+  DiscoveryWizard: 'DISCOVERY_WIZARD',
+  DiffMerge: 'DIFF_MERGE',
+} as const;
+
+export const SESSION_STATUS = {
+  Active: 'ACTIVE',
+  Ended: 'ENDED',
+} as const;
+```
+
+#### `session_commits`
+
 ```sql
-CREATE TABLE edit_sessions (
-  session_id VARCHAR(36) PRIMARY KEY,
-  user_id VARCHAR(255),
-  client_id VARCHAR(255) NOT NULL,
-  file_system_id INTEGER NOT NULL,
-  mode_id VARCHAR(36) NOT NULL,
-  edit_status VARCHAR(20) NOT NULL CHECK (edit_status IN ('ACTIVE', 'COMMITTED')),
-  committed_at TIMESTAMP,
-  commit_message TEXT,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (file_system_id) REFERENCES arc_db_files(system_id) ON DELETE CASCADE,
-  FOREIGN KEY (mode_id) REFERENCES session_modes(mode_id) ON DELETE CASCADE
+CREATE TABLE session_commits (
+  commit_id      INTEGER      PRIMARY KEY,
+  session_id     INTEGER      NOT NULL,
+  commit_message TEXT         NOT NULL,
+  committed_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  change_count   INTEGER      NOT NULL DEFAULT 0,
+  FOREIGN KEY (session_id) REFERENCES project_sessions(session_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_edit_sessions_file ON edit_sessions(file_system_id);
-CREATE INDEX idx_edit_sessions_status ON edit_sessions(edit_status);
-CREATE INDEX idx_edit_sessions_mode ON edit_sessions(mode_id);
+CREATE INDEX idx_session_commits_session ON session_commits(session_id);
 ```
 
-**Purpose**: Tracks individual edit sessions within a mode. Multiple sessions can exist per mode over time, but only one active session per user per project.
+#### `edit_actions`
 
-#### edit_actions
 ```sql
 CREATE TABLE edit_actions (
-  change_id VARCHAR(36) PRIMARY KEY,
-  system_id VARCHAR(36) NOT NULL,  -- GUID for pending entities; mapped to integer at commit
-  session_id VARCHAR(36) NOT NULL,
-  table_name VARCHAR(100) NOT NULL,
-  operation VARCHAR(10) NOT NULL CHECK (operation IN ('ADD', 'UPDATE', 'DELETE')),
-  payload TEXT NOT NULL,  -- JSON
-  change_status VARCHAR(20) NOT NULL DEFAULT 'STAGED'
-    CHECK (change_status IN ('UNSTAGED', 'STAGED', 'DISCARDED')),
-  base_version INTEGER,  -- NULL for Add operations
-  group_id VARCHAR(36),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  valid_until TIMESTAMP,  -- NULL means current version
-  FOREIGN KEY (session_id) REFERENCES edit_sessions(session_id) ON DELETE CASCADE
+  change_id     INTEGER      PRIMARY KEY,
+  system_id     INTEGER      NOT NULL,   -- ID of the target entity
+  aggregate_id  INTEGER      NOT NULL DEFAULT 0, -- ID of the aggregate root
+  session_id    INTEGER      NOT NULL,
+  table_name    VARCHAR(100) NOT NULL,
+  operation     VARCHAR(10)  NOT NULL
+    CHECK (operation IN ('NONE', 'CREATE', 'UPDATE', 'DELETE')),
+  payload       TEXT         NOT NULL,   -- JSON: full entity for CREATE, Partial<T> for UPDATE, {} for DELETE
+  change_status VARCHAR(20)  NOT NULL DEFAULT 'STAGED'
+    CHECK (change_status IN ('UNSTAGED', 'STAGED')),
+  base_version  INTEGER,                 -- NULL for ADD operations
+  group_id      TEXT,                    -- groups related changes (e.g., module + its ports)
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  valid_until   TIMESTAMP,               -- NULL = current; set when superseded by a newer change
+  FOREIGN KEY (session_id) REFERENCES project_sessions(session_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_edit_actions_session ON edit_actions(session_id);
-CREATE INDEX idx_edit_actions_system_id ON edit_actions(system_id, table_name);
-CREATE INDEX idx_edit_actions_valid ON edit_actions(valid_until);
-CREATE INDEX idx_edit_actions_status ON edit_actions(session_id, change_status);
+CREATE INDEX idx_edit_actions_session
+  ON edit_actions(session_id);
+
+CREATE INDEX idx_edit_actions_entity_active
+  ON edit_actions(session_id, system_id)
+  WHERE valid_until IS NULL;
+
+CREATE INDEX idx_edit_actions_table_active
+  ON edit_actions(session_id, table_name)
+  WHERE valid_until IS NULL;
+
+CREATE INDEX idx_edit_actions_agg_active
+  ON edit_actions(session_id, aggregate_id)
+  WHERE valid_until IS NULL;
+
+CREATE INDEX idx_edit_actions_status_active
+  ON edit_actions(session_id, change_status)
+  WHERE valid_until IS NULL;
+
+-- One current version per entity per session
 CREATE UNIQUE INDEX uniq_edit_actions_current
-  ON edit_actions(session_id, system_id, table_name)
+  ON edit_actions(session_id, system_id)
   WHERE valid_until IS NULL;
 ```
 
-**Purpose**: Stores individual edit operations as events. Each change is immutable; updates create new versions with `valid_until` set on old versions.
+**Column notes:**
+- `system_id`: ID of the entity being changed. Pre-assigned by `IdGenerationPort`.
+- `aggregate_id`: ID of the aggregate root. For a module's property, `aggregate_id` = the module's `system_id`. For a top-level entity, `aggregate_id` = its own `system_id`. Enables efficient aggregate-scoped reads without scanning payload JSON.
+- `valid_until`: Set to `NOW()` when a newer version of the same change supersedes this row. Supports undo/redo without deletion.
 
-#### restore_points
+**Enums:**
+```typescript
+export const CHANGE_OPERATION = {
+  None:   'NONE',
+  Create: 'CREATE',
+  Update: 'UPDATE',
+  Delete: 'DELETE',
+} as const;
+
+export const CHANGE_STATUS = {
+  Staged:   'STAGED',
+  Unstaged: 'UNSTAGED',
+} as const;
+```
+
+#### `restore_points`
+
 ```sql
 CREATE TABLE restore_points (
-  restore_id VARCHAR(36) PRIMARY KEY,
-  session_id VARCHAR(36),  -- NULL for non-edit mode restores
-  file_system_id INTEGER NOT NULL,
-  restore_type VARCHAR(20) NOT NULL CHECK (restore_type IN ('EDIT_SNAPSHOT', 'FULL_SNAPSHOT')),
-  snapshot_data TEXT NOT NULL,  -- JSON
-  description TEXT,
-  system_id INTEGER NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  version INTEGER NOT NULL DEFAULT 1,
-  FOREIGN KEY (session_id) REFERENCES edit_sessions(session_id) ON DELETE CASCADE,
-  FOREIGN KEY (file_system_id) REFERENCES arc_db_files(system_id) ON DELETE CASCADE
+  system_id      INTEGER      PRIMARY KEY,
+  session_id     INTEGER,                -- nullable FK
+  file_system_id INTEGER      NOT NULL,
+  restore_type   VARCHAR(20)  NOT NULL
+    CHECK (restore_type IN ('EDIT_SNAPSHOT', 'FULL_SNAPSHOT')),
+  snapshot_data  TEXT         NOT NULL,  -- JSON
+  description    TEXT,
+  created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (session_id) REFERENCES project_sessions(session_id) ON DELETE CASCADE,
+  FOREIGN KEY (file_system_id) REFERENCES files(system_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_restore_points_session ON restore_points(session_id);
-CREATE INDEX idx_restore_points_file ON restore_points(file_system_id);
+CREATE INDEX idx_restore_points_file    ON restore_points(file_system_id);
 ```
 
-**Purpose**: Stores snapshots for undo/redo functionality. Can be session-specific (EDIT_SNAPSHOT) or full project snapshots (FULL_SNAPSHOT).
-
-### Normalization & Relationships
-
-**Normalization Level**: 3NF (Third Normal Form)
-
-**Key Relationships**:
-1. **edit_sessions → arc_db_files**: Many-to-one (multiple sessions per project file)
-2. **edit_actions → edit_sessions**: Many-to-one (multiple actions per session)
-3. **restore_points → edit_sessions**: Many-to-one (multiple restore points per session; nullable for non-edit restores)
-4. **restore_points → arc_db_files**: Many-to-one (all restore points belong to a project file)
-5. **edit_actions → actual tables**: Logical relationship via `system_id` + `table_name` (no FK constraint)
-
-**Design Rationale**:
-- **GUID system_id in edit_actions**: Eliminates concurrency issues; multiple users can safely generate IDs without conflicts or reservation
-- **No FK from edit_actions to actual tables**: Allows Add operations with GUIDs before actual insert; mapping happens at commit time
-- **valid_until for versioning**: Supports undo/redo by invalidating old versions without deletion
-- **JSON payload**: Flexible schema for different table structures; validated at application layer
-- **Nullable session_uuid in restore_points**: Allows restore points for both edit sessions (EditSnapshot) and committed state (FullSnapshot)
-
-**SystemId Strategy**:
-- **During Edit Mode**: Use GUID (UUID v4) for all new entities in edit_actions
-- **Cross-References**: Pending entities reference each other via GUIDs (e.g., DataLink references Module GUID)
-- **At Commit Time**:
-  1. Insert entities into actual tables → DB auto-generates integer system_id
-  2. Build GUID→Integer mapping: `Map<string, number>`
-  3. Update dependent entities using the mapping before insertion
-- **Benefits**: No ID reservation, no concurrency issues, clean separation between pending and committed state
+**Enum:**
+```typescript
+export const RESTORE_TYPE = {
+  EditSnapshot: 'EDIT_SNAPSHOT',
+  FullSnapshot: 'FULL_SNAPSHOT',
+} as const;
+```
 
 ### Indexing Strategy
 
-**Primary Indexes**:
-1. `idx_edit_sessions_file`: Fast lookup of sessions by project
-2. `idx_edit_actions_session`: Fast retrieval of all actions in a session
-3. `idx_edit_actions_system_id`: Fast lookup of changes for specific entity
-4. `idx_edit_actions_valid`: Fast filtering of current (non-invalidated) actions
-5. `uniq_edit_actions_current`: Enforce one current version per entity per session
-
-**Query Optimization**:
-- **Read Overlay**: Use `idx_edit_actions_session` + `idx_edit_actions_valid` for O(n) scan of pending changes
-- **Conflict Detection**: Use `idx_edit_actions_system_id` to find base versions quickly
-- **Cascade Deletes**: When deleting module, use `idx_edit_actions_system_id` to find dependent links
+| Index | Table | Purpose |
+|-------|-------|---------|
+| `uq_project_sessions_one_active_per_file` | `project_sessions` | One active session per file |
+| `idx_project_sessions_file` | `project_sessions` | Lookup sessions by file |
+| `idx_session_commits_session` | `session_commits` | List all commits in a session |
+| `idx_edit_actions_session` | `edit_actions` | Fetch all changes in a session |
+| `idx_edit_actions_entity_active` | `edit_actions` | Lookup active change for a specific entity |
+| `idx_edit_actions_agg_active` | `edit_actions` | Fetch all active changes for an aggregate root |
+| `idx_edit_actions_status_active` | `edit_actions` | Filter by change status |
+| `uniq_edit_actions_current` | `edit_actions` | One current version per entity per session |
 
 ---
 
-## 4) Session Management
+## 4) Session Modes & Operation Permissions
 
-### Implicit Session Lifecycle
+| Mode | Description | Permitted Operations |
+|------|-------------|---------------------|
+| **READ-ONLY** | Default; no active session | Read APIs only |
+| **TUNING** | Calibration and parameter tuning | Read + Tuning/Calibration + Change Management |
+| **DESIGNER** | Full design and configuration | Read + Tuning + Designer + Change Management |
+| **DISCOVERY_WIZARD** | Import and discovery | Read + Import/Discovery + Change Management |
+| **DIFF_MERGE** | Comparison and merging | Read + Tuning + Designer + Diff/Merge + Change Management |
 
-**Key Principle**: Clients do not create, store, or manage session IDs. Backend automatically handles session lifecycle using `userId` (from JWT) + `projectId` as the session identifier.
+**READ-ONLY mode** is the absence of an ACTIVE `project_sessions` row for a given file. No separate table or column is needed.
 
-#### Session Creation (Automatic)
+A `SessionModeGuard` in `packages/api` intercepts every edit request, checks the active session for the file, and returns `403 Forbidden` if the operation is not permitted in the current mode.
 
-**Any Edit Operation Triggers Session Creation**:
+---
+
+## 5) Session Lifecycle
+
+### Session Status Transitions
+
 ```
-POST /arcapi/v1/projects/:projectId/modules-instance
-POST /arcapi/v1/projects/:projectId/data-links
-PATCH /arcapi/v1/projects/:projectId/modules-instance/:systemId
-DELETE /arcapi/v1/projects/:projectId/modules-instance/:systemId
-... (any edit operation)
+[READ-ONLY]  ← default; no active project_sessions row for this file
+     │
+     │  POST /start-session { mode: "TUNING", clientId: "ModuleTuner" }
+     ▼
+  [ACTIVE]
+     │
+     ├──► POST /commit-changes  → session_commits row created; STAGED edit_actions deleted
+     │    (session remains ACTIVE; UNSTAGED edit_actions remain)
+     │
+     └──► POST /end-session
+               │
+               ├── has commits → status = ENDED  (kept as audit)
+               └── no commits  → row deleted
+                                  [READ-ONLY]
 ```
 
-**Backend Logic**:
+### Start Session
+
+```
+POST /arcapi/v1/projects/:projectId/start-session
+Body: { mode: "TUNING", clientId: "ModuleTuner" }
+```
+
 ```typescript
-async getOrCreateSession(userId: string, projectId: number): Promise<EditSession> {
-  // Check for existing active session
-  let session = await this.sessionRepo.findActiveSession(userId, projectId);
+async handle(command: StartSessionCommand): Promise<StartSessionResult> {
+  const existing = await this.sessionRepo.findActiveSession(command.fileId);
+  if (existing) throw new SessionAlreadyActiveException(existing.sessionId);
 
-  if (!session) {
-    // Auto-create new session
-    session = await this.sessionRepo.create({
-      userId,
-      projectId,
-      editType: 'Designer', // or inferred from client-id
-      status: 'Active'
+  await this.idPort.reserveBlock(command.fileId);
+
+  const sessionId = this.idPort.getNextId(command.fileId);
+  const session = await this.sessionRepo.create({
+    sessionId,
+    fileId:      command.fileId,
+    clientId:    command.clientId,
+    sessionMode: command.mode,
+    status:      'ACTIVE',
+  });
+
+  return { sessionId: session.sessionId, mode: session.sessionMode };
+}
+```
+
+### Commit Changes
+
+```
+POST /arcapi/v1/projects/:projectId/commit-changes
+Body: { commitMessage: "Added playback module" }
+```
+
+```typescript
+async handle(command: CommitChangesCommand): Promise<CommitResult> {
+  const session = await this.sessionRepo.findActiveSession(command.fileId);
+
+  // 1. Conflict detection
+  const conflicts = await this.detectConflicts(session.sessionId);
+  if (conflicts.length > 0) throw new VersionConflictException(conflicts);
+
+  // 2. Apply STAGED edit_actions to actual tables
+  const committedCount = await this.applyChanges(session.sessionId);
+
+  // 3. Delete committed edit_actions
+  await this.editActionRepo.deleteByStatus(session.sessionId, 'STAGED');
+
+  // 4. Record commit
+  const commitId = this.idPort.getNextId(command.fileId);
+  await this.commitRepo.create({
+    commitId,
+    sessionId:     session.sessionId,
+    commitMessage: command.commitMessage,
+    changeCount:   committedCount,
+  });
+
+  // 5. Reclaim unused ID block tail
+  await this.idRegistry.persistActual(command.fileId, queryRunner);
+
+  return { committedChanges: committedCount };
+}
+```
+
+UNSTAGED `edit_actions` remain in the table, still pointing to the active `project_sessions` row.
+
+### End Session
+
+```
+POST /arcapi/v1/projects/:projectId/end-session
+Body: { commitMessage: "Session complete" }
+```
+
+```typescript
+async handle(command: EndSessionCommand): Promise<EndSessionResult> {
+  const session = await this.sessionRepo.findActiveSession(command.fileId);
+
+  // 1. Commit all remaining STAGED changes
+  const committedCount = await this.applyChanges(session.sessionId);
+  if (committedCount > 0) {
+    await this.editActionRepo.deleteByStatus(session.sessionId, 'STAGED');
+    const commitId = this.idPort.getNextId(command.fileId);
+    await this.commitRepo.create({
+      commitId,
+      sessionId:     session.sessionId,
+      commitMessage: command.commitMessage ?? 'Session ended',
+      changeCount:   committedCount,
     });
   }
 
-  return session;
+  // 2. Delete all UNSTAGED and DISCARDED edit_actions
+  await this.editActionRepo.deleteAllPending(session.sessionId);
+
+  // 3. Reclaim unused ID block tail
+  await this.idRegistry.persistActual(command.fileId, queryRunner);
+
+  // 4. Close or remove the session
+  const hasCommits = (await this.commitRepo.countBySession(session.sessionId)) > 0;
+  if (hasCommits) {
+    await this.sessionRepo.markEnded(session.sessionId);
+  } else {
+    await this.sessionRepo.delete(session.sessionId);
+  }
+
+  return { status: 'ENDED' };
 }
-```
-
-**Request Headers**:
-- `Authorization: Bearer <JWT>` (contains userId)
-- `X-Client-Id`: Optional client application identifier (e.g., "GraphDesigner", "ModuleTuner")
-
-**Response Headers**:
-- `X-Session-Id`: Session UUID (informational only; clients don't need to store this)
-
-#### Multi-Client Synchronization
-
-**Scenario**: Same user operates multiple client applications (e.g., Graph Designer + Module Tuner) simultaneously
-
-**Behavior**:
-- Both clients share the same edit session (identified by userId + projectId)
-- Changes made in one client are immediately visible in the other via read overlay
-- Both clients see the same pending changes
-- Commit from either client commits all pending changes from both
-
-**Example Flow**:
-1. User opens Graph Designer → adds module → session auto-created
-2. User opens Module Tuner (same project) → updates module properties → reuses same session
-3. User returns to Graph Designer → sees both changes (module + properties)
-4. User commits from Graph Designer → both changes committed atomically
-
-#### Session Status Transitions
-
-```
-[No Session]
-    │
-    │ First edit operation
-    ▼
-[Active]
-    │
-    ├─→ Commit → [Committed]
-    │
-    └─→ Rollback → [Rejected]
 ```
 
 ---
 
-## 5) Payload Strategy Using Partial<T>
+## 6) Payload Strategy
 
-### Overview
+### Payload by Operation Type
 
-The modification framework uses TypeScript's `Partial<T>` utility type to create minimal, type-safe payloads that store only changed fields in the `edit_actions` table.
-
-### Two API Patterns
-
-#### Pattern A: Full Entity Update (ModuleDefinition only)
-- Client sends complete entity
-- Backend compares old vs new state
-- Generates granular diffs using `Partial<T>`
-
-#### Pattern B: Individual Commands (Everything else)
-- Client sends specific command
-- Backend directly creates `Partial<T>` payload
-- No comparison needed
-
-### Benefits
-
-1. **Type Safety**: Reuses existing domain models, TypeScript catches errors at compile time
-2. **Minimal Payloads**: Only stores changed fields (99% size reduction)
-3. **Simple Overlay**: Spread operator merges changes: `{ ...base, ...payload }`
-4. **Consistent Format**: Same storage structure regardless of API pattern
-
-### Example: Update Module Alias
-
+**ADD** — full entity with pre-assigned ID:
 ```typescript
-// Domain model
-interface SpfModule {
-  systemId: number;
-  instanceId: number;
-  alias: string;
-  definitionSystemId: number;
-  subgraphSystemId: number;
-  containerSystemId: number;
-  properties: SpfModuleProperty[];
-  version: number;
-}
+const moduleId = this.idPort.getNextId(fileId);
 
-// Update payload - only changed field
-const payload: Partial<SpfModule> = {
-  alias: "NewAlias"
-};
-
-// Stored in edit_actions.payload
-// Result: { "alias": "NewAlias" }  (50 bytes vs 10KB+ for full entity)
-```
-
-### Payload Strategy by Operation Type
-
-**Update Operations**:
-```typescript
-// Only changed fields
-const payload: Partial<SpfModule> = {
-  alias: "NewAlias"
-};
-// Stored: { "alias": "NewAlias" }
-```
-
-**Add Operations**:
-```typescript
-// Full entity
 const payload: SpfModule = {
-  systemId: uuidv4(),
-  instanceId: 123,
-  alias: "NewModule",
+  systemId:           moduleId,
+  alias:              'NewModule',
   definitionSystemId: 456,
-  subgraphSystemId: 789,
-  containerSystemId: 101,
-  properties: [],
-  version: 1
+  subgraphSystemId:   789,
+  containerSystemId:  101,
+  version:            1,
 };
-// Stored: { "systemId": "guid-123", "instanceId": 123, ... }
 ```
 
-**Delete Operations**:
+**UPDATE** — only changed fields:
 ```typescript
-// Empty payload
+const payload: Partial<SpfModule> = { alias: 'RenamedModule' };
+```
+
+**DELETE** — empty payload (entity identified by `system_id` column):
+```typescript
 const payload = {};
-// Stored: {}
 ```
 
-### Read Overlay Implementation
+### Read Overlay
 
-```typescript
-@Injectable()
-export class ReadOverlayService {
-  async getModuleWithOverlay(
-    systemId: number,
-    sessionId: string
-  ): Promise<SpfModule> {
-    // 1. Get base module from actual table
-    const baseModule = await this.moduleRepo.findOne(systemId);
-
-    // 2. Get pending changes for this module
-    const pendingChanges = await this.getPendingChanges(
-      sessionId,
-      'spf_modules',
-      systemId
-    );
-
-    // 3. Apply overlay using spread operator
-    let overlayedModule = { ...baseModule };
-
-    for (const change of pendingChanges) {
-      if (change.operation === 'Update') {
-        const payload = JSON.parse(change.payload);
-        overlayedModule = { ...overlayedModule, ...payload };  // Merge!
-      }
-    }
-
-    return overlayedModule;
-  }
-}
-```
+Port implementations in `persistence` use `EditActionsQueryService` to fetch pending changes and `OverlayMerge` to merge them with base rows from actual tables. See `read-overlay-design.md` for the full pattern.
 
 ---
 
-## 6) Repository Architecture
+## 7) Repository Architecture
 
-### Aggregate-Specific Edit Repositories
-
-Each aggregate has its own edit repository that encapsulates domain knowledge:
+### `EditActionRow` Type
 
 ```typescript
-// packages/infrastructure/persistence/src/edit-repositories/module-edit.repository.ts
-
-@Injectable()
-export class ModuleEditRepository {
-  constructor(
-    private readonly editActionsService: EditActionsService  // Receives from UoW
-  ) {}
-
-  /**
-   * Save module alias update
-   * Domain-specific: Knows about SpfModule structure
-   */
-  async saveAliasUpdate(
-    module: SpfModule,
-    newAlias: string,
-    sessionId: string
-  ): Promise<string> {
-    const groupId = uuidv4();
-    const changeId = uuidv4();
-
-    // Create payload using domain knowledge
-    const payload: Partial<SpfModule> = {
-      alias: newAlias
-    };
-
-    // Get base version
-    const baseVersion = await this.editActionsService.getCurrentVersion(
-      'spf_modules',
-      module.systemId.toString()
-    );
-
-    // Create edit action row
-    const row: EditActionRow = {
-      changeUuid: changeId,
-      systemId: module.systemId.toString(),
-      sessionUuid: sessionId,
-      tableName: 'spf_modules',
-      operation: 'Update',
-      payload: JSON.stringify(
-        this.editActionsService.removeNullFields(payload)
-      ),
-      commitStatus: 'Staged',
-      baseVersion,
-      groupId,
-      createdAt: new Date(),
-      validUntil: null
-    };
-
-    // Delegate to common service
-    return await this.editActionsService.insertEditAction(row);
-  }
-
-  /**
-   * Save module property update
-   * Domain-specific: Knows about nested SpfModuleProperty structure
-   */
-  async savePropertyUpdate(
-    property: SpfModuleProperty,
-    updates: Partial<SpfModuleProperty>,
-    sessionId: string
-  ): Promise<string> {
-    // Similar implementation...
-  }
-
-  /**
-   * Delete module with cascade logic
-   * Domain-specific: Handles cascade logic
-   */
-  async saveModuleDelete(
-    module: SpfModule,
-    sessionId: string
-  ): Promise<string[]> {
-    const groupId = uuidv4();
-    const changeIds: string[] = [];
-
-    // 1. Delete module properties first (cascade)
-    for (const property of module.properties) {
-      const changeId = await this.deleteProperty(property, sessionId, groupId);
-      changeIds.push(changeId);
-    }
-
-    // 2. Delete module itself
-    const moduleChangeId = await this.deleteModule(module, sessionId, groupId);
-    changeIds.push(moduleChangeId);
-
-    return changeIds;
-  }
+export interface EditActionRow {
+  changeId:     number;
+  systemId:     number;
+  aggregateId:  number;
+  sessionId:    number;
+  tableName:    EntityName;       // from ENTITY_NAMES in entity-table-names.ts
+  operation:    ChangeOperation;  // from CHANGE_OPERATION in change-vocabulary.ts
+  payload:      unknown;          // JSON (simple-json TypeORM type)
+  changeStatus: ChangeStatus;     // from CHANGE_STATUS in change-vocabulary.ts
+  baseVersion:  number | null;
+  groupId:      string | null;
+  createdAt:    Date;
+  validUntil:   Date | null;
+  session?:     ProjectSessionRow;
 }
 ```
 
-### Common EditActionsService
+### Common `EditActionsService`
 
 ```typescript
-// packages/infrastructure/persistence/src/edit-actions/edit-actions.service.ts
-
 export class EditActionsService {
   constructor(private readonly queryRunner: QueryRunner) {}
 
-  /**
-   * Insert a single edit action row
-   * Uses shared QueryRunner from UoW
-   */
-  async insertEditAction(row: EditActionRow): Promise<string> {
-    await this.queryRunner.manager.insert('edit_actions', {
-      change_uuid: row.changeUuid,
-      system_id: row.systemId,
-      session_uuid: row.sessionUuid,
-      table_name: row.tableName,
-      operation: row.operation,
-      payload: row.payload,
-      commit_status: row.commitStatus,
-      base_version: row.baseVersion,
-      group_id: row.groupId,
-      created_at: row.createdAt,
-      valid_until: row.validUntil
-    });
-
-    return row.changeUuid;
+  async insertEditAction(row: EditActionRow): Promise<void> {
+    // Supersede any existing current version for this entity
+    await this.queryRunner.manager
+      .createQueryBuilder()
+      .update(ENTITY_NAMES.EditAction)
+      .set({validUntil: new Date()})
+      .where('sessionId = :sessionId AND systemId = :systemId AND validUntil IS NULL', {
+        sessionId: row.sessionId,
+        systemId:  row.systemId,
+      })
+      .execute();
+    await this.queryRunner.manager.insert(ENTITY_NAMES.EditAction, row);
   }
 
-  /**
-   * Get current version for conflict detection
-   */
-  async getCurrentVersion(tableName: string, systemId: string): Promise<number> {
+  async getCurrentVersion(tableName: EntityName, systemId: number): Promise<number | null> {
     const result = await this.queryRunner.manager
       .createQueryBuilder()
-      .select('version')
+      .select('t.version', 'version')
       .from(tableName, 't')
-      .where('t.system_id = :systemId', { systemId })
-      .getRawOne();
-
-    return result?.version || 0;
-  }
-
-  /**
-   * Utility: Remove null/undefined fields
-   */
-  removeNullFields(obj: Record<string, any>): Record<string, any> {
-    const result: Record<string, any> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (value !== null && value !== undefined) {
-        result[key] = value;
-      }
-    }
-    return result;
+      .where('t.systemId = :systemId', {systemId})
+      .getRawOne<{version: number}>();
+    return result?.version ?? null;
   }
 }
 ```
 
-### Unit of Work Integration
+### Aggregate-Specific Edit Repositories
+
+Each aggregate has its own repository encapsulating domain knowledge (cascade logic, payload shape). Example:
 
 ```typescript
-// packages/api/src/infrastructure-wrapper/persistence/unit-of-work/typeorm-unit-of-work.ts
-
-export interface IUnitOfWork {
-  // Existing repositories
-  moduleRepository: IModuleRepository;
-  subgraphRepository: ISubgraphRepository;
-
-  // NEW: Edit repositories
-  moduleEditRepository: ModuleEditRepository;
-  subgraphEditRepository: SubgraphEditRepository;
-  moduleDefinitionEditRepository: ModuleDefinitionEditRepository;
-
-  // NEW: Shared edit actions service
-  editActionsService: EditActionsService;
-
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
-}
-
 @Injectable()
-export class TypeOrmUnitOfWork implements IUnitOfWork {
-  private queryRunner: QueryRunner;
-  private _editActionsService?: EditActionsService;
-  private _moduleEditRepository?: ModuleEditRepository;
+export class ModuleEditRepository {
+  constructor(private readonly editActionsService: EditActionsService) {}
 
-  // EditActionsService getter (created once, shared by all edit repos)
-  get editActionsService(): EditActionsService {
-    if (!this._editActionsService) {
-      this._editActionsService = new EditActionsService(this.queryRunner);
-    }
-    return this._editActionsService;
+  async stageModuleCreate(module: SpfModule, sessionId: number): Promise<void> {
+    await this.editActionsService.insertEditAction({
+      changeId:     this.idPort.getNextId(module.fileSystemId),
+      systemId:     module.systemId,
+      aggregateId:  module.systemId,
+      sessionId,
+      tableName:    ENTITY_NAMES.SpfModule,
+      operation:    CHANGE_OPERATION.Create,
+      payload:      JSON.stringify(module),
+      changeStatus: 'STAGED',
+      baseVersion:  null,
+      groupId:      null,
+      createdAt:    new Date(),
+      validUntil:   null,
+    });
   }
 
-  // ModuleEditRepository getter
-  get moduleEditRepository(): ModuleEditRepository {
-    if (!this._moduleEditRepository) {
-      this._moduleEditRepository = new ModuleEditRepository(
-        this.editActionsService  // Pass shared service
-      );
-    }
-    return this._moduleEditRepository;
-  }
+  async stageModuleDelete(module: SpfModule, sessionId: number): Promise<void> {
+    const groupId = generateUuid();
 
-  // ... other repository getters
+    for (const property of module.properties) {
+      await this.editActionsService.insertEditAction({
+        changeId:     this.idPort.getNextId(module.fileSystemId),
+        systemId:     property.systemId,
+        aggregateId:  module.systemId,
+        sessionId,
+        tableName:    ENTITY_NAMES.SpfModulePropertiesData,
+        operation:    CHANGE_OPERATION.Delete,
+        payload:      '{}',
+        changeStatus: 'STAGED',
+        baseVersion:  property.version,
+        groupId,
+        createdAt:    new Date(),
+        validUntil:   null,
+      });
+    }
+
+    await this.editActionsService.insertEditAction({
+      changeId:     this.idPort.getNextId(module.fileSystemId),
+      systemId:     module.systemId,
+      aggregateId:  module.systemId,
+      sessionId,
+      tableName:    ENTITY_NAMES.SpfModule,
+      operation:    CHANGE_OPERATION.Delete,
+      payload:      '{}',
+      changeStatus: 'STAGED',
+      baseVersion:  module.version,
+      groupId,
+      createdAt:    new Date(),
+      validUntil:   null,
+    });
+  }
 }
 ```
 
 ---
 
-## 7) Workflow / Processes
+## 8) Workflow / Processes
 
-### End-to-End Request Lifecycle
-
-#### Add Module Flow
+### DESIGNER Mode — End-to-End
 
 ```
-Client
-  │
-  │ POST /projects/123/modules-instance
-  │ { definitionSystemId: 456, ... }
-  ▼
-SpfModuleController
-  │ • Validate DTO
-  │ • Extract user context from JWT
-  │ • Check/create edit session
-  ▼
-CommandBus
-  │ • Route to AddModuleCommandHandler
-  │ • Apply transaction middleware
-  ▼
-AddModuleCommandHandler
-  │ 1. Get or create active session
-  │ 2. Generate GUID for systemId
-  │ 3. Validate module definition exists
-  │ 4. Create full entity payload
-  │ 5. Call moduleEditRepo.saveModuleAdd()
-  ▼
-ModuleEditRepository
-  │ • Create EditActionRow with full entity
-  │ • Call editActionsService.insertEditAction()
-  ▼
-EditActionsService
-  │ • Insert into edit_actions table
-  │ • Uses shared QueryRunner from UoW
-  ▼
-TypeORM Unit of Work
-  │ • COMMIT transaction
-  ▼
-Controller maps to SpfModuleDto
-  │ • systemId: guid-1234
-  │ • diffType: 'Added'
-  │ • changeId: 'uuid'
-  ▼
-HTTP 201 Created
-  ▼
-Client
+POST /start-session { mode: "DESIGNER", clientId: "GraphDesigner" }
+  → reserveBlock(fileId)
+  → sessionId = getNextId(fileId)
+  → INSERT project_sessions (session_id=sessionId, status=ACTIVE, session_mode=DESIGNER)
+
+POST /modules-instance { definitionSystemId: 456, alias: "Mod1" }
+  → moduleId = idPort.getNextId(fileId)
+  → INSERT edit_actions (change_id=getNextId(), system_id=moduleId, operation=CREATE, change_status=STAGED)
+  → HTTP 201 { systemId: 8388613 }
+
+POST /data-links { sourceModuleId: 8388613, ... }
+  → linkId = idPort.getNextId(fileId)
+  → INSERT edit_actions (change_id=getNextId(), operation=CREATE, change_status=STAGED)
+  → HTTP 201 { systemId: 8388621 }
+
+POST /auto-create-usecases
+  → Run routing algorithm on STAGED edit_actions only
+  → INSERT generated usecases as UNSTAGED edit_actions
+  → HTTP 200 { generatedUsecases: [...] }
+
+POST /stage-changes { changeIds: [8388629, 8388637] }
+  → UPDATE edit_actions SET change_status=STAGED WHERE change_id IN (...)
+
+POST /commit-changes { commitMessage: "Added playback module" }
+  → Conflict detection (base_version check)
+  → Apply STAGED edit_actions to actual tables
+  → DELETE STAGED edit_actions
+  → commitId = getNextId(fileId)
+  → INSERT session_commits (commit_id=commitId, change_count=2)
+  → persistActual(fileId, queryRunner)
+  → HTTP 200 { committedChanges: 2 }
+
+POST /end-session
+  → No remaining STAGED changes
+  → DELETE all UNSTAGED edit_actions
+  → UPDATE project_sessions SET status=ENDED
+  → HTTP 200 { status: "ENDED" }
 ```
 
-#### Smart Commit Flow
-
-**Scenario: Graph Changes with Generated Usecases**
-
-```
-Client
-  │ POST /projects/123/edit-session/commit
-  ▼
-CommitSessionCommandHandler
-  │ 1. Detect graph changes: YES
-  │ 2. Run usecase generation algorithm
-  │ 3. New usecases found: 2
-  │ 4. Add as UNSTAGED to edit_actions
-  ▼
-HTTP 200 OK (status: REQUIRES_REVIEW)
-  │ {
-  │   "status": "REQUIRES_REVIEW",
-  │   "unstagedChanges": [...]
-  │ }
-  ▼
-Client
-  │ User reviews unstaged usecases in UI
-  │ Stages desired ones, rejects unwanted ones
-  │
-  │ POST /projects/123/edit-session/stage
-  │ { changeIds: ["uuid1"] }
-  ▼
-StageChangesCommand
-  │ Mark usecase as 'Staged'
-  ▼
-Client
-  │ POST /projects/123/edit-session/commit (again)
-  ▼
-CommitSessionCommandHandler
-  │ 1. Validate no unstaged changes ✓
-  │ 2. Conflict detection ✓
-  │ 3. Apply changes (within transaction)
-  ▼
-CommitOrchestrator
-  │ 2. Process in topology order:
-  │    a. Deletes (reverse order)
-  │    b. Updates (any order)
-  │    c. Adds (forward order)
-  │ 3. For each Add (GUID → Integer mapping):
-  │    - Insert into actual table
-  │    - Build mapping: guidToIntMap[guid] = generatedId
-  │    - Update dependent entities
-  │ 4. Update session status to 'Committed'
-  │ 5. Delete edit_actions
-  ▼
-TypeORM Unit of Work
-  │ • COMMIT transaction
-  ▼
-HTTP 200 OK
-  │ { "status": "COMMITTED", "committedChanges": 18 }
-  ▼
-Client
-```
-
-### Validation & Transaction Boundaries
-
-#### Validation Layers
-
-1. **DTO Validation** (Controller layer):
-   - Type checking, required fields, format validation
-   - Uses `class-validator` decorators
-   - Fails fast with 400 Bad Request
-
-2. **Domain Validation** (Command handler):
-   - Business rules (e.g., module definition exists)
-   - Referential integrity (e.g., subgraph exists)
-   - Fails with 422 Unprocessable Entity
-
-3. **Conflict Validation** (Commit handler):
-   - Version checking for optimistic locking
-   - Unstaged changes check
-   - Fails with 409 Conflict or 422
-
-#### Transaction Boundaries
-
-**Per-Operation Transactions**:
-```typescript
-@Transactional()  // Middleware applied by command bus
-async handle(command: AddModuleCommand): Promise<AddModuleResult> {
-  // All database operations within this handler are in one transaction
-  const session = await uow.sessionRepo.getOrCreate(command.projectId);
-  const editAction = await uow.moduleEditRepo.saveModuleAdd(module, session.id);
-  // Transaction commits automatically if no exception
-}
-```
-
-**Commit Transaction** (All-or-nothing):
-```typescript
-@Transactional()
-async handle(command: CommitSessionCommand): Promise<CommitResult> {
-  // 1. Validate (read-only queries)
-  const conflicts = await this.detectConflicts(command.sessionId);
-  if (conflicts.length > 0) {
-    throw new VersionConflictException(conflicts);
-  }
-
-  // 2. Apply all changes (writes)
-  await this.applyDeletes(command.sessionId);
-  await this.applyUpdates(command.sessionId);
-  await this.applyAdds(command.sessionId);
-
-  // 3. Update session status
-  await uow.sessionRepo.markCommitted(command.sessionId);
-
-  // Transaction commits here
-}
-```
-
----
-
-## 8) Status Codes & Error Model
-
-### HTTP Status Codes
-
-| Status Code | Scenario | Error Code |
-|-------------|----------|------------|
-| `200 OK` | Successful read operation | - |
-| `201 Created` | Successful create operation | - |
-| `400 Bad Request` | Invalid DTO validation | `VALIDATION_ERROR` |
-| `401 Unauthorized` | Invalid or missing JWT | `UNAUTHORIZED` |
-| `404 Not Found` | Entity not found | `ENTITY_NOT_FOUND` |
-| `409 Conflict` | Version conflict at commit | `VERSION_CONFLICT` |
-| `422 Unprocessable Entity` | Unstaged changes at commit | `UNSTAGED_CHANGES` |
-| `422 Unprocessable Entity` | Cascade delete validation | `CASCADE_CONSTRAINT` |
-| `500 Internal Server Error` | Unexpected error | `INTERNAL_ERROR` |
-
-### Error Response Format
+### Commit Orchestration (Apply Changes)
 
 ```typescript
-{
-  "success": false,
-  "error": {
-    "code": "VERSION_CONFLICT",
-    "message": "Human-readable message",
-    "details": {
-      // Context-specific details
-      "conflicts": [
-        {
-          "systemId": 1001,
-          "tableName": "spf_modules",
-          "baseVersion": 5,
-          "currentVersion": 7,
-          "conflictingUser": "user2"
-        }
-      ]
-    },
-    "timestamp": "2025-12-15T10:00:00Z",
-    "path": "/arcapi/v1/projects/123/edit-session/commit"
+// Process in topological order within a single transaction:
+// a. DELETEs (reverse dependency order)
+// b. UPDATEs (any order)
+// c. ADDs    (forward dependency order)
+
+for (const action of sortedActions) {
+  const payload = JSON.parse(action.payload);
+  switch (action.operation) {
+    case CHANGE_OPERATION.Create:
+      await queryRunner.manager.insert(action.tableName, payload);
+      break;
+    case CHANGE_OPERATION.Update:
+      await queryRunner.manager.update(action.tableName, { systemId: action.systemId }, payload);
+      break;
+    case CHANGE_OPERATION.Delete:
+      await queryRunner.manager.delete(action.tableName, { systemId: action.systemId });
+      break;
   }
 }
 ```
 
-### Commit Response States
-
-**Success - Committed**:
-```typescript
-{
-  "status": "COMMITTED",
-  "success": true,
-  "committedChanges": 15,
-  "generatedUsecases": [
-    { "systemId": 5001, "name": "Auto-generated: Playback Path 1" }
-  ],
-  "message": "Changes committed successfully"
-}
-```
-
-**Requires Review - Unstaged Changes Exist**:
-```typescript
-{
-  "status": "REQUIRES_REVIEW",
-  "requiresStaging": true,
-  "stagedChanges": 15,
-  "unstagedChanges": [
-    {
-      "changeId": "uuid1",
-      "tableName": "use_cases",
-      "operation": "Add",
-      "commitStatus": "Unstaged",
-      "generatedBy": "UsecaseGenerationAlgorithm",
-      "preview": {
-        "name": "Auto-generated: Playback Path 1"
-      }
-    }
-  ],
-  "message": "Review 2 unstaged changes before committing"
-}
-```
-
 ---
 
-## 9) Observability
+## 9) Undo/Redo via Version Activation
 
-### Metrics (OpenTelemetry Style)
+### Concept
 
-**Key Metrics to Track**:
+The `edit_actions` table stores the full version history of every pending change within a session. `valid_until IS NULL` marks the current version of each entity's pending change. Older versions have `valid_until` set to the timestamp when they were superseded.
 
-1. **Session Metrics**:
-   - `edit.sessions.active` (gauge): Active sessions count
-   - `edit.sessions.duration` (histogram): Session duration in seconds
-   - `edit.sessions.created` (counter): Sessions created per hour
-   - `edit.sessions.committed` (counter): Sessions committed per hour
-   - `edit.sessions.rejected` (counter): Sessions rejected per hour
+**The server is a passive versioned store.** The client maintains its own undo/redo stack of `change_id` values and tells the server which version to make current.
 
-2. **Edit Operation Metrics**:
-   - `edit.operations.total` (counter): Operations by type (Add/Update/Delete)
-     - Labels: `operation`, `table_name`, `status`
-   - `edit.operations.duration` (histogram): Operation latency in milliseconds
-     - Labels: `operation`, `table_name`
-   - `edit.operations.failed` (counter): Failed operations by error type
-     - Labels: `error_type`
+### DB Operations for Activate Change
 
-3. **Commit Metrics**:
-   - `edit.commits.success_rate` (gauge): Commit success rate (0-1)
-   - `edit.commits.duration` (histogram): Commit duration in seconds
-   - `edit.commits.conflicts` (counter): Version conflicts per hour
-   - `edit.commits.unstaged_rejections` (counter): Unstaged changes rejections
-
-4. **Read Overlay Metrics**:
-   - `edit.overlay.cache_hit_rate` (gauge): Overlay cache hit rate (0-1)
-   - `edit.overlay.query_duration` (histogram): Overlay query duration in milliseconds
-   - `edit.overlay.entities_pending` (gauge): Entities with pending changes
-
-5. **Database Metrics**:
-   - `db.query.duration` (histogram): Query duration by table
-     - Labels: `table_name`, `operation`
-   - `db.connection_pool.utilization` (gauge): Connection pool utilization (0-1)
-   - `db.transaction.rollback_rate` (gauge): Transaction rollback rate (0-1)
-
-**Implementation Example** (OpenTelemetry):
 ```typescript
-import { metrics } from '@opentelemetry/api';
+async activateChange(changeId: number, sessionId: number): Promise<void> {
+  await this.queryRunner.startTransaction();
+  try {
+    const target = await this.queryRunner.manager.findOne(ENTITY_NAMES.EditAction, {
+      where: {changeId, sessionId},
+    });
+    if (!target) throw new NotFoundException(`change_id ${changeId} not found in session`);
 
-const meter = metrics.getMeter('edit-session');
+    // Supersede the current version of this entity
+    await this.queryRunner.manager
+      .createQueryBuilder()
+      .update(ENTITY_NAMES.EditAction)
+      .set({validUntil: new Date()})
+      .where('sessionId = :sessionId AND systemId = :systemId AND validUntil IS NULL', {
+        sessionId,
+        systemId: target.systemId,
+      })
+      .execute();
 
-const activeSessionsGauge = meter.createObservableGauge('edit.sessions.active', {
-  description: 'Number of active edit sessions'
-});
+    // Make the target version current
+    await this.queryRunner.manager
+      .createQueryBuilder()
+      .update(ENTITY_NAMES.EditAction)
+      .set({validUntil: null})
+      .where('changeId = :changeId', {changeId})
+      .execute();
 
-const operationCounter = meter.createCounter('edit.operations.total', {
-  description: 'Total edit operations'
-});
-
-const commitDurationHistogram = meter.createHistogram('edit.commits.duration', {
-  description: 'Commit operation duration',
-  unit: 'seconds'
-});
-
-// Usage
-operationCounter.add(1, {
-  operation: 'Add',
-  table_name: 'spf_modules',
-  status: 'success'
-});
-
-commitDurationHistogram.record(duration, {
-  status: success ? 'success' : 'failure'
-});
-```
-
----
-
-## 10) Security & Compliance
-
-### Validation Strategy
-
-#### DTO Validation (API Layer)
-```typescript
-export class CommitSessionDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
-  commitMessage: string;
-
-  @IsOptional()
-  @IsBoolean()
-  forceCommit?: boolean;  // Admin override for conflicts
-}
-```
-
-#### Domain Validation (Core Layer)
-```typescript
-export class EditSession {
-  commit(commitMessage: string): void {
-    // Domain invariants
-    if (this.status !== 'Active') {
-      throw new DomainException('Cannot commit non-active session');
-    }
-
-    if (this.hasUnstagedChanges()) {
-      throw new DomainException('Cannot commit with unstaged changes');
-    }
-
-    if (!commitMessage || commitMessage.trim().length === 0) {
-      throw new DomainException('Commit message is required');
-    }
-
-    this.status = 'Committed';
-    this.commitText = commitMessage;
-    this.releasedAt = new Date();
+    await this.queryRunner.commitTransaction();
+  } catch (err) {
+    await this.queryRunner.rollbackTransaction();
+    throw err;
   }
 }
 ```
 
-### Input Sanitization
+### Undo/Redo Scenarios
 
-- **SQL Injection**: Prevented by TypeORM parameterized queries
-- **XSS**: Not applicable (JSON API, no HTML rendering)
-- **Command Injection**: Not applicable (no shell commands from user input)
-- **Path Traversal**: Not applicable (no file system access from user input)
+#### Scenario A: Multiple calibration versions, then undo
 
-### Authentication & Authorization
+```
+After three updates to module M's calibration:
+  C4 | system_id=8388613 | UPDATE | cal v1 | valid_until=T1  (superseded)
+  C5 | system_id=8388613 | UPDATE | cal v2 | valid_until=T2  (superseded)
+  C6 | system_id=8388613 | UPDATE | cal v3 | valid_until=NULL (current)
 
-- **Authentication**: JWT-based (existing auth module)
-- **Authorization**: Role-based access control (future enhancement)
-- **Session Ownership**: Users can only access their own sessions
+Client undoes → POST /activate-change { changeId: C5 }
+  → C6.valid_until = NOW()
+  → C5.valid_until = NULL  (current — cal v2)
+
+Client redoes → POST /activate-change { changeId: C6 }
+  → C5.valid_until = NOW()
+  → C6.valid_until = NULL  (current — cal v3)
+```
+
+#### Scenario B: Undo an ADD (entity disappears)
+
+```
+C1 | system_id=8388613 | CREATE | {module M} | valid_until=NULL
+
+Client undoes → POST /deactivate-change { changeId: C1 }
+  → C1.valid_until = NOW()  (no current version → entity absent from overlay)
+
+Client redoes → POST /activate-change { changeId: C1 }
+  → C1.valid_until = NULL  (entity reappears)
+```
 
 ---
 
-## 11) Performance & Scalability
+## 10) Performance
+
+### SQLite Optimizations
+
+```typescript
+// Enable WAL mode at startup for concurrent reads during writes
+await dataSource.query('PRAGMA journal_mode=WAL');
+await dataSource.query('PRAGMA synchronous=NORMAL');
+```
 
 ### Bottleneck Analysis
 
-#### 1. Database Write Patterns
-**Bottleneck**: SQLite single-writer limitation
-- **Current Load**: <10 writes/second per project
-- **Capacity**: ~1000 writes/second (SQLite limit)
-- **Mitigation**:
-  - Batch edit actions where possible
-  - Use WAL mode (Write-Ahead Logging) for better concurrency
-  - Future: Migrate to PostgreSQL for true multi-writer support
-
-**Enable WAL Mode**:
-```typescript
-export const dataSourceProvider = {
-  provide: DataSource,
-  useFactory: async () => {
-    const dataSource = new DataSource({
-      type: 'sqlite',
-      database: getDatabasePath(),
-      // ... other options
-    });
-
-    await dataSource.initialize();
-
-    // Enable WAL mode for better concurrency
-    await dataSource.query('PRAGMA journal_mode=WAL');
-    await dataSource.query('PRAGMA synchronous=NORMAL');
-
-    return dataSource;
-  }
-};
-```
-
-#### 2. Read Overlay Performance
-**Bottleneck**: Scanning edit_actions table for every read
-- **Current**: O(n) scan where n = pending changes in session
-- **Typical n**: 10-100 (Designer), 1000+ (DiffMerge)
-- **Mitigation**:
-  - Cache pending changes per session
-  - Index on (session_uuid, system_id, table_name)
-  - Batch reads where possible
-
-### Capacity Planning
-
-**SQLite Limitations**:
-- Max database size: 281 TB (not a concern)
-- Max concurrent readers: Unlimited
-- Max concurrent writers: 1
-- Max row count: 2^64 (not a concern)
-
-**When to Migrate to PostgreSQL**:
-- **Trigger 1**: >20 concurrent editors per project
-- **Trigger 2**: Write contention causing >1s latency
-- **Trigger 3**: Need for advanced features (full-text search, JSON queries)
+| Bottleneck | Mitigation |
+|-----------|-----------|
+| SQLite single-writer | WAL mode; batch inserts at commit |
+| Read overlay (scanning edit_actions) | `idx_edit_actions_agg_active` for aggregate-scoped reads |
+| Commit (bulk inserts) | Reserve ID block upfront; build object graph in memory; single transaction |
+| ID generation | In-memory block; no DB call per entity |
 
 ---
 
-## 12) Risks & Trade-offs
+## 11) Architecture Decision Records (ADRs)
 
-### Decision Records (ADRs)
+### ADR-001: `project_sessions` + `session_commits` (Two-Table Model)
 
-**ADR-001: Use Optimistic Locking for Concurrency Control**
+**Decision**: `project_sessions` tracks session lifecycle (one per `start-session`). `session_commits` tracks commit history (one per `commit-changes`). `edit_actions` FK to `project_sessions`.
 
-**Context**: Multiple users may edit the same project simultaneously.
-
-**Decision**: Use optimistic locking with version numbers. Detect conflicts at commit time.
-
-**Rationale**:
-- Allows concurrent editing without blocking
-- Simpler than pessimistic locking
-- Aligns with stateless API design
-- Users explicitly commit, so conflict detection at commit time is acceptable
-
-**Consequences**:
-- Users may encounter version conflicts
-- Need clear UX for conflict resolution
-- Requires version column on all entity tables
+**Rationale**: Maps directly to the API (`start-session` / `end-session` / `commit-changes`). Clean separation: session lifecycle vs. commit audit log. Future mode-specific tables (e.g., `diff_results` for DIFF_MERGE) FK to `project_sessions`.
 
 **Status**: Accepted
 
 ---
 
-**ADR-002: Aggregate-Specific Repositories + Common Service**
+### ADR-002: Explicit Session Start
 
-**Context**: Need to track pending changes with domain knowledge while avoiding code duplication.
+**Decision**: Editing requires an explicit `POST /start-session?mode=...`. No auto-creation on first edit.
 
-**Decision**: Create aggregate-specific edit repositories (ModuleEditRepository, SubgraphEditRepository) that use a common EditActionsService for database operations.
-
-**Rationale**:
-- **Domain-focused**: Each aggregate has its own repository with domain knowledge
-- **Clear boundaries**: Respects aggregate roots
-- **Maintainable**: Changes to one aggregate don't affect others
-- **Testable**: Can test each aggregate's edit logic independently
-- **Reusable**: Common service handles the actual DB writes
-
-**Consequences**:
-- More repository classes (one per aggregate)
-- Clear separation between domain logic and infrastructure
-- EditActionsService created inside UoW with shared QueryRunner
+**Rationale**: Mode must be known before any edit operation (for mode validation). Implicit creation would require inferring the mode from the operation, which is ambiguous.
 
 **Status**: Accepted
 
 ---
 
-**ADR-003: GUID-Based SystemId Strategy for Pending Entities**
+### ADR-003: Optimistic Locking via `base_version`
 
-**Context**: Need to assign systemIds to new entities during edit mode without database round-trips or ID reservation.
+**Decision**: Capture `baseVersion` on first Update/Delete per entity per session. Compare at commit time.
 
-**Decision**: Use GUID (UUID v4) for `system_id` in `edit_actions` table; map to auto-generated integer IDs at commit time.
-
-**Rationale**:
-- **No Concurrency Issues**: Multiple users can generate GUIDs independently without conflicts
-- **No ID Reservation**: Eliminates need for pre-allocating ID ranges or locking mechanisms
-- **Clean Separation**: Pending entities (GUIDs) clearly distinguished from committed entities (integers)
-- **Cross-References**: Pending entities can reference each other via GUIDs before commit
-
-**Consequences**:
-- `edit_actions.system_id` must be VARCHAR(36) instead of INTEGER
-- Commit orchestrator must build and apply GUID→Integer mapping
-- Dependent entities must be updated with mapped IDs
+**Consequences**: All entity tables require a `version` column (INTEGER, incremented on each UPDATE).
 
 **Status**: Accepted
 
 ---
 
-**ADR-004: Implicit Session Management**
+### ADR-004: `aggregate_id` Column on `edit_actions`
 
-**Context**: Need to manage edit sessions without requiring clients to create, store, or manage session IDs.
+**Decision**: Add `aggregate_id` alongside `system_id`.
 
-**Decision**: Backend automatically creates and manages sessions using `userId` (from JWT) + `projectId` as the session identifier.
-
-**Rationale**:
-- **Simplified Client Logic**: Clients don't need session management code
-- **Stateless API**: Session state stored in database, not in-memory
-- **Multi-Client Support**: Same user with multiple clients automatically share the same session
-- **Automatic Lifecycle**: Session created on first edit, reused for subsequent edits
-
-**Consequences**:
-- Backend must implement `getOrCreateSession(userId, projectId)` logic
-- One active session per user per project (enforced by unique constraint)
-- Session ID returned in response headers for informational purposes only
+**Rationale**: Enables efficient "fetch all changes for this aggregate" queries without scanning payload JSON. Critical for read overlay of nested entities (e.g., module properties).
 
 **Status**: Accepted
 
 ---
 
-## 13) Citations
+### ADR-005: Forward-Compatible Multi-User Design
 
-### Official Documentation References
+**Decision**: Include `user_id` on `project_sessions` and a partial unique index on `(file_system_id) WHERE status = 'ACTIVE'`. In the current phase, `user_id` is NULL and the index enforces one active session per file.
 
-1. **NestJS**:
-   - CQRS Module: https://docs.nestjs.com/recipes/cqrs
-   - Guards & Middleware: https://docs.nestjs.com/guards
-   - Exception Filters: https://docs.nestjs.com/exception-filters
+**Future behavior**: When multi-user is implemented, `user_id` will be populated and the index updated to `(file_system_id, user_id) WHERE status = 'ACTIVE'` — enforcing per-user isolation without a data migration.
 
-2. **TypeORM**:
-   - Transactions: https://typeorm.io/transactions
-   - Entity Schemas: https://typeorm.io/entity-schema
-   - Query Builder: https://typeorm.io/select-query-builder
-
-3. **HTTP Standards**:
-   - RFC 9110 (HTTP Semantics): https://www.rfc-editor.org/rfc/rfc9110.html
-   - RFC 7231 (HTTP/1.1): https://www.rfc-editor.org/rfc/rfc7231.html
-
-4. **Architecture Patterns**:
-   - Twelve-Factor App: https://12factor.net/
-   - Domain-Driven Design (Evans): ISBN 0-321-12521-5
-   - Implementing Domain-Driven Design (Vernon): ISBN 978-0-321-83457-7
-
-5. **Observability**:
-   - OpenTelemetry: https://opentelemetry.io/docs/
-   - OpenTelemetry JavaScript: https://opentelemetry.io/docs/instrumentation/js/
-
-6. **Node.js**:
-   - Worker Threads: https://nodejs.org/api/worker_threads.html
-   - Performance Hooks: https://nodejs.org/api/perf_hooks.html
-
-### Pragmatic Recommendations
-
-The following design decisions are based on practical experience and industry best practices:
-
-- **Optimistic Locking**: Widely used pattern for collaborative editing systems
-- **Read Overlay Pattern**: Common in event-sourced systems for query optimization
-- **Staged Workflow**: Inspired by Git's staging area concept
-- **Aggregate-Specific Repositories**: DDD best practice for maintaining aggregate boundaries
+**Status**: Accepted
 
 ---
 
-## Document Revision History
+### ADR-006: `auto-create-usecases` as Separate API
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2025-12-15 | Architecture Team | Initial HLD for Modification Framework |
-| 2.0 | 2025-12-18 | Architecture Team | Consolidated design with UoW integration, Partial<T> strategy, OpenTelemetry metrics |
+**Decision**: Usecase generation is a separate explicit `POST /auto-create-usecases` call, not embedded in the commit flow.
+
+**Rationale**: Client controls when to run the algorithm; generated usecases are inserted as UNSTAGED for user review; decouples routing logic from commit atomicity.
+
+**Status**: Accepted
 
 ---
 
-**End of Document**
+### ADR-007: Client-Managed Undo/Redo Stack
+
+**Decision**: The server stores all versions of pending changes (via `valid_until`) but does not maintain an undo/redo stack. The client tracks `change_id` values and calls `/activate-change` or `/deactivate-change` to navigate history.
+
+**Rationale**: Keeps the server stateless with respect to undo/redo position. The client can reconstruct its stack from the version history on crash recovery.
+
+**Status**: Accepted
+
+---
+
+## 12) Citations
+
+| Reference | Used For |
+|-----------|---------|
+| NestJS docs — Guards | `SessionModeGuard` implementation |
+| NestJS docs — CQRS Module | Command/query bus patterns |
+| TypeORM docs — Transactions, QueryRunner | Unit of Work, commit orchestration |
+| RFC 9110 (HTTP Semantics) | Status codes |
+| Twelve-Factor App | Environment-driven config; stateless processes |
+| OWASP Top 10 | Input validation, injection prevention |
+
+---
+
+*End of Document*
