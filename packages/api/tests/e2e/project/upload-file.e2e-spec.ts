@@ -144,8 +144,8 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
       expect(componentsResponse.body.data.length).toBe(1);
 
       const componentsData = componentsResponse.body.data[0];
-      expect(componentsData.moduleInstances).toBeDefined();
-      expect(Array.isArray(componentsData.moduleInstances)).toBe(true);
+      expect(componentsData.spfModules).toBeDefined();
+      expect(Array.isArray(componentsData.spfModules)).toBe(true);
       expect(componentsData.dataLinks).toBeDefined();
       expect(Array.isArray(componentsData.dataLinks)).toBe(true);
       expect(componentsData.controlLinks).toBeDefined();
@@ -156,13 +156,13 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
       // Write components summary to file
       const componentsSummary = [
         `Components for usecase ${randomUsecaseSystemId}:`,
-        `Module instances: ${componentsData.moduleInstances.length}`,
+        `Module instances: ${componentsData.spfModules.length}`,
         `Data links: ${componentsData.dataLinks.length}`,
         `Control links: ${componentsData.controlLinks.length}`,
         `Subsystems: ${componentsData.subsystems.length}`,
         '',
         'Module instances details:',
-        ...componentsData.moduleInstances.map(
+        ...componentsData.spfModules.map(
           (module: any) =>
             `  - ${module.systemId}: ${module.name || 'Unnamed'} (Definition: ${module.moduleId})`,
         ),
