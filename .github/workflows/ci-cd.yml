@@ -96,8 +96,8 @@ jobs:
         id: test
         run: |
           echo "🧪 Running tests..."
-          yarn turbo run coverage:workspace || echo "⚠️ Tests failed or not configured"
-        continue-on-error: true
+          yarn turbo run coverage:workspace
+        continue-on-error: false
 
       - name: 📊 Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -122,8 +122,8 @@ jobs:
         if: steps.test.outcome != 'skipped'
         run: |
           echo "📊 Generating Coverage report..."
-          yarn turbo run coverage:workspace || echo "⚠️ Coverage generation failed"
-        continue-on-error: true
+          yarn turbo run coverage:workspace
+        continue-on-error: false
 
       - name: 📤 Upload Coverage Artifacts
         uses: actions/upload-artifact@v4
