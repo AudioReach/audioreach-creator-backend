@@ -4,14 +4,16 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, ArrayMaxSize} from 'class-validator';
+import {IsArray} from 'class-validator';
 import {BaseComponentDto} from '../../../common/dto/base-component.dto.js';
-import {KeyValuePairsInfo, KeyValueInfo} from '../../../common/dto/kv.dto.js';
+import {BaseDto} from '../../../common/dto/base.dto.js';
+import {
+  KeyValuePairsInfo,
+  KeyValueInfo,
+  SubsystemFilteredKeyValuePairsInfo,
+} from '../../../common/dto/kv.dto.js';
 import {EndPointLink, ModificationAction} from '../../../common/utils/index.js';
-import {SubsystemDto} from '../../subsystem/dto/subsystem.dto.js';
-import {SpfModuleDto} from '../../spf-module/dto/shared/spf-module.dto.js';
-import {DataLinkDto} from '../../data-link/dto/data-link.dto.js';
-import {ControlLinkDto} from '../../control-link/dto/control-link.dto.js';
+import {ComponentCollectionDto} from '../../../common/dto/component-collection.dto.js';
 
 /**
  * TypeScript interface for equality comparison
@@ -26,13 +28,19 @@ export enum UsecaseType {
   Manual = 'Manual',
 }
 
-export enum ComponentsTypeInUsecase {
-  TopLevel = 'TopLevelComponents', //only top level components and links of a usecase. If a subsystem is included, its internal components are not returned.
-  LowLevelComponents = 'LowLevelComponents', //only modules and links of a usecase.
-  AllComponents = 'AllComponents', //all components of a usecase, including subystem and its internal componnents (even nested subsystem and its internal components)
-}
+export class UsecaseIdentifierDto extends BaseDto {
+  @ApiProperty({
+    description: 'System identifier of the usecase',
+    type: String,
+  })
+  systemId!: string;
 
-export class UsecaseIdentifier extends KeyValuePairsInfo {
+  @ApiProperty({
+    description: 'Collection of key-value pairs',
+    type: [KeyValueInfo],
+  })
+  readonly keyValueCollection: ReadonlyArray<KeyValueInfo>;
+
   @ApiProperty({
     description: 'Optional alias identifier for the usecase',
     type: Number,
@@ -75,9 +83,10 @@ export class UsecaseIdentifier extends KeyValuePairsInfo {
     aliasName?: string,
     category?: string,
   ) {
-    super(kvInfo.keyValueCollection as KeyValueInfo[]);
-    this.usecaseType = useCaseType;
+    super();
     this.systemId = systemId;
+    this.keyValueCollection = kvInfo.keyValueCollection;
+    this.usecaseType = useCaseType;
     this.usecaseAliasId = aliasId;
     this.usecaseAliasName = aliasName;
     this.usecaseCategory = category;
@@ -90,89 +99,60 @@ export class UsecaseIdentifier extends KeyValuePairsInfo {
   }
 }
 
-export class UsecaseDto {
+/**
+ * Simple DTO for usecase response.
+ * Extends UsecaseIdentifierDto to provide a DTO wrapper for the /usecases endpoint.
+ */
+export class UsecaseDto extends UsecaseIdentifierDto {
+  // Inherits all properties from UsecaseIdentifierDto
+  // Additional response-specific fields can be added here if needed in the future
+}
+
+/**
+ * DTO for subsystem-filtered usecases.
+ * Used by the /usecases/filtered-by-subsystem endpoint.
+ * Contains subsystem-filtered key-value information and an array of usecase identifiers that match the filter.
+ */
+export class SubsystemFilteredUsecasesDto {
   @ApiProperty({
-    description:
-      'Indicates whether this usecase has subsystem filtering applied. ' +
-      'false = No FilteredKV (null). All UsecaseIdentifiers without subsystem are grouped together.' +
-      'true = Has a FilteredKV. All UsecaseIdentifiers filtered by this FilteredKV are grouped together',
-    type: Boolean,
+    description: 'Subsystem-filtered key-value information',
+    type: SubsystemFilteredKeyValuePairsInfo,
   })
+  readonly filteredKv: SubsystemFilteredKeyValuePairsInfo;
+
   @ApiProperty({
-    description: 'Array of usecase identifiers. ',
-    type: [UsecaseIdentifier],
+    description: 'Array of usecase identifiers that match the subsystem filter',
+    type: [UsecaseIdentifierDto],
   })
   @IsArray()
-  @ArrayMaxSize(1)
-  readonly usecases: UsecaseIdentifier[];
+  readonly usecases: UsecaseIdentifierDto[];
 
   /**
-   * Constructor for raw GKV scenario (no subsystem filtering)
-   * @param rawUsecase Single usecase identifier representing the raw GKV
-   */
-  constructor(rawUsecase: UsecaseIdentifier);
-
-  /**
-   * Constructor for filtered GKV scenario (subsystem filtering applied)
-   * @param systemId System identifier for the filtered KV
+   * Constructor for subsystem-filtered usecases
    * @param filteredKv Subsystem filtered key-value information
    * @param usecases List of raw GKVs under the filtered GKV
    */
   constructor(
-    systemId: string,
-    filteredKv: KeyValuePairsInfo,
-    usecases: UsecaseIdentifier[],
-  );
-
-  constructor(
-    rawUsecaseOrSystemId: UsecaseIdentifier | string,
-    filteredKv?: KeyValuePairsInfo,
-    usecases?: UsecaseIdentifier[],
+    filteredKv: SubsystemFilteredKeyValuePairsInfo,
+    usecases: UsecaseIdentifierDto[],
   ) {
-    if (typeof rawUsecaseOrSystemId === 'string') {
-      // Filtered GKV scenario (Scenario 2)
-      if (!filteredKv || !usecases) {
-        throw new Error(
-          'filteredKv and usecases are required for filtered scenario',
-        );
-      }
-      this.usecases = usecases;
-    } else {
-      // Raw GKV scenario (Scenario 1)
-      this.usecases = [rawUsecaseOrSystemId];
-    }
-  }
-
-  /**
-   * Static factory method for creating raw GKV response
-   */
-  static createRawGKVResponse(usecase: UsecaseIdentifier): UsecaseDto {
-    return new UsecaseDto(usecase);
-  }
-
-  /**
-   * Static factory method for creating filtered GKV response
-   */
-  static createFilteredGKVResponse(
-    systemId: string,
-    filteredKv: KeyValuePairsInfo,
-    usecases: UsecaseIdentifier[],
-  ): UsecaseDto {
-    return new UsecaseDto(systemId, filteredKv, usecases);
+    this.filteredKv = filteredKv;
+    this.usecases = usecases;
   }
 
   /**
    * Validates the data integrity of the DTO
-   * Ensures that when isFiltered is false, filteredKV is null and usecases has exactly one item
-   * Ensures that when isFiltered is true, filteredKV is not null and usecases has at least one item
+   * Ensures that filteredKv is not null and usecases has at least one item
    */
   validate(): {isValid: boolean; errors: string[]} {
     const errors: string[] = [];
 
-    if (this.usecases.length === 0) {
-      errors.push(
-        'usecases array must contain at least one item when isFiltered is true',
-      );
+    if (!this.filteredKv) {
+      errors.push('filteredKv is required');
+    }
+
+    if (!this.usecases || this.usecases.length === 0) {
+      errors.push('usecases array must contain at least one item');
     }
 
     return {
@@ -188,7 +168,7 @@ export class UsecaseDto {
     const validation = this.validate();
     if (!validation.isValid) {
       throw new Error(
-        `SubsystemFilteredUsecase validation failed: ${validation.errors.join(', ')}`,
+        `SubsystemFilteredUsecasesDto validation failed: ${validation.errors.join(', ')}`,
       );
     }
   }
@@ -201,9 +181,9 @@ export class UsecaseDto {
 export class UsecaseWithComponents {
   @ApiProperty({
     description: 'Usecase identifier information',
-    type: UsecaseIdentifier,
+    type: UsecaseIdentifierDto,
   })
-  readonly usecaseIdentifier: UsecaseIdentifier;
+  readonly usecaseIdentifier: UsecaseIdentifierDto;
 
   @ApiProperty({
     description: 'Array of components in the usecase',
@@ -211,7 +191,7 @@ export class UsecaseWithComponents {
   })
   components: BaseComponentDto<number>[] = [];
 
-  constructor(usecaseId: UsecaseIdentifier) {
+  constructor(usecaseId: UsecaseIdentifierDto) {
     this.usecaseIdentifier = usecaseId;
   }
 }
@@ -247,40 +227,27 @@ export class UsecaseWithModificationSummary {
 }
 
 /**
- * DTO containing all components of a usecase organized by type
+ * DTO for usecase components API response.
+ * Contains usecase identifiers and their associated component collection.
  */
 export class UsecaseComponentsDto {
   @ApiProperty({
-    description: 'Usecase identifier information',
-    type: UsecaseIdentifier,
+    description: 'Array of usecase identifiers that these components belong to',
+    type: [UsecaseIdentifierDto],
   })
-  readonly usecaseIdentifier: UsecaseIdentifier;
+  usecaseIdentifiers: UsecaseIdentifierDto[];
 
   @ApiProperty({
-    description: 'List of subsystems in the usecase',
-    type: [SubsystemDto],
+    description: 'Collection of all components for the specified usecases',
+    type: ComponentCollectionDto,
   })
-  subsystems!: SubsystemDto[];
+  components: ComponentCollectionDto;
 
-  @ApiProperty({
-    description: 'List of module instances in the usecase',
-    type: [SpfModuleDto],
-  })
-  spfModules!: SpfModuleDto[];
-
-  @ApiProperty({
-    description: 'List of data links in the usecase',
-    type: [DataLinkDto],
-  })
-  dataLinks!: DataLinkDto[];
-
-  @ApiProperty({
-    description: 'List of control links in the usecase',
-    type: [ControlLinkDto],
-  })
-  controlLinks!: ControlLinkDto[];
-
-  constructor(usecaseId: UsecaseIdentifier) {
-    this.usecaseIdentifier = usecaseId;
+  constructor(
+    usecaseIdentifiers: UsecaseIdentifierDto[],
+    components: ComponentCollectionDto,
+  ) {
+    this.usecaseIdentifiers = usecaseIdentifiers;
+    this.components = components;
   }
 }

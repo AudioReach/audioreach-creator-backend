@@ -99,3 +99,21 @@ export class KeyValuePairsInfo {
     this.systemId = '';
   }
 }
+
+/**
+ * Specialized version of KeyValuePairsInfo without systemId property.
+ * Used for subsystem-filtered key-value pairs where systemId is not applicable.
+ */
+export class SubsystemFilteredKeyValuePairsInfo {
+  @ApiProperty({
+    description: 'Collection of key-value pairs',
+    type: [KeyValueInfo],
+  })
+  readonly keyValueCollection: ReadonlyArray<KeyValueInfo>;
+
+  constructor();
+  constructor(keyValueInfo: KeyValueInfo[]);
+  constructor(keyValueInfo?: KeyValueInfo[]) {
+    this.keyValueCollection = keyValueInfo ? [...keyValueInfo] : [];
+  }
+}

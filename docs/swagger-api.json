@@ -1973,7 +1973,7 @@
     },
     "/arc-api/v1/projects/{projectId}/usecases": {
       "get": {
-        "description": "Returns array of usecases in a unified format that handles two scenarios:\n\n**Scenario 1 (isFiltered=false):** No subsystem present\n- `isFiltered`: false\n- `filteredKV`: null\n- `usecases`: all UsecaseIdentifiers without subsystem filtered\n\n**Scenario 2 (isFiltered=true):** Subsystem present with filtered KV\n- `isFiltered`: true\n- `filteredKV`: Contains the subsystem filtered key-value\n- `usecases`: Array of UsecaseIdentifiers filtered by the filtered GKV\n\nEach response item uses the `isFiltered` boolean flag to indicate which scenario applies.",
+        "description": "Returns array of usecases with raw GKV (Graph Key-Value) information.\n\n**Response Structure:**\nEach response item contains:\n- `usecases`: Array containing a single UsecaseIdentifierDto with complete raw GKV\n\n**For subsystem-filtered usecases:**\n- Use the `/usecases/filtered-by-subsystem` endpoint instead\n\n**Optional Filtering:**\nYou can optionally filter usecases using the `filter` query parameter. The filter supports:\n- `spfModuleInstanceId`: Filter by SPF module natural instance IDs\n- `subgraphId`: Filter by subgraph system IDs\n- `containerId`: Filter by container system IDs\n- Operators: Use `AND`, `OR`, and parentheses for complex filtering\n\nSee the filter parameter documentation for detailed examples and usage.",
         "operationId": "UseCaseController_getAllUsecases",
         "parameters": [
           {
@@ -1985,11 +1985,21 @@
               "example": "12345",
               "type": "string"
             }
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "description": "Filter expression to filter usecases. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `field:value`\n- AND operator: `field1:value1 AND field2:value2`\n- OR operator: `field1:value1 OR field1:value2`\n- Parentheses for grouping: `field1:value1 AND (field2:value2 OR field2:value3)`\n\n**Valid Fields:**\n- `spfModuleInstanceId`: SPF Module natural instance ID\n- `subgraphId`: Subgraph system ID\n- `containerId`: Container system ID\n\n**Value Formats:**\n- Hexadecimal: `0x7656`\n- Decimal: `30294`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single condition: `spfModuleInstanceId:0x7656`\n- OR operator: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657`\n- AND operator: `spfModuleInstanceId:0x7656 AND subgraphId:0x8978`\n- Complex with parentheses: `spfModuleInstanceId:0x7656 AND (containerId:0x8976 OR containerId:0x9877)`\n- Multiple ANDs: `spfModuleInstanceId:0x7656 AND subgraphId:0x8978 AND containerId:0x8976`\n- Multiple ORs: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657 OR spfModuleInstanceId:0x7658`\n\n**Note:** Comma-separated values are NOT supported. Use explicit OR operator instead.",
+            "schema": {
+              "example": "spfModuleInstanceId:0x7656 AND subgraphId:0x8978",
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Use cases are returned successfully with scenario indicators",
+            "description": "Usecases returned successfully with raw GKV information",
             "content": {
               "application/json": {
                 "schema": {
@@ -2014,165 +2024,105 @@
                     "value": [
                       [
                         {
-                          "usecases": [
+                          "systemId": "1",
+                          "keyValueCollection": [
                             {
-                              "keyValueCollection": [
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2701131776,
-                                    "keyLabel": "StreamRX",
-                                    "keySystemId": "sys7"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2701131777,
-                                    "valueLabel": "PCM_Deep_Buffer",
-                                    "valueSystemId": "val7"
-                                  }
-                                },
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2885681152,
-                                    "keyLabel": "DevicePP_Rx",
-                                    "keySystemId": "sys8"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2885681154,
-                                    "valueLabel": "Audio_MBDRC",
-                                    "valueSystemId": "val8"
-                                  }
-                                },
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2717908992,
-                                    "keyLabel": "DeviceRX",
-                                    "keySystemId": "sys9"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2717908993,
-                                    "valueLabel": "Speaker",
-                                    "valueSystemId": "val9"
-                                  }
-                                }
-                              ],
-                              "systemId": "1",
-                              "usecaseAliasId": 101,
-                              "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                              "usecaseCategory": "default",
-                              "usecaseType": "Regular",
-                              "relatedEndPointLinks": [
-                                {
-                                  "hypertextRef": "/usecases/components/get",
-                                  "method": "POST",
-                                  "description": "Get all components of usecase."
-                                }
-                              ]
+                              "keyInfo": {
+                                "keyId": 2701131776,
+                                "keyLabel": "StreamRX",
+                                "keySystemId": "sys7"
+                              },
+                              "valueInfo": {
+                                "valueId": 2701131777,
+                                "valueLabel": "PCM_Deep_Buffer",
+                                "valueSystemId": "val7"
+                              }
+                            },
+                            {
+                              "keyInfo": {
+                                "keyId": 2885681152,
+                                "keyLabel": "DevicePP_Rx",
+                                "keySystemId": "sys8"
+                              },
+                              "valueInfo": {
+                                "valueId": 2885681154,
+                                "valueLabel": "Audio_MBDRC",
+                                "valueSystemId": "val8"
+                              }
+                            },
+                            {
+                              "keyInfo": {
+                                "keyId": 2717908992,
+                                "keyLabel": "DeviceRX",
+                                "keySystemId": "sys9"
+                              },
+                              "valueInfo": {
+                                "valueId": 2717908993,
+                                "valueLabel": "Speaker",
+                                "valueSystemId": "val9"
+                              }
+                            }
+                          ],
+                          "usecaseAliasId": 101,
+                          "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                          "usecaseCategory": "default",
+                          "usecaseType": "Regular",
+                          "relatedEndPointLinks": [
+                            {
+                              "hypertextRef": "/usecases/components/get",
+                              "method": "POST",
+                              "description": "Get all components of usecase."
                             }
                           ]
                         },
                         {
-                          "usecases": [
+                          "systemId": "2",
+                          "keyValueCollection": [
                             {
-                              "keyValueCollection": [
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2701131776,
-                                    "keyLabel": "StreamRX",
-                                    "keySystemId": "sys7"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2701131777,
-                                    "valueLabel": "PCM_Deep_Buffer",
-                                    "valueSystemId": "val7"
-                                  }
-                                },
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2885681152,
-                                    "keyLabel": "DevicePP_Rx",
-                                    "keySystemId": "sys8"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2885681154,
-                                    "valueLabel": "Audio_MBDRC",
-                                    "valueSystemId": "val8"
-                                  }
-                                },
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2717908992,
-                                    "keyLabel": "DeviceRX",
-                                    "keySystemId": "sys9"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2717908993,
-                                    "valueLabel": "Speaker",
-                                    "valueSystemId": "val9"
-                                  }
-                                }
-                              ],
-                              "systemId": "1",
-                              "usecaseAliasId": 101,
-                              "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                              "usecaseCategory": "default",
-                              "usecaseType": "Regular",
-                              "relatedEndPointLinks": [
-                                {
-                                  "hypertextRef": "/usecases/components/get",
-                                  "method": "POST",
-                                  "description": "Get all components of usecase."
-                                }
-                              ]
+                              "keyInfo": {
+                                "keyId": 2701131776,
+                                "keyLabel": "StreamRX",
+                                "keySystemId": "sys10"
+                              },
+                              "valueInfo": {
+                                "valueId": 2701131791,
+                                "valueLabel": "PCM_Offload",
+                                "valueSystemId": "val10"
+                              }
                             },
                             {
-                              "keyValueCollection": [
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2701131776,
-                                    "keyLabel": "StreamRX",
-                                    "keySystemId": "sys10"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2701131791,
-                                    "valueLabel": "PCM_Offload",
-                                    "valueSystemId": "val10"
-                                  }
-                                },
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2885681152,
-                                    "keyLabel": "DevicePP_Rx",
-                                    "keySystemId": "sys11"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2885681154,
-                                    "valueLabel": "Audio_MBDRC",
-                                    "valueSystemId": "val11"
-                                  }
-                                },
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2717908992,
-                                    "keyLabel": "DeviceRX",
-                                    "keySystemId": "sys12"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 2717908993,
-                                    "valueLabel": "Speaker",
-                                    "valueSystemId": "val12"
-                                  }
-                                }
-                              ],
-                              "systemId": "2",
-                              "usecaseAliasId": 102,
-                              "usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
-                              "usecaseType": "Regular",
-                              "relatedEndPointLinks": [
-                                {
-                                  "hypertextRef": "/usecases/components/get",
-                                  "method": "POST",
-                                  "description": "Get all components of usecase."
-                                }
-                              ]
+                              "keyInfo": {
+                                "keyId": 2885681152,
+                                "keyLabel": "DevicePP_Rx",
+                                "keySystemId": "sys11"
+                              },
+                              "valueInfo": {
+                                "valueId": 2885681154,
+                                "valueLabel": "Audio_MBDRC",
+                                "valueSystemId": "val11"
+                              }
+                            },
+                            {
+                              "keyInfo": {
+                                "keyId": 2717908992,
+                                "keyLabel": "DeviceRX",
+                                "keySystemId": "sys12"
+                              },
+                              "valueInfo": {
+                                "valueId": 2717908993,
+                                "valueLabel": "Speaker",
+                                "valueSystemId": "val12"
+                              }
+                            }
+                          ],
+                          "usecaseAliasId": 102,
+                          "usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
+                          "usecaseType": "Regular",
+                          "relatedEndPointLinks": [
+                            {
+                              "hypertextRef": "/usecases/components/get",
+                              "method": "POST",
+                              "description": "Get all components of usecase."
                             }
                           ]
                         }
@@ -2183,17 +2133,20 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid filter parameter"
+          },
           "404": {
             "description": "No use case is found"
           }
         },
-        "summary": "Get all usecases",
+        "summary": "Get all usecases with optional filtering",
         "tags": [
           "usecases"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/modificationsSummary": {
+    "/arc-api/v1/projects/{projectId}/usecases/modifications-summary": {
       "get": {
         "operationId": "UseCaseController_getUsecaseModificationSummary",
         "parameters": [
@@ -2243,10 +2196,10 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/getComponents": {
-      "post": {
-        "description": "For components shared in different usecases, only one copy will be returned.",
-        "operationId": "UseCaseController_getComponentsInUsecases",
+    "/arc-api/v1/projects/{projectId}/usecases/filtered-by-subsystem": {
+      "get": {
+        "description": "Returns usecases organized by subsystem hierarchy with filtered key-values.\n\nThis endpoint provides a hierarchical view where:\n- Each response item contains a subsystem-filtered key-value (filteredKV)\n- The usecases array contains all raw GKVs that match the filtered GKV\n- Usecases are organized by their subsystem relationships\n\n**Response Structure:**\n- `filteredKV`: The subsystem-filtered key-value information\n- `usecases`: Array of UsecaseIdentifierDto with raw GKVs matching the filtered GKV\n\n**Optional Filtering:**\nYou can optionally filter usecases using the `filter` query parameter. See the filter parameter documentation for detailed examples and usage.",
+        "operationId": "UseCaseController_getSubsystemFilteredUsecases",
         "parameters": [
           {
             "name": "projectId",
@@ -2259,16 +2212,214 @@
             }
           },
           {
-            "name": "contentsType",
+            "name": "filter",
             "required": false,
             "in": "query",
-            "description": "Type of contents to be returned. Optional. If not provided, default is TopLevelComponents.\n\n'TopLevelComponents' - only top level components and links of a usecase. If a subsystem is in top level, its internal components are not returned.\n\n'LowLevelComponents' - only modules and links of a usecase. No subystem and related links will be returned\n\n'AllComponents' - all components of a usecase, including subystem and its internal componnents (even nested subsystem and its internal components.",
+            "description": "Filter expression to filter usecases by subsystem ID. Supports natural query syntax with explicit operators.\n\n**Syntax:**\n- Single condition: `subsystemId:value`\n- AND operator: `subsystemId:value1 AND subsystemId:value2`\n- OR operator: `subsystemId:value1 OR subsystemId:value2`\n- Parentheses for grouping: `subsystemId:value1 AND (subsystemId:value2 OR subsystemId:value3)`\n\n**Valid Fields:**\n- `subsystemId`: Subsystem system ID (only field supported by this endpoint)\n\n**Value Formats:**\n- Hexadecimal: `0x1`\n- Decimal: `1`\n\n**Operators:**\n- `AND`: Both conditions must be true\n- `OR`: At least one condition must be true\n- Parentheses `()`: Group conditions for precedence control\n\n**Examples:**\n- Single subsystem: `subsystemId:0x1`\n- Multiple subsystems (OR): `subsystemId:0x1 OR subsystemId:0x2`\n- Multiple subsystems (AND): `subsystemId:0x1 AND subsystemId:0x2`\n- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n**Note:** \n- Comma-separated values are NOT supported. Use explicit OR operator instead.\n- For filtering by spfModuleInstanceId, subgraphId, or containerId, use the `/usecases` endpoint instead.",
             "schema": {
-              "enum": [
-                "TopLevelComponents",
-                "LowLevelComponents",
-                "AllComponents"
-              ],
+              "example": "subsystemId:0x1 OR subsystemId:0x2",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subsystem-filtered usecases returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubsystemFilteredUsecasesDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter parameter"
+          },
+          "404": {
+            "description": "No usecases found"
+          }
+        },
+        "summary": "Get subsystem-filtered usecases",
+        "tags": [
+          "usecases"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/usecases/data-link": {
+      "get": {
+        "description": "Returns all ACDB data links in the project where the specified component and port appear on either the source or destination end of the link, along with the usecases each link belongs to.\n\n**Link Type:**\n- Returns ACDB data links (direct connections)\n**Matching criteria:**\n- `sourceNodeSystemId == componentSystemId && sourcePortSystemId == portSystemId`, OR\n- `destinationNodeSystemId == componentSystemId && destinationPortSystemId == portSystemId`\n\n**Response shape per item:**\n- `link`: The matched data link\n- `usecases`: Array of usecases that this data link is part of",
+        "operationId": "UseCaseController_getDataLinksForComponentPort",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "componentSystemId",
+            "required": true,
+            "in": "query",
+            "description": "System ID of the component (module/node, NOT subsystem)",
+            "schema": {
+              "example": "123",
+              "type": "string"
+            }
+          },
+          {
+            "name": "portSystemId",
+            "required": true,
+            "in": "query",
+            "description": "System ID of the port on the component",
+            "schema": {
+              "example": "456",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ACDB data links with their usecases returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DataLinkWithUsecasesDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
+          },
+          "404": {
+            "description": "No data links found for the given component+port"
+          }
+        },
+        "summary": "Get ACDB data links for a component+port combination",
+        "tags": [
+          "usecases"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/usecases/control-link": {
+      "get": {
+        "description": "Returns all ACDB control links in the project where the specified component and port appear on either peer end (A or B) of the link, along with the usecases each link belongs to.\n\n**Link Type:**\n- Returns ACDB control links (direct connections)\n**Matching criteria:**\n- `peerNodeASystemId == componentSystemId && nodeAPortSystemId == portSystemId`, OR\n- `peerNodeBSystemId == componentSystemId && nodeBPortSystemId == portSystemId`\n\n**Response shape per item:**\n- `link`: The matched control link\n- `usecases`: Array of usecases that this control link is part of",
+        "operationId": "UseCaseController_getControlLinksForComponentPort",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "componentSystemId",
+            "required": true,
+            "in": "query",
+            "description": "System ID of the component (module/node, NOT subsystem)",
+            "schema": {
+              "example": "123",
+              "type": "string"
+            }
+          },
+          {
+            "name": "portSystemId",
+            "required": true,
+            "in": "query",
+            "description": "System ID of the port on the component",
+            "schema": {
+              "example": "456",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ACDB control links with their usecases returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkWithUsecasesDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
+          },
+          "404": {
+            "description": "No control links found for the given component+port"
+          }
+        },
+        "summary": "Get ACDB control links for a component+port combination",
+        "tags": [
+          "usecases"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/usecases/components/query": {
+      "post": {
+        "description": "**Read-only query operation** that returns components in flat structure.\n\n**Why POST?** Uses POST method to support large lists of usecase IDs that may exceed URL length limits (>2000 characters). This operation does not modify server state and is safe to retry.\n\n**Response Structure:**\n- Returns flat structure with all modules, data links, and control links\n- No subsystem hierarchy included\n\n**For hierarchical structure with subsystems:**\n- Use the `/components/query-with-subsystems` endpoint instead\n\n**Note:** For components shared across different usecases, only one copy will be returned.",
+        "operationId": "UseCaseController_queryUsecaseComponents",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
               "type": "string"
             }
           }
@@ -2324,220 +2475,202 @@
                   "default": {
                     "value": [
                       {
-                        "usecaseIdentifier": {
-                          "keyValueCollection": [
-                            {
-                              "keyInfo": {
-                                "keyId": 2701131776,
-                                "keyLabel": "StreamRX",
-                                "keySystemId": "sys7"
-                              },
-                              "valueInfo": {
-                                "valueId": 2701131777,
-                                "valueLabel": "PCM_Deep_Buffer",
-                                "valueSystemId": "val7"
-                              }
-                            },
-                            {
-                              "keyInfo": {
-                                "keyId": 2885681152,
-                                "keyLabel": "DevicePP_Rx",
-                                "keySystemId": "sys8"
-                              },
-                              "valueInfo": {
-                                "valueId": 2885681154,
-                                "valueLabel": "Audio_MBDRC",
-                                "valueSystemId": "val8"
-                              }
-                            },
-                            {
-                              "keyInfo": {
-                                "keyId": 2717908992,
-                                "keyLabel": "DeviceRX",
-                                "keySystemId": "sys9"
-                              },
-                              "valueInfo": {
-                                "valueId": 2717908993,
-                                "valueLabel": "Speaker",
-                                "valueSystemId": "val9"
-                              }
-                            }
-                          ],
-                          "systemId": "1",
-                          "usecaseAliasId": 101,
-                          "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
-                          "usecaseCategory": "default",
-                          "usecaseType": "Regular",
-                          "relatedEndPointLinks": [
-                            {
-                              "hypertextRef": "/usecases/components/get",
-                              "method": "POST",
-                              "description": "Get all components of usecase."
-                            }
-                          ]
-                        },
-                        "subsystems": [
+                        "usecaseIdentifiers": [
                           {
                             "systemId": "1",
-                            "id": 4027580417,
-                            "name": "Device_RX",
-                            "componentType": "Subsystem",
-                            "relatedEndPointLinks": [
+                            "keyValueCollection": [
                               {
-                                "hypertextRef": "/components/1/properties",
-                                "method": "GET",
-                                "description": "Get properties for a component."
+                                "keyInfo": {
+                                  "keyId": 2701131776,
+                                  "keyLabel": "StreamRX",
+                                  "keySystemId": "sys7"
+                                },
+                                "valueInfo": {
+                                  "valueId": 2701131777,
+                                  "valueLabel": "PCM_Deep_Buffer",
+                                  "valueSystemId": "val7"
+                                }
+                              },
+                              {
+                                "keyInfo": {
+                                  "keyId": 2885681152,
+                                  "keyLabel": "DevicePP_Rx",
+                                  "keySystemId": "sys8"
+                                },
+                                "valueInfo": {
+                                  "valueId": 2885681154,
+                                  "valueLabel": "Audio_MBDRC",
+                                  "valueSystemId": "val8"
+                                }
+                              },
+                              {
+                                "keyInfo": {
+                                  "keyId": 2717908992,
+                                  "keyLabel": "DeviceRX",
+                                  "keySystemId": "sys9"
+                                },
+                                "valueInfo": {
+                                  "valueId": 2717908993,
+                                  "valueLabel": "Speaker",
+                                  "valueSystemId": "val9"
+                                }
                               }
                             ],
-                            "filteredKeys": [
+                            "usecaseAliasId": 101,
+                            "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                            "usecaseCategory": "default",
+                            "usecaseType": "Regular",
+                            "relatedEndPointLinks": [
                               {
-                                "keyId": 2717908992,
-                                "keyLabel": "DeviceRX",
-                                "keySystemId": "1"
+                                "hypertextRef": "/usecases/components/get",
+                                "method": "POST",
+                                "description": "Get all components of usecase."
                               }
                             ]
                           }
                         ],
-                        "spfModules": [
-                          {
-                            "systemId": "1001",
-                            "id": 1001,
-                            "name": "PCM Decoder",
-                            "componentType": "Module",
-                            "relatedEndPointLinks": [
-                              {
-                                "hypertextRef": "/components/1001/properties",
-                                "method": "GET",
-                                "description": "Get properties for a component."
-                              }
-                            ],
-                            "dataPorts": [
-                              {
-                                "systemId": "2001",
-                                "id": 2001,
-                                "name": "Input",
-                                "relatedEndPointLinks": [],
-                                "portIoType": "Input",
-                                "portType": "Static"
-                              },
-                              {
-                                "systemId": "2002",
-                                "id": 2002,
-                                "name": "Output",
-                                "relatedEndPointLinks": [],
-                                "portIoType": "Output",
-                                "portType": "Static"
-                              }
-                            ],
-                            "controlPorts": [
-                              {
-                                "systemId": "3001",
-                                "id": 3001,
-                                "relatedEndPointLinks": [],
-                                "portType": "Static",
-                                "controlPortName": "Control",
-                                "intents": []
-                              }
-                            ],
-                            "alias": "PCM_Decoder_1",
-                            "moduleId": 117506309,
-                            "subgraphId": 501,
-                            "containerId": 601,
-                            "maxInputPortsSupported": 2,
-                            "maxOutputPortsSupported": 2,
-                            "maxControlPortsSupported": 1,
-                            "heapId": 1
-                          },
-                          {
-                            "systemId": "1002",
-                            "id": 1002,
-                            "name": "Audio MBDRC",
-                            "componentType": "Module",
-                            "relatedEndPointLinks": [
-                              {
-                                "hypertextRef": "/components/1002/properties",
-                                "method": "GET",
-                                "description": "Get properties for a component."
-                              }
-                            ],
-                            "dataPorts": [
-                              {
-                                "systemId": "2003",
-                                "id": 2003,
-                                "name": "Input",
-                                "relatedEndPointLinks": [],
-                                "portIoType": "Input",
-                                "portType": "Static"
-                              },
-                              {
-                                "systemId": "2004",
-                                "id": 2004,
-                                "name": "Output",
-                                "relatedEndPointLinks": [],
-                                "portIoType": "Output",
-                                "portType": "Static"
-                              }
-                            ],
-                            "controlPorts": [
-                              {
-                                "systemId": "3002",
-                                "id": 3002,
-                                "relatedEndPointLinks": [],
-                                "portType": "Static",
-                                "controlPortName": "Control",
-                                "intents": []
-                              },
-                              {
-                                "systemId": "3003",
-                                "id": 3003,
-                                "relatedEndPointLinks": [],
-                                "portType": "Static",
-                                "controlPortName": "Control",
-                                "intents": []
-                              }
-                            ],
-                            "alias": "Audio_MBDRC_1",
-                            "moduleId": 117506310,
-                            "subgraphId": 501,
-                            "containerId": 601,
-                            "maxInputPortsSupported": 1,
-                            "maxOutputPortsSupported": 1,
-                            "maxControlPortsSupported": 2,
-                            "heapId": 1
-                          }
-                        ],
-                        "dataLinks": [
-                          {
-                            "systemId": "4001",
-                            "id": 4001,
-                            "name": "data_link",
-                            "componentType": "DataLink",
-                            "relatedEndPointLinks": [],
-                            "sourceId": 1001,
-                            "sourcePortId": 2002,
-                            "destinationId": 1002,
-                            "destinationPortId": 2003,
-                            "parentId": 601,
-                            "isDangling": false,
-                            "connectionType": "MODULE_MODULE"
-                          }
-                        ],
-                        "controlLinks": [
-                          {
-                            "systemId": "5001",
-                            "id": 5001,
-                            "name": "control_link",
-                            "componentType": "ControlLink",
-                            "relatedEndPointLinks": [],
-                            "sourceId": 1001,
-                            "sourcePortId": 3001,
-                            "destinationId": 1002,
-                            "destinationPortId": 3002,
-                            "parentId": 601,
-                            "isDangling": false,
-                            "connectionType": "MODULE_MODULE"
-                          }
-                        ]
+                        "components": {
+                          "spfModules": [
+                            {
+                              "systemId": "1001",
+                              "id": 1001,
+                              "name": "PCM Decoder",
+                              "componentType": "Module",
+                              "relatedEndPointLinks": [
+                                {
+                                  "hypertextRef": "/components/1001/properties",
+                                  "method": "GET",
+                                  "description": "Get properties for a component."
+                                }
+                              ],
+                              "dataPorts": [
+                                {
+                                  "systemId": "2001",
+                                  "id": 2001,
+                                  "name": "Input",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Input",
+                                  "portType": "Static"
+                                },
+                                {
+                                  "systemId": "2002",
+                                  "id": 2002,
+                                  "name": "Output",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Output",
+                                  "portType": "Static"
+                                }
+                              ],
+                              "controlPorts": [
+                                {
+                                  "systemId": "3001",
+                                  "id": 3001,
+                                  "relatedEndPointLinks": [],
+                                  "portType": "Static",
+                                  "controlPortName": "Control",
+                                  "intents": []
+                                }
+                              ],
+                              "alias": "PCM_Decoder_1",
+                              "moduleId": 117506309,
+                              "subgraphId": 501,
+                              "containerId": 601,
+                              "maxInputPortsSupported": 2,
+                              "maxOutputPortsSupported": 2,
+                              "maxControlPortsSupported": 1,
+                              "heapId": 1
+                            },
+                            {
+                              "systemId": "1002",
+                              "id": 1002,
+                              "name": "Audio MBDRC",
+                              "componentType": "Module",
+                              "relatedEndPointLinks": [
+                                {
+                                  "hypertextRef": "/components/1002/properties",
+                                  "method": "GET",
+                                  "description": "Get properties for a component."
+                                }
+                              ],
+                              "dataPorts": [
+                                {
+                                  "systemId": "2003",
+                                  "id": 2003,
+                                  "name": "Input",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Input",
+                                  "portType": "Static"
+                                },
+                                {
+                                  "systemId": "2004",
+                                  "id": 2004,
+                                  "name": "Output",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Output",
+                                  "portType": "Static"
+                                }
+                              ],
+                              "controlPorts": [
+                                {
+                                  "systemId": "3002",
+                                  "id": 3002,
+                                  "relatedEndPointLinks": [],
+                                  "portType": "Static",
+                                  "controlPortName": "Control",
+                                  "intents": []
+                                },
+                                {
+                                  "systemId": "3003",
+                                  "id": 3003,
+                                  "relatedEndPointLinks": [],
+                                  "portType": "Static",
+                                  "controlPortName": "Control",
+                                  "intents": []
+                                }
+                              ],
+                              "alias": "Audio_MBDRC_1",
+                              "moduleId": 117506310,
+                              "subgraphId": 501,
+                              "containerId": 601,
+                              "maxInputPortsSupported": 1,
+                              "maxOutputPortsSupported": 1,
+                              "maxControlPortsSupported": 2,
+                              "heapId": 1
+                            }
+                          ],
+                          "dataLinks": [
+                            {
+                              "systemId": "4001",
+                              "id": 4001,
+                              "name": "data_link",
+                              "componentType": "DataLink",
+                              "relatedEndPointLinks": [],
+                              "sourceId": 1001,
+                              "sourcePortId": 2002,
+                              "destinationId": 1002,
+                              "destinationPortId": 2003,
+                              "parentId": 601,
+                              "isDangling": false,
+                              "connectionType": "MODULE_MODULE"
+                            }
+                          ],
+                          "controlLinks": [
+                            {
+                              "systemId": "5001",
+                              "id": 5001,
+                              "name": "control_link",
+                              "componentType": "ControlLink",
+                              "relatedEndPointLinks": [],
+                              "sourceId": 1001,
+                              "sourcePortId": 3001,
+                              "destinationId": 1002,
+                              "destinationPortId": 3002,
+                              "parentId": 601,
+                              "isDangling": false,
+                              "connectionType": "MODULE_MODULE"
+                            }
+                          ]
+                        }
                       }
                     ]
                   }
@@ -2552,7 +2685,290 @@
             "description": "Failed to get components for usecase(s)"
           }
         },
-        "summary": "Get all components (including module instances, data links, control links, subsystems) for usecase(s) based on querying type.",
+        "summary": "Query components across multiple usecases (flat structure)",
+        "tags": [
+          "usecases"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/usecases/components/query-with-subsystems": {
+      "post": {
+        "description": "**Read-only query operation** that returns components organized by subsystem hierarchy.\n\n**Why POST?** Uses POST method to support large lists of usecase IDs that may exceed URL length limits (>2000 characters). This operation does not modify server state and is safe to retry.\n\n**Response Structure:**\n- Components are organized by their subsystem relationships\n- The `subsystems` field contains the complete subsystem hierarchy\n- Modules, links, and other components are nested within their respective subsystems\n\n**For flat structure without subsystems:**\n- Use the `/components/query` endpoint instead\n\n**Note:** For components shared across different usecases, only one copy will be returned.",
+        "operationId": "UseCaseController_queryUsecaseComponentsWithSubsystems",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "List of system ids for usecases",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemIdsRequestDto"
+              },
+              "examples": {
+                "default": {
+                  "summary": "Example SystemIdsRequestDto",
+                  "value": {
+                    "systemIds": [
+                      "101",
+                      "102",
+                      "103",
+                      "104",
+                      "105"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Components with subsystem hierarchy returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UsecaseComponentsWithSubsystemsDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "examples": {
+                  "default": {
+                    "value": [
+                      {
+                        "usecaseIdentifiers": [
+                          {
+                            "systemId": "1",
+                            "keyValueCollection": [
+                              {
+                                "keyInfo": {
+                                  "keyId": 2701131776,
+                                  "keyLabel": "StreamRX",
+                                  "keySystemId": "sys7"
+                                },
+                                "valueInfo": {
+                                  "valueId": 2701131777,
+                                  "valueLabel": "PCM_Deep_Buffer",
+                                  "valueSystemId": "val7"
+                                }
+                              },
+                              {
+                                "keyInfo": {
+                                  "keyId": 2885681152,
+                                  "keyLabel": "DevicePP_Rx",
+                                  "keySystemId": "sys8"
+                                },
+                                "valueInfo": {
+                                  "valueId": 2885681154,
+                                  "valueLabel": "Audio_MBDRC",
+                                  "valueSystemId": "val8"
+                                }
+                              },
+                              {
+                                "keyInfo": {
+                                  "keyId": 2717908992,
+                                  "keyLabel": "DeviceRX",
+                                  "keySystemId": "sys9"
+                                },
+                                "valueInfo": {
+                                  "valueId": 2717908993,
+                                  "valueLabel": "Speaker",
+                                  "valueSystemId": "val9"
+                                }
+                              }
+                            ],
+                            "usecaseAliasId": 101,
+                            "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
+                            "usecaseCategory": "default",
+                            "usecaseType": "Regular",
+                            "relatedEndPointLinks": [
+                              {
+                                "hypertextRef": "/usecases/components/get",
+                                "method": "POST",
+                                "description": "Get all components of usecase."
+                              }
+                            ]
+                          }
+                        ],
+                        "components": {
+                          "spfModules": [
+                            {
+                              "systemId": "1001",
+                              "id": 1001,
+                              "name": "PCM Decoder",
+                              "componentType": "Module",
+                              "relatedEndPointLinks": [
+                                {
+                                  "hypertextRef": "/components/1001/properties",
+                                  "method": "GET",
+                                  "description": "Get properties for a component."
+                                }
+                              ],
+                              "dataPorts": [
+                                {
+                                  "systemId": "2001",
+                                  "id": 2001,
+                                  "name": "Input",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Input",
+                                  "portType": "Static"
+                                },
+                                {
+                                  "systemId": "2002",
+                                  "id": 2002,
+                                  "name": "Output",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Output",
+                                  "portType": "Static"
+                                }
+                              ],
+                              "controlPorts": [
+                                {
+                                  "systemId": "3001",
+                                  "id": 3001,
+                                  "relatedEndPointLinks": [],
+                                  "portType": "Static",
+                                  "controlPortName": "Control",
+                                  "intents": []
+                                }
+                              ],
+                              "alias": "PCM_Decoder_1",
+                              "moduleId": 117506309,
+                              "subgraphId": 501,
+                              "containerId": 601,
+                              "maxInputPortsSupported": 2,
+                              "maxOutputPortsSupported": 2,
+                              "maxControlPortsSupported": 1,
+                              "heapId": 1
+                            },
+                            {
+                              "systemId": "1002",
+                              "id": 1002,
+                              "name": "Audio MBDRC",
+                              "componentType": "Module",
+                              "relatedEndPointLinks": [
+                                {
+                                  "hypertextRef": "/components/1002/properties",
+                                  "method": "GET",
+                                  "description": "Get properties for a component."
+                                }
+                              ],
+                              "dataPorts": [
+                                {
+                                  "systemId": "2003",
+                                  "id": 2003,
+                                  "name": "Input",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Input",
+                                  "portType": "Static"
+                                },
+                                {
+                                  "systemId": "2004",
+                                  "id": 2004,
+                                  "name": "Output",
+                                  "relatedEndPointLinks": [],
+                                  "portIoType": "Output",
+                                  "portType": "Static"
+                                }
+                              ],
+                              "controlPorts": [
+                                {
+                                  "systemId": "3002",
+                                  "id": 3002,
+                                  "relatedEndPointLinks": [],
+                                  "portType": "Static",
+                                  "controlPortName": "Control",
+                                  "intents": []
+                                },
+                                {
+                                  "systemId": "3003",
+                                  "id": 3003,
+                                  "relatedEndPointLinks": [],
+                                  "portType": "Static",
+                                  "controlPortName": "Control",
+                                  "intents": []
+                                }
+                              ],
+                              "alias": "Audio_MBDRC_1",
+                              "moduleId": 117506310,
+                              "subgraphId": 501,
+                              "containerId": 601,
+                              "maxInputPortsSupported": 1,
+                              "maxOutputPortsSupported": 1,
+                              "maxControlPortsSupported": 2,
+                              "heapId": 1
+                            }
+                          ],
+                          "dataLinks": [
+                            {
+                              "systemId": "4001",
+                              "id": 4001,
+                              "name": "data_link",
+                              "componentType": "DataLink",
+                              "relatedEndPointLinks": [],
+                              "sourceId": 1001,
+                              "sourcePortId": 2002,
+                              "destinationId": 1002,
+                              "destinationPortId": 2003,
+                              "parentId": 601,
+                              "isDangling": false,
+                              "connectionType": "MODULE_MODULE"
+                            }
+                          ],
+                          "controlLinks": [
+                            {
+                              "systemId": "5001",
+                              "id": 5001,
+                              "name": "control_link",
+                              "componentType": "ControlLink",
+                              "relatedEndPointLinks": [],
+                              "sourceId": 1001,
+                              "sourcePortId": 3001,
+                              "destinationId": 1002,
+                              "destinationPortId": 3002,
+                              "parentId": 601,
+                              "isDangling": false,
+                              "connectionType": "MODULE_MODULE"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Usecase is not found for provided usecase id"
+          },
+          "422": {
+            "description": "Failed to get components for usecase(s)"
+          }
+        },
+        "summary": "Query components across multiple usecases (with subsystem hierarchy)",
         "tags": [
           "usecases"
         ]
@@ -4038,7 +4454,7 @@
                         "data": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/UsecaseIdentifier"
+                            "$ref": "#/components/schemas/UsecaseIdentifierDto"
                           }
                         }
                       }
@@ -4050,6 +4466,7 @@
                     "value": [
                       [
                         {
+                          "systemId": "1",
                           "keyValueCollection": [
                             {
                               "keyInfo": {
@@ -4088,7 +4505,6 @@
                               }
                             }
                           ],
-                          "systemId": "1",
                           "usecaseAliasId": 101,
                           "usecaseAliasName": "PCM_Deep_Buffer_MBDRC_Playback_Speaker",
                           "usecaseCategory": "default",
@@ -4102,6 +4518,7 @@
                           ]
                         },
                         {
+                          "systemId": "2",
                           "keyValueCollection": [
                             {
                               "keyInfo": {
@@ -4140,7 +4557,6 @@
                               }
                             }
                           ],
-                          "systemId": "2",
                           "usecaseAliasId": 102,
                           "usecaseAliasName": "PCM_Offload_MBDRC_Playback_Speaker",
                           "usecaseType": "Regular",
@@ -6799,19 +7215,27 @@
           "description"
         ]
       },
-      "UsecaseIdentifier": {
+      "UsecaseIdentifierDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "System identifier of the usecase"
+          },
           "keyValueCollection": {
             "description": "Collection of key-value pairs",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/KeyValueInfo"
             }
-          },
-          "systemId": {
-            "type": "string",
-            "description": "The system identifier"
           },
           "usecaseAliasId": {
             "type": "number",
@@ -6843,26 +7267,120 @@
           }
         },
         "required": [
-          "keyValueCollection",
+          "changeInfo",
           "systemId",
+          "keyValueCollection",
           "usecaseType"
         ]
       },
       "UsecaseDto": {
         "type": "object",
         "properties": {
-          "usecases": {
-            "type": "boolean",
-            "description": "Indicates whether this usecase has subsystem filtering applied. false = No FilteredKV (null). All UsecaseIdentifiers without subsystem are grouped together.true = Has a FilteredKV. All UsecaseIdentifiers filtered by this FilteredKV are grouped together"
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "System identifier of the usecase"
+          },
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          },
+          "usecaseAliasId": {
+            "type": "number",
+            "description": "Optional alias identifier for the usecase"
+          },
+          "usecaseAliasName": {
+            "type": "string",
+            "description": "Alias name for the usecase"
+          },
+          "usecaseCategory": {
+            "type": "string",
+            "description": "Category of the usecase"
+          },
+          "usecaseType": {
+            "type": "string",
+            "description": "Type of the usecase",
+            "enum": [
+              "Ec",
+              "Regular",
+              "Manual"
+            ]
+          },
+          "relatedEndPointLinks": {
+            "description": "Related endpoint links for the usecase",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EndPointLink"
+            }
           }
         },
         "required": [
+          "changeInfo",
+          "systemId",
+          "keyValueCollection",
+          "usecaseType"
+        ]
+      },
+      "SubsystemFilteredKeyValuePairsInfo": {
+        "type": "object",
+        "properties": {
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          }
+        },
+        "required": [
+          "keyValueCollection"
+        ]
+      },
+      "SubsystemFilteredUsecasesDto": {
+        "type": "object",
+        "properties": {
+          "filteredKv": {
+            "description": "Subsystem-filtered key-value information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsystemFilteredKeyValuePairsInfo"
+              }
+            ]
+          },
+          "usecases": {
+            "description": "Array of usecase identifiers that match the subsystem filter",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          }
+        },
+        "required": [
+          "filteredKv",
           "usecases"
         ]
       },
       "BaseComponentDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -6893,29 +7411,15 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "id",
           "name",
           "componentType",
-          "relatedEndPointLinks",
-          "editType"
+          "relatedEndPointLinks"
         ]
       },
       "UsecaseWithComponents": {
@@ -6925,7 +7429,7 @@
             "description": "Usecase identifier information",
             "allOf": [
               {
-                "$ref": "#/components/schemas/UsecaseIdentifier"
+                "$ref": "#/components/schemas/UsecaseIdentifierDto"
               }
             ]
           },
@@ -6977,6 +7481,14 @@
       "DataPortDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -7008,20 +7520,6 @@
               "$ref": "#/components/schemas/EndPointLink"
             }
           },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
-          },
           "portIoType": {
             "type": "string",
             "description": "Port IO type",
@@ -7037,17 +7535,22 @@
               "Static",
               "Dynamic"
             ]
+          },
+          "totalLinksAtPort": {
+            "type": "number",
+            "description": "Total links at port"
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
-          "editType",
           "portIoType",
-          "portType"
+          "portType",
+          "totalLinksAtPort"
         ]
       },
       "ControlPortIntentDto": {
@@ -7070,6 +7573,14 @@
       "ControlPortDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -7100,20 +7611,6 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "portType": {
             "type": "string",
@@ -7136,12 +7633,12 @@
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
-          "editType",
           "portType",
           "controlPortName",
           "intents"
@@ -7150,6 +7647,14 @@
       "SpfModuleDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -7180,20 +7685,6 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "parentId": {
             "type": "number",
@@ -7247,12 +7738,12 @@
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
-          "editType",
           "dataPorts",
           "controlPorts",
           "alias",
@@ -7265,24 +7756,17 @@
           "heapId"
         ]
       },
-      "SystemIdsRequestDto": {
+      "DataLinkDto": {
         "type": "object",
         "properties": {
-          "systemIds": {
-            "description": "Array of system IDs",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "systemIds"
-        ]
-      },
-      "SubsystemDto": {
-        "type": "object",
-        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -7314,19 +7798,189 @@
               "$ref": "#/components/schemas/EndPointLink"
             }
           },
-          "editType": {
+          "sourceId": {
+            "type": "number",
+            "description": "Source component ID"
+          },
+          "sourcePortId": {
+            "type": "number",
+            "description": "Source port ID"
+          },
+          "destinationId": {
+            "type": "number",
+            "description": "Destination component ID"
+          },
+          "destinationPortId": {
+            "type": "number",
+            "description": "Destination port ID"
+          },
+          "parentId": {
+            "type": "number",
+            "description": "Parent ID"
+          },
+          "isDangling": {
+            "type": "boolean",
+            "description": "Is dangling"
+          },
+          "connectionType": {
             "type": "string",
-            "description": "Edit type",
+            "description": "Connection type",
             "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
+              "MODULE_MODULE",
+              "MODULE_SUBSYSTEM",
+              "SUBSYSTEM_MODULE",
+              "SUBSYSTEM_SUBSYSTEM"
+            ]
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "id",
+          "name",
+          "componentType",
+          "relatedEndPointLinks",
+          "sourceId",
+          "sourcePortId",
+          "destinationId",
+          "destinationPortId",
+          "isDangling",
+          "connectionType"
+        ]
+      },
+      "ControlLinkDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
             ]
           },
-          "changeId": {
+          "systemId": {
             "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
+            "description": "System ID"
+          },
+          "id": {
+            "type": "object",
+            "description": "Component ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Component name"
+          },
+          "componentType": {
+            "type": "string",
+            "description": "Component type",
+            "enum": [
+              "Module",
+              "Subsystem",
+              "Container",
+              "DataLink",
+              "ControlLink",
+              "Subgraph"
+            ]
+          },
+          "relatedEndPointLinks": {
+            "description": "Related endpoint links",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EndPointLink"
+            }
+          },
+          "sourceId": {
+            "type": "number",
+            "description": "Source component ID"
+          },
+          "sourcePortId": {
+            "type": "number",
+            "description": "Source port ID"
+          },
+          "destinationId": {
+            "type": "number",
+            "description": "Destination component ID"
+          },
+          "destinationPortId": {
+            "type": "number",
+            "description": "Destination port ID"
+          },
+          "parentId": {
+            "type": "number",
+            "description": "Parent ID"
+          },
+          "isDangling": {
+            "type": "boolean",
+            "description": "Is dangling"
+          },
+          "connectionType": {
+            "type": "string",
+            "description": "Connection type",
+            "enum": [
+              "MODULE_MODULE",
+              "MODULE_SUBSYSTEM",
+              "SUBSYSTEM_MODULE",
+              "SUBSYSTEM_SUBSYSTEM"
+            ]
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "id",
+          "name",
+          "componentType",
+          "relatedEndPointLinks",
+          "sourceId",
+          "sourcePortId",
+          "destinationId",
+          "destinationPortId",
+          "isDangling",
+          "connectionType"
+        ]
+      },
+      "SubsystemDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "System ID"
+          },
+          "id": {
+            "type": "object",
+            "description": "Component ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Component name"
+          },
+          "componentType": {
+            "type": "string",
+            "description": "Component type",
+            "enum": [
+              "Module",
+              "Subsystem",
+              "Container",
+              "DataLink",
+              "ControlLink",
+              "Subgraph"
+            ]
+          },
+          "relatedEndPointLinks": {
+            "description": "Related endpoint links",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EndPointLink"
+            }
           },
           "parentId": {
             "type": "number",
@@ -7352,250 +8006,148 @@
             "items": {
               "$ref": "#/components/schemas/KeyInfo"
             }
+          },
+          "children": {
+            "description": "Child components within this subsystem (includes nested subsystems)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+              }
+            ]
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
-          "editType",
           "dataPorts",
           "controlPorts",
           "filteredKeys"
         ]
       },
-      "DataLinkDto": {
+      "ComponentCollectionWithSubsystemsDto": {
         "type": "object",
         "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "System ID"
-          },
-          "id": {
-            "type": "object",
-            "description": "Component ID"
-          },
-          "name": {
-            "type": "string",
-            "description": "Component name"
-          },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
-          "relatedEndPointLinks": {
-            "description": "Related endpoint links",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EndPointLink"
-            }
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
-          },
-          "sourceId": {
-            "type": "number",
-            "description": "Source component ID"
-          },
-          "sourcePortId": {
-            "type": "number",
-            "description": "Source port ID"
-          },
-          "destinationId": {
-            "type": "number",
-            "description": "Destination component ID"
-          },
-          "destinationPortId": {
-            "type": "number",
-            "description": "Destination port ID"
-          },
-          "parentId": {
-            "type": "number",
-            "description": "Parent ID"
-          },
-          "isDangling": {
-            "type": "boolean",
-            "description": "Is dangling"
-          },
-          "connectionType": {
-            "type": "string",
-            "description": "Connection type",
-            "enum": [
-              "MODULE_MODULE",
-              "MODULE_SUBSYSTEM",
-              "SUBSYSTEM_MODULE",
-              "SUBSYSTEM_SUBSYSTEM"
-            ]
-          }
-        },
-        "required": [
-          "systemId",
-          "id",
-          "name",
-          "componentType",
-          "relatedEndPointLinks",
-          "editType",
-          "sourceId",
-          "sourcePortId",
-          "destinationId",
-          "destinationPortId",
-          "isDangling",
-          "connectionType"
-        ]
-      },
-      "ControlLinkDto": {
-        "type": "object",
-        "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "System ID"
-          },
-          "id": {
-            "type": "object",
-            "description": "Component ID"
-          },
-          "name": {
-            "type": "string",
-            "description": "Component name"
-          },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
-          "relatedEndPointLinks": {
-            "description": "Related endpoint links",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EndPointLink"
-            }
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
-          },
-          "sourceId": {
-            "type": "number",
-            "description": "Source component ID"
-          },
-          "sourcePortId": {
-            "type": "number",
-            "description": "Source port ID"
-          },
-          "destinationId": {
-            "type": "number",
-            "description": "Destination component ID"
-          },
-          "destinationPortId": {
-            "type": "number",
-            "description": "Destination port ID"
-          },
-          "parentId": {
-            "type": "number",
-            "description": "Parent ID"
-          },
-          "isDangling": {
-            "type": "boolean",
-            "description": "Is dangling"
-          },
-          "connectionType": {
-            "type": "string",
-            "description": "Connection type",
-            "enum": [
-              "MODULE_MODULE",
-              "MODULE_SUBSYSTEM",
-              "SUBSYSTEM_MODULE",
-              "SUBSYSTEM_SUBSYSTEM"
-            ]
-          }
-        },
-        "required": [
-          "systemId",
-          "id",
-          "name",
-          "componentType",
-          "relatedEndPointLinks",
-          "editType",
-          "sourceId",
-          "sourcePortId",
-          "destinationId",
-          "destinationPortId",
-          "isDangling",
-          "connectionType"
-        ]
-      },
-      "UsecaseComponentsDto": {
-        "type": "object",
-        "properties": {
-          "usecaseIdentifier": {
-            "description": "Usecase identifier information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UsecaseIdentifier"
-              }
-            ]
-          },
-          "subsystems": {
-            "description": "List of subsystems in the usecase",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SubsystemDto"
-            }
-          },
           "spfModules": {
-            "description": "List of module instances in the usecase",
+            "description": "List of SPF module instances",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SpfModuleDto"
             }
           },
           "dataLinks": {
-            "description": "List of data links in the usecase",
+            "description": "List of data links",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DataLinkDto"
             }
           },
           "controlLinks": {
-            "description": "List of control links in the usecase",
+            "description": "List of control links",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlLinkDto"
+            }
+          },
+          "subsystems": {
+            "description": "Hierarchical subsystem structure with nested components",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubsystemDto"
+            }
+          }
+        },
+        "required": [
+          "spfModules",
+          "dataLinks",
+          "controlLinks"
+        ]
+      },
+      "DataLinkWithUsecasesDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "description": "The data link",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DataLinkDto"
+              }
+            ]
+          },
+          "usecases": {
+            "description": "Usecases that this data link is part of",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          }
+        },
+        "required": [
+          "link",
+          "usecases"
+        ]
+      },
+      "ControlLinkWithUsecasesDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "description": "The control link",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ControlLinkDto"
+              }
+            ]
+          },
+          "usecases": {
+            "description": "Usecases that this control link is part of",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          }
+        },
+        "required": [
+          "link",
+          "usecases"
+        ]
+      },
+      "SystemIdsRequestDto": {
+        "type": "object",
+        "properties": {
+          "systemIds": {
+            "description": "Array of system IDs",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "systemIds"
+        ]
+      },
+      "ComponentCollectionDto": {
+        "type": "object",
+        "properties": {
+          "spfModules": {
+            "description": "List of SPF module instances",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpfModuleDto"
+            }
+          },
+          "dataLinks": {
+            "description": "List of data links",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataLinkDto"
+            }
+          },
+          "controlLinks": {
+            "description": "List of control links",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ControlLinkDto"
@@ -7603,11 +8155,57 @@
           }
         },
         "required": [
-          "usecaseIdentifier",
-          "subsystems",
           "spfModules",
           "dataLinks",
           "controlLinks"
+        ]
+      },
+      "UsecaseComponentsDto": {
+        "type": "object",
+        "properties": {
+          "usecaseIdentifiers": {
+            "description": "Array of usecase identifiers that these components belong to",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          },
+          "components": {
+            "description": "Collection of all components for the specified usecases",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComponentCollectionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "usecaseIdentifiers",
+          "components"
+        ]
+      },
+      "UsecaseComponentsWithSubsystemsDto": {
+        "type": "object",
+        "properties": {
+          "usecaseIdentifiers": {
+            "description": "Array of usecase identifiers that these components belong to",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+            }
+          },
+          "components": {
+            "description": "Collection of all components for the specified usecases with subsystem hierarchy",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "usecaseIdentifiers",
+          "components"
         ]
       },
       "KeyDto": {
@@ -8949,6 +9547,14 @@
       "SubgraphDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -8979,20 +9585,6 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           },
           "scenarioType": {
             "type": "string",
@@ -9038,12 +9630,12 @@
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "id",
           "name",
           "componentType",
           "relatedEndPointLinks",
-          "editType",
           "scenarioType",
           "deviceType",
           "subGraphSharedType",
@@ -9068,6 +9660,14 @@
       "ContainerDto": {
         "type": "object",
         "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -9098,29 +9698,15 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
-          },
-          "editType": {
-            "type": "string",
-            "description": "Edit type",
-            "enum": [
-              "Added",
-              "Updated",
-              "Deleted",
-              "None"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Change identifier. REQUIRED if editType is not 'None'. Omit when editType = 'None'."
           }
         },
         "required": [
+          "changeInfo",
           "systemId",
           "id",
           "name",
           "componentType",
-          "relatedEndPointLinks",
-          "editType"
+          "relatedEndPointLinks"
         ]
       },
       "ContainerPropertiesDto": {

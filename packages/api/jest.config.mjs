@@ -9,7 +9,9 @@ export default {
   projects: [
     {
       displayName: 'unit',
+      preset: 'ts-jest/presets/default-esm',
       testEnvironment: 'node',
+      extensionsToTreatAsEsm: ['.ts'],
       roots: ['<rootDir>'],
       testMatch: ['**/tests/unit/**/*.spec.ts'],
       transform: {
@@ -20,6 +22,9 @@ export default {
             useESM: true,
           },
         ],
+      },
+      moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
       },
       resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
