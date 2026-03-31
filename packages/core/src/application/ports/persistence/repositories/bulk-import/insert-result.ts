@@ -4,7 +4,7 @@
  */
 
 /**
- * Natural key to systemId mapping for insert+query pattern.
+ * Natural key to systemId mapping.
  *
  * @template TKey - Type of natural key (number for simple entities, string for composite keys)
  */
@@ -38,8 +38,13 @@ export interface InsertError<E extends string = string> {
   causes?: Array<{code: string; message: string}>;
 }
 
+// ============================================================================
+// Legacy Types (Deprecated - Use Hierarchical types below)
+// ============================================================================
+
 /**
  * Simple entity insert result (no child mappings).
+ * @deprecated Use HierarchicalEntityInsertResult for new implementations
  */
 export interface EntityInsertResult<TKey = number> {
   idMapping?: NaturalIdMapping<TKey>;
@@ -47,6 +52,285 @@ export interface EntityInsertResult<TKey = number> {
   success: boolean;
 }
 
+/**
+ * @deprecated Use HierarchicalBulkInsertResult for new implementations
+ */
 export interface BulkEntityInsertResult<TKey = number> {
   results: EntityInsertResult<TKey>[];
+}
+
+// ============================================================================
+// New Hierarchical Insert Result Types
+// ============================================================================
+
+/**
+ * Status for individual entity insertion.
+ * An entity either succeeds or fails - no partial state.
+ */
+export type InsertStatus = 'SUCCESS' | 'FAILED';
+
+/**
+ * Status for hierarchical insertion.
+ * Captures full success, partial failure, or complete failure.
+ *
+ * - SUCCESS: Root and ALL children succeeded
+ * - PARTIAL_FAILED: Root succeeded, but SOME children failed
+ * - FAILED: Root failed (children not attempted)
+ */
+export type HierarchicalInsertStatus = 'SUCCESS' | 'PARTIAL_FAILED' | 'FAILED';
+
+/**
+ * Result for a single entity insertion with hierarchical children support.
+ *
+ * This structure supports recursive hierarchies of any depth. Each entity
+ * contains its own result (mapping, errors, status) and optionally its
+ * children organized by entity type.
+ *
+ * @template TEntity - The entity type (defaults to unknown for type safety)
+ *
+ * @example
+ * ```typescript
+ * // SpfModule with DataPorts and ControlPorts
+ * const result: HierarchicalEntityInsertResult<SpfModule> = {
+ *   entityType: 'SpfModule',
+ *   entity: spfModuleInstance,
+ *   mapping: { naturalId: 100, systemId: 1000 },
+ *   errors: [],
+ *   status: 'SUCCESS',
+ *   children: new Map([
+ *     ['DataPort', [
+ *       {
+ *         entityType: 'DataPort',
+ *         entity: dataPortInstance,
+ *         mapping: { naturalId: 1, systemId: 4001 },
+ *         errors: [],
+ *         status: 'SUCCESS'
+ *       }
+ *     ]],
+ *     ['ControlPort', [
+ *       {
+ *         entityType: 'ControlPort',
+ *         entity: controlPortInstance,
+ *         mapping: { naturalId: 2, systemId: 4002 },
+ *         errors: [],
+ *         status: 'SUCCESS'
+ *       }
+ *     ]]
+ *   ])
+ * };
+ * ```
+ */
+export interface HierarchicalEntityInsertResult<TEntity = unknown> {
+  /** Entity type name (e.g., 'SpfModule', 'DataPort', 'KeyDefinition') */
+  entityType: string;
+
+  /** The actual entity that was inserted (optional) */
+  entity?: TEntity;
+
+  /** Natural ID to System ID mapping */
+  mapping: NaturalIdMapping;
+
+  /** Errors specific to this entity */
+  errors: InsertError[];
+
+  /** Status of this entity's insertion (SUCCESS or FAILED) */
+  status: InsertStatus;
+
+  /**
+   * Children of this entity, organized by entity type.
+   * Key: Entity type name (e.g., 'DataPort', 'ControlPort')
+   * Value: Array of child results (uses unknown for type safety)
+   *
+   * Children can have their own children, supporting unlimited hierarchy depth.
+   */
+  children?: Map<string, HierarchicalEntityInsertResult<unknown>[]>;
+}
+
+/**
+ * Result for hierarchical entity insertion.
+ *
+ * Contains the root entity result (which includes the entire tree recursively)
+ * and an overall status that summarizes the success of the entire hierarchy.
+ *
+ * @template TRoot - The root entity type (defaults to unknown)
+ *
+ * @example
+ * ```typescript
+ * // Full success
+ * const result: HierarchicalInsertResult<SpfModule> = {
+ *   root: {
+ *     entityType: 'SpfModule',
+ *     entity: spfModule,
+ *     mapping: { naturalId: 100, systemId: 1000 },
+ *     errors: [],
+ *     status: 'SUCCESS',
+ *     children: new Map([...]) // All children succeeded
+ *   },
+ *   overallStatus: 'SUCCESS'
+ * };
+ *
+ * // Partial failure
+ * const result: HierarchicalInsertResult<SpfModule> = {
+ *   root: {
+ *     entityType: 'SpfModule',
+ *     entity: spfModule,
+ *     mapping: { naturalId: 100, systemId: 1000 },
+ *     errors: [],
+ *     status: 'SUCCESS', // Root succeeded
+ *     children: new Map([...]) // Some children failed
+ *   },
+ *   overallStatus: 'PARTIAL_FAILED' // Root succeeded but some children failed
+ * };
+ *
+ * // Complete failure
+ * const result: HierarchicalInsertResult<SpfModule> = {
+ *   root: {
+ *     entityType: 'SpfModule',
+ *     entity: undefined,
+ *     mapping: { naturalId: 100, systemId: 1000 },
+ *     errors: [{ entity: 'SpfModule', naturalId: '100', code: 'UNIQUE_CONSTRAINT', message: '...' }],
+ *     status: 'FAILED', // Root failed
+ *     children: new Map() // No children attempted
+ *   },
+ *   overallStatus: 'FAILED'
+ * };
+ * ```
+ */
+export interface HierarchicalInsertResult<TRoot = unknown> {
+  /** Root entity result (contains entire tree recursively) */
+  root: HierarchicalEntityInsertResult<TRoot>;
+
+  /**
+   * Overall status for the entire hierarchy.
+   *
+   * - SUCCESS: Root and all descendants succeeded
+   * - PARTIAL_FAILED: Root succeeded, but some descendants failed
+   * - FAILED: Root failed (descendants not attempted)
+   */
+  overallStatus: HierarchicalInsertStatus;
+}
+
+/**
+ * Result for bulk hierarchical insertion.
+ *
+ * Contains an array of results, one for each root entity that was
+ * attempted to insert.
+ *
+ * @template TRoot - The root entity type (defaults to unknown)
+ *
+ * @example
+ * ```typescript
+ * // Inserting 3 SpfModules
+ * const result: HierarchicalBulkInsertResult<SpfModule> = {
+ *   results: [
+ *     { root: {...}, overallStatus: 'SUCCESS' },        // Module 1: full success
+ *     { root: {...}, overallStatus: 'PARTIAL_FAILED' }, // Module 2: partial failure
+ *     { root: {...}, overallStatus: 'FAILED' }          // Module 3: complete failure
+ *   ]
+ * };
+ *
+ * // Process results
+ * result.results.forEach((moduleResult, index) => {
+ *   switch (moduleResult.overallStatus) {
+ *     case 'SUCCESS':
+ *       console.log(`Module ${index}: fully operational`);
+ *       break;
+ *     case 'PARTIAL_FAILED':
+ *       console.log(`Module ${index}: partially operational`);
+ *       break;
+ *     case 'FAILED':
+ *       console.log(`Module ${index}: failed to insert`);
+ *       break;
+ *   }
+ * });
+ * ```
+ */
+export interface HierarchicalBulkInsertResult<TRoot = unknown> {
+  /** Array of results, one per root entity */
+  results: HierarchicalInsertResult<TRoot>[];
+}
+
+// ============================================================================
+// Helper Type Guards and Utilities
+// ============================================================================
+
+/**
+ * Type guard to check if an entity result is of a specific type.
+ *
+ * @example
+ * ```typescript
+ * const dataPorts = result.root.children?.get('DataPort') ?? [];
+ * dataPorts.forEach(portResult => {
+ *   if (isEntityOfType<DataPort>(portResult, 'DataPort')) {
+ *     const port = portResult.entity; // Type: DataPort | undefined
+ *     if (port) {
+ *       console.log(`Port: ${port.portIoType}`);
+ *     }
+ *   }
+ * });
+ * ```
+ */
+export function isEntityOfType<T>(
+  result: HierarchicalEntityInsertResult<unknown>,
+  entityType: string,
+): result is HierarchicalEntityInsertResult<T> {
+  return result.entityType === entityType;
+}
+
+/**
+ * Get children of a specific type with type safety.
+ *
+ * @example
+ * ```typescript
+ * const dataPorts = getChildrenOfType<DataPort>(result.root, 'DataPort');
+ * dataPorts.forEach(portResult => {
+ *   const port = portResult.entity; // Type: DataPort | undefined
+ *   if (port) {
+ *     console.log(`Port ${port.portId}: ${port.portIoType}`);
+ *   }
+ * });
+ * ```
+ */
+export function getChildrenOfType<T>(
+  parent: HierarchicalEntityInsertResult<unknown>,
+  childType: string,
+): HierarchicalEntityInsertResult<T>[] {
+  const children = parent.children?.get(childType);
+  return (children ?? []) as HierarchicalEntityInsertResult<T>[];
+}
+
+/**
+ * Get all failed children recursively from a parent entity.
+ *
+ * @example
+ * ```typescript
+ * if (result.overallStatus === 'PARTIAL_FAILED') {
+ *   const failedChildren = getFailedChildren(result.root);
+ *   console.log(`Failed children: ${failedChildren.length}`);
+ *   failedChildren.forEach(child => {
+ *     console.log(`${child.entityType} ${child.mapping.naturalId}: ${child.errors[0]?.message}`);
+ *   });
+ * }
+ * ```
+ */
+export function getFailedChildren(
+  parent: HierarchicalEntityInsertResult<unknown>,
+): HierarchicalEntityInsertResult<unknown>[] {
+  const failed: HierarchicalEntityInsertResult<unknown>[] = [];
+
+  if (!parent.children) return failed;
+
+  for (const childResults of parent.children.values()) {
+    for (const childResult of childResults) {
+      if (childResult.status === 'FAILED') {
+        failed.push(childResult);
+      }
+      // Recursively check grandchildren
+      if (childResult.children) {
+        failed.push(...getFailedChildren(childResult));
+      }
+    }
+  }
+
+  return failed;
 }
