@@ -4,13 +4,14 @@
  */
 
 import {
-  UsecaseIdentifier,
-  UsecaseDto,
+  UsecaseIdentifierDto,
+  SubsystemFilteredUsecasesDto,
   UsecaseType,
   UsecaseComponentsDto,
   UsecaseWithModificationSummary,
   UsecaseWithComponents,
 } from '../../../modules/usecase/dto/usecase.dto.js';
+import {ComponentCollectionDto} from '../../dto/component-collection.dto.js';
 import {
   BaseComponentDto,
   KeyValuePairsInfo,
@@ -18,6 +19,7 @@ import {
   KeyInfo,
   ValueInfo,
   SystemIdsRequestDto,
+  SubsystemFilteredKeyValuePairsInfo,
 } from '../../dto/index.js';
 import {
   ModificationAction,
@@ -29,21 +31,14 @@ import {DataPortDto, PortType, PortIoType} from '../../dto/data-port.dto.js';
 import {ControlPortDto} from '../../dto/control-port.dto.js';
 import {DataLinkDto} from '../../../modules/data-link/dto/data-link.dto.js';
 import {ControlLinkDto} from '../../../modules/control-link/dto/control-link.dto.js';
-import {subsystemApiExample} from './subsystem-api-example.js';
 
 /**
- * Example provider for SubsystemFilteredUsecase collection
+ * Example provider for SubsystemFilteredUsecases collection
  */
 export const SubsystemFilteredUseCaseCollectionExample = {
-  getExample(): UsecaseDto[] {
-    const ssFilteredUcCollection: UsecaseDto[] = [];
+  getExample(): SubsystemFilteredUsecasesDto[] {
+    const ssFilteredUcCollection: SubsystemFilteredUsecasesDto[] = [];
 
-    // Scenario 1: Raw GKV (isFiltered = false)
-    // Single usecase with no subsystem filtering
-    const rawUsecase = UsecaseIdentifierExample.getExample();
-    ssFilteredUcCollection.push(UsecaseDto.createRawGKVResponse(rawUsecase));
-
-    // Scenario 2: Filtered GKV (isFiltered = true)
     // Subsystem filtered with multiple raw GKVs underneath
     const ucExamples = UseCaseIdentifierCollectionExample.getExample();
     const keyvalueInfo = [
@@ -56,38 +51,19 @@ export const SubsystemFilteredUseCaseCollectionExample = {
         new ValueInfo(0xf0_10_00_34, 'Rx_Devices', 'val2'),
       ),
     ];
-    const filteredKv = new KeyValuePairsInfo(keyvalueInfo);
+    const filteredKv = new SubsystemFilteredKeyValuePairsInfo(keyvalueInfo);
     ssFilteredUcCollection.push(
-      UsecaseDto.createFilteredGKVResponse(
-        'subsystem_1',
-        filteredKv,
-        ucExamples,
-      ),
+      new SubsystemFilteredUsecasesDto(filteredKv, ucExamples),
     );
 
     return ssFilteredUcCollection;
   },
 
   /**
-   * Get example showing only raw GKV scenarios
+   * Get example showing multiple filtered GKV scenarios
    */
-  getRawGKVExample(): UsecaseDto[] {
-    const collection: UsecaseDto[] = [];
-    const usecases = UseCaseIdentifierCollectionExample.getExample();
-
-    // Each usecase becomes a separate raw GKV response
-    for (const usecase of usecases) {
-      collection.push(UsecaseDto.createRawGKVResponse(usecase));
-    }
-
-    return collection;
-  },
-
-  /**
-   * Get example showing only filtered GKV scenarios
-   */
-  getFilteredGKVExample(): UsecaseDto[] {
-    const collection: UsecaseDto[] = [];
+  getFilteredGKVExample(): SubsystemFilteredUsecasesDto[] {
+    const collection: SubsystemFilteredUsecasesDto[] = [];
 
     // First filtered group
     const keyvalueInfo1 = [
@@ -100,15 +76,9 @@ export const SubsystemFilteredUseCaseCollectionExample = {
         new ValueInfo(0xf0_10_00_34, 'Rx_Devices', 'val4'),
       ),
     ];
-    const filteredKv1 = new KeyValuePairsInfo(keyvalueInfo1);
-    const usecases1 = [UsecaseIdentifierExample.getExample()];
-    collection.push(
-      UsecaseDto.createFilteredGKVResponse(
-        'subsystem_1',
-        filteredKv1,
-        usecases1,
-      ),
-    );
+    const filteredKv1 = new SubsystemFilteredKeyValuePairsInfo(keyvalueInfo1);
+    const usecases1 = [UsecaseIdentifierDtoExample.getExample()];
+    collection.push(new SubsystemFilteredUsecasesDto(filteredKv1, usecases1));
 
     // Second filtered group
     const keyvalueInfo2 = [
@@ -121,15 +91,9 @@ export const SubsystemFilteredUseCaseCollectionExample = {
         new ValueInfo(0xf0_10_00_35, 'Tx_Devices', 'val6'),
       ),
     ];
-    const filteredKv2 = new KeyValuePairsInfo(keyvalueInfo2);
+    const filteredKv2 = new SubsystemFilteredKeyValuePairsInfo(keyvalueInfo2);
     const usecases2 = UseCaseIdentifierCollectionExample.getExample();
-    collection.push(
-      UsecaseDto.createFilteredGKVResponse(
-        'subsystem_2',
-        filteredKv2,
-        usecases2,
-      ),
-    );
+    collection.push(new SubsystemFilteredUsecasesDto(filteredKv2, usecases2));
 
     return collection;
   },
@@ -138,8 +102,8 @@ export const SubsystemFilteredUseCaseCollectionExample = {
 /**
  * Example provider for UseCaseIdentifier
  */
-export const UsecaseIdentifierExample = {
-  getExample(): UsecaseIdentifier {
+export const UsecaseIdentifierDtoExample = {
+  getExample(): UsecaseIdentifierDto {
     const keyvalueInfo = [
       new KeyValueInfo(
         new KeyInfo(0xa1_00_00_00, 'StreamRX', 'sys7'),
@@ -155,7 +119,7 @@ export const UsecaseIdentifierExample = {
       ),
     ];
     const kvInfo = new KeyValuePairsInfo(keyvalueInfo);
-    return new UsecaseIdentifier(
+    return new UsecaseIdentifierDto(
       '1',
       UsecaseType.Regular,
       kvInfo,
@@ -170,9 +134,9 @@ export const UsecaseIdentifierExample = {
  * Example provider for UseCaseIdentifier collection
  */
 export const UseCaseIdentifierCollectionExample = {
-  getExample(): UsecaseIdentifier[] {
-    const listOfUsecases: UsecaseIdentifier[] = [];
-    listOfUsecases.push(UsecaseIdentifierExample.getExample());
+  getExample(): UsecaseIdentifierDto[] {
+    const listOfUsecases: UsecaseIdentifierDto[] = [];
+    listOfUsecases.push(UsecaseIdentifierDtoExample.getExample());
 
     const keyvalueInfo = [
       new KeyValueInfo(
@@ -190,7 +154,7 @@ export const UseCaseIdentifierCollectionExample = {
     ];
     const kvInfo = new KeyValuePairsInfo(keyvalueInfo);
     listOfUsecases.push(
-      new UsecaseIdentifier(
+      new UsecaseIdentifierDto(
         '2',
         UsecaseType.Regular,
         kvInfo,
@@ -209,13 +173,10 @@ export const UseCaseIdentifierCollectionExample = {
 export const UsecaseComponentsExample = {
   getExample(): UsecaseComponentsDto {
     // Create a usecase identifier for the components
-    const usecaseIdentifier = UsecaseIdentifierExample.getExample();
+    const usecaseIdentifier = UsecaseIdentifierDtoExample.getExample();
 
-    // Create the UsecaseComponentsDto with the usecase identifier
-    const usecaseComponents = new UsecaseComponentsDto(usecaseIdentifier);
-
-    // Add subsystem example
-    usecaseComponents.subsystems = [subsystemApiExample];
+    // Create the ComponentCollectionDto
+    const componentCollection = new ComponentCollectionDto();
 
     // Create module instances
     const spfModule1 = new SpfModuleDto(
@@ -305,7 +266,7 @@ export const UsecaseComponentsExample = {
     );
     spfModule2.controlPorts = [controlPort2, controlPort3];
 
-    usecaseComponents.spfModules = [spfModule1, spfModule2];
+    componentCollection.spfModules = [spfModule1, spfModule2];
 
     // Create data links
     const dataConnection = new DataLinkDto(
@@ -321,7 +282,7 @@ export const UsecaseComponentsExample = {
     );
     dataConnection.name = 'data_link';
 
-    usecaseComponents.dataLinks = [dataConnection];
+    componentCollection.dataLinks = [dataConnection];
 
     // Create control links
     const controlLink = new ControlLinkDto(
@@ -337,9 +298,10 @@ export const UsecaseComponentsExample = {
     );
     controlLink.name = 'control_link';
 
-    usecaseComponents.controlLinks = [controlLink];
+    componentCollection.controlLinks = [controlLink];
 
-    return usecaseComponents;
+    // Create the UsecaseComponentsDto wrapper with usecase identifiers and components
+    return new UsecaseComponentsDto([usecaseIdentifier], componentCollection);
   },
 };
 
@@ -348,17 +310,17 @@ export const UsecaseComponentsExample = {
  */
 export const UsecaseWithComponentsExample = {
   getExample(): UsecaseWithComponents {
-    // Create a usecase with components using the UseCaseIdentifier example
-    const usecaseIdentifier = UsecaseIdentifierExample.getExample();
+    // Create a usecase with components using the UsecaseIdentifierDto example
+    const usecaseIdentifier = UsecaseIdentifierDtoExample.getExample();
     const usecaseWithComponents = new UsecaseWithComponents(usecaseIdentifier);
 
     // Get the grouped components and flatten them for backward compatibility
-    const groupedComponents = UsecaseComponentsExample.getExample();
+    const usecaseComponentsDto = UsecaseComponentsExample.getExample();
+    const componentCollection = usecaseComponentsDto.components;
     const flatComponents: BaseComponentDto<number>[] = [
-      ...groupedComponents.subsystems,
-      ...groupedComponents.spfModules,
-      ...groupedComponents.dataLinks,
-      ...groupedComponents.controlLinks,
+      ...componentCollection.spfModules,
+      ...componentCollection.dataLinks,
+      ...componentCollection.controlLinks,
     ];
 
     // Add components to the usecase
@@ -387,7 +349,7 @@ export const UsecaseWithComponentsExample = {
       ),
     ];
     const kvInfo = new KeyValuePairsInfo(keyvalueInfo);
-    const usecaseIdentifier = new UsecaseIdentifier(
+    const usecaseIdentifier = new UsecaseIdentifierDto(
       '1',
       UsecaseType.Regular,
       kvInfo,
@@ -460,7 +422,10 @@ export const UsecaseWithComponentsExample = {
     eqModule.controlPorts = [eqControlPort1, eqControlPort2];
 
     // Find the MBDRC module from base components (for reference)
-    const mbdrcModule = baseComponents.spfModules.find(c => c.id === 1002);
+    const baseComponentCollection = baseComponents.components;
+    const mbdrcModule = baseComponentCollection.spfModules.find(
+      (c: SpfModuleDto) => c.id === 1002,
+    );
     if (!mbdrcModule) {
       throw new Error('MBDRC module not found in base components');
     }
@@ -494,10 +459,9 @@ export const UsecaseWithComponentsExample = {
 
     // Combine all components
     const allComponents: BaseComponentDto<number>[] = [
-      ...baseComponents.subsystems,
-      ...baseComponents.spfModules,
-      ...baseComponents.dataLinks,
-      ...baseComponents.controlLinks,
+      ...baseComponentCollection.spfModules,
+      ...baseComponentCollection.dataLinks,
+      ...baseComponentCollection.controlLinks,
       eqModule,
       dataConnection,
       controlConnection,

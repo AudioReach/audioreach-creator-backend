@@ -23,6 +23,9 @@ export class DataPortDto extends BaseComponentDto<number> {
   @ApiProperty({description: 'Port type', enum: PortType})
   portType!: PortType;
 
+  @ApiProperty({description: 'Total links at port'})
+  totalLinksAtPort?: number;
+
   set dataPortName(value: string) {
     this.name = value;
   }

@@ -20,7 +20,7 @@ import {SubgraphDto, SubgraphPropertiesDto} from './dto/subgraph.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
-import {UsecaseIdentifier} from '../usecase/dto/usecase.dto.js';
+import {UsecaseIdentifierDto} from '../usecase/dto/usecase.dto.js';
 
 /**
  * Controller to support all subgraph related APIs for usecase design.
@@ -138,7 +138,7 @@ export class SubgraphController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Usecases are returned successfully',
-        dto: [UsecaseIdentifier],
+        dto: [UsecaseIdentifierDto],
         example: {
           className: 'UseCaseIdentifierCollectionExample',
         },
@@ -152,7 +152,7 @@ export class SubgraphController extends BaseController {
   async getUsecasesForSubgraph(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
-  ): Promise<ApiResult<UsecaseIdentifier[]>> {
+  ): Promise<ApiResult<UsecaseIdentifierDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Getting all usecases for project: ${projectId} and subgraph: ${subgraphSystemId}`,
