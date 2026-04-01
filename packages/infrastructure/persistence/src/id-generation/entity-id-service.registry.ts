@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource, QueryRunner} from 'typeorm';
+import type {DataSource} from 'typeorm';
 import type {IdGenerationPort} from '@arc/core';
 import {EntityIdService} from './entity-id.service.js';
 
@@ -13,17 +13,17 @@ import {EntityIdService} from './entity-id.service.js';
  * Plain class — no NestJS decorators. The NestJS provider registration
  * (injecting DataSource and binding to ID_GENERATION_PORT) is done in
  * packages/api.
- *
- * Also exposes persistActual() which is not on the port — called directly
- * by the import/commit flow after all entity inserts succeed.
  */
 export class EntityIdServiceRegistry implements IdGenerationPort {
   private readonly services = new Map<number, EntityIdService>();
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly autoReserveSize?: number,
+  ) {}
 
   /** @inheritdoc */
-  getNextId(fileId: number): number {
+  async getNextId(fileId: number): Promise<number> {
     return this.getOrCreate(fileId).getNextId();
   }
 
@@ -32,19 +32,17 @@ export class EntityIdServiceRegistry implements IdGenerationPort {
     return this.getOrCreate(fileId).reserveBlock(blockSize);
   }
 
-  /**
-   * Write the actual last-used ID back to the DB for the given file,
-   * reclaiming any unused tail of the reserved block.
-   *
-   * Not on IdGenerationPort — called directly by the import/commit flow.
-   */
-  async persistActual(fileId: number, queryRunner: QueryRunner): Promise<void> {
-    return this.getOrCreate(fileId).persistActual(queryRunner);
+  /** @inheritdoc */
+  async persistLastUsedId(fileId: number): Promise<void> {
+    return this.getOrCreate(fileId).persistLastUsedId();
   }
 
   private getOrCreate(fileId: number): EntityIdService {
     if (!this.services.has(fileId)) {
-      this.services.set(fileId, new EntityIdService(fileId, this.dataSource));
+      this.services.set(
+        fileId,
+        new EntityIdService(fileId, this.dataSource, this.autoReserveSize),
+      );
     }
     return this.services.get(fileId)!;
   }

@@ -49,9 +49,10 @@ export function toArcDbFileRow(
     metadata: file.metadata,
     fileName: file.fileName,
     isTarget: file.isTarget,
-    // Seeded to 0 on insert; FileIdService.reserveBlock() initialises it to
-    // files.system_id before issuing the first composite ID for this file.
-    lastEntityId: 0,
+    // Seeded to 0 on insert; EntityIdService.reserveBlock() (or auto-reserve
+    // on first getNextId) will advance last_reserved_id before issuing the
+    // first composite ID for this file.
+    lastReservedId: 0,
     projectSystemId,
   };
 }
