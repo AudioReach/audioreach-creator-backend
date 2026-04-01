@@ -1820,6 +1820,56 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/usecases/modificationsSummary": {
+      "get": {
+        "operationId": "UseCaseController_getUsecaseModificationSummary",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UsecaseWithModificationSummary"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Failed to get modification summary)"
+          }
+        },
+        "summary": "Get all added and deleted usecases with their modification summary",
+        "tags": [
+          "usecases"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/usecases/getComponents": {
       "post": {
         "description": "For components shared in different usecases, only one copy will be returned.",
@@ -2135,9 +2185,10 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/modificationsSummary": {
-      "get": {
-        "operationId": "UseCaseController_getUsecaseModificationSummary",
+    "/arc-api/v1/projects/{projectId}/usecases/{usecaseSystemId}": {
+      "patch": {
+        "description": "Updates the alias information for a specific usecase. The alias can be set or removed (by passing null).\n\n**Request Body:**\n- `aliasInfo` (required, nullable): Alias information object or null\n  - When provided as an object with `id` and `name`, it updates the alias for the usecase\n  - When set to `null`, it removes the existing alias from the usecase\n\n**Response:**\nReturns the updated usecase with:\n- `systemId`: Unique system identifier of the usecase\n- `gkv`: Array of Graph Key-Value pairs\n- `aliasInfo`: Updated alias information (or null if removed)\n- `categories`: Array of category names",
+        "operationId": "UseCaseController_updateUsecase",
         "parameters": [
           {
             "name": "projectId",
@@ -2148,11 +2199,31 @@
               "example": "12345",
               "type": "string"
             }
+          },
+          {
+            "name": "usecaseSystemId",
+            "required": true,
+            "in": "path",
+            "description": "The unique system identifier of the usecase to update",
+            "schema": {
+              "example": "123",
+              "type": "string"
+            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUsecaseRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Usecase updated successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -2163,10 +2234,7 @@
                     {
                       "properties": {
                         "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/UsecaseWithModificationSummary"
-                          }
+                          "$ref": "#/components/schemas/UsecaseResponseDto"
                         }
                       }
                     }
@@ -2175,11 +2243,20 @@
               }
             }
           },
-          "422": {
-            "description": "Failed to get modification summary)"
+          "400": {
+            "description": "Invalid request data"
+          },
+          "404": {
+            "description": "Usecase not found"
+          },
+          "409": {
+            "description": "Alias ID is already in use by another usecase"
+          },
+          "500": {
+            "description": "Failed to update usecase"
           }
         },
-        "summary": "Get all added and deleted usecases with their modification summary",
+        "summary": "Update usecase alias information",
         "tags": [
           "usecases"
         ]
@@ -6708,6 +6785,123 @@
         "required": [
           "key",
           "value"
+        ]
+      },
+      "UsecaseAliasDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Unique identifier for the usecase alias"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the usecase alias"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "UsecaseCategorySummaryDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the usecase category"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the usecase category"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "name"
+        ]
+      },
+      "UsecaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the usecase"
+          },
+          "gkv": {
+            "description": "Array of Key-Value pair for the usecase",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueDto"
+            }
+          },
+          "aliasInfo": {
+            "description": "Alias information for the usecase. Can be null if no alias is assigned.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UsecaseAliasDto"
+              }
+            ]
+          },
+          "usecaseType": {
+            "type": "string",
+            "description": "Type of the usecase",
+            "enum": [
+              "EC",
+              "REGULAR",
+              "MANUAL"
+            ]
+          },
+          "categories": {
+            "description": "Array of categories for the usecase. Can be empty if no categories are assigned.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseCategorySummaryDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "gkv",
+          "aliasInfo",
+          "usecaseType",
+          "categories"
+        ]
+      },
+      "UpdateUsecaseRequestDto": {
+        "type": "object",
+        "properties": {
+          "aliasInfo": {
+            "description": "Alias information for the usecase. Can be null to remove alias.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UsecaseAliasDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "aliasInfo"
         ]
       },
       "KeyValuePairsDto": {
