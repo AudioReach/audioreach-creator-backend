@@ -16,11 +16,13 @@ export interface ArcDbFileRow extends EntityBaseRow {
   fileName: string;
   isTarget: boolean;
   /**
-   * Seed/counter for composite ID generation.
+   * Reservation high-water mark for composite ID generation.
    * Initial value = files.system_id (seq = 0, no entities yet).
-   * Incremented atomically by FileIdService.reserveBlock().
+   * Atomically incremented by EntityIdService.reserveBlock() to claim a
+   * contiguous block of IDs. persistActual() reclaims the unused tail after
+   * all inserts succeed, keeping this value tight.
    */
-  lastEntityId: number;
+  lastReservedId: number;
 
   // FK to project
   projectSystemId: number;
@@ -41,8 +43,8 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
     metadata: {type: 'text'}, // or use `type: 'simple-json'` if you prefer object serialization
     fileName: {name: 'file_name', type: 'varchar', length: 250},
     isTarget: {type: 'integer'}, // SQLite stores boolean as 0/1
-    lastEntityId: {
-      name: 'last_entity_id',
+    lastReservedId: {
+      name: 'last_reserved_id',
       type: 'integer',
       nullable: false,
       default: 0,
