@@ -63,7 +63,9 @@ export class ModuleListProperty {
     fieldName: string,
   ): void {
     if (pos + requiredBytes > totalLength) {
-      throw new Error(`Cannot read ${fieldName} at position ${pos}`);
+      throw new Error(
+        `[ModuleListProperty] Cannot read ${fieldName} at position ${pos}: required ${requiredBytes} bytes, but only ${totalLength - pos} bytes remaining (total payload length: ${totalLength})`,
+      );
     }
   }
 

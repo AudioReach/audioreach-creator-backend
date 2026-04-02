@@ -36,10 +36,12 @@ export class ContainerConfigProperty {
     let pos = 0;
 
     // Read count of container configurations
-    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-      throw new Error('Cannot read container count from payload');
-    }
-
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'container count',
+    );
     const configCount = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
@@ -58,18 +60,22 @@ export class ContainerConfigProperty {
     pos: number,
   ): number {
     // Read container instance ID
-    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-      throw new Error(`Cannot read container instance ID at position ${pos}`);
-    }
-
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'container instance ID',
+    );
     const containerId = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Read property count
-    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-      throw new Error(`Cannot read property count at position ${pos}`);
-    }
-
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'property count',
+    );
     const propCount = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
@@ -105,28 +111,27 @@ export class ContainerConfigProperty {
 
     for (let j = 0; j < propCount; j++) {
       // Read property ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read property ID at position ${pos}`);
-      }
-
+      this.validateLength(
+        pos,
+        BinaryUtils.SIZEOF_UINT32,
+        payload.length,
+        'property ID',
+      );
       const propId = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Read property data length
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read property length at position ${pos}`);
-      }
-
+      this.validateLength(
+        pos,
+        BinaryUtils.SIZEOF_UINT32,
+        payload.length,
+        'property length',
+      );
       const length = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Read property data
-      if (pos + length > payload.length) {
-        throw new Error(
-          `Cannot read property data at position ${pos}, length ${length}`,
-        );
-      }
-
+      this.validateLength(pos, length, payload.length, 'property data');
       const propData = payload.slice(pos, pos + length);
       pos += length;
 
@@ -134,6 +139,22 @@ export class ContainerConfigProperty {
     }
 
     return {properties, newPos: pos};
+  }
+
+  /**
+   * Validate that there are enough bytes remaining in the payload
+   */
+  private validateLength(
+    pos: number,
+    requiredBytes: number,
+    totalLength: number,
+    fieldName: string,
+  ): void {
+    if (pos + requiredBytes > totalLength) {
+      throw new Error(
+        `[ContainerConfigProperty] Cannot read ${fieldName} at position ${pos}: required ${requiredBytes} bytes, but only ${totalLength - pos} bytes remaining (total payload length: ${totalLength})`,
+      );
+    }
   }
 
   /**

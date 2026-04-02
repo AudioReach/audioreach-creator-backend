@@ -133,4 +133,16 @@ export class BinaryUtils {
   static writeUint8(view: DataView, offset: number, value: number): void {
     view.setUint8(offset, value);
   }
+
+  /**
+   * Convert a number to hexadecimal string with 0x prefix.
+   * Useful for logging and debugging binary data.
+   *
+   * @param value - Number to convert to hex
+   * @param padWidth - Optional minimum width for padding with zeros (default: 8 for 32-bit values)
+   * @returns Hexadecimal string with 0x prefix (e.g., "0xB0000002")
+   */
+  static toHexString(value: number, padWidth: number = 8): string {
+    return '0x' + value.toString(16).toUpperCase().padStart(padWidth, '0');
+  }
 }
