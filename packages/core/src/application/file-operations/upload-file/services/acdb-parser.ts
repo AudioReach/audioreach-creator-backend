@@ -16,6 +16,7 @@ import {DatapoolChunkParser} from './acdb-chunk-parsers/datapool-chunk-parser.js
 import {UsecaseDataChunkParser} from './acdb-chunk-parsers/usecase-data-chunk-parser.js';
 import {SubgraphDataChunkParser} from './acdb-chunk-parsers/subgraph-data-chunk-parser.js';
 import {SubgraphPairDataChunkParser} from './acdb-chunk-parsers/subgraph-pair-data-chunk-parser.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 
 /**
  * Service responsible for parsing individual ACDB chunks.
@@ -25,8 +26,12 @@ export class AcdbParser {
   private readonly headerParser = new HeaderChunkParser();
   private readonly datapoolParser = new DatapoolChunkParser();
   private readonly usecaseDataParser = new UsecaseDataChunkParser();
-  private readonly subgraphDataParser = new SubgraphDataChunkParser();
+  private readonly subgraphDataParser: SubgraphDataChunkParser;
   private readonly subgraphPairDataParser = new SubgraphPairDataChunkParser();
+
+  constructor(private readonly logger?: Logger) {
+    this.subgraphDataParser = new SubgraphDataChunkParser(logger);
+  }
 
   /**
    * Parse a single chunk based on its type

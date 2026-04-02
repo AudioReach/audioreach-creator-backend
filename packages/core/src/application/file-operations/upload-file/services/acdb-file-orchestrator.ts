@@ -35,7 +35,7 @@ export class AcdbFileOrchestrator {
     //private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {
-    this.chunkParser = new AcdbParser();
+    this.chunkParser = new AcdbParser(logger);
   }
 
   /**
