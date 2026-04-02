@@ -12,10 +12,10 @@ import {GetComponentsQuery} from './get-components.query.js';
  * Handler for GetComponentsQuery
  * Retrieves all components (modules, data links, control links) for specific use cases
  */
-export class GetComponentsHandler
-  implements
-    QueryHandler<GetComponentsQuery, Promise<UseCaseComponentsReadModel>>
-{
+export class GetComponentsHandler implements QueryHandler<
+  GetComponentsQuery,
+  Promise<UseCaseComponentsReadModel>
+> {
   constructor(private queryServices: QueryServices) {}
 
   async handle(query: GetComponentsQuery): Promise<UseCaseComponentsReadModel> {

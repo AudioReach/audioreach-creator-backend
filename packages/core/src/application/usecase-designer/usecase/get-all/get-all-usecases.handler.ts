@@ -13,9 +13,10 @@ import {GetAllUseCasesQuery} from './get-all-usecases.query.js';
  * Retrieves all use cases with their global key vectors for a specific project
  * Orchestrates: projectId → fileId → use cases
  */
-export class GetAllUseCasesHandler
-  implements QueryHandler<GetAllUseCasesQuery, Promise<UseCaseReadModel[]>>
-{
+export class GetAllUseCasesHandler implements QueryHandler<
+  GetAllUseCasesQuery,
+  Promise<UseCaseReadModel[]>
+> {
   constructor(private queryServices: QueryServices) {}
 
   async handle(query: GetAllUseCasesQuery): Promise<UseCaseReadModel[]> {

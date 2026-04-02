@@ -8,9 +8,10 @@ import {GetModuleCompactQuery} from './get-module-compact.query.js';
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../services/query-services.js';
 
-export class GetModuleCompactHandler
-  implements QueryHandler<GetModuleCompactQuery, ModuleCompactView>
-{
+export class GetModuleCompactHandler implements QueryHandler<
+  GetModuleCompactQuery,
+  ModuleCompactView
+> {
   constructor(private queryServices: QueryServices) {}
 
   handle(_query: GetModuleCompactQuery): ModuleCompactView {

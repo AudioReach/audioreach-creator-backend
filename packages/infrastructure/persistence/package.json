@@ -20,6 +20,7 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "shx rm -rf dist *.tsbuildinfo",
+    "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test:persistence": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",

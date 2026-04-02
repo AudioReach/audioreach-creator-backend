@@ -20,7 +20,8 @@
     "coverage:workspace": "cd ../.. && pnpm run coverage:workspace",
     "coverage:clean": "shx rm -rf coverage",
     "typecheck": "tsc --noEmit",
-    "clean": "shx rm -rf dist *.tsbuildinfo"
+    "clean": "shx rm -rf dist *.tsbuildinfo",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@arc/core": "workspace:*",

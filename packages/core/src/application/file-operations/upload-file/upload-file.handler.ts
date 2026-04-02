@@ -24,9 +24,10 @@ export type OpenFileResult = {
   projectDescription: string;
 };
 
-export class OpenFileHandler
-  implements CommandHandler<OpenFileCommand, OpenFileResult>
-{
+export class OpenFileHandler implements CommandHandler<
+  OpenFileCommand,
+  OpenFileResult
+> {
   private uploadOrchestrator: UploadFileOrchestrator;
 
   constructor(
