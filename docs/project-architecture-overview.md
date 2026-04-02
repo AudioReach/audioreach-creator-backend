@@ -47,7 +47,7 @@ AudioReach Creator API is an open-source, cross-platform backend framework for m
 ### 1.3 Key Characteristics
 
 - **Open Source**: BSD-3-Clause-Clear license
-- **Monorepo Architecture**: Yarn workspaces with Turbo for build orchestration
+- **Monorepo Architecture**: pnpm workspaces with Turbo for build orchestration
 - **Type Safety**: Full TypeScript with strict mode enabled
 - **Clean Architecture**: Clear separation of concerns with hexagonal architecture
 - **CQRS Pattern**: Command/Query Responsibility Segregation
@@ -204,7 +204,7 @@ audioreach-creator-api/
 ├── package.json                    # Root package.json
 ├── tsconfig.json                   # Root TypeScript config
 ├── turbo.json                      # Turbo build config
-└── yarn.lock
+└── pnpm-lock.yaml
 ```
 
 ### 3.2 packages/core Structure
@@ -727,7 +727,7 @@ describe('POST /api/v1/projects/upload', () => {
       .post('/api/v1/projects/upload')
       .attach('file', 'fixtures/workspaceFileXml.awsp')
       .expect(201);
-
+    
     expect(response.body.projectId).toBeDefined();
   });
 });
@@ -754,7 +754,7 @@ describe('POST /api/v1/projects/upload', () => {
 | **NestJS** | ^10.x | Web framework |
 | **TypeORM** | ^0.3.28 | ORM for database |
 | **SQLite** | 3.x | Embedded database |
-| **Yarn** | ≥4.0.0 | Package manager |
+| **pnpm** | ≥9.0.0 | Package manager |
 | **Turbo** | ^2.5.6 | Monorepo build system |
 
 ### 9.2 Supporting Libraries
@@ -822,7 +822,7 @@ The architecture is designed to accommodate future real-time device operations w
 ### 11.1 Prerequisites
 
 - Node.js ≥22.0.0
-- Yarn ≥4.0.0
+- pnpm ≥10.0.0
 - Git
 
 ### 11.2 Installation
@@ -833,38 +833,38 @@ git clone <repository-url>
 cd audioreach-creator-api
 
 # Install dependencies
-yarn install
+pnpm install
 
 # Build all packages
-yarn build
+pnpm build
 
 # Run tests
-yarn test
+pnpm test
 
 # Start development server
-yarn dev
+pnpm dev
 ```
 
 ### 11.3 Project Commands
 
 ```bash
 # Build all packages
-yarn build
+pnpm build
 
 # Run tests
-yarn test
+pnpm test
 
 # Lint code
-yarn lint
+pnpm lint
 
 # Format code
-yarn format
+pnpm format
 
 # Generate API documentation
-yarn docs
+pnpm docs
 
 # Clean build artifacts
-yarn clean
+pnpm clean
 ```
 
 ---
@@ -873,7 +873,7 @@ yarn clean
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-01-30 | Architecture Team | Initial project architecture overview
+| 1.0 | 2026-01-30 | Architecture Team | Initial project architecture overview 
 
 ---
 

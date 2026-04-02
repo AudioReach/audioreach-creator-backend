@@ -1,0 +1,11 @@
+packages:
+  - packages/*
+  - packages/infrastructure/*
+
+autoInstallPeers: true
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - '@scarf/scarf'
+  - sqlite3
+  - unrs-resolver

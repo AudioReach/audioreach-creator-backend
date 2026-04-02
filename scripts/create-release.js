@@ -31,7 +31,7 @@ fs.mkdirSync(releaseDir);
 // Step 2: Build the project
 console.log('🔨 Step 2: Building project...');
 try {
-  execSync('yarn build', {cwd: rootDir, stdio: 'inherit'});
+  execSync('pnpm run build', {cwd: rootDir, stdio: 'inherit'});
 } catch (error) {
   console.error('❌ Build failed!');
   process.exit(1);
@@ -75,8 +75,8 @@ packagesToCopy.forEach(pkg => {
 console.log('📄 Step 4: Copying root configuration files...');
 const rootFilesToCopy = [
   'package.json',
-  '.yarnrc.yml',
-  'yarn.lock',
+  'pnpm-lock.yaml',
+  'pnpm-workspace.yaml',
   'tsconfig.json',
 ];
 
@@ -86,15 +86,10 @@ rootFilesToCopy.forEach(file => {
   }
 });
 
-// Copy .yarn directory for offline installation
-if (fs.existsSync(path.join(rootDir, '.yarn'))) {
-  fs.copySync(path.join(rootDir, '.yarn'), path.join(releaseDir, '.yarn'));
-}
-
 // Step 5: Install production dependencies
 console.log('📦 Step 5: Installing production dependencies...');
 try {
-  execSync('yarn workspaces focus --production', {
+  execSync('pnpm install --prod', {
     cwd: releaseDir,
     stdio: 'inherit',
   });

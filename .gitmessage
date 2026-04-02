@@ -45,5 +45,5 @@
 # Examples:
 # feat(core): add domain class impelementation
 # fix(application): resolve issue with add-usecase
-# docs(readme): update installation instructions for yarn
+# docs(readme): update installation instructions for pnpm
 # refactor(utils): simplify type definitions for domain

@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      YARN_CACHE_FOLDER: .yarn-cache
+      PNPM_CACHE_FOLDER: .pnpm-cache
       FORCE_COLOR: '1'
       NODE_ENV: development
 
@@ -40,7 +40,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🔧 Enable Corepack (for Yarn)
+      - name: 🔧 Enable Corepack (for pnpm)
         run: corepack enable
 
       - name: 🔧 Environment Setup
@@ -48,7 +48,7 @@ jobs:
           echo "🔧 Setting up build environment..."
           node --version
           npm --version
-          yarn --version
+          pnpm --version
           git --version
           echo ""
           echo "Branch: ${{ github.ref_name }}"
@@ -66,18 +66,18 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           echo "📦 Installing dependencies..."
-          yarn install
+          pnpm install
 
       - name: 🎨 Format Check
         run: |
           echo "🎨 Checking code formatting..."
-          yarn format:check
+          pnpm format:check
         continue-on-error: false
 
       - name: 🏗️ Build
         run: |
           echo "🏗️ Building all packages..."
-          yarn build
+          pnpm build
           echo ""
           echo "📋 Checking build outputs..."
           ls -la packages/api/dist || echo "⚠️ packages/api/dist not found"
@@ -89,14 +89,14 @@ jobs:
       - name: 🔍 Lint
         run: |
           echo "🔍 Running linting checks..."
-          yarn lint
+          pnpm lint
         continue-on-error: false
 
       - name: 🧪 Test
         id: test
         run: |
           echo "🧪 Running tests..."
-          yarn turbo run coverage:workspace
+          pnpm turbo run coverage:workspace
         continue-on-error: false
 
       - name: 📊 Publish Test Results
@@ -122,7 +122,7 @@ jobs:
         if: steps.test.outcome != 'skipped'
         run: |
           echo "📊 Generating Coverage report..."
-          yarn turbo run coverage:workspace
+          pnpm turbo run coverage:workspace || echo "⚠️ Coverage generation failed"
         continue-on-error: false
 
       - name: 📤 Upload Coverage Artifacts

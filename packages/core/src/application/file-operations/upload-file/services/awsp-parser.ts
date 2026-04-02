@@ -5,7 +5,6 @@
 
 // IMPORTANT: reflect-metadata must be imported first, before any other imports
 // This polyfill is required for class-transformer decorators to work
-// eslint-disable-next-line n/no-extraneous-import -- Required polyfill for class-transformer decorators
 import 'reflect-metadata';
 
 import {plainToInstance} from 'class-transformer';

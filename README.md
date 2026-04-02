@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue.svg)](https://www.typescriptlang.org/)
-[![Yarn](https://img.shields.io/badge/Yarn-%3E%3D4.0.0-2C8EBB.svg)](https://yarnpkg.com/)
+[![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.0.0-F69220.svg)](https://pnpm.io/)
 
 > An open-source, cross-platform backend framework for managing AudioReach database files and providing REST API for audio graph design operations.
 
@@ -90,7 +90,7 @@ The AudioReach Creator API aims to provide:
 
 - **Developer Experience**
   - Full TypeScript with strict type checking
-  - Monorepo structure with Yarn workspaces
+  - Monorepo structure with pnpm workspaces
   - Comprehensive test coverage (unit, integration, E2E)
   - Modern ESM module system
 
@@ -154,7 +154,7 @@ All operations are modeled as Commands (writes) or Queries (reads):
 
 Rich domain models encapsulate business logic:
 
-- **Aggregates**: Project, Usecase, Subgraph, SpfModule
+- **Aggregates**: Project, Usecase, Subgraph, ModuleInstance
 - **Entities**: Audio modules, connections, definitions
 - **Value Objects**: Parameters, port configurations
 - **Domain Services**: Graph validation, connection rules
@@ -172,7 +172,7 @@ For detailed architecture documentation, see [docs/project-architecture-overview
 | **NestJS**     | ^11.x   | Web framework                |
 | **TypeORM**    | ^0.3.28 | ORM for database operations  |
 | **SQLite**     | 3.x     | Embedded database            |
-| **Yarn**       | ≥4.0.0  | Package manager              |
+| **pnpm**       | ≥10.0.0 | Package manager              |
 | **Turbo**      | ^2.5.6  | Monorepo build orchestration |
 | **Jest**       | ^29.7.0 | Testing framework            |
 | **ESLint**     | ^9.33.0 | Code linting                 |
@@ -185,12 +185,12 @@ For detailed architecture documentation, see [docs/project-architecture-overview
 Before you begin, ensure you have the following installed:
 
 - **Node.js** ≥22.0.0 ([Download](https://nodejs.org/))
-- **Yarn** ≥4.0.0 (Install via Corepack - see below)
+- **pnpm** ≥10.0.0 (Install via Corepack - see below)
 - **Git** ([Download](https://git-scm.com/))
 
-### Installing Yarn via Corepack
+### Installing pnpm via Corepack
 
-We recommend using Corepack to install Yarn to avoid conflicts with other package managers:
+We recommend using Corepack to install pnpm to avoid conflicts with other package managers:
 
 ```bash
 # Enable Corepack (included with Node.js ≥16.10)
@@ -211,23 +211,23 @@ git clone <repository-url>
 cd audioreach-creator-api
 
 # Install dependencies
-yarn install
+pnpm install
 
 # Build all packages
-yarn build
+pnpm run build
 ```
 
 ### Running the API Server
 
 ```bash
 # Development mode (with hot reload)
-yarn start:dev
+pnpm run start:dev
 
 # Production mode
-yarn start:prod
+pnpm run start:prod
 
 # Debug mode
-yarn start:debug
+pnpm run start:debug
 ```
 
 The API server will start on `http://localhost:3000` (default port).
@@ -236,20 +236,20 @@ The API server will start on `http://localhost:3000` (default port).
 
 ```bash
 # Run all tests
-yarn test
+pnpm test
 
 # Run linter
-yarn lint
+pnpm run lint
 
 # Check TypeScript compilation
-yarn build
+pnpm run build
 ```
 
 ---
 
 ## Project Structure
 
-AudioReach Creator API uses a monorepo structure with Yarn workspaces:
+AudioReach Creator API uses a monorepo structure with pnpm workspaces:
 
 ```
 audioreach-creator-api/
@@ -299,43 +299,43 @@ audioreach-creator-api/
 
 ```bash
 # Build all packages
-yarn build
+pnpm run build
 
 # Build specific package
-yarn build:core
-yarn build:api
-yarn build:fs
-yarn build:persistence
+pnpm run build:core
+pnpm run build:api
+pnpm run build:fs
+pnpm run build:persistence
 
 # Start development server
-yarn start:dev
+pnpm run start:dev
 
 # Run tests
-yarn test                    # All tests
-yarn workspace @arc/core test:unit:core
-yarn workspace @arc/api test:e2e:api
+pnpm test                    # All tests
+pnpm --filter @arc/core run test:unit:core
+pnpm --filter @arc/api run test:e2e:api
 
 # Code quality
-yarn lint                    # Run ESLint
-yarn lint:fix                # Fix linting issues
-yarn format                  # Format code with Prettier
+pnpm run lint                # Run ESLint
+pnpm run lint:fix            # Fix linting issues
+pnpm run format              # Format code with Prettier
 
 # Database migrations
-yarn migration:run           # Run pending migrations
-yarn migration:revert        # Revert last migration
-yarn migration:show          # Show migration status
+pnpm run migration:run       # Run pending migrations
+pnpm run migration:revert    # Revert last migration
+pnpm run migration:show      # Show migration status
 
 # Clean build artifacts
-yarn clean
+pnpm run clean
 ```
 
 ### Development Workflow
 
 1. **Make Changes**: Edit files in the appropriate package
-2. **Build**: Run `yarn build` to compile TypeScript
+2. **Build**: Run `pnpm run build` to compile TypeScript
 3. **Test**: Run tests to verify changes
-4. **Lint**: Ensure code quality with `yarn lint`
-5. **Format**: Format code with `yarn format`
+4. **Lint**: Ensure code quality with `pnpm run lint`
+5. **Format**: Format code with `pnpm run format`
 
 ---
 
@@ -353,19 +353,19 @@ AudioReach Creator API has comprehensive test coverage:
 
 ```bash
 # Run all tests
-yarn test
+pnpm test
 
 # Run tests for specific package
-yarn workspace @arc/core test:core
-yarn workspace @arc/api test:api
+pnpm --filter @arc/core run test:core
+pnpm --filter @arc/api run test:api
 
 # Run specific test types
-yarn workspace @arc/core test:unit:core
-yarn workspace @arc/api test:e2e:api
+pnpm --filter @arc/core run test:unit:core
+pnpm --filter @arc/api run test:e2e:api
 
 # Run with coverage
-yarn workspace @arc/core coverage:core
-yarn workspace @arc/api coverage:api
+pnpm --filter @arc/core run coverage:core
+pnpm --filter @arc/api run coverage:api
 ```
 
 ### Test Fixtures
@@ -390,7 +390,7 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ```bash
 # Generate Swagger documentation
-yarn generate:swagger
+pnpm run generate:swagger
 ```
 
 ---
