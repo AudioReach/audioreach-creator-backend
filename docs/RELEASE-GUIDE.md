@@ -33,7 +33,7 @@ They simply extract, run a single command, and start testing with Postman.
 Run the following command from the project root:
 
 ```bash
-yarn dev-release
+pnpm run dev-release
 ```
 
 This script will:
@@ -56,9 +56,9 @@ release/
 │   │   ├── fs/dist/       # Built file system adapter
 │   │   └── persistence/dist/  # Built persistence layer
 ├── node_modules/          # Production dependencies only
-├── .yarn/                 # Yarn offline cache
 ├── package.json           # Root package configuration
-├── yarn.lock              # Dependency lock file
+├── pnpm-lock.yaml         # Dependency lock file
+├── pnpm-workspace.yaml    # Workspace configuration
 ├── start-api.bat          # Windows startup script
 ├── start-api.sh           # Unix/Mac startup script
 ├── README.md              # User instructions
@@ -158,21 +158,21 @@ To add environment variables to the release, create a `.env` file in the release
 
 ### Build Fails
 
-If `yarn dev-release` fails:
-1. Ensure all packages build successfully: `yarn build`
-2. Check for TypeScript errors: `yarn typecheck`
-3. Verify all dependencies are installed: `yarn install`
+If `pnpm run dev-release` fails:
+1. Ensure all packages build successfully: `pnpm run build`
+2. Check for TypeScript errors: `pnpm run typecheck`
+3. Verify all dependencies are installed: `pnpm install`
 
 ### Release Package Too Large
 
 The release includes:
 - Built JavaScript files (~few MB)
 - Production node_modules (~100-200 MB typically)
-- Yarn offline cache
+- pnpm offline cache
 
 To reduce size:
 - The script already excludes dev dependencies
-- Consider using `yarn workspaces focus --production` manually if needed
+- Consider using `pnpm install --prod` manually if needed
 
 ### Colleague Can't Run
 
@@ -199,7 +199,7 @@ To automate releases in CI/CD:
 ```yaml
 # Example GitHub Actions
 - name: Create Release Package
-  run: yarn dev-release
+  run: pnpm dev-release
 
 - name: Archive Release
   run: zip -r audioreach-api-release.zip release/
@@ -228,7 +228,7 @@ To automate releases in CI/CD:
 
 When you make changes:
 1. Commit your changes to git
-2. Run `yarn dev-release` again
+2. Run `pnpm dev-release` again
 3. Test the new release
 4. Package and share the updated version
 

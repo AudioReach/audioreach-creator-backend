@@ -5,7 +5,6 @@
 
 // IMPORTANT: reflect-metadata must be imported first, before any other imports
 // This polyfill is required for class-transformer decorators to work in worker threads
-// eslint-disable-next-line n/no-extraneous-import -- Required polyfill for class-transformer decorators
 import 'reflect-metadata';
 import {parentPort, workerData} from 'node:worker_threads';
 import type {WorkerTask, WorkerResult} from '@arc/core';
