@@ -1313,7 +1313,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/definitions/modules/spf": {
+    "/arc-api/v1/projects/{projectId}/spf-module-definitions": {
       "get": {
         "description": "Return the list of spf module definitions based on project id",
         "operationId": "ModuleDefinitionController_getAllSpfModuleDefinitions",
@@ -1397,7 +1397,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/definitions/modules/spf/{moduleSystemId}": {
+    "/arc-api/v1/projects/{projectId}/spf-module-definitions/{moduleSystemId}": {
       "get": {
         "description": "Return spf module definition based on project id and module definition system id",
         "operationId": "ModuleDefinitionController_getSpfModuleDefinition",
@@ -1460,7 +1460,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/definitions/modules/driver": {
+    "/arc-api/v1/projects/{projectId}/driver-module-definitions": {
       "get": {
         "description": "Return the list of driver module definitions based on project id",
         "operationId": "ModuleDefinitionController_getAllDriverModuleDefinitions",
@@ -1535,7 +1535,7 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/definitions/modules/driver/{moduleSystemId}": {
+    "/arc-api/v1/projects/{projectId}/driver-module-definitions/{moduleSystemId}": {
       "get": {
         "description": "Return driver module definition based on project id and module definition system id",
         "operationId": "ModuleDefinitionController_getDriverModuleDefinition",

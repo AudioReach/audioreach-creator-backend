@@ -45,7 +45,7 @@ import {
   DefinitionStructArrayDto,
 )
 export class ModuleDefinitionController {
-  @Get('/:projectId/definitions/modules/spf')
+  @Get('/:projectId/spf-module-definitions')
   @ApiOperation({
     summary: 'Return the list of spf module definitions',
     description:
@@ -100,7 +100,7 @@ export class ModuleDefinitionController {
     return new ApiResult<SpfModuleDefinitionResponseDto[]>();
   }
 
-  @Get('/:projectId/definitions/modules/spf/:moduleSystemId')
+  @Get('/:projectId/spf-module-definitions/:moduleSystemId')
   @ApiOperation({
     summary: 'Return spf module definition  by module system id',
     description:
@@ -139,7 +139,7 @@ export class ModuleDefinitionController {
     return new ApiResult<SpfModuleDefinitionResponseDto>();
   }
 
-  @Get('/:projectId/definitions/modules/driver')
+  @Get('/:projectId/driver-module-definitions')
   @ApiOperation({
     summary: 'Return the list of driver module definitions',
     description:
@@ -187,7 +187,7 @@ export class ModuleDefinitionController {
     return new ApiResult<DriverModuleDefinitionResponseDto[]>();
   }
 
-  @Get('/:projectId/definitions/modules/driver/:moduleSystemId')
+  @Get('/:projectId/driver-module-definitions/:moduleSystemId')
   @ApiOperation({
     summary: 'Return driver module definition by module system id',
     description:
