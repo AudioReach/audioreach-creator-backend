@@ -21,6 +21,7 @@ import {ArcCqrsModule} from './infrastructure-wrapper/arc-cqrs.module.js';
 import {KeyDefinitionModule} from './presentation/rest/modules/definition/key-definition/key-definition.module.js';
 import {PropertyDefinitionModule} from './presentation/rest/modules/definition/property-definition/property-definition.module.js';
 import {ModuleDefinitionModule} from './presentation/rest/modules/definition/module-definition/module-definition.module.js';
+import {SpfCustomModuleSchemaModule} from './presentation/rest/modules/definition/spf-custom-module-schema/spf-custom-module-schema.module.js';
 import {RequestLoggerMiddleware} from './infrastructure-wrapper/middleware/request-logger.middleware.js';
 
 @Module({
@@ -34,6 +35,7 @@ import {RequestLoggerMiddleware} from './infrastructure-wrapper/middleware/reque
     KeyDefinitionModule,
     PropertyDefinitionModule,
     ModuleDefinitionModule,
+    SpfCustomModuleSchemaModule,
     UseCaseModule,
     UseCaseCategoryModule,
     DriverModuleModule,
