@@ -1353,6 +1353,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "includeCustomData",
+            "required": false,
+            "in": "query",
+            "description": "Include custom module data in the response. Defaults to false.\n\nTo get the schema for custom module data, first call GET /arc-api/v1/projects/:projectId/spf-custom-module-schema",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1419,6 +1428,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "includeCustomData",
+            "required": false,
+            "in": "query",
+            "description": "Include custom module data in the response. Defaults to false.\n\nTo get the schema for custom module data, first call GET /arc-api/v1/projects/:projectId/spf-custom-module-schema",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1455,6 +1473,311 @@
           }
         },
         "summary": "Return spf module definition  by module system id",
+        "tags": [
+          "module-definition"
+        ]
+      },
+      "patch": {
+        "description": "Partially update a spf module definition based on project id and module system id",
+        "operationId": "ModuleDefinitionController_patchSpfModuleDefinition",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System identifier of module",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeCustomData",
+            "required": false,
+            "in": "query",
+            "description": "Include custom module data in the response. Defaults to false.\n\nTo get the schema for custom module data, first call GET /arc-api/v1/projects/:projectId/spf-custom-module-schema",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSpfModuleDefinitionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully updated spf module definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SpfModuleDefinitionResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or module not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Partially update a spf module definition",
+        "tags": [
+          "module-definition"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-module-definitions/{moduleSystemId}/custom-module-metadata": {
+      "get": {
+        "description": "Return custom module metadata based on project id and module system id",
+        "operationId": "ModuleDefinitionController_getSpfCustomModuleMetadata",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System identifier of module",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully fetched custom module metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SpfCustomModuleMetadataResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Module is not a custom module",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or module not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Return custom module metadata for a spf module",
+        "tags": [
+          "module-definition"
+        ]
+      },
+      "put": {
+        "description": "Update custom module metadata based on project id and module system id",
+        "operationId": "ModuleDefinitionController_updateSpfCustomModuleMetadata",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System identifier of module",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSpfCustomModuleMetadataRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully updated custom module metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SpfCustomModuleMetadataResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body or module is not a custom module",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or module not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update custom module metadata for a spf module",
+        "tags": [
+          "module-definition"
+        ]
+      },
+      "delete": {
+        "description": "Delete custom module metadata based on project id and module system id",
+        "operationId": "ModuleDefinitionController_deleteSpfCustomModuleMetadata",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System identifier of module",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully deleted custom module metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DeleteSpfCustomModuleMetadataResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Module is not a custom module",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or module not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete custom module metadata for a spf module",
         "tags": [
           "module-definition"
         ]
@@ -1595,6 +1918,56 @@
         "summary": "Return driver module definition by module system id",
         "tags": [
           "module-definition"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-custom-module-schema": {
+      "get": {
+        "description": "Returns the allowed module types and interfaces applicable to custom SPF modules within the given project\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/spf-custom-module-schema\n```\n\n**Response:**\nReturns a `SpfCustomModuleSchemaDto` containing:\n- `allowedTypes`: Array of allowed module types, each with a name and value\n- `allowedInterfaces`: Array of allowed interfaces, each containing:\n  - `type`: Interface type as a name-value pair\n  - `allowedVersions`: Array of allowed versions for this interface type",
+        "operationId": "SpfCustomModuleSchemaController_getSpfCustomModuleSchema",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved SPF custom module schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SpfCustomModuleSchemaResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get SPF custom module schema for a project",
+        "tags": [
+          "spf-custom-module-schema"
         ]
       }
     },
@@ -5460,6 +5833,278 @@
           "keyStructureDefinition"
         ]
       },
+      "UpdateSpfCustomModuleInterfaceDto": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Interface type name"
+          },
+          "versionName": {
+            "type": "string",
+            "description": "Interface version name"
+          }
+        },
+        "required": [
+          "typeName",
+          "versionName"
+        ]
+      },
+      "UpdateSpfCustomModuleMetadataRequestDto": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Module type name"
+          },
+          "interface": {
+            "description": "Selected interface",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateSpfCustomModuleInterfaceDto"
+              }
+            ]
+          },
+          "fileName": {
+            "type": "string",
+            "description": "File name"
+          },
+          "endPointFunctionTag": {
+            "type": "string",
+            "description": "Endpoint function tag"
+          }
+        },
+        "required": [
+          "typeName",
+          "interface",
+          "fileName",
+          "endPointFunctionTag"
+        ]
+      },
+      "ChangeInfoDto": {
+        "type": "object",
+        "properties": {
+          "changeType": {
+            "type": "string",
+            "description": "Type of change operation applied to this resource",
+            "enum": [
+              "NONE",
+              "CREATE",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          "changeId": {
+            "type": "string",
+            "description": "Identifier of the change set this resource belongs to. Present only when changeType is not None."
+          },
+          "changeStatus": {
+            "type": "string",
+            "description": "Change status of this resource. Present only when changeType is not None.",
+            "enum": [
+              "STAGED",
+              "UNSTAGED"
+            ]
+          }
+        },
+        "required": [
+          "changeType"
+        ]
+      },
+      "DeleteSpfCustomModuleMetadataResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "changeInfo"
+        ]
+      },
+      "DataTypeDto": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Data type name",
+            "enum": [
+              "UINT8",
+              "UINT16",
+              "UINT32",
+              "UINT64",
+              "INT8",
+              "INT16",
+              "INT32",
+              "INT64",
+              "FLOAT",
+              "DOUBLE",
+              "STRING",
+              "BOOLEAN"
+            ]
+          },
+          "sizeInBytes": {
+            "type": "number",
+            "description": "Size in bytes"
+          },
+          "minValue": {
+            "type": "string",
+            "description": "Minimum value for the data type. Not applicable for string type."
+          },
+          "maxValue": {
+            "type": "string",
+            "description": "Maximum value for the data type. Not applicable for string type."
+          }
+        },
+        "required": [
+          "typeName",
+          "sizeInBytes"
+        ]
+      },
+      "NameValueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name field"
+          },
+          "value": {
+            "type": "string",
+            "description": "Value field"
+          },
+          "valueDataType": {
+            "description": "Data type information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DataTypeDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "valueDataType"
+        ]
+      },
+      "SpfCustomModuleInterfaceDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "description": "Interface type",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NameValueDto"
+              }
+            ]
+          },
+          "version": {
+            "description": "Interface version",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NameValueDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "version"
+        ]
+      },
+      "SpfCustomModuleMetadataResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "type": {
+            "description": "Module type",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NameValueDto"
+              }
+            ]
+          },
+          "interface": {
+            "description": "Selected interface",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpfCustomModuleInterfaceDto"
+              }
+            ]
+          },
+          "fileName": {
+            "type": "string",
+            "description": "File name"
+          },
+          "endPointFunctionTag": {
+            "type": "string",
+            "description": "Endpoint function tag"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "type",
+          "interface",
+          "fileName",
+          "endPointFunctionTag"
+        ]
+      },
+      "SpfCustomModuleMetadataDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "type": {
+            "description": "Module type",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NameValueDto"
+              }
+            ]
+          },
+          "interface": {
+            "description": "Selected interface",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpfCustomModuleInterfaceDto"
+              }
+            ]
+          },
+          "fileName": {
+            "type": "string",
+            "description": "File name"
+          },
+          "endPointFunctionTag": {
+            "type": "string",
+            "description": "Endpoint function tag"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "type",
+          "interface",
+          "fileName",
+          "endPointFunctionTag"
+        ]
+      },
       "ParameterDefinitionSummaryInfo": {
         "type": "object",
         "properties": {
@@ -5892,38 +6537,6 @@
           "dynamicIntents"
         ]
       },
-      "CustomModuleInfo": {
-        "type": "object",
-        "properties": {
-          "majorTypeId": {
-            "type": "number",
-            "description": "Major type identifier"
-          },
-          "interfaceTypeId": {
-            "type": "number",
-            "description": "Interface type identifier"
-          },
-          "interfaceVersionId": {
-            "type": "number",
-            "description": "Interface version identifier"
-          },
-          "fileName": {
-            "type": "string",
-            "description": "File name of the module"
-          },
-          "entryPointTag": {
-            "type": "string",
-            "description": "Entry point tag of the module"
-          }
-        },
-        "required": [
-          "majorTypeId",
-          "interfaceTypeId",
-          "interfaceVersionId",
-          "fileName",
-          "entryPointTag"
-        ]
-      },
       "SpfModuleDefinitionResponseDto": {
         "type": "object",
         "properties": {
@@ -6004,11 +6617,20 @@
               }
             ]
           },
-          "customModuleInfo": {
-            "description": "Custom module information",
+          "isLoadedAtBootup": {
+            "type": "boolean",
+            "description": "Indicates if the module is loaded at bootup"
+          },
+          "isCustomModule": {
+            "type": "boolean",
+            "description": "Indicates if the module is a custom module"
+          },
+          "customModuleData": {
+            "description": "Custom module data",
+            "nullable": true,
             "allOf": [
               {
-                "$ref": "#/components/schemas/CustomModuleInfo"
+                "$ref": "#/components/schemas/SpfCustomModuleMetadataDto"
               }
             ]
           }
@@ -6025,7 +6647,65 @@
           "builtIn",
           "vocoderModuleType",
           "moduleDirectionType",
-          "moduleInfo"
+          "moduleInfo",
+          "isLoadedAtBootup",
+          "isCustomModule"
+        ]
+      },
+      "PatchSpfModuleDefinitionRequestDto": {
+        "type": "object",
+        "properties": {
+          "isLoadedAtBootup": {
+            "type": "boolean",
+            "description": "Indicates if the module is loaded at bootup"
+          }
+        }
+      },
+      "AllowedSpfCustomModuleInterfaceDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "description": "Interface type",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NameValueDto"
+              }
+            ]
+          },
+          "allowedVersions": {
+            "description": "Allowed interface versions",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NameValueDto"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "allowedVersions"
+        ]
+      },
+      "SpfCustomModuleSchemaResponseDto": {
+        "type": "object",
+        "properties": {
+          "allowedTypes": {
+            "description": "Allowed module types",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NameValueDto"
+            }
+          },
+          "allowedInterfaces": {
+            "description": "Allowed interfaces",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllowedSpfCustomModuleInterfaceDto"
+            }
+          }
+        },
+        "required": [
+          "allowedTypes",
+          "allowedInterfaces"
         ]
       },
       "KeyInfo": {
@@ -6928,36 +7608,6 @@
           "spfModules",
           "dataLinks",
           "controlLinks"
-        ]
-      },
-      "ChangeInfoDto": {
-        "type": "object",
-        "properties": {
-          "changeType": {
-            "type": "string",
-            "description": "Type of change operation applied to this resource",
-            "enum": [
-              "NONE",
-              "CREATE",
-              "UPDATE",
-              "DELETE"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Identifier of the change set this resource belongs to. Present only when changeType is not None."
-          },
-          "changeStatus": {
-            "type": "string",
-            "description": "Change status of this resource. Present only when changeType is not None.",
-            "enum": [
-              "STAGED",
-              "UNSTAGED"
-            ]
-          }
-        },
-        "required": [
-          "changeType"
         ]
       },
       "KeyDto": {
