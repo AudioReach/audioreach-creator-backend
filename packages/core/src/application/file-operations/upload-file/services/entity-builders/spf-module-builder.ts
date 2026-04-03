@@ -12,8 +12,15 @@ import type {
 } from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
-import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-type.js';
+import {
+  PORT_IO_TYPE,
+  type PortIoType,
+} from '../../../../../domain/entities/common/enums/port-io-type.js';
 import type {SpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
+import {
+  MODULE_PORT_STRATEGIES,
+  type ModulePortStrategy,
+} from '../../../shared/awsp-serializers/v1/configuration/index.js';
 
 /**
  * Dynamic control port ID starts from this value
@@ -44,6 +51,7 @@ export class SpfModuleBuilder {
   buildSpfModules(
     spfModuleInfos: SpfModuleInfo[],
     fileSystemId: number,
+    portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
     spfModuleDefinitions: SpfModuleDefinition[] = [],
     dynamicControlPortInfo?: DynamicControlPortInfo,
@@ -53,11 +61,20 @@ export class SpfModuleBuilder {
       return [];
     }
 
+    this.logger?.logInfo({
+      msg: `Using port strategy: ${portStrategy}`,
+      action: 'port_strategy_selected',
+      component: 'SpfModuleBuilder',
+      tag: 'spf-module-building',
+      timestamp: new Date(),
+    });
+
     const moduleDisplayNames =
       this.buildDisplayNameLookup(spfModuleDefinitions);
     const {spfModules, successCount, errorCount} = this.convertSpfModuleInfos(
       spfModuleInfos,
       fileSystemId,
+      portStrategy,
       modulePropertyConfigs,
       moduleDisplayNames,
       spfModuleDefinitions,
@@ -90,6 +107,7 @@ export class SpfModuleBuilder {
   private convertSpfModuleInfos(
     spfModuleInfos: SpfModuleInfo[],
     fileSystemId: number,
+    portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[],
     moduleDisplayNames: Map<number, string>,
     spfModuleDefinitions: SpfModuleDefinition[],
@@ -115,6 +133,7 @@ export class SpfModuleBuilder {
             moduleInstance,
             moduleInfo,
             fileSystemId,
+            portStrategy,
             modulePropertyConfig,
             moduleDisplayNames,
             moduleDefinition,
@@ -162,6 +181,7 @@ export class SpfModuleBuilder {
     moduleInstance: SpfModuleInstance,
     moduleInfo: SpfModuleInfo,
     fileSystemId: number,
+    portStrategy: ModulePortStrategy,
     modulePropertyConfig?: ModulePropertyConfig,
     moduleDisplayNames?: Map<number, string>,
     moduleDefinition?: SpfModuleDefinition,
@@ -180,8 +200,9 @@ export class SpfModuleBuilder {
       // Intentionally empty - reserved for future property-based configuration
     }
 
-    // Create data ports using module property config and definition
+    // Create data ports using module property config, definition, and port strategy
     const dataPorts = this.createDataPortsFromProperties(
+      portStrategy,
       modulePropertyConfig,
       moduleDefinition,
     );
@@ -252,10 +273,99 @@ export class SpfModuleBuilder {
   }
 
   /**
+   * Calculate port ID based on the port strategy.
+   * @param baseIndex - The base index for the port (0-based)
+   * @param isInput - Whether this is an input port
+   * @param portStrategy - The port strategy to use
+   * @returns The calculated port ID
+   */
+  private calculatePortId(
+    baseIndex: number,
+    isInput: boolean,
+    portStrategy: ModulePortStrategy,
+  ): number {
+    switch (portStrategy) {
+      case MODULE_PORT_STRATEGIES.INPUT_ODD_OUTPUT_EVEN:
+        // Input ports: 1, 3, 5, 7... (odd numbers)
+        // Output ports: 2, 4, 6, 8... (even numbers)
+        return isInput ? baseIndex * 2 + 1 : baseIndex * 2 + 2;
+
+      case MODULE_PORT_STRATEGIES.SEQUENTIAL:
+        // Both input and output ports: 1, 2, 3, 4... (sequential)
+        return baseIndex + 1;
+
+      default:
+        // Default to INPUT_ODD_OUTPUT_EVEN if unknown strategy
+        return isInput ? baseIndex * 2 + 1 : baseIndex * 2 + 2;
+    }
+  }
+
+  /**
+   * Helper method to create static data ports from port definitions.
+   * @param ports - Array of static port definitions
+   * @param portIoType - The IO type (Input or Output)
+   * @returns Array of DataPort entities
+   */
+  private createStaticPorts(
+    ports: Array<{id: number; name?: string}>,
+    portIoType: PortIoType,
+  ): DataPort[] {
+    return ports.map(
+      staticPort =>
+        new DataPort({
+          systemId: 0,
+          dataPortId: staticPort.id,
+          portIoType,
+          isStatic: true,
+          name:
+            staticPort.name ||
+            `${portIoType === PORT_IO_TYPE.Input ? 'Input' : 'Output'}_${staticPort.id}`,
+        }),
+    );
+  }
+
+  /**
+   * Helper method to create dynamic data ports with strategy-based port IDs.
+   * @param count - Number of dynamic ports to create
+   * @param startIndex - Starting index for port ID calculation
+   * @param isInput - Whether these are input ports
+   * @param portStrategy - The port strategy to use for ID calculation
+   * @returns Array of DataPort entities
+   */
+  private createDynamicPorts(
+    count: number,
+    startIndex: number,
+    isInput: boolean,
+    portStrategy: ModulePortStrategy,
+  ): DataPort[] {
+    const ports: DataPort[] = [];
+    const portIoType = isInput ? PORT_IO_TYPE.Input : PORT_IO_TYPE.Output;
+    const portTypeLabel = isInput ? 'Input' : 'Output';
+
+    for (let i = 0; i < count; i++) {
+      const baseIndex = startIndex + i;
+      const portId = this.calculatePortId(baseIndex, isInput, portStrategy);
+      ports.push(
+        new DataPort({
+          systemId: 0,
+          dataPortId: portId,
+          portIoType,
+          isStatic: false,
+          name: `${portTypeLabel}_${portId}`,
+        }),
+      );
+    }
+
+    return ports;
+  }
+
+  /**
    * Create data ports from module properties and definition.
    * Static ports are created from the module definition, dynamic ports from the property config.
+   * Port IDs are calculated based on the port strategy.
    */
-  createDataPortsFromProperties(
+  private createDataPortsFromProperties(
+    portStrategy: ModulePortStrategy,
     modulePropertyConfig?: ModulePropertyConfig,
     moduleDefinition?: SpfModuleDefinition,
   ): DataPort[] {
@@ -269,75 +379,33 @@ export class SpfModuleBuilder {
       return [];
     }
 
-    const dataPorts: DataPort[] = [];
-
     // Get static ports from module definition
-    const staticInputPorts = moduleDefinition?.inputPortsInfo?.ports || [];
-    const staticOutputPorts = moduleDefinition?.outputPortsInfo?.ports || [];
+    const staticInputPorts = moduleDefinition?.inputPortsInfo?.ports ?? [];
+    const staticOutputPorts = moduleDefinition?.outputPortsInfo?.ports ?? [];
 
-    // Create static input ports with EVEN IDs starting from 2 (2, 4, 6, ...)
-    for (const staticPort of staticInputPorts) {
-      dataPorts.push(
-        new DataPort({
-          systemId: 0,
-          dataPortId: staticPort.id,
-          portIoType: PORT_IO_TYPE.Input,
-          isStatic: true,
-          name: staticPort.name || `Input_${staticPort.id}`,
-        }),
-      );
-    }
-
-    // Calculate dynamic input port count
+    // Calculate dynamic port counts
     const dynamicInputPortCount =
       portInfo.maxInputPorts - staticInputPorts.length;
-
-    // Create dynamic input ports with EVEN IDs continuing from static ports
-    for (let i = 0; i < dynamicInputPortCount; i++) {
-      const portId = (staticInputPorts.length + i) * 2 + 2;
-      dataPorts.push(
-        new DataPort({
-          systemId: 0,
-          dataPortId: portId,
-          portIoType: PORT_IO_TYPE.Input,
-          isStatic: false,
-          name: `Input_${portId}`,
-        }),
-      );
-    }
-
-    // Create static output ports with ODD IDs starting from 1 (1, 3, 5, ...)
-    for (const staticPort of staticOutputPorts) {
-      dataPorts.push(
-        new DataPort({
-          systemId: 0,
-          dataPortId: staticPort.id,
-          portIoType: PORT_IO_TYPE.Output,
-          isStatic: true,
-          name: staticPort.name || `Output_${staticPort.id}`,
-        }),
-      );
-    }
-
-    // Calculate dynamic output port count
     const dynamicOutputPortCount =
       portInfo.maxOutputPorts - staticOutputPorts.length;
 
-    // Create dynamic output ports with ODD IDs continuing from static ports
-    for (let i = 0; i < dynamicOutputPortCount; i++) {
-      const portId = (staticOutputPorts.length + i) * 2 + 1;
-      dataPorts.push(
-        new DataPort({
-          systemId: 0,
-          dataPortId: portId,
-          portIoType: PORT_IO_TYPE.Output,
-          isStatic: false,
-          name: `Output_${portId}`,
-        }),
-      );
-    }
-
-    return dataPorts;
+    // Create all ports using helper methods
+    return [
+      ...this.createStaticPorts(staticInputPorts, PORT_IO_TYPE.Input),
+      ...this.createDynamicPorts(
+        dynamicInputPortCount,
+        staticInputPorts.length,
+        true,
+        portStrategy,
+      ),
+      ...this.createStaticPorts(staticOutputPorts, PORT_IO_TYPE.Output),
+      ...this.createDynamicPorts(
+        dynamicOutputPortCount,
+        staticOutputPorts.length,
+        false,
+        portStrategy,
+      ),
+    ];
   }
 
   /**
@@ -345,7 +413,7 @@ export class SpfModuleBuilder {
    * Static ports are created from the module definition.
    * Dynamic ports are created based on actual usage in control links (dense creation from 0x80000000 to max).
    */
-  createControlPortsFromProperties(
+  private createControlPortsFromProperties(
     instanceId: number,
     moduleDefinition?: SpfModuleDefinition,
     dynamicControlPortInfo?: DynamicControlPortInfo,

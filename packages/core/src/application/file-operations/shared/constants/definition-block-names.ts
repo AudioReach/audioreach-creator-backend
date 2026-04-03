@@ -24,6 +24,7 @@ export const DEFINITION_BLOCK_NAMES = {
  */
 export const FILE_NAMES = {
   DEFINITIONS_JSON: 'definitions.json',
+  CONFIGURATION_JSON: 'configuration.json',
 } as const;
 
 /**

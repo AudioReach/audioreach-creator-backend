@@ -13,6 +13,7 @@ import type {
   ProcessorDefinition,
   ContainerType,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
+import type {ConfigurationData} from '../../shared/awsp-serializers/v1/configuration/index.js';
 import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-names.js';
 
 /**
@@ -40,6 +41,7 @@ export type DefinitionBlockName =
  */
 export class ParsedAwsp {
   private definitions = new Map<DefinitionBlockName, DefinitionCollection>();
+  private configuration!: ConfigurationData;
 
   /**
    * Add a collection of parsed definitions to the container
@@ -51,6 +53,20 @@ export class ParsedAwsp {
     if (definitions && Array.isArray(definitions) && definitions.length > 0) {
       this.definitions.set(definitionType, definitions);
     }
+  }
+
+  /**
+   * Set the configuration from configuration.json
+   */
+  setConfiguration(configuration: ConfigurationData): void {
+    this.configuration = configuration;
+  }
+
+  /**
+   * Get the configuration
+   */
+  getConfiguration(): ConfigurationData {
+    return this.configuration;
   }
 
   /**

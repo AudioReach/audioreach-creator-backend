@@ -377,6 +377,16 @@ export class EntityBuilderService {
     // Get SPF module definitions from ParsedAwsp for display names
     const spfModuleDefinitions = parsedAwsp?.getSpfModuleDefinitions() || [];
 
+    // Get port strategy from configuration (required)
+    const configuration = parsedAwsp?.getConfiguration();
+    if (!configuration?.portStrategy) {
+      throw new Error(
+        'Port strategy not found in configuration. Please ensure configuration.json exists in the AWSP file with a valid portStrategy.',
+      );
+    }
+
+    const portStrategy = configuration.portStrategy;
+
     // Analyze control links to determine dynamic control port usage
     const dynamicControlPortInfo = this.analyzeDynamicControlPorts(parsedAcdb);
 
@@ -384,6 +394,7 @@ export class EntityBuilderService {
     const spfModules = this.spfModuleBuilder.buildSpfModules(
       spfModuleInfos,
       fileSystemId,
+      portStrategy,
       modulePropertyConfigs,
       spfModuleDefinitions,
       dynamicControlPortInfo,

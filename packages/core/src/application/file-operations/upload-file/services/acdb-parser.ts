@@ -29,7 +29,7 @@ export class AcdbParser {
   private readonly subgraphDataParser: SubgraphDataChunkParser;
   private readonly subgraphPairDataParser = new SubgraphPairDataChunkParser();
 
-  constructor(private readonly logger?: Logger) {
+  constructor(logger?: Logger) {
     this.subgraphDataParser = new SubgraphDataChunkParser(logger);
   }
 
