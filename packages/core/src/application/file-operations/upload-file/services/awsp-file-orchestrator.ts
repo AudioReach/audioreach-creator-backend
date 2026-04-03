@@ -8,11 +8,13 @@
 
 import 'reflect-metadata';
 
+import {plainToInstance} from 'class-transformer';
 import {AwspParser} from './awsp-parser.js';
 import {
   FILE_NAMES,
   FILE_EXTENSIONS,
 } from '../../shared/constants/definition-block-names.js';
+import {Configuration} from '../../shared/awsp-serializers/v1/configuration/index.js';
 import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
@@ -108,6 +110,70 @@ export class AwspFileOrchestrator {
 
       // Map the parsed definitions to the ParsedAwsp structure
       this.populateParsedAwsp(parsedAwsp, definitions);
+
+      // Look for configuration.json file (mandatory)
+      const configurationFilePath = this.fs.joinPath(
+        unzippedFolderPath,
+        FILE_NAMES.CONFIGURATION_JSON,
+      );
+
+      // Check if configuration.json exists
+      const configurationExists = await this.fs.exists(configurationFilePath);
+      if (!configurationExists) {
+        throw new Error(
+          `${FILE_NAMES.CONFIGURATION_JSON} file not found in the unzipped folder`,
+        );
+      }
+
+      // Read the configuration JSON file
+      const configFileRef: PathRef = {
+        kind: 'path',
+        name: configurationFilePath,
+        uri: configurationFilePath,
+        mimeType: 'application/json',
+      };
+      const configFileBytes = await this.fs.readAll(configFileRef);
+      const configJsonContent = new TextDecoder('utf8').decode(configFileBytes);
+      const configJsonData: JsonObject | null = JSON.parse(
+        configJsonContent,
+      ) as JsonObject | null;
+
+      // Validate that configJsonData is an object
+      if (
+        typeof configJsonData !== 'object' ||
+        configJsonData === null ||
+        Array.isArray(configJsonData)
+      ) {
+        throw new Error(
+          'Invalid configuration.json structure: expected an object',
+        );
+      }
+
+      // Parse the entire configuration file structure using class-transformer
+      const configurationRoot = plainToInstance(Configuration, configJsonData, {
+        excludeExtraneousValues: true,
+      });
+
+      // Validate that configuration was parsed successfully
+      if (!configurationRoot || !configurationRoot.configuration) {
+        throw new Error(
+          'Failed to parse configuration.json: configuration data is missing',
+        );
+      }
+
+      // Extract the nested configuration data
+      const configurationData = configurationRoot.configuration;
+
+      // Set configuration data in ParsedAwsp
+      parsedAwsp.setConfiguration(configurationData);
+
+      this.logger?.logInfo({
+        msg: `Configuration parsed successfully with portStrategy: ${configurationData.portStrategy}, defaultProcessorDomain: ${configurationData.defaultProcessorDomain}`,
+        action: 'parse_configuration_success',
+        component: 'AwspFileOrchestrator',
+        tag: 'parsing',
+        timestamp: new Date(),
+      });
 
       const duration = Date.now() - startTime;
       this.logger?.logInfo({
