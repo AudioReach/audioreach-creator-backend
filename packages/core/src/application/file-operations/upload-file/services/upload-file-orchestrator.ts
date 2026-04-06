@@ -360,7 +360,7 @@ export class UploadFileOrchestrator {
 
     if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
       const spfModuleDefResult: BulkModuleDefinitionInsertResult =
-        await bulkRepo.insertModuleDefinitions(
+        await bulkRepo.insertSpfModuleDefinitions(
           spfModuleDefinitions as readonly Omit<
             SpfModuleDefinition,
             'systemId'

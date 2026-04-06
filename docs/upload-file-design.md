@@ -747,7 +747,7 @@ bulk-import/
 
 **Key Methods**:
 - `insertKeyDefinitions(entities): Promise<InsertResult>`
-- `insertModuleDefinitions(entities): Promise<InsertResult>`
+- `insertSpfModuleDefinitions(entities): Promise<InsertResult>`
 - `insertSubgraphs(entities): Promise<InsertResult>`
 - `insertContainers(entities): Promise<InsertResult>`
 - `insertSpfModules(entities): Promise<InsertResult>`
@@ -1067,7 +1067,7 @@ try {
 const keyResult = await insertKeyDefinitions(keys);
 // Some keys may fail, but we continue
 
-const moduleResult = await insertModuleDefinitions(modules);
+const moduleResult = await insertSpfModuleDefinitions(modules);
 // Some modules may fail, but we continue
 
 // Process continues even if some entities fail
@@ -1438,7 +1438,7 @@ const systemId = this.foreignKeyMapper.getSubgraphSystemId(naturalId);
 ```typescript
 class BulkImportRepository {
   insertKeyDefinitions(entities): Promise<InsertResult>
-  insertModuleDefinitions(entities): Promise<InsertResult>
+  insertSpfModuleDefinitions(entities): Promise<InsertResult>
   insertSubgraphs(entities): Promise<InsertResult>
   insertContainers(entities): Promise<InsertResult>
   insertSpfModules(entities): Promise<InsertResult>

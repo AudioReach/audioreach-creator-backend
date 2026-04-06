@@ -146,7 +146,7 @@ export interface BulkImportRepository {
    * @param items - SPF module definitions without systemId (will be generated during insertion)
    * @returns Promise resolving to module definition insertion result with definitionId->systemId mappings and parameter mappings
    */
-  insertModuleDefinitions(
+  insertSpfModuleDefinitions(
     items: readonly Omit<SpfModuleDefinition, 'systemId'>[],
   ): Promise<BulkModuleDefinitionInsertResult>;
 
