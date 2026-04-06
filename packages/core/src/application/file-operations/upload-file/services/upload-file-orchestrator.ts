@@ -627,10 +627,11 @@ export class UploadFileOrchestrator {
 
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING);
-    const controlLinks = this.builderService.buildControlLinks(
-      this.parsedAcdb,
-      this.currentFileId,
-    );
+    const {controlLinks, controlPortIntents} =
+      this.builderService.buildControlLinks(
+        this.parsedAcdb,
+        this.currentFileId,
+      );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.CONTROL_LINK_BUILDING,
     );
@@ -668,6 +669,32 @@ export class UploadFileOrchestrator {
         tag: 'database-persistence',
         timestamp: new Date(),
       });
+
+      // TODO: Insert intents for control ports
+      // The controlPortIntents Map contains: Map<controlPortSystemId, intentIds[]>
+      // This needs to be transformed into IntentRow[] and bulk inserted into the intents table
+      // Each entry should create rows with: { intentId, controlPortSystemId }
+      // Reference: IntentSchema in packages/infrastructure/persistence/src/persistence-typeorm-sqllite/entity-schema/usecase-data/node/control-port.ts
+      // Table structure: intents table with columns (system_id, intent_id, control_port_system_id)
+      // Unique constraint: (control_port_system_id, intent_id)
+      //
+      // Implementation steps:
+      // 1. Create IntentInserter in packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/intent/
+      // 2. Add insertIntents() method to BulkImportRepository interface
+      // 3. Implement method in TypeOrmBulkImportRepository
+      // 4. Transform controlPortIntents Map to IntentRow[] array here
+      // 5. Call bulkRepo.insertIntents(intentRows) and log results
+      //
+      // Data available: controlPortIntents Map with ${controlPortIntents.size} control ports containing intents
+      if (controlPortIntents.size > 0) {
+        this.logger?.logInfo({
+          msg: `Control port intents extracted: ${controlPortIntents.size} control ports have associated intents (insertion pending implementation)`,
+          action: 'control_port_intents_extracted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      }
     }
   }
 

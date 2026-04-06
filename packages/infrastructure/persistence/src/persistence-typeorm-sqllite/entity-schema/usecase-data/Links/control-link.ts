@@ -15,7 +15,6 @@ export interface ControlLinkRow extends EntityBaseRow {
   peerNodeBSystemId: number;
   nodeAPortSystemId: number;
   nodeBPortSystemId: number;
-  intents: number[];
   heapId: number;
   isInterGraph: boolean;
 
@@ -51,10 +50,6 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
     nodeBPortSystemId: {
       type: 'integer',
       name: 'nodeB_port_system_id',
-    },
-    intents: {
-      type: 'simple-json',
-      name: 'intents',
     },
     heapId: {
       type: 'integer',

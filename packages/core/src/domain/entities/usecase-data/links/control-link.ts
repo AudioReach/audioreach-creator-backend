@@ -12,7 +12,6 @@ export class ControlLink {
   public peerNodeBSystemId: number;
   public nodeAPortSystemId: number;
   public nodeBPortSystemId: number;
-  public intents: number[];
   public heapId: number;
   public isInterGraph: boolean;
 
@@ -23,7 +22,6 @@ export class ControlLink {
     peerNodeBSystemId: number,
     nodeAPortSystemId: number,
     nodeBPortSystemId: number,
-    intents: number[],
     heapId: number,
     isInterGraph: boolean,
   ) {
@@ -33,7 +31,6 @@ export class ControlLink {
     this.peerNodeBSystemId = peerNodeBSystemId;
     this.nodeAPortSystemId = nodeAPortSystemId;
     this.nodeBPortSystemId = nodeBPortSystemId;
-    this.intents = intents;
     this.heapId = heapId;
     this.isInterGraph = isInterGraph;
     if (this.peerNodeASystemId == this.peerNodeBSystemId) {
