@@ -258,6 +258,10 @@ export class UploadFileOrchestrator {
    * Implement build-insert-build pattern for hierarchical entity processing
    */
   private async persistEntitiesInHierarchicalOrder(): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building entities');
+    }
+
     this.profiler?.start(PROFILER_OPERATIONS.DATABASE_TRANSACTION);
 
     try {
@@ -312,13 +316,9 @@ export class UploadFileOrchestrator {
   private async buildAndInsertKeyDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building definitions');
-    }
-
     // Build key definitions
     const keyDefinitions = await this.builderService.buildKeyDefinitions(
-      this.parsedAwsp,
+      this.parsedAwsp!,
       this.currentFileId,
     );
 
@@ -351,16 +351,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertSpfModuleDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error(
-        'Parsed data not available for building SPF module definitions',
-      );
-    }
-
     // Build SPF module definitions
     const spfModuleDefinitions =
       await this.builderService.buildSpfModuleDefinitions(
-        this.parsedAwsp,
+        this.parsedAwsp!,
         this.currentFileId,
       );
 
@@ -396,14 +390,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertSubgraphs(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building subgraphs');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_BUILDING);
     const subgraphs = this.builderService.buildSubgraphs(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
@@ -452,14 +442,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertContainers(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building containers');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_BUILDING);
     const containers = this.builderService.buildContainers(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
@@ -508,16 +494,12 @@ export class UploadFileOrchestrator {
   private async buildAndInsertSpfModules(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building SPF modules');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_BUILDING);
     const spfModules = this.builderService.buildSpfModules(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
-      this.parsedAwsp,
+      this.parsedAwsp!,
     );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.SPF_MODULE_BUILDING,
@@ -565,14 +547,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertDataLinks(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building data links');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_BUILDING);
     const dataLinks = this.builderService.buildDataLinks(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
@@ -621,15 +599,11 @@ export class UploadFileOrchestrator {
   private async buildAndInsertControlLinks(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building control links');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING);
     const {controlLinks, controlPortIntents} =
       this.builderService.buildControlLinks(
-        this.parsedAcdb,
+        this.parsedAcdb!,
         this.currentFileId,
       );
     const buildMetrics = this.profiler?.end(
@@ -704,14 +678,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertUsecases(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building usecases');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.USECASE_BUILDING);
     const usecases = this.builderService.buildUsecases(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
