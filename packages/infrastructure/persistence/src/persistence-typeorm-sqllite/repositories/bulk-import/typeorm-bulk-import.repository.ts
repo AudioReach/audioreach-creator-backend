@@ -81,7 +81,7 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     return await inserter.insert(items);
   }
 
-  async insertModuleDefinitions(
+  async insertSpfModuleDefinitions(
     items: readonly Omit<SpfModuleDefinition, 'systemId'>[],
   ): Promise<BulkModuleDefinitionInsertResult> {
     const inserter = new ModuleDefinitionInserter(this.manager);
