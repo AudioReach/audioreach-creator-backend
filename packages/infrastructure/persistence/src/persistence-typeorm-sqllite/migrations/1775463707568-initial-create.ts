@@ -1,12 +1,12 @@
 /*
- Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- SPDX-License-Identifier: BSD-3-Clause
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1775023521343 implements MigrationInterface {
-  name = 'InitialCreate1775023521343';
+export class InitialCreate1775463707568 implements MigrationInterface {
+  name = 'InitialCreate1775463707568';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -160,7 +160,7 @@ export class InitialCreate1775023521343 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uq_containers_container_id_file_system_id" ON "containers" ("container_id", "file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL)`,
+      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `,
@@ -221,9 +221,6 @@ export class InitialCreate1775023521343 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_spf_modules_instance_id_file_system_id" ON "spf_modules" ("instance_id", "file_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE UNIQUE INDEX "uq_spf_modules_alias_file_system_id" ON "spf_modules" ("alias", "file_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "control_ports" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "port_id" integer NOT NULL, "name" varchar(255), "is_static" boolean NOT NULL, "node_system_id" integer NOT NULL)`,
@@ -699,10 +696,10 @@ export class InitialCreate1775023521343 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "uk_control_link_unique"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL, CONSTRAINT "FK_6990d878f1170b958d2b5b84abc" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bc6af2a635beb595adbc823353f" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c4d63ebdc45c6656eae61597da" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_23e7e524f43b619b95126e0beae" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL, CONSTRAINT "FK_6990d878f1170b958d2b5b84abc" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bc6af2a635beb595adbc823353f" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c4d63ebdc45c6656eae61597da" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_23e7e524f43b619b95126e0beae" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_control_links"("system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "control_links"`,
+      `INSERT INTO "temporary_control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "control_links"`,
     );
     await queryRunner.query(`DROP TABLE "control_links"`);
     await queryRunner.query(
@@ -815,7 +812,6 @@ export class InitialCreate1775023521343 implements MigrationInterface {
     await queryRunner.query(
       `DROP INDEX "uq_spf_modules_instance_id_file_system_id"`,
     );
-    await queryRunner.query(`DROP INDEX "uq_spf_modules_alias_file_system_id"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(256) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_9acec50339165b4a9a5e3a350fb" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1942b4a9c50698203278d65f819" FOREIGN KEY ("container_system_id") REFERENCES "containers" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_331cda97fea725c5926690e4e79" FOREIGN KEY ("definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_aebc03a526b6d7a79a06f23476f" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_093ca4e9af4aa8635301be8face" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
@@ -837,9 +833,6 @@ export class InitialCreate1775023521343 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_spf_modules_instance_id_file_system_id" ON "spf_modules" ("instance_id", "file_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE UNIQUE INDEX "uq_spf_modules_alias_file_system_id" ON "spf_modules" ("alias", "file_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uk_control_port_node_port"`);
     await queryRunner.query(
@@ -1558,7 +1551,6 @@ export class InitialCreate1775023521343 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_control_port_node_port" ON "control_ports" ("node_system_id", "port_id") `,
     );
-    await queryRunner.query(`DROP INDEX "uq_spf_modules_alias_file_system_id"`);
     await queryRunner.query(
       `DROP INDEX "uq_spf_modules_instance_id_file_system_id"`,
     );
@@ -1579,9 +1571,6 @@ export class InitialCreate1775023521343 implements MigrationInterface {
       `INSERT INTO "spf_modules"("system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id" FROM "temporary_spf_modules"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_spf_modules"`);
-    await queryRunner.query(
-      `CREATE UNIQUE INDEX "uq_spf_modules_alias_file_system_id" ON "spf_modules" ("alias", "file_system_id") `,
-    );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_spf_modules_instance_id_file_system_id" ON "spf_modules" ("instance_id", "file_system_id") `,
     );
@@ -1695,10 +1684,10 @@ export class InitialCreate1775023521343 implements MigrationInterface {
       `ALTER TABLE "control_links" RENAME TO "temporary_control_links"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL)`,
+      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "control_links"("system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "temporary_control_links"`,
+      `INSERT INTO "control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "temporary_control_links"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_control_links"`);
     await queryRunner.query(
@@ -2078,7 +2067,6 @@ export class InitialCreate1775023521343 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "intents"`);
     await queryRunner.query(`DROP INDEX "uk_control_port_node_port"`);
     await queryRunner.query(`DROP TABLE "control_ports"`);
-    await queryRunner.query(`DROP INDEX "uq_spf_modules_alias_file_system_id"`);
     await queryRunner.query(
       `DROP INDEX "uq_spf_modules_instance_id_file_system_id"`,
     );

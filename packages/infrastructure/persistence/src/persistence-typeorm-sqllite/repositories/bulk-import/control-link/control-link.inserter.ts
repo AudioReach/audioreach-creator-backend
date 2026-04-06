@@ -81,7 +81,6 @@ export class ControlLinkInserter extends BaseInserter<
       peerNodeBSystemId: controlLink.peerNodeBSystemId,
       nodeAPortSystemId: controlLink.nodeAPortSystemId,
       nodeBPortSystemId: controlLink.nodeBPortSystemId,
-      intents: controlLink.intents,
       heapId: controlLink.heapId,
       isInterGraph: controlLink.isInterGraph,
     };

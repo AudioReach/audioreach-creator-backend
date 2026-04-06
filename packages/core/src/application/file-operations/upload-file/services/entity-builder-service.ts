@@ -472,11 +472,15 @@ export class EntityBuilderService {
   /**
    * Build control links from ACDB data
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
+   * @returns Object containing control links and extracted intents for control ports
    */
   buildControlLinks(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
-  ): ControlLink[] {
+  ): {
+    controlLinks: ControlLink[];
+    controlPortIntents: Map<number, number[]>;
+  } {
     const allControlLinkProperties: ControlLinkProperty[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
@@ -510,24 +514,27 @@ export class EntityBuilderService {
 
     // 3. Check if we have any control links to process
     if (allControlLinkProperties.length === 0) {
-      return [];
+      return {
+        controlLinks: [],
+        controlPortIntents: new Map(),
+      };
     }
 
-    // 4. Build domain control links from all sources
-    const controlLinks = this.controlLinkBuilder.buildControlLinks(
+    // 4. Build domain control links from all sources and extract intents
+    const result = this.controlLinkBuilder.buildControlLinks(
       allControlLinkProperties,
       fileSystemId,
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${controlLinks.length} control links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph)`,
+      msg: `Successfully built ${result.controlLinks.length} control links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph), extracted intents for ${result.controlPortIntents.size} control ports`,
       action: 'acdb_control_links_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
       timestamp: new Date(),
     });
 
-    return controlLinks;
+    return result;
   }
 
   /**

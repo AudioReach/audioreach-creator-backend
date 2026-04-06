@@ -26,11 +26,16 @@ export class ControlLinkBuilder {
    * Build ControlLink entities from control link properties
    * Main API method similar to UsecaseBuilder.buildUsecases()
    * Uses early deduplication for optimal performance
+   *
+   * @returns Object containing control links and extracted intents for control ports
    */
   buildControlLinks(
     controlLinkProperties: ControlLinkProperty[],
     fileSystemId: number,
-  ): ControlLink[] {
+  ): {
+    controlLinks: ControlLink[];
+    controlPortIntents: Map<number, number[]>;
+  } {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
       this.logger?.logDebug({
@@ -40,7 +45,10 @@ export class ControlLinkBuilder {
         tag: 'control-link-building',
         timestamp: new Date(),
       });
-      return [];
+      return {
+        controlLinks: [],
+        controlPortIntents: new Map(),
+      };
     }
 
     // STEP 1: Early deduplication by composite key (Performance Optimization)
@@ -67,18 +75,35 @@ export class ControlLinkBuilder {
       timestamp: new Date(),
     });
 
-    // STEP 2: Build ControlLink objects only for unique properties (Efficient Processing)
+    // STEP 2: Build ControlLink objects and collect intents (Efficient Processing)
     const controlLinks: ControlLink[] = [];
+    const controlPortIntentsMap = new Map<number, Set<number>>();
     let successCount = 0;
     let errorCount = 0;
 
     for (const property of uniqueProperties.values()) {
       try {
-        const controlLink = this.convertControlLinkProperty(
-          property,
-          fileSystemId,
-        );
+        const {controlLink, nodeAPortSystemId, nodeBPortSystemId, intents} =
+          this.convertControlLinkProperty(property, fileSystemId);
         controlLinks.push(controlLink);
+
+        // Collect intents for both control ports
+        if (intents.length > 0) {
+          // Add intents to nodeA port
+          if (!controlPortIntentsMap.has(nodeAPortSystemId)) {
+            controlPortIntentsMap.set(nodeAPortSystemId, new Set());
+          }
+          for (const intent of intents)
+            controlPortIntentsMap.get(nodeAPortSystemId)!.add(intent);
+
+          // Add intents to nodeB port
+          if (!controlPortIntentsMap.has(nodeBPortSystemId)) {
+            controlPortIntentsMap.set(nodeBPortSystemId, new Set());
+          }
+          for (const intent of intents)
+            controlPortIntentsMap.get(nodeBPortSystemId)!.add(intent);
+        }
+
         successCount++;
       } catch (error) {
         errorCount++;
@@ -92,25 +117,40 @@ export class ControlLinkBuilder {
       }
     }
 
+    // Convert Set to Array for final result
+    const controlPortIntents = new Map<number, number[]>();
+    for (const [portSystemId, intentsSet] of controlPortIntentsMap.entries()) {
+      controlPortIntents.set(portSystemId, [...intentsSet]);
+    }
+
     // STEP 3: Performance and results logging
     this.logger?.logInfo({
-      msg: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated)`,
+      msg: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated), ${controlPortIntents.size} control ports with intents`,
       action: 'control_link_building_complete',
       component: 'ControlLinkBuilder',
       tag: 'control-link-building',
       timestamp: new Date(),
     });
 
-    return controlLinks;
+    return {
+      controlLinks,
+      controlPortIntents,
+    };
   }
 
   /**
    * Convert single ControlLinkProperty to ControlLink entity
+   * Also extracts intents for control ports
    */
   private convertControlLinkProperty(
     property: ControlLinkProperty,
     fileSystemId: number,
-  ): ControlLink {
+  ): {
+    controlLink: ControlLink;
+    nodeAPortSystemId: number;
+    nodeBPortSystemId: number;
+    intents: number[];
+  } {
     // Get node systemIds from foreign key mapper
     const peerNodeASystemId = this.getSpfModuleSystemId(
       property.peer1InstanceId,
@@ -135,18 +175,24 @@ export class ControlLinkBuilder {
     // Extract heapId from properties map
     const heapId = this.extractHeapId(property.properties);
 
-    // Create ControlLink entity
-    return new ControlLink(
+    // Create ControlLink entity (without intents - they go to control ports)
+    const controlLink = new ControlLink(
       0, // systemId - Will be generated during insertion
       fileSystemId, // Associate with the file being uploaded
       peerNodeASystemId,
       peerNodeBSystemId,
       nodeAPortSystemId,
       nodeBPortSystemId,
-      intents,
       heapId,
       property.isInterGraph, // Use the calculated value from parser
     );
+
+    return {
+      controlLink,
+      nodeAPortSystemId,
+      nodeBPortSystemId,
+      intents,
+    };
   }
 
   /**
