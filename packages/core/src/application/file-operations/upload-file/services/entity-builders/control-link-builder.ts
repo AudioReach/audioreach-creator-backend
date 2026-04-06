@@ -6,11 +6,6 @@ import {ControlLink} from '../../../../../domain/entities/usecase-data/links/con
 import type {ControlLink as ControlLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
-import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
-import {
-  MODULE_PROP_ID_CTRL_HEAP_ID,
-  MODULE_PROP_ID_CTRL_LINK_INTENTS,
-} from '../../../shared/constants/spf-ids.js';
 
 /**
  * Builder for converting ControlLink property data to ControlLink domain entities.
@@ -51,22 +46,11 @@ export class ControlLinkBuilder {
       };
     }
 
-    // STEP 1: Early deduplication by composite key (Performance Optimization)
-    const uniqueProperties = new Map<string, ControlLinkProperty>();
-    let duplicateCount = 0;
+    // STEP 1: Early deduplication by composite key
+    const {uniqueProperties, duplicateCount} = this.deduplicateProperties(
+      controlLinkProperties,
+    );
 
-    for (const property of controlLinkProperties) {
-      // Create composite key for deduplication (matches DB unique constraint)
-      const compositeKey = `${property.peer1InstanceId}-${property.peer2InstanceId}-${property.peer1PortId}-${property.peer2PortId}`;
-
-      if (uniqueProperties.has(compositeKey)) {
-        duplicateCount++;
-      } else {
-        uniqueProperties.set(compositeKey, property);
-      }
-    }
-
-    // Log deduplication results
     this.logger?.logInfo({
       msg: `Control link deduplication: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
       action: 'control_link_deduplication',
@@ -75,55 +59,16 @@ export class ControlLinkBuilder {
       timestamp: new Date(),
     });
 
-    // STEP 2: Build ControlLink objects and collect intents (Efficient Processing)
-    const controlLinks: ControlLink[] = [];
-    const controlPortIntentsMap = new Map<number, Set<number>>();
-    let successCount = 0;
-    let errorCount = 0;
+    // STEP 2: Build ControlLink objects and collect intents
+    const {controlLinks, controlPortIntentsMap, successCount, errorCount} =
+      this.processUniqueProperties(uniqueProperties, fileSystemId);
 
-    for (const property of uniqueProperties.values()) {
-      try {
-        const {controlLink, nodeAPortSystemId, nodeBPortSystemId, intents} =
-          this.convertControlLinkProperty(property, fileSystemId);
-        controlLinks.push(controlLink);
+    // STEP 3: Convert Sets to Arrays for final result
+    const controlPortIntents = this.convertIntentSetsToArrays(
+      controlPortIntentsMap,
+    );
 
-        // Collect intents for both control ports
-        if (intents.length > 0) {
-          // Add intents to nodeA port
-          if (!controlPortIntentsMap.has(nodeAPortSystemId)) {
-            controlPortIntentsMap.set(nodeAPortSystemId, new Set());
-          }
-          for (const intent of intents)
-            controlPortIntentsMap.get(nodeAPortSystemId)!.add(intent);
-
-          // Add intents to nodeB port
-          if (!controlPortIntentsMap.has(nodeBPortSystemId)) {
-            controlPortIntentsMap.set(nodeBPortSystemId, new Set());
-          }
-          for (const intent of intents)
-            controlPortIntentsMap.get(nodeBPortSystemId)!.add(intent);
-        }
-
-        successCount++;
-      } catch (error) {
-        errorCount++;
-        this.logger?.logWarn({
-          msg: `Failed to convert control link property (peer1: ${property.peer1InstanceId}, peer2: ${property.peer2InstanceId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'control_link_conversion_failed',
-          component: 'ControlLinkBuilder',
-          tag: 'control-link-building',
-          timestamp: new Date(),
-        });
-      }
-    }
-
-    // Convert Set to Array for final result
-    const controlPortIntents = new Map<number, number[]>();
-    for (const [portSystemId, intentsSet] of controlPortIntentsMap.entries()) {
-      controlPortIntents.set(portSystemId, [...intentsSet]);
-    }
-
-    // STEP 3: Performance and results logging
+    // STEP 4: Performance and results logging
     this.logger?.logInfo({
       msg: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated), ${controlPortIntents.size} control ports with intents`,
       action: 'control_link_building_complete',
@@ -136,6 +81,166 @@ export class ControlLinkBuilder {
       controlLinks,
       controlPortIntents,
     };
+  }
+
+  /**
+   * Deduplicate control link properties by composite key
+   */
+  private deduplicateProperties(controlLinkProperties: ControlLinkProperty[]): {
+    uniqueProperties: Map<string, ControlLinkProperty>;
+    duplicateCount: number;
+  } {
+    const uniqueProperties = new Map<string, ControlLinkProperty>();
+    let duplicateCount = 0;
+
+    for (const property of controlLinkProperties) {
+      const compositeKey = this.createCompositeKey(property);
+
+      if (uniqueProperties.has(compositeKey)) {
+        duplicateCount++;
+      } else {
+        uniqueProperties.set(compositeKey, property);
+      }
+    }
+
+    return {uniqueProperties, duplicateCount};
+  }
+
+  /**
+   * Create composite key for deduplication
+   * Ensures bidirectional links are treated as identical by normalizing the order
+   * (e.g., 0x102:0x1 <-> 0x405:0x5 is same as 0x405:0x5 <-> 0x102:0x1)
+   */
+  private createCompositeKey(property: ControlLinkProperty): string {
+    const peer1 = property.peer1InstanceId;
+    const peer2 = property.peer2InstanceId;
+    const port1 = property.peer1PortId;
+    const port2 = property.peer2PortId;
+
+    // Compare peer instances first, then ports if peers are equal
+    // Always put the smaller peer-port combination first for consistent keys
+    if (peer1 < peer2 || (peer1 === peer2 && port1 <= port2)) {
+      return `${peer1}-${port1}-${peer2}-${port2}`;
+    } else {
+      return `${peer2}-${port2}-${peer1}-${port1}`;
+    }
+  }
+
+  /**
+   * Process unique properties to build control links and collect intents
+   */
+  private processUniqueProperties(
+    uniqueProperties: Map<string, ControlLinkProperty>,
+    fileSystemId: number,
+  ): {
+    controlLinks: ControlLink[];
+    controlPortIntentsMap: Map<number, Set<number>>;
+    successCount: number;
+    errorCount: number;
+  } {
+    const controlLinks: ControlLink[] = [];
+    const controlPortIntentsMap = new Map<number, Set<number>>();
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const property of uniqueProperties.values()) {
+      const result = this.processControlLinkProperty(
+        property,
+        fileSystemId,
+        controlPortIntentsMap,
+      );
+
+      if (result.success) {
+        controlLinks.push(result.controlLink!);
+        successCount++;
+      } else {
+        errorCount++;
+      }
+    }
+
+    return {controlLinks, controlPortIntentsMap, successCount, errorCount};
+  }
+
+  /**
+   * Process a single control link property
+   */
+  private processControlLinkProperty(
+    property: ControlLinkProperty,
+    fileSystemId: number,
+    controlPortIntentsMap: Map<number, Set<number>>,
+  ): {success: boolean; controlLink?: ControlLink} {
+    try {
+      const {controlLink, nodeAPortSystemId, nodeBPortSystemId, intents} =
+        this.convertControlLinkProperty(property, fileSystemId);
+
+      this.collectIntentsForPorts(
+        intents,
+        nodeAPortSystemId,
+        nodeBPortSystemId,
+        controlPortIntentsMap,
+      );
+
+      return {success: true, controlLink};
+    } catch (error) {
+      this.logger?.logWarn({
+        msg: `Failed to convert control link property (peer1: ${property.peer1InstanceId}, peer2: ${property.peer2InstanceId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
+        action: 'control_link_conversion_failed',
+        component: 'ControlLinkBuilder',
+        tag: 'control-link-building',
+        timestamp: new Date(),
+      });
+      return {success: false};
+    }
+  }
+
+  /**
+   * Collect intents for both control ports
+   */
+  private collectIntentsForPorts(
+    intents: number[],
+    nodeAPortSystemId: number,
+    nodeBPortSystemId: number,
+    controlPortIntentsMap: Map<number, Set<number>>,
+  ): void {
+    if (intents.length === 0) {
+      return;
+    }
+
+    this.addIntentsToPort(nodeAPortSystemId, intents, controlPortIntentsMap);
+    this.addIntentsToPort(nodeBPortSystemId, intents, controlPortIntentsMap);
+  }
+
+  /**
+   * Add intents to a specific port
+   */
+  private addIntentsToPort(
+    portSystemId: number,
+    intents: number[],
+    controlPortIntentsMap: Map<number, Set<number>>,
+  ): void {
+    if (!controlPortIntentsMap.has(portSystemId)) {
+      controlPortIntentsMap.set(portSystemId, new Set());
+    }
+
+    const portIntents = controlPortIntentsMap.get(portSystemId)!;
+    for (const intent of intents) {
+      portIntents.add(intent);
+    }
+  }
+
+  /**
+   * Convert intent Sets to Arrays
+   */
+  private convertIntentSetsToArrays(
+    controlPortIntentsMap: Map<number, Set<number>>,
+  ): Map<number, number[]> {
+    const controlPortIntents = new Map<number, number[]>();
+
+    for (const [portSystemId, intentsSet] of controlPortIntentsMap.entries()) {
+      controlPortIntents.set(portSystemId, [...intentsSet]);
+    }
+
+    return controlPortIntents;
   }
 
   /**
@@ -169,11 +274,9 @@ export class ControlLinkBuilder {
       property.peer2PortId,
     );
 
-    // Extract intents from properties map
-    const intents = this.extractIntents(property.properties);
-
-    // Extract heapId from properties map
-    const heapId = this.extractHeapId(property.properties);
+    // Use intents and heapId directly from property
+    const intents = property.intents;
+    const heapId = property.heapId;
 
     // Create ControlLink entity (without intents - they go to control ports)
     const controlLink = new ControlLink(
@@ -193,86 +296,6 @@ export class ControlLinkBuilder {
       nodeBPortSystemId,
       intents,
     };
-  }
-
-  /**
-   * Extract heapId from properties map
-   */
-  private extractHeapId(properties: Map<number, Uint8Array>): number {
-    const heapIdData = properties.get(MODULE_PROP_ID_CTRL_HEAP_ID);
-
-    if (!heapIdData || heapIdData.length < BinaryUtils.SIZEOF_UINT32) {
-      this.logger?.logWarn({
-        msg: 'HeapId property not found or invalid, using default value 0',
-        action: 'heap_id_default',
-        component: 'ControlLinkBuilder',
-        tag: 'control-link-building',
-        timestamp: new Date(),
-      });
-      return 0; // Default value
-    }
-
-    const view = new DataView(
-      heapIdData.buffer,
-      heapIdData.byteOffset,
-      heapIdData.byteLength,
-    );
-    return BinaryUtils.readUint32(view, 0);
-  }
-
-  /**
-   * Extract intents from properties map
-   */
-  private extractIntents(properties: Map<number, Uint8Array>): number[] {
-    const intentsData = properties.get(MODULE_PROP_ID_CTRL_LINK_INTENTS);
-
-    if (!intentsData || intentsData.length === 0) {
-      return []; // No intents property found, return empty array
-    }
-
-    try {
-      const view = new DataView(
-        intentsData.buffer,
-        intentsData.byteOffset,
-        intentsData.byteLength,
-      );
-      let pos = 0;
-
-      // Read count of intents
-      if (intentsData.length < BinaryUtils.SIZEOF_UINT32) {
-        throw new Error('Intents data too short to read count');
-      }
-      const count = BinaryUtils.readUint32(view, pos);
-      pos += BinaryUtils.SIZEOF_UINT32;
-
-      // Validate we have enough data for all intents
-      const expectedLength =
-        BinaryUtils.SIZEOF_UINT32 + count * BinaryUtils.SIZEOF_UINT32;
-      if (intentsData.length < expectedLength) {
-        throw new Error(
-          `Intents data too short: expected ${expectedLength} bytes, got ${intentsData.length}`,
-        );
-      }
-
-      // Read each intent ID
-      const intents: number[] = [];
-      for (let i = 0; i < count; i++) {
-        const intent = BinaryUtils.readUint32(view, pos);
-        pos += BinaryUtils.SIZEOF_UINT32;
-        intents.push(intent);
-      }
-
-      return intents;
-    } catch (error) {
-      this.logger?.logWarn({
-        msg: `Failed to extract intents: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        action: 'intents_extraction_failed',
-        component: 'ControlLinkBuilder',
-        tag: 'control-link-building',
-        timestamp: new Date(),
-      });
-      return []; // Return empty array on error
-    }
   }
 
   /**

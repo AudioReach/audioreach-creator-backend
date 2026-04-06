@@ -5,10 +5,7 @@
 
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import type {ControlLink} from './types.js';
-import {
-  MODULE_PROP_ID_CTRL_HEAP_ID,
-  HEAP_ID_DEFAULT,
-} from '../../constants/spf-ids.js';
+import {extractHeapId, extractIntents} from './control-link-property-utils.js';
 
 /**
  * Handles parsing of control links properties from binary data.
@@ -140,8 +137,11 @@ export class ControlLinksProperty {
     const properties = result.properties;
     pos = result.newPos;
 
-    // Add default heap ID if not present
-    this.addDefaultHeapIdIfNeeded(properties);
+    // Extract heapId from properties (with default if not present)
+    const heapId = extractHeapId(properties);
+
+    // Extract intents from properties
+    const intents = extractIntents(properties);
 
     // Calculate isInterGraph based on module instance membership
     const isInterGraph = this.calculateIsInterGraph(
@@ -156,8 +156,9 @@ export class ControlLinksProperty {
       peer1PortId,
       peer2InstanceId,
       peer2PortId,
-      properties,
       isInterGraph,
+      heapId,
+      intents,
     };
 
     return {controlLink, newPos: pos};
@@ -233,18 +234,6 @@ export class ControlLinksProperty {
   }
 
   /**
-   * Add default heap ID to properties if not present
-   */
-  private addDefaultHeapIdIfNeeded(properties: Map<number, Uint8Array>): void {
-    if (!properties.has(MODULE_PROP_ID_CTRL_HEAP_ID)) {
-      const defaultHeapData = new Uint8Array(4);
-      const defaultView = new DataView(defaultHeapData.buffer);
-      BinaryUtils.writeUint32(defaultView, 0, HEAP_ID_DEFAULT);
-      properties.set(MODULE_PROP_ID_CTRL_HEAP_ID, defaultHeapData);
-    }
-  }
-
-  /**
    * Get all control links involving a specific instance
    */
   getControlLinksForInstance(instanceId: number): ControlLink[] {
@@ -277,25 +266,6 @@ export class ControlLinksProperty {
             link.peer2PortId === peer1PortId),
       ) || null
     );
-  }
-
-  /**
-   * Get property data for a specific control link
-   */
-  getControlLinkProperty(
-    peer1InstanceId: number,
-    peer1PortId: number,
-    peer2InstanceId: number,
-    peer2PortId: number,
-    propertyId: number,
-  ): Uint8Array | null {
-    const link = this.getControlLink(
-      peer1InstanceId,
-      peer1PortId,
-      peer2InstanceId,
-      peer2PortId,
-    );
-    return link?.properties.get(propertyId) || null;
   }
 
   /**
