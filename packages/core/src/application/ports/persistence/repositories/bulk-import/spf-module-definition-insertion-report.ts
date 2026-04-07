@@ -41,17 +41,3 @@ export type ModuleDefinitionInsertError =
  * };
  * ```
  */
-export interface ModuleDefinitionInsertResult {
-  /** Definition root: definitionId → systemId */
-  definitionIdMapping?: NaturalIdMapping<number>;
-  /** Parameter mappings needed for calibration workflows */
-  childMappings: {
-    parameterDefinitions: NaturalIdMapping<number>[];
-  };
-  errors: ModuleDefinitionInsertError[];
-  success: boolean;
-}
-
-export interface BulkModuleDefinitionInsertResult {
-  results: ModuleDefinitionInsertResult[];
-}

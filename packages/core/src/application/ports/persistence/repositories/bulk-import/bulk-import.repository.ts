@@ -15,7 +15,13 @@ import type {
   ContainerType,
   UseCase,
 } from '@arc/core';
+
+import type {BulkKeyDefinitionInsertResult} from './bulk-import-key-definition/bulk-key-definition-insert-result.js';
 import type {HierarchicalBulkInsertResult} from './insert-result.js';
+import type {SpfModuleDefinition} from 'domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
+import type {BulkSPfModuleDefinitionInsertResult} from './bulk-import-spf-module-definition/bulk-spf-module-definition-insert-result.js';
+import type {BulkProcessorDefinitionInsertResult} from './bulk-import-processor-definition/bulk-processor-definition-insert-result.js';
+import type {BulkContainerTypeInsertResult} from './bulk-import-container-definition/bulk-container-type-insert-result.js';
 
 /**
  * Repository interface for bulk import operations using insert+query pattern.
@@ -41,9 +47,9 @@ export interface BulkImportRepository {
    * const portSystemId = result.results[0].portMappings.dataPorts[0]?.systemId;
    * ```
    */
-  insertSpfModules(
-    items: readonly SpfModule[],
-  ): Promise<HierarchicalBulkInsertResult<SpfModule>>;
+  // insertSpfModules(
+  //   items: readonly SpfModule[],
+  // ): Promise<BulkModuleDefinitionInsertResult>;
 
   /**
    * Insert container rows in bulk.
@@ -52,9 +58,9 @@ export interface BulkImportRepository {
    * @param items - Containers without systemId (will be generated during insertion)
    * @returns Promise resolving to entity insertion result with containerId->systemId mappings
    */
-  insertContainers(
-    items: readonly Container[],
-  ): Promise<HierarchicalBulkInsertResult<Container>>;
+  // insertContainers(
+  //   items: readonly Container[],
+  // ): Promise<HierarchicalBulkInsertResult<Container>>;
 
   /**
    * Insert subgraph rows in bulk.
@@ -63,9 +69,9 @@ export interface BulkImportRepository {
    * @param items - Subgraphs without systemId (will be generated during insertion)
    * @returns Promise resolving to entity insertion result with subgraphId->systemId mappings
    */
-  insertSubgraphs(
-    items: Subgraph[],
-  ): Promise<HierarchicalBulkInsertResult<Subgraph>>;
+  // insertSubgraphs(
+  //   items: Subgraph[],
+  // ): Promise<HierarchicalBulkInsertResult<Subgraph>>;
 
   /**
    * Insert data link rows in bulk.
@@ -75,9 +81,9 @@ export interface BulkImportRepository {
    * @param items - Data links without systemId (will be generated during insertion)
    * @returns Promise resolving to data link insertion result with composite key->systemId mappings
    */
-  insertDataLinks(
-    items: readonly DataLink[],
-  ): Promise<HierarchicalBulkInsertResult<DataLink>>;
+  // insertDataLinks(
+  //   items: readonly DataLink[],
+  // ): Promise<HierarchicalBulkInsertResult<DataLink>>;
 
   /**
    * Insert control link rows in bulk.
@@ -87,9 +93,9 @@ export interface BulkImportRepository {
    * @param items - Control links without systemId (will be generated during insertion)
    * @returns Promise resolving to control link insertion result with composite key->systemId mappings
    */
-  insertControlLinks(
-    items: readonly ControlLink[],
-  ): Promise<HierarchicalBulkInsertResult<ControlLink>>;
+  // insertControlLinks(
+  //   items: readonly ControlLink[],
+  // ): Promise<HierarchicalBulkInsertResult<ControlLink>>;
 
   /**
    * Insert use case rows in bulk.
@@ -127,9 +133,9 @@ export interface BulkImportRepository {
    * const success = result.results[0].success; // false
    * ```
    */
-  insertUseCases(
-    items: readonly UseCase[],
-  ): Promise<HierarchicalBulkInsertResult<UseCase>>;
+  // insertUseCases(
+  //   items: readonly UseCase[],
+  // ): Promise<HierarchicalBulkInsertResult<UseCase>>;
 
   /**
    * Insert module definition rows in bulk, including parameters, ports, and intents.
@@ -140,8 +146,8 @@ export interface BulkImportRepository {
    * @returns Promise resolving to module definition insertion result with definitionId->systemId mappings and parameter mappings
    */
   insertModuleDefinitions(
-    items: readonly ModuleDefinition[],
-  ): Promise<HierarchicalBulkInsertResult<ModuleDefinition>>;
+    items: readonly SpfModuleDefinition[],
+  ): Promise<BulkSPfModuleDefinitionInsertResult>;
 
   /**
    * Insert key definition rows in bulk, including value definitions.
@@ -153,7 +159,7 @@ export interface BulkImportRepository {
    */
   insertKeyDefinitions(
     items: readonly KeyDefinition[],
-  ): Promise<HierarchicalBulkInsertResult<KeyDefinition>>;
+  ): Promise<BulkKeyDefinitionInsertResult>;
 
   /**
    * Insert processor definition rows in bulk.
@@ -164,7 +170,7 @@ export interface BulkImportRepository {
    */
   insertProcessorDefinitions(
     items: readonly ProcessorDefinition[],
-  ): Promise<HierarchicalBulkInsertResult<ProcessorDefinition>>;
+  ): Promise<BulkProcessorDefinitionInsertResult>;
 
   /**
    * Insert container type definition rows in bulk.
@@ -175,5 +181,5 @@ export interface BulkImportRepository {
    */
   insertContainerTypeDefinitions(
     items: readonly ContainerType[],
-  ): Promise<HierarchicalBulkInsertResult<ContainerType>>;
+  ): Promise<BulkContainerTypeInsertResult>;
 }
