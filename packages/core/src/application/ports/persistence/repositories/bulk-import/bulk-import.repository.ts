@@ -4,25 +4,16 @@
  */
 
 import type {
-  SpfModule,
-  Container,
-  DataLink,
-  ControlLink,
   SpfModuleDefinition,
   KeyDefinition,
   ProcessorDefinition,
-  Subgraph,
   ContainerType,
-  UseCase,
 } from '@arc/core';
-import type {BulkEntityInsertResult} from './insert-result.js';
-import type {BulkModuleInsertResult} from './spf-module-insertion-report.js';
-import type {
-  BulkDataLinkInsertResult,
-  BulkControlLinkInsertResult,
-} from './link-insertion-report.js';
-import type {BulkModuleDefinitionInsertResult} from './spf-module-definition-insertion-report.js';
-import type {BulkKeyDefinitionInsertResult} from './key-definition-insertion-report.js';
+
+import type {BulkKeyDefinitionInsertResult} from './bulk-import-key-definition/bulk-key-definition-insert-result.js';
+import type {BulkSPfModuleDefinitionInsertResult} from './bulk-import-spf-module-definition/bulk-spf-module-definition-insert-result.js';
+import type {BulkProcessorDefinitionInsertResult} from './bulk-import-processor-definition/bulk-processor-definition-insert-result.js';
+import type {BulkContainerTypeInsertResult} from './bulk-import-container-definition/bulk-container-type-insert-result.js';
 
 /**
  * Repository interface for bulk import operations using insert+query pattern.
@@ -48,9 +39,9 @@ export interface BulkImportRepository {
    * const portSystemId = result.results[0].portMappings.dataPorts[0]?.systemId;
    * ```
    */
-  insertSpfModules(
-    items: readonly Omit<SpfModule, 'systemId'>[],
-  ): Promise<BulkModuleInsertResult>;
+  // insertSpfModules(
+  //   items: readonly SpfModule[],
+  // ): Promise<BulkModuleDefinitionInsertResult>;
 
   /**
    * Insert container rows in bulk.
@@ -59,9 +50,9 @@ export interface BulkImportRepository {
    * @param items - Containers without systemId (will be generated during insertion)
    * @returns Promise resolving to entity insertion result with containerId->systemId mappings
    */
-  insertContainers(
-    items: readonly Omit<Container, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>>;
+  // insertContainers(
+  //   items: readonly Container[],
+  // ): Promise<HierarchicalBulkInsertResult<Container>>;
 
   /**
    * Insert subgraph rows in bulk.
@@ -70,9 +61,9 @@ export interface BulkImportRepository {
    * @param items - Subgraphs without systemId (will be generated during insertion)
    * @returns Promise resolving to entity insertion result with subgraphId->systemId mappings
    */
-  insertSubgraphs(
-    items: readonly Omit<Subgraph, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>>;
+  // insertSubgraphs(
+  //   items: Subgraph[],
+  // ): Promise<HierarchicalBulkInsertResult<Subgraph>>;
 
   /**
    * Insert data link rows in bulk.
@@ -82,9 +73,9 @@ export interface BulkImportRepository {
    * @param items - Data links without systemId (will be generated during insertion)
    * @returns Promise resolving to data link insertion result with composite key->systemId mappings
    */
-  insertDataLinks(
-    items: readonly Omit<DataLink, 'systemId'>[],
-  ): Promise<BulkDataLinkInsertResult>;
+  // insertDataLinks(
+  //   items: readonly DataLink[],
+  // ): Promise<HierarchicalBulkInsertResult<DataLink>>;
 
   /**
    * Insert control link rows in bulk.
@@ -94,9 +85,9 @@ export interface BulkImportRepository {
    * @param items - Control links without systemId (will be generated during insertion)
    * @returns Promise resolving to control link insertion result with composite key->systemId mappings
    */
-  insertControlLinks(
-    items: readonly Omit<ControlLink, 'systemId'>[],
-  ): Promise<BulkControlLinkInsertResult>;
+  // insertControlLinks(
+  //   items: readonly ControlLink[],
+  // ): Promise<HierarchicalBulkInsertResult<ControlLink>>;
 
   /**
    * Insert use case rows in bulk.
@@ -134,9 +125,9 @@ export interface BulkImportRepository {
    * const success = result.results[0].success; // false
    * ```
    */
-  insertUseCases(
-    items: readonly Omit<UseCase, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>>;
+  // insertUseCases(
+  //   items: readonly UseCase[],
+  // ): Promise<HierarchicalBulkInsertResult<UseCase>>;
 
   /**
    * Insert SPF module definition rows in bulk, including parameters, ports, and intents.
@@ -146,9 +137,9 @@ export interface BulkImportRepository {
    * @param items - SPF module definitions without systemId (will be generated during insertion)
    * @returns Promise resolving to module definition insertion result with definitionId->systemId mappings and parameter mappings
    */
-  insertSpfModuleDefinitions(
-    items: readonly Omit<SpfModuleDefinition, 'systemId'>[],
-  ): Promise<BulkModuleDefinitionInsertResult>;
+  insertModuleDefinitions(
+    items: readonly SpfModuleDefinition[],
+  ): Promise<BulkSPfModuleDefinitionInsertResult>;
 
   /**
    * Insert key definition rows in bulk, including value definitions.
@@ -159,7 +150,7 @@ export interface BulkImportRepository {
    * @returns Promise resolving to key definition insertion result with keyId->systemId mappings and value definition mappings
    */
   insertKeyDefinitions(
-    items: readonly Omit<KeyDefinition, 'systemId'>[],
+    items: readonly KeyDefinition[],
   ): Promise<BulkKeyDefinitionInsertResult>;
 
   /**
@@ -170,8 +161,8 @@ export interface BulkImportRepository {
    * @returns Promise resolving to entity insertion result with processorId->systemId mappings
    */
   insertProcessorDefinitions(
-    items: readonly Omit<ProcessorDefinition, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>>;
+    items: readonly ProcessorDefinition[],
+  ): Promise<BulkProcessorDefinitionInsertResult>;
 
   /**
    * Insert container type definition rows in bulk.
@@ -181,6 +172,6 @@ export interface BulkImportRepository {
    * @returns Promise resolving to entity insertion result with containerTypeId->systemId mappings
    */
   insertContainerTypeDefinitions(
-    items: readonly Omit<ContainerType, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>>;
+    items: readonly ContainerType[],
+  ): Promise<BulkContainerTypeInsertResult>;
 }
