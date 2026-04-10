@@ -8,12 +8,18 @@ import type {
   KeyDefinition,
   ProcessorDefinition,
   ContainerType,
+  BulkInsertResult,
+  TagDefinitionEntityResult,
 } from '@arc/core';
 
-import type {BulkKeyDefinitionInsertResult} from './bulk-import-key-definition/bulk-key-definition-insert-result.js';
-import type {BulkSPfModuleDefinitionInsertResult} from './bulk-import-spf-module-definition/bulk-spf-module-definition-insert-result.js';
-import type {BulkProcessorDefinitionInsertResult} from './bulk-import-processor-definition/bulk-processor-definition-insert-result.js';
+import type {BaseInsertError} from './bulk-import-interface/base-insert-error.interface.js';
+import type {HierarchicalEntityResult} from './bulk-import-interface/hierarchical-entity-result.interface.js';
+import type {KeyDefinitionEntityResult} from './bulk-import-key-definition-interface/key-definition-entity-result.interface.js';
+import type {BulkSPfModuleDefinitionInsertResult} from '../../../../../../../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/bulk-spf-module-definition-insert-result.js';
 import type {BulkContainerTypeInsertResult} from './bulk-import-container-definition/bulk-container-type-insert-result.js';
+import type {
+  TagDefinition,
+} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 
 /**
  * Repository interface for bulk import operations using insert+query pattern.
@@ -137,7 +143,7 @@ export interface BulkImportRepository {
    * @param items - SPF module definitions without systemId (will be generated during insertion)
    * @returns Promise resolving to module definition insertion result with definitionId->systemId mappings and parameter mappings
    */
-  insertModuleDefinitions(
+  insertSpfModuleDefinitions(
     items: readonly SpfModuleDefinition[],
   ): Promise<BulkSPfModuleDefinitionInsertResult>;
 
@@ -151,7 +157,7 @@ export interface BulkImportRepository {
    */
   insertKeyDefinitions(
     items: readonly KeyDefinition[],
-  ): Promise<BulkKeyDefinitionInsertResult>;
+  ): Promise<BulkInsertResult<KeyDefinitionEntityResult>>;
 
   /**
    * Insert processor definition rows in bulk.
@@ -162,7 +168,11 @@ export interface BulkImportRepository {
    */
   insertProcessorDefinitions(
     items: readonly ProcessorDefinition[],
-  ): Promise<BulkProcessorDefinitionInsertResult>;
+  ): Promise<BulkInsertResult<HierarchicalEntityResult<BaseInsertError>>>;
+
+  insertTagDefinition(
+    items: readonly TagDefinition[],
+  ): Promise<BulkInsertResult<TagDefinitionEntityResult>>;
 
   /**
    * Insert container type definition rows in bulk.

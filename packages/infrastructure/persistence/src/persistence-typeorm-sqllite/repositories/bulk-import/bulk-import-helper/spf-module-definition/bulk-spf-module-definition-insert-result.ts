@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseBulkInsertResult} from '../base-bulk-import/base-bulk-inser-result.js';
-import type {HierarchicalInsertStatusValue} from '../base-bulk-import/base-hierarchical-entity-result.js';
-import type {BaseInsertError} from '../base-bulk-import/base-insert-error.interface.js';
-import type {InsertSummary} from '../base-bulk-import/insert-summary.interface.js';
+import {BaseBulkInsertResult} from '../base-bulk-import/base-bulk-insert-result.js';
+import {HIERARCHICAL_INSERT_STATUS} from '@arc/core';
+import type {HierarchicalInsertStatusValue, InsertSummary} from '@arc/core';
 import type {SpfModuleDefinitionHierarchicalEntityResult} from './spf-module-definition-hierarchical-entity-result.js';
 
 /**
@@ -18,10 +17,7 @@ import type {SpfModuleDefinitionHierarchicalEntityResult} from './spf-module-def
  * - Dynamic Intents
  * - Attributes
  */
-export class BulkSPfModuleDefinitionInsertResult extends BaseBulkInsertResult<
-  SpfModuleDefinitionHierarchicalEntityResult,
-  BaseInsertError
-> {
+export class BulkSPfModuleDefinitionInsertResult extends BaseBulkInsertResult<SpfModuleDefinitionHierarchicalEntityResult> {
   private readonly _results: SpfModuleDefinitionHierarchicalEntityResult[];
   private readonly _overallStatus: HierarchicalInsertStatusValue;
 
@@ -42,7 +38,7 @@ export class BulkSPfModuleDefinitionInsertResult extends BaseBulkInsertResult<
     return this._overallStatus;
   }
 
-  protected computeSummary(): InsertSummary {
+  public computeSummary(): InsertSummary {
     let totalEntities = 0;
     let successfulEntities = 0;
     let failedEntities = 0;
@@ -50,7 +46,7 @@ export class BulkSPfModuleDefinitionInsertResult extends BaseBulkInsertResult<
     this._results.forEach(moduleResult => {
       // Count the module itself
       totalEntities++;
-      if (moduleResult.status === 'SUCCESS') {
+      if (moduleResult.status === HIERARCHICAL_INSERT_STATUS.success) {
         successfulEntities++;
       } else {
         failedEntities++;
@@ -59,59 +55,55 @@ export class BulkSPfModuleDefinitionInsertResult extends BaseBulkInsertResult<
       // Count param children
       moduleResult.paramResults.forEach(paramResult => {
         totalEntities++;
-        if (paramResult.status === 'SUCCESS') {
+        if (paramResult.status === HIERARCHICAL_INSERT_STATUS.success) {
           successfulEntities++;
         } else {
           failedEntities++;
         }
       });
 
-      // Count input data port group and its static ports
-      if (moduleResult.inputDataPortGroupResult) {
+      // Count input data port groups and their static ports
+      moduleResult.inputDataPortGroupResult.forEach(portGroupResult => {
         totalEntities++;
-        if (moduleResult.inputDataPortGroupResult.status === 'SUCCESS') {
+        if (portGroupResult.status === HIERARCHICAL_INSERT_STATUS.success) {
           successfulEntities++;
         } else {
           failedEntities++;
         }
 
-        moduleResult.inputDataPortGroupResult.staticPortResults.forEach(
-          portResult => {
-            totalEntities++;
-            if (portResult.status === 'SUCCESS') {
-              successfulEntities++;
-            } else {
-              failedEntities++;
-            }
-          },
-        );
-      }
+        portGroupResult.staticPortResults.forEach(portResult => {
+          totalEntities++;
+          if (portResult.status === HIERARCHICAL_INSERT_STATUS.success) {
+            successfulEntities++;
+          } else {
+            failedEntities++;
+          }
+        });
+      });
 
-      // Count output data port group and its static ports
-      if (moduleResult.outputDataPortGroupResult) {
+      // Count output data port groups and their static ports
+      moduleResult.outputDataPortGroupResult.forEach(portGroupResult => {
         totalEntities++;
-        if (moduleResult.outputDataPortGroupResult.status === 'SUCCESS') {
+        if (portGroupResult.status === HIERARCHICAL_INSERT_STATUS.success) {
           successfulEntities++;
         } else {
           failedEntities++;
         }
 
-        moduleResult.outputDataPortGroupResult.staticPortResults.forEach(
-          portResult => {
-            totalEntities++;
-            if (portResult.status === 'SUCCESS') {
-              successfulEntities++;
-            } else {
-              failedEntities++;
-            }
-          },
-        );
-      }
+        portGroupResult.staticPortResults.forEach(portResult => {
+          totalEntities++;
+          if (portResult.status === HIERARCHICAL_INSERT_STATUS.success) {
+            successfulEntities++;
+          } else {
+            failedEntities++;
+          }
+        });
+      });
 
       // Count static control ports
       moduleResult.staticControlPortResults.forEach(portResult => {
         totalEntities++;
-        if (portResult.status === 'SUCCESS') {
+        if (portResult.status === HIERARCHICAL_INSERT_STATUS.success) {
           successfulEntities++;
         } else {
           failedEntities++;
@@ -121,7 +113,7 @@ export class BulkSPfModuleDefinitionInsertResult extends BaseBulkInsertResult<
       // Count dynamic intents
       moduleResult.dynamicIntentResults.forEach(intentResult => {
         totalEntities++;
-        if (intentResult.status === 'SUCCESS') {
+        if (intentResult.status === HIERARCHICAL_INSERT_STATUS.success) {
           successfulEntities++;
         } else {
           failedEntities++;
@@ -131,7 +123,7 @@ export class BulkSPfModuleDefinitionInsertResult extends BaseBulkInsertResult<
       // Count attributes
       moduleResult.attributeResults.forEach(attributeResult => {
         totalEntities++;
-        if (attributeResult.status === 'SUCCESS') {
+        if (attributeResult.status === HIERARCHICAL_INSERT_STATUS.success) {
           successfulEntities++;
         } else {
           failedEntities++;

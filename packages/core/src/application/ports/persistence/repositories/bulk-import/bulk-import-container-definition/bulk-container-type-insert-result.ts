@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseBulkInsertResult} from '../base-bulk-import/base-bulk-inser-result.js';
-import type {HierarchicalInsertStatusValue} from '../base-bulk-import/base-hierarchical-entity-result.js';
-import type {BaseInsertError} from '../base-bulk-import/base-insert-error.interface.js';
-import type {InsertSummary} from '../base-bulk-import/insert-summary.interface.js';
+import {BaseBulkInsertResult} from '../../../../../../../../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/base-bulk-import/base-bulk-insert-result.js';
+import {
+  HIERARCHICAL_INSERT_STATUS,
+  type HierarchicalInsertStatusValue,
+} from '../../../../../../../../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/base-bulk-import/base-hierarchical-entity-result.js';
+import type {BaseInsertError} from '../bulk-import-interface/base-insert-error.interface.js';
+import type {InsertSummary} from '../bulk-import-interface/insert-summary.interface.js';
 import type {ContainerTypeHierarchicalEntityResult} from './container-type-hierarchical-entity-result.js';
 
 /**
@@ -17,24 +20,24 @@ export class BulkContainerTypeInsertResult extends BaseBulkInsertResult<
   ContainerTypeHierarchicalEntityResult,
   BaseInsertError
 > {
-  private readonly _results: ContainerTypeHierarchicalEntityResult[];
-  private readonly _overallStatus: HierarchicalInsertStatusValue;
+  private internalResults: ContainerTypeHierarchicalEntityResult[];
+  private internalOverallStatus: HierarchicalInsertStatusValue;
 
   constructor(
     results: ContainerTypeHierarchicalEntityResult[],
     overallStatus: HierarchicalInsertStatusValue,
   ) {
     super();
-    this._results = results;
-    this._overallStatus = overallStatus;
+    this.internalResults = results;
+    this.internalOverallStatus = overallStatus;
   }
 
-  get results(): ContainerTypeHierarchicalEntityResult[] {
-    return this._results;
+  get results(): ReadonlyArray<ContainerTypeHierarchicalEntityResult> {
+    return this.internalResults;
   }
 
   get overallStatus(): HierarchicalInsertStatusValue {
-    return this._overallStatus;
+    return this.internalOverallStatus;
   }
 
   protected computeSummary(): InsertSummary {
@@ -42,10 +45,10 @@ export class BulkContainerTypeInsertResult extends BaseBulkInsertResult<
     let successfulEntities = 0;
     let failedEntities = 0;
 
-    this._results.forEach(containerTypeResult => {
+    this.internalResults.forEach(containerTypeResult => {
       // Count the container type itself (no children)
       totalEntities++;
-      if (containerTypeResult.status === 'SUCCESS') {
+      if (containerTypeResult.status === HIERARCHICAL_INSERT_STATUS.SUCCESS) {
         successfulEntities++;
       } else {
         failedEntities++;

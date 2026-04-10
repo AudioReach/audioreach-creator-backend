@@ -6,35 +6,32 @@
 import {
   BaseHierarchicalEntityResult,
   type HierarchicalInsertStatusValue,
-} from '../base-bulk-import/base-hierarchical-entity-result.js';
-import type {BaseInsertError} from '../base-bulk-import/base-insert-error.interface.js';
+} from '../../../../../../../../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/base-bulk-import/base-hierarchical-entity-result.js';
+import type {BaseInsertError} from '../bulk-import-interface/base-insert-error.interface.js';
 
 /**
  * Hierarchical result for Container Type entity (leaf node).
  * ContainerType has no children - it's a simple entity with systemId, name, and value.
  */
 export class ContainerTypeHierarchicalEntityResult extends BaseHierarchicalEntityResult<BaseInsertError> {
-  private readonly _errors: BaseInsertError[];
-  private readonly _status: HierarchicalInsertStatusValue;
-
   constructor(
+    aggregateDetails: string,
+    entityDetails: string,
     errors: BaseInsertError[],
     status: HierarchicalInsertStatusValue,
   ) {
-    super();
-    this._errors = errors;
-    this._status = status;
+    super(aggregateDetails, entityDetails, errors, status);
   }
 
-  get errors(): BaseInsertError[] {
-    return this._errors;
+  get errors(): ReadonlyArray<BaseInsertError> {
+    return this.internalErrors;
   }
 
   get status(): HierarchicalInsertStatusValue {
-    return this._status;
+    return this.internalStatus;
   }
 
-  getAllChildren(): BaseHierarchicalEntityResult<BaseInsertError>[] {
+  getChildren(): ReadonlyArray<BaseHierarchicalEntityResult<BaseInsertError>> {
     return [];
   }
 }

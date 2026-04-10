@@ -28,6 +28,11 @@
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/tag-definition/bulk-tag-definition-insert-result.ts",
+    "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/tag-definition/tag-def-key-def-link-hierarchical-entity-result.ts",
+    "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/tag-definition/tag-definition-hierarchical-entity-result.ts"
+, "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/attribute-hierarchical-entity-result.ts", "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/bulk-spf-module-definition-insert-result.ts", "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/data-port-definition-hierarchical-entity-result.ts", "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/data-port-group-definition-hierarchical-entity-result.ts", "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/dynamic-intent-definition-hierarchical-entity-result.ts", "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/param-definition-hierarchical-entity-result.ts", "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/spf-module-definition-hierarchical-entity-result.ts", "../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/static-control-port-definition-hierarchical-entity-result.ts"  ],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }
