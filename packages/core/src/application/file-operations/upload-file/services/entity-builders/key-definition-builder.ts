@@ -7,10 +7,10 @@ import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import {HANDLER_KEYS} from '../../../shared/constants/registry-keys.js';
 import {KeyDefinition as AwspKeyDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
-import {KeyDefinition as DomainKeyDefinition} from '../../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
+import {KeyDefinition as DomainKeyDefinition} from '../../../../../domain/entities/definitions/key-value/key-definition.js';
 import {ValueDefinition as DomainValueDefinition} from '../../../../../domain/entities/definitions/key-value/entities/value-definition.js';
 import type {SpecialKey} from '../../../shared/awsp-serializers/v1/definitions/key-definition/type/special-key-type.js';
-import type {SpecialtyKey} from '../../../../../domain/entities/definitions/common/enums/speciality-type.js';
+import type {SpecialtyKey} from '../../../../../domain/entities/definitions/common/types/speciality-type.js';
 
 /**
  * Input structure for key definition building tasks
@@ -292,20 +292,21 @@ export class KeyDefinitionBuilder {
     fileSystemId: number,
   ): DomainKeyDefinition {
     // Transform value definitions
-    const domainValues: DomainValueDefinition[] = [];
+    const values: DomainValueDefinition[] = [];
 
     if (awsp.values && Array.isArray(awsp.values)) {
       for (const awspValue of awsp.values) {
         try {
-          const domainValue = new DomainValueDefinition({
-            systemId: 0, // Will be generated during insertion
-            valueId: awspValue.id,
-            name: awspValue.name,
-            description: awspValue.description || '',
-            cHeaderEnumValue: awspValue.enumValue,
-            specialValue: awspValue.specialValue, // TODO: Implement specialty mapping when available
-          });
-          domainValues.push(domainValue);
+          values.push(
+            new DomainValueDefinition({
+              systemId: 0, // Will be generated during insertion
+              valueId: awspValue.id,
+              name: awspValue.name,
+              description: awspValue.description || '',
+              cHeaderEnumValue: awspValue.enumValue,
+              specialValue: awspValue.specialValue, // TODO: Implement specialty mapping when available
+            }),
+          );
         } catch (error) {
           throw new Error(
             `Failed to transform value definition ${awspValue.id}: ${error instanceof Error ? error.message : String(error)}`,
@@ -314,8 +315,8 @@ export class KeyDefinitionBuilder {
       }
     }
 
-    // Create domain key definition
-    const domainKeyDef = new DomainKeyDefinition({
+    // Create domain key definition with all values passed via init
+    return new DomainKeyDefinition({
       systemId: 0, // Will be generated during insertion
       keyId: awsp.id,
       fileSystemId: fileSystemId,
@@ -325,6 +326,7 @@ export class KeyDefinitionBuilder {
       isGraphKey: awsp.isGraphKey ?? false,
       isVoice: awsp.isVoice ?? false,
       isDynamic: awsp.isDynamic ?? false,
+      values,
 
       // TODO: Implement specialty mapping when available
       specialityKeyValue: awsp.specialty
@@ -341,13 +343,6 @@ export class KeyDefinitionBuilder {
         graphEnumValue: awsp.graphKeyEnumValue,
       },
     });
-
-    // Add value definitions to the key definition
-    for (const value of domainValues) {
-      domainKeyDef.AddValue(value);
-    }
-
-    return domainKeyDef;
   }
 
   /**

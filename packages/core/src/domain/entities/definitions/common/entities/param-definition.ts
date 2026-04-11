@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ParamType} from '../enums/param-type.js';
-import type {ToolPolicy} from '../enums/tool-policy-type.js';
+import type {ParamType} from '../types/param-type.js';
+import type {ToolPolicy} from '../types/tool-policy-type.js';
 
 export interface ParamDefinitionInit {
   systemId: number;
@@ -13,8 +13,8 @@ export interface ParamDefinitionInit {
   description: string;
   maxSize: number;
   toolPolicies: ToolPolicy[];
-  pidType: ParamType;
-  paramStructure: string;
+  type: ParamType;
+  elementsStructure: string;
 }
 
 export class ParamDefinition {
@@ -25,7 +25,7 @@ export class ParamDefinition {
   maxSize: number;
   toolPolicies: ToolPolicy[];
   pidType: ParamType;
-  paramStructure: string;
+  elementsStructure: string;
 
   constructor(initParam: ParamDefinitionInit) {
     this.systemId = initParam.systemId;
@@ -34,7 +34,7 @@ export class ParamDefinition {
     this.description = initParam.description;
     this.maxSize = initParam.maxSize;
     this.toolPolicies = initParam.toolPolicies;
-    this.pidType = initParam.pidType;
-    this.paramStructure = initParam.paramStructure;
+    this.pidType = initParam.type;
+    this.elementsStructure = initParam.elementsStructure;
   }
 }

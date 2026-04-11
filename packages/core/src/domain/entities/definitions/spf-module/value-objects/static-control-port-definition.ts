@@ -3,14 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {
-  DuplicateIntentIdException,
-  DuplicateIntentNameException,
-  IntentPortIdNotFoundException,
-  IntentPortNameNotFoundException,
-  NullObjectException,
-} from '../../common/exceptions/input-validation-exception.js';
 import {StaticIntentDefinition} from './static-intent-definition.js';
+import {
+  assertNonNull,
+  invariant,
+} from '../../../../../shared/assertions/index.js';
+import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 
 export interface StaticControlPortDefinitionInit {
   portId: number;
@@ -21,6 +19,7 @@ export class StaticControlPortDefinition {
   readonly portId: number;
   portName: string;
   readonly staticIntents: StaticIntentDefinition[] = [];
+  private readonly intentIds = new Set<string>();
 
   constructor(initParam: StaticControlPortDefinitionInit) {
     this.portId = initParam.portId;
@@ -28,37 +27,33 @@ export class StaticControlPortDefinition {
   }
 
   AddStaticIntent(staticIntent: StaticIntentDefinition) {
-    // Validate unique intentIds
-    if (!staticIntent) {
-      throw new NullObjectException('Value is null');
-    }
-
-    if (!staticIntent) {
-      throw new IntentPortIdNotFoundException();
-    }
-
-    if (!staticIntent.intentName) {
-      throw new IntentPortNameNotFoundException();
-    }
-
-    const valueWithSameIntentId = this.staticIntents.some(
-      v => v.intentId === staticIntent.intentId,
+    assertNonNull(
+      staticIntent,
+      `staticIntent is null for port ${BinaryUtils.toHexString(this.portId)}`,
     );
-    if (valueWithSameIntentId) {
-      throw new DuplicateIntentIdException(
-        `Intent Id: ${staticIntent.intentId} already exists for Port Id: ${this.portId}`,
-      );
-    }
-
-    const valueWithSameIntentName = this.staticIntents.some(
-      v => v.intentName === staticIntent.intentName,
+    assertNonNull(
+      staticIntent.intentId,
+      `intentId is required for static intent in port ${BinaryUtils.toHexString(this.portId)}`,
     );
-    if (valueWithSameIntentName) {
-      throw new DuplicateIntentNameException(
-        `Intent Name: ${staticIntent.intentName} already exists for Port Id: ${this.portId}`,
-      );
-    }
+    assertNonNull(
+      staticIntent.intentName,
+      `intentName is required for static intent in port ${BinaryUtils.toHexString(this.portId)}`,
+    );
 
+    const idKey = `id:${staticIntent.intentId}`;
+    const nameKey = `name:${staticIntent.intentName}`;
+
+    invariant(
+      !this.intentIds.has(idKey),
+      `Intent Id: ${BinaryUtils.toHexString(staticIntent.intentId)} already exists for Port Id: ${BinaryUtils.toHexString(this.portId)}`,
+    );
+    invariant(
+      !this.intentIds.has(nameKey),
+      `Intent Name: ${staticIntent.intentName} already exists for Port Id: ${BinaryUtils.toHexString(this.portId)}`,
+    );
+
+    this.intentIds.add(idKey);
+    this.intentIds.add(nameKey);
     this.staticIntents.push(staticIntent);
   }
 }
