@@ -10,10 +10,10 @@ export interface TagDefKeyDefInit {
 
 export class TagDefKeyDefLink {
   readonly keyReferenceSystemId: number;
-  tagEnumValue: string;
+  tagEnumValue?: string;
 
   constructor(initParam: TagDefKeyDefInit) {
     this.keyReferenceSystemId = initParam.keyReferenceSystemId;
-    this.tagEnumValue = initParam.tagEnumValue ?? '';
+    this.tagEnumValue = initParam.tagEnumValue;
   }
 }

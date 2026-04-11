@@ -11,6 +11,7 @@ import type {
   StaticControlPortDefinitionRow,
 } from '../../../entity-schema/index.js';
 import {PortIoType} from '../../../entity-schema/definitions/module/spf/port-io-type-definition.schema.js';
+import {PORT_IO_TYPE} from '@arc/core';
 
 /**
  * Maps SpfModuleDefinition domain entity to SpfModuleDefinitionRow for database insertion.
@@ -26,32 +27,33 @@ export function toSpfModuleDefinitionRow(
   const dataPortGroups: Partial<DataPortGroupRow>[] = [];
 
   // Map input port group
-  if (moduleDefinition.inputDataPortsGroup) {
+  const inputDataPortsGroup = moduleDefinition.dataPortGroups.find(
+    dp => dp.portIoType == PORT_IO_TYPE.Input,
+  );
+  if (inputDataPortsGroup) {
     const inputGroup: Partial<DataPortGroupRow> = {
-      max: moduleDefinition.inputDataPortsGroup.maxAllowedPortCount,
-      portIoType: moduleDefinition.inputDataPortsGroup.portIoType as PortIoType,
-      ports: moduleDefinition.inputDataPortsGroup.staticPortDefinitions.map(
-        port => ({
-          dataPortId: port.dataPortId,
-          name: port.dataPortName,
-        }),
-      ) as unknown as DataPortDefinitionRow[],
+      max: inputDataPortsGroup.maxAllowedPortCount,
+      portIoType: inputDataPortsGroup.portIoType as PortIoType,
+      ports: inputDataPortsGroup.staticPortDefinitions.map(port => ({
+        dataPortId: port.dataPortId,
+        name: port.dataPortName,
+      })) as unknown as DataPortDefinitionRow[],
     };
     dataPortGroups.push(inputGroup);
   }
 
   // Map output port group
-  if (moduleDefinition.outputDataPortsGroup) {
+  const outputDataPortsGroup = moduleDefinition.dataPortGroups.find(
+    dp => dp.portIoType == PORT_IO_TYPE.Output,
+  );
+  if (outputDataPortsGroup) {
     const outputGroup: Partial<DataPortGroupRow> = {
-      max: moduleDefinition.outputDataPortsGroup.maxAllowedPortCount,
-      portIoType: moduleDefinition.outputDataPortsGroup
-        .portIoType as PortIoType,
-      ports: moduleDefinition.outputDataPortsGroup.staticPortDefinitions.map(
-        port => ({
-          dataPortId: port.dataPortId,
-          name: port.dataPortName,
-        }),
-      ) as unknown as DataPortDefinitionRow[],
+      max: outputDataPortsGroup.maxAllowedPortCount,
+      portIoType: outputDataPortsGroup.portIoType as PortIoType,
+      ports: outputDataPortsGroup.staticPortDefinitions.map(port => ({
+        dataPortId: port.dataPortId,
+        name: port.dataPortName,
+      })) as unknown as DataPortDefinitionRow[],
     };
     dataPortGroups.push(outputGroup);
   }

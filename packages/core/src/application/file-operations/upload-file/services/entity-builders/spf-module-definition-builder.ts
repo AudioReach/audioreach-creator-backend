@@ -7,7 +7,7 @@ import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import {HANDLER_KEYS} from '../../../shared/constants/registry-keys.js';
 import {SpfModuleDefinition as AwspSpfModuleDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
-import {SpfModuleDefinition as DomainSpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
+import {SpfModuleDefinition as DomainSpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import {DataPortGroupDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
 import {DataPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 import {StaticControlPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
@@ -306,25 +306,23 @@ export class SpfModuleDefinitionBuilder {
     const inputDataPortsGroup = this.createInputPortGroup(awsp);
     const outputDataPortsGroup = this.createOutputPortGroup(awsp);
     const staticControlPorts = this.transformStaticControlPorts(awsp);
+    const dynamicIntents = this.transformDynamicIntents(awsp);
 
     // Create domain SPF module definition
-    const domainModuleDef = new DomainSpfModuleDefinition({
+    return new DomainSpfModuleDefinition({
       systemId: 0, // Will be generated during insertion
       moduleDefinitionId: awsp.id,
       fileSystemId: fileSystemId,
       name: awsp.name,
       displayName: awsp.displayName || awsp.name,
       description: awsp.description || '',
-      inputDataPortsGroup,
-      outputDataPortsGroup,
+      dataPortGroups: [inputDataPortsGroup, outputDataPortsGroup],
+      stackSize: 0 /* ToDo Fill correct value from aswp*/,
       staticControlPorts,
+      dynamicIntents,
       processorSystemIds: awsp.supportedProcessorIds || [],
       containerTypesSystemIds: awsp.supportedContainerTypes || [],
     });
-
-    this.addDynamicIntents(awsp, domainModuleDef);
-
-    return domainModuleDef;
   }
 
   private static createInputPortGroup(
@@ -349,7 +347,7 @@ export class SpfModuleDefinitionBuilder {
     }
 
     return new DataPortGroupDefinition({
-      max: awsp.inputPortsInfo?.maxPortCount || 0,
+      maxAllowedPortCount: awsp.inputPortsInfo?.maxPortCount || 0,
       portIoType: 'Input',
       staticPortDefinitions,
     });
@@ -377,7 +375,7 @@ export class SpfModuleDefinitionBuilder {
     }
 
     return new DataPortGroupDefinition({
-      max: awsp.outputPortsInfo?.maxPortCount || 0,
+      maxAllowedPortCount: awsp.outputPortsInfo?.maxPortCount || 0,
       portIoType: 'Output',
       staticPortDefinitions,
     });
@@ -409,28 +407,30 @@ export class SpfModuleDefinitionBuilder {
     return staticControlPorts;
   }
 
-  private static addDynamicIntents(
+  private static transformDynamicIntents(
     awsp: AwspSpfModuleDefinition,
-    domainModuleDef: DomainSpfModuleDefinition,
-  ): void {
+  ): DynamicIntentDefinition[] {
     if (!awsp.controlPortsInfo?.dynamicIntents) {
-      return;
+      return [];
     }
 
+    const dynamicIntents: DynamicIntentDefinition[] = [];
     for (const awspIntent of awsp.controlPortsInfo.dynamicIntents) {
       try {
-        const dynamicIntent = new DynamicIntentDefinition({
-          intentId: awspIntent.id,
-          name: awspIntent.name || `Intent_${awspIntent.id}`,
-          maxPort: awspIntent.maxports,
-        });
-        domainModuleDef.AddDynamicIntentDefinition(dynamicIntent);
+        dynamicIntents.push(
+          new DynamicIntentDefinition({
+            intentId: awspIntent.id,
+            name: awspIntent.name || `Intent_${awspIntent.id}`,
+            maxPort: awspIntent.maxports,
+          }),
+        );
       } catch (error) {
         throw new Error(
           `Failed to transform dynamic intent ${awspIntent.id}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
+    return dynamicIntents;
   }
 
   /**
