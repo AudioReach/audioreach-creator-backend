@@ -3,32 +3,36 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+export const PROPERTY_TYPE = {
+  Spf: 'SPF',
+  Driver: 'DRIVER',
+} as const;
+
+export type PropertyType = (typeof PROPERTY_TYPE)[keyof typeof PROPERTY_TYPE];
+
 export interface PropertyDefinitionInit {
   systemId: number;
   propertyId: number;
   name: string;
+  type: PropertyType;
   description?: string;
-  isVoice?: boolean;
-  maxSize?: number;
-  propertyStructure: string;
+  elementsStructure: string;
 }
 
 export class PropertyDefinition {
   systemId: number;
   readonly propertyId: number;
   name: string;
-  description: string;
-  isVoice: boolean;
-  maxSize: number;
-  propertyStructure: string;
+  type: PropertyType;
+  description?: string;
+  elementsStructure: string;
 
   constructor(initParam: PropertyDefinitionInit) {
     this.systemId = initParam.systemId;
     this.propertyId = initParam.propertyId;
     this.name = initParam.name;
-    this.description = initParam.description ?? '';
-    this.isVoice = initParam.isVoice ?? false;
-    this.maxSize = initParam.maxSize ?? 0;
-    this.propertyStructure = initParam.propertyStructure;
+    this.type = initParam.type;
+    this.description = initParam.description;
+    this.elementsStructure = initParam.elementsStructure;
   }
 }

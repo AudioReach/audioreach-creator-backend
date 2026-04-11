@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
-import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
+import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/key-definition.js';
+import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';

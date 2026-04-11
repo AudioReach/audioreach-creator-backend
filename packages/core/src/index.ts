@@ -80,6 +80,7 @@ export * from './application/file-operations/upload-file/services/chunk-metadata
 export * from './domain/entities/common/entities/header.entity.js';
 export * from './domain/entities/common/entities/kv-data.js';
 export * from './domain/entities/common/entities/ckv-collection.js';
+export * from './domain/entities/common/enums/port-io-type.js';
 export * from './application/file-operations/upload-file/services/entity-builders/base-entity-builder.js';
 export * from './application/file-operations/upload-file/services/entity-builders/header-entity.builder.js';
 
@@ -100,8 +101,8 @@ export * from './domain/entities/usecase-data/usecase/usecase.js';
 
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
-export * from './domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
-export * from './domain/entities/definitions/key-value/aggregate/key-definition.js';
+export * from './domain/entities/definitions/spf-module/spf-module-definition.js';
+export * from './domain/entities/definitions/key-value/key-definition.js';
 export * from './domain/entities/definitions/key-value/entities/value-definition.js';
 
 export * from './domain/entities/definitions/processor/processor-definition.js';
