@@ -32,7 +32,6 @@ import {
 import {FileFieldsInterceptor} from '@nestjs/platform-express';
 
 import {memoryStorage} from 'multer';
-//import {AuthGuard} from '@nestjs/passport';
 import {CommandBus, OpenFileCommand} from '@arc/core';
 import type {PathRef, Logger} from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
@@ -193,11 +192,9 @@ export class ProjectController {
       timestamp: new Date(),
       tag: 'file-upload',
     });
-    const clientId = ''; //TODO: gather from jwt
-    //TODO: enable this later
-    /*if (!clientId) {
-      throw new BadRequestException('clientId is required');
-    }*/
+    const clientId = '';
+    //TODO: gather from jwt
+    //TODO: client id null throw exception
 
     const acdb = files?.acdbFile?.[0];
     const awsp = files?.workspaceFile?.[0];
