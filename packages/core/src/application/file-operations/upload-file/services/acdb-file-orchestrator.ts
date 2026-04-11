@@ -8,18 +8,10 @@ import type {ChunkMetadata} from '../models/chunk-metadata.js';
 import type {BaseChunk} from '../../shared/acdb-chunks/base-chunk.js';
 import type {ChunkParseContext} from '../models/chunk-parse-context.js';
 import {AcdbParser} from './acdb-parser.js';
-//import type {WorkerPoolPort} from '../../../../ports/worker/worker-pool.port.js';
-//import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
-// import type {
-//   ChunkParseInput,
-//   ChunkParseContextData,
-// } from '../../types/chunk-parse.types.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {ChunkMetadataRegistry} from './chunk-metadata-registry.js';
 import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
-//import {HANDLER_KEYS} from '../../constants/registry-keys.js';
-//import {CHUNK_TYPES} from '../../constants/chunk-types.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 import {AcdbFileInfo} from '../models/acdb-file-info.js';
 
@@ -274,7 +266,7 @@ export class AcdbFileOrchestrator {
       }
     }
   }
-
+  /* eslint-disable sonarjs/no-commented-code */
   /**
    * Parse chunks in parallel using workers - independent chunks first, then dependent chunks
    * NOTE: Temporarily disabled - parallel processing is not working correctly
@@ -408,6 +400,7 @@ export class AcdbFileOrchestrator {
   //     },
   //   };
   // }
+  /* eslint-enable sonarjs/no-commented-code */
 
   /**
    * Build optimized context for a specific chunk based on its dependencies

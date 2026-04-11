@@ -9,8 +9,6 @@ export * from './application/orchestration/cqrs/request.js';
 export * from './application/orchestration/cqrs/registries/command-handler-registry.js';
 export * from './application/orchestration/cqrs/registries/query-handler-registry.js';
 export * from './application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
-export * from './application/orchestration/middleware/application-middleware.js';
-export * from './application/orchestration/middleware/transaction.middleware.js';
 
 // Shared utilities and base classes
 export * from './application/shared/base-command.js';

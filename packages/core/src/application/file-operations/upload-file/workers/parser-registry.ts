@@ -121,30 +121,3 @@ export function createParserRegistry(): Map<string, Handler> {
 
   return registry;
 }
-
-/**
- * Reconstruct a chunk instance from serialized data.
- * This is needed because chunks lose their class methods during serialization.
- *
- * @param chunkType - Type of chunk to reconstruct
- * @param data - Serialized chunk data
- * @returns Reconstructed chunk instance
- */
-/*function reconstructChunk(chunkType: string, data: unknown): BaseChunk {
-  let chunk: BaseChunk;
-
-  switch (chunkType) {
-    case CHUNK_TYPES.HEADER:
-      chunk = new HeaderChunk();
-      break;
-    case CHUNK_TYPES.DATAPOOL:
-      chunk = new DatapoolChunk();
-      break;
-    default:
-      throw new Error(`Unknown chunk type: ${chunkType}`);
-  }
-
-  // Populate chunk with deserialized data
-  Object.assign(chunk, data);
-  return chunk;
-}*/

@@ -40,7 +40,6 @@ import {
   ControlPortDto,
   ControlPortIntentDto,
 } from '../../common/dto/control-port.dto.js';
-//import {AuthGuard} from '@nestjs/passport';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {QueryBus, GetAllUseCasesQuery, GetComponentsQuery} from '@arc/core';

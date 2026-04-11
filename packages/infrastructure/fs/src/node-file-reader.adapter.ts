@@ -13,7 +13,6 @@ import Pick from 'stream-json/filters/Pick.js';
 import StreamValues from 'stream-json/streamers/StreamValues.js';
 import type {FileReaderPort, PathRef, JsonValue} from '@arc/core';
 import {access} from 'node:fs/promises';
-//import {unzip} from 'zlib';
 
 const mkdir = promisify(fs.mkdir);
 

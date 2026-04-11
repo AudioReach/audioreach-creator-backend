@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "paths": {
+      "@arc/core": ["../../core/src/index.ts"],
+      "@arc/fs": ["../../infrastructure/fs/src/index.ts"],
+      "@arc/persistence": ["../../infrastructure/persistence/src/index.ts"]
+    }
+  }
+}

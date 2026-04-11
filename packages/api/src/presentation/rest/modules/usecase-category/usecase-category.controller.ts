@@ -20,7 +20,6 @@ import {CreateUsecaseCategoryRequestDto} from './dto/request/create-usecase-cate
 import {UpdateUsecaseCategoryRequestDto} from './dto/request/update-usecase-category-request.dto.js';
 import {UsecaseCategoryResponseDto} from './dto/response/usecase-category-response.dto.js';
 import {DeleteUsecaseCategoryResponseDto} from './dto/response/delete-usecase-category-response.dto.js';
-//import {AuthGuard} from '@nestjs/passport';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 
