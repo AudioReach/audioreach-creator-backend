@@ -20,7 +20,7 @@ export * from './application/ports/persistence/unit-of-work-factory.js';
 export * from './application/ports/persistence/repositories/bulk-import/insert-result.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import-interface/base-insert-error.interface.js';
-export * from './application/ports/persistence/repositories/bulk-import/bulk-import-interface/hierarchical-entity-result.interface.js';
+export * from './application/ports/persistence/repositories/bulk-import/bulk-import-interface/base-entity-result.interface.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import-interface/insert-summary.interface.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import-interface/bulk-insert-result.interface.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import-key-definition-interface/key-definition-entity-result.interface.js';

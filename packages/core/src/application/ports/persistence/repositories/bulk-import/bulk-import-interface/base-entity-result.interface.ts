@@ -9,7 +9,6 @@ export const HIERARCHICAL_INSERT_STATUS = {
   unknown: 'unknown',
   success: 'success',
   failed: 'failed',
-  partialFailure: 'partial failure',
 } as const;
 
 export type HierarchicalInsertStatusValue =
@@ -19,7 +18,7 @@ export type HierarchicalInsertStatusValue =
  * Interface defining the contract for hierarchical entity results.
  * Represents the result of a hierarchical insert operation with error tracking.
  */
-export interface HierarchicalEntityResult<TError extends BaseInsertError> {
+export interface BaseEntityResult<TError extends BaseInsertError> {
   /**
    * Gets the readonly array of errors for this entity
    */
@@ -34,9 +33,4 @@ export interface HierarchicalEntityResult<TError extends BaseInsertError> {
    * Indicates whether this entity has any errors
    */
   readonly hasErrors: boolean;
-
-  /**
-   * Gets the child hierarchical entity results
-   */
-  getChildren(): ReadonlyArray<HierarchicalEntityResult<TError>>;
 }

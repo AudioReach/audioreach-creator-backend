@@ -7,13 +7,13 @@ import {
   HIERARCHICAL_INSERT_STATUS,
   type BaseInsertError,
   type BulkInsertResult,
-  type HierarchicalEntityResult,
+  type BaseEntityResult,
   type HierarchicalInsertStatusValue,
   type InsertSummary,
 } from '@arc/core';
 
 export abstract class BaseBulkInsertResult<
-  TResult extends HierarchicalEntityResult<BaseInsertError>,
+  TResult extends BaseEntityResult<BaseInsertError>,
 > implements BulkInsertResult<TResult> {
   private summary?: InsertSummary;
   abstract get results(): ReadonlyArray<TResult>;

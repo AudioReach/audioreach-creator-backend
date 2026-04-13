@@ -6,13 +6,13 @@
 import {
   HIERARCHICAL_INSERT_STATUS,
   type BaseInsertError,
-  type HierarchicalEntityResult,
+  type BaseEntityResult,
   type HierarchicalInsertStatusValue,
 } from '@arc/core';
 
 export abstract class BaseHierarchicalEntityResult<
   TError extends BaseInsertError,
-> implements HierarchicalEntityResult<TError> {
+> implements BaseEntityResult<TError> {
   protected internalErrors: TError[];
   protected internalStatus: HierarchicalInsertStatusValue;
   protected aggregateEntityInfo: string;
@@ -48,7 +48,5 @@ export abstract class BaseHierarchicalEntityResult<
     this.internalErrors.push(...errors);
   }
 
-  public abstract getChildren(): ReadonlyArray<
-    HierarchicalEntityResult<TError>
-  >;
+  public abstract getChildren(): ReadonlyArray<BaseEntityResult<TError>>;
 }

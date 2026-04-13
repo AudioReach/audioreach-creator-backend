@@ -4,9 +4,8 @@
  */
 
 import type {BaseInsertError} from './base-insert-error.interface.js';
-import type {HierarchicalEntityResult} from './hierarchical-entity-result.interface.js';
+import type { HierarchicalInsertStatusValue } from './base-entity-result.interface.js';
 import type {InsertSummary} from './insert-summary.interface.js';
-import type {HierarchicalInsertStatusValue} from './hierarchical-entity-result.interface.js';
 
 /**
  * Interface defining the contract for bulk insert results.
@@ -14,13 +13,8 @@ import type {HierarchicalInsertStatusValue} from './hierarchical-entity-result.i
  */
 
 export interface BulkInsertResult<
-  TResult extends HierarchicalEntityResult<BaseInsertError>,
+  TResult extends BaseEntityResult<BaseInsertError>,
 > {
-  /**
-   * Gets the readonly array of hierarchical entity results
-   */
-  readonly results: ReadonlyArray<TResult>;
-
   /**
    * Gets the overall status of the bulk insert operation
    */

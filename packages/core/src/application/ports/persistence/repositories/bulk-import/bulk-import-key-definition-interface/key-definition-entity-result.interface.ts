@@ -4,17 +4,15 @@
  */
 
 import type {BaseInsertError} from '../bulk-import-interface/base-insert-error.interface.js';
-import type {HierarchicalEntityResult} from '../bulk-import-interface/hierarchical-entity-result.interface.js';
+import type {BaseEntityResult} from '../bulk-import-interface/base-entity-result.interface.js';
 
 /**
  * Interface for Key Definition hierarchical entity result.
  * KeyDefinition has ValueDefinition children.
  */
-export interface KeyDefinitionEntityResult extends HierarchicalEntityResult<BaseInsertError> {
+export interface KeyDefinitionEntityResult extends BaseEntityResult<BaseInsertError> {
   /**
    * Gets the readonly array of value definition results
    */
-  readonly valueResults: ReadonlyArray<
-    HierarchicalEntityResult<BaseInsertError>
-  >;
+  readonly valueResults: ReadonlyArray<BaseEntityResult<BaseInsertError>>;
 }

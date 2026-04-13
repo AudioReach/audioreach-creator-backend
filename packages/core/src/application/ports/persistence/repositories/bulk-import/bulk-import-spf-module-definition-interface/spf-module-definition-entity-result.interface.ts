@@ -4,7 +4,7 @@
  */
 
 import type {BaseInsertError} from '../bulk-import-interface/base-insert-error.interface.js';
-import type {HierarchicalEntityResult} from '../bulk-import-interface/hierarchical-entity-result.interface.js';
+import type {BaseEntityResult} from '../bulk-import-interface/base-entity-result.interface.js';
 import type {DataPortGroupDefinitionEntityResult} from './data-port-group-definition-entity-result.interface.js';
 
 /**
@@ -17,13 +17,11 @@ import type {DataPortGroupDefinitionEntityResult} from './data-port-group-defini
  * - DynamicIntentDefinition[]
  * - Attribute[]
  */
-export interface SpfModuleDefinitionEntityResult extends HierarchicalEntityResult<BaseInsertError> {
+export interface SpfModuleDefinitionEntityResult extends BaseEntityResult<BaseInsertError> {
   /**
    * Gets the readonly array of parameter definition results (from base ModuleDefinition)
    */
-  readonly paramResults: ReadonlyArray<
-    HierarchicalEntityResult<BaseInsertError>
-  >;
+  readonly paramResults: ReadonlyArray<BaseEntityResult<BaseInsertError>>;
 
   /**
    * Gets the input data port group result (nullable)
@@ -39,20 +37,18 @@ export interface SpfModuleDefinitionEntityResult extends HierarchicalEntityResul
    * Gets the readonly array of static control port definition results
    */
   readonly staticControlPortResults: ReadonlyArray<
-    HierarchicalEntityResult<BaseInsertError>
+    BaseEntityResult<BaseInsertError>
   >;
 
   /**
    * Gets the readonly array of dynamic intent definition results
    */
   readonly dynamicIntentResults: ReadonlyArray<
-    HierarchicalEntityResult<BaseInsertError>
+    BaseEntityResult<BaseInsertError>
   >;
 
   /**
    * Gets the readonly array of attribute results
    */
-  readonly attributeResults: ReadonlyArray<
-    HierarchicalEntityResult<BaseInsertError>
-  >;
+  readonly attributeResults: ReadonlyArray<BaseEntityResult<BaseInsertError>>;
 }

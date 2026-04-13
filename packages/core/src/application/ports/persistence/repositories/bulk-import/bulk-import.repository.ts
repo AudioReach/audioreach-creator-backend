@@ -4,7 +4,6 @@
  */
 
 import type {
-  SpfModuleDefinition,
   KeyDefinition,
   ProcessorDefinition,
   ContainerType,
@@ -13,13 +12,10 @@ import type {
 } from '@arc/core';
 
 import type {BaseInsertError} from './bulk-import-interface/base-insert-error.interface.js';
-import type {HierarchicalEntityResult} from './bulk-import-interface/hierarchical-entity-result.interface.js';
 import type {KeyDefinitionEntityResult} from './bulk-import-key-definition-interface/key-definition-entity-result.interface.js';
-import type {BulkSPfModuleDefinitionInsertResult} from '../../../../../../../infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/bulk-import-helper/spf-module-definition/bulk-spf-module-definition-insert-result.js';
 import type {BulkContainerTypeInsertResult} from './bulk-import-container-definition/bulk-container-type-insert-result.js';
-import type {
-  TagDefinition,
-} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
+import type {TagDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
+import type {BaseEntityResult} from './bulk-import-interface/base-entity-result.interface.js';
 
 /**
  * Repository interface for bulk import operations using insert+query pattern.
@@ -27,126 +23,6 @@ import type {
  * Success is determined by main table insert success; child failures are informational and do not cause rollback.
  */
 export interface BulkImportRepository {
-  /**
-   * Insert SPF module instances in bulk, including CKV, TKV, and related entities.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Returns port mappings (data + control) needed for creating links.
-   *
-   * @param items - SPF modules without systemId (will be generated during insertion)
-   * @returns Promise resolving to bulk module insertion result with instanceId->systemId mappings and port mappings
-   *
-   * @example
-   * ```typescript
-   * const modules: Omit<SpfModule, 'systemId'>[] = [
-   *   { instanceId: 123, name: "AudioDecoder", ... }
-   * ];
-   * const result = await repository.insertSpfModules(modules);
-   * const moduleSystemId = result.results[0].moduleIdMapping?.systemId;
-   * const portSystemId = result.results[0].portMappings.dataPorts[0]?.systemId;
-   * ```
-   */
-  // insertSpfModules(
-  //   items: readonly SpfModule[],
-  // ): Promise<BulkModuleDefinitionInsertResult>;
-
-  /**
-   * Insert container rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   *
-   * @param items - Containers without systemId (will be generated during insertion)
-   * @returns Promise resolving to entity insertion result with containerId->systemId mappings
-   */
-  // insertContainers(
-  //   items: readonly Container[],
-  // ): Promise<HierarchicalBulkInsertResult<Container>>;
-
-  /**
-   * Insert subgraph rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   *
-   * @param items - Subgraphs without systemId (will be generated during insertion)
-   * @returns Promise resolving to entity insertion result with subgraphId->systemId mappings
-   */
-  // insertSubgraphs(
-  //   items: Subgraph[],
-  // ): Promise<HierarchicalBulkInsertResult<Subgraph>>;
-
-  /**
-   * Insert data link rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Links are created after modules, so they reference existing systemIds.
-   *
-   * @param items - Data links without systemId (will be generated during insertion)
-   * @returns Promise resolving to data link insertion result with composite key->systemId mappings
-   */
-  // insertDataLinks(
-  //   items: readonly DataLink[],
-  // ): Promise<HierarchicalBulkInsertResult<DataLink>>;
-
-  /**
-   * Insert control link rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Links are created after modules, so they reference existing systemIds.
-   *
-   * @param items - Control links without systemId (will be generated during insertion)
-   * @returns Promise resolving to control link insertion result with composite key->systemId mappings
-   */
-  // insertControlLinks(
-  //   items: readonly ControlLink[],
-  // ): Promise<HierarchicalBulkInsertResult<ControlLink>>;
-
-  /**
-   * Insert use case rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   *
-   * Process:
-   * 1. Inserts KeyVectors (using kvHash as natural key)
-   * 2. Inserts UseCases with keyVectorSystemId FK
-   * 3. Returns useCaseSystemId for successful insertions
-   *
-   * Failure handling:
-   * - If KeyVector insertion fails, UseCase is marked as failed (not attempted)
-   * - If KeyVector succeeds but UseCase fails, UseCase is marked as failed
-   * - Only successful UseCases return systemId mappings
-   *
-   * @param items - UseCases without systemId (will be generated during insertion)
-   * @returns Promise resolving to bulk entity insertion result where:
-   *   - `idMapping.naturalId` = useCaseSystemId (for successful insertions)
-   *   - `idMapping.systemId` = useCaseSystemId (same as naturalId)
-   *   - `errors` = Array of InsertError for failed insertions
-   *   - `success` = boolean indicating success/failure
-   *
-   * @example
-   * ```typescript
-   * const useCases: Omit<UseCase, 'systemId'>[] = [
-   *   { fileSystemId: 1, keyVector: { valueSystemIds: [1, 2, 3] }, ... }
-   * ];
-   * const result = await repository.insertUseCases(useCases);
-   *
-   * // For successful insertion:
-   * const useCaseSystemId = result.results[0].idMapping?.systemId;
-   *
-   * // For failed insertion:
-   * const errors = result.results[0].errors; // InsertError[]
-   * const success = result.results[0].success; // false
-   * ```
-   */
-  // insertUseCases(
-  //   items: readonly UseCase[],
-  // ): Promise<HierarchicalBulkInsertResult<UseCase>>;
-
-  /**
-   * Insert SPF module definition rows in bulk, including parameters, ports, and intents.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Returns parameter definition mappings needed for calibration workflows.
-   *
-   * @param items - SPF module definitions without systemId (will be generated during insertion)
-   * @returns Promise resolving to module definition insertion result with definitionId->systemId mappings and parameter mappings
-   */
-  insertSpfModuleDefinitions(
-    items: readonly SpfModuleDefinition[],
-  ): Promise<BulkSPfModuleDefinitionInsertResult>;
-
   /**
    * Insert key definition rows in bulk, including value definitions.
    * Uses insert+query pattern to return natural key to systemId mappings.
@@ -168,7 +44,7 @@ export interface BulkImportRepository {
    */
   insertProcessorDefinitions(
     items: readonly ProcessorDefinition[],
-  ): Promise<BulkInsertResult<HierarchicalEntityResult<BaseInsertError>>>;
+  ): Promise<BulkInsertResult<BaseEntityResult<BaseInsertError>>>;
 
   insertTagDefinition(
     items: readonly TagDefinition[],
