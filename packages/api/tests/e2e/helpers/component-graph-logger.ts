@@ -72,8 +72,8 @@ export class ComponentGraphLogger {
 
   private parseComponentsData(): void {
     // Parse modules
-    if (this.componentsData.moduleInstances) {
-      for (const module of this.componentsData.moduleInstances) {
+    if (this.componentsData.spfModules) {
+      for (const module of this.componentsData.spfModules) {
         const moduleInfo: ModuleInfo = {
           systemId: module.systemId,
           name: module.name || `Module_${module.systemId}`,

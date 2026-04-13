@@ -9,7 +9,10 @@ import type {BulkEntityInsertResult} from '../../../ports/persistence/repositori
 import type {BulkKeyDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
 import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
-import type {BulkDataLinkInsertResult} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
+import type {
+  BulkDataLinkInsertResult,
+  BulkControlLinkInsertResult,
+} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
 import {EntityBuilderService} from './entity-builder-service.js';
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/aggregate/key-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
@@ -18,6 +21,7 @@ import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/s
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
+import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import {ForeignKeyMapper} from './foreign-key-mapper.js';
 import {AcdbFileOrchestrator} from './acdb-file-orchestrator.js';
 import {AwspFileOrchestrator} from './awsp-file-orchestrator.js';
@@ -135,6 +139,7 @@ export class UploadFileOrchestrator {
       | BulkEntityInsertResult<number>
       | BulkModuleInsertResult
       | BulkDataLinkInsertResult
+      | BulkControlLinkInsertResult
       | BulkKeyDefinitionInsertResult
       | BulkModuleDefinitionInsertResult,
   ): void {
@@ -253,6 +258,10 @@ export class UploadFileOrchestrator {
    * Implement build-insert-build pattern for hierarchical entity processing
    */
   private async persistEntitiesInHierarchicalOrder(): Promise<void> {
+    if (!this.parsedAcdb || !this.parsedAwsp) {
+      throw new Error('Parsed data not available for building entities');
+    }
+
     this.profiler?.start(PROFILER_OPERATIONS.DATABASE_TRANSACTION);
 
     try {
@@ -276,9 +285,8 @@ export class UploadFileOrchestrator {
       // Phase 5: Build and Insert Data Links (depend on modules)
       await this.buildAndInsertDataLinks(bulkRepo);
 
-      // TODO: Re-enable control links insertion once implementation is complete
-      // Phase 6: Build and Insert Control Links (depend on modules) - Currently disabled
-      // await this.buildAndInsertControlLinks(bulkRepo);
+      // Phase 6: Build and Insert Control Links (depend on modules)
+      await this.buildAndInsertControlLinks(bulkRepo);
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
@@ -308,13 +316,9 @@ export class UploadFileOrchestrator {
   private async buildAndInsertKeyDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building definitions');
-    }
-
     // Build key definitions
     const keyDefinitions = await this.builderService.buildKeyDefinitions(
-      this.parsedAwsp,
+      this.parsedAwsp!,
       this.currentFileId,
     );
 
@@ -347,22 +351,16 @@ export class UploadFileOrchestrator {
   private async buildAndInsertSpfModuleDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error(
-        'Parsed data not available for building SPF module definitions',
-      );
-    }
-
     // Build SPF module definitions
     const spfModuleDefinitions =
       await this.builderService.buildSpfModuleDefinitions(
-        this.parsedAwsp,
+        this.parsedAwsp!,
         this.currentFileId,
       );
 
     if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
       const spfModuleDefResult: BulkModuleDefinitionInsertResult =
-        await bulkRepo.insertModuleDefinitions(
+        await bulkRepo.insertSpfModuleDefinitions(
           spfModuleDefinitions as readonly Omit<
             SpfModuleDefinition,
             'systemId'
@@ -392,14 +390,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertSubgraphs(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building subgraphs');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_BUILDING);
     const subgraphs = this.builderService.buildSubgraphs(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
@@ -448,14 +442,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertContainers(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building containers');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_BUILDING);
     const containers = this.builderService.buildContainers(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
@@ -504,16 +494,12 @@ export class UploadFileOrchestrator {
   private async buildAndInsertSpfModules(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building SPF modules');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_BUILDING);
     const spfModules = this.builderService.buildSpfModules(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
-      this.parsedAwsp,
+      this.parsedAwsp!,
     );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.SPF_MODULE_BUILDING,
@@ -561,14 +547,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertDataLinks(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building data links');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_BUILDING);
     const dataLinks = this.builderService.buildDataLinks(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
@@ -614,40 +596,81 @@ export class UploadFileOrchestrator {
   /**
    * Phase 6: Build and Insert Control Links
    */
-  //   private async buildAndInsertControlLinks(bulkRepo: any): Promise<void> {
-  //     if (!this.parsedAcdb || !this.parsedAwsp) {
-  //       throw new Error('Parsed data not available for building control links');
-  //     }
+  private async buildAndInsertControlLinks(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Profile building phase
+    this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING);
+    const {controlLinks, controlPortIntents} =
+      this.builderService.buildControlLinks(
+        this.parsedAcdb!,
+        this.currentFileId,
+      );
+    const buildMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.CONTROL_LINK_BUILDING,
+    );
+    this.logEntityBuildMetrics(buildMetrics, controlLinks?.length || 0);
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_BUILD),
+    );
 
-  //     // Build control links (now that we have module systemIds)
-  //     const controlLinks = await this.builderService.buildControlLinks(
-  //       this.parsedAcdb,
-  //     );
+    if (controlLinks && controlLinks.length > 0) {
+      // Profile insertion phase
+      this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_INSERT);
+      const controlLinkResult: BulkControlLinkInsertResult =
+        await bulkRepo.insertControlLinks(
+          controlLinks as readonly Omit<ControlLink, 'systemId'>[],
+        );
+      const insertMetrics = this.profiler?.end(
+        PROFILER_OPERATIONS.CONTROL_LINK_INSERT,
+      );
+      this.logEntityInsertMetrics(insertMetrics, controlLinkResult);
+      this.logMemorySnapshot(
+        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_INSERT),
+      );
 
-  //     if (controlLinks && controlLinks.length > 0) {
-  //       const controlLinkResult = await bulkRepo.insertControlLinks(
-  //         controlLinks.map((cl: ControlLink) => ({
-  //           ...cl,
-  //           systemId: undefined,
-  //         })) as any,
-  //       );
+      // Store control link mappings for usecases
+      this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
 
-  //       // Store control link mappings for usecases
-  //       this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
+      const successfulInserts = controlLinkResult.results.filter(
+        r => r.success,
+      ).length;
 
-  //       const successfulInserts = controlLinkResult.results.filter(
-  //         (r: any) => r.success,
-  //       ).length;
+      this.logger?.logInfo({
+        msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
+        action: 'control_links_persisted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
 
-  //       this.logger?.logInfo({
-  //         msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
-  //         action: 'control_links_persisted',
-  //         component: 'UploadFileOrchestrator',
-  //         tag: 'database-persistence',
-  //         timestamp: new Date(),
-  //       });
-  //     }
-  //   }
+      // TODO: Insert intents for control ports
+      // The controlPortIntents Map contains: Map<controlPortSystemId, intentIds[]>
+      // This needs to be transformed into IntentRow[] and bulk inserted into the intents table
+      // Each entry should create rows with: { intentId, controlPortSystemId }
+      // Reference: IntentSchema in packages/infrastructure/persistence/src/persistence-typeorm-sqllite/entity-schema/usecase-data/node/control-port.ts
+      // Table structure: intents table with columns (system_id, intent_id, control_port_system_id)
+      // Unique constraint: (control_port_system_id, intent_id)
+      //
+      // Implementation steps:
+      // 1. Create IntentInserter in packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/intent/
+      // 2. Add insertIntents() method to BulkImportRepository interface
+      // 3. Implement method in TypeOrmBulkImportRepository
+      // 4. Transform controlPortIntents Map to IntentRow[] array here
+      // 5. Call bulkRepo.insertIntents(intentRows) and log results
+      //
+      // Data available: controlPortIntents Map with ${controlPortIntents.size} control ports containing intents
+      if (controlPortIntents.size > 0) {
+        this.logger?.logInfo({
+          msg: `Control port intents extracted: ${controlPortIntents.size} control ports have associated intents (insertion pending implementation)`,
+          action: 'control_port_intents_extracted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      }
+    }
+  }
 
   /**
    * Phase 7: Build and Insert Usecases
@@ -655,14 +678,10 @@ export class UploadFileOrchestrator {
   private async buildAndInsertUsecases(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    if (!this.parsedAcdb || !this.parsedAwsp) {
-      throw new Error('Parsed data not available for building usecases');
-    }
-
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.USECASE_BUILDING);
     const usecases = this.builderService.buildUsecases(
-      this.parsedAcdb,
+      this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(

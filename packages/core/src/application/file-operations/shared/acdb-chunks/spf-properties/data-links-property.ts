@@ -43,46 +43,54 @@ export class DataLinksProperty {
     let pos = 0;
 
     // Read count of data links
-    if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-      throw new Error('Cannot read data link count from payload');
-    }
-
+    this.validateLength(
+      pos,
+      BinaryUtils.SIZEOF_UINT32,
+      payload.length,
+      'data link count',
+    );
     const count = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Parse each data link
     for (let i = 0; i < count; i++) {
       // Read source module instance ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read source instance ID at position ${pos}`);
-      }
-
+      this.validateLength(
+        pos,
+        BinaryUtils.SIZEOF_UINT32,
+        payload.length,
+        'source instance ID',
+      );
       const sourceInstanceId = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Read source port ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read source port ID at position ${pos}`);
-      }
-
+      this.validateLength(
+        pos,
+        BinaryUtils.SIZEOF_UINT32,
+        payload.length,
+        'source port ID',
+      );
       const sourcePortId = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Read destination module instance ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(
-          `Cannot read destination instance ID at position ${pos}`,
-        );
-      }
-
+      this.validateLength(
+        pos,
+        BinaryUtils.SIZEOF_UINT32,
+        payload.length,
+        'destination instance ID',
+      );
       const destinationInstanceId = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Read destination port ID
-      if (pos + BinaryUtils.SIZEOF_UINT32 > payload.length) {
-        throw new Error(`Cannot read destination port ID at position ${pos}`);
-      }
-
+      this.validateLength(
+        pos,
+        BinaryUtils.SIZEOF_UINT32,
+        payload.length,
+        'destination port ID',
+      );
       const destinationPortId = BinaryUtils.readUint32(view, pos);
       pos += BinaryUtils.SIZEOF_UINT32;
 
@@ -112,6 +120,22 @@ export class DataLinksProperty {
       };
 
       this.dataLinks.push(dataLink);
+    }
+  }
+
+  /**
+   * Validate that there are enough bytes remaining in the payload
+   */
+  private validateLength(
+    pos: number,
+    requiredBytes: number,
+    totalLength: number,
+    fieldName: string,
+  ): void {
+    if (pos + requiredBytes > totalLength) {
+      throw new Error(
+        `[DataLinksProperty] Cannot read ${fieldName} at position ${pos}: required ${requiredBytes} bytes, but only ${totalLength - pos} bytes remaining (total payload length: ${totalLength})`,
+      );
     }
   }
 

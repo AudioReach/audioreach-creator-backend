@@ -5,29 +5,17 @@
 
 import {EntitySchema} from 'typeorm';
 import type {ProjectSessionRow} from './project-session.schema.js';
-
-export const EDIT_OPERATION = {
-  Add: 'ADD',
-  Update: 'UPDATE',
-  Delete: 'DELETE',
-} as const;
-export type EditOperation =
-  (typeof EDIT_OPERATION)[keyof typeof EDIT_OPERATION];
-
-export const CHANGE_STATUS = {
-  Unstaged: 'UNSTAGED',
-  Staged: 'STAGED',
-  Discarded: 'DISCARDED',
-} as const;
-export type ChangeStatus = (typeof CHANGE_STATUS)[keyof typeof CHANGE_STATUS];
+import type {ChangeOperation, ChangeStatus} from '@arc/core';
+import {CHANGE_OPERATION, CHANGE_STATUS} from '@arc/core';
+import type {EntityName} from '../entity-table-names.js';
 
 export interface EditActionRow {
   changeId: number;
   systemId: number;
   aggregateId: number;
   sessionId: number;
-  tableName: string;
-  operation: EditOperation;
+  tableName: EntityName;
+  operation: ChangeOperation;
   payload: unknown; // json
   changeStatus: ChangeStatus;
   baseVersion: number | null;
@@ -72,7 +60,7 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
     operation: {
       name: 'operation',
       type: 'simple-enum',
-      enum: Object.values(EDIT_OPERATION),
+      enum: Object.values(CHANGE_OPERATION),
     },
     payload: {
       name: 'payload',

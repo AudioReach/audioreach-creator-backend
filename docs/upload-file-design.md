@@ -6,8 +6,9 @@ SPDX-License-Identifier: BSD-3-Clause
 # File Upload Workflow Design
 
 ## Document Information
-- **Version**: 1.0
-- **Date**: February 2026
+- **Version**: 2.0
+- **Date**: March 2026
+- **Last Updated**: March 12, 2026
 
 ---
 
@@ -15,10 +16,16 @@ SPDX-License-Identifier: BSD-3-Clause
 1. [Overview](#1-overview)
 2. [High-Level Architecture](#2-high-level-architecture)
 3. [Workflow Steps](#3-workflow-steps)
-4. [Key Components](#4-key-components)
-5. [Entity Processing Order](#5-entity-processing-order)
-6. [Error Handling](#6-error-handling)
-7. [Performance Optimizations](#7-performance-optimizations)
+4. [Sequence Diagrams](#4-sequence-diagrams)
+5. [Key Components](#5-key-components)
+6. [Entity Processing Order](#6-entity-processing-order)
+7. [Foreign Key Resolution](#7-foreign-key-resolution)
+8. [Data Models](#8-data-models)
+9. [Error Handling](#9-error-handling)
+10. [Performance Optimizations](#10-performance-optimizations)
+11. [Integration Points](#11-integration-points)
+12. [Code Examples](#12-code-examples)
+13. [Summary](#13-summary)
 
 ---
 
@@ -116,40 +123,79 @@ The upload process is divided into two distinct phases:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Data Flow
+### 2.2 Component Diagram
 
+```mermaid
+graph TB
+    subgraph "Upload File Orchestrator"
+        UFO[UploadFileOrchestrator]
+        FKM[ForeignKeyMapper]
+        EBS[EntityBuilderService]
+    end
+
+    subgraph "File Parsers"
+        ACDB[AcdbFileOrchestrator]
+        AWSP[AwspFileOrchestrator]
+    end
+
+    subgraph "Persistence"
+        BIR[BulkImportRepository]
+        UOW[UnitOfWork]
+    end
+
+    subgraph "Domain Entities"
+        KD[KeyDefinitions]
+        SMD[SpfModuleDefinitions]
+        SG[Subgraphs]
+        CT[Containers]
+        SM[SpfModules]
+        DL[DataLinks]
+        UC[Usecases]
+    end
+
+    UFO -->|parses| ACDB
+    UFO -->|parses| AWSP
+    UFO -->|builds entities| EBS
+    UFO -->|tracks mappings| FKM
+    UFO -->|inserts| BIR
+
+    EBS -->|uses| FKM
+    EBS -->|creates| KD
+    EBS -->|creates| SMD
+    EBS -->|creates| SG
+    EBS -->|creates| CT
+    EBS -->|creates| SM
+    EBS -->|creates| DL
+    EBS -->|creates| UC
+
+    BIR -->|uses| UOW
+
+    style UFO fill:#e1f5ff
+    style FKM fill:#fff4e1
+    style EBS fill:#e8f5e9
 ```
-ACDB File (.acdb)                    AWSP File (.awsp)
-       │                                    │
-       │ Contains:                          │ Contains:
-       │ • Subgraph data                    │ • Key-Value definitions
-       │ • Container data                   │ • Module definitions
-       │ • Module data                      │ • Parameter definitions
-       │ • Link data                        │ • Port definitions
-       │ • Usecase data                     │
-       │                                    │
-       ├─> Parse (Worker Pool)             ├─> Parse (Worker Pool)
-       │                                    │
-       ▼                                    ▼
-  ParsedAcdb                           ParsedAwsp
-  (Chunks)                             (Chunks)
-       │                                    │
-       └────────────┬───────────────────────┘
-                    │
-                    ▼
-          EntityBuilderService
-          (Builds Domain Entities)
-                    │
-                    ▼
-          ForeignKeyMapper
-          (Tracks systemId mappings)
-                    │
-                    ▼
-          BulkImportRepository
-          (Inserts to Database)
-                    │
-                    ▼
-              SQLite Database
+
+### 2.3 Data Flow
+
+```mermaid
+graph LR
+    A[ACDB File] -->|parse| B[ParsedAcdb]
+    C[AWSP File] -->|parse| D[ParsedAwsp]
+
+    B --> E[EntityBuilderService]
+    D --> E
+
+    E -->|build| F[Domain Entities]
+    F -->|insert| G[BulkImportRepository]
+    G -->|returns| H[Insert Results]
+    H -->|store mappings| I[ForeignKeyMapper]
+
+    I -.->|resolve FKs| E
+
+    style B fill:#ffebee
+    style D fill:#e8eaf6
+    style F fill:#e8f5e9
+    style I fill:#fff4e1
 ```
 
 ---
@@ -286,9 +332,170 @@ foreignKeyMapper.setSpfModuleMappings(result);
 
 ---
 
-## 4) Key Components
+## 4) Sequence Diagrams
 
-### 4.1 OpenFileHandler
+### 4.1 Overall Orchestration Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant UFO as UploadFileOrchestrator
+    participant ACDB as AcdbFileOrchestrator
+    participant AWSP as AwspFileOrchestrator
+    participant EBS as EntityBuilderService
+    participant FKM as ForeignKeyMapper
+    participant BIR as BulkImportRepository
+
+    Client->>UFO: orchestrate(acdbPath, awspPath, fileId)
+
+    Note over UFO: Phase 1: Parse Files
+    UFO->>ACDB: parseACDB(acdbPath)
+    ACDB-->>UFO: ParsedAcdb
+
+    UFO->>AWSP: parseAWSP(awspPath)
+    AWSP-->>UFO: ParsedAwsp
+
+    Note over UFO: Phase 2: Persist Entities
+    UFO->>UFO: persistEntitiesInHierarchicalOrder()
+
+    Note over UFO,BIR: Process 7 phases in order
+    loop For each entity type
+        UFO->>EBS: buildEntities(parsedData, fileId)
+        EBS-->>UFO: entities[]
+
+        UFO->>BIR: insertEntities(entities)
+        BIR-->>UFO: InsertResult
+
+        UFO->>FKM: setEntityMappings(result)
+        Note over FKM: Store naturalKey → systemId
+    end
+
+    UFO-->>Client: success/failure
+```
+
+### 4.2 File Parsing Phase
+
+```mermaid
+sequenceDiagram
+    participant UFO as UploadFileOrchestrator
+    participant ACDB as AcdbFileOrchestrator
+    participant AWSP as AwspFileOrchestrator
+    participant FR as FileReader
+    participant WP as WorkerPool
+
+    Note over UFO: Parse ACDB File
+    UFO->>ACDB: parseACDB(acdbPath)
+    ACDB->>FR: readFile(acdbPath)
+    FR-->>ACDB: binary data
+    ACDB->>ACDB: extractChunks()
+    Note over ACDB: Extract:<br/>- Subgraphs<br/>- Containers<br/>- Modules<br/>- Links<br/>- Usecases
+    ACDB-->>UFO: ParsedAcdb
+
+    Note over UFO: Parse AWSP File
+    UFO->>AWSP: parseAWSP(awspPath)
+    AWSP->>FR: readFile(awspPath)
+    FR-->>AWSP: XML/JSON data
+    AWSP->>WP: processChunks(data)
+    Note over WP: Parallel processing<br/>in worker threads
+    WP-->>AWSP: processed chunks
+    AWSP->>AWSP: assembleDefinitions()
+    Note over AWSP: Extract:<br/>- KeyDefinitions<br/>- ModuleDefinitions<br/>- ParamDefinitions<br/>- PortDefinitions
+    AWSP-->>UFO: ParsedAwsp
+
+    Note over UFO: Both files parsed,<br/>ready for entity processing
+```
+
+### 4.3 Build-Insert-Build Pattern (Detailed View)
+
+This diagram shows the pattern for a single entity type (Subgraphs as example):
+
+```mermaid
+sequenceDiagram
+    participant UFO as UploadFileOrchestrator
+    participant EBS as EntityBuilderService
+    participant SGB as SubgraphBuilder
+    participant BIR as BulkImportRepository
+    participant DB as Database
+    participant FKM as ForeignKeyMapper
+
+    Note over UFO: BUILD PHASE
+    UFO->>EBS: buildSubgraphs(parsedAcdb, fileId)
+    EBS->>SGB: buildSubgraphs(subgraphData, fileId)
+
+    loop For each subgraph in data
+        SGB->>SGB: Create Subgraph entity
+        Note over SGB: Subgraph {<br/>  systemId: 0 (not assigned yet)<br/>  subgraphId: 123 (natural key)<br/>  name: "Audio Playback"<br/>  fileSystemId: fileId<br/>}
+    end
+
+    SGB-->>EBS: subgraphs[]
+    EBS-->>UFO: subgraphs[]
+
+    Note over UFO: INSERT PHASE
+    UFO->>BIR: insertSubgraphs(subgraphs)
+    BIR->>DB: INSERT INTO subgraphs...
+
+    Note over DB: Database assigns systemIds<br/>(auto-increment)
+
+    DB-->>BIR: Inserted rows with systemIds
+    BIR->>BIR: Build InsertResult
+    Note over BIR: InsertResult {<br/>  results: [<br/>    {<br/>      success: true,<br/>      idMapping: {<br/>        naturalId: 123,<br/>        systemId: 5001<br/>      }<br/>    },<br/>    ...<br/>  ]<br/>}
+    BIR-->>UFO: InsertResult
+
+    Note over UFO: MAPPING PHASE
+    UFO->>FKM: setSubgraphMappings(result)
+
+    loop For each successful insert
+        FKM->>FKM: Store mapping
+        Note over FKM: Map: 123 → 5001<br/>(naturalId → systemId)
+    end
+
+    Note over FKM: Mappings stored for<br/>next phase to use
+
+    Note over UFO: Ready for next entity type<br/>(can now resolve subgraphSystemId)
+```
+
+### 4.4 Foreign Key Resolution Flow
+
+```mermaid
+sequenceDiagram
+    participant EBS as EntityBuilderService
+    participant SMB as SpfModuleBuilder
+    participant FKM as ForeignKeyMapper
+    participant SM as SpfModule Entity
+
+    Note over EBS: Building SPF Modules<br/>(Phase 4)
+
+    EBS->>SMB: buildSpfModules(moduleData, fileId)
+
+    loop For each module in data
+        Note over SMB: Module data has natural keys:<br/>- subgraphId: 123<br/>- containerId: 456<br/>- moduleId: 789<br/>- instanceId: 1001
+
+        SMB->>FKM: getSubgraphSystemId(123)
+        Note over FKM: Lookup in Map:<br/>123 → 5001
+        FKM-->>SMB: 5001
+
+        SMB->>FKM: getContainerSystemId(456)
+        Note over FKM: Lookup in Map:<br/>456 → 6001
+        FKM-->>SMB: 6001
+
+        SMB->>FKM: getModuleDefinitionSystemId(789)
+        Note over FKM: Lookup in Map:<br/>789 → 7001
+        FKM-->>SMB: 7001
+
+        SMB->>SM: Create SpfModule
+        Note over SM: SpfModule {<br/>  systemId: 0,<br/>  instanceId: 1001,<br/>  subgraphSystemId: 5001 ✓<br/>  containerSystemId: 6001 ✓<br/>  moduleDefSystemId: 7001 ✓<br/>  fileSystemId: fileId<br/>}
+
+        Note over SM: Foreign keys resolved!<br/>Ready for insertion
+    end
+
+    SMB-->>EBS: spfModules[]
+```
+
+---
+
+## 5) Key Components
+
+### 5.1 OpenFileHandler
 
 **Location**: `packages/core/src/application/file-operations/upload-file/upload-file.handler.ts`
 
@@ -306,7 +513,7 @@ foreignKeyMapper.setSpfModuleMappings(result);
 
 ---
 
-### 4.2 UploadFileOrchestrator
+### 5.2 UploadFileOrchestrator
 
 **Location**: `packages/core/src/application/file-operations/upload-file/services/upload-file-orchestrator.ts`
 
@@ -317,9 +524,73 @@ foreignKeyMapper.setSpfModuleMappings(result);
 - Manages entity processing order
 - Tracks performance metrics
 
+**Class Diagram**:
+
+```mermaid
+classDiagram
+    class UploadFileOrchestrator {
+        -EntityBuilderService builderService
+        -AcdbFileOrchestrator acdbParser
+        -AwspFileOrchestrator awspParser
+        -ForeignKeyMapper foreignKeyMapper
+        -ParsedAcdb parsedAcdb
+        -ParsedAwsp parsedAwsp
+        -number currentFileId
+        -FileReaderPort filereader
+        -UnitOfWork uow
+        -Logger logger
+
+        +orchestrate(acdbPath, awspPath, fileId) Promise~boolean~
+        -persistEntitiesInHierarchicalOrder() Promise~void~
+        -buildAndInsertKeyDefinitions(bulkRepo) Promise~void~
+        -buildAndInsertSpfModuleDefinitions(bulkRepo) Promise~void~
+        -buildAndInsertSubgraphs(bulkRepo) Promise~void~
+        -buildAndInsertContainers(bulkRepo) Promise~void~
+        -buildAndInsertSpfModules(bulkRepo) Promise~void~
+        -buildAndInsertDataLinks(bulkRepo) Promise~void~
+        -buildAndInsertUsecases(bulkRepo) Promise~void~
+    }
+
+    class EntityBuilderService {
+        -ForeignKeyMapper foreignKeyMapper
+        +buildKeyDefinitions(parsedAwsp, fileId) Promise~KeyDefinition[]~
+        +buildSpfModuleDefinitions(parsedAwsp, fileId) Promise~SpfModuleDefinition[]~
+        +buildSubgraphs(parsedAcdb, fileId) Subgraph[]
+        +buildContainers(parsedAcdb, fileId) Container[]
+        +buildSpfModules(parsedAcdb, fileId, parsedAwsp) SpfModule[]
+        +buildDataLinks(parsedAcdb, fileId) DataLink[]
+        +buildUsecases(parsedAcdb, fileId) UseCase[]
+    }
+
+    class ForeignKeyMapper {
+        -Map~number,number~ keyDefinitionMappings
+        -Map~number,Map~number,number~~ valueDefinitionMappings
+        -Map~number,number~ subgraphMappings
+        -Map~number,number~ containerMappings
+        -Map~number,number~ moduleDefinitionMappings
+        -Map~number,number~ moduleInstanceMappings
+        +setKeyDefinitionMappings(result) void
+        +setModuleDefinitionMappings(result) void
+        +setSubgraphMappings(result) void
+        +setContainerMappings(result) void
+        +setModuleInstanceMappings(result) void
+        +setDataLinkMappings(result) void
+        +getKeySystemId(keyId) number
+        +getValueSystemId(keyId, valueId) number
+        +getSubgraphSystemId(subgraphId) number
+        +getContainerSystemId(containerId) number
+        +getModuleDefinitionSystemId(moduleId) number
+        +getModuleInstanceSystemId(instanceId) number
+    }
+
+    UploadFileOrchestrator --> EntityBuilderService
+    UploadFileOrchestrator --> ForeignKeyMapper
+    EntityBuilderService --> ForeignKeyMapper
+```
+
 **Key Methods**:
-- `orchestrate(acdbPath, awspPath, fileId): Promise<boolean>`
-- `persistEntitiesInHierarchicalOrder(): Promise<void>`
+- `orchestrate(acdbPath, awspPath, fileId): Promise<boolean>` - Main entry point
+- `persistEntitiesInHierarchicalOrder(): Promise<void>` - Coordinates all 7 phases
 - Private methods for each entity type (e.g., `buildAndInsertKeyDefinitions()`)
 
 **Dependencies**:
@@ -329,9 +600,30 @@ foreignKeyMapper.setSpfModuleMappings(result);
 - `AwspFileOrchestrator` - Parses AWSP files
 - `BulkImportRepository` - Handles database insertion
 
+**Design Patterns**:
+
+#### Build-Insert-Build Pattern
+
+The orchestrator implements a **build-insert-build** pattern to handle foreign key dependencies:
+
+```
+1. Build entities with natural keys (no systemIds)
+2. Insert entities into database
+3. Database assigns systemIds (auto-increment)
+4. Store mappings: naturalKey → systemId
+5. Build dependent entities using mapped systemIds
+6. Repeat for next entity type
+```
+
+**Why This Pattern?**
+- Entities need database-assigned systemIds for foreign keys
+- Child entities depend on parent systemIds
+- Can't build all entities upfront without systemIds
+- Must process in dependency order
+
 ---
 
-### 4.3 File Parsers
+### 5.3 File Parsers
 
 #### AcdbFileOrchestrator
 
@@ -347,6 +639,13 @@ foreignKeyMapper.setSpfModuleMappings(result);
   - Usecase data
 - Returns `ParsedAcdb` object
 
+**Interface**:
+```typescript
+class AcdbFileOrchestrator {
+  async parseACDB(acdbPath: PathRef): Promise<ParsedAcdb>
+}
+```
+
 #### AwspFileOrchestrator
 
 **Location**: `packages/core/src/application/file-operations/upload-file/services/awsp-file-orchestrator.ts`
@@ -361,9 +660,16 @@ foreignKeyMapper.setSpfModuleMappings(result);
   - Port definitions
 - Returns `ParsedAwsp` object
 
+**Interface**:
+```typescript
+class AwspFileOrchestrator {
+  async parseAWSP(awspPath: PathRef): Promise<ParsedAwsp>
+}
+```
+
 ---
 
-### 4.4 EntityBuilderService
+### 5.4 EntityBuilderService
 
 **Location**: `packages/core/src/application/file-operations/upload-file/services/entity-builder-service.ts`
 
@@ -375,15 +681,15 @@ foreignKeyMapper.setSpfModuleMappings(result);
 **Key Methods**:
 - `buildKeyDefinitions(parsedAwsp, fileId): Promise<KeyDefinition[]>`
 - `buildSpfModuleDefinitions(parsedAwsp, fileId): Promise<SpfModuleDefinition[]>`
-- `buildSubgraphs(parsedAcdb, fileId): Promise<Subgraph[]>`
-- `buildContainers(parsedAcdb, fileId): Promise<Container[]>`
-- `buildSpfModules(parsedAcdb, fileId, parsedAwsp): Promise<SpfModule[]>`
-- `buildDataLinks(parsedAcdb, fileId): Promise<DataLink[]>`
-- `buildUsecases(parsedAcdb, fileId): Promise<UseCase[]>`
+- `buildSubgraphs(parsedAcdb, fileId): Subgraph[]`
+- `buildContainers(parsedAcdb, fileId): Container[]`
+- `buildSpfModules(parsedAcdb, fileId, parsedAwsp): SpfModule[]`
+- `buildDataLinks(parsedAcdb, fileId): DataLink[]`
+- `buildUsecases(parsedAcdb, fileId): UseCase[]`
 
 ---
 
-### 4.5 ForeignKeyMapper
+### 5.5 ForeignKeyMapper
 
 **Location**: `packages/core/src/application/file-operations/upload-file/services/foreign-key-mapper.ts`
 
@@ -414,7 +720,7 @@ const subgraphSystemId = foreignKeyMapper.getSubgraphSystemId(module.subgraphId)
 
 ---
 
-### 4.6 BulkImportRepository
+### 5.6 BulkImportRepository
 
 **Location**: `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/`
 
@@ -441,7 +747,7 @@ bulk-import/
 
 **Key Methods**:
 - `insertKeyDefinitions(entities): Promise<InsertResult>`
-- `insertModuleDefinitions(entities): Promise<InsertResult>`
+- `insertSpfModuleDefinitions(entities): Promise<InsertResult>`
 - `insertSubgraphs(entities): Promise<InsertResult>`
 - `insertContainers(entities): Promise<InsertResult>`
 - `insertSpfModules(entities): Promise<InsertResult>`
@@ -456,9 +762,9 @@ bulk-import/
 
 ---
 
-## 5) Entity Processing Order
+## 6) Entity Processing Order
 
-### 5.1 Dependency Hierarchy
+### 6.1 Dependency Hierarchy
 
 Entities must be processed in a specific order to respect foreign key dependencies:
 
@@ -496,7 +802,7 @@ Level 5: Usecases (Depend on Level 1) - From ACDB
     └─> References: ValueDefinitions (Level 1)
 ```
 
-### 5.2 Why This Order Matters
+### 6.2 Why This Order Matters
 
 **Foreign Key Constraints**:
 - Database enforces referential integrity
@@ -515,7 +821,7 @@ foreignKeyMapper.setSubgraphMappings(result);
 await insertSpfModules(modules);  // Success: subgraphSystemId exists
 ```
 
-### 5.3 Build-Insert-Build Pattern
+### 6.3 Build-Insert-Build Pattern
 
 **Why Not Build Everything First?**
 
@@ -542,9 +848,194 @@ await insertSpfModules(modules);
 
 ---
 
-## 6) Error Handling
+## 7) Foreign Key Resolution
 
-### 6.1 Phase 1: Project Creation (Transactional)
+### 7.1 ForeignKeyMapper Design
+
+The `ForeignKeyMapper` is a critical component that maintains mappings between natural keys (from files) and database-assigned systemIds.
+
+**Key Characteristics:**
+- **O(1) Lookup Performance** - Uses Map data structures
+- **Hierarchical Storage** - Values nested under keys, ports nested under modules
+- **Type-Safe** - Separate maps for each entity type
+- **Memory Efficient** - Only stores successful insertions
+
+### 7.2 Mapping Storage Structure
+
+```typescript
+class ForeignKeyMapper {
+  // Simple mappings: naturalId → systemId
+  private keyDefinitionMappings = new Map<number, number>();
+  private subgraphMappings = new Map<number, number>();
+  private containerMappings = new Map<number, number>();
+  private moduleDefinitionMappings = new Map<number, number>();
+  private moduleInstanceMappings = new Map<number, number>();
+
+  // Hierarchical mappings: parentSystemId → Map<childNaturalId, childSystemId>
+  private valueDefinitionMappings = new Map<number, Map<number, number>>();
+  private moduleInputPortMappings = new Map<number, Map<number, number>>();
+  private moduleOutputPortMappings = new Map<number, Map<number, number>>();
+
+  // String-based mappings for composite keys
+  private dataLinkMappings = new Map<string, number>();
+}
+```
+
+### 7.3 Example: Module Port Resolution
+
+**Scenario:** Building a DataLink that connects two module ports.
+
+**Step 1: Store Module Mappings (Phase 4)**
+```typescript
+// After inserting SpfModules
+const result = {
+  results: [
+    {
+      success: true,
+      moduleIdMapping: {
+        naturalId: 1001,  // instanceId from ACDB
+        systemId: 8001    // assigned by database
+      },
+      portMappings: {
+        dataPorts: [
+          { naturalId: 1, systemId: 9001, portIoType: 'Input' },
+          { naturalId: 2, systemId: 9002, portIoType: 'Output' }
+        ]
+      }
+    }
+  ]
+};
+
+foreignKeyMapper.setModuleInstanceMappings(result);
+
+// Internal storage:
+// moduleInstanceMappings: 1001 → 8001
+// moduleInputPortMappings: 8001 → { 1 → 9001 }
+// moduleOutputPortMappings: 8001 → { 2 → 9002 }
+```
+
+**Step 2: Resolve Port SystemIds (Phase 5)**
+```typescript
+// Building DataLink
+const linkData = {
+  srcInstanceId: 1001,
+  srcPortId: 2,      // Output port
+  dstInstanceId: 1002,
+  dstPortId: 1       // Input port
+};
+
+// Resolve source module and port
+const srcModuleSystemId = foreignKeyMapper.getModuleInstanceSystemId(1001);
+// Returns: 8001
+
+const srcPortSystemId = foreignKeyMapper.getOutputPortSystemId(8001, 2);
+// Returns: 9002
+
+// Resolve destination module and port
+const dstModuleSystemId = foreignKeyMapper.getModuleInstanceSystemId(1002);
+const dstPortSystemId = foreignKeyMapper.getInputPortSystemId(dstModuleSystemId, 1);
+
+// Create DataLink with resolved foreign keys
+const dataLink = new DataLink(
+  0,                    // systemId (assigned by DB)
+  srcModuleSystemId,    // 8001
+  srcPortSystemId,      // 9002
+  dstModuleSystemId,    // resolved
+  dstPortSystemId,      // resolved
+  fileSystemId
+);
+```
+
+### 7.4 Hierarchical Value Resolution
+
+**Scenario:** Building a Usecase with key-value pairs.
+
+**Challenge:** Values are dependent on their parent keys.
+
+**Solution:** Two-level lookup.
+
+```typescript
+// Storage structure
+valueDefinitionMappings: Map<keySystemId, Map<valueId, valueSystemId>>
+
+// Example data
+keyDefinitionMappings: 100 → 5001
+valueDefinitionMappings: 5001 → { 200 → 6001, 201 → 6002 }
+
+// Resolution
+const keySystemId = foreignKeyMapper.getKeySystemId(100);
+// Returns: 5001
+
+const valueSystemId = foreignKeyMapper.getValueSystemId(100, 200);
+// Step 1: Get keySystemId (100 → 5001)
+// Step 2: Get valueSystemId from nested map (5001 → { 200 → 6001 })
+// Returns: 6001
+```
+
+---
+
+## 8) Data Models
+
+### 8.1 ParsedAcdb Structure
+
+```typescript
+class ParsedAcdb {
+  private chunks = new Map<string, unknown>();
+
+  // Store parsed chunks
+  addChunk(type: string, chunk: unknown): void
+
+  // Retrieve specific chunk
+  getChunk<T>(type: string): T | undefined
+
+  // Available chunks:
+  // - SUBGRAPH_DATA: SubgraphDataChunk
+  // - SUBGRAPH_CONNECTION_LUT: SubgraphPairDataChunk
+  // - GKV_TABLE: UsecaseDataChunk
+}
+```
+
+### 8.2 ParsedAwsp Structure
+
+```typescript
+class ParsedAwsp {
+  private keyDefinitions: AwspKeyDefinition[];
+  private spfModuleDefinitions: AwspSpfModuleDefinition[];
+
+  getKeyDefinitions(): AwspKeyDefinition[]
+  getSpfModuleDefinitions(): AwspSpfModuleDefinition[]
+}
+```
+
+### 8.3 Entity Relationships
+
+```mermaid
+erDiagram
+    KeyDefinition ||--o{ ValueDefinition : contains
+    SpfModuleDefinition ||--o{ ParamDefinition : contains
+    SpfModuleDefinition ||--o{ DataPortDefinition : contains
+    SpfModuleDefinition ||--o{ ControlPortDefinition : contains
+
+    Subgraph ||--o{ SpfModule : contains
+    Container ||--o{ SpfModule : contains
+    SpfModuleDefinition ||--o{ SpfModule : defines
+
+    SpfModule ||--o{ DataPort : contains
+    SpfModule ||--o{ ControlPort : contains
+
+    DataPort ||--o{ DataLink : source
+    DataPort ||--o{ DataLink : destination
+
+    UseCase ||--o{ KeyValuePair : contains
+    KeyDefinition ||--o{ KeyValuePair : references
+    ValueDefinition ||--o{ KeyValuePair : references
+```
+
+---
+
+## 9) Error Handling
+
+### 9.1 Phase 1: Project Creation (Transactional)
 
 **Strategy**: All-or-nothing
 
@@ -567,7 +1058,7 @@ try {
 
 ---
 
-### 6.2 Phase 2: Bulk Upload (Non-Transactional)
+### 9.2 Phase 2: Bulk Upload (Non-Transactional)
 
 **Strategy**: Continue-on-error
 
@@ -576,7 +1067,7 @@ try {
 const keyResult = await insertKeyDefinitions(keys);
 // Some keys may fail, but we continue
 
-const moduleResult = await insertModuleDefinitions(modules);
+const moduleResult = await insertSpfModuleDefinitions(modules);
 // Some modules may fail, but we continue
 
 // Process continues even if some entities fail
@@ -630,11 +1121,40 @@ failed.forEach(f => {
 });
 ```
 
+### 9.3 Error Propagation
+
+```mermaid
+graph TD
+    A[Entity Insertion] -->|Try Batch Insert| B{Batch Success?}
+    B -->|Yes| C[All Entities Inserted]
+    B -->|No| D[Fallback: Individual Inserts]
+
+    D --> E{For Each Entity}
+    E -->|Try Insert| F{Success?}
+    F -->|Yes| G[Mark Success]
+    F -->|No| H[Mark Failure + Log Error]
+
+    G --> I[Continue to Next]
+    H --> I
+
+    I --> J{More Entities?}
+    J -->|Yes| E
+    J -->|No| K[Return Results]
+
+    C --> K
+    K --> L[Store Successful Mappings]
+    K --> M[Log Failed Entities]
+
+    style H fill:#ffebee
+    style G fill:#e8f5e9
+    style L fill:#fff4e1
+```
+
 ---
 
-## 7) Performance Optimizations
+## 10) Performance Optimizations
 
-### 7.1 Worker Pool for File Parsing
+### 10.1 Worker Pool for File Parsing
 
 **Purpose**: Parallelize CPU-intensive file parsing operations.
 
@@ -660,7 +1180,7 @@ const parsedAwsp = await awspParser.parseAWSP(awspPath);
 
 ---
 
-### 7.2 Profiler for Performance Monitoring
+### 10.2 Profiler for Performance Monitoring
 
 **Purpose**: Track performance metrics for each operation.
 
@@ -697,7 +1217,7 @@ The profiler captures memory state at key points during the workflow:
 
 ---
 
-### 7.3 Batch Processing with Fallback
+### 10.3 Batch Processing with Fallback
 
 **Purpose**: Maximize insertion throughput while handling errors gracefully.
 
@@ -737,7 +1257,7 @@ The profiler captures memory state at key points during the workflow:
 
 ---
 
-### 7.4 O(1) Foreign Key Lookups
+### 10.4 O(1) Foreign Key Lookups
 
 **Purpose**: Fast foreign key resolution using Map-based lookups.
 
@@ -785,9 +1305,288 @@ for (const moduleData of parsedData.modules) {
 
 ---
 
-## 8) Summary
+## 11) Integration Points
 
-### 8.1 Key Takeaways
+### 11.1 AcdbFileOrchestrator
+
+**Purpose:** Parse binary ACDB files into structured chunks.
+
+**Interface:**
+```typescript
+class AcdbFileOrchestrator {
+  async parseACDB(acdbPath: PathRef): Promise<ParsedAcdb>
+}
+```
+
+**Responsibilities:**
+- Read binary ACDB file
+- Extract and parse chunks
+- Return structured `ParsedAcdb` object
+
+**Usage in Orchestrator:**
+```typescript
+this.parsedAcdb = await this.acdbParser.parseACDB(acdbPath);
+```
+
+---
+
+### 11.2 AwspFileOrchestrator
+
+**Purpose:** Parse XML/JSON AWSP files into structured definitions.
+
+**Interface:**
+```typescript
+class AwspFileOrchestrator {
+  async parseAWSP(awspPath: PathRef): Promise<ParsedAwsp>
+}
+```
+
+**Responsibilities:**
+- Read XML/JSON AWSP file
+- Use worker pool for parallel processing
+- Extract and parse definitions
+- Return structured `ParsedAwsp` object
+
+**Usage in Orchestrator:**
+```typescript
+this.parsedAwsp = await this.awspParser.parseAWSP(awspPath);
+```
+
+---
+
+### 11.3 EntityBuilderService
+
+**Purpose:** Build domain entities from parsed file data.
+
+**Interface:**
+```typescript
+class EntityBuilderService {
+  async buildKeyDefinitions(parsedAwsp, fileId): Promise<KeyDefinition[]>
+  async buildSpfModuleDefinitions(parsedAwsp, fileId): Promise<SpfModuleDefinition[]>
+  buildSubgraphs(parsedAcdb, fileId): Subgraph[]
+  buildContainers(parsedAcdb, fileId): Container[]
+  buildSpfModules(parsedAcdb, fileId, parsedAwsp): SpfModule[]
+  buildDataLinks(parsedAcdb, fileId): DataLink[]
+  buildUsecases(parsedAcdb, fileId): UseCase[]
+}
+```
+
+**Responsibilities:**
+- Transform parsed data into domain entities
+- Resolve foreign keys using ForeignKeyMapper
+- Handle missing data gracefully
+- Return arrays of domain entities
+
+**Usage in Orchestrator:**
+```typescript
+const subgraphs = this.builderService.buildSubgraphs(
+  this.parsedAcdb,
+  this.currentFileId,
+);
+```
+
+---
+
+### 11.4 ForeignKeyMapper
+
+**Purpose:** Track mappings between natural keys and database systemIds.
+
+**Interface:**
+```typescript
+class ForeignKeyMapper {
+  // Store mappings
+  setKeyDefinitionMappings(result): void
+  setModuleDefinitionMappings(result): void
+  setSubgraphMappings(result): void
+  setContainerMappings(result): void
+  setModuleInstanceMappings(result): void
+  setDataLinkMappings(result): void
+
+  // Retrieve mappings
+  getKeySystemId(keyId): number | undefined
+  getValueSystemId(keyId, valueId): number | undefined
+  getSubgraphSystemId(subgraphId): number | undefined
+  getContainerSystemId(containerId): number | undefined
+  getModuleDefinitionSystemId(moduleId): number | undefined
+  getModuleInstanceSystemId(instanceId): number | undefined
+  getInputPortSystemId(moduleSystemId, portId): number | undefined
+  getOutputPortSystemId(moduleSystemId, portId): number | undefined
+}
+```
+
+**Responsibilities:**
+- Store successful insertion mappings
+- Provide O(1) lookup for foreign key resolution
+- Handle hierarchical relationships
+
+**Usage in Orchestrator:**
+```typescript
+// After insertion
+this.foreignKeyMapper.setSubgraphMappings(subgraphResult);
+
+// Later, in EntityBuilderService
+const systemId = this.foreignKeyMapper.getSubgraphSystemId(naturalId);
+```
+
+---
+
+### 11.5 BulkImportRepository
+
+**Purpose:** Handle batch insertion of entities into database.
+
+**Interface:**
+```typescript
+class BulkImportRepository {
+  insertKeyDefinitions(entities): Promise<InsertResult>
+  insertSpfModuleDefinitions(entities): Promise<InsertResult>
+  insertSubgraphs(entities): Promise<InsertResult>
+  insertContainers(entities): Promise<InsertResult>
+  insertSpfModules(entities): Promise<InsertResult>
+  insertDataLinks(entities): Promise<InsertResult>
+  insertUseCases(entities): Promise<InsertResult>
+}
+```
+
+**Responsibilities:**
+- Batch insert entities (fast path)
+- Fallback to individual inserts on batch failure
+- Return detailed success/failure results
+- Provide natural key to systemId mappings
+
+**Usage in Orchestrator:**
+```typescript
+const result = await bulkRepo.insertSubgraphs(
+  subgraphs as readonly Omit<Subgraph, 'systemId'>[],
+);
+```
+
+---
+
+### 11.6 UnitOfWork
+
+**Purpose:** Provide access to repositories.
+
+**Interface:**
+```typescript
+interface UnitOfWork {
+  getBulkImportRepository(): BulkImportRepository
+  // Other repository getters...
+}
+```
+
+**Usage in Orchestrator:**
+```typescript
+const bulkRepo = this.uow.getBulkImportRepository();
+```
+
+---
+
+## 12) Code Examples
+
+### 12.1 Basic Usage
+
+```typescript
+// Create orchestrator
+const orchestrator = new UploadFileOrchestrator(
+  fileReader,
+  unitOfWork,
+  workerPool,
+  logger,
+  profiler
+);
+
+// Execute orchestration
+try {
+  const success = await orchestrator.orchestrate(
+    acdbPath,
+    awspPath,
+    fileSystemId
+  );
+
+  if (success) {
+    console.log('File upload completed successfully');
+  }
+} catch (error) {
+  console.error('File upload failed:', error);
+}
+```
+
+### 12.2 Extending with New Entity Type
+
+**Scenario:** Add a new entity type "AudioProfile" that depends on Subgraphs.
+
+**Step 1: Add to EntityBuilderService**
+```typescript
+class EntityBuilderService {
+  buildAudioProfiles(parsedAcdb: ParsedAcdb, fileId: number): AudioProfile[] {
+    const profileData = parsedAcdb.getChunk('AUDIO_PROFILES');
+
+    return profileData.map(data => {
+      // Resolve foreign key
+      const subgraphSystemId = this.foreignKeyMapper.getSubgraphSystemId(
+        data.subgraphId
+      );
+
+      return new AudioProfile(
+        0,                  // systemId
+        data.profileId,     // natural key
+        data.profileName,
+        subgraphSystemId,   // resolved FK
+        fileId
+      );
+    });
+  }
+}
+```
+
+**Step 2: Add to BulkImportRepository**
+```typescript
+class BulkImportRepository {
+  async insertAudioProfiles(
+    entities: readonly Omit<AudioProfile, 'systemId'>[]
+  ): Promise<InsertResult> {
+    // Implementation similar to other inserters
+  }
+}
+```
+
+**Step 3: Add to UploadFileOrchestrator**
+```typescript
+class UploadFileOrchestrator {
+  private async buildAndInsertAudioProfiles(
+    bulkRepo: BulkImportRepository
+  ): Promise<void> {
+    // 1. Build
+    const profiles = this.builderService.buildAudioProfiles(
+      this.parsedAcdb,
+      this.currentFileId
+    );
+
+    // 2. Insert
+    const result = await bulkRepo.insertAudioProfiles(profiles);
+
+    // 3. Map (if needed by other entities)
+    this.foreignKeyMapper.setAudioProfileMappings(result);
+  }
+
+  private async persistEntitiesInHierarchicalOrder(): Promise<void> {
+    const bulkRepo = this.uow.getBulkImportRepository();
+
+    // ... existing phases ...
+
+    // New phase: Insert after Subgraphs (Phase 2)
+    await this.buildAndInsertAudioProfiles(bulkRepo);
+
+    // ... remaining phases ...
+  }
+}
+```
+
+---
+
+## 13) Summary
+
+### 13.1 Key Takeaways
 
 1. **Two-Phase Approach**:
    - Phase 1: Transactional project creation (all-or-nothing)
@@ -817,7 +1616,7 @@ for (const moduleData of parsedData.modules) {
    - Partial success allowed during upload
    - Save operation ensures zero errors
 
-### 8.2 Workflow Summary
+### 13.2 Workflow Summary
 
 ```
 1. HTTP Request → ProjectController
@@ -843,7 +1642,8 @@ for (const moduleData of parsedData.modules) {
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-02-02 | Architecture Team | Initial upload-file design document based on current implementation |
+| 1.0 | 2026-02-02 | Architecture Team | Initial upload-file design document |
+| 2.0 | 2026-03-12 | Architecture Team | Merged with orchestrator LLD, added sequence diagrams, class diagrams, detailed technical sections, and code examples |
 
 ---
 

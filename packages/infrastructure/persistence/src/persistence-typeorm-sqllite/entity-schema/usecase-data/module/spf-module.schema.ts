@@ -126,10 +126,5 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
       columns: ['instanceId', 'fileSystemId'],
       unique: true,
     },
-    {
-      name: 'uq_spf_modules_alias_file_system_id',
-      columns: ['alias', 'fileSystemId'],
-      unique: true,
-    },
   ],
 });

@@ -77,7 +77,12 @@ export default [
       parserOptions: {
         ecmaVersion: 2024,
         sourceType: 'module',
-        projectService: true,
+        project: [
+          './packages/core/tsconfig.eslint.json',
+          './packages/infrastructure/fs/tsconfig.eslint.json',
+          './packages/infrastructure/persistence/tsconfig.eslint.json',
+          './packages/api/tsconfig.eslint.json',
+        ],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -86,9 +91,10 @@ export default [
         typescript: {
           alwaysTryTypes: true,
           project: [
-            './tsconfig.json',
-            './packages/*/tsconfig.json',
-            './packages/*/tsconfig.test.json',
+            './packages/core/tsconfig.eslint.json',
+            './packages/infrastructure/fs/tsconfig.eslint.json',
+            './packages/infrastructure/persistence/tsconfig.eslint.json',
+            './packages/api/tsconfig.eslint.json',
           ],
         },
         node: {

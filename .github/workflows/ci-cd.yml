@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   pull_request:
-    branches: [main, 'feature/*']
+    branches: [main, 'feature/*', 'task/*']
   push:
-    branches: [main, 'feature/*']
+    branches: [main, 'feature/*', 'task/*']
   workflow_dispatch:
 
 # Cancel in-progress runs when a new commit is pushed to the same PR
@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      YARN_CACHE_FOLDER: .yarn-cache
+      PNPM_CACHE_FOLDER: .pnpm-cache
       FORCE_COLOR: '1'
       NODE_ENV: development
 
@@ -40,7 +40,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🔧 Enable Corepack (for Yarn)
+      - name: 🔧 Enable Corepack (for pnpm)
         run: corepack enable
 
       - name: 🔧 Environment Setup
@@ -48,7 +48,7 @@ jobs:
           echo "🔧 Setting up build environment..."
           node --version
           npm --version
-          yarn --version
+          pnpm --version
           git --version
           echo ""
           echo "Branch: ${{ github.ref_name }}"
@@ -66,18 +66,24 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           echo "📦 Installing dependencies..."
-          yarn install
+          pnpm install
 
       - name: 🎨 Format Check
         run: |
           echo "🎨 Checking code formatting..."
-          yarn format:check
+          pnpm format:check
+        continue-on-error: false
+
+      - name: 🔍 Lint
+        run: |
+          echo "🔍 Running linting checks..."
+          pnpm lint
         continue-on-error: false
 
       - name: 🏗️ Build
         run: |
           echo "🏗️ Building all packages..."
-          yarn build
+          pnpm build
           echo ""
           echo "📋 Checking build outputs..."
           ls -la packages/api/dist || echo "⚠️ packages/api/dist not found"
@@ -86,18 +92,12 @@ jobs:
           ls -la packages/infrastructure/persistence/dist || echo "⚠️ packages/infrastructure/persistence/dist not found"
         continue-on-error: false
 
-      - name: 🔍 Lint
-        run: |
-          echo "🔍 Running linting checks..."
-          yarn lint
-        continue-on-error: false
-
       - name: 🧪 Test
         id: test
         run: |
           echo "🧪 Running tests..."
-          yarn turbo run coverage:workspace || echo "⚠️ Tests failed or not configured"
-        continue-on-error: true
+          pnpm turbo run coverage:workspace
+        continue-on-error: false
 
       - name: 📊 Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -122,8 +122,8 @@ jobs:
         if: steps.test.outcome != 'skipped'
         run: |
           echo "📊 Generating Coverage report..."
-          yarn turbo run coverage:workspace || echo "⚠️ Coverage generation failed"
-        continue-on-error: true
+          pnpm turbo run coverage:workspace || echo "⚠️ Coverage generation failed"
+        continue-on-error: false
 
       - name: 📤 Upload Coverage Artifacts
         uses: actions/upload-artifact@v4
@@ -145,9 +145,9 @@ jobs:
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Environment Setup | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Install Dependencies | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Format Check | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test | ${{ steps.test.outcome == 'success' && '✅' || steps.test.outcome == 'failure' && '❌' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Coverage | ${{ steps.coverage.outcome == 'success' && '✅' || steps.coverage.outcome == 'failure' && '❌' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

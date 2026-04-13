@@ -9,8 +9,6 @@ export * from './application/orchestration/cqrs/request.js';
 export * from './application/orchestration/cqrs/registries/command-handler-registry.js';
 export * from './application/orchestration/cqrs/registries/query-handler-registry.js';
 export * from './application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
-export * from './application/orchestration/middleware/application-middleware.js';
-export * from './application/orchestration/middleware/transaction.middleware.js';
 
 // Shared utilities and base classes
 export * from './application/shared/base-command.js';
@@ -27,6 +25,9 @@ export * from './application/ports/persistence/repositories/project/project.repo
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
+
+// Shared Change Types
+export * from './application/shared/change-vocabulary.js';
 
 // Application services
 export * from './application/services/query-services.js';
@@ -99,6 +100,7 @@ export * from './domain/entities/usecase-data/usecase/usecase.js';
 
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
+export * from './domain/entities/definitions/spf-module/aggregate/spf-module-definitions.js';
 export * from './domain/entities/definitions/key-value/aggregate/key-definition.js';
 export * from './domain/entities/definitions/key-value/entities/value-definition.js';
 

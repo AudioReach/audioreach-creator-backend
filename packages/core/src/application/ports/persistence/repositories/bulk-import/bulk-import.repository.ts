@@ -8,7 +8,7 @@ import type {
   Container,
   DataLink,
   ControlLink,
-  ModuleDefinition,
+  SpfModuleDefinition,
   KeyDefinition,
   ProcessorDefinition,
   Subgraph,
@@ -134,11 +134,11 @@ export interface BulkImportRepository {
   ): Promise<BulkInsertResult<BaseInsertError>>;
 
   /**
-   * Insert module definition rows in bulk, including parameters, ports, and intents.
+   * Insert SPF module definition rows in bulk, including parameters, ports, and intents.
    * Uses insert+query pattern to return natural key to systemId mappings.
    * Returns parameter definition mappings needed for calibration workflows.
    *
-   * @param items - Module definitions without systemId (will be generated during insertion)
+   * @param items - SPF module definitions without systemId (will be generated during insertion)
    * @returns Promise resolving to module definition insertion result with definitionId->systemId mappings and parameter mappings
    */
   insertModuleDefinitions(

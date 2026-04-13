@@ -32,6 +32,7 @@ import type {
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ForeignKeyMapper} from './foreign-key-mapper.js';
+import type {DynamicControlPortInfo} from './entity-builders/spf-module-builder.js';
 
 /**
  * Constants for entity model keys used by EntityBuilderService
@@ -203,6 +204,143 @@ export class EntityBuilderService {
   }
 
   /**
+   * Analyze control links to determine dynamic control port usage per module
+   */
+  private analyzeDynamicControlPorts(
+    parsedAcdb: ParsedAcdb,
+  ): DynamicControlPortInfo {
+    const allControlLinks = this.collectAllControlLinks(parsedAcdb);
+    const maxDynamicPortIdPerModule =
+      this.analyzeControlLinkPorts(allControlLinks);
+
+    this.logDynamicPortAnalysisResults(
+      allControlLinks.length,
+      maxDynamicPortIdPerModule.size,
+    );
+
+    return {maxDynamicPortIdPerModule};
+  }
+
+  /**
+   * Collect all control links from both intra-subgraph and inter-subgraph sources
+   */
+  private collectAllControlLinks(
+    parsedAcdb: ParsedAcdb,
+  ): ControlLinkProperty[] {
+    const links: ControlLinkProperty[] = [];
+
+    this.collectIntraSubgraphControlLinks(parsedAcdb, links);
+    this.collectInterSubgraphControlLinks(parsedAcdb, links);
+
+    return links;
+  }
+
+  /**
+   * Extract intra-subgraph control links from SubgraphDataChunk
+   */
+  private collectIntraSubgraphControlLinks(
+    parsedAcdb: ParsedAcdb,
+    links: ControlLinkProperty[],
+  ): void {
+    const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_DATA,
+    );
+
+    if (!subgraphDataChunk) {
+      return;
+    }
+
+    const intraSubgraphLinks = subgraphDataChunk.getAllControlLinks();
+    if (intraSubgraphLinks && intraSubgraphLinks.length > 0) {
+      links.push(...intraSubgraphLinks);
+    }
+  }
+
+  /**
+   * Extract inter-subgraph control links from SubgraphPairDataChunk
+   */
+  private collectInterSubgraphControlLinks(
+    parsedAcdb: ParsedAcdb,
+    links: ControlLinkProperty[],
+  ): void {
+    const subgraphPairChunk = parsedAcdb.getChunk<SubgraphPairDataChunk>(
+      CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+    );
+
+    if (!subgraphPairChunk) {
+      return;
+    }
+
+    for (const pair of subgraphPairChunk.subgraphPairs) {
+      if (pair.controlLinks && pair.controlLinks.length > 0) {
+        links.push(...pair.controlLinks);
+      }
+    }
+  }
+
+  /**
+   * Analyze control links to find max dynamic port ID per module
+   */
+  private analyzeControlLinkPorts(
+    links: ControlLinkProperty[],
+  ): Map<number, number> {
+    const DYNAMIC_CONTROL_PORT_ID_START = 0x80_00_00_00;
+    const maxDynamicPortIdPerModule = new Map<number, number>();
+
+    for (const link of links) {
+      this.updateMaxPortIdIfDynamic(
+        link.peer1InstanceId,
+        link.peer1PortId,
+        maxDynamicPortIdPerModule,
+        DYNAMIC_CONTROL_PORT_ID_START,
+      );
+      this.updateMaxPortIdIfDynamic(
+        link.peer2InstanceId,
+        link.peer2PortId,
+        maxDynamicPortIdPerModule,
+        DYNAMIC_CONTROL_PORT_ID_START,
+      );
+    }
+
+    return maxDynamicPortIdPerModule;
+  }
+
+  /**
+   * Update max port ID for a module instance if the port is dynamic
+   */
+  private updateMaxPortIdIfDynamic(
+    instanceId: number,
+    portId: number,
+    maxPortIdMap: Map<number, number>,
+    dynamicPortThreshold: number,
+  ): void {
+    if (portId < dynamicPortThreshold) {
+      return;
+    }
+
+    const currentMax = maxPortIdMap.get(instanceId) || 0;
+    if (portId > currentMax) {
+      maxPortIdMap.set(instanceId, portId);
+    }
+  }
+
+  /**
+   * Log the results of dynamic port analysis
+   */
+  private logDynamicPortAnalysisResults(
+    totalLinks: number,
+    modulesWithDynamicPorts: number,
+  ): void {
+    this.logger?.logInfo({
+      msg: `Analyzed ${totalLinks} control links, found ${modulesWithDynamicPorts} modules with dynamic control ports`,
+      action: 'dynamic_control_ports_analyzed',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
+  }
+
+  /**
    * Build SPF modules from ACDB data
    */
   buildSpfModules(
@@ -239,12 +377,27 @@ export class EntityBuilderService {
     // Get SPF module definitions from ParsedAwsp for display names
     const spfModuleDefinitions = parsedAwsp?.getSpfModuleDefinitions() || [];
 
+    // Get port strategy from configuration (required)
+    const configuration = parsedAwsp?.getConfiguration();
+    if (!configuration?.portStrategy) {
+      throw new Error(
+        'Port strategy not found in configuration. Please ensure configuration.json exists in the AWSP file with a valid portStrategy.',
+      );
+    }
+
+    const portStrategy = configuration.portStrategy;
+
+    // Analyze control links to determine dynamic control port usage
+    const dynamicControlPortInfo = this.analyzeDynamicControlPorts(parsedAcdb);
+
     // Build domain SPF modules with module properties and definitions
     const spfModules = this.spfModuleBuilder.buildSpfModules(
       spfModuleInfos,
       fileSystemId,
+      portStrategy,
       modulePropertyConfigs,
       spfModuleDefinitions,
+      dynamicControlPortInfo,
     );
 
     this.logger?.logInfo({
@@ -319,8 +472,15 @@ export class EntityBuilderService {
   /**
    * Build control links from ACDB data
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
+   * @returns Object containing control links and extracted intents for control ports
    */
-  buildControlLinks(parsedAcdb: ParsedAcdb): ControlLink[] {
+  buildControlLinks(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): {
+    controlLinks: ControlLink[];
+    controlPortIntents: Map<number, number[]>;
+  } {
     const allControlLinkProperties: ControlLinkProperty[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
@@ -354,23 +514,27 @@ export class EntityBuilderService {
 
     // 3. Check if we have any control links to process
     if (allControlLinkProperties.length === 0) {
-      return [];
+      return {
+        controlLinks: [],
+        controlPortIntents: new Map(),
+      };
     }
 
-    // 4. Build domain control links from all sources
-    const controlLinks = this.controlLinkBuilder.buildControlLinks(
+    // 4. Build domain control links from all sources and extract intents
+    const result = this.controlLinkBuilder.buildControlLinks(
       allControlLinkProperties,
+      fileSystemId,
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${controlLinks.length} control links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph)`,
+      msg: `Successfully built ${result.controlLinks.length} control links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph), extracted intents for ${result.controlPortIntents.size} control ports`,
       action: 'acdb_control_links_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
       timestamp: new Date(),
     });
 
-    return controlLinks;
+    return result;
   }
 
   /**

@@ -7,6 +7,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   //  UseGuards,
   HttpStatus,
   HttpException,
@@ -24,6 +25,8 @@ import {
   UsecaseWithModificationSummary,
   UsecaseType,
 } from './dto/usecase.dto.js';
+import {UpdateUsecaseRequestDto} from './dto/request/update-usecase-request.dto.js';
+import {UsecaseResponseDto} from './dto/response/usecase-response.dto.js';
 import {SpfModuleDto} from '../spf-module/dto/shared/spf-module.dto.js';
 import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
 import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
@@ -37,7 +40,6 @@ import {
   ControlPortDto,
   ControlPortIntentDto,
 } from '../../common/dto/control-port.dto.js';
-//import {AuthGuard} from '@nestjs/passport';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {QueryBus, GetAllUseCasesQuery, GetComponentsQuery} from '@arc/core';
@@ -77,6 +79,10 @@ export class UseCaseController extends BaseController {
   constructor(private readonly queryBus: QueryBus) {
     super();
   }
+
+  //#region READ
+
+  //#region Get all usecases
 
   /**
    * Get all usecases
@@ -143,6 +149,287 @@ export class UseCaseController extends BaseController {
       );
     }
   }
+
+  //#endregion
+
+  //#region Get usecase modification summary
+
+  /**
+   * Get all added and deleted usecases with their modification summary.
+   */
+  @Get('modificationsSummary')
+  @ApiDocumentationWithExample({
+    summary:
+      'Get all added and deleted usecases with their modification summary',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Success',
+        dto: [UsecaseWithModificationSummary],
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get modification summary)',
+      },
+    ],
+  })
+  async getUsecaseModificationSummary(
+    @Param('projectId') projectId: string,
+  ): Promise<ApiResult<UsecaseWithModificationSummary[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log('Getting usecase modification summary for project:', projectId);
+    throw new HttpException(
+      'This getUsecaseModificationSummary API endpoint is not implemented yet.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  //#endregion
+
+  //#region Get components in usecases
+
+  /**
+   * Get all components for usecase(s). For components shared between usecases, only one copy will be returned.
+   */
+  @Post('getComponents')
+  @ApiDocumentationWithExample({
+    summary:
+      'Get all components (including module instances, data links, control links, subsystems) for usecase(s) based on querying type.',
+    description:
+      'For components shared in different usecases, only one copy will be returned.',
+    requestDto: SystemIdsRequestDto,
+    requestDtoDescription: 'List of system ids for usecases',
+    requestDtoExample: {
+      className: 'UseCaseIdCollectionExample',
+    },
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Components are returned successfully',
+        dto: [UsecaseComponentsDto],
+        example: {
+          className: 'UsecaseComponentsExample',
+        },
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Usecase is not found for provided usecase id',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get components for usecase(s)',
+      },
+    ],
+  })
+  @ApiQuery({
+    name: 'contentsType',
+    required: false,
+    enum: ComponentsTypeInUsecase,
+    description:
+      'Type of contents to be returned. Optional. If not provided, default is TopLevelComponents.\n\n' +
+      "'TopLevelComponents' - only top level components and links of a usecase. If a subsystem is in top level, its internal components are not returned.\n\n" +
+      "'LowLevelComponents' - only modules and links of a usecase. No subystem and related links will be returned\n\n" +
+      "'AllComponents' - all components of a usecase, including subystem and its internal componnents (even nested subsystem and its internal components.",
+  })
+  async getComponentsInUsecases(
+    @Param('projectId') projectId: string,
+    @Body() usecaseSystemIds: SystemIdsRequestDto,
+    @Query('contentsType')
+    contentsType: ComponentsTypeInUsecase = ComponentsTypeInUsecase.TopLevel,
+  ): Promise<ApiResult<UsecaseComponentsDto[]>> {
+    try {
+      console.log(
+        'Getting components for usecases in project:',
+        projectId,
+        'with system IDs:',
+        usecaseSystemIds,
+        'contentsType:',
+        contentsType,
+      );
+
+      // Validate input
+      if (
+        !usecaseSystemIds ||
+        !usecaseSystemIds.systemIds ||
+        usecaseSystemIds.systemIds.length === 0
+      ) {
+        throw new HttpException(
+          'systemIds array is required and cannot be empty',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Convert string systemIds to numbers
+      const systemIds = usecaseSystemIds.systemIds.map(id => {
+        const parsed = Number.parseInt(id, 10);
+        if (Number.isNaN(parsed)) {
+          throw new HttpException(
+            `Invalid use case system ID: ${id}`,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return parsed;
+      });
+
+      // Execute the query using the new handler
+      const query = new GetComponentsQuery(systemIds, 'client-id'); // TODO: get actual clientId from JWT
+      const components =
+        await this.queryBus.execute<UseCaseComponentsReadModel>(query);
+
+      // Transform the response to UsecaseComponentsDto format
+      const transformedComponents =
+        this.transformToUsecaseComponentsDto(components);
+
+      return {
+        data: [transformedComponents], // Wrap in array to match the expected return type
+        success: true,
+        message: 'Components retrieved successfully',
+      };
+    } catch (error) {
+      console.error('Error getting components:', error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Failed to retrieve components for usecase(s)',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  //#endregion
+
+  //#endregion
+
+  //#region UPDATE
+
+  //#region Update usecase
+
+  /**
+   * Update usecase alias information.
+   */
+  @Patch(':usecaseSystemId')
+  @ApiDocumentationWithExample({
+    summary: 'Update usecase alias information',
+    description:
+      'Updates the alias information for a specific usecase. The alias can be set or removed (by passing null).\n\n' +
+      '**Request Body:**\n' +
+      '- `aliasInfo` (required, nullable): Alias information object or null\n' +
+      '  - When provided as an object with `id` and `name`, it updates the alias for the usecase\n' +
+      '  - When set to `null`, it removes the existing alias from the usecase\n\n' +
+      '**Response:**\n' +
+      'Returns the updated usecase with:\n' +
+      '- `systemId`: Unique system identifier of the usecase\n' +
+      '- `gkv`: Array of Graph Key-Value pairs\n' +
+      '- `aliasInfo`: Updated alias information (or null if removed)\n' +
+      '- `categories`: Array of category names',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Usecase updated successfully',
+        dto: UsecaseResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Usecase not found',
+      },
+      {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid request data',
+      },
+      {
+        status: HttpStatus.CONFLICT,
+        description: 'Alias ID is already in use by another usecase',
+      },
+      {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        description: 'Failed to update usecase',
+      },
+    ],
+  })
+  @ApiParam({
+    name: 'usecaseSystemId',
+    type: 'string',
+    description: 'The unique system identifier of the usecase to update',
+    example: '123',
+  })
+  async updateUsecase(
+    @Param('projectId') projectId: string,
+    @Param('usecaseSystemId') usecaseSystemId: string,
+    @Body() updateUsecaseDto: UpdateUsecaseRequestDto,
+  ): Promise<ApiResult<UsecaseResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Updating usecase:',
+      usecaseSystemId,
+      'in project:',
+      projectId,
+      'with data:',
+      updateUsecaseDto,
+    );
+    throw new HttpException(
+      'This API endpoint is not implemented yet.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  //#endregion
+
+  //#endregion
+
+  //#region DELETE
+
+  //#region Delete usecases
+
+  /**
+   * Delete usecases for provided usecase ids.
+   */
+  @Post('delete')
+  @ApiDocumentationWithExample({
+    summary: 'Delete usecases for provided usecase ids',
+    requestDto: SystemIdsRequestDto,
+    requestDtoExample: {
+      className: 'UseCaseIdCollectionExample',
+    },
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Success',
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Some usecase(s) cannot be found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to delete some usecase(s))',
+      },
+    ],
+  })
+  async deleteUsecases(
+    @Param('projectId') projectId: string,
+    @Body() usecaseSystemIds: SystemIdsRequestDto,
+  ): Promise<void> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Deleting usecases for project:',
+      projectId,
+      'with system IDs:',
+      usecaseSystemIds,
+    );
+    throw new HttpException(
+      'This API endpoint is not implemented yet.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  //#endregion
+
+  //#endregion
+
+  //#region Helper Methods
 
   /**
    * Transform UseCaseReadModel[] to UsecaseDto[]
@@ -287,216 +574,5 @@ export class UseCaseController extends BaseController {
     return usecaseComponentsDto;
   }
 
-  /**
-   * Get all usecases without any subsystem information.
-   */
-  // @Get()
-  // @ApiDocumentationWithExample({
-  //     summary: 'Get all usecases without any subsystem information',
-  //     responses: [
-  //         {
-  //             status: HttpStatus.OK,
-  //             description: 'Raw use cases are returned successfully',
-  //             dto: [UsecaseIdentifier],
-  //             example: {
-  //                 className: 'UseCaseIdentifierCollectionExample'
-  //             }
-  //         },
-  //         {
-  //             status: HttpStatus.NOT_FOUND,
-  //             description: 'No raw use case is found',
-  //         }
-  //     ]
-  // })
-  // async getAllRawUsecases(@Param('projectId') projectId: string): Promise<ApiResult<UsecaseIdentifier[]>> {
-  //     await Promise.resolve(); // Placeholder to satisfy linter
-  //     console.log(`Getting all raw usecases for project: ${projectId}`);
-  //     throw new HttpException(
-  //         'Raw usecases retrieval functionality is not implemented yet.',
-  //         HttpStatus.NOT_IMPLEMENTED
-  //     );
-  // }
-
-  /**
-   * Get all components for usecase(s). For components shared between usecases, only one copy will be returned.
-   */
-  @Post('getComponents')
-  @ApiDocumentationWithExample({
-    summary:
-      'Get all components (including module instances, data links, control links, subsystems) for usecase(s) based on querying type.',
-    description:
-      'For components shared in different usecases, only one copy will be returned.',
-    requestDto: SystemIdsRequestDto,
-    requestDtoDescription: 'List of system ids for usecases',
-    requestDtoExample: {
-      className: 'UseCaseIdCollectionExample',
-    },
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Components are returned successfully',
-        dto: [UsecaseComponentsDto],
-        example: {
-          className: 'UsecaseComponentsExample',
-        },
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Usecase is not found for provided usecase id',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get components for usecase(s)',
-      },
-    ],
-  })
-  @ApiQuery({
-    name: 'contentsType',
-    required: false,
-    enum: ComponentsTypeInUsecase,
-    description:
-      'Type of contents to be returned. Optional. If not provided, default is TopLevelComponents.\n\n' +
-      "'TopLevelComponents' - only top level components and links of a usecase. If a subsystem is in top level, its internal components are not returned.\n\n" +
-      "'LowLevelComponents' - only modules and links of a usecase. No subystem and related links will be returned\n\n" +
-      "'AllComponents' - all components of a usecase, including subystem and its internal componnents (even nested subsystem and its internal components.",
-  })
-  async getComponentsInUsecases(
-    @Param('projectId') projectId: string,
-    @Body() usecaseSystemIds: SystemIdsRequestDto,
-    @Query('contentsType')
-    contentsType: ComponentsTypeInUsecase = ComponentsTypeInUsecase.TopLevel,
-  ): Promise<ApiResult<UsecaseComponentsDto[]>> {
-    try {
-      console.log(
-        'Getting components for usecases in project:',
-        projectId,
-        'with system IDs:',
-        usecaseSystemIds,
-        'contentsType:',
-        contentsType,
-      );
-
-      // Validate input
-      if (
-        !usecaseSystemIds ||
-        !usecaseSystemIds.systemIds ||
-        usecaseSystemIds.systemIds.length === 0
-      ) {
-        throw new HttpException(
-          'systemIds array is required and cannot be empty',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      // Convert string systemIds to numbers
-      const systemIds = usecaseSystemIds.systemIds.map(id => {
-        const parsed = Number.parseInt(id, 10);
-        if (Number.isNaN(parsed)) {
-          throw new HttpException(
-            `Invalid use case system ID: ${id}`,
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        return parsed;
-      });
-
-      // Execute the query using the new handler
-      const query = new GetComponentsQuery(systemIds, 'client-id'); // TODO: get actual clientId from JWT
-      const components =
-        await this.queryBus.execute<UseCaseComponentsReadModel>(query);
-
-      // Transform the response to UsecaseComponentsDto format
-      const transformedComponents =
-        this.transformToUsecaseComponentsDto(components);
-
-      return {
-        data: [transformedComponents], // Wrap in array to match the expected return type
-        success: true,
-        message: 'Components retrieved successfully',
-      };
-    } catch (error) {
-      console.error('Error getting components:', error);
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        'Failed to retrieve components for usecase(s)',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  /**
-   * Get all added and deleted usecases with their modification summary.
-   */
-  @Get('/modificationsSummary')
-  @ApiDocumentationWithExample({
-    summary:
-      'Get all added and deleted usecases with their modification summary',
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Success',
-        dto: [UsecaseWithModificationSummary],
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get modification summary)',
-      },
-    ],
-  })
-  async getUsecaseModificationSummary(
-    @Param('projectId') projectId: string,
-  ): Promise<ApiResult<UsecaseWithModificationSummary[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log('Getting usecase modification summary for project:', projectId);
-    throw new HttpException(
-      'This getUsecaseModificationSummary API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  /**
-   * Delete usecases for provided usecase ids.
-   */
-  @Post('delete')
-  @ApiDocumentationWithExample({
-    summary: 'Delete usecases for provided usecase ids',
-    requestDto: SystemIdsRequestDto,
-    requestDtoExample: {
-      className: 'UseCaseIdCollectionExample',
-    },
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Success',
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Some usecase(s) cannot be found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to delete some usecase(s))',
-      },
-    ],
-  })
-  async deleteUsecases(
-    @Param('projectId') projectId: string,
-    @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<void> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Deleting usecases for project:',
-      projectId,
-      'with system IDs:',
-      usecaseSystemIds,
-    );
-    throw new HttpException(
-      'This API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
+  //#endregion
 }

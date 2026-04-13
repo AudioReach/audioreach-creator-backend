@@ -223,15 +223,8 @@ export {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
 // Use Case Data - Main
 export type {UseCaseRow, UseCaseCategoryRow} from './usecase-data/use-case.js';
 export {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
-export {
-  EDIT_OPERATION,
-  CHANGE_STATUS,
-} from './edit-session/edit-action.schema.js';
-export type {
-  EditOperation,
-  ChangeStatus,
-  EditActionRow,
-} from './edit-session/edit-action.schema.js';
+
+export type {EditActionRow} from './edit-session/edit-action.schema.js';
 export {EditActionSchema} from './edit-session/edit-action.schema.js';
 export {RESTORE_TYPE} from './edit-session/restore-point.schema.js';
 export type {

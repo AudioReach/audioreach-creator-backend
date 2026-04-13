@@ -20,8 +20,10 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "shx rm -rf dist *.tsbuildinfo",
+    "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test:persistence": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects=integration",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -37,7 +39,8 @@
     "typeorm": "^0.3.28"
   },
   "dependencies": {
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "@arc/core": "workspace:*",

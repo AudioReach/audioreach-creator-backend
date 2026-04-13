@@ -11,6 +11,43 @@ import {DataSource} from 'typeorm';
 import {NodeWorkerPoolSingleton} from '@arc/fs';
 
 /**
+ * Create a proxy app that connects to an external running server
+ * Used for debugging scenarios where the server is running separately
+ */
+export function createExternalServerApp(
+  serverUrl: string = 'http://localhost:3000',
+): INestApplication {
+  // Create a minimal proxy object that satisfies INestApplication interface
+  const proxyApp = {
+    getHttpServer: () => serverUrl,
+    get: () => null,
+    close: async () => {
+      // No-op for external server
+    },
+    init: async () => proxyApp,
+    // Add other required methods as no-ops
+    use: () => proxyApp,
+    enableCors: () => proxyApp,
+    useGlobalPipes: () => proxyApp,
+    useGlobalFilters: () => proxyApp,
+    useGlobalInterceptors: () => proxyApp,
+    useGlobalGuards: () => proxyApp,
+    listen: async () => undefined,
+    getUrl: async () => serverUrl,
+    setGlobalPrefix: () => proxyApp,
+    useWebSocketAdapter: () => proxyApp,
+    connectMicroservice: () => proxyApp,
+    getMicroservices: () => [],
+    startAllMicroservices: async () => undefined,
+    select: () => ({}) as any,
+    resolve: async () => undefined,
+    registerRequestByContextId: () => undefined,
+  } as unknown as INestApplication;
+
+  return proxyApp;
+}
+
+/**
  * Create a NestJS application configured for E2E testing
  * - Uses in-memory SQLite database
  * - Mocks JWT authentication

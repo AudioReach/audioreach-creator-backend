@@ -9,7 +9,7 @@ import type {
   Container,
   DataLink,
   ControlLink,
-  ModuleDefinition,
+  SpfModuleDefinition,
   KeyDefinition,
   ProcessorDefinition,
   Subgraph,
@@ -81,8 +81,8 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     return await inserter.insert(items);
   }
 
-  async insertModuleDefinitions(
-    items: readonly Omit<ModuleDefinition, 'systemId'>[],
+  async insertSpfModuleDefinitions(
+    items: readonly Omit<SpfModuleDefinition, 'systemId'>[],
   ): Promise<BulkModuleDefinitionInsertResult> {
     const inserter = new ModuleDefinitionInserter(this.manager);
     return await inserter.insert(items);

@@ -7,6 +7,7 @@ import {SameNodeException} from './exceptions.js';
 
 export class ControlLink {
   public systemId: number;
+  public fileSystemId: number;
   public peerNodeASystemId: number;
   public peerNodeBSystemId: number;
   public nodeAPortSystemId: number;
@@ -16,6 +17,7 @@ export class ControlLink {
 
   constructor(
     systemId: number,
+    fileSystemId: number,
     peerNodeASystemId: number,
     peerNodeBSystemId: number,
     nodeAPortSystemId: number,
@@ -24,6 +26,7 @@ export class ControlLink {
     isInterGraph: boolean,
   ) {
     this.systemId = systemId;
+    this.fileSystemId = fileSystemId;
     this.peerNodeASystemId = peerNodeASystemId;
     this.peerNodeBSystemId = peerNodeBSystemId;
     this.nodeAPortSystemId = nodeAPortSystemId;

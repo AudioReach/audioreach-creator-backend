@@ -7,10 +7,7 @@ import * as os from 'node:os';
 import path from 'node:path';
 
 export function getDatabasePath(/*configService: ConfigService*/): string {
-  //   const dbPath = configService.get<string>('DATABASE_PATH');
-  //   if (dbPath) {
-  //     return dbPath;
-  //   }
+  // ToDo: Use config service to get DB path so that it is configurable
 
   // Cross-platform default paths
   const appName = 'audioreach-creator';

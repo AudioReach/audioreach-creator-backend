@@ -106,8 +106,12 @@ export interface ControlLink {
   peer2InstanceId: number;
   /** Peer 2 port ID */
   peer2PortId: number;
-  /** Map of property ID to property data */
-  properties: Map<number, Uint8Array>;
+  /** Whether this link crosses subgraph boundaries */
+  isInterGraph: boolean;
+  /** Heap ID for this control link */
+  heapId: number;
+  /** Array of intent IDs for this control link */
+  intents: number[];
 }
 
 /**

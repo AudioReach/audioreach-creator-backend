@@ -6,7 +6,7 @@
 import {
   type BulkModuleDefinitionInsertResult,
   MODULE_DEF_AGGREGATE_ENTITY_TYPES,
-  ModuleDefinition,
+  SpfModuleDefinition,
   type ModuleDefinitionInsertError,
   type ModuleDefinitionInsertErrorEntity,
   type ModuleDefinitionInsertResult,
@@ -14,15 +14,15 @@ import {
 } from '@arc/core';
 import {BaseInserter} from '../base.inserter.js';
 import {toSpfModuleDefinitionRow} from './module-definition-entity-mapper.js';
-import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
+import type {BatchInsertResult} from '../batch-inserter.js';
 import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
 import type {SpfModuleDefinitionRow} from '../../../entity-schema/index.js';
 
 /**
- * Handles bulk insertion of ModuleDefinition entities.
+ * Handles bulk insertion of SpfModuleDefinition entities.
  *
  * Process:
- * 1. Batch insert all ModuleDefinitions
+ * 1. Batch insert all SpfModuleDefinitions
  * 2. Query back using moduleDefinitionId (natural key)
  * 3. Build results with mappings and errors
  *
@@ -30,18 +30,18 @@ import type {SpfModuleDefinitionRow} from '../../../entity-schema/index.js';
  * Returns empty parameterDefinitions array for future expansion.
  */
 export class ModuleDefinitionInserter extends BaseInserter<
-  Omit<ModuleDefinition, 'systemId'>,
+  Omit<SpfModuleDefinition, 'systemId'>,
   BulkModuleDefinitionInsertResult,
   ModuleDefinitionInsertErrorEntity
 > {
   /**
-   * Insert ModuleDefinitions in bulk.
+   * Insert SpfModuleDefinitions in bulk with cascading port groups and ports.
    *
-   * @param moduleDefinitions - ModuleDefinition domain entities without systemId
+   * @param moduleDefinitions - SpfModuleDefinition domain entities without systemId
    * @returns Bulk insert result with natural key mappings and per-entity errors
    */
   async insert(
-    moduleDefinitions: readonly Omit<ModuleDefinition, 'systemId'>[],
+    moduleDefinitions: readonly Omit<SpfModuleDefinition, 'systemId'>[],
   ): Promise<BulkModuleDefinitionInsertResult> {
     // Early return for empty input
     if (moduleDefinitions.length === 0) {
@@ -49,25 +49,37 @@ export class ModuleDefinitionInserter extends BaseInserter<
     }
 
     // ============================================
-    // Batch Insert ModuleDefinitions
+    // Insert ModuleDefinitions with cascading relations
     // ============================================
     const moduleDefinitionRows = moduleDefinitions.map(md =>
       toSpfModuleDefinitionRow(md),
     );
-    const moduleDefinitionInsertResult = await BatchInserter.insert(
-      this.manager,
-      'SpfModuleDefinition',
-      moduleDefinitionRows,
-    );
+
+    // Use save() instead of insert() to enable cascade inserts for related entities
+    const succeeded: QueryDeepPartialEntity<SpfModuleDefinitionRow>[] = [];
+    const failed: Array<{
+      row: QueryDeepPartialEntity<SpfModuleDefinitionRow>;
+      error: Error;
+    }> = [];
+
+    for (const row of moduleDefinitionRows) {
+      try {
+        await this.manager.save('SpfModuleDefinition', row);
+        succeeded.push(row);
+      } catch (error) {
+        failed.push({row, error: error as Error});
+      }
+    }
+
+    const moduleDefinitionInsertResult = {succeeded, failed};
 
     // ============================================
     // Query Back ModuleDefinition SystemIds
     // ============================================
-    const successfulModuleDefinitionIds =
-      moduleDefinitionInsertResult.succeeded.map(
-        (row: QueryDeepPartialEntity<SpfModuleDefinitionRow>) =>
-          row.moduleDefinitionId as number,
-      );
+    const successfulModuleDefinitionIds = succeeded.map(
+      (row: QueryDeepPartialEntity<SpfModuleDefinitionRow>) =>
+        row.moduleDefinitionId as number,
+    );
     const moduleDefinitionMappings = await this.queryBackModuleDefinitions(
       successfulModuleDefinitionIds,
     );
@@ -91,7 +103,7 @@ export class ModuleDefinitionInserter extends BaseInserter<
    * Build results with O(1) lookups using Maps.
    */
   private buildResults(
-    moduleDefinitions: readonly Omit<ModuleDefinition, 'systemId'>[],
+    moduleDefinitions: readonly Omit<SpfModuleDefinition, 'systemId'>[],
     moduleDefinitionIdToSystemId: Map<number, number>,
     moduleDefinitionInsertResult: BatchInsertResult<
       QueryDeepPartialEntity<SpfModuleDefinitionRow>

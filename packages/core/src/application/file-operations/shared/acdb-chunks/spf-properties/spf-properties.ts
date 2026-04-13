@@ -199,7 +199,9 @@ export class SpfProperties {
     fieldName: string,
   ): void {
     if (pos + requiredBytes > totalLength) {
-      throw new Error(`Cannot read ${fieldName} at position ${pos}`);
+      throw new Error(
+        `[SpfProperties] Cannot read ${fieldName} at position ${pos}: required ${requiredBytes} bytes, but only ${totalLength - pos} bytes remaining (total payload length: ${totalLength})`,
+      );
     }
   }
 
@@ -258,8 +260,17 @@ export class SpfProperties {
 
       case PARAM_ID_MODULE_CTRL_LINK:
         if (payloadSize > 0) {
+          const moduleInstanceIds = moduleList
+            ? moduleList.spfModuleInfos.flatMap(info =>
+                info.spfModules.map(instance => instance.instanceId),
+              )
+            : [];
+
           return {
-            controlLinks: ControlLinksProperty.fromPayload(payloadData),
+            controlLinks: ControlLinksProperty.fromPayload(
+              payloadData,
+              moduleInstanceIds,
+            ),
           };
         }
         return {};

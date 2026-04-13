@@ -5,10 +5,7 @@
 
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import type {ControlLink} from './types.js';
-import {
-  MODULE_PROP_ID_CTRL_HEAP_ID,
-  HEAP_ID_DEFAULT,
-} from '../../constants/spf-ids.js';
+import {extractHeapId, extractIntents} from './control-link-property-utils.js';
 
 /**
  * Handles parsing of control links properties from binary data.
@@ -22,16 +19,22 @@ export class ControlLinksProperty {
   /**
    * Create ControlLinksProperty from binary payload
    */
-  static fromPayload(payload: Uint8Array): ControlLinksProperty {
+  static fromPayload(
+    payload: Uint8Array,
+    currentSubgraphModuleInstanceIds: number[] = [],
+  ): ControlLinksProperty {
     const instance = new ControlLinksProperty();
-    instance.parsePayload(payload);
+    instance.parsePayload(payload, currentSubgraphModuleInstanceIds);
     return instance;
   }
 
   /**
    * Parse binary payload into control links
    */
-  private parsePayload(payload: Uint8Array): void {
+  private parsePayload(
+    payload: Uint8Array,
+    currentSubgraphModuleInstanceIds: number[] = [],
+  ): void {
     const view = new DataView(
       payload.buffer,
       payload.byteOffset,
@@ -51,7 +54,12 @@ export class ControlLinksProperty {
 
     // Parse each control link
     for (let i = 0; i < count; i++) {
-      const result = this.parseControlLink(view, payload, pos);
+      const result = this.parseControlLink(
+        view,
+        payload,
+        pos,
+        currentSubgraphModuleInstanceIds,
+      );
       this.controlLinks.push(result.controlLink);
       pos = result.newPos;
     }
@@ -67,7 +75,9 @@ export class ControlLinksProperty {
     fieldName: string,
   ): void {
     if (pos + requiredBytes > totalLength) {
-      throw new Error(`Cannot read ${fieldName} at position ${pos}`);
+      throw new Error(
+        `[ControlLinksProperty] Cannot read ${fieldName} at position ${pos}: required ${requiredBytes} bytes, but only ${totalLength - pos} bytes remaining (total payload length: ${totalLength})`,
+      );
     }
   }
 
@@ -78,6 +88,7 @@ export class ControlLinksProperty {
     view: DataView,
     payload: Uint8Array,
     startPos: number,
+    currentSubgraphModuleInstanceIds: number[],
   ): {controlLink: ControlLink; newPos: number} {
     let pos = startPos;
 
@@ -126,8 +137,18 @@ export class ControlLinksProperty {
     const properties = result.properties;
     pos = result.newPos;
 
-    // Add default heap ID if not present
-    this.addDefaultHeapIdIfNeeded(properties);
+    // Extract heapId from properties (with default if not present)
+    const heapId = extractHeapId(properties);
+
+    // Extract intents from properties
+    const intents = extractIntents(properties);
+
+    // Calculate isInterGraph based on module instance membership
+    const isInterGraph = this.calculateIsInterGraph(
+      peer1InstanceId,
+      peer2InstanceId,
+      currentSubgraphModuleInstanceIds,
+    );
 
     // Create control link
     const controlLink: ControlLink = {
@@ -135,7 +156,9 @@ export class ControlLinksProperty {
       peer1PortId,
       peer2InstanceId,
       peer2PortId,
-      properties,
+      isInterGraph,
+      heapId,
+      intents,
     };
 
     return {controlLink, newPos: pos};
@@ -211,18 +234,6 @@ export class ControlLinksProperty {
   }
 
   /**
-   * Add default heap ID to properties if not present
-   */
-  private addDefaultHeapIdIfNeeded(properties: Map<number, Uint8Array>): void {
-    if (!properties.has(MODULE_PROP_ID_CTRL_HEAP_ID)) {
-      const defaultHeapData = new Uint8Array(4);
-      const defaultView = new DataView(defaultHeapData.buffer);
-      BinaryUtils.writeUint32(defaultView, 0, HEAP_ID_DEFAULT);
-      properties.set(MODULE_PROP_ID_CTRL_HEAP_ID, defaultHeapData);
-    }
-  }
-
-  /**
    * Get all control links involving a specific instance
    */
   getControlLinksForInstance(instanceId: number): ControlLink[] {
@@ -258,25 +269,6 @@ export class ControlLinksProperty {
   }
 
   /**
-   * Get property data for a specific control link
-   */
-  getControlLinkProperty(
-    peer1InstanceId: number,
-    peer1PortId: number,
-    peer2InstanceId: number,
-    peer2PortId: number,
-    propertyId: number,
-  ): Uint8Array | null {
-    const link = this.getControlLink(
-      peer1InstanceId,
-      peer1PortId,
-      peer2InstanceId,
-      peer2PortId,
-    );
-    return link?.properties.get(propertyId) || null;
-  }
-
-  /**
    * Get all unique instance IDs involved in control links
    */
   getInstanceIds(): number[] {
@@ -286,5 +278,22 @@ export class ControlLinksProperty {
       instanceIds.add(link.peer2InstanceId);
     }
     return [...instanceIds];
+  }
+
+  /**
+   * Calculate whether a control link crosses subgraph boundaries
+   */
+  private calculateIsInterGraph(
+    peer1InstanceId: number,
+    peer2InstanceId: number,
+    currentSubgraphModuleInstanceIds: number[],
+  ): boolean {
+    const peer1InCurrentSubgraph =
+      currentSubgraphModuleInstanceIds.includes(peer1InstanceId);
+    const peer2InCurrentSubgraph =
+      currentSubgraphModuleInstanceIds.includes(peer2InstanceId);
+
+    // If either peer is not in current subgraph, it's inter-graph
+    return !peer1InCurrentSubgraph || !peer2InCurrentSubgraph;
   }
 }

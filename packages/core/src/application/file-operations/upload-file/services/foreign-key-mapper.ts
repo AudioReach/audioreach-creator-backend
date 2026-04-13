@@ -28,6 +28,7 @@ export class ForeignKeyMapper {
   private spfModuleMappings = new Map<number, number>(); // instanceId -> systemId
   private moduleInputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
   private moduleOutputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
+  private moduleControlPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
   private dataLinkMappings = new Map<string, number>(); // naturalKey -> systemId
   private controlLinkMappings = new Map<string, number>(); // naturalKey -> systemId
 
@@ -215,6 +216,7 @@ export class ForeignKeyMapper {
     let mappingsCount = 0;
     let inputPortMappingsCount = 0;
     let outputPortMappingsCount = 0;
+    let controlPortMappingsCount = 0;
 
     for (const entityResult of result.results) {
       if (entityResult.success && entityResult.moduleIdMapping) {
@@ -234,11 +236,17 @@ export class ForeignKeyMapper {
         );
         inputPortMappingsCount += portCounts.inputCount;
         outputPortMappingsCount += portCounts.outputCount;
+
+        // Process control port mappings
+        controlPortMappingsCount += this.processControlPortMappings(
+          entityResult,
+          moduleSystemId,
+        );
       }
     }
 
     this.logger?.logInfo({
-      msg: `Stored ${mappingsCount} module instance mappings, ${inputPortMappingsCount} input ports, ${outputPortMappingsCount} output ports`,
+      msg: `Stored ${mappingsCount} module instance mappings, ${inputPortMappingsCount} input ports, ${outputPortMappingsCount} output ports, ${controlPortMappingsCount} control ports`,
       action: 'module_instance_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
@@ -279,6 +287,31 @@ export class ForeignKeyMapper {
     }
 
     return {inputCount, outputCount};
+  }
+
+  private processControlPortMappings(
+    entityResult: BulkModuleInsertResult['results'][0],
+    moduleSystemId: number,
+  ): number {
+    let controlCount = 0;
+
+    if (!entityResult.portMappings?.controlPorts) {
+      return controlCount;
+    }
+
+    const controlPortMap = new Map<number, number>();
+
+    for (const portMapping of entityResult.portMappings.controlPorts) {
+      controlPortMap.set(portMapping.naturalId, portMapping.systemId);
+      controlCount++;
+    }
+
+    // Store control port mappings under the module's systemId
+    if (controlPortMap.size > 0) {
+      this.moduleControlPortMappings.set(moduleSystemId, controlPortMap);
+    }
+
+    return controlCount;
   }
 
   /**
@@ -352,6 +385,27 @@ export class ForeignKeyMapper {
   }
 
   /**
+   * Get all control port system IDs for a given module system ID
+   */
+  getModuleControlPortSystemIds(
+    moduleSystemId: number,
+  ): Map<number, number> | undefined {
+    const portMap = this.moduleControlPortMappings.get(moduleSystemId);
+    return portMap ? new Map(portMap) : undefined;
+  }
+
+  /**
+   * Get system ID for a specific control port of a module
+   */
+  getControlPortSystemId(
+    moduleSystemId: number,
+    portNaturalId: number,
+  ): number | undefined {
+    const portMap = this.moduleControlPortMappings.get(moduleSystemId);
+    return portMap?.get(portNaturalId);
+  }
+
+  /**
    * Set data link mappings from bulk insertion result
    */
   setDataLinkMappings(result: BulkDataLinkInsertResult): void {
@@ -421,6 +475,7 @@ export class ForeignKeyMapper {
     this.spfModuleMappings.clear();
     this.moduleInputPortMappings.clear();
     this.moduleOutputPortMappings.clear();
+    this.moduleControlPortMappings.clear();
     this.dataLinkMappings.clear();
     this.controlLinkMappings.clear();
   }
@@ -437,6 +492,7 @@ export class ForeignKeyMapper {
     spfModuleMappings: number;
     moduleInputPortMappings: number;
     moduleOutputPortMappings: number;
+    moduleControlPortMappings: number;
     dataLinkMappings: number;
     controlLinkMappings: number;
   } {
@@ -449,6 +505,7 @@ export class ForeignKeyMapper {
       spfModuleMappings: this.spfModuleMappings.size,
       moduleInputPortMappings: this.moduleInputPortMappings.size,
       moduleOutputPortMappings: this.moduleOutputPortMappings.size,
+      moduleControlPortMappings: this.moduleControlPortMappings.size,
       dataLinkMappings: this.dataLinkMappings.size,
       controlLinkMappings: this.controlLinkMappings.size,
     };

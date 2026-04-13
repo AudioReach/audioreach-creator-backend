@@ -10,6 +10,7 @@ import {EntitySchema} from 'typeorm';
 import type {ControlPortRow} from '../node/control-port.js';
 
 export interface ControlLinkRow extends EntityBaseRow {
+  fileSystemId: number;
   peerNodeASystemId: number;
   peerNodeBSystemId: number;
   nodeAPortSystemId: number;
@@ -29,6 +30,11 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
   tableName: 'control_links',
   columns: {
     ...BaseColumnSchemaPart,
+    fileSystemId: {
+      name: 'file_system_id',
+      type: 'integer',
+      nullable: false,
+    },
     peerNodeASystemId: {
       type: 'integer',
       name: 'peer_nodeA_system_id',

@@ -19,9 +19,11 @@ import {
   SPF_APM_MODULE_ID,
   PARAM_ID_MODULE_DATA_LINK,
   PARAM_ID_MODULE_CTRL_LINK,
-  MODULE_PROP_ID_CTRL_HEAP_ID,
-  HEAP_ID_DEFAULT,
 } from '../../../shared/constants/spf-ids.js';
+import {
+  extractHeapId,
+  extractIntents,
+} from '../../../shared/acdb-chunks/spf-properties/control-link-property-utils.js';
 
 /**
  * Parser for subgraph pair data chunks containing SCLU, SCDE, and SCDO data.
@@ -255,7 +257,7 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
           sourcePortId: srcPortId,
           destinationInstanceId: dstMid,
           destinationPortId: dstPortId,
-          isInterGraph: true, // Always true for subgraph connections
+          isInterGraph: false, // Subgraph pair connections are intra-graph
           naturalKeyHash,
         });
       }
@@ -320,20 +322,18 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
           properties.set(propId, propData);
         }
 
-        // Add default heap ID if not present (for older ACDB files)
-        if (!properties.has(MODULE_PROP_ID_CTRL_HEAP_ID)) {
-          const heapIdBytes = new Uint8Array(4);
-          const heapIdView = new DataView(heapIdBytes.buffer);
-          heapIdView.setUint32(0, HEAP_ID_DEFAULT, true); // little endian
-          properties.set(MODULE_PROP_ID_CTRL_HEAP_ID, heapIdBytes);
-        }
+        // Extract heapId and intents from properties
+        const heapId = extractHeapId(properties);
+        const intents = extractIntents(properties);
 
         controlLinks.push({
           peer1InstanceId: srcMid,
           peer1PortId: srcPortId,
           peer2InstanceId: dstMid,
           peer2PortId: dstPortId,
-          properties,
+          isInterGraph: false, // Subgraph pair connections are intra-graph
+          heapId,
+          intents,
         });
       }
 

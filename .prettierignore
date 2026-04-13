@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-.yarn/
+.pnpm-store/
 
 # Build outputs
 dist/
@@ -37,7 +37,7 @@ temp-coverage/
 .nyc_output/
 
 # Lock files
-yarn.lock
+pnpm-lock.yaml
 package-lock.json
 
 # Environment files

@@ -2,7 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
+import {jest} from '@jest/globals';
 import {DataSource, Repository} from 'typeorm';
 import {EntityIdService} from '../../../src/id-generation/entity-id.service.js';
 import {FILE_ID_MODULUS} from '../../../src/id-generation/composite-id.js';
@@ -55,46 +55,66 @@ describe('EntityIdService', () => {
       metadata: '{}',
       isTarget: false,
     });
-    // Initialize last_entity_id = fileId so composite IDs correctly encode the file scope
+    // Initialize last_reserved_id = fileId so composite IDs correctly encode the file scope
     await dataSource.query(
-      `UPDATE files SET last_entity_id = ? WHERE system_id = ?`,
+      `UPDATE files SET last_reserved_id = ? WHERE system_id = ?`,
       [file.systemId, file.systemId],
     );
     fileId = file.systemId;
     service = new EntityIdService(fileId, dataSource);
   });
 
-  /** Read last_entity_id directly from the DB for assertion. */
-  async function readLastEntityId(): Promise<number> {
+  /** Read last_reserved_id directly from the DB for assertion. */
+  async function readLastReservedId(): Promise<number> {
     const rows = (await dataSource.query(
-      `SELECT last_entity_id FROM files WHERE system_id = ?`,
+      `SELECT last_reserved_id FROM files WHERE system_id = ?`,
       [fileId],
-    )) as Array<{last_entity_id: number}>;
-    return rows[0].last_entity_id;
+    )) as Array<{last_reserved_id: number}>;
+    return rows[0].last_reserved_id;
   }
 
   // ---------------------------------------------------------------------------
   describe('getNextId', () => {
-    it('throws before reserveBlock is called', () => {
-      expect(() => service.getNextId()).toThrow('not initialized');
+    it('auto-reserves on first call (no prior reserveBlock)', async () => {
+      const id = await service.getNextId();
+      expect(id).toBe(1 * FILE_ID_MODULUS + fileId);
+      // DB should reflect a full auto-reserve block (100 IDs by default)
+      expect(await readLastReservedId()).toBe(fileId + 100 * FILE_ID_MODULUS);
     });
 
     it('returns sequential composite IDs after reserveBlock', async () => {
       await service.reserveBlock();
 
-      expect(service.getNextId()).toBe(1 * FILE_ID_MODULUS + fileId);
-      expect(service.getNextId()).toBe(2 * FILE_ID_MODULUS + fileId);
-      expect(service.getNextId()).toBe(3 * FILE_ID_MODULUS + fileId);
+      expect(await service.getNextId()).toBe(1 * FILE_ID_MODULUS + fileId);
+      expect(await service.getNextId()).toBe(2 * FILE_ID_MODULUS + fileId);
+      expect(await service.getNextId()).toBe(3 * FILE_ID_MODULUS + fileId);
     });
 
-    it('throws when the reserved block is exhausted', async () => {
-      await service.reserveBlock(3); // reserve exactly 3 IDs
+    it('auto-reserves when the reserved block is exhausted', async () => {
+      // Use a small autoReserveSize so we can exhaust it quickly
+      const smallService = new EntityIdService(fileId, dataSource, 2);
+      await smallService.reserveBlock(2); // reserve exactly 2 IDs
 
-      service.getNextId(); // seq 1
-      service.getNextId(); // seq 2
-      service.getNextId(); // seq 3
+      await smallService.getNextId(); // seq 1
+      await smallService.getNextId(); // seq 2 — block exhausted
 
-      expect(() => service.getNextId()).toThrow('ID block exhausted');
+      // This call should auto-reserve 2 more IDs and return seq 3
+      const id = await smallService.getNextId();
+      expect(id).toBe(3 * FILE_ID_MODULUS + fileId);
+    });
+
+    it('coalesces concurrent auto-reserve calls into one DB round-trip', async () => {
+      const reserveSpy = jest.spyOn(service, 'reserveBlock');
+
+      // Fire 5 concurrent getNextId calls on an empty block
+      const ids = await Promise.all(
+        Array.from({length: 5}, () => service.getNextId()),
+      );
+
+      // Only one DB reserve call should have fired
+      expect(reserveSpy).toHaveBeenCalledTimes(1);
+      // All returned IDs must be unique
+      expect(new Set(ids).size).toBe(5);
     });
   });
 
@@ -105,32 +125,33 @@ describe('EntityIdService', () => {
       expect(firstId).toBe(1 * FILE_ID_MODULUS + fileId);
     });
 
-    it('atomically advances last_entity_id in the DB by blockSize * FILE_ID_MODULUS', async () => {
+    it('atomically advances last_reserved_id in the DB by blockSize * FILE_ID_MODULUS', async () => {
       const blockSize = 5;
       await service.reserveBlock(blockSize);
 
-      expect(await readLastEntityId()).toBe(
+      expect(await readLastReservedId()).toBe(
         fileId + blockSize * FILE_ID_MODULUS,
       );
     });
 
     it('second call starts a new block immediately after the first', async () => {
       await service.reserveBlock(3); // block 1: seq 1–3
-      service.getNextId(); // seq 1
-      service.getNextId(); // seq 2
-      service.getNextId(); // seq 3
+      await service.getNextId(); // seq 1
+      await service.getNextId(); // seq 2
+      await service.getNextId(); // seq 3
 
       await service.reserveBlock(3); // block 2: seq 4–6
-      expect(service.getNextId()).toBe(4 * FILE_ID_MODULUS + fileId);
+      expect(await service.getNextId()).toBe(4 * FILE_ID_MODULUS + fileId);
     });
 
-    it('custom blockSize limits the number of available IDs', async () => {
+    it('custom blockSize limits the number of IDs before next auto-reserve', async () => {
       await service.reserveBlock(5);
 
       for (let i = 0; i < 5; i++) {
-        expect(() => service.getNextId()).not.toThrow();
+        await expect(service.getNextId()).resolves.toBeDefined();
       }
-      expect(() => service.getNextId()).toThrow('ID block exhausted');
+      // 6th call triggers auto-reserve transparently — no throw
+      await expect(service.getNextId()).resolves.toBeDefined();
     });
   });
 
@@ -138,42 +159,30 @@ describe('EntityIdService', () => {
   describe('persistActual', () => {
     it('reclaims the unused tail of the reserved block', async () => {
       await service.reserveBlock(10);
-      service.getNextId(); // seq 1
-      service.getNextId(); // seq 2
-      service.getNextId(); // seq 3 — stop here, 7 IDs unused
+      await service.getNextId(); // seq 1
+      await service.getNextId(); // seq 2
+      await service.getNextId(); // seq 3 — stop here, 7 IDs unused
 
-      const queryRunner = dataSource.createQueryRunner();
-      await queryRunner.connect();
-      try {
-        await service.persistActual(queryRunner);
-      } finally {
-        await queryRunner.release();
-      }
+      await service.persistLastUsedId();
 
-      expect(await readLastEntityId()).toBe(3 * FILE_ID_MODULUS + fileId);
+      expect(await readLastReservedId()).toBe(3 * FILE_ID_MODULUS + fileId);
     });
 
-    it('does not reduce last_entity_id if another request has advanced the watermark', async () => {
+    it('does not reduce last_reserved_id if another request has advanced the watermark', async () => {
       await service.reserveBlock(10); // reserve seq 1–10
-      service.getNextId(); // use seq 1
+      await service.getNextId(); // use seq 1
 
       // Simulate a concurrent request advancing the watermark beyond our block
       const advancedMark = fileId + 20 * FILE_ID_MODULUS;
       await dataSource.query(
-        `UPDATE files SET last_entity_id = ? WHERE system_id = ?`,
+        `UPDATE files SET last_reserved_id = ? WHERE system_id = ?`,
         [advancedMark, fileId],
       );
 
-      const queryRunner = dataSource.createQueryRunner();
-      await queryRunner.connect();
-      try {
-        await service.persistActual(queryRunner);
-      } finally {
-        await queryRunner.release();
-      }
+      await service.persistLastUsedId();
 
-      // WHERE last_entity_id > current prevents going backwards
-      expect(await readLastEntityId()).toBe(advancedMark);
+      // WHERE last_reserved_id <= blockEnd prevents going backwards
+      expect(await readLastReservedId()).toBe(advancedMark);
     });
   });
 });

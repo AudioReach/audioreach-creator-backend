@@ -1820,6 +1820,56 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/usecases/modificationsSummary": {
+      "get": {
+        "operationId": "UseCaseController_getUsecaseModificationSummary",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UsecaseWithModificationSummary"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Failed to get modification summary)"
+          }
+        },
+        "summary": "Get all added and deleted usecases with their modification summary",
+        "tags": [
+          "usecases"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/usecases/getComponents": {
       "post": {
         "description": "For components shared in different usecases, only one copy will be returned.",
@@ -2135,9 +2185,10 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/usecases/modificationsSummary": {
-      "get": {
-        "operationId": "UseCaseController_getUsecaseModificationSummary",
+    "/arc-api/v1/projects/{projectId}/usecases/{usecaseSystemId}": {
+      "patch": {
+        "description": "Updates the alias information for a specific usecase. The alias can be set or removed (by passing null).\n\n**Request Body:**\n- `aliasInfo` (required, nullable): Alias information object or null\n  - When provided as an object with `id` and `name`, it updates the alias for the usecase\n  - When set to `null`, it removes the existing alias from the usecase\n\n**Response:**\nReturns the updated usecase with:\n- `systemId`: Unique system identifier of the usecase\n- `gkv`: Array of Graph Key-Value pairs\n- `aliasInfo`: Updated alias information (or null if removed)\n- `categories`: Array of category names",
+        "operationId": "UseCaseController_updateUsecase",
         "parameters": [
           {
             "name": "projectId",
@@ -2148,11 +2199,31 @@
               "example": "12345",
               "type": "string"
             }
+          },
+          {
+            "name": "usecaseSystemId",
+            "required": true,
+            "in": "path",
+            "description": "The unique system identifier of the usecase to update",
+            "schema": {
+              "example": "123",
+              "type": "string"
+            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUsecaseRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Usecase updated successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -2163,10 +2234,7 @@
                     {
                       "properties": {
                         "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/UsecaseWithModificationSummary"
-                          }
+                          "$ref": "#/components/schemas/UsecaseResponseDto"
                         }
                       }
                     }
@@ -2175,11 +2243,20 @@
               }
             }
           },
-          "422": {
-            "description": "Failed to get modification summary)"
+          "400": {
+            "description": "Invalid request data"
+          },
+          "404": {
+            "description": "Usecase not found"
+          },
+          "409": {
+            "description": "Alias ID is already in use by another usecase"
+          },
+          "500": {
+            "description": "Failed to update usecase"
           }
         },
-        "summary": "Get all added and deleted usecases with their modification summary",
+        "summary": "Update usecase alias information",
         "tags": [
           "usecases"
         ]
@@ -2239,6 +2316,248 @@
         "summary": "Delete usecases for provided usecase ids",
         "tags": [
           "usecases"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/usecase-categories": {
+      "post": {
+        "description": "Creates a new usecase category with the specified name and associated usecases.\n\n**Request Body:**\n- `name` (required): Name of the category. Must be unique among all category names.\n- `usecaseSystemIds` (required): Array of usecase system identifiers to associate with this category\n- `sortKeySystemIds` (optional): Array of key system identifiers to define sort order for usecases. The provided sortKeySystemIds must be equal to the union of all key system IDs present across all usecases in the category.\n\n**Response:**\nReturns the created category with:\n- `systemId`: Unique system identifier of the category\n- `name`: Name of the category (unique among all category names)\n- `changeInfo`: Change information (changeType, changeId, changeStatus)\n- `usecases`: Array of usecase summaries associated with this category",
+        "operationId": "UseCaseCategoryController_createUsecaseCategory",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateUsecaseCategoryRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUsecaseCategoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usecase category created successfully with all usecases added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UsecaseCategoryResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Usecase category created but some usecases failed to be added (partial success)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UsecaseCategoryResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request data (e.g., keySystemIds not equal to the union of all usecase keys)"
+          },
+          "404": {
+            "description": "All usecases not found"
+          },
+          "409": {
+            "description": "Category name already exists"
+          },
+          "500": {
+            "description": "Failed to create usecase category"
+          }
+        },
+        "summary": "Create a new usecase category",
+        "tags": [
+          "usecase-categories"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/usecase-categories/{usecaseCategorySystemId}": {
+      "patch": {
+        "description": "Updates an existing usecase category. All fields are optional for partial updates.\n\n**Request Body:**\n- `name` (optional): Updated name of the category. Must be unique among all category names.\n- `usecaseSystemIds` (optional): Array of usecase system identifiers. If not provided, existing associations are kept. If provided, replaces all existing associations.\n- `sortKeySystemIds` (optional): Array of key system identifiers to define sort order for usecases. The provided sortKeySystemIds must be equal to the union of all key system IDs present across all usecases in the category.\n\n**Response:**\nReturns the updated category with:\n- `systemId`: Unique system identifier of the category\n- `name`: Updated name of the category\n- `changeInfo`: Change information (changeType, changeId, changeStatus)\n- `usecases`: Array of usecase summaries associated with this category",
+        "operationId": "UseCaseCategoryController_updateUsecaseCategory",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "usecaseCategorySystemId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the category to update",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: UpdateUsecaseCategoryRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUsecaseCategoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Usecase category updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UsecaseCategoryResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Usecase category updated but some usecases failed to be added (partial success)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UsecaseCategoryResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request data (e.g., keySystemIds not equal to the union of all usecase keys)"
+          },
+          "404": {
+            "description": "Category not found or some usecases not found"
+          },
+          "409": {
+            "description": "Category name already exists"
+          },
+          "500": {
+            "description": "Failed to update usecase category"
+          }
+        },
+        "summary": "Update an existing usecase category",
+        "tags": [
+          "usecase-categories"
+        ]
+      },
+      "delete": {
+        "description": "Deletes an existing usecase category by its unique identifier. This operation only removes the category itself. The usecases associated with this category will be unlinked but remain in the system.\n\n**Response:**\nReturns the deleted category information with:\n- `systemId`: Unique system identifier of the deleted category\n- `name`: Name of the deleted category\n- `changeInfo`: Change information (changeType, changeId, changeStatus)",
+        "operationId": "UseCaseCategoryController_deleteUsecaseCategory",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "usecaseCategorySystemId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the category to delete",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usecase category deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DeleteUsecaseCategoryResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Category not found"
+          },
+          "500": {
+            "description": "Failed to delete usecase category"
+          }
+        },
+        "summary": "Delete a usecase category (category only, not the usecases)",
+        "tags": [
+          "usecase-categories"
         ]
       }
     },
@@ -6709,6 +7028,272 @@
           "key",
           "value"
         ]
+      },
+      "UsecaseAliasDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Unique identifier for the usecase alias"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the usecase alias"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "UsecaseCategorySummaryDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the usecase category"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the usecase category"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "name"
+        ]
+      },
+      "UsecaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the usecase"
+          },
+          "gkv": {
+            "description": "Array of Key-Value pair for the usecase",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueDto"
+            }
+          },
+          "aliasInfo": {
+            "description": "Alias information for the usecase. Can be null if no alias is assigned.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UsecaseAliasDto"
+              }
+            ]
+          },
+          "usecaseType": {
+            "type": "string",
+            "description": "Type of the usecase",
+            "enum": [
+              "EC",
+              "REGULAR",
+              "MANUAL"
+            ]
+          },
+          "categories": {
+            "description": "Array of categories for the usecase. Can be empty if no categories are assigned.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseCategorySummaryDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "gkv",
+          "aliasInfo",
+          "usecaseType",
+          "categories"
+        ]
+      },
+      "UpdateUsecaseRequestDto": {
+        "type": "object",
+        "properties": {
+          "aliasInfo": {
+            "description": "Alias information for the usecase. Can be null to remove alias.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UsecaseAliasDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "aliasInfo"
+        ]
+      },
+      "UsecaseSummaryDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the usecase"
+          },
+          "gkv": {
+            "description": "Array of Key-Value pair for the usecase",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueDto"
+            }
+          },
+          "aliasInfo": {
+            "description": "Alias information for the usecase. Can be null if no alias is assigned.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UsecaseAliasDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "gkv",
+          "aliasInfo"
+        ]
+      },
+      "UsecaseCategoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the usecase category"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the usecase category"
+          },
+          "usecases": {
+            "description": "Array of usecases associated with this category",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsecaseSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "name",
+          "usecases"
+        ]
+      },
+      "DeleteUsecaseCategoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "changeInfo": {
+            "description": "Change information for this resource",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeInfoDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Unique system identifier for the usecase category"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the usecase category"
+          }
+        },
+        "required": [
+          "changeInfo",
+          "systemId",
+          "name"
+        ]
+      },
+      "CreateUsecaseCategoryRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the usecase category. Must be unique among all category names."
+          },
+          "usecaseSystemIds": {
+            "description": "Array of usecase system identifiers to associate with this category",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sortKeySystemIds": {
+            "description": "Array of key system identifiers to sort the usecases by. Defines the order in which keys should be used for sorting.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "usecaseSystemIds"
+        ]
+      },
+      "UpdateUsecaseCategoryRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Updated name of the usecase category. Must be unique among all category names."
+          },
+          "usecaseSystemIds": {
+            "description": "Array of usecase system identifiers to associate with this category. If not provided, existing usecase associations are kept unchanged. If provided, replaces all existing associations.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sortKeySystemIds": {
+            "description": "Array of key system identifiers to sort the usecases by. Defines the order in which keys should be used for sorting.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "KeyValuePairsDto": {
         "type": "object",

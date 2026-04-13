@@ -14,6 +14,7 @@ import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ChunkParseContext} from '../../models/chunk-parse-context.js';
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import {SpfProperties} from '../../../shared/acdb-chunks/spf-properties/index.js';
+import type {Logger} from '../../../../../shared/types/logger.interface.js';
 
 /**
  * Parser for derived subgraph data chunks.
@@ -25,6 +26,10 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
 
   /** Track processed subgraph IDs to avoid duplicates */
   private processedSubgraphIds = new Set<number>();
+
+  constructor(private readonly logger?: Logger) {
+    super();
+  }
 
   parse(context: ChunkParseContext): SubgraphDataChunk {
     // Reset processed subgraph IDs for this parsing session
@@ -66,10 +71,14 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
         }
       } catch (error) {
         // Log error but continue processing other usecases
-        console.warn(
-          `Failed to extract subgraph data for usecase ${index}:`,
-          error,
-        );
+        this.logger?.logWarn({
+          msg: `Failed to extract subgraph data for usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          action: 'extract_subgraph_data_failed',
+          component: 'SubgraphDataChunkParser',
+          tag: 'subgraph-parsing',
+          error: error as Error,
+          timestamp: new Date(),
+        });
       }
     }
 
@@ -217,7 +226,22 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
     );
 
     // Parse SPF properties from binary data
-    const parsedSpfProperties = SpfProperties.fromPayload(spfProperties);
+    let parsedSpfProperties: SpfProperties;
+    try {
+      parsedSpfProperties = SpfProperties.fromPayload(spfProperties);
+    } catch (error) {
+      // Log error and skip this subgraph entry
+      this.logger?.logError({
+        msg: `Failed to parse SPF properties for subgraph ${BinaryUtils.toHexString(curSGId)}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        action: 'parse_spf_properties_failed',
+        component: 'SubgraphDataChunkParser',
+        tag: 'subgraph-parsing',
+        error: error as Error,
+        timestamp: new Date(),
+      });
+      // Return null entry to skip this subgraph
+      return {newPos: pos, entry: null};
+    }
 
     // Create SubgraphDataEntry
     const entry: SubgraphDataEntry = {

@@ -8,6 +8,7 @@ import type {NestModule, MiddlewareConsumer} from '@nestjs/common';
 import {ConfigModule} from '@nestjs/config';
 import {AuthenticationModule} from './presentation/rest/modules/authentication/authentication.module.js';
 import {UseCaseModule} from './presentation/rest/modules/usecase/usecase.module.js';
+import {UseCaseCategoryModule} from './presentation/rest/modules/usecase-category/usecase-category.module.js';
 import {DriverModuleModule} from './presentation/rest/modules/driver-module/driver-module.module.js';
 import {SpfModuleModule} from './presentation/rest/modules/spf-module/spf-module.module.js';
 import {SubgraphModule} from './presentation/rest/modules/subgraph/subgraph.module.js';
@@ -34,6 +35,7 @@ import {RequestLoggerMiddleware} from './infrastructure-wrapper/middleware/reque
     PropertyDefinitionModule,
     ModuleDefinitionModule,
     UseCaseModule,
+    UseCaseCategoryModule,
     DriverModuleModule,
     SpfModuleModule,
     SubgraphModule,

@@ -28,8 +28,9 @@ describe('CommandBus', () => {
     mockRegistry = createMockCommandHandlerRegistry();
     mockFileReader = {} as any;
     mockIdGeneration = {
-      getNextId: jest.fn().mockReturnValue(8_388_613),
+      getNextId: jest.fn().mockResolvedValue(8_388_613),
       reserveBlock: jest.fn().mockResolvedValue(8_388_613),
+      persistActual: jest.fn().mockResolvedValue(undefined),
     };
 
     // Mock UoW factory that returns the mock UoW and a release function

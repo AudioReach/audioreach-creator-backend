@@ -30,6 +30,7 @@
   "dependencies": {
     "@arc/core": "workspace:*",
     "adm-zip": "^0.5.16",
+    "reflect-metadata": "^0.2.2",
     "stream-json": "^1.9.1"
   },
   "devDependencies": {

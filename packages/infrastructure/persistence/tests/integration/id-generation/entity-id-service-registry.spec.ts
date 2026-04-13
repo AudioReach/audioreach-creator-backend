@@ -22,6 +22,15 @@ import {
   ArcDbFileRow,
 } from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 
+/**
+ * Registry-specific integration tests.
+ *
+ * EntityIdService behaviour (sequential IDs, auto-reserve, persistActual
+ * reclaim, coalescing) is fully covered by entity-id-service.spec.ts.
+ * These tests focus exclusively on what the registry adds:
+ *   1. Independent ID sequences per file (Map isolation).
+ *   2. Service instance reuse for the same fileId (getOrCreate caching).
+ */
 describe('EntityIdServiceRegistry', () => {
   let dataSource: DataSource;
   let projectRepository: Repository<ProjectRow>;
@@ -63,9 +72,9 @@ describe('EntityIdServiceRegistry', () => {
       metadata: '{}',
       isTarget: false,
     });
-    // Initialize last_entity_id = fileId for correct composite ID encoding
+    // Initialize last_reserved_id = fileId for correct composite ID encoding
     await dataSource.query(
-      `UPDATE files SET last_entity_id = system_id WHERE system_id IN (?, ?)`,
+      `UPDATE files SET last_reserved_id = system_id WHERE system_id IN (?, ?)`,
       [file1.systemId, file2.systemId],
     );
     fileId1 = file1.systemId;
@@ -74,66 +83,27 @@ describe('EntityIdServiceRegistry', () => {
   });
 
   // ---------------------------------------------------------------------------
-  describe('getNextId', () => {
-    it('throws before reserveBlock is called for that file', () => {
-      expect(() => registry.getNextId(fileId1)).toThrow('not initialized');
-    });
+  it('maintains independent ID sequences for different files', async () => {
+    await registry.reserveBlock(fileId1);
+    await registry.reserveBlock(fileId2);
+
+    const id1 = await registry.getNextId(fileId1);
+    const id2 = await registry.getNextId(fileId2);
+
+    expect(id1).toBe(1 * FILE_ID_MODULUS + fileId1);
+    expect(id2).toBe(1 * FILE_ID_MODULUS + fileId2);
+    expect(id1).not.toBe(id2);
   });
 
-  // ---------------------------------------------------------------------------
-  describe('reserveBlock + getNextId', () => {
-    it('returns correct composite IDs for a file', async () => {
-      await registry.reserveBlock(fileId1);
+  it('reuses the same EntityIdService instance for the same fileId', async () => {
+    // reserveBlock initialises the service for fileId1
+    await registry.reserveBlock(fileId1);
 
-      expect(registry.getNextId(fileId1)).toBe(1 * FILE_ID_MODULUS + fileId1);
-      expect(registry.getNextId(fileId1)).toBe(2 * FILE_ID_MODULUS + fileId1);
-    });
+    // Both getNextId calls use the same cached service — second returns seq 2
+    const id1 = await registry.getNextId(fileId1);
+    const id2 = await registry.getNextId(fileId1);
 
-    it('maintains independent ID sequences for different files', async () => {
-      await registry.reserveBlock(fileId1);
-      await registry.reserveBlock(fileId2);
-
-      const id1 = registry.getNextId(fileId1);
-      const id2 = registry.getNextId(fileId2);
-
-      expect(id1).toBe(1 * FILE_ID_MODULUS + fileId1);
-      expect(id2).toBe(1 * FILE_ID_MODULUS + fileId2);
-      expect(id1).not.toBe(id2);
-    });
-
-    it('reuses the same EntityIdService instance for the same fileId', async () => {
-      // reserveBlock initializes the service for fileId1
-      await registry.reserveBlock(fileId1);
-
-      // Both getNextId calls use the same service — second returns seq 2, not seq 1
-      const id1 = registry.getNextId(fileId1);
-      const id2 = registry.getNextId(fileId1);
-
-      expect(id1).toBe(1 * FILE_ID_MODULUS + fileId1);
-      expect(id2).toBe(2 * FILE_ID_MODULUS + fileId1);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  describe('persistActual', () => {
-    it('reclaims unused IDs for the specified file only', async () => {
-      await registry.reserveBlock(fileId1, 10);
-      registry.getNextId(fileId1); // seq 1
-      registry.getNextId(fileId1); // seq 2
-
-      const queryRunner = dataSource.createQueryRunner();
-      await queryRunner.connect();
-      try {
-        await registry.persistActual(fileId1, queryRunner);
-      } finally {
-        await queryRunner.release();
-      }
-
-      const rows = (await dataSource.query(
-        `SELECT last_entity_id FROM files WHERE system_id = ?`,
-        [fileId1],
-      )) as Array<{last_entity_id: number}>;
-      expect(rows[0].last_entity_id).toBe(2 * FILE_ID_MODULUS + fileId1);
-    });
+    expect(id1).toBe(1 * FILE_ID_MODULUS + fileId1);
+    expect(id2).toBe(2 * FILE_ID_MODULUS + fileId1);
   });
 });
