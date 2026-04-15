@@ -18,7 +18,7 @@ import {
   createMockIdGenerator,
   createMockForeignKeyMapper,
 } from '../../../../../../helpers/index.js';
-import {CHUNK_TYPES} from '../../../../../../../src/application/file-operations/shared/constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../../../../../../../src/application/file-operations/shared/constants/chunk-types.js';
 import {
   KeyValue,
   KeyValuePairList,
@@ -153,10 +153,10 @@ describe('UsecaseBuilder', () => {
         };
 
         mockParsedAcdb.getChunk.mockImplementation((chunkType: string) => {
-          if (chunkType === CHUNK_TYPES.SUBGRAPH_DATA) {
+          if (chunkType === PARSED_CHUNK_TYPES.SUBGRAPH_DATA) {
             return mockSubgraphDataChunk as any;
           }
-          if (chunkType === CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT) {
+          if (chunkType === PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA) {
             return mockSubgraphPairDataChunk as any;
           }
           return null;
@@ -349,10 +349,10 @@ describe('UsecaseBuilder', () => {
         };
 
         mockParsedAcdb.getChunk.mockImplementation((chunkType: string) => {
-          if (chunkType === CHUNK_TYPES.SUBGRAPH_DATA) {
+          if (chunkType === PARSED_CHUNK_TYPES.SUBGRAPH_DATA) {
             return mockSubgraphDataChunk as any;
           }
-          if (chunkType === CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT) {
+          if (chunkType === PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA) {
             return mockSubgraphPairDataChunk as any;
           }
           return null;

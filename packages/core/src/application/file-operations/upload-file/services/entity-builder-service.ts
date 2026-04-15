@@ -22,7 +22,7 @@ import {ContainerBuilder} from './entity-builders/container-builder.js';
 import {SpfModuleBuilder} from './entity-builders/spf-module-builder.js';
 import {DataLinkBuilder} from './entity-builders/data-link-builder.js';
 import {ControlLinkBuilder} from './entity-builders/control-link-builder.js';
-import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
@@ -142,7 +142,7 @@ export class EntityBuilderService {
   ): Promise<BuildResult<Subgraph>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
     if (!subgraphDataChunk) {
@@ -201,7 +201,7 @@ export class EntityBuilderService {
   ): Promise<BuildResult<Container>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
     if (!subgraphDataChunk) {
@@ -291,7 +291,7 @@ export class EntityBuilderService {
     links: ControlLinkProperty[],
   ): void {
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
     if (!subgraphDataChunk) {
@@ -312,7 +312,7 @@ export class EntityBuilderService {
     links: ControlLinkProperty[],
   ): void {
     const subgraphPairChunk = parsedAcdb.getChunk<SubgraphPairDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+      PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
     );
 
     if (!subgraphPairChunk) {
@@ -389,7 +389,8 @@ export class EntityBuilderService {
   }
 
   /**
-   * Build SPF modules from ACDB data with system IDs assigned
+   * Build SPF modules from ACDB data with system IDs assigned.
+   * Calibration data (CKVs) are automatically attached to modules during this process.
    */
   async buildSpfModules(
     parsedAcdb: ParsedAcdb,
@@ -398,7 +399,7 @@ export class EntityBuilderService {
   ): Promise<BuildResult<SpfModule>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
     if (!subgraphDataChunk) {
@@ -450,7 +451,7 @@ export class EntityBuilderService {
     // Analyze control links to determine dynamic control port usage
     const dynamicControlPortInfo = this.analyzeDynamicControlPorts(parsedAcdb);
 
-    // Build domain SPF modules with module properties, definitions, and system IDs assigned
+    // Build domain SPF modules with module properties, definitions, calibration data, and system IDs assigned
     const result = await this.spfModuleBuilder.buildSpfModules(
       spfModuleInfos,
       fileSystemId,
@@ -458,10 +459,11 @@ export class EntityBuilderService {
       modulePropertyConfigs,
       spfModuleDefinitions,
       dynamicControlPortInfo,
+      parsedAcdb, // Pass parsedAcdb for calibration data attachment
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} SPF modules from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
+      msg: `Successfully built ${result.entities.length} SPF modules from ACDB with system IDs and calibration data assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
       action: 'acdb_spf_modules_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
@@ -485,7 +487,7 @@ export class EntityBuilderService {
 
     // 1. Extract intra-subgraph data links from SubgraphDataChunk
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
     if (subgraphDataChunk) {
@@ -498,7 +500,7 @@ export class EntityBuilderService {
 
     // 2. Extract inter-subgraph data links from SubgraphPairDataChunk
     const subgraphPairChunk = parsedAcdb.getChunk<SubgraphPairDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+      PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
     );
 
     if (subgraphPairChunk) {
@@ -550,7 +552,7 @@ export class EntityBuilderService {
 
     // 1. Extract intra-subgraph control links from SubgraphDataChunk
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
 
     if (subgraphDataChunk) {
@@ -563,7 +565,7 @@ export class EntityBuilderService {
 
     // 2. Extract inter-subgraph control links from SubgraphPairDataChunk
     const subgraphPairChunk = parsedAcdb.getChunk<SubgraphPairDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+      PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
     );
 
     if (subgraphPairChunk) {
@@ -609,7 +611,7 @@ export class EntityBuilderService {
   ): Promise<UseCase[]> {
     // Extract usecase data from ACDB
     const usecaseChunk = parsedAcdb.getChunk<UsecaseDataChunk>(
-      CHUNK_TYPES.GKV_TABLE,
+      PARSED_CHUNK_TYPES.USECASE_DATA,
     );
 
     if (!usecaseChunk?.usecases || usecaseChunk.usecases.length === 0) {

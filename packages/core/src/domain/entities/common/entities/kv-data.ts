@@ -26,9 +26,10 @@ export class KvData {
   private readonly byId = new Map<number, ModuleParameterData>();
 
   readonly parameterPayloads: ModuleParameterData[] = [];
-  readonly systemId: number;
+  systemId: number; // Mutable to allow assignment during system ID resolution phase
   readonly valueDefinitionSystemIds: readonly number[];
   readonly uiPersistence: Uint8Array | null;
+
   constructor(init: KvDataInit) {
     this.systemId = init.systemId;
     this.valueDefinitionSystemIds = init.valueDefinitionSystemIds;

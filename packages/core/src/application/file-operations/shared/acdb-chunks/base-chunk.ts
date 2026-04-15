@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {ParsedChunkType} from '../constants/chunk-types.js';
+
 /**
  * Abstract base class for all ACDB chunk types.
  * Chunks are pure data structures representing parsed sections of an ACDB file.
@@ -11,6 +13,9 @@
  * instead of being properties on chunk instances.
  */
 export abstract class BaseChunk {
-  /** Unique identifier for this chunk type (e.g., 'HEADER', 'METADATA') */
-  abstract readonly chunkType: string;
+  /**
+   * The parsed chunk type identifier.
+   * This identifies what type of parsed chunk this is (e.g., 'HEAD', 'POOL', 'SUBGRAPH_DATA').
+   */
+  abstract readonly chunkType: ParsedChunkType;
 }

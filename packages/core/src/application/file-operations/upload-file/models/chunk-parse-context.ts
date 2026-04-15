@@ -4,19 +4,24 @@
  */
 
 import type {BaseChunk} from '../../shared/acdb-chunks/base-chunk.js';
+import type {
+  AcdbRawChunkType,
+  ParsedChunkType,
+} from '../../shared/constants/chunk-types.js';
 
 /**
  * Context provided to chunks during parsing
  */
 export interface ChunkParseContext {
   /**
-   * Raw chunk data for dependencies that need binary data
+   * Raw binary chunk data from ACDB file.
+   * Used for dependencies that need access to the original binary data.
    */
-  rawChunks?: Map<string, Uint8Array>;
+  rawChunks?: Map<AcdbRawChunkType, Uint8Array>;
 
   /**
-   * Access to already-parsed chunks.
-   * Used for both regular chunk dependencies and derived chunk processing.
+   * Already-parsed chunks (both file chunks and derived chunks).
+   * Used for chunk dependencies that need access to parsed chunk objects.
    */
-  parsedChunks?: Map<string, BaseChunk>;
+  parsedChunks?: Map<ParsedChunkType, BaseChunk>;
 }

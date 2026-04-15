@@ -5,14 +5,17 @@
 
 import {DatapoolChunk} from '../../../../src/application/file-operations/shared/acdb-chunks/datapool-chunk.js';
 import {DatapoolChunkParser} from '../../../../src/application/file-operations/upload-file/services/acdb-chunk-parsers/datapool-chunk-parser.js';
-import {CHUNK_TYPES} from '../../../../src/application/file-operations/shared/constants/chunk-types.js';
+import {
+  ACDB_RAW_CHUNK_TYPES,
+  PARSED_CHUNK_TYPES,
+} from '../../../../src/application/file-operations/shared/constants/chunk-types.js';
 import {BinaryUtils} from '../../../../src/shared/utilities/binary-utils.js';
 
 describe('DatapoolChunk', () => {
   describe('DatapoolChunk class', () => {
     it('should have correct chunk type', () => {
       const chunk = new DatapoolChunk();
-      expect(chunk.chunkType).toBe(CHUNK_TYPES.DATAPOOL);
+      expect(chunk.chunkType).toBe(PARSED_CHUNK_TYPES.DATAPOOL);
     });
 
     it('should be serializable with structuredClone', () => {
@@ -26,7 +29,7 @@ describe('DatapoolChunk', () => {
       expect(cloned.payloads).toEqual(chunk.payloads);
       expect(cloned.offsets).toEqual(chunk.offsets);
       expect(cloned.totalLength).toBe(chunk.totalLength);
-      expect(cloned.chunkType).toBe(CHUNK_TYPES.DATAPOOL);
+      expect(cloned.chunkType).toBe(PARSED_CHUNK_TYPES.DATAPOOL);
     });
   });
 
@@ -38,13 +41,13 @@ describe('DatapoolChunk', () => {
     });
 
     it('should have correct chunk type', () => {
-      expect(parser.chunkType).toBe(CHUNK_TYPES.DATAPOOL);
+      expect(parser.chunkType).toBe(PARSED_CHUNK_TYPES.DATAPOOL);
     });
 
     it('should parse empty datapool chunk', () => {
       const emptyData = new Uint8Array(0);
       const context = {
-        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, emptyData]]),
+        rawChunks: new Map([[ACDB_RAW_CHUNK_TYPES.DATAPOOL, emptyData]]),
       };
 
       const result = parser.parse(context);
@@ -68,7 +71,7 @@ describe('DatapoolChunk', () => {
       data.set(payload, 4);
 
       const context = {
-        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+        rawChunks: new Map([[ACDB_RAW_CHUNK_TYPES.DATAPOOL, data]]),
       };
 
       const result = parser.parse(context);
@@ -93,7 +96,7 @@ describe('DatapoolChunk', () => {
       // Padding bytes are already zero-initialized
 
       const context = {
-        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+        rawChunks: new Map([[ACDB_RAW_CHUNK_TYPES.DATAPOOL, data]]),
       };
 
       const result = parser.parse(context);
@@ -132,7 +135,7 @@ describe('DatapoolChunk', () => {
       data.set(payload2, pos);
 
       const context = {
-        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+        rawChunks: new Map([[ACDB_RAW_CHUNK_TYPES.DATAPOOL, data]]),
       };
 
       const result = parser.parse(context);
@@ -146,7 +149,9 @@ describe('DatapoolChunk', () => {
 
     it('should throw error for missing chunk in context', () => {
       const context = {
-        rawChunks: new Map([[CHUNK_TYPES.HEADER, new Uint8Array([1, 2, 3])]]),
+        rawChunks: new Map([
+          [ACDB_RAW_CHUNK_TYPES.HEADER, new Uint8Array([1, 2, 3])],
+        ]),
       };
 
       expect(() => parser.parse(context)).toThrow(
@@ -158,7 +163,7 @@ describe('DatapoolChunk', () => {
       // Data too short for payload size
       const data = new Uint8Array([0x01, 0x02]); // Only 2 bytes, need 4 for size
       const context = {
-        rawChunks: new Map([[CHUNK_TYPES.DATAPOOL, data]]),
+        rawChunks: new Map([[ACDB_RAW_CHUNK_TYPES.DATAPOOL, data]]),
       };
 
       expect(() => parser.parse(context)).toThrow(

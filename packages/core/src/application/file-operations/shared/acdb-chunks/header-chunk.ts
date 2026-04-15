@@ -5,7 +5,7 @@
 
 import type {JsonObject} from '../../../../shared/types/json-types.js';
 import {BaseChunk} from './base-chunk.js';
-import {CHUNK_TYPES} from '../constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
 
 /**
  * ACDB version information structure
@@ -31,7 +31,7 @@ export interface CodecInfo extends JsonObject {
  * Dependencies: None (this is the root chunk)
  */
 export class HeaderChunk extends BaseChunk {
-  readonly chunkType = CHUNK_TYPES.HEADER;
+  readonly chunkType = PARSED_CHUNK_TYPES.HEADER;
 
   /** Header version number (determines parsing logic) */
   headerVersion!: number;

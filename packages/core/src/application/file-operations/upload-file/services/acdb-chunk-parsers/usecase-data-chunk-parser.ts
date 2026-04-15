@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {
+  ACDB_RAW_CHUNK_TYPES,
+  PARSED_CHUNK_TYPES,
+} from '../../../shared/constants/chunk-types.js';
 import {BaseChunkParser} from './base-chunk-parser.js';
 import {UsecaseDataChunk} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
@@ -21,15 +24,15 @@ import type {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js'
  * Creates multiple usecase entries, each corresponding to a Keys->GraphData mapping.
  */
 export class UsecaseDataChunkParser extends BaseChunkParser<UsecaseDataChunk> {
-  readonly chunkType = CHUNK_TYPES.GKV_TABLE;
+  readonly chunkType = PARSED_CHUNK_TYPES.USECASE_DATA;
 
   parse(context: ChunkParseContext): UsecaseDataChunk {
     // Get GKV_TABLE and GKV_LUT chunks from context
-    const gkvTableData = context.rawChunks?.get(CHUNK_TYPES.GKV_TABLE);
-    const gkvLutData = context.rawChunks?.get(CHUNK_TYPES.GKV_LUT);
+    const gkvTableData = context.rawChunks?.get(ACDB_RAW_CHUNK_TYPES.GKV_TABLE);
+    const gkvLutData = context.rawChunks?.get(ACDB_RAW_CHUNK_TYPES.GKV_LUT);
 
     const datapoolChunk = context.parsedChunks?.get(
-      CHUNK_TYPES.DATAPOOL,
+      PARSED_CHUNK_TYPES.DATAPOOL,
     ) as DatapoolChunk;
 
     if (!gkvTableData) {

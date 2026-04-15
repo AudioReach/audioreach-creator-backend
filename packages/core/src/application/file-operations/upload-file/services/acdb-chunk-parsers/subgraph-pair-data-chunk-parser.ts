@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {
+  ACDB_RAW_CHUNK_TYPES,
+  PARSED_CHUNK_TYPES,
+} from '../../../shared/constants/chunk-types.js';
 import {BaseChunkParser} from './base-chunk-parser.js';
 import {SubgraphPairDataChunk} from '../../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
 import type {SubgraphPairEntry} from '../../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
@@ -29,22 +32,22 @@ import {
  * Creates subgraph pair entries with data and control links.
  */
 export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDataChunk> {
-  readonly chunkType = CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT;
+  readonly chunkType = PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA;
 
   parse(context: ChunkParseContext): SubgraphPairDataChunk {
     // Get SCLU, SCDE, SCDO chunks from context
     const scluData = context.rawChunks?.get(
-      CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+      ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
     );
     const scdeData = context.rawChunks?.get(
-      CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF,
+      ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF,
     );
     const scdoData = context.rawChunks?.get(
-      CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT,
+      ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT,
     );
 
     const datapoolChunk = context.parsedChunks?.get(
-      CHUNK_TYPES.DATAPOOL,
+      PARSED_CHUNK_TYPES.DATAPOOL,
     ) as DatapoolChunk;
 
     if (!scluData) {

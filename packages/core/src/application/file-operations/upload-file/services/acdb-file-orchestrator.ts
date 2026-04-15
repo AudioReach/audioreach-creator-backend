@@ -14,6 +14,7 @@ import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.j
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 import {AcdbFileInfo} from '../models/acdb-file-info.js';
+import type {ParsedChunkType} from '../../shared/constants/chunk-types.js';
 
 /**
  * Orchestrator for ACDB file parsing.
@@ -201,10 +202,10 @@ export class AcdbFileOrchestrator {
     //useParallel: boolean,
   ): ParsedAcdb {
     const result = new ParsedAcdb();
-    const parsedChunks = new Map<string, BaseChunk>();
+    const parsedChunks = new Map<ParsedChunkType, BaseChunk>();
 
-    // Get all registered chunk types in registry order (priority already set)
-    const allRegisteredChunks = ChunkMetadataRegistry.getAllChunkTypes();
+    // Get all registered parser types in registry order (priority already set)
+    const allRegisteredParsers = ChunkMetadataRegistry.getAllParserTypes();
 
     // NOTE: Parallel processing is temporarily disabled - using sequential parsing only
     // TODO: Re-enable parallel processing once worker issues are resolved
@@ -212,7 +213,7 @@ export class AcdbFileOrchestrator {
     this.parseAllChunksSequential(
       bytes,
       descriptors,
-      allRegisteredChunks,
+      allRegisteredParsers,
       parsedChunks,
       result,
     );
@@ -226,15 +227,27 @@ export class AcdbFileOrchestrator {
   private parseAllChunksSequential(
     bytes: Uint8Array,
     descriptors: ChunkMetadata[],
-    allRegisteredChunks: string[],
-    parsedChunks: Map<string, BaseChunk>,
+    allRegisteredParsers: ParsedChunkType[],
+    parsedChunks: Map<ParsedChunkType, BaseChunk>,
     result: ParsedAcdb,
   ): void {
-    // Process all registered chunks in registry order (priority already set)
-    for (const chunkType of allRegisteredChunks) {
-      // Build context based on chunk type and dependencies
+    // Process all registered parsers in registry order (priority already set)
+    for (const parserType of allRegisteredParsers) {
+      // Check if parser can be executed (dependencies are met)
+      if (!this.isParserAvailable(parserType, descriptors, parsedChunks)) {
+        this.logger?.logInfo({
+          msg: `Skipping parser ${parserType}: missing dependencies`,
+          action: 'parse_chunk_skipped',
+          component: 'AcdbFileOrchestrator',
+          tag: 'parsing',
+          timestamp: new Date(),
+        });
+        continue;
+      }
+
+      // Build context based on parser type and dependencies
       const context = this.buildOptimizedContext(
-        chunkType,
+        parserType,
         parsedChunks,
         bytes,
         descriptors,
@@ -242,12 +255,12 @@ export class AcdbFileOrchestrator {
 
       try {
         // Parse the chunk (works for both binary and derived chunks)
-        const chunk = this.chunkParser.parseChunk(chunkType, context);
-        parsedChunks.set(chunkType, chunk);
-        result.addChunk(chunkType, chunk);
+        const chunk = this.chunkParser.parseChunk(parserType, context);
+        parsedChunks.set(parserType, chunk);
+        result.addChunk(parserType, chunk);
 
         this.logger?.logInfo({
-          msg: `Successfully parsed chunk: ${chunkType}`,
+          msg: `Successfully parsed chunk: ${parserType}`,
           action: 'parse_chunk_success',
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
@@ -255,7 +268,7 @@ export class AcdbFileOrchestrator {
         });
       } catch (error) {
         this.logger?.logError({
-          msg: `Failed to parse chunk: ${chunkType}`,
+          msg: `Failed to parse chunk: ${parserType}`,
           action: 'parse_chunk_failed',
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
@@ -403,11 +416,45 @@ export class AcdbFileOrchestrator {
   /* eslint-enable sonarjs/no-commented-code */
 
   /**
+   * Check if a parser can be executed.
+   * A parser is available if all its chunk dependencies (from file) are either:
+   * 1. Present in the file, OR
+   * 2. Already parsed (for dependencies that need parsed chunks)
+   */
+  private isParserAvailable(
+    parserType: ParsedChunkType,
+    descriptors: ChunkMetadata[],
+    parsedChunks: Map<ParsedChunkType, BaseChunk>,
+  ): boolean {
+    // Get raw and parsed dependencies separately
+    const rawDeps = ChunkMetadataRegistry.getRawDependencies(parserType);
+    const parsedDeps = ChunkMetadataRegistry.getParsedDependencies(parserType);
+
+    // Check if all raw dependencies exist in file
+    for (const dep of rawDeps) {
+      const depExistsInFile = descriptors.some(d => d.type === dep);
+      if (!depExistsInFile) {
+        return false;
+      }
+    }
+
+    // Check if all parsed dependencies are already parsed
+    for (const dep of parsedDeps) {
+      const depAlreadyParsed = parsedChunks.has(dep);
+      if (!depAlreadyParsed) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
    * Build optimized context for a specific chunk based on its dependencies
    */
   private buildOptimizedContext(
-    chunkType: string,
-    parsedChunks: Map<string, BaseChunk>,
+    chunkType: ParsedChunkType,
+    parsedChunks: Map<ParsedChunkType, BaseChunk>,
     bytes: Uint8Array,
     allDescriptors: ChunkMetadata[],
   ): ChunkParseContext {
@@ -416,14 +463,9 @@ export class AcdbFileOrchestrator {
 
     const context: ChunkParseContext = {};
 
-    // Always initialize rawChunks to include the main chunk data
-    context.rawChunks = new Map();
-
-    // Add the main chunk data first
-    const mainDescriptor = allDescriptors.find(d => d.type === chunkType);
-    if (mainDescriptor) {
-      const mainChunkData = this.extractChunkData(bytes, mainDescriptor);
-      context.rawChunks.set(chunkType, mainChunkData);
+    // Initialize rawChunks if there are raw dependencies
+    if (rawDeps.length > 0) {
+      context.rawChunks = new Map();
     }
 
     // Add raw dependencies with actual binary data (only what's needed for this chunk)
@@ -433,7 +475,7 @@ export class AcdbFileOrchestrator {
       if (descriptor) {
         // Extract the raw chunk data using existing extractChunkData method
         const rawChunkData = this.extractChunkData(bytes, descriptor);
-        context.rawChunks.set(depType, rawChunkData);
+        context.rawChunks!.set(depType, rawChunkData);
       }
     }
 

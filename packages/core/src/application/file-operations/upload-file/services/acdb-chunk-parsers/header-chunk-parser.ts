@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {
+  ACDB_RAW_CHUNK_TYPES,
+  PARSED_CHUNK_TYPES,
+} from '../../../shared/constants/chunk-types.js';
 import {BaseChunkParser} from './base-chunk-parser.js';
 import {HeaderChunk} from '../../../shared/acdb-chunks/header-chunk.js';
 import type {ChunkParseContext} from '../../models/chunk-parse-context.js';
@@ -13,7 +16,7 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
  * Parser factory for HEADER chunks.
  */
 export class HeaderChunkParser extends BaseChunkParser<HeaderChunk> {
-  readonly chunkType = CHUNK_TYPES.HEADER;
+  readonly chunkType = PARSED_CHUNK_TYPES.HEADER;
 
   parse(context: ChunkParseContext): HeaderChunk {
     const data = this.validateAndGetChunkData(context);
@@ -45,7 +48,7 @@ export class HeaderChunkParser extends BaseChunkParser<HeaderChunk> {
   }
 
   private validateAndGetChunkData(context: ChunkParseContext): Uint8Array {
-    const data = context.rawChunks?.get(this.chunkType);
+    const data = context.rawChunks?.get(ACDB_RAW_CHUNK_TYPES.HEADER);
     if (!data) {
       throw new Error(`HEADER chunk not found in context`);
     }

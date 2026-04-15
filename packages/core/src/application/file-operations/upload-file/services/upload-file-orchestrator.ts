@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {UnitOfWork} from 'application/ports/persistence/unit-of-work.js';
+import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 import type {BulkInsertResult} from '../../../ports/persistence/repositories/bulk-import/bulk-insert-result-types.js';
 import {EntityBuilderService} from './entity-builder-service.js';
@@ -309,7 +309,7 @@ export class UploadFileOrchestrator {
       // Phase 3: Build and Insert Containers (no dependencies)
       await this.buildAndInsertContainers(bulkRepo);
 
-      // Phase 4: Build and Insert SPF Modules (depend on subgraphs, containers, definitions)
+      // Phase 4: Build and Insert SPF Modules with Calibration Data
       await this.buildAndInsertSpfModules(bulkRepo);
 
       // Phase 5: Build and Insert Data Links (depend on modules)
@@ -544,7 +544,8 @@ export class UploadFileOrchestrator {
   }
 
   /**
-   * Phase 4: Build and Insert SPF Modules
+   * Phase 4: Build and Insert SPF Modules with Calibration Data
+   * This phase handles both KeyVectors and SPF Modules (with attached CKVs)
    */
   private async buildAndInsertSpfModules(
     bulkRepo: BulkImportRepository,
@@ -568,7 +569,7 @@ export class UploadFileOrchestrator {
     this.issueCollector.addIssues(result.issues);
 
     if (result.entities.length > 0) {
-      // Profile insertion phase
+      // Insert SPF Modules (with CKVs already attached)
       this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_INSERT);
       const insertResult = await bulkRepo.insertSpfModules(result.entities);
       const insertMetrics = this.profiler?.end(
@@ -583,8 +584,8 @@ export class UploadFileOrchestrator {
       this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${result.entities.length} SPF modules with system IDs assigned (${result.errorCount} errors, ${result.warningCount} warnings)`,
-        action: 'spf_modules_persisted',
+        msg: `Built and inserted ${result.entities.length} SPF modules (${result.errorCount} errors, ${result.warningCount} warnings)`,
+        action: 'spf_modules_with_calibration_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
         timestamp: new Date(),
