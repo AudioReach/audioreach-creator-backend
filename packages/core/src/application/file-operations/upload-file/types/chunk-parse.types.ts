@@ -4,6 +4,10 @@
  */
 
 import type {BaseChunk} from '../../shared/acdb-chunks/base-chunk.js';
+import type {
+  AcdbRawChunkType,
+  ParsedChunkType,
+} from '../../shared/constants/chunk-types.js';
 
 /**
  * Specific input structure for chunk parsing tasks
@@ -18,7 +22,7 @@ export interface ChunkParseInput {
  */
 export interface ChunkParseContextData {
   /** Raw chunk data for all chunks (main + dependencies) */
-  rawChunks?: Map<string, Uint8Array>;
+  rawChunks?: Map<AcdbRawChunkType, Uint8Array>;
   /** Parsed chunks available as dependencies */
-  parsedChunks?: Map<string, BaseChunk>;
+  parsedChunks?: Map<ParsedChunkType, BaseChunk>;
 }

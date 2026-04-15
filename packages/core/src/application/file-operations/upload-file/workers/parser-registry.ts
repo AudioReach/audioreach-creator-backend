@@ -26,7 +26,7 @@ import type {
 import {SpfModuleDefinitionBuilder} from '../services/entity-builders/spf-module-definition-builder.js';
 import type {Handler} from '../../../ports/worker/handler-registry.port.js';
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
-import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 
 /**
  * Creates default chunk parser factories.
@@ -34,8 +34,8 @@ import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
  */
 function createDefaultChunkParsers(): Map<string, BaseChunkParser> {
   return new Map<string, BaseChunkParser>([
-    [CHUNK_TYPES.HEADER, new HeaderChunkParser()],
-    [CHUNK_TYPES.DATAPOOL, new DatapoolChunkParser()],
+    [PARSED_CHUNK_TYPES.HEADER, new HeaderChunkParser()],
+    [PARSED_CHUNK_TYPES.DATAPOOL, new DatapoolChunkParser()],
     // Add more default parsers here as they are created
   ]);
 }

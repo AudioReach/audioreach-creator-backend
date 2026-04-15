@@ -7,6 +7,7 @@ import type {
   NaturalId,
   SystemId,
 } from '../../../../shared/types/branded-ids.js';
+import {KvHashGenerator} from '../../../../shared/utilities/kv-hash-generator.js';
 
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
@@ -41,6 +42,15 @@ export class ForeignKeyMapper {
   >();
   private dataLinkMappings = new Map<string, SystemId>();
   private controlLinkMappings = new Map<string, SystemId>();
+
+  // KeyVector deduplication support
+  private keyVectorMappings = new Map<
+    string,
+    {
+      systemId: SystemId;
+      valueSystemIds: number[];
+    }
+  >();
 
   constructor() {}
 
@@ -439,6 +449,90 @@ export class ForeignKeyMapper {
   }
 
   /**
+   * Add a KeyVector mapping.
+   * Called by builder after generating systemId for a new KeyVector.
+   *
+   * @param valueSystemIds - Array of value systemIds that make up the KeyVector
+   * @param systemId - The generated systemId for this KeyVector
+   */
+  addKeyVectorMapping(valueSystemIds: number[], systemId: SystemId): void {
+    const kvHash = KvHashGenerator.generateHash(valueSystemIds);
+
+    if (this.keyVectorMappings.has(kvHash)) {
+      throw new Error(
+        `KeyVector with hash ${kvHash} already mapped to systemId ${this.keyVectorMappings.get(kvHash)?.systemId}`,
+      );
+    }
+
+    this.keyVectorMappings.set(kvHash, {
+      systemId,
+      valueSystemIds: [...valueSystemIds],
+    });
+  }
+
+  /**
+   * Get systemId for a KeyVector if it exists.
+   *
+   * @param valueSystemIds - Array of value systemIds
+   * @returns systemId if KeyVector exists, undefined otherwise
+   */
+  getKeyVectorSystemId(valueSystemIds: number[]): SystemId | undefined {
+    const kvHash = KvHashGenerator.generateHash(valueSystemIds);
+    return this.keyVectorMappings.get(kvHash)?.systemId;
+  }
+
+  /**
+   * Check if a KeyVector already has a mapping.
+   */
+  hasKeyVectorMapping(valueSystemIds: number[]): boolean {
+    const kvHash = KvHashGenerator.generateHash(valueSystemIds);
+    return this.keyVectorMappings.has(kvHash);
+  }
+
+  /**
+   * Get hash for a KeyVector (for deduplication checks).
+   *
+   * @param valueSystemIds - Array of value systemIds
+   * @returns SHA-256 hash string
+   */
+  getKeyVectorHash(valueSystemIds: number[]): string {
+    return KvHashGenerator.generateHash(valueSystemIds);
+  }
+
+  /**
+   * Get all unique KeyVectors with their systemIds for DB insertion.
+   * Returns array of KeyVectors ready for bulk insert.
+   */
+  getAllKeyVectors(): Array<{
+    systemId: SystemId;
+    kvHash: string;
+    valueSystemIds: number[];
+  }> {
+    const result: Array<{
+      systemId: SystemId;
+      kvHash: string;
+      valueSystemIds: number[];
+    }> = [];
+
+    for (const [kvHash, entry] of this.keyVectorMappings) {
+      result.push({
+        systemId: entry.systemId,
+        kvHash,
+        valueSystemIds: entry.valueSystemIds,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Get count of unique KeyVectors tracked.
+   */
+  getKeyVectorCount(): number {
+    return this.keyVectorMappings.size;
+  }
+
+  /**
    * Clear all mappings
    */
   clear(): void {
@@ -454,6 +548,7 @@ export class ForeignKeyMapper {
     this.moduleControlPortMappings.clear();
     this.dataLinkMappings.clear();
     this.controlLinkMappings.clear();
+    this.keyVectorMappings.clear();
   }
 
   /**
@@ -472,6 +567,7 @@ export class ForeignKeyMapper {
     moduleControlPortMappings: number;
     dataLinkMappings: number;
     controlLinkMappings: number;
+    keyVectorMappings: number;
   } {
     return {
       keyMappings: this.keyDefinitionMappings.size,
@@ -487,6 +583,7 @@ export class ForeignKeyMapper {
       moduleControlPortMappings: this.moduleControlPortMappings.size,
       dataLinkMappings: this.dataLinkMappings.size,
       controlLinkMappings: this.controlLinkMappings.size,
+      keyVectorMappings: this.keyVectorMappings.size,
     };
   }
 }

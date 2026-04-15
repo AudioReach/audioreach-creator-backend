@@ -4,7 +4,7 @@
  */
 import type {JsonObject} from '../../../../../shared/types/json-types.js';
 import {HeaderEntity} from '../../../../../domain/entities/common/entities/header.entity.js';
-import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {ACDB_RAW_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import {
   HeaderChunk,
   type ACDBVersionInfo,
@@ -35,11 +35,13 @@ export class HeaderEntityBuilder extends BaseEntityBuilder<
   HeaderEntityData
 > {
   readonly entityType = 'HEADER_ENTITY';
-  readonly requiredChunks = [CHUNK_TYPES.HEADER];
+  readonly requiredChunks = [ACDB_RAW_CHUNK_TYPES.HEADER];
   readonly isSimple = true; // Simple entity, prefer direct creation
 
   create(context: EntityBuilderContext): HeaderEntity {
-    const headerChunk = context.chunks.get(CHUNK_TYPES.HEADER) as HeaderChunk;
+    const headerChunk = context.chunks.get(
+      ACDB_RAW_CHUNK_TYPES.HEADER,
+    ) as HeaderChunk;
 
     if (!headerChunk) {
       throw new Error('HEADER chunk is required for HeaderEntity');
@@ -67,7 +69,9 @@ export class HeaderEntityBuilder extends BaseEntityBuilder<
   }
 
   extractRequiredData(context: EntityBuilderContext): HeaderEntityData {
-    const headerChunk = context.chunks.get(CHUNK_TYPES.HEADER) as HeaderChunk;
+    const headerChunk = context.chunks.get(
+      ACDB_RAW_CHUNK_TYPES.HEADER,
+    ) as HeaderChunk;
 
     if (!headerChunk) {
       throw new Error('HEADER chunk is required for HeaderEntity');

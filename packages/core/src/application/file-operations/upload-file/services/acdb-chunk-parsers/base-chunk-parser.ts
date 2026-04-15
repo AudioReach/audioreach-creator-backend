@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {ParsedChunkType} from '../../../shared/constants/chunk-types.js';
 import type {BaseChunk} from '../../../shared/acdb-chunks/base-chunk.js';
 import type {ChunkParseContext} from '../../models/chunk-parse-context.js';
 
@@ -14,7 +15,7 @@ import type {ChunkParseContext} from '../../models/chunk-parse-context.js';
  */
 export abstract class BaseChunkParser<T extends BaseChunk = BaseChunk> {
   /** Unique identifier for the chunk type this parser handles */
-  abstract readonly chunkType: string;
+  abstract readonly chunkType: ParsedChunkType;
 
   /**
    * Parse chunk from context

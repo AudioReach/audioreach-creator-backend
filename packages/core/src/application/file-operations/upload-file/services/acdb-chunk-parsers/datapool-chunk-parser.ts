@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {
+  ACDB_RAW_CHUNK_TYPES,
+  PARSED_CHUNK_TYPES,
+} from '../../../shared/constants/chunk-types.js';
 import {BaseChunkParser} from './base-chunk-parser.js';
 import {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js';
 import type {ChunkParseContext} from '../../models/chunk-parse-context.js';
@@ -19,11 +22,11 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
  * - Stores in optimized arrays for structuredClone efficiency
  */
 export class DatapoolChunkParser extends BaseChunkParser<DatapoolChunk> {
-  readonly chunkType = CHUNK_TYPES.DATAPOOL;
+  readonly chunkType = PARSED_CHUNK_TYPES.DATAPOOL;
 
   parse(context: ChunkParseContext): DatapoolChunk {
     // Get the DATAPOOL chunk data from context
-    const data = context.rawChunks?.get(this.chunkType);
+    const data = context.rawChunks?.get(ACDB_RAW_CHUNK_TYPES.DATAPOOL);
     if (!data) {
       throw new Error(`DATAPOOL chunk not found in context`);
     }

@@ -5,7 +5,6 @@
 
 import {jest} from '@jest/globals';
 import {ForeignKeyMapper} from '../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
-import type {BulkKeyDefinitionInsertResult} from '../../../../../../src/application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 import {
   asNaturalId,
   asSystemId,
@@ -539,6 +538,107 @@ describe('ForeignKeyMapper', () => {
       const stats = mapper.getStats();
       expect(stats.keyMappings).toBe(0);
       expect(stats.valueMappings).toBe(0);
+    });
+  });
+
+  describe('KeyVector Methods', () => {
+    describe('addKeyVectorMapping', () => {
+      it('should store KeyVector mapping', () => {
+        const valueSystemIds = [100, 200, 300];
+        const keyVectorSystemId = asSystemId(5000);
+
+        mapper.addKeyVectorMapping(valueSystemIds, keyVectorSystemId);
+
+        const retrieved = mapper.getKeyVectorSystemId(valueSystemIds);
+        expect(retrieved).toBe(keyVectorSystemId);
+      });
+
+      it('should deduplicate KeyVectors with same value system IDs', () => {
+        const valueSystemIds1 = [100, 200, 300];
+        const valueSystemIds2 = [100, 200, 300]; // Same values
+        const keyVectorSystemId = asSystemId(5000);
+
+        mapper.addKeyVectorMapping(valueSystemIds1, keyVectorSystemId);
+
+        const retrieved = mapper.getKeyVectorSystemId(valueSystemIds2);
+        expect(retrieved).toBe(keyVectorSystemId);
+      });
+
+      it('should distinguish KeyVectors with different value system IDs', () => {
+        const valueSystemIds1 = [100, 200, 300];
+        const valueSystemIds2 = [100, 200, 400]; // Different last value
+        const keyVectorSystemId1 = asSystemId(5000);
+        const keyVectorSystemId2 = asSystemId(5001);
+
+        mapper.addKeyVectorMapping(valueSystemIds1, keyVectorSystemId1);
+        mapper.addKeyVectorMapping(valueSystemIds2, keyVectorSystemId2);
+
+        expect(mapper.getKeyVectorSystemId(valueSystemIds1)).toBe(
+          keyVectorSystemId1,
+        );
+        expect(mapper.getKeyVectorSystemId(valueSystemIds2)).toBe(
+          keyVectorSystemId2,
+        );
+      });
+
+      it('should handle empty value system IDs array', () => {
+        const valueSystemIds: number[] = [];
+        const keyVectorSystemId = asSystemId(5000);
+
+        mapper.addKeyVectorMapping(valueSystemIds, keyVectorSystemId);
+
+        const retrieved = mapper.getKeyVectorSystemId(valueSystemIds);
+        expect(retrieved).toBe(keyVectorSystemId);
+      });
+    });
+
+    describe('getKeyVectorSystemId', () => {
+      it('should retrieve existing KeyVector systemId', () => {
+        const valueSystemIds = [100, 200, 300];
+        const keyVectorSystemId = asSystemId(5000);
+
+        mapper.addKeyVectorMapping(valueSystemIds, keyVectorSystemId);
+
+        const retrieved = mapper.getKeyVectorSystemId(valueSystemIds);
+        expect(retrieved).toBe(keyVectorSystemId);
+      });
+
+      it('should return undefined for non-existent KeyVector', () => {
+        const valueSystemIds = [100, 200, 300];
+
+        const retrieved = mapper.getKeyVectorSystemId(valueSystemIds);
+        expect(retrieved).toBeUndefined();
+      });
+    });
+
+    describe('getKeyVectorCount', () => {
+      it('should return zero for empty mapper', () => {
+        expect(mapper.getKeyVectorCount()).toBe(0);
+      });
+
+      it('should return correct count of unique KeyVectors', () => {
+        mapper.addKeyVectorMapping([100, 200], asSystemId(5000));
+        mapper.addKeyVectorMapping([300, 400], asSystemId(5001));
+        mapper.addKeyVectorMapping([500, 600], asSystemId(5002));
+
+        expect(mapper.getKeyVectorCount()).toBe(3);
+      });
+
+      it('should not double-count duplicate KeyVectors', () => {
+        const valueSystemIds1 = [100, 200, 300];
+        const valueSystemIds2 = [100, 200, 300]; // Same values
+        const keyVectorSystemId = asSystemId(5000);
+
+        mapper.addKeyVectorMapping(valueSystemIds1, keyVectorSystemId);
+
+        // Attempting to add the same KeyVector again should throw
+        expect(() => {
+          mapper.addKeyVectorMapping(valueSystemIds2, asSystemId(5001));
+        }).toThrow('KeyVector with hash');
+
+        // Count should still be 1
+        expect(mapper.getKeyVectorCount()).toBe(1);
+      });
     });
   });
 });

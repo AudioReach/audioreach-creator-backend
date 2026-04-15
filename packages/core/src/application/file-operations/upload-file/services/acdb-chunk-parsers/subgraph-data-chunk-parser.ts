@@ -10,7 +10,7 @@ import {
 } from '../../../shared/acdb-chunks/subgraph-data-chunk.js';
 import {UsecaseDataChunk} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
 import {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js';
-import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ChunkParseContext} from '../../models/chunk-parse-context.js';
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import {SpfProperties} from '../../../shared/acdb-chunks/spf-properties/index.js';
@@ -22,7 +22,7 @@ import type {Logger} from '../../../../../shared/types/logger.interface.js';
  * This parser works with already-parsed chunks rather than raw binary data.
  */
 export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> {
-  readonly chunkType = CHUNK_TYPES.SUBGRAPH_DATA;
+  readonly chunkType = PARSED_CHUNK_TYPES.SUBGRAPH_DATA;
 
   /** Track processed subgraph IDs to avoid duplicates */
   private processedSubgraphIds = new Set<number>();
@@ -43,10 +43,10 @@ export class SubgraphDataChunkParser extends BaseChunkParser<SubgraphDataChunk> 
     }
 
     const usecaseChunk = context.parsedChunks.get(
-      CHUNK_TYPES.GKV_TABLE,
+      PARSED_CHUNK_TYPES.USECASE_DATA,
     ) as UsecaseDataChunk;
     const datapoolChunk = context.parsedChunks.get(
-      CHUNK_TYPES.DATAPOOL,
+      PARSED_CHUNK_TYPES.DATAPOOL,
     ) as DatapoolChunk;
 
     if (!usecaseChunk) {

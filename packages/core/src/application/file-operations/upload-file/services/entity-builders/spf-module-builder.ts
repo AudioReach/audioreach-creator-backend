@@ -32,6 +32,8 @@ import type {
 } from '../../types/issue-collection.js';
 import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
+import type {ParsedAcdb} from '../../models/parsed-acdb.js';
+import {CalibrationDataBuilder} from './calibration-data-builder.js';
 
 /**
  * Dynamic control port ID starts from this value
@@ -67,6 +69,7 @@ export class SpfModuleBuilder {
     modulePropertyConfigs: ModulePropertyConfig[] = [],
     spfModuleDefinitions: AwspSpfModuleDefinition[] = [],
     dynamicControlPortInfo?: DynamicControlPortInfo,
+    parsedAcdb?: ParsedAcdb,
   ): Promise<BuildResult<SpfModule>> {
     // Input validation
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
@@ -103,6 +106,15 @@ export class SpfModuleBuilder {
     // Step 2: Assign system IDs to all successfully built entities
     if (result.entities.length > 0) {
       await this.assignSystemIds(result.entities, fileSystemId);
+    }
+
+    // Step 3: Attach calibration data if ACDB provided
+    if (parsedAcdb && result.entities.length > 0) {
+      await this.attachCalibrationData(
+        result.entities,
+        parsedAcdb,
+        fileSystemId,
+      );
     }
 
     this.logger?.logInfo({
@@ -199,6 +211,50 @@ export class SpfModuleBuilder {
         asNaturalId(port.portId),
         asSystemId(port.systemId),
       );
+    }
+  }
+
+  /**
+   * Attach calibration data to SPF modules.
+   * Builds KvData with KeyVector deduplication and attaches them to their respective modules.
+   */
+  private async attachCalibrationData(
+    spfModules: SpfModule[],
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<void> {
+    const calibrationBuilder = new CalibrationDataBuilder(
+      this.idGenerator,
+      this.logger,
+    );
+
+    try {
+      // Build calibration data grouped by module systemId
+      const kvDataByModule =
+        await calibrationBuilder.buildCalibrationDataByModule(
+          parsedAcdb,
+          this.foreignKeyMapper,
+          fileSystemId,
+        );
+
+      // Attach KvData to their respective modules
+      for (const spfModule of spfModules) {
+        const moduleKvData = kvDataByModule.get(spfModule.systemId);
+        if (moduleKvData) {
+          for (const kvData of moduleKvData) {
+            spfModule.addModuleCkv(kvData);
+          }
+        }
+      }
+    } catch (error) {
+      // Log warning but don't fail the entire build
+      this.logger?.logWarn({
+        msg: `Failed to attach calibration data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        action: 'calibration_attachment_failed',
+        component: 'SpfModuleBuilder',
+        tag: 'calibration-attachment',
+        timestamp: new Date(),
+      });
     }
   }
 

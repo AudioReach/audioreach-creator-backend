@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
 import {BaseChunk} from './base-chunk.js';
-import {CHUNK_TYPES} from '../constants/chunk-types.js';
 import type {SpfProperties} from './spf-properties/index.js';
 import type {
   AcdbSubgraphProperties,
@@ -35,8 +35,7 @@ export interface SubgraphDataEntry {
  * Dependencies: GKV_TABLE, DATAPOOL (parsed chunks, not raw binary data)
  */
 export class SubgraphDataChunk extends BaseChunk {
-  readonly chunkType = CHUNK_TYPES.SUBGRAPH_DATA;
-
+  readonly chunkType = PARSED_CHUNK_TYPES.SUBGRAPH_DATA;
   /** Array of extracted subgraph data entries */
   subgraphData: SubgraphDataEntry[] = [];
 

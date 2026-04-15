@@ -4,9 +4,9 @@
  */
 
 import {BaseChunk} from './base-chunk.js';
-import {CHUNK_TYPES} from '../constants/chunk-types.js';
 import type {DataLink, ControlLink} from './spf-properties/types.js';
 import type {SubgraphPair} from '../../../../shared/types/subgraph-pair.js';
+import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
 
 /**
  * Represents a single subgraph pair entry with its connections
@@ -30,8 +30,7 @@ export interface SubgraphPairEntry {
  * Dependencies: SCLU, SCDE, SCDO, DATAPOOL
  */
 export class SubgraphPairDataChunk extends BaseChunk {
-  readonly chunkType = CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT;
-
+  readonly chunkType = PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA;
   /** Array of subgraph pair entries, each containing connection data */
   subgraphPairs: SubgraphPairEntry[] = [];
 

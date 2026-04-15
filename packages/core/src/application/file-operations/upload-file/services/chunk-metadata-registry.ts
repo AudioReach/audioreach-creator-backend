@@ -4,158 +4,174 @@
  */
 
 import {
-  CHUNK_TYPES,
-  type ChunkType,
+  ACDB_RAW_CHUNK_TYPES,
+  PARSED_CHUNK_TYPES,
+  type AcdbRawChunkType,
+  type ParsedChunkType,
 } from '../../shared/constants/chunk-types.js';
 
 /**
- * Represents a dependency with its type specification
+ * Metadata for ACDB parsers.
+ * Defines dependencies and descriptions for each parser type.
  */
-export interface ChunkDependency {
-  /** The chunk type this depends on */
-  chunkType: ChunkType;
-  /** Whether this dependency needs raw binary data or parsed chunk object */
-  dependencyType: 'raw' | 'parsed';
-}
-
-/**
- * Metadata for ACDB chunk types.
- * Defines dependencies and descriptions for each chunk type.
- */
-export interface ChunkTypeMetadata {
-  /** Chunk type identifier */
-  type: ChunkType;
-  /** List of chunk dependencies with their types */
-  dependencies: ChunkDependency[];
-  /** Human-readable description of the chunk */
+export interface ParserMetadata {
+  /** Parsed chunk type identifier */
+  parserType: ParsedChunkType;
+  /** Raw chunk dependencies (need binary data from file) */
+  rawDependencies: AcdbRawChunkType[];
+  /** Parsed chunk dependencies (need already-parsed chunks) */
+  parsedDependencies: ParsedChunkType[];
+  /** Human-readable description of the parser */
   description: string;
 }
 
 /**
- * Static registry of chunk type metadata.
- * Provides centralized metadata for all ACDB chunk types without needing
+ * Static registry of parser metadata.
+ * Provides centralized metadata for all ACDB parsers without needing
  * to instantiate chunk objects.
  *
  * Benefits:
  * - No dummy chunk creation needed
  * - Centralized metadata management
- * - Easy to extend with new chunk types
+ * - Easy to extend with new parser types
  * - Type-safe at compile time
  */
 export class ChunkMetadataRegistry {
-  private static metadata: ChunkTypeMetadata[] = [
+  private static metadata: ParserMetadata[] = [
     {
-      type: CHUNK_TYPES.HEADER,
-      dependencies: [],
+      parserType: PARSED_CHUNK_TYPES.HEADER,
+      rawDependencies: [ACDB_RAW_CHUNK_TYPES.HEADER],
+      parsedDependencies: [],
       description: 'File header with version and metadata',
     },
     {
-      type: CHUNK_TYPES.DATAPOOL,
-      dependencies: [],
+      parserType: PARSED_CHUNK_TYPES.DATAPOOL,
+      rawDependencies: [ACDB_RAW_CHUNK_TYPES.DATAPOOL],
+      parsedDependencies: [],
       description: 'Datapool chunk',
     },
     {
-      type: CHUNK_TYPES.GKV_TABLE,
-      dependencies: [
-        {chunkType: CHUNK_TYPES.GKV_LUT, dependencyType: 'raw'},
-        {chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed'},
+      parserType: PARSED_CHUNK_TYPES.USECASE_DATA,
+      rawDependencies: [
+        ACDB_RAW_CHUNK_TYPES.GKV_TABLE,
+        ACDB_RAW_CHUNK_TYPES.GKV_LUT,
       ],
+      parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
       description: 'Usecase data with GKV table and lookup functionality',
     },
     {
-      type: CHUNK_TYPES.SUBGRAPH_DATA,
-      dependencies: [
-        {chunkType: CHUNK_TYPES.GKV_TABLE, dependencyType: 'parsed'},
-        {chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed'},
+      parserType: PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
+      rawDependencies: [],
+      parsedDependencies: [
+        PARSED_CHUNK_TYPES.USECASE_DATA,
+        PARSED_CHUNK_TYPES.DATAPOOL,
       ],
       description:
         'Derived subgraph data extracted from usecase entries and datapool',
     },
     {
-      type: CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
-      dependencies: [
-        {chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF, dependencyType: 'raw'},
-        {chunkType: CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT, dependencyType: 'raw'},
-        {chunkType: CHUNK_TYPES.DATAPOOL, dependencyType: 'parsed'},
+      parserType: PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
+      rawDependencies: [
+        ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+        ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_DEF,
+        ACDB_RAW_CHUNK_TYPES.SUBGRAPH_CONNECTION_DOT,
       ],
+      parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
       description:
         'Subgraph connection pairs with data and control links between subgraphs',
     },
-    // Add more chunk types as they are implemented
+    // Voice calibration chunks
+    {
+      parserType: PARSED_CHUNK_TYPES.VOICE_CALIBRATION_DATA,
+      rawDependencies: [
+        ACDB_RAW_CHUNK_TYPES.VCPM_CALDATA,
+        ACDB_RAW_CHUNK_TYPES.VCPM_MASTER_KEY,
+        ACDB_RAW_CHUNK_TYPES.VCPM_CALIBRATION_KEY_TABLE,
+        ACDB_RAW_CHUNK_TYPES.VCPM_CALIBRATION_DATA_LUT,
+        ACDB_RAW_CHUNK_TYPES.VCPM_CALIBRATION_DATA_DEF,
+      ],
+      // NOTE: DATAPOOL is listed as a parsed dependency to enforce ordering in the orchestrator,
+      // even though the parser itself only uses rawChunks. The parsed DATAPOOL chunk is actually
+      // consumed later by CalibrationDataBuilder.extractModuleParameterPayloadsVoice().
+      // This dependency ensures DATAPOOL is parsed before voice calibration parsing begins.
+      parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
+      description:
+        'Voice calibration data with module-parameter-payload information',
+    },
+    {
+      parserType: PARSED_CHUNK_TYPES.AUDIO_CALIBRATION_DATA,
+      rawDependencies: [
+        ACDB_RAW_CHUNK_TYPES.CALIBRATION_SUBGRAPH_LUT,
+        ACDB_RAW_CHUNK_TYPES.CALIBRATION_KEY_TABLE,
+        ACDB_RAW_CHUNK_TYPES.CALIBRATION_DATA_LUT,
+        ACDB_RAW_CHUNK_TYPES.CALIBRATION_DATA_DEF,
+        ACDB_RAW_CHUNK_TYPES.CALIBRATION_DATA_DOT,
+      ],
+      // NOTE: DATAPOOL is listed as a parsed dependency to enforce ordering in the orchestrator,
+      // even though the parser itself only uses rawChunks. The parsed DATAPOOL chunk is actually
+      // consumed later by CalibrationDataBuilder.extractModuleParameterPayloads().
+      // This dependency ensures DATAPOOL is parsed before audio calibration parsing begins.
+      parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
+      description: 'Audio calibration data from CALIBRATION_SUBGRAPH_LUT chunk',
+    },
   ];
 
   /**
-   * Get metadata for a specific chunk type
-   * @param chunkType - The chunk type identifier
-   * @returns Chunk metadata if found, undefined otherwise
+   * Get metadata for a specific parser type
+   * @param parserType - The parser type identifier
+   * @returns Parser metadata if found, undefined otherwise
    */
-  static getMetadata(chunkType: string): ChunkTypeMetadata | undefined {
-    return this.metadata.find(meta => meta.type === chunkType);
+  static getMetadata(parserType: string): ParserMetadata | undefined {
+    return this.metadata.find(meta => meta.parserType === parserType);
   }
 
   /**
-   * Get dependencies for a specific chunk type
-   * @param chunkType - The chunk type identifier
-   * @returns Array of chunk types this chunk depends on
+   * Get all dependencies for a specific parser type
+   * @param parserType - The parser type identifier
+   * @returns Array of all dependency chunk types (both raw and parsed)
    */
-  static getDependencies(chunkType: string): ChunkType[] {
-    const meta = this.metadata.find(meta => meta.type === chunkType);
-    return meta?.dependencies.map(dep => dep.chunkType) || [];
+  static getDependencies(
+    parserType: string,
+  ): Array<AcdbRawChunkType | ParsedChunkType> {
+    const meta = this.metadata.find(meta => meta.parserType === parserType);
+    return meta ? [...meta.rawDependencies, ...meta.parsedDependencies] : [];
   }
 
   /**
-   * Get raw dependencies for a specific chunk type
-   * @param chunkType - The chunk type identifier
-   * @returns Array of chunk types that need raw binary data
+   * Get raw dependencies for a specific parser type
+   * @param parserType - The parser type identifier
+   * @returns Array of raw chunk types that need raw binary data from file
    */
-  static getRawDependencies(chunkType: string): ChunkType[] {
-    const meta = this.metadata.find(meta => meta.type === chunkType);
-    return (
-      meta?.dependencies
-        .filter(dep => dep.dependencyType === 'raw')
-        .map(dep => dep.chunkType) || []
-    );
+  static getRawDependencies(parserType: string): AcdbRawChunkType[] {
+    const meta = this.metadata.find(meta => meta.parserType === parserType);
+    return meta?.rawDependencies || [];
   }
 
   /**
-   * Get parsed dependencies for a specific chunk type
-   * @param chunkType - The chunk type identifier
-   * @returns Array of chunk types that need parsed chunk objects
+   * Get parsed dependencies for a specific parser type
+   * @param parserType - The parser type identifier
+   * @returns Array of parsed chunk types that need already-parsed chunk objects
    */
-  static getParsedDependencies(chunkType: string): ChunkType[] {
-    const meta = this.metadata.find(meta => meta.type === chunkType);
-    return (
-      meta?.dependencies
-        .filter(dep => dep.dependencyType === 'parsed')
-        .map(dep => dep.chunkType) || []
-    );
+  static getParsedDependencies(parserType: string): ParsedChunkType[] {
+    const meta = this.metadata.find(meta => meta.parserType === parserType);
+    return meta?.parsedDependencies || [];
   }
 
   /**
-   * Get all dependency information for a specific chunk type
-   * @param chunkType - The chunk type identifier
-   * @returns Array of chunk dependencies with their types
+   * Get all registered parser types
+   * @returns Array of all parser type identifiers
    */
-  static getDependencyInfo(chunkType: string): ChunkDependency[] {
-    const meta = this.metadata.find(meta => meta.type === chunkType);
-    return meta?.dependencies || [];
+  static getAllParserTypes(): ParsedChunkType[] {
+    return this.metadata.map(meta => meta.parserType);
   }
 
   /**
-   * Get all registered chunk types
-   * @returns Array of all chunk type identifiers
+   * Register a new parser type (for extensibility)
+   * @param metadata - Metadata for the new parser type
    */
-  static getAllChunkTypes(): ChunkType[] {
-    return this.metadata.map(meta => meta.type);
-  }
-
-  /**
-   * Register a new chunk type (for extensibility)
-   * @param metadata - Metadata for the new chunk type
-   */
-  static registerChunkType(metadata: ChunkTypeMetadata): void {
+  static registerParserType(metadata: ParserMetadata): void {
     const existingIndex = this.metadata.findIndex(
-      meta => meta.type === metadata.type,
+      meta => meta.parserType === metadata.parserType,
     );
     if (existingIndex === -1) {
       this.metadata.push(metadata);
@@ -165,37 +181,40 @@ export class ChunkMetadataRegistry {
   }
 
   /**
-   * Check if a chunk type is registered
-   * @param chunkType - The chunk type identifier
-   * @returns true if chunk type is registered, false otherwise
+   * Check if a parser type is registered
+   * @param parserType - The parser type identifier
+   * @returns true if parser type is registered, false otherwise
    */
-  static hasChunkType(chunkType: string): boolean {
-    return this.metadata.some(meta => meta.type === chunkType);
+  static hasParserType(parserType: string): boolean {
+    return this.metadata.some(meta => meta.parserType === parserType);
   }
 
   /**
-   * Check if a chunk type is known (either as a main chunk or dependency)
+   * Check if a chunk type is known (either as a parser or dependency)
    * @param chunkType - The chunk type identifier
-   * @returns true if chunk type is registered or referenced as a dependency
+   * @returns true if chunk type is registered as parser or referenced as a dependency
    */
   static isKnownChunkType(chunkType: string): boolean {
-    // Check if it's a main registered chunk
-    if (this.hasChunkType(chunkType)) {
+    // Check if it's a main registered parser
+    if (this.hasParserType(chunkType)) {
       return true;
     }
 
     // Check if it's referenced as a dependency
-    return this.metadata.some(meta =>
-      meta.dependencies.some(dep => dep.chunkType === chunkType),
+    return this.metadata.some(
+      meta =>
+        meta.rawDependencies.includes(chunkType as AcdbRawChunkType) ||
+        meta.parsedDependencies.includes(chunkType as ParsedChunkType),
     );
   }
 
   /**
-   * Get description for a chunk type
-   * @param chunkType - The chunk type identifier
+   * Get description for a parser type
+   * @param parserType - The parser type identifier
    * @returns Description if found, undefined otherwise
    */
-  static getDescription(chunkType: string): string | undefined {
-    return this.metadata.find(meta => meta.type === chunkType)?.description;
+  static getDescription(parserType: string): string | undefined {
+    return this.metadata.find(meta => meta.parserType === parserType)
+      ?.description;
   }
 }

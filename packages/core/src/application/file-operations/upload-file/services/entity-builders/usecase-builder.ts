@@ -10,7 +10,7 @@ import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.
 import type {SubgraphDataChunk} from '../../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {SubgraphPairDataChunk} from '../../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
 import type {ParsedAcdb} from '../../models/parsed-acdb.js';
-import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
@@ -200,7 +200,7 @@ export class UsecaseBuilder {
    */
   private getModuleSystemIdsFromSubgraphs(sgList: number[]): number[] {
     const subgraphDataChunk = this.parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
     if (!subgraphDataChunk) {
       return [];
@@ -231,11 +231,11 @@ export class UsecaseBuilder {
    */
   private getFilteredDataLinkSystemIds(entry: UsecaseEntry): number[] {
     const subgraphDataChunk = this.parsedAcdb.getChunk<SubgraphDataChunk>(
-      CHUNK_TYPES.SUBGRAPH_DATA,
+      PARSED_CHUNK_TYPES.SUBGRAPH_DATA,
     );
     const subgraphPairDataChunk =
       this.parsedAcdb.getChunk<SubgraphPairDataChunk>(
-        CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT,
+        PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA,
       );
 
     if (!subgraphDataChunk) {

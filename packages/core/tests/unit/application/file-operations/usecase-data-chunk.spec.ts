@@ -5,7 +5,10 @@
 
 import {describe, it, expect} from '@jest/globals';
 import {UsecaseDataChunkParser} from '../../../../src/application/file-operations/upload-file/services/acdb-chunk-parsers/usecase-data-chunk-parser.js';
-import {CHUNK_TYPES} from '../../../../src/application/file-operations/shared/constants/chunk-types.js';
+import {
+  PARSED_CHUNK_TYPES,
+  ACDB_RAW_CHUNK_TYPES,
+} from '../../../../src/application/file-operations/shared/constants/chunk-types.js';
 import {
   KeyValue,
   KeyValuePairList,
@@ -21,7 +24,7 @@ describe('UsecaseDataChunkParser', () => {
   });
 
   it('should have correct chunk type', () => {
-    expect(parser.chunkType).toBe(CHUNK_TYPES.GKV_TABLE);
+    expect(parser.chunkType).toBe(PARSED_CHUNK_TYPES.USECASE_DATA);
   });
 
   it('should create KeyValue instances correctly', () => {
@@ -103,7 +106,9 @@ describe('UsecaseDataChunkParser', () => {
 
   it('should throw error when GKV_TABLE chunk is missing', () => {
     const context = {
-      rawChunks: new Map([[CHUNK_TYPES.GKV_LUT, new Uint8Array([1, 2, 3, 4])]]),
+      rawChunks: new Map([
+        [ACDB_RAW_CHUNK_TYPES.GKV_LUT, new Uint8Array([1, 2, 3, 4])],
+      ]),
     };
 
     expect(() => {
@@ -114,7 +119,7 @@ describe('UsecaseDataChunkParser', () => {
   it('should throw error when GKV_LUT chunk is missing', () => {
     const context = {
       rawChunks: new Map([
-        [CHUNK_TYPES.GKV_TABLE, new Uint8Array([1, 2, 3, 4])],
+        [ACDB_RAW_CHUNK_TYPES.GKV_TABLE, new Uint8Array([1, 2, 3, 4])],
       ]),
     };
 

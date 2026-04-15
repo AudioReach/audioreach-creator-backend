@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import type {BaseChunk} from '../../shared/acdb-chunks/base-chunk.js';
 import {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
 import {DatapoolChunk} from '../../shared/acdb-chunks/datapool-chunk.js';
@@ -16,6 +16,10 @@ import {DatapoolChunkParser} from './acdb-chunk-parsers/datapool-chunk-parser.js
 import {UsecaseDataChunkParser} from './acdb-chunk-parsers/usecase-data-chunk-parser.js';
 import {SubgraphDataChunkParser} from './acdb-chunk-parsers/subgraph-data-chunk-parser.js';
 import {SubgraphPairDataChunkParser} from './acdb-chunk-parsers/subgraph-pair-data-chunk-parser.js';
+import {VoiceCalibrationChunkParser} from './acdb-chunk-parsers/voice-calibration-chunk-parser.js';
+import {AudioCalibrationChunkParser} from './acdb-chunk-parsers/audio-calibration-chunk-parser.js';
+import {VoiceCalibrationChunk} from '../../shared/acdb-chunks/voice-calibration-chunk.js';
+import {AudioCalibrationChunk} from '../../shared/acdb-chunks/audio-calibration-chunk.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 
 /**
@@ -28,29 +32,50 @@ export class AcdbParser {
   private readonly usecaseDataParser = new UsecaseDataChunkParser();
   private readonly subgraphDataParser: SubgraphDataChunkParser;
   private readonly subgraphPairDataParser = new SubgraphPairDataChunkParser();
+  private readonly voiceCalibrationParser: VoiceCalibrationChunkParser;
+  private readonly audioCalibrationParser: AudioCalibrationChunkParser;
+  private readonly logger?: Logger;
 
   constructor(logger?: Logger) {
+    this.logger = logger;
     this.subgraphDataParser = new SubgraphDataChunkParser(logger);
+    this.voiceCalibrationParser = new VoiceCalibrationChunkParser(logger);
+    this.audioCalibrationParser = new AudioCalibrationChunkParser(logger);
   }
 
   /**
    * Parse a single chunk based on its type
    * All raw data (including main chunk) is now provided in context.rawChunks
    */
-  parseChunk(chunkType: string, context: ChunkParseContext): BaseChunk {
-    switch (chunkType) {
-      case CHUNK_TYPES.HEADER:
+  parseChunk(parserType: string, context: ChunkParseContext): BaseChunk {
+    switch (parserType) {
+      case PARSED_CHUNK_TYPES.HEADER:
         return this.parseHeaderChunk(context);
-      case CHUNK_TYPES.DATAPOOL:
+      case PARSED_CHUNK_TYPES.DATAPOOL:
         return this.parseDatapoolChunk(context);
-      case CHUNK_TYPES.GKV_TABLE:
+      case PARSED_CHUNK_TYPES.USECASE_DATA:
         return this.parseUsecaseDataChunk(context);
-      case CHUNK_TYPES.SUBGRAPH_DATA:
+      case PARSED_CHUNK_TYPES.SUBGRAPH_DATA:
         return this.parseSubgraphDataChunk(context);
-      case CHUNK_TYPES.SUBGRAPH_CONNECTION_LUT:
+      case PARSED_CHUNK_TYPES.SUBGRAPH_PAIR_DATA:
         return this.parseSubgraphPairDataChunk(context);
+      case PARSED_CHUNK_TYPES.VOICE_CALIBRATION_DATA:
+        return this.parseVoiceCalibrationChunk(context);
+      case PARSED_CHUNK_TYPES.AUDIO_CALIBRATION_DATA:
+        return this.parseAudioCalibrationChunk(context);
       default:
-        throw new Error(`Unknown chunk type: ${chunkType}`);
+        // Log warning for unknown parser types but don't crash
+        if (this.logger) {
+          this.logger.logWarn({
+            msg: `Unknown parser type encountered: ${parserType}. Skipping parsing.`,
+            action: 'parse_unknown_chunk',
+            component: 'AcdbParser',
+            tag: 'parsing',
+            timestamp: new Date(),
+          });
+        }
+        // Throw error as this should not happen if orchestrator is working correctly
+        throw new Error(`Unknown parser type: ${parserType}`);
     }
   }
 
@@ -86,11 +111,29 @@ export class AcdbParser {
   }
 
   /**
-   * Parse SUBGRAPH_CONNECTION_LUT chunk using SubgraphPairDataChunkParser
+   * Parse SUBGRAPH_PAIR_DATA chunk using SubgraphPairDataChunkParser
    */
   private parseSubgraphPairDataChunk(
     context: ChunkParseContext,
   ): SubgraphPairDataChunk {
     return this.subgraphPairDataParser.parse(context);
+  }
+
+  /**
+   * Parse VCPM_CALDATA chunk using VoiceCalibrationChunkParser
+   */
+  private parseVoiceCalibrationChunk(
+    context: ChunkParseContext,
+  ): VoiceCalibrationChunk {
+    return this.voiceCalibrationParser.parse(context);
+  }
+
+  /**
+   * Parse CALIBRATION_SUBGRAPH_LUT chunk using AudioCalibrationChunkParser
+   */
+  private parseAudioCalibrationChunk(
+    context: ChunkParseContext,
+  ): AudioCalibrationChunk {
+    return this.audioCalibrationParser.parse(context);
   }
 }

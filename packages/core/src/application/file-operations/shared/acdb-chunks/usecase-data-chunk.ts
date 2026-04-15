@@ -4,9 +4,9 @@
  */
 
 import {BaseChunk} from './base-chunk.js';
-import {CHUNK_TYPES} from '../constants/chunk-types.js';
 import {KeyValuePairList} from '../../../../shared/types/key-value-pair.js';
 import {SubgraphPair} from '../../../../shared/types/subgraph-pair.js';
+import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
 
 /**
  * Represents a single usecase entry with its key-value pairs and subgraph data
@@ -30,8 +30,7 @@ export interface UsecaseEntry {
  * Dependencies: GKV_LUT, DATAPOOL
  */
 export class UsecaseDataChunk extends BaseChunk {
-  readonly chunkType = CHUNK_TYPES.GKV_TABLE;
-
+  readonly chunkType = PARSED_CHUNK_TYPES.USECASE_DATA;
   /** Array of usecase entries, each containing key-value pairs and offsets */
   usecases: UsecaseEntry[] = [];
 }

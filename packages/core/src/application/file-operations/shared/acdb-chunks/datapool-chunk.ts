@@ -4,7 +4,7 @@
  */
 
 import {BaseChunk} from './base-chunk.js';
-import {CHUNK_TYPES} from '../constants/chunk-types.js';
+import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
 
 /**
  * Datapool chunk containing payload data from ACDB file.
@@ -12,7 +12,7 @@ import {CHUNK_TYPES} from '../constants/chunk-types.js';
  * Contains only data properties to ensure efficient structuredClone operations
  */
 export class DatapoolChunk extends BaseChunk {
-  readonly chunkType = CHUNK_TYPES.DATAPOOL;
+  readonly chunkType = PARSED_CHUNK_TYPES.DATAPOOL;
 
   /** Payload data in file order */
   payloads!: Uint8Array[];

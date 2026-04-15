@@ -6,11 +6,12 @@
 /**
  * This class can be used for add or update payload for a param, remove id is enough
  */
+import type {SystemId} from './../../../../shared/types/branded-ids.js';
 import {BinaryPayloadValue} from './binary-payload-value.js';
 
 export class ModuleParameterData extends BinaryPayloadValue {
   constructor(
-    readonly paramDefintionSystemId: number,
+    readonly paramDefintionSystemId: SystemId,
     payload: Uint8Array | null,
   ) {
     super(payload);

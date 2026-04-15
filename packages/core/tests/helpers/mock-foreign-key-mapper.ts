@@ -75,6 +75,14 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     getDataLinkSystemId: jest.fn(),
     getControlLinkSystemId: jest.fn(),
 
+    // KeyVector mappings
+    addKeyVectorMapping: jest.fn(),
+    getKeyVectorSystemId: jest.fn(),
+    hasKeyVectorMapping: jest.fn(),
+    getKeyVectorHash: jest.fn(),
+    getAllKeyVectors: jest.fn(),
+    getKeyVectorCount: jest.fn(),
+
     // Utility methods
     clear: jest.fn(),
     getStats: jest.fn(),
