@@ -20,11 +20,11 @@ export {VcpmConfigProperty} from './vcpm-config-property.js';
 
 // Type definitions
 export type {
-  SubgraphProperty,
-  ContainerProperty,
+  AcdbSubgraphProperties,
+  AcdbContainerProperties,
   SpfModuleInstance,
   SpfModuleInfo,
-  ModuleProperty,
+  AcdbModuleProperties,
   ModulePropertyConfig,
   DataLink,
   ControlLink,

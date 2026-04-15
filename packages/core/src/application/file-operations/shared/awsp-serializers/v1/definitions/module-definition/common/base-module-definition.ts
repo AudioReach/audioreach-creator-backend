@@ -13,7 +13,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import {ParamDefinition} from './param-definition.js';
+import {AwspParamDefinition} from './param-definition.js';
 
 /**
  * Abstract base class for module definitions.
@@ -36,8 +36,8 @@ export abstract class BaseModuleDefinition {
   @Expose()
   @IsArray()
   @ValidateNested({each: true})
-  @Type(() => ParamDefinition)
-  paramDefinitions!: ParamDefinition[];
+  @Type(() => AwspParamDefinition)
+  paramDefinitions!: AwspParamDefinition[];
 
   /** Display name (optional) */
   @Expose()

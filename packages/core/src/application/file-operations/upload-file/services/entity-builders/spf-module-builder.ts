@@ -12,15 +12,26 @@ import type {
 } from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import {
   PORT_IO_TYPE,
   type PortIoType,
 } from '../../../../../domain/entities/common/enums/port-io-type.js';
-import type {SpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
+import type {AwspSpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 import {
   MODULE_PORT_STRATEGIES,
   type ModulePortStrategy,
 } from '../../../shared/awsp-serializers/v1/configuration/index.js';
+import {
+  asNaturalId,
+  asSystemId,
+} from '../../../../../shared/types/branded-ids.js';
+import type {
+  BuildResult,
+  EntityBuildIssue,
+} from '../../types/issue-collection.js';
+import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
  * Dynamic control port ID starts from this value
@@ -40,25 +51,32 @@ export interface DynamicControlPortInfo {
  */
 export class SpfModuleBuilder {
   constructor(
+    private readonly idGenerator: IdGenerationPort,
     private readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly logger?: Logger,
   ) {}
 
   /**
-   * Build SpfModule entities from module instance info
-   * Main API method similar to UsecaseBuilder.buildUsecases()
+   * Build SpfModule entities from module instance info with system IDs assigned
+   * Main API method similar to SubgraphBuilder.buildSubgraphs()
    */
-  buildSpfModules(
+  async buildSpfModules(
     spfModuleInfos: SpfModuleInfo[],
     fileSystemId: number,
     portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
-    spfModuleDefinitions: SpfModuleDefinition[] = [],
+    spfModuleDefinitions: AwspSpfModuleDefinition[] = [],
     dynamicControlPortInfo?: DynamicControlPortInfo,
-  ): SpfModule[] {
+  ): Promise<BuildResult<SpfModule>> {
     // Input validation
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
-      return [];
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
     this.logger?.logInfo({
@@ -69,9 +87,10 @@ export class SpfModuleBuilder {
       timestamp: new Date(),
     });
 
+    // Step 1: Build entities (systemId = 0)
     const moduleDisplayNames =
       this.buildDisplayNameLookup(spfModuleDefinitions);
-    const {spfModules, successCount, errorCount} = this.convertSpfModuleInfos(
+    const result = this.convertSpfModuleInfos(
       spfModuleInfos,
       fileSystemId,
       portStrategy,
@@ -81,12 +100,110 @@ export class SpfModuleBuilder {
       dynamicControlPortInfo,
     );
 
-    this.logConversionComplete(successCount, errorCount);
-    return spfModules;
+    // Step 2: Assign system IDs to all successfully built entities
+    if (result.entities.length > 0) {
+      await this.assignSystemIds(result.entities, fileSystemId);
+    }
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${result.successCount} SPF modules with system IDs assigned, ${result.errorCount} failed`,
+      action: 'spf_module_building_complete',
+      component: 'SpfModuleBuilder',
+      tag: 'spf-module-building',
+      timestamp: new Date(),
+    });
+
+    return result;
+  }
+
+  /**
+   * Assign system IDs to SPF modules and their ports.
+   * Also stores foreign key mappings immediately after ID generation.
+   * Mutates the input objects directly.
+   *
+   * @param spfModules - SPF modules with systemId = 0 (from builder)
+   * @param fileSystemId - File system ID to assign
+   */
+  private async assignSystemIds(
+    spfModules: SpfModule[],
+    fileSystemId: number,
+  ): Promise<void> {
+    for (const spfModule of spfModules) {
+      // Assign system ID to module
+      spfModule.systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      // Assign system IDs to data ports
+      await this.assignDataPortSystemIds(
+        spfModule.dataPorts,
+        fileSystemId,
+        spfModule.systemId,
+      );
+
+      // Assign system IDs to control ports
+      await this.assignControlPortSystemIds(
+        spfModule.controlPorts,
+        fileSystemId,
+        spfModule.systemId,
+      );
+
+      // Store module mapping immediately
+      this.foreignKeyMapper.addSpfModuleMapping(
+        asNaturalId(spfModule.instanceId),
+        asSystemId(spfModule.systemId),
+      );
+    }
+  }
+
+  /**
+   * Assign system IDs to data ports and store mappings
+   * Mutates the port objects directly
+   */
+  private async assignDataPortSystemIds(
+    dataPorts: readonly DataPort[],
+    fileSystemId: number,
+    moduleSystemId: number,
+  ): Promise<void> {
+    for (const port of dataPorts) {
+      // Assign system ID to port
+      port.systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      // Store port mapping
+      this.foreignKeyMapper.addDataPortMapping(
+        asSystemId(moduleSystemId),
+        asNaturalId(port.dataPortId),
+        asSystemId(port.systemId),
+        port.portIoType,
+      );
+    }
+  }
+
+  /**
+   * Assign system IDs to control ports and store mappings
+   * Mutates the port objects directly
+   */
+  private async assignControlPortSystemIds(
+    controlPorts: readonly ControlPort[],
+    fileSystemId: number,
+    moduleSystemId: number,
+  ): Promise<void> {
+    for (const port of controlPorts) {
+      // Assign system ID to port
+      port.systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      // Set nodeSystemId to module's system ID
+      port.nodeSystemId = moduleSystemId;
+
+      // Store port mapping
+      this.foreignKeyMapper.addControlPortMapping(
+        asSystemId(moduleSystemId),
+        asNaturalId(port.portId),
+        asSystemId(port.systemId),
+      );
+    }
   }
 
   private buildDisplayNameLookup(
-    spfModuleDefinitions: SpfModuleDefinition[],
+    spfModuleDefinitions: AwspSpfModuleDefinition[],
   ): Map<number, string> {
     const moduleDisplayNames = new Map<number, string>();
 
@@ -104,16 +221,21 @@ export class SpfModuleBuilder {
     return moduleDisplayNames;
   }
 
+  /**
+   * Convert SPF module infos sequentially in the main thread
+   * Creates objects with systemId = 0 and fileSystemId set (to be assigned later)
+   */
   private convertSpfModuleInfos(
     spfModuleInfos: SpfModuleInfo[],
     fileSystemId: number,
     portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[],
     moduleDisplayNames: Map<number, string>,
-    spfModuleDefinitions: SpfModuleDefinition[],
+    spfModuleDefinitions: AwspSpfModuleDefinition[],
     dynamicControlPortInfo?: DynamicControlPortInfo,
-  ): {spfModules: SpfModule[]; successCount: number; errorCount: number} {
+  ): BuildResult<SpfModule> {
     const spfModules: SpfModule[] = [];
+    const issues: EntityBuildIssue[] = [];
     let successCount = 0;
     let errorCount = 0;
 
@@ -143,12 +265,25 @@ export class SpfModuleBuilder {
           successCount++;
         } catch (error) {
           errorCount++;
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          const issue = this.convertToEntityBuildIssue(
+            errorMessage,
+            moduleInstance.instanceId,
+          );
+          issues.push(issue);
           this.logConversionError(moduleInstance.instanceId, error);
         }
       }
     }
 
-    return {spfModules, successCount, errorCount};
+    return {
+      entities: spfModules,
+      issues,
+      successCount,
+      errorCount,
+      warningCount: 0,
+    };
   }
 
   private logConversionError(instanceId: number, error: unknown): void {
@@ -161,17 +296,18 @@ export class SpfModuleBuilder {
     });
   }
 
-  private logConversionComplete(
-    successCount: number,
-    errorCount: number,
-  ): void {
-    this.logger?.logInfo({
-      msg: `Converted ${successCount} SPF modules successfully, ${errorCount} failed`,
-      action: 'spf_module_conversion_complete',
-      component: 'SpfModuleBuilder',
-      tag: 'spf-module-building',
-      timestamp: new Date(),
-    });
+  private convertToEntityBuildIssue(
+    errorMessage: string,
+    instanceId?: number,
+  ): EntityBuildIssue {
+    return {
+      entityType: ENTITY_TYPES.SPF_MODULE,
+      severity: ISSUE_SEVERITY.ERROR,
+      code: ERROR_CODES.INVALID_ENTITY_DATA,
+      message: errorMessage,
+      entityData:
+        instanceId === undefined ? undefined : `instanceId: ${instanceId}`,
+    };
   }
 
   /**
@@ -184,7 +320,7 @@ export class SpfModuleBuilder {
     portStrategy: ModulePortStrategy,
     modulePropertyConfig?: ModulePropertyConfig,
     moduleDisplayNames?: Map<number, string>,
-    moduleDefinition?: SpfModuleDefinition,
+    moduleDefinition?: AwspSpfModuleDefinition,
     dynamicControlPortInfo?: DynamicControlPortInfo,
   ): SpfModule {
     // Get foreign key mappings
@@ -236,7 +372,9 @@ export class SpfModuleBuilder {
    * Get subgraph systemId from foreign key mapper
    */
   private getSubgraphSystemId(subgraphId: number): number {
-    const systemId = this.foreignKeyMapper.getSubgraphSystemId?.(subgraphId);
+    const systemId = this.foreignKeyMapper.getSubgraphSystemId?.(
+      asNaturalId(subgraphId),
+    );
     if (!systemId) {
       throw new Error(
         `No subgraph systemId mapping found for subgraphId ${subgraphId}`,
@@ -249,7 +387,9 @@ export class SpfModuleBuilder {
    * Get container systemId from foreign key mapper
    */
   private getContainerSystemId(containerId: number): number {
-    const systemId = this.foreignKeyMapper.getContainerSystemId?.(containerId);
+    const systemId = this.foreignKeyMapper.getContainerSystemId?.(
+      asNaturalId(containerId),
+    );
     if (!systemId) {
       throw new Error(
         `No container systemId mapping found for containerId ${containerId}`,
@@ -262,8 +402,9 @@ export class SpfModuleBuilder {
    * Get definition systemId from foreign key mapper
    */
   private getDefinitionSystemId(moduleId: number): number {
-    const systemId =
-      this.foreignKeyMapper.getModuleDefinitionSystemId?.(moduleId);
+    const systemId = this.foreignKeyMapper.getModuleDefinitionSystemId?.(
+      asNaturalId(moduleId),
+    );
     if (!systemId) {
       throw new Error(
         `No module definition systemId mapping found for moduleId ${moduleId}`,
@@ -367,7 +508,7 @@ export class SpfModuleBuilder {
   private createDataPortsFromProperties(
     portStrategy: ModulePortStrategy,
     modulePropertyConfig?: ModulePropertyConfig,
-    moduleDefinition?: SpfModuleDefinition,
+    moduleDefinition?: AwspSpfModuleDefinition,
   ): DataPort[] {
     if (!modulePropertyConfig) {
       return [];
@@ -415,7 +556,7 @@ export class SpfModuleBuilder {
    */
   private createControlPortsFromProperties(
     instanceId: number,
-    moduleDefinition?: SpfModuleDefinition,
+    moduleDefinition?: AwspSpfModuleDefinition,
     dynamicControlPortInfo?: DynamicControlPortInfo,
   ): ControlPort[] {
     const controlPorts: ControlPort[] = [];

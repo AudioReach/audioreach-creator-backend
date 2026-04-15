@@ -8,21 +8,21 @@ import type {ToolPolicy} from '../types/tool-policy-type.js';
 
 export interface ParamDefinitionInit {
   systemId: number;
-  paramId: string;
+  paramId: number;
   name: string;
-  description: string;
-  maxSize: number;
+  description?: string;
+  maxSize?: number;
   toolPolicies: ToolPolicy[];
   type: ParamType;
   elementsStructure: string;
 }
 
 export class ParamDefinition {
-  readonly systemId: number;
-  readonly paramId: string;
+  systemId: number;
+  readonly paramId: number;
   name: string;
-  description: string;
-  maxSize: number;
+  description?: string;
+  maxSize?: number;
   toolPolicies: ToolPolicy[];
   pidType: ParamType;
   elementsStructure: string;

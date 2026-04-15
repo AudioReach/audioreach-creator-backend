@@ -23,9 +23,9 @@ import {
   ContainerType,
   DriverModuleDefinition,
   DriverPropertyDefinition,
-  KeyDefinition,
+  AwspKeyDefinition,
   ProcessorDefinition,
-  SpfModuleDefinition,
+  AwspSpfModuleDefinition,
   SpfPropertyDefinition,
   TagDefinition,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
@@ -102,12 +102,12 @@ export class AwspParser {
     blockName: string,
   ): ClassConstructor<unknown> {
     const classMap: Record<string, ClassConstructor<unknown>> = {
-      [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: KeyDefinition,
+      [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: AwspKeyDefinition,
       [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: TagDefinition,
       [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: SpfPropertyDefinition,
       [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
         DriverPropertyDefinition,
-      [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: SpfModuleDefinition,
+      [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: AwspSpfModuleDefinition,
       [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]:
         DriverModuleDefinition,
       [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: ProcessorDefinition,

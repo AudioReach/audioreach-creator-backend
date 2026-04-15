@@ -9,7 +9,7 @@ import {IsNotEmpty, IsNumber, IsOptional, IsString} from 'class-validator';
 /**
  * Represents a port with identifier and name.
  */
-export class Port {
+export class AwspPort {
   /** Port identifier (required) */
   @Expose()
   @IsNotEmpty()

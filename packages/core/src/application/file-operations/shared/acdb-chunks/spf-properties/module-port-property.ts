@@ -6,7 +6,7 @@
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import type {
   ModulePropertyConfig,
-  ModuleProperty,
+  AcdbModuleProperties,
   PortInfo,
   HeapInfo,
 } from './types.js';
@@ -118,7 +118,7 @@ export class ModulePortProperty {
     view: DataView,
     payload: Uint8Array,
     startPos: number,
-  ): {properties: ModuleProperty[]; newPos: number} {
+  ): {properties: AcdbModuleProperties[]; newPos: number} {
     let pos = startPos;
 
     // Read property count
@@ -131,7 +131,7 @@ export class ModulePortProperty {
     const propCount = BinaryUtils.readUint32(view, pos);
     pos += BinaryUtils.SIZEOF_UINT32;
 
-    const properties: ModuleProperty[] = [];
+    const properties: AcdbModuleProperties[] = [];
 
     for (let j = 0; j < propCount; j++) {
       const result = this.parseModuleProperty(view, payload, pos);
@@ -149,7 +149,7 @@ export class ModulePortProperty {
     view: DataView,
     payload: Uint8Array,
     startPos: number,
-  ): {property: ModuleProperty; newPos: number} {
+  ): {property: AcdbModuleProperties; newPos: number} {
     let pos = startPos;
 
     // Read property ID
@@ -177,7 +177,7 @@ export class ModulePortProperty {
     const propData = payload.slice(pos, pos + propSize);
     pos += propSize;
 
-    const property: ModuleProperty = {
+    const property: AcdbModuleProperties = {
       propertyId: propId,
       data: propData,
     };
@@ -188,7 +188,9 @@ export class ModulePortProperty {
   /**
    * Get properties for a specific module instance
    */
-  getModuleProperties(spfModuleInstanceId: number): ModuleProperty[] | null {
+  getModuleProperties(
+    spfModuleInstanceId: number,
+  ): AcdbModuleProperties[] | null {
     const config = this.modulePropertyConfigs.find(
       c => c.spfModuleInstanceId === spfModuleInstanceId,
     );

@@ -4,14 +4,14 @@
  */
 
 import {Expose} from 'class-transformer';
-import type {ToolPolicy} from '../type/tool-policy.js';
-import type {PidType} from '../type/pid-type.js';
-import type {DefinitionElement} from '../../common/element-types.js';
+import type {AwspToolPolicy} from '../type/tool-policy.js';
+import type {AwspPidType} from '../type/pid-type.js';
+import type {AwspDefinitionElement} from '../../common/element-types.js';
 
 /**
  * Represents a parameter definition with tool policy and elements.
  */
-export class ParamDefinition {
+export class AwspParamDefinition {
   /** Parameter identifier (required) */
   @Expose()
   id!: number;
@@ -22,15 +22,15 @@ export class ParamDefinition {
 
   /** Tool policies (required) */
   @Expose()
-  toolPolicies!: ToolPolicy[];
+  toolPolicies!: AwspToolPolicy[];
 
   /** PID type (required) */
   @Expose()
-  pidType!: PidType;
+  pidType!: AwspPidType;
 
   /** List of element associated with this ParamDefinition (required) */
   @Expose()
-  elements!: DefinitionElement[];
+  elements!: AwspDefinitionElement[];
 
   /** Parameter description (optional) */
   @Expose()

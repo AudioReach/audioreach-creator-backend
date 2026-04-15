@@ -6,7 +6,7 @@
 /**
  * Represents a base element with identification and advanced configuration.
  */
-export abstract class BaseElement {
+export abstract class AwspBaseElement {
   /** Element type (e.g., ConfigElement, ConfigElementArray, Struct, StructArray) (required) */
   elementType!: string;
 

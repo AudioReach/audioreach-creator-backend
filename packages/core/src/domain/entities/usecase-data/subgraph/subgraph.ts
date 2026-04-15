@@ -25,11 +25,11 @@ export class DuplicateSubgraphPropertyException extends Error {
 export class Subgraph {
   private propertyIds = new Set<number>();
 
-  readonly systemId: number;
+  systemId: number;
   readonly subgraphId: number;
   readonly name: string;
   readonly isExported: boolean;
-  readonly fileSystemId: number;
+  fileSystemId: number;
   readonly vcpmDataInstance: VcpmInstance | null;
   readonly properties: SubgraphPropertyData[] = [];
 

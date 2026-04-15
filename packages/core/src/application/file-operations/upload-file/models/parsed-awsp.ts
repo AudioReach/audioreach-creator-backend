@@ -4,11 +4,11 @@
  */
 
 import type {
-  KeyDefinition,
+  AwspKeyDefinition,
   TagDefinition,
   SpfPropertyDefinition,
   DriverPropertyDefinition,
-  SpfModuleDefinition,
+  AwspSpfModuleDefinition,
   DriverModuleDefinition,
   ProcessorDefinition,
   ContainerType,
@@ -20,11 +20,11 @@ import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-na
  * Union type of all possible definition arrays that can be stored in ParsedAwsp
  */
 export type DefinitionCollection =
-  | KeyDefinition[]
+  | AwspKeyDefinition[]
   | TagDefinition[]
   | SpfPropertyDefinition[]
   | DriverPropertyDefinition[]
-  | SpfModuleDefinition[]
+  | AwspSpfModuleDefinition[]
   | DriverModuleDefinition[]
   | ProcessorDefinition[]
   | ContainerType[];
@@ -115,8 +115,8 @@ export class ParsedAwsp {
   /**
    * Get key definitions
    */
-  getKeyDefinitions(): KeyDefinition[] | undefined {
-    return this.getDefinitions<KeyDefinition[]>(
+  getKeyDefinitions(): AwspKeyDefinition[] | undefined {
+    return this.getDefinitions<AwspKeyDefinition[]>(
       DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS,
     );
   }
@@ -151,8 +151,8 @@ export class ParsedAwsp {
   /**
    * Get SPF module definitions
    */
-  getSpfModuleDefinitions(): SpfModuleDefinition[] | undefined {
-    return this.getDefinitions<SpfModuleDefinition[]>(
+  getSpfModuleDefinitions(): AwspSpfModuleDefinition[] | undefined {
+    return this.getDefinitions<AwspSpfModuleDefinition[]>(
       DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS,
     );
   }

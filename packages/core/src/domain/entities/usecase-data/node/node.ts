@@ -14,10 +14,10 @@ export const NodeType = {
 export type NodeType = (typeof NodeType)[keyof typeof NodeType];
 
 export class Node {
-  readonly systemId: number;
+  systemId: number;
   readonly parentId?: number;
   readonly type: NodeType;
-  readonly fileSystemId: number;
+  fileSystemId: number;
 
   readonly dataPorts: DataPort[];
   readonly controlPorts: ControlPort[];

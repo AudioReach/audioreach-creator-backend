@@ -3,16 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {BulkKeyDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 import type {
-  BulkDataLinkInsertResult,
-  BulkControlLinkInsertResult,
-} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
-import type {BulkEntityInsertResult} from '../../../ports/persistence/repositories/bulk-import/insert-result.js';
-import type {Logger} from '../../../../shared/types/logger.interface.js';
-import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
-import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
-import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
+  NaturalId,
+  SystemId,
+} from '../../../../shared/types/branded-ids.js';
 
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
@@ -20,23 +14,79 @@ import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-typ
  * Values are dependent on their parent keys: Map<keySystemId, Map<valueId, systemId>>
  */
 export class ForeignKeyMapper {
-  private keyDefinitionMappings = new Map<number, number>(); // keyId -> systemId
-  private valueDefinitionMappings = new Map<number, Map<number, number>>(); // keySystemId -> Map<valueId, systemId>
-  private subgraphMappings = new Map<number, number>(); // subgraphId -> systemId
-  private containerMappings = new Map<number, number>(); // containerId -> systemId
-  private moduleDefinitionMappings = new Map<number, number>(); // moduleId -> systemId
-  private spfModuleMappings = new Map<number, number>(); // instanceId -> systemId
-  private moduleInputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
-  private moduleOutputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
-  private moduleControlPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
-  private dataLinkMappings = new Map<string, number>(); // naturalKey -> systemId
-  private controlLinkMappings = new Map<string, number>(); // naturalKey -> systemId
+  private keyDefinitionMappings = new Map<NaturalId, SystemId>();
+  private valueDefinitionMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private subgraphMappings = new Map<NaturalId, SystemId>();
+  private containerMappings = new Map<NaturalId, SystemId>();
+  private moduleDefinitionMappings = new Map<NaturalId, SystemId>();
+  private paramDefinitionMappingsByModuleId = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private spfModuleMappings = new Map<NaturalId, SystemId>();
+  private moduleInputPortMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private moduleOutputPortMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private moduleControlPortMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private dataLinkMappings = new Map<string, SystemId>();
+  private controlLinkMappings = new Map<string, SystemId>();
 
-  constructor(private readonly logger?: Logger) {}
+  constructor() {}
 
   /**
-   * Store key definition mappings from bulk insertion result
+   * Add a single key definition mapping
    */
+  addKeyDefinitionMapping(keyId: NaturalId, systemId: SystemId): void {
+    if (this.keyDefinitionMappings.has(keyId)) {
+      throw new Error(
+        `Key definition ${keyId} already mapped to systemId ${this.keyDefinitionMappings.get(keyId)}`,
+      );
+    }
+    this.keyDefinitionMappings.set(keyId, systemId);
+  }
+
+  /**
+   * Add a single value definition mapping
+   */
+  addValueDefinitionMapping(
+    keyId: NaturalId,
+    valueId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    const keySystemId = this.getKeySystemId(keyId);
+    if (!keySystemId) {
+      throw new Error(`Cannot add value mapping: key ${keyId} not found`);
+    }
+
+    let valueMap = this.valueDefinitionMappings.get(keySystemId);
+    if (!valueMap) {
+      valueMap = new Map<NaturalId, SystemId>();
+      this.valueDefinitionMappings.set(keySystemId, valueMap);
+    }
+
+    if (valueMap.has(valueId)) {
+      throw new Error(
+        `Value ${valueId} already mapped for key ${keyId} (keySystemId: ${keySystemId})`,
+      );
+    }
+
+    valueMap.set(valueId, systemId);
+  }
+
+  /*
+   // Store key definition mappings from bulk insertion result
+
   setKeyDefinitionMappings(result: BulkKeyDefinitionInsertResult): void {
     let keyMappingsCount = 0;
     let valueMappingsCount = 0;
@@ -72,19 +122,19 @@ export class ForeignKeyMapper {
       tag: 'foreign-key-mapping',
       timestamp: new Date(),
     });
-  }
+  }*/
 
   /**
    * Get systemId for a given keyId
    */
-  getKeySystemId(keyId: number): number | undefined {
+  getKeySystemId(keyId: NaturalId): SystemId | undefined {
     return this.keyDefinitionMappings.get(keyId);
   }
 
   /**
    * Get systemId for a given valueId within the context of a keyId
    */
-  getValueSystemId(keyId: number, valueId: number): number | undefined {
+  getValueSystemId(keyId: NaturalId, valueId: NaturalId): SystemId | undefined {
     const keySystemId = this.getKeySystemId(keyId);
     if (!keySystemId) {
       return undefined;
@@ -97,14 +147,14 @@ export class ForeignKeyMapper {
   /**
    * Check if a keyId has a mapping
    */
-  hasKeyMapping(keyId: number): boolean {
+  hasKeyMapping(keyId: NaturalId): boolean {
     return this.keyDefinitionMappings.has(keyId);
   }
 
   /**
    * Check if a valueId has a mapping within the context of a keyId
    */
-  hasValueMapping(keyId: number, valueId: number): boolean {
+  hasValueMapping(keyId: NaturalId, valueId: NaturalId): boolean {
     const keySystemId = this.getKeySystemId(keyId);
     if (!keySystemId) {
       return false;
@@ -117,14 +167,16 @@ export class ForeignKeyMapper {
   /**
    * Get all key mappings
    */
-  getAllKeyMappings(): Map<number, number> {
+  getAllKeyMappings(): Map<NaturalId, SystemId> {
     return new Map(this.keyDefinitionMappings);
   }
 
   /**
    * Get all value mappings for a specific key
    */
-  getValueMappingsForKey(keyId: number): Map<number, number> | undefined {
+  getValueMappingsForKey(
+    keyId: NaturalId,
+  ): Map<NaturalId, SystemId> | undefined {
     const keySystemId = this.getKeySystemId(keyId);
     if (!keySystemId) {
       return undefined;
@@ -135,219 +187,186 @@ export class ForeignKeyMapper {
   }
 
   /**
-   * Set subgraph mappings from bulk insertion result
+   * Add a single subgraph mapping
    */
-  setSubgraphMappings(result: BulkEntityInsertResult): void {
-    let mappingsCount = 0;
-
-    for (const entityResult of result.results) {
-      if (entityResult.success && entityResult.idMapping) {
-        this.subgraphMappings.set(
-          entityResult.idMapping.naturalId,
-          entityResult.idMapping.systemId,
-        );
-        mappingsCount++;
-      }
+  addSubgraphMapping(subgraphId: NaturalId, systemId: SystemId): void {
+    if (this.subgraphMappings.has(subgraphId)) {
+      throw new Error(
+        `Subgraph ${subgraphId} already mapped to systemId ${this.subgraphMappings.get(subgraphId)}`,
+      );
     }
-
-    this.logger?.logInfo({
-      msg: `Stored ${mappingsCount} subgraph mappings`,
-      action: 'subgraph_mappings_stored',
-      component: 'ForeignKeyMapper',
-      tag: 'foreign-key-mapping',
-      timestamp: new Date(),
-    });
-  }
-
-  /**
-   * Set container mappings from bulk insertion result
-   */
-  setContainerMappings(result: BulkEntityInsertResult): void {
-    let mappingsCount = 0;
-
-    for (const entityResult of result.results) {
-      if (entityResult.success && entityResult.idMapping) {
-        this.containerMappings.set(
-          entityResult.idMapping.naturalId,
-          entityResult.idMapping.systemId,
-        );
-        mappingsCount++;
-      }
-    }
-
-    this.logger?.logInfo({
-      msg: `Stored ${mappingsCount} container mappings`,
-      action: 'container_mappings_stored',
-      component: 'ForeignKeyMapper',
-      tag: 'foreign-key-mapping',
-      timestamp: new Date(),
-    });
-  }
-
-  /**
-   * Set module definition mappings from bulk insertion result
-   */
-  setModuleDefinitionMappings(result: BulkModuleDefinitionInsertResult): void {
-    let mappingsCount = 0;
-
-    for (const entityResult of result.results) {
-      if (entityResult.success && entityResult.definitionIdMapping) {
-        this.moduleDefinitionMappings.set(
-          entityResult.definitionIdMapping.naturalId,
-          entityResult.definitionIdMapping.systemId,
-        );
-        mappingsCount++;
-      }
-    }
-
-    this.logger?.logInfo({
-      msg: `Stored ${mappingsCount} module definition mappings`,
-      action: 'module_definition_mappings_stored',
-      component: 'ForeignKeyMapper',
-      tag: 'foreign-key-mapping',
-      timestamp: new Date(),
-    });
-  }
-
-  /**
-   * Set module instance mappings from bulk insertion result
-   */
-  setSpfModuleMappings(result: BulkModuleInsertResult): void {
-    let mappingsCount = 0;
-    let inputPortMappingsCount = 0;
-    let outputPortMappingsCount = 0;
-    let controlPortMappingsCount = 0;
-
-    for (const entityResult of result.results) {
-      if (entityResult.success && entityResult.moduleIdMapping) {
-        const moduleSystemId = entityResult.moduleIdMapping.systemId;
-
-        // Store module instance mapping
-        this.spfModuleMappings.set(
-          entityResult.moduleIdMapping.naturalId,
-          moduleSystemId,
-        );
-        mappingsCount++;
-
-        // Process data port mappings by type
-        const portCounts = this.processDataPortMappings(
-          entityResult,
-          moduleSystemId,
-        );
-        inputPortMappingsCount += portCounts.inputCount;
-        outputPortMappingsCount += portCounts.outputCount;
-
-        // Process control port mappings
-        controlPortMappingsCount += this.processControlPortMappings(
-          entityResult,
-          moduleSystemId,
-        );
-      }
-    }
-
-    this.logger?.logInfo({
-      msg: `Stored ${mappingsCount} module instance mappings, ${inputPortMappingsCount} input ports, ${outputPortMappingsCount} output ports, ${controlPortMappingsCount} control ports`,
-      action: 'module_instance_mappings_stored',
-      component: 'ForeignKeyMapper',
-      tag: 'foreign-key-mapping',
-      timestamp: new Date(),
-    });
-  }
-
-  private processDataPortMappings(
-    entityResult: BulkModuleInsertResult['results'][0],
-    moduleSystemId: number,
-  ): {inputCount: number; outputCount: number} {
-    let inputCount = 0;
-    let outputCount = 0;
-
-    if (!entityResult.portMappings?.dataPorts) {
-      return {inputCount, outputCount};
-    }
-
-    const inputPortMap = new Map<number, number>();
-    const outputPortMap = new Map<number, number>();
-
-    for (const portMapping of entityResult.portMappings.dataPorts) {
-      if (portMapping.portIoType === PORT_IO_TYPE.Input) {
-        inputPortMap.set(portMapping.naturalId, portMapping.systemId);
-        inputCount++;
-      } else if (portMapping.portIoType === PORT_IO_TYPE.Output) {
-        outputPortMap.set(portMapping.naturalId, portMapping.systemId);
-        outputCount++;
-      }
-    }
-
-    // Store port mappings under the module's systemId
-    if (inputPortMap.size > 0) {
-      this.moduleInputPortMappings.set(moduleSystemId, inputPortMap);
-    }
-    if (outputPortMap.size > 0) {
-      this.moduleOutputPortMappings.set(moduleSystemId, outputPortMap);
-    }
-
-    return {inputCount, outputCount};
-  }
-
-  private processControlPortMappings(
-    entityResult: BulkModuleInsertResult['results'][0],
-    moduleSystemId: number,
-  ): number {
-    let controlCount = 0;
-
-    if (!entityResult.portMappings?.controlPorts) {
-      return controlCount;
-    }
-
-    const controlPortMap = new Map<number, number>();
-
-    for (const portMapping of entityResult.portMappings.controlPorts) {
-      controlPortMap.set(portMapping.naturalId, portMapping.systemId);
-      controlCount++;
-    }
-
-    // Store control port mappings under the module's systemId
-    if (controlPortMap.size > 0) {
-      this.moduleControlPortMappings.set(moduleSystemId, controlPortMap);
-    }
-
-    return controlCount;
+    this.subgraphMappings.set(subgraphId, systemId);
   }
 
   /**
    * Get systemId for a given subgraphId
    */
-  getSubgraphSystemId(subgraphId: number): number | undefined {
+  getSubgraphSystemId(subgraphId: NaturalId): SystemId | undefined {
     return this.subgraphMappings.get(subgraphId);
+  }
+
+  /**
+   * Add a single container mapping
+   */
+  addContainerMapping(containerId: NaturalId, systemId: SystemId): void {
+    if (this.containerMappings.has(containerId)) {
+      throw new Error(
+        `Container ${containerId} already mapped to systemId ${this.containerMappings.get(containerId)}`,
+      );
+    }
+    this.containerMappings.set(containerId, systemId);
   }
 
   /**
    * Get systemId for a given containerId
    */
-  getContainerSystemId(containerId: number): number | undefined {
+  getContainerSystemId(containerId: NaturalId): SystemId | undefined {
     return this.containerMappings.get(containerId);
+  }
+
+  /**
+   * Add a single module definition mapping
+   */
+  addModuleDefinitionMapping(moduleId: NaturalId, systemId: SystemId): void {
+    if (this.moduleDefinitionMappings.has(moduleId)) {
+      throw new Error(
+        `Module definition ${moduleId} already mapped to systemId ${this.moduleDefinitionMappings.get(moduleId)}`,
+      );
+    }
+    this.moduleDefinitionMappings.set(moduleId, systemId);
   }
 
   /**
    * Get systemId for a given moduleId (definition)
    */
-  getModuleDefinitionSystemId(moduleId: number): number | undefined {
+  getModuleDefinitionSystemId(moduleId: NaturalId): SystemId | undefined {
     return this.moduleDefinitionMappings.get(moduleId);
+  }
+
+  /**
+   * Add param definition mapping for a module
+   */
+  addParamDefinitionMapping(
+    moduleDefinitionId: SystemId,
+    paramId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (!this.paramDefinitionMappingsByModuleId.has(moduleDefinitionId)) {
+      this.paramDefinitionMappingsByModuleId.set(moduleDefinitionId, new Map());
+    }
+
+    const moduleParams =
+      this.paramDefinitionMappingsByModuleId.get(moduleDefinitionId)!;
+
+    if (moduleParams.has(paramId)) {
+      throw new Error(
+        `Param ${paramId} already mapped for module ${moduleDefinitionId}`,
+      );
+    }
+
+    moduleParams.set(paramId, systemId);
+  }
+
+  /**
+   * Get param definition systemId
+   */
+  getParamDefinitionSystemId(
+    moduleDefinitionId: SystemId,
+    paramId: NaturalId,
+  ): SystemId | undefined {
+    return this.paramDefinitionMappingsByModuleId
+      .get(moduleDefinitionId)
+      ?.get(paramId);
+  }
+
+  /**
+   * Get all param systemIds for a module
+   */
+  getModuleParamSystemIds(moduleDefinitionId: SystemId): SystemId[] {
+    const moduleParams =
+      this.paramDefinitionMappingsByModuleId.get(moduleDefinitionId);
+    return moduleParams ? [...moduleParams.values()] : [];
+  }
+
+  /**
+   * Add a single SPF module mapping
+   */
+  addSpfModuleMapping(instanceId: NaturalId, systemId: SystemId): void {
+    if (this.spfModuleMappings.has(instanceId)) {
+      throw new Error(
+        `SPF module ${instanceId} already mapped to systemId ${this.spfModuleMappings.get(instanceId)}`,
+      );
+    }
+    this.spfModuleMappings.set(instanceId, systemId);
   }
 
   /**
    * Get systemId for a given module instanceId
    */
-  getSpfModuleSystemId(instanceId: number): number | undefined {
+  getSpfModuleSystemId(instanceId: NaturalId): SystemId | undefined {
     return this.spfModuleMappings.get(instanceId);
+  }
+
+  /**
+   * Add a data port mapping for a module
+   */
+  addDataPortMapping(
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+    portSystemId: SystemId,
+    portIoType: 'Input' | 'Output',
+  ): void {
+    if (portIoType === 'Input') {
+      if (!this.moduleInputPortMappings.has(moduleSystemId)) {
+        this.moduleInputPortMappings.set(moduleSystemId, new Map());
+      }
+      const portMap = this.moduleInputPortMappings.get(moduleSystemId)!;
+      if (portMap.has(portNaturalId)) {
+        throw new Error(
+          `Input port ${portNaturalId} already mapped for module ${moduleSystemId}`,
+        );
+      }
+      portMap.set(portNaturalId, portSystemId);
+    } else {
+      if (!this.moduleOutputPortMappings.has(moduleSystemId)) {
+        this.moduleOutputPortMappings.set(moduleSystemId, new Map());
+      }
+      const portMap = this.moduleOutputPortMappings.get(moduleSystemId)!;
+      if (portMap.has(portNaturalId)) {
+        throw new Error(
+          `Output port ${portNaturalId} already mapped for module ${moduleSystemId}`,
+        );
+      }
+      portMap.set(portNaturalId, portSystemId);
+    }
+  }
+
+  /**
+   * Add a control port mapping for a module
+   */
+  addControlPortMapping(
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+    portSystemId: SystemId,
+  ): void {
+    if (!this.moduleControlPortMappings.has(moduleSystemId)) {
+      this.moduleControlPortMappings.set(moduleSystemId, new Map());
+    }
+    const portMap = this.moduleControlPortMappings.get(moduleSystemId)!;
+    if (portMap.has(portNaturalId)) {
+      throw new Error(
+        `Control port ${portNaturalId} already mapped for module ${moduleSystemId}`,
+      );
+    }
+    portMap.set(portNaturalId, portSystemId);
   }
 
   /**
    * Get all input port system IDs for a given module system ID
    */
   getModuleInputPortSystemIds(
-    moduleSystemId: number,
-  ): Map<number, number> | undefined {
+    moduleSystemId: SystemId,
+  ): Map<NaturalId, SystemId> | undefined {
     const portMap = this.moduleInputPortMappings.get(moduleSystemId);
     return portMap ? new Map(portMap) : undefined;
   }
@@ -356,8 +375,8 @@ export class ForeignKeyMapper {
    * Get all output port system IDs for a given module system ID
    */
   getModuleOutputPortSystemIds(
-    moduleSystemId: number,
-  ): Map<number, number> | undefined {
+    moduleSystemId: SystemId,
+  ): Map<NaturalId, SystemId> | undefined {
     const portMap = this.moduleOutputPortMappings.get(moduleSystemId);
     return portMap ? new Map(portMap) : undefined;
   }
@@ -366,9 +385,9 @@ export class ForeignKeyMapper {
    * Get system ID for a specific input port of a module
    */
   getInputPortSystemId(
-    moduleSystemId: number,
-    portNaturalId: number,
-  ): number | undefined {
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+  ): SystemId | undefined {
     const portMap = this.moduleInputPortMappings.get(moduleSystemId);
     return portMap?.get(portNaturalId);
   }
@@ -377,9 +396,9 @@ export class ForeignKeyMapper {
    * Get system ID for a specific output port of a module
    */
   getOutputPortSystemId(
-    moduleSystemId: number,
-    portNaturalId: number,
-  ): number | undefined {
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+  ): SystemId | undefined {
     const portMap = this.moduleOutputPortMappings.get(moduleSystemId);
     return portMap?.get(portNaturalId);
   }
@@ -388,8 +407,8 @@ export class ForeignKeyMapper {
    * Get all control port system IDs for a given module system ID
    */
   getModuleControlPortSystemIds(
-    moduleSystemId: number,
-  ): Map<number, number> | undefined {
+    moduleSystemId: SystemId,
+  ): Map<NaturalId, SystemId> | undefined {
     const portMap = this.moduleControlPortMappings.get(moduleSystemId);
     return portMap ? new Map(portMap) : undefined;
   }
@@ -398,68 +417,24 @@ export class ForeignKeyMapper {
    * Get system ID for a specific control port of a module
    */
   getControlPortSystemId(
-    moduleSystemId: number,
-    portNaturalId: number,
-  ): number | undefined {
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+  ): SystemId | undefined {
     const portMap = this.moduleControlPortMappings.get(moduleSystemId);
     return portMap?.get(portNaturalId);
   }
 
   /**
-   * Set data link mappings from bulk insertion result
-   */
-  setDataLinkMappings(result: BulkDataLinkInsertResult): void {
-    for (const linkResult of result.results) {
-      if (linkResult.success && linkResult.idMapping) {
-        this.dataLinkMappings.set(
-          linkResult.idMapping.naturalId,
-          linkResult.idMapping.systemId,
-        );
-      }
-    }
-
-    this.logger?.logInfo({
-      msg: `Stored ${this.dataLinkMappings.size} data link mappings`,
-      action: 'data_link_mappings_stored',
-      component: 'ForeignKeyMapper',
-      tag: 'foreign-key-mapping',
-      timestamp: new Date(),
-    });
-  }
-
-  /**
-   * Set control link mappings from bulk insertion result
-   */
-  setControlLinkMappings(result: BulkControlLinkInsertResult): void {
-    for (const linkResult of result.results) {
-      if (linkResult.success && linkResult.idMapping) {
-        this.controlLinkMappings.set(
-          linkResult.idMapping.naturalId,
-          linkResult.idMapping.systemId,
-        );
-      }
-    }
-
-    this.logger?.logInfo({
-      msg: `Stored ${this.controlLinkMappings.size} control link mappings`,
-      action: 'control_link_mappings_stored',
-      component: 'ForeignKeyMapper',
-      tag: 'foreign-key-mapping',
-      timestamp: new Date(),
-    });
-  }
-
-  /**
    * Get systemId for a given data link natural key
    */
-  getDataLinkSystemId(naturalKey: string): number | undefined {
+  getDataLinkSystemId(naturalKey: string): SystemId | undefined {
     return this.dataLinkMappings.get(naturalKey);
   }
 
   /**
    * Get systemId for a given control link natural key
    */
-  getControlLinkSystemId(naturalKey: string): number | undefined {
+  getControlLinkSystemId(naturalKey: string): SystemId | undefined {
     return this.controlLinkMappings.get(naturalKey);
   }
 
@@ -472,6 +447,7 @@ export class ForeignKeyMapper {
     this.subgraphMappings.clear();
     this.containerMappings.clear();
     this.moduleDefinitionMappings.clear();
+    this.paramDefinitionMappingsByModuleId.clear();
     this.spfModuleMappings.clear();
     this.moduleInputPortMappings.clear();
     this.moduleOutputPortMappings.clear();
@@ -489,6 +465,7 @@ export class ForeignKeyMapper {
     subgraphMappings: number;
     containerMappings: number;
     moduleDefinitionMappings: number;
+    paramDefinitionMappingsByModuleId: number;
     spfModuleMappings: number;
     moduleInputPortMappings: number;
     moduleOutputPortMappings: number;
@@ -502,6 +479,8 @@ export class ForeignKeyMapper {
       subgraphMappings: this.subgraphMappings.size,
       containerMappings: this.containerMappings.size,
       moduleDefinitionMappings: this.moduleDefinitionMappings.size,
+      paramDefinitionMappingsByModuleId:
+        this.paramDefinitionMappingsByModuleId.size,
       spfModuleMappings: this.spfModuleMappings.size,
       moduleInputPortMappings: this.moduleInputPortMappings.size,
       moduleOutputPortMappings: this.moduleOutputPortMappings.size,

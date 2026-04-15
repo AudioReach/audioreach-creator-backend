@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseElement} from './base-element.js';
+import {AwspBaseElement} from './base-element.js';
 import type {DataType} from './type/data-type.js';
 import type {DisplayType} from './type/display-type.js';
 import type {ElementPolicy} from './type/element-policy.js';
@@ -12,7 +12,7 @@ import type {ElementPolicy} from './type/element-policy.js';
  * Represents a configuration element with data type and display properties.
  * Extends BaseElement with additional configuration-specific properties.
  */
-export class ConfigElement extends BaseElement {
+export class AwspConfigElement extends AwspBaseElement {
   /** Data type of the configuration element (required) */
   dataType!: DataType;
 

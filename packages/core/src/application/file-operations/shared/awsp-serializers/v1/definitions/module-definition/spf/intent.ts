@@ -9,7 +9,7 @@ import {IsNotEmpty, IsNumber, IsOptional, IsString} from 'class-validator';
 /**
  * Represents an intent with identifier, name, and max ports.
  */
-export class Intent {
+export class AwspIntent {
   /** Intent identifier (required) */
   @Expose()
   @IsNotEmpty()

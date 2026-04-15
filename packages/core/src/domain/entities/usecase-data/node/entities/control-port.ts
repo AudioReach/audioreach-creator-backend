@@ -13,10 +13,10 @@ export interface ControlPortInit {
 }
 
 export class ControlPort {
-  readonly systemId: number;
+  systemId: number;
   readonly portId: number;
   readonly isStatic: boolean;
-  readonly nodeSystemId: number;
+  nodeSystemId: number;
   readonly name?: string;
   readonly intentSystemIds: number[];
 

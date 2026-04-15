@@ -107,7 +107,7 @@ The project follows hexagonal architecture to maintain clear boundaries between 
 All operations are modeled as either Commands (write) or Queries (read):
 
 **Commands** (State Changes):
-- `OpenFileCommand` - Upload and parse files
+- `UploadFileCommand` - Upload and parse files
 - Commands for creating/updating entities (planned)
 
 **Queries** (Read Operations):
@@ -534,7 +534,7 @@ packages/infrastructure/
 **Command Bus**:
 ```typescript
 // Dispatches commands to handlers with automatic transaction management
-const result = await commandBus.execute(new OpenFileCommand(clientId, acdbRef, awspRef));
+const result = await commandBus.execute(new UploadFileCommand(clientId, acdbRef, awspRef));
 ```
 
 **Implementation Details**:
@@ -727,7 +727,7 @@ describe('POST /api/v1/projects/upload', () => {
       .post('/api/v1/projects/upload')
       .attach('file', 'fixtures/workspaceFileXml.awsp')
       .expect(201);
-    
+
     expect(response.body.projectId).toBeDefined();
   });
 });
@@ -873,7 +873,7 @@ pnpm clean
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-01-30 | Architecture Team | Initial project architecture overview 
+| 1.0 | 2026-01-30 | Architecture Team | Initial project architecture overview
 
 ---
 

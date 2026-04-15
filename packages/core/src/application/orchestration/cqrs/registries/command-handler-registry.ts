@@ -54,8 +54,8 @@ import {AddModuleCommandHandler} from '../../../usecase-designer/spf-module/crea
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 import {AddModuleCommand} from '../../../usecase-designer/index.js';
-import {OpenFileCommand} from '../../../file-operations/upload-file/upload-file.command.js';
-import {OpenFileHandler} from '../../../file-operations/upload-file/upload-file.handler.js';
+import {UploadFileCommand} from '../../../file-operations/upload-file/upload-file.command.js';
+import {UploadFileHandler} from '../../../file-operations/upload-file/upload-file.handler.js';
 import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
@@ -116,11 +116,12 @@ export class CommandHandlerRegistry {
     this.commandHandlerFactories.set(AddModuleCommand, {
       create: deps => new AddModuleCommandHandler(deps.uow),
     });
-    this.commandHandlerFactories.set(OpenFileCommand, {
+    this.commandHandlerFactories.set(UploadFileCommand, {
       create: deps =>
-        new OpenFileHandler(
+        new UploadFileHandler(
           deps.uow,
           deps.fileReader,
+          deps.idGeneration,
           deps.workerPool,
           deps.logger,
           deps.profiler,

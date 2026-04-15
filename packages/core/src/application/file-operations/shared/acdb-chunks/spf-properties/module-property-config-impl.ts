@@ -6,7 +6,7 @@
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 import type {
   ModulePropertyConfig,
-  ModuleProperty,
+  AcdbModuleProperties,
   PortInfo,
   HeapInfo,
 } from './types.js';
@@ -21,7 +21,7 @@ import {
 export class ModulePropertyConfigImpl implements ModulePropertyConfig {
   constructor(
     public readonly spfModuleInstanceId: number,
-    public readonly properties: ModuleProperty[],
+    public readonly properties: AcdbModuleProperties[],
   ) {}
 
   /**
