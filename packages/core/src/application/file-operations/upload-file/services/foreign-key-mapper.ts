@@ -35,6 +35,42 @@ export class ForeignKeyMapper {
   constructor(private readonly logger?: Logger) {}
 
   /**
+   * Add a single key definition mapping
+   */
+  addKeyDefinitionMapping(keyId: number, systemId: number): void {
+    this.keyDefinitionMappings.set(keyId, systemId);
+  }
+
+  /**
+   * Add a single value definition mapping
+   */
+  addValueDefinitionMapping(
+    keyId: number,
+    valueId: number,
+    systemId: number,
+  ): void {
+    const keySystemId = this.getKeySystemId(keyId);
+    if (!keySystemId) {
+      this.logger?.logError({
+        msg: `Cannot add value mapping: key ${keyId} not found`,
+        action: 'value_mapping_failed',
+        component: 'ForeignKeyMapper',
+        tag: 'foreign-key-mapping',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    let valueMap = this.valueDefinitionMappings.get(keySystemId);
+    if (!valueMap) {
+      valueMap = new Map<number, number>();
+      this.valueDefinitionMappings.set(keySystemId, valueMap);
+    }
+
+    valueMap.set(valueId, systemId);
+  }
+
+  /**
    * Store key definition mappings from bulk insertion result
    */
   setKeyDefinitionMappings(result: BulkKeyDefinitionInsertResult): void {

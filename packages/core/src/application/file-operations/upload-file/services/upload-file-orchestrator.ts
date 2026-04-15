@@ -5,23 +5,19 @@
 
 import type {UnitOfWork} from 'application/ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../ports/persistence/repositories/bulk-import/bulk-import.repository.js';
-import type {BulkEntityInsertResult} from '../../../ports/persistence/repositories/bulk-import/insert-result.js';
-import type {BulkKeyDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
-import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
-import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
-import type {
-  BulkDataLinkInsertResult,
-  BulkControlLinkInsertResult,
-} from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
-import {EntityBuilderService} from './entity-builder-service.js';
+import type {BulkInsertResult} from '../../../ports/persistence/repositories/bulk-import/bulk-import-interface/bulk-insert-result.interface.js';
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/key-definition.js';
-import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
-import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
-import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
-import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
-import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
-import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
-import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
+import {EntityBuilderService} from './entity-builder-service.js';
+import {EntitySystemIdService} from './entity-system-id-service.js';
+//eslint -disable-next-line sonarjs/no-commented-code
+//import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/key-definition.js';
+//import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
+//import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
+//import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+//import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
+//import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
+//import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
+//import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import {ForeignKeyMapper} from './foreign-key-mapper.js';
 import {AcdbFileOrchestrator} from './acdb-file-orchestrator.js';
 import {AwspFileOrchestrator} from './awsp-file-orchestrator.js';
@@ -32,15 +28,42 @@ import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
 import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {
   PROFILER_OPERATIONS,
   MEMORY_SNAPSHOTS,
   type PerformanceMetrics,
   type MemorySnapshot,
 } from '../../../../shared/profiling/profiler-types.js';
+import {
+  IssueCollector,
+  ISSUE_PHASE,
+  ENTITY_TYPES,
+} from '../types/issue-collection.js';
+import {
+  ERROR_CODES,
+  type ErrorCode,
+} from '../../../../shared/errors/error-codes.js';
+
+/**
+ * Large block size for ID reservation to cover all entities in a file upload.
+ * This reduces database round-trips during entity creation.
+ */
+const ID_BLOCK_SIZE = 1_000_000;
+
+/**
+ * Result of the orchestration process
+ */
+export interface OrchestratorResult {
+  success: boolean;
+  errors: string[];
+  warnings: string[];
+}
 
 export class UploadFileOrchestrator {
+  private issueCollector: IssueCollector = new IssueCollector();
   private builderService: EntityBuilderService;
+  private entitySystemIdService: EntitySystemIdService;
   private acdbParser: AcdbFileOrchestrator;
   private awspParser: AwspFileOrchestrator;
   private foreignKeyMapper: ForeignKeyMapper;
@@ -55,15 +78,20 @@ export class UploadFileOrchestrator {
   constructor(
     private filereader: FileReaderPort,
     private uow: UnitOfWork,
+    private idGenerator: IdGenerationPort,
     workerPool?: WorkerPoolPort,
     private logger?: Logger,
     private profiler?: ProfilerPort,
   ) {
-    // Pass worker pool to both services
+    // Initialize services
     this.foreignKeyMapper = new ForeignKeyMapper(logger);
     this.builderService = new EntityBuilderService(
       this.foreignKeyMapper,
       workerPool,
+      logger,
+    );
+    this.entitySystemIdService = new EntitySystemIdService(
+      this.idGenerator,
       logger,
     );
 
@@ -106,7 +134,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Log entity building performance metrics with throughput calculation
-   */
+
   private logEntityBuildMetrics(
     metrics: PerformanceMetrics | undefined,
     entityCount: number,
@@ -132,7 +160,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Log entity insertion performance metrics with success rates
-   */
+
   private logEntityInsertMetrics(
     metrics: PerformanceMetrics | undefined,
     insertResult:
@@ -169,6 +197,7 @@ export class UploadFileOrchestrator {
       tag: 'profiling-metrics',
     });
   }
+*/
 
   /**
    * Log memory snapshots from profiler
@@ -192,7 +221,9 @@ export class UploadFileOrchestrator {
     acdbPath: PathRef,
     awspPath: PathRef,
     fileId: number,
-  ): Promise<boolean> {
+  ): Promise<OrchestratorResult> {
+    this.issueCollector.clear();
+    this.currentFileId = fileId;
     this.profiler?.start(PROFILER_OPERATIONS.FILE_ORCHESTRATION);
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.BEFORE_PARSING),
@@ -229,8 +260,6 @@ export class UploadFileOrchestrator {
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_PERSISTENCE),
       );
-
-      return true;
     } catch (error) {
       // Log the error using the proper LogData structure
       this.logger?.logError({
@@ -252,6 +281,13 @@ export class UploadFileOrchestrator {
         this.profiler?.end(PROFILER_OPERATIONS.FILE_ORCHESTRATION),
       );
     }
+
+    const formattedIssues = this.issueCollector.formatForApi();
+    return {
+      success: !this.issueCollector.hasErrors(),
+      errors: formattedIssues.errors,
+      warnings: formattedIssues.warnings,
+    };
   }
 
   /**
@@ -265,11 +301,24 @@ export class UploadFileOrchestrator {
     this.profiler?.start(PROFILER_OPERATIONS.DATABASE_TRANSACTION);
 
     try {
+      // Reserve a large block of IDs upfront to cover all entities
+      await this.idGenerator.reserveBlock(this.currentFileId, ID_BLOCK_SIZE);
+
+      this.logger?.logInfo({
+        msg: `Reserved ${ID_BLOCK_SIZE} IDs for file ${this.currentFileId}`,
+        action: 'id_block_reserved',
+        component: 'UploadFileOrchestrator',
+        tag: 'id-generation',
+        timestamp: new Date(),
+      });
+
       const bulkRepo = this.uow.getBulkImportRepository();
 
       // Phase 1a: Build and Insert Key Definitions (no dependencies)
       await this.buildAndInsertKeyDefinitions(bulkRepo);
 
+      //eslint-disable-next-line sonarjs/no-commented-code
+      /*
       // Phase 1b: Build and Insert SPF Module Definitions (no dependencies)
       await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
 
@@ -290,6 +339,7 @@ export class UploadFileOrchestrator {
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
+*/
     } catch (error) {
       // Log persistence errors
       this.logger?.logError({
@@ -304,6 +354,31 @@ export class UploadFileOrchestrator {
       // Re-throw the error to maintain existing error handling behavior
       throw error;
     } finally {
+      // Persist the actual last used ID to reclaim unused IDs from the reserved block
+      try {
+        await this.idGenerator.persistLastUsedId(this.currentFileId);
+
+        this.logger?.logInfo({
+          msg: `Persisted last used ID for file ${this.currentFileId}`,
+          action: 'id_last_used_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'id-generation',
+          timestamp: new Date(),
+        });
+      } catch (persistError) {
+        this.logger?.logError({
+          msg: 'Failed to persist last used ID',
+          timestamp: new Date(),
+          action: 'id_persist_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'id-generation',
+          error:
+            persistError instanceof Error
+              ? persistError
+              : new Error(String(persistError)),
+        });
+      }
+
       this.logPerformanceMetrics(
         this.profiler?.end(PROFILER_OPERATIONS.DATABASE_TRANSACTION),
       );
@@ -316,27 +391,34 @@ export class UploadFileOrchestrator {
   private async buildAndInsertKeyDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    // Build key definitions
-    const keyDefinitions = await this.builderService.buildKeyDefinitions(
+    // Build key definitions with issue collection
+    const result = await this.builderService.buildKeyDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
     );
 
-    if (keyDefinitions && keyDefinitions.length > 0) {
-      const keyDefResult: BulkKeyDefinitionInsertResult =
-        await bulkRepo.insertKeyDefinitions(
-          keyDefinitions as readonly Omit<KeyDefinition, 'systemId'>[],
-        );
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
 
-      // Store foreign key mappings for subsequent phases
-      this.foreignKeyMapper.setKeyDefinitionMappings(keyDefResult);
+    if (result.entities.length > 0) {
+      // Assign system IDs
+      await this.entitySystemIdService.assignSystemIdsToKeyDefinitions(
+        result.entities,
+        this.currentFileId,
+      );
 
-      const successfulInserts = keyDefResult.results.filter(
-        r => r.success,
-      ).length;
+      // Insert key definitions and capture result
+      const insertResult = await bulkRepo.insertKeyDefinitions(result.entities);
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, result.entities);
+
+      // TODO: Record insertion failures in validation_errors table (to be implemented later)
+      // await this.recordInsertionFailures(insertResult, result.entities, 'KeyDefinition');
+
+      const insertionErrorCount = insertResult.errors.length;
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} key definitions (${keyDefResult.results.length} total)`,
+        msg: `Built and inserted ${result.entities.length} key definitions (${result.errorCount} build errors, ${insertionErrorCount} insertion errors, ${result.warningCount} warnings)`,
         action: 'key_definitions_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
@@ -346,8 +428,57 @@ export class UploadFileOrchestrator {
   }
 
   /**
-   * Phase 1b: Build and Insert SPF Module Definitions
+   * Collect insertion errors from BulkInsertResult and add them to issueCollector
    */
+  private collectInsertionErrors(
+    insertResult: BulkInsertResult,
+    entities: readonly KeyDefinition[],
+  ): void {
+    if (insertResult.errors.length === 0) return;
+
+    // Convert each insertion error to EntityBuildIssue format
+    for (const error of insertResult.errors) {
+      // Find the entity by systemId to get more context
+      const entity = entities.find(e => e.systemId === error.systemId);
+
+      // Categorize the error to determine the appropriate error code
+      const errorCode = this.categorizeInsertionError(error.message);
+
+      this.issueCollector.addError({
+        code: errorCode,
+        message: error.message,
+        entityType: ENTITY_TYPES.KEY_DEFINITION,
+        entityIdentifier:
+          entity?.keyId?.toString() || error.systemId.toString(),
+        phase: ISSUE_PHASE.INSERTION,
+        entityData: entity ? JSON.stringify(entity) : undefined,
+      });
+    }
+  }
+
+  /**
+   * Categorize insertion error message to determine appropriate error code
+   */
+  private categorizeInsertionError(errorMessage: string): ErrorCode {
+    if (errorMessage.includes('UNIQUE constraint failed')) {
+      return ERROR_CODES.UNIQUE_CONSTRAINT;
+    }
+
+    if (errorMessage.includes('FOREIGN KEY constraint failed')) {
+      return ERROR_CODES.FOREIGN_KEY_CONSTRAINT;
+    }
+
+    if (errorMessage.includes('INVALID') || errorMessage.includes('invalid')) {
+      return ERROR_CODES.INVALID_ENTITY_DATA;
+    }
+
+    return ERROR_CODES.INSERTION_FAILED;
+  }
+
+  /*
+  /**
+   * Phase 1b: Build and Insert SPF Module Definitions
+
   private async buildAndInsertSpfModuleDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
@@ -386,7 +517,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 2: Build and Insert Subgraphs
-   */
+
   private async buildAndInsertSubgraphs(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
@@ -438,7 +569,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 3: Build and Insert Containers
-   */
+
   private async buildAndInsertContainers(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
@@ -490,7 +621,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 4: Build and Insert SPF Modules
-   */
+
   private async buildAndInsertSpfModules(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
@@ -543,7 +674,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 5: Build and Insert Data Links
-   */
+
   private async buildAndInsertDataLinks(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
@@ -595,7 +726,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 6: Build and Insert Control Links
-   */
+
   private async buildAndInsertControlLinks(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
@@ -674,7 +805,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 7: Build and Insert Usecases
-   */
+
   private async buildAndInsertUsecases(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
@@ -727,5 +858,5 @@ export class UploadFileOrchestrator {
         timestamp: new Date(),
       });
     }
-  }
+  }*/
 }

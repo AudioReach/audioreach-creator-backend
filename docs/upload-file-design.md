@@ -49,16 +49,19 @@ The upload process is divided into two distinct phases:
 
 **Phase 2: Bulk Upload** (Non-Transactional)
 - Parses file contents
-- Builds domain entities
+- Builds domain entities with error collection
 - Inserts entities in hierarchical order
-- **Continue-on-error**: Partial success is allowed
+- **Continue-on-error**: Collects errors/warnings during building and returns them to users
+- Partial success is allowed
 
 ### 1.3 Key Characteristics
 
 - **Hierarchical Processing**: Entities are processed in dependency order (definitions → structure → modules → links)
 - **Build-Insert-Build Pattern**: Build entities → Insert → Use systemIds to build dependent entities → Insert
+- **ID Block Reservation**: Pre-allocates large ID blocks (1M IDs) to minimize database round-trips
+- **Error Collection**: Collects errors and warnings during building phase and returns them in API response
 - **Performance Optimized**: Worker pools for parsing, batch insertion, profiling
-- **Fault Tolerant**: Continue-on-error semantics in Phase 2
+- **Fault Tolerant**: Continue-on-error semantics with detailed error reporting
 
 ---
 
@@ -93,7 +96,8 @@ The upload process is divided into two distinct phases:
 │  └─> Return projectId                                        │
 │                                                              │
 │  PHASE 2: Bulk Upload (NON-TRANSACTIONAL)                   │
-│  └─> Delegate to UploadFileOrchestrator                     │
+│  ├─> Delegate to UploadFileOrchestrator                     │
+│  └─> Collect errors/warnings from building phase            │
 └─────────────────────────┬───────────────────────────────────┘
                           │
                           ▼
@@ -107,14 +111,27 @@ The upload process is divided into two distinct phases:
 │       (Extracts: all definitions)                            │
 │                                                              │
 │  Step 2: Build and Insert in Hierarchical Order             │
-│  ├─> Build KeyDefinitions → Insert → Store systemIds        │
-│  ├─> Build SpfModuleDefinitions → Insert → Store systemIds  │
-│  ├─> Build Subgraphs → Insert → Store systemIds             │
-│  ├─> Build Containers → Insert → Store systemIds            │
-│  ├─> Build SpfModules → Insert → Store systemIds            │
-│  ├─> Build DataLinks → Insert → Store systemIds             │
-│  └─> Build Usecases → Insert                                │
+│  ├─> Reserve ID block (1M IDs)                              │
+│  ├─> Build KeyDefinitions → Assign IDs → Insert             │
+│  │    • Collect build errors/warnings                        │
+│  ├─> Build SpfModuleDefinitions → Assign IDs → Insert       │
+│  ├─> Build Subgraphs → Assign IDs → Insert                  │
+│  ├─> Build Containers → Assign IDs → Insert                 │
+│  ├─> Build SpfModules → Assign IDs → Insert                 │
+│  ├─> Build DataLinks → Assign IDs → Insert                  │
+│  └─> Build Usecases → Assign IDs → Insert                   │
+│                                                              │
+│  Step 3: Return Result with Errors/Warnings                 │
+│  └─> Format issues for API response                         │
 └─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Response to Client                              │
+│  • projectId, projectName, projectDescription               │
+│  • errors[] (if any build failures)                         │
+│  • warnings[] (if any build warnings)                       │
+└─────────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -265,7 +282,17 @@ graph LR
   - Port definitions (data ports, control ports)
 - Store in `ParsedAwsp` object
 
-#### Step 2: Build and Insert Entities in Hierarchical Order
+#### Step 2: Reserve ID Block
+
+Before building entities, the system reserves a large block of IDs (1 million) from the ID generation service:
+
+```typescript
+await idGenerator.reserveBlock(fileId, 1_000_000);
+```
+
+This minimizes database round-trips during entity creation.
+
+#### Step 3: Build and Insert Entities in Hierarchical Order
 
 The orchestrator processes entities in a specific order to respect foreign key dependencies:
 
@@ -289,26 +316,34 @@ The orchestrator processes entities in a specific order to respect foreign key d
 
 1. **Build Phase**
    ```typescript
-   const entities = await entityBuilder.buildEntities(parsedData, fileId);
+   const result = await entityBuilder.buildEntities(parsedData);
    ```
    - Constructs domain entities from parsed data
    - Uses natural keys (keyId, moduleId, etc.)
-   - No systemIds yet (assigned by database)
+   - Collects errors/warnings during building
+   - Returns `BuildResult` with entities and issues
 
-2. **Insert Phase**
+2. **ID Assignment Phase**
    ```typescript
-   const result = await bulkRepo.insertEntities(entities);
+   await entitySystemIdService.assignSystemIds(entities, fileId);
+   ```
+   - Assigns systemIds from the reserved ID block
+   - IDs assigned in-memory (not by database)
+
+3. **Insert Phase**
+   ```typescript
+   await bulkRepo.insertEntities(entities);
    ```
    - Batch insert to database
-   - Database assigns systemIds (auto-increment)
-   - Returns success/failure for each entity
+   - Entities already have systemIds assigned
+   - Insertion errors are logged (future: will be collected)
 
-3. **Mapping Phase**
+4. **Issue Collection**
    ```typescript
-   foreignKeyMapper.setEntityMappings(result);
+   issueCollector.addIssues(result.issues);
    ```
-   - Stores mapping: naturalKey → systemId
-   - Used to resolve foreign keys in subsequent phases
+   - Collects build errors/warnings
+   - Formatted and returned to user in API response
 
 **Example: SpfModule Processing**
 
@@ -339,38 +374,56 @@ foreignKeyMapper.setSpfModuleMappings(result);
 ```mermaid
 sequenceDiagram
     participant Client
+    participant Handler as OpenFileHandler
     participant UFO as UploadFileOrchestrator
+    participant IC as IssueCollector
     participant ACDB as AcdbFileOrchestrator
     participant AWSP as AwspFileOrchestrator
     participant EBS as EntityBuilderService
-    participant FKM as ForeignKeyMapper
+    participant EISID as EntitySystemIdService
     participant BIR as BulkImportRepository
 
-    Client->>UFO: orchestrate(acdbPath, awspPath, fileId)
+    Client->>Handler: handle(OpenFileCommand)
 
-    Note over UFO: Phase 1: Parse Files
+    Note over Handler: Phase 1: Create Project (Transactional)
+    Handler->>Handler: Create project & file record
+
+    Note over Handler: Phase 2: Bulk Upload (Non-Transactional)
+    Handler->>UFO: orchestrate(acdbPath, awspPath, fileId)
+
+    UFO->>IC: clear()
+
+    Note over UFO: Parse Files
     UFO->>ACDB: parseACDB(acdbPath)
     ACDB-->>UFO: ParsedAcdb
 
     UFO->>AWSP: parseAWSP(awspPath)
     AWSP-->>UFO: ParsedAwsp
 
-    Note over UFO: Phase 2: Persist Entities
-    UFO->>UFO: persistEntitiesInHierarchicalOrder()
+    Note over UFO: Reserve ID Block
+    UFO->>EISID: reserveBlock(fileId, 1M IDs)
 
-    Note over UFO,BIR: Process 7 phases in order
+    Note over UFO: Build & Insert Entities
     loop For each entity type
-        UFO->>EBS: buildEntities(parsedData, fileId)
-        EBS-->>UFO: entities[]
+        UFO->>EBS: buildEntities(parsedData)
+        EBS-->>UFO: BuildResult{entities, issues}
+
+        UFO->>IC: addIssues(result.issues)
+        Note over IC: Collect build errors/warnings
+
+        UFO->>EISID: assignSystemIds(entities, fileId)
+        Note over EISID: Assign IDs from reserved block
 
         UFO->>BIR: insertEntities(entities)
-        BIR-->>UFO: InsertResult
-
-        UFO->>FKM: setEntityMappings(result)
-        Note over FKM: Store naturalKey → systemId
+        BIR-->>UFO: (insertion complete)
     end
 
-    UFO-->>Client: success/failure
+    UFO->>IC: formatForApi()
+    IC-->>UFO: {errors[], warnings[]}
+
+    UFO-->>Handler: OrchestratorResult{success, errors, warnings}
+
+    Handler-->>Client: OpenFileResult{projectId, errors, warnings}
 ```
 
 ### 4.2 File Parsing Phase
@@ -675,11 +728,12 @@ class AwspFileOrchestrator {
 
 **Responsibilities**:
 - Builds domain entities from parsed file data
+- Collects errors and warnings during entity building
 - Resolves foreign key references using ForeignKeyMapper
-- Constructs entities with natural keys (no systemIds)
+- Returns `BuildResult` containing entities and issues
 
 **Key Methods**:
-- `buildKeyDefinitions(parsedAwsp, fileId): Promise<KeyDefinition[]>`
+- `buildKeyDefinitions(parsedAwsp): Promise<BuildResult<KeyDefinition>>`
 - `buildSpfModuleDefinitions(parsedAwsp, fileId): Promise<SpfModuleDefinition[]>`
 - `buildSubgraphs(parsedAcdb, fileId): Subgraph[]`
 - `buildContainers(parsedAcdb, fileId): Container[]`
@@ -687,9 +741,95 @@ class AwspFileOrchestrator {
 - `buildDataLinks(parsedAcdb, fileId): DataLink[]`
 - `buildUsecases(parsedAcdb, fileId): UseCase[]`
 
+**BuildResult Structure**:
+```typescript
+interface BuildResult<T> {
+  entities: T[];
+  issues: EntityBuildIssue[];
+  successCount: number;
+  errorCount: number;
+  warningCount: number;
+}
+```
+
 ---
 
-### 5.5 ForeignKeyMapper
+### 5.5 IssueCollector
+
+**Location**: `packages/core/src/application/file-operations/upload-file/types/issue-collection.ts`
+
+**Responsibilities**:
+- Collects errors and warnings during the upload process
+- Categorizes issues by severity (ERROR/WARNING)
+- Tracks issue phase (PARSING/BUILDING/INSERTION)
+- Formats issues for API response
+
+**Key Methods**:
+- `addIssue(issue: EntityBuildIssue): void`
+- `addIssues(issues: EntityBuildIssue[]): void`
+- `getErrors(): EntityBuildIssue[]`
+- `getWarnings(): EntityBuildIssue[]`
+- `hasErrors(): boolean`
+- `formatForApi(): {errors: string[], warnings: string[]}`
+- `clear(): void`
+
+**Issue Structure**:
+```typescript
+interface EntityBuildIssue {
+  severity: 'error' | 'warning';
+  code: ErrorCode;
+  message: string;
+  entityType: EntityType;
+  entityIdentifier: string;
+  phase: 'parsing' | 'building' | 'insertion';
+  entityData?: string;
+}
+```
+
+**Usage**:
+```typescript
+// In UploadFileOrchestrator
+const result = await builderService.buildKeyDefinitions(parsedAwsp);
+issueCollector.addIssues(result.issues);
+
+// Format for API response
+const formatted = issueCollector.formatForApi();
+// Returns: { errors: ["[ERR_001] KeyDefinition (123): Invalid data"], warnings: [] }
+```
+
+---
+
+### 5.6 EntitySystemIdService
+
+**Location**: `packages/core/src/application/file-operations/upload-file/services/entity-system-id-service.ts`
+
+**Responsibilities**:
+- Assigns systemIds to entities from reserved ID block
+- Manages ID allocation for file upload
+- Ensures unique IDs across all entities
+
+**Key Methods**:
+- `assignSystemIdsToKeyDefinitions(entities, fileId): Promise<void>`
+- `assignSystemIdsToSpfModuleDefinitions(entities, fileId): Promise<void>`
+- `assignSystemIdsToSubgraphs(entities, fileId): Promise<void>`
+- etc.
+
+**ID Assignment Flow**:
+```typescript
+// Reserve block upfront
+await idGenerator.reserveBlock(fileId, 1_000_000);
+
+// Assign IDs from reserved block
+await entitySystemIdService.assignSystemIdsToKeyDefinitions(keyDefinitions, fileId);
+// Each entity now has a unique systemId
+
+// Persist last used ID to reclaim unused IDs
+await idGenerator.persistLastUsedId(fileId);
+```
+
+---
+
+### 5.7 ForeignKeyMapper
 
 **Location**: `packages/core/src/application/file-operations/upload-file/services/foreign-key-mapper.ts`
 
@@ -720,7 +860,7 @@ const subgraphSystemId = foreignKeyMapper.getSubgraphSystemId(module.subgraphId)
 
 ---
 
-### 5.6 BulkImportRepository
+### 5.8 BulkImportRepository
 
 **Location**: `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/`
 

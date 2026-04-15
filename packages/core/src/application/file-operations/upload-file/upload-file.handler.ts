@@ -12,6 +12,7 @@ import {UploadFileOrchestrator} from './services/upload-file-orchestrator.js';
 import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../../ports/profiling/profiler.port.js';
+import type {IdGenerationPort} from '../../ports/id-generation/id-generation.port.js';
 import {
   PROJECT_TYPE,
   Project,
@@ -22,6 +23,8 @@ export type OpenFileResult = {
   projectId: string;
   projectName: string;
   projectDescription: string;
+  errors?: string[];
+  warnings?: string[];
 };
 
 export class OpenFileHandler implements CommandHandler<
@@ -33,6 +36,7 @@ export class OpenFileHandler implements CommandHandler<
   constructor(
     private readonly uow: UnitOfWork,
     private readonly fileReader: FileReaderPort,
+    private readonly idGenerator: IdGenerationPort,
     workerPool?: WorkerPoolPort,
     logger?: Logger,
     profiler?: ProfilerPort,
@@ -40,6 +44,7 @@ export class OpenFileHandler implements CommandHandler<
     this.uploadOrchestrator = new UploadFileOrchestrator(
       this.fileReader,
       this.uow,
+      this.idGenerator,
       workerPool,
       logger,
       profiler,
@@ -102,7 +107,8 @@ export class OpenFileHandler implements CommandHandler<
     // ========== PHASE 2: Bulk Upload (NON-TRANSACTIONAL) ==========
     // Note: UOW still has active QueryRunner (CommandBus will release it)
     // Bulk upload uses same connection but NO transaction
-    await this.uploadOrchestrator.orchestrate(
+    // Collects errors instead of throwing
+    const uploadResult = await this.uploadOrchestrator.orchestrate(
       command.acdb,
       command.awsp,
       fileSystemId,
@@ -112,6 +118,9 @@ export class OpenFileHandler implements CommandHandler<
       projectId: project.systemId.toString(),
       projectName: project.name,
       projectDescription: project.description,
+      errors: uploadResult.errors.length > 0 ? uploadResult.errors : undefined,
+      warnings:
+        uploadResult.warnings.length > 0 ? uploadResult.warnings : undefined,
     };
   }
 

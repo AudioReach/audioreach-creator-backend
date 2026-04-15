@@ -40,6 +40,8 @@ interface OpenFileCommandResult {
   projectId: string;
   projectName: string;
   projectDescription: string;
+  errors?: string[];
+  warnings?: string[];
 }
 
 interface AuthenticatedRequest extends Request {
@@ -281,10 +283,15 @@ export class ProjectController {
         sessionMode: SessionMode.Designer,
       };
 
+      const hasErrors = result.errors && result.errors.length > 0;
+
       const projectResponse: ApiResult<ProjectInfoResponseDto> = {
         data: projectdetails,
-        success: true,
-        message: 'The file has been opened successfully',
+        success: !hasErrors,
+        message: hasErrors
+          ? `Project created with ${result.errors?.length} validation errors. Please review and fix the issues.`
+          : 'The file has been opened successfully',
+        errors: result.errors,
       };
       return projectResponse;
     } catch (error) {

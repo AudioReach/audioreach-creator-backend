@@ -121,6 +121,7 @@ export class CommandHandlerRegistry {
         new OpenFileHandler(
           deps.uow,
           deps.fileReader,
+          deps.idGeneration,
           deps.workerPool,
           deps.logger,
           deps.profiler,

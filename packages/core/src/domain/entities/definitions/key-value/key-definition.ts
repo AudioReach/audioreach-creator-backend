@@ -39,9 +39,9 @@ export interface KeyDefinitionInit {
 }
 
 export class KeyDefinition {
-  readonly systemId: number;
+  systemId: number;
   readonly keyId: number;
-  readonly fileSystemId: number;
+  fileSystemId: number;
   readonly values: ValueDefinition[] = [];
 
   name: string;

@@ -33,6 +33,7 @@ import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ForeignKeyMapper} from './foreign-key-mapper.js';
 import type {DynamicControlPortInfo} from './entity-builders/spf-module-builder.js';
+import type {BuildResult} from '../types/issue-collection.js';
 
 /**
  * Constants for entity model keys used by EntityBuilderService
@@ -87,7 +88,7 @@ export class EntityBuilderService {
   private controlLinkBuilder: ControlLinkBuilder;
 
   constructor(
-    readonly foreignKeyMapper: ForeignKeyMapper,
+    readonly foreignKeyMapper: ForeignKeyMapper, //TODO: remove once logic is moved
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {
@@ -579,30 +580,33 @@ export class EntityBuilderService {
    */
   async buildKeyDefinitions(
     parsedAwsp: ParsedAwsp,
-    fileSystemId: number,
-  ): Promise<KeyDefinition[]> {
+  ): Promise<BuildResult<KeyDefinition>> {
     // Extract key definitions from AWSP
     const awspKeyDefinitions = parsedAwsp.getKeyDefinitions();
 
     if (!awspKeyDefinitions || awspKeyDefinitions.length === 0) {
-      return [];
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
-    // Build domain key definitions
-    const keyDefinitions = await this.keyDefinitionBuilder.buildKeyDefinitions(
-      awspKeyDefinitions,
-      fileSystemId,
-    );
+    // Build domain key definitions - now returns BuildResult with issues collected
+    const result =
+      await this.keyDefinitionBuilder.buildKeyDefinitions(awspKeyDefinitions);
 
     this.logger?.logInfo({
-      msg: `Successfully built ${keyDefinitions.length} key definitions from AWSP`,
+      msg: `Successfully built ${result.successCount} key definitions from AWSP, ${result.errorCount} failures`,
       action: 'awsp_key_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
       timestamp: new Date(),
     });
 
-    return keyDefinitions;
+    return result;
   }
 
   /**
