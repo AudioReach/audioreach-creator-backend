@@ -4,8 +4,8 @@
  */
 
 import {Type} from 'class-transformer';
-import {BaseArrayElement} from './base-array-element.js';
-import {ConfigElement} from './config-element.js';
+import {AwspBaseArrayElement} from './base-array-element.js';
+import {AwspConfigElement} from './config-element.js';
 import type {DisplayType} from './type/display-type.js';
 import type {ElementPolicy} from './type/element-policy.js';
 
@@ -13,10 +13,10 @@ import type {ElementPolicy} from './type/element-policy.js';
  * Represents a configuration element array.
  * Extends ArrayElement with configuration-specific properties.
  */
-export class ConfigElementArray extends BaseArrayElement {
+export class AwspConfigElementArray extends AwspBaseArrayElement {
   /** Key configuration element (required) */
-  @Type(() => ConfigElement)
-  keyConfigElement!: ConfigElement;
+  @Type(() => AwspConfigElement)
+  keyConfigElement!: AwspConfigElement;
 
   /** Display type for the configuration element array (optional) */
   displayType?: DisplayType;

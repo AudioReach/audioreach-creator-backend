@@ -4,14 +4,14 @@
  */
 
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
-import type {ContainerProperty} from './types.js';
+import type {AcdbContainerProperties} from './types.js';
 
 /**
  * Handles parsing of container configuration properties from binary data.
  */
 export class ContainerConfigProperty {
   /** List of container properties */
-  readonly containerProperties: ContainerProperty[] = [];
+  readonly containerProperties: AcdbContainerProperties[] = [];
 
   private constructor() {}
 
@@ -88,12 +88,12 @@ export class ContainerConfigProperty {
     );
 
     // Create container property
-    const containerProperty: ContainerProperty = {
+    const containerData: AcdbContainerProperties = {
       containerId,
       properties,
     };
 
-    this.containerProperties.push(containerProperty);
+    this.containerProperties.push(containerData);
 
     return newPos;
   }

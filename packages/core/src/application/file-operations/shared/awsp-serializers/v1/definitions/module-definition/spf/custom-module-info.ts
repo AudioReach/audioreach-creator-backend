@@ -9,7 +9,7 @@ import {IsNotEmpty, IsNumber, IsString} from 'class-validator';
 /**
  * Represents custom module information.
  */
-export class CustomModuleInfo {
+export class AwspCustomModuleInfo {
   /** Major type identifier (required) */
   @Expose()
   @IsNotEmpty()

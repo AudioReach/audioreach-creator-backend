@@ -1,7 +1,7 @@
 // Key Definitions
-export {KeyDefinition} from './key-definition/key-definition.js';
+export {AwspKeyDefinition} from './key-definition/key-definition.js';
 export type {SpecialKey} from './key-definition/type/special-key-type.js';
-export {ValueDefinition} from './key-definition/value-definition.js';
+export {AwspValueDefinition} from './key-definition/value-definition.js';
 
 // Tag Definitions
 export {TagDefinition} from './tag-definition/tag-definition.js';
@@ -16,25 +16,25 @@ export {SpfPropertyDefinition} from './property-definition/spf-property-definiti
 export {DriverModuleDefinition} from './module-definition/driver/driver-module-definition.js';
 
 // Module Definitions - SPF
-export {SpfModuleDefinition} from './module-definition/spf/spf-module-definition.js';
-export {ControlPortsInfo} from './module-definition/spf/control-ports-info.js';
-export {CustomModuleInfo} from './module-definition/spf/custom-module-info.js';
-export {DataPortsInfo} from './module-definition/spf/data-ports-info.js';
-export {Intent} from './module-definition/spf/intent.js';
-export {Port} from './module-definition/spf/port.js';
-export {StaticControlPort} from './module-definition/spf/static-control-port.js';
+export {AwspSpfModuleDefinition} from './module-definition/spf/spf-module-definition.js';
+export {AwspControlPortsInfo} from './module-definition/spf/control-ports-info.js';
+export {AwspCustomModuleInfo} from './module-definition/spf/custom-module-info.js';
+export {AwspDataPortsInfo} from './module-definition/spf/data-ports-info.js';
+export {AwspIntent} from './module-definition/spf/intent.js';
+export {AwspPort} from './module-definition/spf/port.js';
+export {AwspStaticControlPort} from './module-definition/spf/static-control-port.js';
 
 // Module Definitions - Common
 export {BaseModuleDefinition} from './module-definition/common/base-module-definition.js';
-export {ParamDefinition} from './module-definition/common/param-definition.js';
+export {AwspParamDefinition} from './module-definition/common/param-definition.js';
 
 // Common Elements
-export {BaseArrayElement as ArrayElement} from './common/base-array-element.js';
-export {BaseElement} from './common/base-element.js';
-export {ConfigElementArray} from './common/config-element-array.js';
-export {ConfigElement} from './common/config-element.js';
-export {StructArray} from './common/struct-array.js';
-export {Struct} from './common/struct.js';
+export {AwspBaseArrayElement as ArrayElement} from './common/base-array-element.js';
+export {AwspBaseElement} from './common/base-element.js';
+export {AwspConfigElementArray} from './common/config-element-array.js';
+export {AwspConfigElement} from './common/config-element.js';
+export {AwspStructArray} from './common/struct-array.js';
+export {AwspStruct} from './common/struct.js';
 
 // Processor Definitions
 export {ProcessorDefinition} from './processor-definition/processor-definition.js';

@@ -32,14 +32,16 @@ import {
 import {FileFieldsInterceptor} from '@nestjs/platform-express';
 
 import {memoryStorage} from 'multer';
-import {CommandBus, OpenFileCommand} from '@arc/core';
+import {CommandBus, UploadFileCommand} from '@arc/core';
 import type {PathRef, Logger} from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
-interface OpenFileCommandResult {
+interface UploadFileCommandResult {
   projectId: string;
   projectName: string;
   projectDescription: string;
+  errors?: string[];
+  warnings?: string[];
 }
 
 interface AuthenticatedRequest extends Request {
@@ -263,8 +265,8 @@ export class ProjectController {
 
     try {
       // Dispatch command
-      const result = await this.commandBus.execute<OpenFileCommandResult>(
-        new OpenFileCommand(clientId, acdbRef, awspRef),
+      const result = await this.commandBus.execute<UploadFileCommandResult>(
+        new UploadFileCommand(clientId, acdbRef, awspRef),
       );
 
       // Cleanup on success
@@ -281,10 +283,15 @@ export class ProjectController {
         sessionMode: SessionMode.Designer,
       };
 
+      const hasErrors = result.errors && result.errors.length > 0;
+
       const projectResponse: ApiResult<ProjectInfoResponseDto> = {
         data: projectdetails,
-        success: true,
-        message: 'The file has been opened successfully',
+        success: !hasErrors,
+        message: hasErrors
+          ? `Project created with ${result.errors?.length} validation errors. Please review and fix the issues.`
+          : 'The file has been opened successfully',
+        errors: result.errors,
       };
       return projectResponse;
     } catch (error) {

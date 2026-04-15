@@ -10,7 +10,7 @@
 /**
  * Represents a single subgraph property configuration
  */
-export interface SubgraphProperty {
+export interface AcdbSubgraphProperties {
   /** Subgraph ID */
   subgraphId: number;
   /** Map of property ID to property data */
@@ -20,7 +20,7 @@ export interface SubgraphProperty {
 /**
  * Represents a single container property configuration
  */
-export interface ContainerProperty {
+export interface AcdbContainerProperties {
   /** Container instance ID */
   containerId: number;
   /** Map of property ID to property data */
@@ -52,7 +52,7 @@ export interface SpfModuleInfo {
 /**
  * Represents a module property (port info, heap ID, etc.)
  */
-export interface ModuleProperty {
+export interface AcdbModuleProperties {
   /** Property ID */
   propertyId: number;
   /** Property data */
@@ -66,7 +66,7 @@ export interface ModulePropertyConfig {
   /** Module instance ID */
   spfModuleInstanceId: number;
   /** List of properties for this module */
-  properties: ModuleProperty[];
+  properties: AcdbModuleProperties[];
 
   /** Get port information for this module */
   getPortInfo(): PortInfo | null;

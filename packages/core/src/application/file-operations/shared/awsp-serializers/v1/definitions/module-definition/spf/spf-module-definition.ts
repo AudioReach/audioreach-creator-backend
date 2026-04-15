@@ -17,16 +17,16 @@ import type {ModuleDirectionType} from '../type/module-direction-type.js';
 import type {MdfModuleType} from '../type/mdf-module-type.js';
 import type {MajorModuleType} from '../type/major-module-type.js';
 import type {BuildType} from '../type/build-type.js';
-import {DataPortsInfo} from './data-ports-info.js';
-import {ControlPortsInfo} from './control-ports-info.js';
-import {CustomModuleInfo} from './custom-module-info.js';
+import {AwspDataPortsInfo} from './data-ports-info.js';
+import {AwspControlPortsInfo} from './control-ports-info.js';
+import {AwspCustomModuleInfo} from './custom-module-info.js';
 import {BaseModuleDefinition} from '../common/base-module-definition.js';
 
 /**
  * Represents an SPF module definition with comprehensive module information.
  * Extends BaseModuleDefinition with SPF-specific properties.
  */
-export class SpfModuleDefinition extends BaseModuleDefinition {
+export class AwspSpfModuleDefinition extends BaseModuleDefinition {
   /** List of supported processor IDs (required) */
   @Expose()
   @IsArray()
@@ -43,22 +43,22 @@ export class SpfModuleDefinition extends BaseModuleDefinition {
   @Expose()
   @IsOptional()
   @ValidateNested()
-  @Type(() => DataPortsInfo)
-  inputPortsInfo?: DataPortsInfo;
+  @Type(() => AwspDataPortsInfo)
+  inputPortsInfo?: AwspDataPortsInfo;
 
   /** Output ports information (optional) */
   @Expose()
   @IsOptional()
   @ValidateNested()
-  @Type(() => DataPortsInfo)
-  outputPortsInfo?: DataPortsInfo;
+  @Type(() => AwspDataPortsInfo)
+  outputPortsInfo?: AwspDataPortsInfo;
 
   /** Control ports information (optional) */
   @Expose()
   @IsOptional()
   @ValidateNested()
-  @Type(() => ControlPortsInfo)
-  controlPortsInfo?: ControlPortsInfo;
+  @Type(() => AwspControlPortsInfo)
+  controlPortsInfo?: AwspControlPortsInfo;
 
   /** Stack size (optional) */
   @Expose()
@@ -119,8 +119,8 @@ export class SpfModuleDefinition extends BaseModuleDefinition {
   @Expose()
   @IsOptional()
   @ValidateNested()
-  @Type(() => CustomModuleInfo)
-  customModuleInfo?: CustomModuleInfo;
+  @Type(() => AwspCustomModuleInfo)
+  customModuleInfo?: AwspCustomModuleInfo;
 
   /** Group name (optional) */
   @Expose()

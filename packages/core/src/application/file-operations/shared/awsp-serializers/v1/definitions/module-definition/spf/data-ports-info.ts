@@ -5,12 +5,12 @@
 
 import {Expose, Type} from 'class-transformer';
 import {IsArray, IsNotEmpty, IsNumber, ValidateNested} from 'class-validator';
-import {Port} from './port.js';
+import {AwspPort} from './port.js';
 
 /**
  * Represents data ports information with maximum ports and port list.
  */
-export class DataPortsInfo {
+export class AwspDataPortsInfo {
   /** Maximum number of ports (required) */
   @Expose()
   @IsNotEmpty()
@@ -21,6 +21,6 @@ export class DataPortsInfo {
   @Expose()
   @IsArray()
   @ValidateNested({each: true})
-  @Type(() => Port)
-  ports!: Port[];
+  @Type(() => AwspPort)
+  ports!: AwspPort[];
 }

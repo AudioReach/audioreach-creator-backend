@@ -58,7 +58,12 @@ export default {
 
   // Global reporters for all projects - merged XML output
   reporters: [
-    'default',
+    [
+      'default',
+      {
+        summaryThreshold: 0, // Always show summary
+      },
+    ],
     [
       'jest-junit',
       {
@@ -68,4 +73,10 @@ export default {
       },
     ],
   ],
+
+  // Show only failures and summary
+  verbose: false,
+  silent: false,
+  bail: false,
+  errorOnDeprecated: false,
 };

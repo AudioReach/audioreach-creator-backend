@@ -6,7 +6,7 @@
 import type {PortIoType} from '../../../common/enums/port-io-type.js';
 
 export class DataPort {
-  readonly systemId: number;
+  systemId: number;
   readonly dataPortId: number;
   readonly portIoType: PortIoType;
   readonly isStatic: boolean;
