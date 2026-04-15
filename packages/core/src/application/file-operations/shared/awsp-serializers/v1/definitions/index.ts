@@ -1,7 +1,7 @@
 // Key Definitions
-export {KeyDefinition} from './key-definition/key-definition.js';
+export {AwspKeyDefinition} from './key-definition/key-definition.js';
 export type {SpecialKey} from './key-definition/type/special-key-type.js';
-export {ValueDefinition} from './key-definition/value-definition.js';
+export {AwspValueDefinition} from './key-definition/value-definition.js';
 
 // Tag Definitions
 export {TagDefinition} from './tag-definition/tag-definition.js';

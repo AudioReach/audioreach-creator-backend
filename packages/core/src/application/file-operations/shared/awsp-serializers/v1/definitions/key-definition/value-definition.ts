@@ -9,7 +9,7 @@ import {IsNotEmpty, IsNumber, IsString, IsOptional} from 'class-validator';
 /**
  * Represents a value definition with identifier and name properties.
  */
-export class ValueDefinition {
+export class AwspValueDefinition {
   /** Unique identifier for the value definition */
   @Expose()
   @IsNotEmpty()
