@@ -4,7 +4,7 @@
  */
 
 import type {
-  KeyDefinition,
+  AwspKeyDefinition,
   TagDefinition,
   SpfPropertyDefinition,
   DriverPropertyDefinition,
@@ -20,7 +20,7 @@ import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-na
  * Union type of all possible definition arrays that can be stored in ParsedAwsp
  */
 export type DefinitionCollection =
-  | KeyDefinition[]
+  | AwspKeyDefinition[]
   | TagDefinition[]
   | SpfPropertyDefinition[]
   | DriverPropertyDefinition[]
@@ -115,8 +115,8 @@ export class ParsedAwsp {
   /**
    * Get key definitions
    */
-  getKeyDefinitions(): KeyDefinition[] | undefined {
-    return this.getDefinitions<KeyDefinition[]>(
+  getKeyDefinitions(): AwspKeyDefinition[] | undefined {
+    return this.getDefinitions<AwspKeyDefinition[]>(
       DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS,
     );
   }

@@ -13,13 +13,13 @@ import {
   IsOptional,
   IsBoolean,
 } from 'class-validator';
-import {ValueDefinition} from './value-definition.js';
+import {AwspValueDefinition} from './value-definition.js';
 import type {SpecialKey} from './type/special-key-type.js';
 
 /**
  * Represents a key definition with identifier, name, and associated values.
  */
-export class KeyDefinition {
+export class AwspKeyDefinition {
   /** Unique identifier for the key definition */
   @Expose()
   @IsNotEmpty()
@@ -36,8 +36,8 @@ export class KeyDefinition {
   @Expose()
   @IsArray()
   @ValidateNested({each: true})
-  @Type(() => ValueDefinition)
-  values!: ValueDefinition[];
+  @Type(() => AwspValueDefinition)
+  values!: AwspValueDefinition[];
 
   /** Optional description providing additional details about the key definition */
   @Expose()

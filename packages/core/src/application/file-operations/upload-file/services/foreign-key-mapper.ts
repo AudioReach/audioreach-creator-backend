@@ -3,16 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {BulkKeyDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 import type {
   BulkDataLinkInsertResult,
   BulkControlLinkInsertResult,
 } from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
-import type {BulkEntityInsertResult} from '../../../ports/persistence/repositories/bulk-import/insert-result.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
-import type {BulkModuleDefinitionInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
-import type {BulkModuleInsertResult} from '../../../ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
-import {PORT_IO_TYPE} from '../../../../domain/entities/common/enums/port-io-type.js';
 
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
@@ -35,8 +30,44 @@ export class ForeignKeyMapper {
   constructor(private readonly logger?: Logger) {}
 
   /**
-   * Store key definition mappings from bulk insertion result
+   * Add a single key definition mapping
    */
+  addKeyDefinitionMapping(keyId: number, systemId: number): void {
+    this.keyDefinitionMappings.set(keyId, systemId);
+  }
+
+  /**
+   * Add a single value definition mapping
+   */
+  addValueDefinitionMapping(
+    keyId: number,
+    valueId: number,
+    systemId: number,
+  ): void {
+    const keySystemId = this.getKeySystemId(keyId);
+    if (!keySystemId) {
+      this.logger?.logError({
+        msg: `Cannot add value mapping: key ${keyId} not found`,
+        action: 'value_mapping_failed',
+        component: 'ForeignKeyMapper',
+        tag: 'foreign-key-mapping',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    let valueMap = this.valueDefinitionMappings.get(keySystemId);
+    if (!valueMap) {
+      valueMap = new Map<number, number>();
+      this.valueDefinitionMappings.set(keySystemId, valueMap);
+    }
+
+    valueMap.set(valueId, systemId);
+  }
+
+  /*
+   // Store key definition mappings from bulk insertion result
+
   setKeyDefinitionMappings(result: BulkKeyDefinitionInsertResult): void {
     let keyMappingsCount = 0;
     let valueMappingsCount = 0;
@@ -72,7 +103,7 @@ export class ForeignKeyMapper {
       tag: 'foreign-key-mapping',
       timestamp: new Date(),
     });
-  }
+  }*/
 
   /**
    * Get systemId for a given keyId
@@ -135,8 +166,8 @@ export class ForeignKeyMapper {
   }
 
   /**
-   * Set subgraph mappings from bulk insertion result
-   */
+  //  Set subgraph mappings from bulk insertion result
+
   setSubgraphMappings(result: BulkEntityInsertResult): void {
     let mappingsCount = 0;
 
@@ -159,9 +190,9 @@ export class ForeignKeyMapper {
     });
   }
 
-  /**
-   * Set container mappings from bulk insertion result
-   */
+  //
+   // Set container mappings from bulk insertion result
+
   setContainerMappings(result: BulkEntityInsertResult): void {
     let mappingsCount = 0;
 
@@ -184,9 +215,9 @@ export class ForeignKeyMapper {
     });
   }
 
-  /**
-   * Set module definition mappings from bulk insertion result
-   */
+  //
+  // Set module definition mappings from bulk insertion result
+
   setModuleDefinitionMappings(result: BulkModuleDefinitionInsertResult): void {
     let mappingsCount = 0;
 
@@ -209,9 +240,9 @@ export class ForeignKeyMapper {
     });
   }
 
-  /**
-   * Set module instance mappings from bulk insertion result
-   */
+  //
+  // Set module instance mappings from bulk insertion result
+
   setSpfModuleMappings(result: BulkModuleInsertResult): void {
     let mappingsCount = 0;
     let inputPortMappingsCount = 0;
@@ -312,7 +343,7 @@ export class ForeignKeyMapper {
     }
 
     return controlCount;
-  }
+  }*/
 
   /**
    * Get systemId for a given subgraphId

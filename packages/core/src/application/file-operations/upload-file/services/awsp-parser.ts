@@ -23,7 +23,7 @@ import {
   ContainerType,
   DriverModuleDefinition,
   DriverPropertyDefinition,
-  KeyDefinition,
+  AwspKeyDefinition,
   ProcessorDefinition,
   SpfModuleDefinition,
   SpfPropertyDefinition,
@@ -102,7 +102,7 @@ export class AwspParser {
     blockName: string,
   ): ClassConstructor<unknown> {
     const classMap: Record<string, ClassConstructor<unknown>> = {
-      [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: KeyDefinition,
+      [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: AwspKeyDefinition,
       [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: TagDefinition,
       [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: SpfPropertyDefinition,
       [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
