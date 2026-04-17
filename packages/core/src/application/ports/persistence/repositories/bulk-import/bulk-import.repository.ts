@@ -14,153 +14,98 @@ import type {
   ContainerType,
   UseCase,
   ModuleDefinition,
+  BulkInsertResult,
 } from '@arc/core';
 
-import type {BulkInsertResult} from './bulk-import-interface/bulk-insert-result.interface.js';
-
 /**
- * Repository interface for bulk import operations using insert+query pattern.
- * All methods accept entities without systemId and return insertion reports with natural key mappings.
- * Success is determined by main table insert success; child failures are informational and do not cause rollback.
+ * Repository interface for bulk import operations. Failure of any insertion results in upload-file failure.
  */
 export interface BulkImportRepository {
   /**
-   * Insert SPF module instances in bulk, including CKV, TKV, and related entities.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Returns port mappings (data + control) needed for creating links.
+   * Inserts SPF module instances in bulk, including CKV, TKV, and related entities.
    *
-   * @param items - SPF modules without systemId (will be generated during insertion)
-   * @returns Promise resolving to bulk module insertion result with instanceId->systemId mappings and port mappings
-   *
-   * @example
-   * ```typescript
-   * const modules: Omit<SpfModule, 'systemId'>[] = [
-   *   { instanceId: 123, name: "AudioDecoder", ... }
-   * ];
-   * const result = await repository.insertSpfModules(modules);
-   * const moduleSystemId = result.results[0].moduleIdMapping?.systemId;
-   * const portSystemId = result.results[0].portMappings.dataPorts[0]?.systemId;
-   * ```
+   * @param items - SPF modules with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertSpfModules(items: SpfModule[]): Promise<BulkInsertResult>;
 
   /**
-   * Insert container rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
+   * Inserts container rows in bulk.
    *
-   * @param items - Containers without systemId (will be generated during insertion)
-   * @returns Promise resolving to entity insertion result with containerId->systemId mappings
+   * @param items - Containers with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertContainers(items: readonly Container[]): Promise<BulkInsertResult>;
 
   /**
-   * Insert subgraph rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
+   * Inserts subgraph rows in bulk.
    *
-   * @param items - Subgraphs without systemId (will be generated during insertion)
-   * @returns Promise resolving to entity insertion result with subgraphId->systemId mappings
+   * @param items - Subgraphs with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertSubgraphs(items: readonly Subgraph[]): Promise<BulkInsertResult>;
 
   /**
-   * Insert data link rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Links are created after modules, so they reference existing systemIds.
+   * Inserts data link rows in bulk.
+   * Links are inserted after modules so that referenced systemIds already exist.
    *
-   * @param items - Data links without systemId (will be generated during insertion)
-   * @returns Promise resolving to data link insertion result with composite key->systemId mappings
+   * @param items - Data links with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertDataLinks(items: readonly DataLink[]): Promise<BulkInsertResult>;
 
   /**
-   * Insert control link rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Links are created after modules, so they reference existing systemIds.
+   * Inserts control link rows in bulk.
+   * Links are inserted after modules so that referenced systemIds already exist.
    *
-   * @param items - Control links without systemId (will be generated during insertion)
-   * @returns Promise resolving to control link insertion result with composite key->systemId mappings
+   * @param items - Control links with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertControlLinks(items: readonly ControlLink[]): Promise<BulkInsertResult>;
 
   /**
-   * Insert use case rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
+   * Inserts use case rows in bulk, including their associated KeyVectors.
    *
-   * Process:
-   * 1. Inserts KeyVectors (using kvHash as natural key)
-   * 2. Inserts UseCases with keyVectorSystemId FK
-   * 3. Returns useCaseSystemId for successful insertions
-   *
-   * Failure handling:
-   * - If KeyVector insertion fails, UseCase is marked as failed (not attempted)
-   * - If KeyVector succeeds but UseCase fails, UseCase is marked as failed
-   * - Only successful UseCases return systemId mappings
-   *
-   * @param items - UseCases without systemId (will be generated during insertion)
-   * @returns Promise resolving to bulk entity insertion result where:
-   *   - `idMapping.naturalId` = useCaseSystemId (for successful insertions)
-   *   - `idMapping.systemId` = useCaseSystemId (same as naturalId)
-   *   - `errors` = Array of InsertError for failed insertions
-   *   - `success` = boolean indicating success/failure
-   *
-   * @example
-   * ```typescript
-   * const useCases: Omit<UseCase, 'systemId'>[] = [
-   *   { fileSystemId: 1, keyVector: { valueSystemIds: [1, 2, 3] }, ... }
-   * ];
-   * const result = await repository.insertUseCases(useCases);
-   *
-   * // For successful insertion:
-   * const useCaseSystemId = result.results[0].idMapping?.systemId;
-   *
-   * // For failed insertion:
-   * const errors = result.results[0].errors; // InsertError[]
-   * const success = result.results[0].success; // false
-   * ```
+   * @param items - UseCases with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertUseCases(items: readonly UseCase[]): Promise<BulkInsertResult>;
 
   /**
-   * Insert SPF module definition rows in bulk, including parameters, ports, and intents.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Returns parameter definition mappings needed for calibration workflows.
+   * Inserts SPF module definition rows in bulk, including parameters, ports, and intents.
    *
-   * @param items - SPF module definitions without systemId (will be generated during insertion)
-   * @returns Promise resolving to module definition insertion result with definitionId->systemId mappings and parameter mappings
+   * @param items - SPF module definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertModuleDefinitions(
     items: readonly ModuleDefinition[],
   ): Promise<BulkInsertResult>;
 
   /**
-   * Insert key definition rows in bulk, including value definitions.
-   * Uses insert+query pattern to return natural key to systemId mappings.
-   * Returns value definition mappings needed for calibration workflows.
+   * Inserts key definition rows in bulk, including value definitions.
    *
-   * @param items - Key definitions without systemId (will be generated during insertion)
-   * @returns Promise resolving to key definition insertion result with keyId->systemId mappings and value definition mappings
+   * @param items - Key definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertKeyDefinitions(
     items: readonly KeyDefinition[],
   ): Promise<BulkInsertResult>;
 
   /**
-   * Insert processor definition rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
+   * Inserts processor definition rows in bulk.
    *
-   * @param items - Processor definitions without systemId (will be generated during insertion)
-   * @returns Promise resolving to entity insertion result with processorId->systemId mappings
+   * @param items - Processor definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertProcessorDefinitions(
     items: readonly ProcessorDefinition[],
   ): Promise<BulkInsertResult>;
 
   /**
-   * Insert container type definition rows in bulk.
-   * Uses insert+query pattern to return natural key to systemId mappings.
+   * Inserts container type definition rows in bulk.
    *
-   * @param items - Container type definitions without systemId (will be generated during insertion)
-   * @returns Promise resolving to entity insertion result with containerTypeId->systemId mappings
+   * @param items - Container type definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertContainerTypeDefinitions(
     items: readonly ContainerType[],
