@@ -15,7 +15,7 @@ import {EntitySchema} from 'typeorm';
 export interface CkvRow extends EntityBaseRow {
   spfModuleSystemId: number;
   keyVectorSystemId: number;
-  uiPersistence: Uint8Array;
+  uiPersistence: Uint8Array | null;
 
   module?: SpfModuleRow; // many- one
   keyVector?: KeyVectorRow; // many-one
@@ -24,7 +24,7 @@ export interface CkvRow extends EntityBaseRow {
 
 export interface CkvParameterPayloadRow extends EntityBaseRow {
   parameterSystemId: number;
-  payload: Uint8Array;
+  payload: Uint8Array | null;
 
   ckvSystemId: number; // FK
   ckv?: CkvRow; // relation
@@ -49,6 +49,7 @@ export const CkvSchema = (blobConverter: BlobBytesConverter) =>
       module: {
         type: 'many-to-one',
         target: 'SpfModule',
+        inverseSide: 'ckvs',
         joinColumn: {
           name: 'spf_module_system_id',
           referencedColumnName: 'systemId',

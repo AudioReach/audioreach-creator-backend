@@ -10,7 +10,9 @@ import {BinaryPayloadValue} from './binary-payload-value.js';
 
 export class ModuleParameterData extends BinaryPayloadValue {
   constructor(
-    readonly parameterSystemId: number,
+    /** Surrogate PK — provided by ID generator (0 = placeholder at build time). */
+    readonly systemId: number,
+    readonly paramDefintionSystemId: number,
     payload: Uint8Array | null,
   ) {
     super(payload);
