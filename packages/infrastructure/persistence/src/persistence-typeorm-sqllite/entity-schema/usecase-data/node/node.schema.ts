@@ -14,12 +14,12 @@ import type {UseCaseRow} from '../use-case.js';
 import type {SpfModuleRow} from '../module/spf-module.schema.js';
 import type {SubsystemRow} from '../subsystem/subsystem.js';
 
-export const NodeType = {
+export const NODE_TYPE = {
   Module: 'module',
   Subsystem: 'subsystem',
 } as const;
 
-export type NodeType = (typeof NodeType)[keyof typeof NodeType];
+export type NodeType = (typeof NODE_TYPE)[keyof typeof NODE_TYPE];
 
 export interface NodeRow extends EntityBaseRow {
   parentId?: number;
@@ -56,7 +56,7 @@ export const NodeSchema = new EntitySchema<NodeRow>({
 
     type: {
       type: 'simple-enum', // SQLite
-      enum: Object.values(NodeType), // ['module','subsystem']
+      enum: Object.values(NODE_TYPE), // ['module','subsystem']
     },
 
     fileSystemId: {

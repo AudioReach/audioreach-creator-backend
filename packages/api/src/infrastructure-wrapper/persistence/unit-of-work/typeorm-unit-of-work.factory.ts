@@ -4,7 +4,7 @@
  */
 
 import type {DataSource} from 'typeorm';
-import type {UnitOfWorkFactory} from '@arc/core';
+import type {UnitOfWorkFactory, IdGenerationPort} from '@arc/core';
 import {TypeOrmUnitOfWork} from './typeorm-unit-of-work.js';
 
 /**
@@ -29,12 +29,13 @@ import {TypeOrmUnitOfWork} from './typeorm-unit-of-work.js';
  */
 export function createTypeOrmUnitOfWorkFactory(
   dataSource: DataSource,
+  idGeneration: IdGenerationPort,
 ): UnitOfWorkFactory {
   return async () => {
     const queryRunner = dataSource.createQueryRunner();
     await queryRunner.connect();
 
-    const uow = new TypeOrmUnitOfWork(queryRunner);
+    const uow = new TypeOrmUnitOfWork(queryRunner, idGeneration);
 
     return {
       uow,

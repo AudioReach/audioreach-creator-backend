@@ -3,151 +3,160 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {
-  type BulkEntityInsertResult,
+import type {EntityManager} from 'typeorm';
+import type {
   Container,
-  type NaturalIdMapping,
+  BulkInsertError,
+  BulkInsertResult,
+  IdGenerationPort,
 } from '@arc/core';
-import {BaseInserter} from '../base.inserter.js';
-import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
-import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import {errBulkInsert, okBulkInsert} from '@arc/core';
+import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
+  BatchInserter,
+  type InsertRow,
+  type RawFailure,
+} from '../batch-inserter.js';
+import {
+  ContainerSchema,
   type ContainerRow,
-  type EntityRowForInsert,
-} from '../../../entity-schema/index.js';
+} from '../../../entity-schema/usecase-data/container/container.schema.js';
+import type {ContainerPropertyDataRow} from '../../../entity-schema/usecase-data/container/container-property-data.js';
 
 /**
- * Handles bulk insertion of Container entities.
+ * Inserts Container domain entities and their ContainerPropertyData children
+ * into the database using ordered bulk batch inserts.
  *
- * Process:
- * 1. Batch insert all Containers
- * 2. Query back using containerId (natural key)
- * 3. Build results with mappings and errors
+ * All insert steps are always attempted regardless of prior failures.
  *
- * Uses insert+query pattern with natural keys for reliable systemId mapping.
+ * Insert order (FK-safe):
+ *   Container → ContainerPropertyData
  */
-export class ContainerInserter extends BaseInserter<
-  Omit<Container, 'systemId'>,
-  BulkEntityInsertResult<number>,
-  string
-> {
+export class ContainerInserter implements BulkInserter<Container> {
+  constructor(
+    private readonly manager: EntityManager,
+    private readonly idGeneration: IdGenerationPort,
+  ) {}
+
   /**
-   * Insert Containers in bulk.
-   *
-   * @param containers - Container domain entities without systemId
-   * @returns Bulk insert result with natural key mappings and errors
+   * Inserts all Container entities and their property data in FK-safe order.
+   * Failures are grouped by Container aggregate and returned as
+   * `BulkInsertError[]` — one entry per failing container.
+   * @returns BulkInsertResult — ok if all inserts succeeded, err otherwise.
    */
-  async insert(
-    containers: readonly Omit<Container, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>> {
-    // Early return for empty input
-    if (containers.length === 0) {
-      return {
-        results: [],
-      };
+  public async insert(containers: Container[]): Promise<BulkInsertResult> {
+    if (containers.length === 0) return okBulkInsert();
+
+    const containerBySystemId = new Map(containers.map(c => [c.systemId, c]));
+
+    const rawFailures: RawFailure[] = [
+      ...(await this.insertContainers(containers)),
+      ...(await this.insertContainerPropertyData(containers)),
+    ];
+
+    if (rawFailures.length === 0) return okBulkInsert();
+
+    // Group raw failures by Container systemId.
+    const grouped = new Map<number, string[]>();
+    for (const f of rawFailures) {
+      if (!grouped.has(f.systemId)) grouped.set(f.systemId, []);
+      grouped
+        .get(f.systemId)!
+        .push(
+          `${f.entityLabel}: Failed to insert\n${f.failedRowJson}\nerror: ${f.dbError}`,
+        );
     }
 
-    // ============================================
-    // Batch Insert Containers
-    // ============================================
-    const containerRows = containers.map(c => this.toContainerRow(c));
-    const insertResult = await BatchInserter.insert(
-      this.manager,
-      'Container',
-      containerRows,
+    const errors: BulkInsertError[] = [...grouped.entries()].map(
+      ([systemId, lines]) => {
+        const container = containerBySystemId.get(systemId)!;
+        return {
+          message: `Failed to insert some or all data belonging to Container {containerId=${container.containerId}, systemId=${container.systemId}}`,
+          details: lines.join('\n'),
+        };
+      },
     );
 
-    // ============================================
-    // Query Back Container SystemIds
-    // ============================================
-    const successfulContainerIds = insertResult.succeeded
-      .map(
-        row =>
-          (row as EntityRowForInsert<ContainerRow> & {containerId: number})
-            .containerId,
-      )
-      .filter((id): id is number => id != null);
-    const mappings = await this.queryBackContainers(successfulContainerIds);
-
-    // ============================================
-    // Build Results
-    // ============================================
-    return this.buildResults(containers, mappings, insertResult);
+    return errBulkInsert(errors);
   }
 
-  /**
-   * Convert Container domain entity to database row
-   */
-  private toContainerRow(
-    container: Omit<Container, 'systemId'>,
-  ): EntityRowForInsert<ContainerRow> {
-    return {
-      type: container.type,
-      containerId: container.containerId,
-      fileSystemId: container.fileSystemId,
-    };
-  }
+  // ─── Container ───────────────────────────────────────────────────────────────
 
-  /**
-   * Query back Container systemIds using natural keys (containerId).
-   * Uses indexed column for fast lookup.
-   *
-   * @param containerIds - Array of container containerIds to query
-   * @returns Array of natural key → systemId mappings
-   */
-  private async queryBackContainers(
-    containerIds: number[],
-  ): Promise<NaturalIdMapping<number>[]> {
-    if (containerIds.length === 0) return [];
-
-    const results = (await this.manager
-      .createQueryBuilder('Container', 'c')
-      .select(['c.systemId', 'c.containerId'])
-      .where('c.containerId IN (:...containerIds)', {containerIds})
-      .getMany()) as Array<{systemId: number; containerId: number}>;
-
-    return results.map(r => ({
-      naturalId: r.containerId,
-      systemId: r.systemId,
+  private async insertContainers(
+    containers: Container[],
+  ): Promise<RawFailure[]> {
+    const rows: InsertRow<ContainerRow>[] = containers.map(c => ({
+      systemId: c.systemId,
+      containerId: c.containerId,
+      type: c.type,
+      fileSystemId: c.fileSystemId,
     }));
-  }
 
-  /**
-   * Build results with mappings and errors
-   */
-  private buildResults(
-    containers: readonly Omit<Container, 'systemId'>[],
-    mappings: NaturalIdMapping<number>[],
-    insertResult: BatchInsertResult<QueryDeepPartialEntity<ContainerRow>>,
-  ): BulkEntityInsertResult<number> {
-    const mappingMap = new Map(mappings.map(m => [m.naturalId, m.systemId]));
-
-    const failedMap = new Map(
-      insertResult.failed.map(f => [f.row.containerId as number, f.error]),
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      ContainerSchema,
+      rows,
     );
 
-    const results = [];
+    return failedEntities.map(error => {
+      const container = containers.find(c => c.systemId === error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: container.systemId,
+        entityLabel: 'Container',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
+      };
+    });
+  }
 
-    for (const container of containers) {
-      const systemId = mappingMap.get(container.containerId);
-      const error = failedMap.get(container.containerId);
+  // ─── Container Property Data ─────────────────────────────────────────────────
 
-      if (systemId) {
-        results.push({
-          idMapping: {naturalId: container.containerId, systemId},
-          errors: [],
-          success: true,
-        });
-      } else if (error) {
-        results.push({
-          errors: [this.buildError('Container', container.containerId, error)],
-          success: false,
-        });
-      }
+  private async insertContainerPropertyData(
+    containers: Container[],
+  ): Promise<RawFailure[]> {
+    // Collect all property entries with their context
+    const propEntries = containers.flatMap(c =>
+      [...c.properties.values()].map(prop => ({prop, container: c})),
+    );
+
+    if (propEntries.length === 0) return [];
+
+    // Generate a unique systemId for each property data row
+    const fileId = containers[0].fileSystemId;
+    const rows: InsertRow<ContainerPropertyDataRow>[] = [];
+    const contextBySystemId = new Map<
+      number,
+      {readonly container: Container}
+    >();
+
+    for (const entry of propEntries) {
+      const systemId = await this.idGeneration.getNextId(fileId);
+      rows.push({
+        systemId,
+        containerSystemId: entry.container.systemId,
+        propertySystemId: entry.prop.containerPropertyDefinitionSystemId,
+        payload: entry.prop.getPayloadCopy(),
+      });
+      contextBySystemId.set(systemId, {container: entry.container});
     }
 
-    return {
-      results,
-    };
+    const {failedEntities} =
+      await BatchInserter.insert<ContainerPropertyDataRow>(
+        this.manager,
+        'ContainerPropertyData',
+        rows,
+      );
+
+    return failedEntities.map(error => {
+      const ctx = contextBySystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.container.systemId,
+        entityLabel: 'Container Property Data',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
+      };
+    });
   }
 }

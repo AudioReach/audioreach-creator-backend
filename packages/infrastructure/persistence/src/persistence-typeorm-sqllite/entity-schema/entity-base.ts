@@ -17,11 +17,13 @@ export interface EntityBaseRow {
 }
 
 /**
- * Utility type to omit auto-generated/managed fields from entity rows.
+ * Utility type to omit auto-managed fields from entity rows.
  * Use this when creating new entity rows to insert into the database.
  *
- * Auto-managed fields:
- * - systemId: Auto-incremented by database
+ * `systemId` is NOT omitted — it must be provided by the caller via the ID
+ * generator service before insertion (the database no longer auto-increments it).
+ *
+ * Auto-managed fields (still omitted):
  * - creationDate: Set by TypeORM on insert
  * - updateDate: Set by TypeORM on update
  * - version: Managed by TypeORM for optimistic locking
@@ -30,6 +32,7 @@ export interface EntityBaseRow {
  * ```typescript
  * function toProjectRow(entity: Project): EntityRowForInsert<ProjectRow> {
  *   return {
+ *     systemId: entity.systemId,  // must be provided
  *     name: entity.name,
  *     description: entity.description,
  *     type: entity.type,
@@ -39,7 +42,7 @@ export interface EntityBaseRow {
  */
 export type EntityRowForInsert<T extends EntityBaseRow> = Omit<
   T,
-  'systemId' | 'creationDate' | 'updateDate' | 'version'
+  'creationDate' | 'updateDate' | 'version'
 >;
 
 export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
@@ -47,7 +50,6 @@ export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
     name: 'system_id',
     type: 'integer',
     primary: true,
-    generated: 'increment',
   },
 
   creationDate: {

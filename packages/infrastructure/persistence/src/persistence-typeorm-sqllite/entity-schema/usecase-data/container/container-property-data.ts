@@ -14,7 +14,7 @@ import {EntitySchema} from 'typeorm';
 export interface ContainerPropertyDataRow extends EntityBaseRow {
   containerSystemId: number;
   propertySystemId: number;
-  payload: Uint8Array;
+  payload: Uint8Array | null;
 
   container: ContainerRow;
   containerProperty: ContainerPropertyRow;

@@ -66,9 +66,12 @@ import {ConsoleLoggerService} from './logger/index.js';
     },
     {
       provide: 'UNIT_OF_WORK_FACTORY',
-      useFactory: (dataSource: DataSource): UnitOfWorkFactory =>
-        createTypeOrmUnitOfWorkFactory(dataSource),
-      inject: ['DATA_SOURCE'],
+      useFactory: (
+        dataSource: DataSource,
+        idGeneration: IdGenerationPort,
+      ): UnitOfWorkFactory =>
+        createTypeOrmUnitOfWorkFactory(dataSource, idGeneration),
+      inject: ['DATA_SOURCE', 'ID_GENERATION'],
     },
     {
       provide: CommandBus,

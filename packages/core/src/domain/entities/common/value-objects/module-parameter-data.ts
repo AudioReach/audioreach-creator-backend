@@ -10,7 +10,7 @@ import {BinaryPayloadValue} from './binary-payload-value.js';
 
 export class ModuleParameterData extends BinaryPayloadValue {
   constructor(
-    readonly parameterSystemId: number,
+    readonly paramDefintionSystemId: number,
     payload: Uint8Array | null,
   ) {
     super(payload);
