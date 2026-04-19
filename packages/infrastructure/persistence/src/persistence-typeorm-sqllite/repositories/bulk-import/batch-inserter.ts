@@ -23,7 +23,25 @@ export interface BatchInsertResult {
   failedEntities: BatchInsertError[];
 }
 
-type InsertRow<TEntity> = QueryDeepPartialEntity<TEntity> & {systemId: number};
+export type InsertRow<TEntity> = QueryDeepPartialEntity<TEntity> & {
+  systemId: number;
+};
+
+/**
+ * Internal raw failure produced by each private insert method in an inserter.
+ * Inserters group these by `moduleSystemId` to build the final
+ * `BulkInsertError[]` returned to callers.
+ */
+export type RawFailure = {
+  /** systemId of the aggregate (e.g. SpfModule) that owns the failed entity. */
+  readonly systemId: number;
+  /** Domain-friendly entity label, e.g. "Control Port", "CKV". */
+  readonly entityLabel: string;
+  /** JSON-serialized insert row that failed. */
+  readonly failedRowJson: string;
+  /** Database error message. */
+  readonly dbError: string;
+};
 
 export const BatchInserter = {
   async insert<TEntity extends EntityBaseRow & ObjectLiteral>(

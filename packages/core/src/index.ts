@@ -17,10 +17,6 @@ export * from './application/ports/persistence/unit-of-work.js';
 export * from './application/ports/persistence/unit-of-work-factory.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-insert-result-types.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
-export * from './application/ports/persistence/repositories/bulk-import/link-insertion-report.js';
-export * from './application/ports/persistence/repositories/bulk-import/spf-module-insertion-report.js';
-export * from './application/ports/persistence/repositories/bulk-import/spf-module-definition-insertion-report.js';
-export * from './application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
 export * from './application/ports/persistence/repositories/project/project.repostiory.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
@@ -79,6 +75,7 @@ export * from './application/file-operations/upload-file/services/chunk-metadata
 // ACDB entities and factories
 export * from './domain/entities/common/entities/header.entity.js';
 export * from './domain/entities/common/entities/kv-data.js';
+export * from './domain/entities/common/value-objects/module-parameter-data.js';
 export * from './domain/entities/common/entities/ckv-collection.js';
 export * from './domain/entities/common/enums/port-io-type.js';
 export * from './application/file-operations/upload-file/services/entity-builders/base-entity-builder.js';
@@ -91,6 +88,7 @@ export * from './application/file-operations/upload-file/services/entity-builder
 export * from './domain/entities/usecase-data/links/control-link.js';
 export * from './domain/entities/usecase-data/links/data-link.js';
 export * from './domain/entities/usecase-data/module/spf-module.js';
+export * from './domain/entities/usecase-data/module/entities/spf-module-tag-data.js';
 export * from './domain/entities/usecase-data/node/entities/data-port.js';
 export * from './domain/entities/usecase-data/node/entities/control-port.js';
 export * from './domain/entities/usecase-data/container/container.js';

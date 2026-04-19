@@ -13,7 +13,7 @@ import type {
   Subgraph,
   ContainerType,
   UseCase,
-  ModuleDefinition,
+  SpfModuleDefinition,
   BulkInsertResult,
 } from '@arc/core';
 
@@ -77,8 +77,8 @@ export interface BulkImportRepository {
    * @param items - SPF module definitions with pre-assigned systemIds
    * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
-  insertModuleDefinitions(
-    items: readonly ModuleDefinition[],
+  insertSpfModuleDefinitions(
+    items: readonly SpfModuleDefinition[],
   ): Promise<BulkInsertResult>;
 
   /**
