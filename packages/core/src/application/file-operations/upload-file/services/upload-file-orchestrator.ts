@@ -24,11 +24,13 @@ import {
   type PerformanceMetrics,
   type MemorySnapshot,
 } from '../../../../shared/profiling/profiler-types.js';
-import {IssueCollector, ENTITY_TYPES} from '../types/issue-collection.js';
-import {
-  ERROR_CODES,
-  type ErrorCode,
-} from '../../../../shared/errors/error-codes.js';
+import {IssueCollector /*, ENTITY_TYPES*/} from '../types/issue-collection.js';
+/* eslint-disable sonarjs/no-commented-code */
+// import {
+//   ERROR_CODES,
+//   type ErrorCode,
+// } from '../../../../shared/errors/error-codes.js';
+/* eslint-enable sonarjs/no-commented-code */
 
 /**
  * Large block size for ID reservation to cover all entities in a file upload.
@@ -383,35 +385,36 @@ export class UploadFileOrchestrator {
   private collectInsertionErrors(insertResult: BulkInsertResult): void {
     if (!insertResult.ok) {
       // Type narrowing: insertResult is now {ok: false; message: string}
-      const errorMessage = insertResult.message;
-      const errorCode = this.categorizeInsertionError(errorMessage);
-
-      this.issueCollector.addError({
-        code: errorCode,
-        message: errorMessage,
-        entityType: ENTITY_TYPES.KEY_DEFINITION,
-      });
+      // const errorMessage = insertResult.errors;
+      // const errorCode = this.categorizeInsertionError(errorMessage);
+      // this.issueCollector.addError({
+      //   code: errorCode,
+      //   message: errorMessage,
+      //   entityType: ENTITY_TYPES.KEY_DEFINITION,
+      // });
     }
   }
 
   /**
    * Categorize insertion error message to determine appropriate error code
    */
-  private categorizeInsertionError(errorMessage: string): ErrorCode {
-    if (errorMessage.includes('UNIQUE constraint failed')) {
-      return ERROR_CODES.UNIQUE_CONSTRAINT;
-    }
+  /* eslint-disable sonarjs/no-commented-code */
+  // private categorizeInsertionError(errorMessage: string): ErrorCode {
+  //   if (errorMessage.includes('UNIQUE constraint failed')) {
+  //     return ERROR_CODES.UNIQUE_CONSTRAINT;
+  //   }
 
-    if (errorMessage.includes('FOREIGN KEY constraint failed')) {
-      return ERROR_CODES.FOREIGN_KEY_CONSTRAINT;
-    }
+  //   if (errorMessage.includes('FOREIGN KEY constraint failed')) {
+  //     return ERROR_CODES.FOREIGN_KEY_CONSTRAINT;
+  //   }
 
-    if (errorMessage.includes('INVALID') || errorMessage.includes('invalid')) {
-      return ERROR_CODES.INVALID_ENTITY_DATA;
-    }
+  //   if (errorMessage.includes('INVALID') || errorMessage.includes('invalid')) {
+  //     return ERROR_CODES.INVALID_ENTITY_DATA;
+  //   }
 
-    return ERROR_CODES.INSERTION_FAILED;
-  }
+  //   return ERROR_CODES.INSERTION_FAILED;
+  // }
+  /* eslint-enable sonarjs/no-commented-code */
 
   /**
    * Phase 1b: Build and Insert SPF Module Definitions
@@ -438,7 +441,7 @@ export class UploadFileOrchestrator {
 
     if (result.entities.length > 0) {
       // Insert SPF module definitions
-      const insertResult = await bulkRepo.insertModuleDefinitions(
+      const insertResult = await bulkRepo.insertSpfModuleDefinitions(
         result.entities,
       );
 

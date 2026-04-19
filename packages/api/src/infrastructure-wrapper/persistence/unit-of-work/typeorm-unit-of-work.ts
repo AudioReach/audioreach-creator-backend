@@ -7,12 +7,11 @@ import type {
   UnitOfWork,
   BulkImportRepository,
   ProjectRepository,
+  IdGenerationPort,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
-import {
-  TypeOrmBulkImportRepository,
-  TypeOrmProjectRepository,
-} from '@arc/persistence';
+import {TypeOrmBulkImportRepository} from '@arc/persistence';
+import {NotImplementedException} from '@nestjs/common';
 
 /**
  * TypeORM implementation of Unit of Work.
@@ -28,8 +27,12 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   /**
    * @param queryRunner - Active QueryRunner injected by CommandBus
+   * @param idGeneration - ID generation port shared from the application layer
    */
-  constructor(private readonly queryRunner: QueryRunner) {}
+  constructor(
+    private readonly queryRunner: QueryRunner,
+    private readonly idGeneration: IdGenerationPort,
+  ) {}
 
   async startTransaction(): Promise<void> {
     if (this.inTransaction) {
@@ -70,10 +73,13 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getBulkImportRepository(): BulkImportRepository {
-    return new TypeOrmBulkImportRepository(this.getManager());
+    return new TypeOrmBulkImportRepository(
+      this.getManager(),
+      this.idGeneration,
+    );
   }
 
   getProjectRepository(): ProjectRepository {
-    return new TypeOrmProjectRepository(this.getManager());
+    throw new NotImplementedException();
   }
 }

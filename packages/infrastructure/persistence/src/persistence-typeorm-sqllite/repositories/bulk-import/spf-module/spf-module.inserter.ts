@@ -3,573 +3,609 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {
-  type BulkModuleInsertResult,
-  MODULE_AGGREGATE_ENTITY_TYPES,
-  type ModuleInsertError,
-  type ModuleInsertErrorEntity,
-  type ModuleInsertResult,
-  type NaturalIdMapping,
-  type DataPortMapping,
-  SpfModule,
-} from '@arc/core';
-import {BaseInserter} from '../base.inserter.js';
-import {
-  mapSpfModuleToRow,
-  mapNodeToRow,
-  mapDataPortsToRows,
-  mapControlPortsToRows,
-} from './spf-module-entity-mapper.js';
-import {BatchInserter, type BatchInsertResult} from '../batch-inserter.js';
-import type {QueryDeepPartialEntity} from 'typeorm/query-builder/QueryPartialEntity.js';
+import type {EntityManager} from 'typeorm';
 import type {
-  SpfModuleRow,
-  NodeRow,
-  DataPortRow,
+  SpfModule,
+  BulkInsertError,
+  BulkInsertResult,
+  DataPort,
+  ControlPort,
+  TagData,
+  KvData,
+  IdGenerationPort,
+  ModuleParameterData,
+} from '@arc/core';
+import {errBulkInsert, okBulkInsert} from '@arc/core';
+import type {BulkInserter} from '../common/bulk-inserter.interface.js';
+import {
+  BatchInserter,
+  type InsertRow,
+  type RawFailure,
+} from '../batch-inserter.js';
+import {
+  NodeSchema,
+  NODE_TYPE,
+  type NodeRow,
+} from '../../../entity-schema/usecase-data/node/node.schema.js';
+import {DataPortSchema} from '../../../entity-schema/usecase-data/node/data-port-info.schema.js';
+import type {DataPortRow} from '../../../entity-schema/usecase-data/node/data-port-info.schema.js';
+import {
+  ControlPortSchema,
+  IntentSchema,
+} from '../../../entity-schema/usecase-data/node/control-port.js';
+import type {
   ControlPortRow,
-} from '../../../entity-schema/index.js';
+  IntentRow,
+} from '../../../entity-schema/usecase-data/node/control-port.js';
+import {SpfModuleSchema} from '../../../entity-schema/usecase-data/module/spf-module.schema.js';
+import type {SpfModuleRow} from '../../../entity-schema/usecase-data/module/spf-module.schema.js';
+import {ModuleTagIdMapSchema} from '../../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
+import type {
+  ModuleTagIdMapRow,
+  TkvRow,
+  TkvParameterPayloadRow,
+} from '../../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
+import type {
+  CkvRow,
+  CkvParameterPayloadRow,
+} from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
 
 /**
- * Handles bulk insertion of SpfModule entities with complex 6-step process.
+ * Inserts SpfModule domain entities and all their children into the database
+ * using ordered bulk batch inserts.
  *
- * Process:
- * 1. Bulk Insert Nodes FIRST (auto-generated systemIds)
- * 2. Map Node systemIds to SpfModules using insertion order
- * 3. Bulk Insert SpfModules using Node systemIds (shared primary key)
- * 4. Bulk Insert all DataPorts across all modules
- * 5. Bulk Insert all ControlPorts across all modules (without intents)
- * 6. Build results with port mappings for link creation
+ * All insert steps are always attempted regardless of prior failures.
  *
- * Success Criteria: Module success = SpfModule insert success AND Node insert success
- * Natural Keys: SpfModule: instanceId, DataPort: dataPortId, ControlPort: portId
- * Shared Primary Key: SpfModule.systemId = Node.systemId (Node owns the relationship)
+ * Insert order (FK-safe, leaf-first):
+ *   Node → Data Port → Control Port → Intent → Spf Module
+ *   → Module Tag → CKV → TKV → CKV Parameter → TKV Parameter
  */
-export class SpfModuleInserter extends BaseInserter<
-  SpfModule,
-  BulkModuleInsertResult,
-  ModuleInsertErrorEntity
-> {
+export class SpfModuleInserter implements BulkInserter<SpfModule> {
+  private readonly manager: EntityManager;
+  private readonly idGeneration: IdGenerationPort;
+
+  constructor(manager: EntityManager, idGeneration: IdGenerationPort) {
+    this.manager = manager;
+    this.idGeneration = idGeneration;
+  }
+
   /**
-   * Insert SpfModules and their relationships in bulk.
-   *
-   * @param spfModules - SpfModule domain entities with instanceId
-   * @returns Bulk insert result with instanceId->systemId mappings and port mappings
+   *  Inserts all SpfModule entities and their children in FK-safe order.
+   * Failures are grouped by SpfModule aggregate and returned as
+   * `BulkInsertError[]` — one entry per failing module.
+   * @returns BulkInsertResult — ok if all inserts succeeded, err otherwise.
    */
-  async insert(
-    spfModules: readonly SpfModule[],
-  ): Promise<BulkModuleInsertResult> {
-    // Early return for empty input
-    if (spfModules.length === 0) {
-      return {results: []};
+  public async insert(modules: SpfModule[]): Promise<BulkInsertResult> {
+    if (modules.length === 0) return okBulkInsert();
+
+    const moduleBySystemId = new Map(modules.map(m => [m.systemId, m]));
+
+    // Collect all raw failures from all insert steps.
+    const rawFailures: RawFailure[] = [
+      ...(await this.insertNodes(modules)),
+      ...(await this.insertDataPorts(modules)),
+      ...(await this.insertControlPorts(modules)),
+      ...(await this.insertIntents(modules)),
+      ...(await this.insertSpfModules(modules)),
+      ...(await this.insertModuleTagIdMaps(modules)),
+      ...(await this.insertCkvs(modules)),
+      ...(await this.insertTkvs(modules)),
+      ...(await this.insertCkvParameterPayloads(modules)),
+      ...(await this.insertTkvParameterPayloads(modules)),
+    ];
+
+    if (rawFailures.length === 0) return okBulkInsert();
+
+    // Group raw failures by SpfModule systemId.
+    const grouped = new Map<number, string[]>();
+    for (const f of rawFailures) {
+      if (!grouped.has(f.systemId)) grouped.set(f.systemId, []);
+      grouped
+        .get(f.systemId)!
+        .push(
+          `${f.entityLabel}: Failed to insert\n${f.failedRowJson}\nerror: ${f.dbError}`,
+        );
     }
 
-    // Step 1: Insert Nodes and map systemIds
-    const {nodeInsertResult, instanceIdToSystemId} =
-      await this.insertNodesAndMapSystemIds(spfModules);
-
-    // Step 2: Insert SpfModules using Node systemIds
-    const spfModuleInsertResult = await this.insertSpfModules(
-      spfModules,
-      instanceIdToSystemId,
+    // Build one BulkInsertError per failing module.
+    const errors: BulkInsertError[] = [...grouped.entries()].map(
+      ([systemId, lines]) => {
+        const module = moduleBySystemId.get(systemId)!;
+        return {
+          message: `Failed to insert some or all data belonging to Spf Module {instanceId=${module.instanceId}, systemId=${module.systemId}}`,
+          details: lines.join('\n'),
+        };
+      },
     );
 
-    // Step 3: Insert DataPorts and ControlPorts
-    const {allDataPortRows, dataPortInsertResult} = await this.insertDataPorts(
-      spfModules,
-      instanceIdToSystemId,
-    );
-
-    const {allControlPortRows, controlPortInsertResult} =
-      await this.insertControlPorts(spfModules, instanceIdToSystemId);
-
-    // Step 4: Query back port systemIds and build results
-    const dataPortMappings = await this.queryBackDataPorts(
-      allDataPortRows,
-      dataPortInsertResult.succeeded,
-    );
-
-    const controlPortMappings = await this.queryBackControlPorts(
-      allControlPortRows,
-      controlPortInsertResult.succeeded,
-    );
-
-    return this.buildResults(
-      spfModules,
-      instanceIdToSystemId,
-      dataPortMappings,
-      controlPortMappings,
-      spfModuleInsertResult,
-      nodeInsertResult,
-    );
+    return errBulkInsert(errors);
   }
 
-  private async insertNodesAndMapSystemIds(
-    spfModules: readonly SpfModule[],
-  ): Promise<{
-    nodeInsertResult: BatchInsertResult<QueryDeepPartialEntity<NodeRow>>;
-    instanceIdToSystemId: Map<number, number>;
-  }> {
-    const nodeRows = spfModules.map(sm => mapNodeToRow(sm));
-    const nodeInsertResult = await BatchInserter.insert(
+  // ─── Node ────────────────────────────────────────────────────────────────────
+
+  private async insertNodes(modules: SpfModule[]): Promise<RawFailure[]> {
+    const rows: InsertRow<NodeRow>[] = modules.map(m => ({
+      systemId: m.systemId,
+      parentId: m.parentId,
+      type: NODE_TYPE.Module,
+      fileSystemId: m.fileSystemId,
+    }));
+
+    const {failedEntities} = await BatchInserter.insert(
       this.manager,
-      'Node',
-      nodeRows,
+      NodeSchema,
+      rows,
     );
 
-    const instanceIdToSystemId = new Map<number, number>();
-    for (let i = 0; i < nodeInsertResult.succeeded.length; i++) {
-      const nodeRow = nodeInsertResult.succeeded[i];
-      const nodeSystemId = (nodeRow as {systemId?: number}).systemId;
-      const spfModule = spfModules[i];
-      if (nodeSystemId && spfModule) {
-        instanceIdToSystemId.set(spfModule.instanceId, nodeSystemId);
-      }
-    }
-
-    return {nodeInsertResult, instanceIdToSystemId};
-  }
-
-  private async insertSpfModules(
-    spfModules: readonly SpfModule[],
-    instanceIdToSystemId: Map<number, number>,
-  ): Promise<BatchInsertResult<QueryDeepPartialEntity<SpfModuleRow>>> {
-    const spfModuleRowsWithSystemId: QueryDeepPartialEntity<SpfModuleRow>[] =
-      [];
-
-    for (const spfModule of spfModules) {
-      const nodeSystemId = instanceIdToSystemId.get(spfModule.instanceId);
-      if (!nodeSystemId) continue;
-
-      const spfModuleRow = mapSpfModuleToRow(spfModule);
-      const rowWithSystemId = {
-        ...spfModuleRow,
-        systemId: nodeSystemId,
+    return failedEntities.map(error => {
+      const module = modules.find(m => m.systemId === error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: module.systemId,
+        entityLabel: 'Module-Node',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
       };
-
-      spfModuleRowsWithSystemId.push(rowWithSystemId);
-    }
-
-    return spfModuleRowsWithSystemId.length > 0
-      ? await BatchInserter.insert(
-          this.manager,
-          'SpfModule',
-          spfModuleRowsWithSystemId,
-        )
-      : {succeeded: [], failed: []};
+    });
   }
 
-  private async insertDataPorts(
-    spfModules: readonly SpfModule[],
-    instanceIdToSystemId: Map<number, number>,
-  ): Promise<{
-    allDataPortRows: Array<{
-      row: QueryDeepPartialEntity<DataPortRow>;
-      instanceId: number;
-      dataPortId: number;
-    }>;
-    dataPortInsertResult: BatchInsertResult<
-      QueryDeepPartialEntity<DataPortRow>
-    >;
-  }> {
-    const allDataPortRows: Array<{
-      row: QueryDeepPartialEntity<DataPortRow>;
-      instanceId: number;
-      dataPortId: number;
-    }> = [];
+  // ─── Data Port ───────────────────────────────────────────────────────────────
 
-    for (const spfModule of spfModules) {
-      const nodeSystemId = instanceIdToSystemId.get(spfModule.instanceId);
-      if (!nodeSystemId) continue;
+  private async insertDataPorts(modules: SpfModule[]): Promise<RawFailure[]> {
+    const contextByPortSystemId = new Map<
+      number,
+      {readonly port: DataPort; readonly module: SpfModule}
+    >(
+      modules.flatMap(m =>
+        m.dataPorts.map(port => [port.systemId, {port, module: m}] as const),
+      ),
+    );
 
-      const dataPortRows = mapDataPortsToRows(
-        spfModule.dataPorts,
-        nodeSystemId,
-      );
-      for (const dataPortRow of dataPortRows) {
-        allDataPortRows.push({
-          row: dataPortRow,
-          instanceId: spfModule.instanceId,
-          dataPortId: dataPortRow.dataPortId,
-        });
-      }
-    }
+    const rows: InsertRow<DataPortRow>[] = modules.flatMap(m =>
+      m.dataPorts.map(port => ({
+        systemId: port.systemId,
+        dataPortId: port.dataPortId,
+        portIoType: port.portIoType,
+        isStatic: port.isStatic,
+        name: port.name,
+        nodeSystemId: m.systemId,
+      })),
+    );
 
-    const dataPortInsertResult =
-      allDataPortRows.length > 0
-        ? await BatchInserter.insert(
-            this.manager,
-            'DataPort',
-            allDataPortRows.map(dp => dp.row),
-          )
-        : {succeeded: [], failed: []};
+    if (rows.length === 0) return [];
 
-    return {allDataPortRows, dataPortInsertResult};
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      DataPortSchema,
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextByPortSystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'Data Port',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
+      };
+    });
   }
+
+  // ─── Control Port ────────────────────────────────────────────────────────────
 
   private async insertControlPorts(
-    spfModules: readonly SpfModule[],
-    instanceIdToSystemId: Map<number, number>,
-  ): Promise<{
-    allControlPortRows: Array<{
-      row: QueryDeepPartialEntity<ControlPortRow>;
-      instanceId: number;
-      portId: number;
-    }>;
-    controlPortInsertResult: BatchInsertResult<
-      QueryDeepPartialEntity<ControlPortRow>
-    >;
-  }> {
-    const allControlPortRows: Array<{
-      row: QueryDeepPartialEntity<ControlPortRow>;
-      instanceId: number;
-      portId: number;
-    }> = [];
-
-    for (const spfModule of spfModules) {
-      const nodeSystemId = instanceIdToSystemId.get(spfModule.instanceId);
-      if (!nodeSystemId) continue;
-
-      const controlPortRows = mapControlPortsToRows(
-        spfModule.controlPorts,
-        nodeSystemId,
-      );
-      for (const controlPortRow of controlPortRows) {
-        allControlPortRows.push({
-          row: controlPortRow,
-          instanceId: spfModule.instanceId,
-          portId: controlPortRow.portId,
-        });
-      }
-    }
-
-    const controlPortInsertResult =
-      allControlPortRows.length > 0
-        ? await BatchInserter.insert(
-            this.manager,
-            'ControlPort',
-            allControlPortRows.map(cp => cp.row),
-          )
-        : {succeeded: [], failed: []};
-
-    return {allControlPortRows, controlPortInsertResult};
-  }
-
-  /**
-   * Query back DataPort systemIds using nodeSystemId for efficient bulk query.
-   */
-  private async queryBackDataPorts(
-    dataPortRowsWithInstanceId: Array<{
-      row: QueryDeepPartialEntity<DataPortRow>;
-      instanceId: number;
-      dataPortId: number;
-    }>,
-    succeededRows: QueryDeepPartialEntity<DataPortRow>[],
-  ): Promise<Array<{mapping: DataPortMapping; instanceId: number}>> {
-    if (succeededRows.length === 0) return [];
-
-    // Get all unique nodeSystemIds from successful insertions
-    const nodeSystemIds = [
-      ...new Set(succeededRows.map(row => row.nodeSystemId as number)),
-    ];
-
-    // Bulk query all ports whose nodeSystemId is in the list, including portIoType
-    const results = (await this.manager
-      .createQueryBuilder('DataPort', 'dp')
-      .select([
-        'dp.systemId',
-        'dp.dataPortId',
-        'dp.nodeSystemId',
-        'dp.portIoType',
-      ])
-      .where('dp.nodeSystemId IN (:...nodeSystemIds)', {nodeSystemIds})
-      .getMany()) as Array<{
-      systemId: number;
-      dataPortId: number;
-      nodeSystemId: number;
-      portIoType: 'Input' | 'Output';
-    }>;
-
-    // Build reverse lookup: nodeSystemId → instanceId
-    const nodeSystemIdToInstanceId = new Map<number, number>();
-    for (const {row, instanceId} of dataPortRowsWithInstanceId) {
-      const nodeSystemId = row.nodeSystemId;
-      if (typeof nodeSystemId === 'number') {
-        nodeSystemIdToInstanceId.set(nodeSystemId, instanceId);
-      }
-    }
-
-    const mappings: Array<{
-      mapping: DataPortMapping;
-      instanceId: number;
-    }> = [];
-    for (const result of results) {
-      const instanceId = nodeSystemIdToInstanceId.get(result.nodeSystemId);
-      if (instanceId !== undefined) {
-        mappings.push({
-          mapping: {
-            naturalId: result.dataPortId,
-            systemId: result.systemId,
-            portIoType: result.portIoType,
-          },
-          instanceId,
-        });
-      }
-    }
-
-    return mappings;
-  }
-
-  /**
-   * Query back ControlPort systemIds using nodeSystemId for efficient bulk query.
-   */
-  private async queryBackControlPorts(
-    controlPortRowsWithInstanceId: Array<{
-      row: QueryDeepPartialEntity<ControlPortRow>;
-      instanceId: number;
-      portId: number;
-    }>,
-    succeededRows: QueryDeepPartialEntity<ControlPortRow>[],
-  ): Promise<Array<{mapping: NaturalIdMapping<number>; instanceId: number}>> {
-    if (succeededRows.length === 0) return [];
-
-    // Get all unique nodeSystemIds from successful insertions
-    const nodeSystemIds = [
-      ...new Set(succeededRows.map(row => row.nodeSystemId as number)),
-    ];
-
-    // Bulk query all ports whose nodeSystemId is in the list
-    const results = (await this.manager
-      .createQueryBuilder('ControlPort', 'cp')
-      .select(['cp.systemId', 'cp.portId', 'cp.nodeSystemId'])
-      .where('cp.nodeSystemId IN (:...nodeSystemIds)', {nodeSystemIds})
-      .getMany()) as Array<{
-      systemId: number;
-      portId: number;
-      nodeSystemId: number;
-    }>;
-
-    // Build reverse lookup: nodeSystemId → instanceId
-    const nodeSystemIdToInstanceId = new Map<number, number>();
-    for (const {row, instanceId} of controlPortRowsWithInstanceId) {
-      const nodeSystemId = row.nodeSystemId;
-      if (typeof nodeSystemId === 'number') {
-        nodeSystemIdToInstanceId.set(nodeSystemId, instanceId);
-      }
-    }
-
-    const mappings: Array<{
-      mapping: NaturalIdMapping<number>;
-      instanceId: number;
-    }> = [];
-    for (const result of results) {
-      const instanceId = nodeSystemIdToInstanceId.get(result.nodeSystemId);
-      if (instanceId !== undefined) {
-        mappings.push({
-          mapping: {
-            naturalId: result.portId,
-            systemId: result.systemId,
-          },
-          instanceId,
-        });
-      }
-    }
-
-    return mappings;
-  }
-
-  /**
-   * Build results with O(1) lookups using Maps.
-   * Success = SpfModule insert success AND Node insert success.
-   */
-  private buildResults(
-    spfModules: readonly SpfModule[],
-    instanceIdToSystemId: Map<number, number>,
-    dataPortMappings: Array<{
-      mapping: DataPortMapping;
-      instanceId: number;
-    }>,
-    controlPortMappings: Array<{
-      mapping: NaturalIdMapping<number>;
-      instanceId: number;
-    }>,
-    spfModuleInsertResult: BatchInsertResult<
-      QueryDeepPartialEntity<SpfModuleRow>
-    >,
-    nodeInsertResult: BatchInsertResult<QueryDeepPartialEntity<NodeRow>>,
-  ): BulkModuleInsertResult {
-    const failedSpfModuleMap = this.buildFailedSpfModuleMap(
-      spfModuleInsertResult,
-    );
-    const failedNodeMap = this.buildFailedNodeMap(
-      nodeInsertResult,
-      spfModules,
-      instanceIdToSystemId,
-    );
-    const dataPortMappingsByInstance =
-      this.groupDataPortMappings(dataPortMappings);
-    const controlPortMappingsByInstance =
-      this.groupControlPortMappings(controlPortMappings);
-
-    const results = this.buildModuleResults(
-      spfModules,
-      instanceIdToSystemId,
-      failedSpfModuleMap,
-      failedNodeMap,
-      dataPortMappingsByInstance,
-      controlPortMappingsByInstance,
-    );
-
-    return {results};
-  }
-
-  private buildFailedSpfModuleMap(
-    spfModuleInsertResult: BatchInsertResult<
-      QueryDeepPartialEntity<SpfModuleRow>
-    >,
-  ): Map<number, Error> {
-    return new Map<number, Error>(
-      spfModuleInsertResult.failed.map(f => [
-        f.row.instanceId as number,
-        f.error,
-      ]),
-    );
-  }
-
-  private buildFailedNodeMap(
-    nodeInsertResult: BatchInsertResult<QueryDeepPartialEntity<NodeRow>>,
-    spfModules: readonly SpfModule[],
-    instanceIdToSystemId: Map<number, number>,
-  ): Map<number, Error> {
-    const failedNodeMap = new Map<number, Error>();
-    const nodeRowsAttempted = spfModules
-      .filter(sm => instanceIdToSystemId.has(sm.instanceId))
-      .map(sm => sm.instanceId);
-
-    for (let i = 0; i < nodeInsertResult.failed.length; i++) {
-      const failure = nodeInsertResult.failed[i];
-      const instanceId = nodeRowsAttempted[i];
-      if (instanceId) {
-        failedNodeMap.set(instanceId, failure.error);
-      }
-    }
-
-    return failedNodeMap;
-  }
-
-  private groupDataPortMappings(
-    dataPortMappings: Array<{
-      mapping: DataPortMapping;
-      instanceId: number;
-    }>,
-  ): Map<number, DataPortMapping[]> {
-    const dataPortMappingsByInstance = new Map<number, DataPortMapping[]>();
-    for (const {mapping, instanceId} of dataPortMappings) {
-      if (!dataPortMappingsByInstance.has(instanceId)) {
-        dataPortMappingsByInstance.set(instanceId, []);
-      }
-      dataPortMappingsByInstance.get(instanceId)!.push(mapping);
-    }
-    return dataPortMappingsByInstance;
-  }
-
-  private groupControlPortMappings(
-    controlPortMappings: Array<{
-      mapping: NaturalIdMapping<number>;
-      instanceId: number;
-    }>,
-  ): Map<number, NaturalIdMapping<number>[]> {
-    const controlPortMappingsByInstance = new Map<
+    modules: SpfModule[],
+  ): Promise<RawFailure[]> {
+    const contextByPortSystemId = new Map<
       number,
-      NaturalIdMapping<number>[]
+      {readonly port: ControlPort; readonly module: SpfModule}
+    >(
+      modules.flatMap(m =>
+        m.controlPorts.map(port => [port.systemId, {port, module: m}] as const),
+      ),
+    );
+
+    const rows: InsertRow<ControlPortRow>[] = modules.flatMap(m =>
+      m.controlPorts.map(port => ({
+        systemId: port.systemId,
+        portId: port.portId,
+        isStatic: port.isStatic,
+        name: port.name,
+        nodeSystemId: m.systemId,
+      })),
+    );
+
+    if (rows.length === 0) return [];
+
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      ControlPortSchema,
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextByPortSystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'Control Port',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
+      };
+    });
+  }
+
+  // ─── Intent ──────────────────────────────────────────────────────────────────
+
+  private async insertIntents(modules: SpfModule[]): Promise<RawFailure[]> {
+    // Collect all intent entries with their context for error reporting
+    const intentEntries = modules.flatMap(m =>
+      m.controlPorts.flatMap(port =>
+        port.intentIds.map(intentId => ({
+          intentId,
+          controlPortSystemId: port.systemId,
+          port,
+          module: m,
+        })),
+      ),
+    );
+
+    if (intentEntries.length === 0) return [];
+
+    // Generate a unique systemId for each intent row
+    const fileId = modules[0].fileSystemId;
+    const rows: InsertRow<IntentRow>[] = [];
+    const contextBySystemId = new Map<
+      number,
+      {readonly port: ControlPort; readonly module: SpfModule}
     >();
-    for (const {mapping, instanceId} of controlPortMappings) {
-      if (!controlPortMappingsByInstance.has(instanceId)) {
-        controlPortMappingsByInstance.set(instanceId, []);
-      }
-      controlPortMappingsByInstance.get(instanceId)!.push(mapping);
+
+    for (const entry of intentEntries) {
+      const systemId = await this.idGeneration.getNextId(fileId);
+      rows.push({
+        systemId,
+        intentId: entry.intentId,
+        controlPortSystemId: entry.controlPortSystemId,
+      });
+      contextBySystemId.set(systemId, {port: entry.port, module: entry.module});
     }
-    return controlPortMappingsByInstance;
+
+    const {failedEntities} = await BatchInserter.insert<IntentRow>(
+      this.manager,
+      IntentSchema,
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextBySystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'Intent',
+        failedRowJson: `Intent row: ${JSON.stringify(failedRow)} Control Port: ${JSON.stringify({systemId: ctx.port.systemId, portId: ctx.port.portId})}`,
+        dbError: error.message,
+      };
+    });
   }
 
-  private buildModuleResults(
-    spfModules: readonly SpfModule[],
-    instanceIdToSystemId: Map<number, number>,
-    failedSpfModuleMap: Map<number, Error>,
-    failedNodeMap: Map<number, Error>,
-    dataPortMappingsByInstance: Map<number, DataPortMapping[]>,
-    controlPortMappingsByInstance: Map<number, NaturalIdMapping<number>[]>,
-  ): ModuleInsertResult[] {
-    const results: ModuleInsertResult[] = [];
+  // ─── Spf Module ──────────────────────────────────────────────────────────────
 
-    for (const spfModule of spfModules) {
-      const spfModuleSystemId = instanceIdToSystemId.get(spfModule.instanceId);
-      const errors = this.collectModuleErrors(
-        spfModule,
-        failedSpfModuleMap,
-        failedNodeMap,
-      );
+  private async insertSpfModules(modules: SpfModule[]): Promise<RawFailure[]> {
+    const rows: InsertRow<SpfModuleRow>[] = modules.map(m => ({
+      systemId: m.systemId,
+      instanceId: m.instanceId,
+      alias: m.alias,
+      subgraphSystemId: m.subgraphSystemId,
+      containerSystemId: m.containerSystemId,
+      definitionSystemId: m.definitionSystemId,
+      fileSystemId: m.fileSystemId,
+    }));
 
-      const success = errors.length === 0 && spfModuleSystemId !== undefined;
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      SpfModuleSchema,
+      rows,
+    );
 
-      if (success) {
-        results.push({
-          moduleIdMapping: {
-            naturalId: spfModule.instanceId,
-            systemId: spfModuleSystemId,
-          },
-          portMappings: {
-            dataPorts:
-              dataPortMappingsByInstance.get(spfModule.instanceId) || [],
-            controlPorts:
-              controlPortMappingsByInstance.get(spfModule.instanceId) || [],
-          },
-          errors,
-          success: true,
-        });
-      } else {
-        results.push({
-          portMappings: {
-            dataPorts: [],
-            controlPorts: [],
-          },
-          errors,
-          success: false,
-        });
-      }
-    }
-
-    return results;
+    return failedEntities.map(error => {
+      const module = modules.find(m => m.systemId === error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: module.systemId,
+        entityLabel: 'Spf Module',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
+      };
+    });
   }
 
-  private collectModuleErrors(
-    spfModule: SpfModule,
-    failedSpfModuleMap: Map<number, Error>,
-    failedNodeMap: Map<number, Error>,
-  ): ModuleInsertError[] {
-    const errors: ModuleInsertError[] = [];
+  // ─── Module Tag ──────────────────────────────────────────────────────────────
 
-    const spfModuleError = failedSpfModuleMap.get(spfModule.instanceId);
-    if (spfModuleError) {
-      errors.push(
-        this.buildError(
-          MODULE_AGGREGATE_ENTITY_TYPES.MODULE,
-          spfModule.instanceId,
-          spfModuleError,
+  private async insertModuleTagIdMaps(
+    modules: SpfModule[],
+  ): Promise<RawFailure[]> {
+    const contextByTagSystemId = new Map<
+      number,
+      {readonly tagData: TagData; readonly module: SpfModule}
+    >(
+      modules.flatMap(m =>
+        m.tagDataList.map(
+          tagData => [tagData.systemId, {tagData, module: m}] as const,
         ),
-      );
+      ),
+    );
+
+    const rows: InsertRow<ModuleTagIdMapRow>[] = modules.flatMap(m =>
+      m.tagDataList.map(tagData => ({
+        systemId: tagData.systemId,
+        spfsystemId: m.systemId,
+        tagDefinitionSystemId: tagData.tagDefinitionSystemId,
+      })),
+    );
+
+    if (rows.length === 0) return [];
+
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      ModuleTagIdMapSchema,
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextByTagSystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'Module Tag',
+        failedRowJson: `Module Tag row: ${JSON.stringify(failedRow)} Tag Definition: ${JSON.stringify({tagDefinitionSystemId: ctx.tagData.tagDefinitionSystemId})}`,
+        dbError: error.message,
+      };
+    });
+  }
+
+  // ─── CKV ─────────────────────────────────────────────────────────────────────
+
+  private async insertCkvs(modules: SpfModule[]): Promise<RawFailure[]> {
+    const contextByCkvSystemId = new Map<
+      number,
+      {readonly ckv: KvData; readonly module: SpfModule}
+    >(
+      modules.flatMap(m =>
+        m.ckvs.map(ckv => [ckv.systemId, {ckv, module: m}] as const),
+      ),
+    );
+
+    const rows: InsertRow<CkvRow>[] = modules.flatMap(m =>
+      m.ckvs.map(ckv => ({
+        systemId: ckv.systemId,
+        spfsystemId: m.systemId,
+        keyVectorSystemId: ckv.keyVectorSystemId,
+        uiPersistence: ckv.uiPersistence,
+      })),
+    );
+
+    if (rows.length === 0) return [];
+
+    const {failedEntities} = await BatchInserter.insert<CkvRow>(
+      this.manager,
+      'Ckv',
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextByCkvSystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'CKV',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
+      };
+    });
+  }
+
+  // ─── TKV ─────────────────────────────────────────────────────────────────────
+
+  private async insertTkvs(modules: SpfModule[]): Promise<RawFailure[]> {
+    const contextByTkvSystemId = new Map<
+      number,
+      {
+        readonly tkv: KvData;
+        readonly tagData: TagData;
+        readonly module: SpfModule;
+      }
+    >(
+      modules.flatMap(m =>
+        m.tagDataList.flatMap(tagData =>
+          tagData.tkvs.map(
+            tkv => [tkv.systemId, {tkv, tagData, module: m}] as const,
+          ),
+        ),
+      ),
+    );
+
+    const rows: InsertRow<TkvRow>[] = modules.flatMap(m =>
+      m.tagDataList.flatMap(tagData =>
+        tagData.tkvs.map(tkv => ({
+          systemId: tkv.systemId,
+          moduleTagIdMapSystemId: tagData.systemId,
+          keyVectorSystemId: tkv.keyVectorSystemId,
+          uiPersistence: tkv.uiPersistence,
+        })),
+      ),
+    );
+
+    if (rows.length === 0) return [];
+
+    const {failedEntities} = await BatchInserter.insert<TkvRow>(
+      this.manager,
+      'Tkv',
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextByTkvSystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'TKV',
+        failedRowJson: JSON.stringify(failedRow),
+        dbError: error.message,
+      };
+    });
+  }
+
+  // ─── CKV Parameter ───────────────────────────────────────────────────────────
+
+  private async insertCkvParameterPayloads(
+    modules: SpfModule[],
+  ): Promise<RawFailure[]> {
+    // Collect all CKV parameter entries with their context
+    const paramEntries = modules.flatMap(m =>
+      m.ckvs.flatMap(ckv =>
+        ckv.parameterPayloads.map(param => ({param, ckv, module: m})),
+      ),
+    );
+
+    if (paramEntries.length === 0) return [];
+
+    // Generate a unique systemId for each CKV parameter row
+    const fileId = modules[0].fileSystemId;
+    const rows: InsertRow<CkvParameterPayloadRow>[] = [];
+    const contextBySystemId = new Map<
+      number,
+      {readonly ckv: KvData; readonly module: SpfModule}
+    >();
+
+    for (const entry of paramEntries) {
+      const systemId = await this.idGeneration.getNextId(fileId);
+      rows.push({
+        systemId,
+        parameterSystemId: entry.param.paramDefintionSystemId,
+        ckvSystemId: entry.ckv.systemId,
+        payload: entry.param.getPayloadCopy(),
+      });
+      contextBySystemId.set(systemId, {ckv: entry.ckv, module: entry.module});
     }
 
-    const nodeError = failedNodeMap.get(spfModule.instanceId);
-    if (nodeError) {
-      errors.push(
-        this.buildError(
-          MODULE_AGGREGATE_ENTITY_TYPES.MODULE,
-          spfModule.instanceId,
-          nodeError,
-        ),
-      );
+    const ckvBySystemId = new Map<number, KvData>(
+      modules.flatMap(m => m.ckvs.map(ckv => [ckv.systemId, ckv] as const)),
+    );
+
+    const {failedEntities} = await BatchInserter.insert<CkvParameterPayloadRow>(
+      this.manager,
+      'CkvParameterPayload',
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextBySystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      const parentCkv =
+        failedRow && typeof failedRow.ckvSystemId === 'number'
+          ? ckvBySystemId.get(failedRow.ckvSystemId)
+          : undefined;
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'CKV Parameter',
+        failedRowJson: `Ckv parameter row: ${JSON.stringify(failedRow)}\nParent Ckv:${JSON.stringify(parentCkv)}`,
+        dbError: error.message,
+      };
+    });
+  }
+
+  // ─── TKV Parameter ───────────────────────────────────────────────────────────
+
+  private buildTkvParamEntriesForTagData(
+    m: SpfModule,
+    tagData: TagData,
+  ): {
+    param: ModuleParameterData;
+    tkv: KvData;
+    tagData: TagData;
+    module: SpfModule;
+  }[] {
+    return tagData.tkvs.flatMap(tkv =>
+      tkv.parameterPayloads.map(param => ({param, tkv, tagData, module: m})),
+    );
+  }
+
+  private buildTkvParamEntries(modules: SpfModule[]): {
+    param: ModuleParameterData;
+    tkv: KvData;
+    tagData: TagData;
+    module: SpfModule;
+  }[] {
+    return modules.flatMap(m =>
+      m.tagDataList.flatMap(tagData =>
+        this.buildTkvParamEntriesForTagData(m, tagData),
+      ),
+    );
+  }
+
+  private async insertTkvParameterPayloads(
+    modules: SpfModule[],
+  ): Promise<RawFailure[]> {
+    // Collect all TKV parameter entries with their context
+    const paramEntries = this.buildTkvParamEntries(modules);
+
+    if (paramEntries.length === 0) return [];
+
+    // Generate a unique systemId for each TKV parameter row
+    const fileId = modules[0].fileSystemId;
+    const rows: InsertRow<TkvParameterPayloadRow>[] = [];
+    const contextBySystemId = new Map<
+      number,
+      {
+        readonly tkv: KvData;
+        readonly tagData: TagData;
+        readonly module: SpfModule;
+      }
+    >();
+
+    for (const entry of paramEntries) {
+      const systemId = await this.idGeneration.getNextId(fileId);
+      rows.push({
+        systemId,
+        parameterSystemId: entry.param.paramDefintionSystemId,
+        tkvSystemId: entry.tkv.systemId,
+        payload: entry.param.getPayloadCopy(),
+      });
+      contextBySystemId.set(systemId, {
+        tkv: entry.tkv,
+        tagData: entry.tagData,
+        module: entry.module,
+      });
     }
 
-    return errors;
+    const tkvBySystemId = new Map<number, KvData>(
+      modules.flatMap(m =>
+        m.tagDataList.flatMap(tagData =>
+          tagData.tkvs.map(tkv => [tkv.systemId, tkv] as const),
+        ),
+      ),
+    );
+
+    const {failedEntities} = await BatchInserter.insert<TkvParameterPayloadRow>(
+      this.manager,
+      'TkvParameterPayload',
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextBySystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      const parentTkv =
+        failedRow && typeof failedRow.tkvSystemId === 'number'
+          ? tkvBySystemId.get(failedRow.tkvSystemId)
+          : undefined;
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'TKV Parameter',
+        failedRowJson: `Tkv parameter row: ${JSON.stringify(failedRow)}\nParent Tkv:${JSON.stringify(parentTkv)}`,
+        dbError: error.message,
+      };
+    });
   }
 }

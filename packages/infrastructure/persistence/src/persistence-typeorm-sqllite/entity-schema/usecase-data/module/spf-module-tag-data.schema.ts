@@ -24,7 +24,7 @@ export interface ModuleTagIdMapRow extends EntityBaseRow {
 export interface TkvRow extends EntityBaseRow {
   moduleTagIdMapSystemId: number; // Fk to ModuleTagIdMapRow
   keyVectorSystemId: number;
-  uiPersistence: Uint8Array;
+  uiPersistence?: Uint8Array | null;
 
   keyVector?: KeyVectorRow; // many-one
   moduleTagIdMapRow?: ModuleTagIdMapRow; // many-one to ModuleTagIdMapRow table
@@ -33,7 +33,7 @@ export interface TkvRow extends EntityBaseRow {
 
 export interface TkvParameterPayloadRow extends EntityBaseRow {
   parameterSystemId: number;
-  payload: Uint8Array;
+  payload: Uint8Array | null;
 
   tkvSystemId: number; // FK
   tkv?: TkvRow; // relation

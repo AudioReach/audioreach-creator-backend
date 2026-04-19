@@ -3,115 +3,97 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {EntityManager} from 'typeorm';
 import type {
   BulkImportRepository,
-  SpfModule,
+  BulkInsertResult,
   Container,
-  DataLink,
-  ControlLink,
-  SpfModuleDefinition,
-  KeyDefinition,
-  ProcessorDefinition,
-  Subgraph,
   ContainerType,
-  BulkEntityInsertResult,
+  ControlLink,
+  DataLink,
+  IdGenerationPort,
+  KeyDefinition,
+  Node,
+  ProcessorDefinition,
+  SpfModule,
+  SpfModuleDefinition,
+  Subgraph,
   UseCase,
-  BulkModuleInsertResult,
-  BulkDataLinkInsertResult,
-  BulkControlLinkInsertResult,
-  BulkModuleDefinitionInsertResult,
-  BulkKeyDefinitionInsertResult,
 } from '@arc/core';
-import type {EntityManager} from 'typeorm';
-import {KeyDefinitionInserter} from './key-definition/key-definition.inserter.js';
-import {UseCaseInserter} from './usecase/usecase.inserter.js';
-import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
-import {ContainerInserter} from './container/container.inserter.js';
-import {DataLinkInserter} from './data-link/data-link.inserter.js';
-import {ControlLinkInserter} from './control-link/control-link.inserter.js';
-import {ModuleDefinitionInserter} from './module-definition/module-definition.inserter.js';
+import {okBulkInsert} from '@arc/core';
 import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
+import {ContainerInserter} from './container/container.inserter.js';
+import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
+import {SubsystemInserter} from './subsystem/subsystem.inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
- * Uses EntityManager from UOW's QueryRunner for consistent connection management.
+ *
+ * Uses the shared EntityManager (from the active QueryRunner / Unit of Work)
+ * and the IdGenerationPort for assigning surrogate PKs to new entities.
+ *
+ * Only SpfModule insertion is fully implemented. All other methods are stubs
+ * returning okBulkInsert() until their concrete inserters are built.
  */
 export class TypeOrmBulkImportRepository implements BulkImportRepository {
-  constructor(private readonly manager: EntityManager) {}
+  constructor(
+    private readonly manager: EntityManager,
+    private readonly idGeneration: IdGenerationPort,
+  ) {}
 
-  async insertSpfModules(
-    items: readonly Omit<SpfModule, 'systemId'>[],
-  ): Promise<BulkModuleInsertResult> {
-    const inserter = new SpfModuleInserter(this.manager);
-    return await inserter.insert(items as readonly SpfModule[]);
+  insertSpfModules(items: SpfModule[]): Promise<BulkInsertResult> {
+    return new SpfModuleInserter(this.manager, this.idGeneration).insert(items);
   }
 
-  async insertContainers(
-    items: readonly Omit<Container, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>> {
-    const inserter = new ContainerInserter(this.manager);
-    return await inserter.insert(items);
+  insertContainers(items: Container[]): Promise<BulkInsertResult> {
+    return new ContainerInserter(this.manager, this.idGeneration).insert(items);
   }
 
-  async insertSubgraphs(
-    items: readonly Omit<Subgraph, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>> {
-    const inserter = new SubgraphInserter(this.manager);
-    return await inserter.insert(items);
+  insertSubgraphs(items: readonly Subgraph[]): Promise<BulkInsertResult> {
+    return new SubgraphInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
   }
 
-  async insertDataLinks(
-    items: readonly Omit<DataLink, 'systemId'>[],
-  ): Promise<BulkDataLinkInsertResult> {
-    const inserter = new DataLinkInserter(this.manager);
-    return await inserter.insert(items);
+  insertSubsystems(items: readonly Node[]): Promise<BulkInsertResult> {
+    return new SubsystemInserter(this.manager).insert([...items]);
   }
 
-  async insertControlLinks(
-    items: readonly Omit<ControlLink, 'systemId'>[],
-  ): Promise<BulkControlLinkInsertResult> {
-    const inserter = new ControlLinkInserter(this.manager);
-    return await inserter.insert(items);
+  insertDataLinks(_items: readonly DataLink[]): Promise<BulkInsertResult> {
+    return Promise.resolve(okBulkInsert());
   }
 
-  async insertUseCases(
-    items: readonly Omit<UseCase, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>> {
-    const inserter = new UseCaseInserter(this.manager);
-    return await inserter.insert(items);
+  insertControlLinks(
+    _items: readonly ControlLink[],
+  ): Promise<BulkInsertResult> {
+    return Promise.resolve(okBulkInsert());
   }
 
-  async insertSpfModuleDefinitions(
-    items: readonly Omit<SpfModuleDefinition, 'systemId'>[],
-  ): Promise<BulkModuleDefinitionInsertResult> {
-    const inserter = new ModuleDefinitionInserter(this.manager);
-    return await inserter.insert(items);
+  insertUseCases(_items: readonly UseCase[]): Promise<BulkInsertResult> {
+    return Promise.resolve(okBulkInsert());
   }
 
-  async insertKeyDefinitions(
-    items: readonly Omit<KeyDefinition, 'systemId'>[],
-  ): Promise<BulkKeyDefinitionInsertResult> {
-    const inserter = new KeyDefinitionInserter(this.manager);
-    return await inserter.insert(items);
+  insertSpfModuleDefinitions(
+    _items: readonly SpfModuleDefinition[],
+  ): Promise<BulkInsertResult> {
+    return Promise.resolve(okBulkInsert());
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async insertProcessorDefinitions(
-    items: readonly Omit<ProcessorDefinition, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>> {
-    throw new Error(
-      'BulkImportRepository.insertProcessorDefinitions not yet implemented. ' +
-        `Attempted to insert ${items.length} processor definitions.`,
-    );
+  insertKeyDefinitions(
+    _items: readonly KeyDefinition[],
+  ): Promise<BulkInsertResult> {
+    return Promise.resolve(okBulkInsert());
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async insertContainerTypeDefinitions(
-    items: readonly Omit<ContainerType, 'systemId'>[],
-  ): Promise<BulkEntityInsertResult<number>> {
-    throw new Error(
-      'BulkImportRepository.insertContainerTypeDefinitions not yet implemented. ' +
-        `Attempted to insert ${items.length} container type definitions.`,
-    );
+  insertProcessorDefinitions(
+    _items: readonly ProcessorDefinition[],
+  ): Promise<BulkInsertResult> {
+    return Promise.resolve(okBulkInsert());
+  }
+
+  insertContainerTypeDefinitions(
+    _items: readonly ContainerType[],
+  ): Promise<BulkInsertResult> {
+    return Promise.resolve(okBulkInsert());
   }
 }

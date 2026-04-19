@@ -43,7 +43,7 @@ export class KvData {
    * Adds a payload. Throws DuplicateParameterPayloadError if the id already exists.
    */
   addParameterPayload(parameterData: ModuleParameterData): void {
-    const id = parameterData.parameterSystemId;
+    const id = parameterData.paramDefintionSystemId;
     if (this.byId.has(id)) {
       throw new DuplicateParameterPayloadError(id);
     }

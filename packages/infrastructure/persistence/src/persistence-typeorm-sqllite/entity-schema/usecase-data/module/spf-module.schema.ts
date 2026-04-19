@@ -12,6 +12,7 @@ import type {SpfModuleDefinitionRow} from '../../definitions/module/spf/spf-modu
 import type {NodeRow} from '../node/node.schema.js';
 import {BaseColumnSchemaPart} from '../../entity-base.js';
 import type {EntityBaseRow} from '../../entity-base.js';
+import type {CkvRow} from './spf-module-calibration-data.schema.js';
 
 export interface SpfModuleRow extends EntityBaseRow {
   instanceId: number;
@@ -34,6 +35,8 @@ export interface SpfModuleRow extends EntityBaseRow {
 
   // one-to-one relation to Node
   node?: NodeRow;
+  //one-to-many
+  ckvs?: CkvRow[];
 }
 
 export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
@@ -41,13 +44,6 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
   tableName: 'spf_modules',
   columns: {
     ...BaseColumnSchemaPart,
-    // Override systemId to NOT be auto-generated (will use Node's systemId)
-    systemId: {
-      name: 'system_id',
-      type: 'integer',
-      primary: true,
-      // No 'generated' property - will be provided from Node
-    },
     instanceId: {name: 'instance_id', type: 'integer'},
     alias: {type: 'varchar', length: 256},
 
@@ -106,6 +102,12 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
         referencedColumnName: 'systemId', // Reference Node's PK
       },
       onDelete: 'CASCADE', // If Node is deleted, delete SpfModule
+    },
+
+    ckvs: {
+      type: 'one-to-many',
+      target: 'Ckv',
+      inverseSide: 'module',
     },
   },
   indices: [

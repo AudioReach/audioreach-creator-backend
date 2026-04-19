@@ -18,7 +18,7 @@ export class ControlPort {
   readonly isStatic: boolean;
   nodeSystemId: number;
   readonly name?: string;
-  readonly intentSystemIds: number[];
+  readonly intentIds: number[];
 
   constructor(initParam: ControlPortInit) {
     this.systemId = initParam.systemId;
@@ -26,6 +26,6 @@ export class ControlPort {
     this.isStatic = initParam.isStatic;
     this.nodeSystemId = initParam.nodeSystemId;
     this.name = initParam.name;
-    this.intentSystemIds = initParam.intentSystemIds;
+    this.intentIds = initParam.intentSystemIds;
   }
 }
