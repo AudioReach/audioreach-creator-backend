@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ConfigElement} from './config-element.js';
-import type {ConfigElementArray} from './config-element-array.js';
-import type {Struct} from './struct.js';
-import type {StructArray} from './struct-array.js';
+import type {AwspConfigElement} from './config-element.js';
+import type {AwspConfigElementArray} from './config-element-array.js';
+import type {AwspStruct} from './struct.js';
+import type {AwspStructArray} from './struct-array.js';
 
 /**
  * Union type representing all possible definition element types.
  * Used to replace 'any[]' in parameter and property definitions.
  */
-export type DefinitionElement =
-  | ConfigElement
-  | ConfigElementArray
-  | Struct
-  | StructArray;
+export type AwspDefinitionElement =
+  | AwspConfigElement
+  | AwspConfigElementArray
+  | AwspStruct
+  | AwspStructArray;

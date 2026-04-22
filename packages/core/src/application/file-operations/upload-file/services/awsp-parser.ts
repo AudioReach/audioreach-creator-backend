@@ -25,7 +25,7 @@ import {
   DriverPropertyDefinition,
   AwspKeyDefinition,
   ProcessorDefinition,
-  SpfModuleDefinition,
+  AwspSpfModuleDefinition,
   SpfPropertyDefinition,
   TagDefinition,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
@@ -107,7 +107,7 @@ export class AwspParser {
       [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: SpfPropertyDefinition,
       [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
         DriverPropertyDefinition,
-      [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: SpfModuleDefinition,
+      [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: AwspSpfModuleDefinition,
       [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]:
         DriverModuleDefinition,
       [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: ProcessorDefinition,

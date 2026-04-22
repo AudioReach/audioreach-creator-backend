@@ -11,7 +11,7 @@ import {
   IsArray,
   IsOptional,
 } from 'class-validator';
-import type {DefinitionElement} from '../common/element-types.js';
+import type {AwspDefinitionElement} from '../common/element-types.js';
 
 /**
  * Represents a base property definition with core identification and elements.
@@ -44,5 +44,5 @@ export abstract class BasePropertyDefinition {
   /** List of element associated with this property (required) */
   @Expose()
   @IsArray()
-  elements!: DefinitionElement[];
+  elements!: AwspDefinitionElement[];
 }

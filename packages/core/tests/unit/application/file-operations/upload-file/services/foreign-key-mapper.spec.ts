@@ -6,6 +6,10 @@
 import {jest} from '@jest/globals';
 import {ForeignKeyMapper} from '../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
 import type {BulkKeyDefinitionInsertResult} from '../../../../../../src/application/ports/persistence/repositories/bulk-import/key-definition-insertion-report.js';
+import {
+  asNaturalId,
+  asSystemId,
+} from '../../../../../../src/shared/types/branded-ids.js';
 
 describe('ForeignKeyMapper', () => {
   let mapper: ForeignKeyMapper;
@@ -16,43 +20,43 @@ describe('ForeignKeyMapper', () => {
 
   describe('Key Definition Mappings', () => {
     it('should add single key definition mapping', () => {
-      mapper.addKeyDefinitionMapping(100, 1);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
 
-      expect(mapper.getKeySystemId(100)).toBe(1);
+      expect(mapper.getKeySystemId(asNaturalId(100))).toBe(1);
     });
 
     it('should retrieve key systemId by keyId', () => {
-      mapper.addKeyDefinitionMapping(100, 1);
-      mapper.addKeyDefinitionMapping(200, 2);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addKeyDefinitionMapping(asNaturalId(200), asSystemId(2));
 
-      expect(mapper.getKeySystemId(100)).toBe(1);
-      expect(mapper.getKeySystemId(200)).toBe(2);
+      expect(mapper.getKeySystemId(asNaturalId(100))).toBe(1);
+      expect(mapper.getKeySystemId(asNaturalId(200))).toBe(2);
     });
 
     it('should return undefined for non-existent keyId', () => {
-      expect(mapper.getKeySystemId(999)).toBeUndefined();
+      expect(mapper.getKeySystemId(asNaturalId(999))).toBeUndefined();
     });
 
     it('should check if key mapping exists', () => {
-      mapper.addKeyDefinitionMapping(100, 1);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
 
-      expect(mapper.hasKeyMapping(100)).toBe(true);
-      expect(mapper.hasKeyMapping(999)).toBe(false);
+      expect(mapper.hasKeyMapping(asNaturalId(100))).toBe(true);
+      expect(mapper.hasKeyMapping(asNaturalId(999))).toBe(false);
     });
 
     it('should get all key mappings', () => {
-      mapper.addKeyDefinitionMapping(100, 1);
-      mapper.addKeyDefinitionMapping(200, 2);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addKeyDefinitionMapping(asNaturalId(200), asSystemId(2));
 
       const allMappings = mapper.getAllKeyMappings();
 
       expect(allMappings.size).toBe(2);
-      expect(allMappings.get(100)).toBe(1);
-      expect(allMappings.get(200)).toBe(2);
+      expect(allMappings.get(asNaturalId(100))).toBe(1);
+      expect(allMappings.get(asNaturalId(200))).toBe(2);
     });
 
     it('should return a copy of key mappings, not the original', () => {
-      mapper.addKeyDefinitionMapping(100, 1);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
 
       const mappings1 = mapper.getAllKeyMappings();
       const mappings2 = mapper.getAllKeyMappings();
@@ -65,255 +69,361 @@ describe('ForeignKeyMapper', () => {
   describe('Value Definition Mappings', () => {
     beforeEach(() => {
       // Add parent key mapping first
-      mapper.addKeyDefinitionMapping(100, 1);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
     });
 
     it('should add single value definition mapping', () => {
-      mapper.addValueDefinitionMapping(100, 10, 101);
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
 
-      expect(mapper.getValueSystemId(100, 10)).toBe(101);
+      expect(mapper.getValueSystemId(asNaturalId(100), asNaturalId(10))).toBe(
+        101,
+      );
     });
 
     it('should retrieve value systemId by keyId and valueId', () => {
-      mapper.addValueDefinitionMapping(100, 10, 101);
-      mapper.addValueDefinitionMapping(100, 20, 102);
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(20),
+        asSystemId(102),
+      );
 
-      expect(mapper.getValueSystemId(100, 10)).toBe(101);
-      expect(mapper.getValueSystemId(100, 20)).toBe(102);
+      expect(mapper.getValueSystemId(asNaturalId(100), asNaturalId(10))).toBe(
+        101,
+      );
+      expect(mapper.getValueSystemId(asNaturalId(100), asNaturalId(20))).toBe(
+        102,
+      );
     });
 
     it('should return undefined for non-existent value', () => {
-      mapper.addValueDefinitionMapping(100, 10, 101);
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
 
-      expect(mapper.getValueSystemId(100, 999)).toBeUndefined();
+      expect(
+        mapper.getValueSystemId(asNaturalId(100), asNaturalId(999)),
+      ).toBeUndefined();
     });
 
     it('should return undefined when parent key does not exist', () => {
-      expect(mapper.getValueSystemId(999, 10)).toBeUndefined();
+      expect(
+        mapper.getValueSystemId(asNaturalId(999), asNaturalId(10)),
+      ).toBeUndefined();
     });
 
     it('should check if value mapping exists', () => {
-      mapper.addValueDefinitionMapping(100, 10, 101);
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
 
-      expect(mapper.hasValueMapping(100, 10)).toBe(true);
-      expect(mapper.hasValueMapping(100, 999)).toBe(false);
-      expect(mapper.hasValueMapping(999, 10)).toBe(false);
+      expect(mapper.hasValueMapping(asNaturalId(100), asNaturalId(10))).toBe(
+        true,
+      );
+      expect(mapper.hasValueMapping(asNaturalId(100), asNaturalId(999))).toBe(
+        false,
+      );
+      expect(mapper.hasValueMapping(asNaturalId(999), asNaturalId(10))).toBe(
+        false,
+      );
     });
 
     it('should get value mappings for specific key', () => {
-      mapper.addValueDefinitionMapping(100, 10, 101);
-      mapper.addValueDefinitionMapping(100, 20, 102);
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(20),
+        asSystemId(102),
+      );
 
-      const valueMappings = mapper.getValueMappingsForKey(100);
+      const valueMappings = mapper.getValueMappingsForKey(asNaturalId(100));
 
       expect(valueMappings).toBeDefined();
       expect(valueMappings!.size).toBe(2);
-      expect(valueMappings!.get(10)).toBe(101);
-      expect(valueMappings!.get(20)).toBe(102);
+      expect(valueMappings!.get(asNaturalId(10))).toBe(101);
+      expect(valueMappings!.get(asNaturalId(20))).toBe(102);
     });
 
     it('should return undefined for value mappings when key does not exist', () => {
-      expect(mapper.getValueMappingsForKey(999)).toBeUndefined();
+      expect(mapper.getValueMappingsForKey(asNaturalId(999))).toBeUndefined();
     });
 
     it('should return a copy of value mappings, not the original', () => {
-      mapper.addValueDefinitionMapping(100, 10, 101);
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
 
-      const mappings1 = mapper.getValueMappingsForKey(100);
-      const mappings2 = mapper.getValueMappingsForKey(100);
+      const mappings1 = mapper.getValueMappingsForKey(asNaturalId(100));
+      const mappings2 = mapper.getValueMappingsForKey(asNaturalId(100));
 
       expect(mappings1).not.toBe(mappings2);
       expect(mappings1).toEqual(mappings2);
     });
 
     it('should handle multiple keys with their own value mappings', () => {
-      mapper.addKeyDefinitionMapping(200, 2);
+      mapper.addKeyDefinitionMapping(asNaturalId(200), asSystemId(2));
 
-      mapper.addValueDefinitionMapping(100, 10, 101);
-      mapper.addValueDefinitionMapping(100, 20, 102);
-      mapper.addValueDefinitionMapping(200, 30, 201);
-      mapper.addValueDefinitionMapping(200, 40, 202);
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(20),
+        asSystemId(102),
+      );
+      mapper.addValueDefinitionMapping(
+        asNaturalId(200),
+        asNaturalId(30),
+        asSystemId(201),
+      );
+      mapper.addValueDefinitionMapping(
+        asNaturalId(200),
+        asNaturalId(40),
+        asSystemId(202),
+      );
 
-      expect(mapper.getValueSystemId(100, 10)).toBe(101);
-      expect(mapper.getValueSystemId(100, 20)).toBe(102);
-      expect(mapper.getValueSystemId(200, 30)).toBe(201);
-      expect(mapper.getValueSystemId(200, 40)).toBe(202);
+      expect(mapper.getValueSystemId(asNaturalId(100), asNaturalId(10))).toBe(
+        101,
+      );
+      expect(mapper.getValueSystemId(asNaturalId(100), asNaturalId(20))).toBe(
+        102,
+      );
+      expect(mapper.getValueSystemId(asNaturalId(200), asNaturalId(30))).toBe(
+        201,
+      );
+      expect(mapper.getValueSystemId(asNaturalId(200), asNaturalId(40))).toBe(
+        202,
+      );
     });
   });
 
-  describe('Bulk Key Definition Mappings', () => {
-    it('should store mappings from BulkKeyDefinitionInsertResult', () => {
-      const bulkResult: BulkKeyDefinitionInsertResult = {
-        results: [
-          {
-            success: true,
-            keyDefinitionIdMapping: {
-              naturalId: 100,
-              systemId: 1,
-            },
-            childMappings: {
-              valueDefinitions: [
-                {naturalId: 10, systemId: 101},
-                {naturalId: 20, systemId: 102},
-              ],
-            },
-            errors: [],
-          },
-          {
-            success: true,
-            keyDefinitionIdMapping: {
-              naturalId: 200,
-              systemId: 2,
-            },
-            childMappings: {
-              valueDefinitions: [{naturalId: 30, systemId: 201}],
-            },
-            errors: [],
-          },
-        ],
-      };
+  describe('Module Definition Mappings', () => {
+    it('should add single module definition mapping', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
 
-      mapper.setKeyDefinitionMappings(bulkResult);
-
-      expect(mapper.getKeySystemId(100)).toBe(1);
-      expect(mapper.getKeySystemId(200)).toBe(2);
-      expect(mapper.getValueSystemId(100, 10)).toBe(101);
-      expect(mapper.getValueSystemId(100, 20)).toBe(102);
-      expect(mapper.getValueSystemId(200, 30)).toBe(201);
+      expect(mapper.getModuleDefinitionSystemId(asNaturalId(100))).toBe(1);
     });
 
-    it('should store both key and value mappings from result', () => {
-      const bulkResult: BulkKeyDefinitionInsertResult = {
-        results: [
-          {
-            success: true,
-            keyDefinitionIdMapping: {
-              naturalId: 100,
-              systemId: 1,
-            },
-            childMappings: {
-              valueDefinitions: [{naturalId: 10, systemId: 101}],
-            },
-            errors: [],
-          },
-        ],
-      };
+    it('should retrieve module definition systemId by moduleId', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
 
-      mapper.setKeyDefinitionMappings(bulkResult);
-
-      const stats = mapper.getStats();
-      expect(stats.keyMappings).toBe(1);
-      expect(stats.valueMappings).toBe(1);
+      expect(mapper.getModuleDefinitionSystemId(asNaturalId(100))).toBe(1);
+      expect(mapper.getModuleDefinitionSystemId(asNaturalId(200))).toBe(2);
     });
 
-    it('should handle results with no child mappings', () => {
-      const bulkResult: BulkKeyDefinitionInsertResult = {
-        results: [
-          {
-            success: true,
-            keyDefinitionIdMapping: {
-              naturalId: 100,
-              systemId: 1,
-            },
-            childMappings: {
-              valueDefinitions: [],
-            },
-            errors: [],
-          },
-        ],
-      };
-
-      mapper.setKeyDefinitionMappings(bulkResult);
-
-      expect(mapper.getKeySystemId(100)).toBe(1);
-      expect(mapper.getValueMappingsForKey(100)).toBeDefined();
+    it('should return undefined for non-existent moduleId', () => {
+      expect(
+        mapper.getModuleDefinitionSystemId(asNaturalId(999)),
+      ).toBeUndefined();
     });
 
-    it('should handle results with empty value definitions array', () => {
-      const bulkResult: BulkKeyDefinitionInsertResult = {
-        results: [
-          {
-            success: true,
-            keyDefinitionIdMapping: {
-              naturalId: 100,
-              systemId: 1,
-            },
-            childMappings: {
-              valueDefinitions: [],
-            },
-            errors: [],
-          },
-        ],
-      };
+    it('should handle multiple module definition mappings', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addModuleDefinitionMapping(asNaturalId(300), asSystemId(3));
 
-      mapper.setKeyDefinitionMappings(bulkResult);
-
-      expect(mapper.getKeySystemId(100)).toBe(1);
-      const valueMappings = mapper.getValueMappingsForKey(100);
-      expect(valueMappings).toBeDefined();
-      expect(valueMappings!.size).toBe(0);
+      expect(mapper.getModuleDefinitionSystemId(asNaturalId(100))).toBe(1);
+      expect(mapper.getModuleDefinitionSystemId(asNaturalId(200))).toBe(2);
+      expect(mapper.getModuleDefinitionSystemId(asNaturalId(300))).toBe(3);
     });
 
-    it('should skip failed insertions', () => {
-      const bulkResult: BulkKeyDefinitionInsertResult = {
-        results: [
-          {
-            success: true,
-            keyDefinitionIdMapping: {
-              naturalId: 100,
-              systemId: 1,
-            },
-            childMappings: {
-              valueDefinitions: [],
-            },
-            errors: [],
-          },
-          {
-            success: false,
-            keyDefinitionIdMapping: undefined,
-            childMappings: {
-              valueDefinitions: [],
-            },
-            errors: [],
-          },
-          {
-            success: true,
-            keyDefinitionIdMapping: {
-              naturalId: 200,
-              systemId: 2,
-            },
-            childMappings: {
-              valueDefinitions: [],
-            },
-            errors: [],
-          },
-        ],
-      };
+    it('should throw error when adding duplicate module definition mapping', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
 
-      mapper.setKeyDefinitionMappings(bulkResult);
+      expect(() => {
+        mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(999));
+      }).toThrow('Module definition 100 already mapped to systemId 1');
+    });
+  });
 
-      expect(mapper.getKeySystemId(100)).toBe(1);
-      expect(mapper.getKeySystemId(200)).toBe(2);
-      expect(mapper.getStats().keyMappings).toBe(2);
+  describe('Parameter Definition Mappings', () => {
+    beforeEach(() => {
+      // Add parent module definition mapping first
+      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
     });
 
-    it('should skip results without idMapping', () => {
-      const bulkResult: BulkKeyDefinitionInsertResult = {
-        results: [
-          {
-            success: true,
-            keyDefinitionIdMapping: undefined,
-            childMappings: {
-              valueDefinitions: [],
-            },
-            errors: [],
-          },
-        ],
-      };
+    it('should add single parameter definition mapping', () => {
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
 
-      mapper.setKeyDefinitionMappings(bulkResult);
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(1), asNaturalId(10)),
+      ).toBe(101);
+    });
 
-      expect(mapper.getStats().keyMappings).toBe(0);
+    it('should retrieve parameter systemId by moduleDefinitionId and paramId', () => {
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(20),
+        asSystemId(102),
+      );
+
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(1), asNaturalId(10)),
+      ).toBe(101);
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(1), asNaturalId(20)),
+      ).toBe(102);
+    });
+
+    it('should return undefined for non-existent parameter', () => {
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(1), asNaturalId(999)),
+      ).toBeUndefined();
+    });
+
+    it('should return undefined when module definition does not exist', () => {
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(999), asNaturalId(10)),
+      ).toBeUndefined();
+    });
+
+    it('should handle multiple module definitions with their own parameters', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(20),
+        asSystemId(102),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(2),
+        asNaturalId(30),
+        asSystemId(201),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(2),
+        asNaturalId(40),
+        asSystemId(202),
+      );
+
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(1), asNaturalId(10)),
+      ).toBe(101);
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(1), asNaturalId(20)),
+      ).toBe(102);
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(2), asNaturalId(30)),
+      ).toBe(201);
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(2), asNaturalId(40)),
+      ).toBe(202);
+    });
+
+    it('should get all parameter systemIds for a module', () => {
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(20),
+        asSystemId(102),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(30),
+        asSystemId(103),
+      );
+
+      const paramSystemIds = mapper.getModuleParamSystemIds(asSystemId(1));
+
+      expect(paramSystemIds).toHaveLength(3);
+      expect(paramSystemIds).toContain(101);
+      expect(paramSystemIds).toContain(102);
+      expect(paramSystemIds).toContain(103);
+    });
+
+    it('should return empty array when module has no parameters', () => {
+      const paramSystemIds = mapper.getModuleParamSystemIds(asSystemId(1));
+
+      expect(paramSystemIds).toEqual([]);
+    });
+
+    it('should return empty array when module definition does not exist', () => {
+      const paramSystemIds = mapper.getModuleParamSystemIds(asSystemId(999));
+
+      expect(paramSystemIds).toEqual([]);
+    });
+
+    it('should throw error when adding duplicate parameter mapping', () => {
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+
+      expect(() => {
+        mapper.addParamDefinitionMapping(
+          asSystemId(1),
+          asNaturalId(10),
+          asSystemId(999),
+        );
+      }).toThrow('Param 10 already mapped for module 1');
+    });
+
+    it('should handle parameters with same paramId across different modules', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(2),
+        asNaturalId(10),
+        asSystemId(201),
+      );
+
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(1), asNaturalId(10)),
+      ).toBe(101);
+      expect(
+        mapper.getParamDefinitionSystemId(asSystemId(2), asNaturalId(10)),
+      ).toBe(201);
     });
   });
 
@@ -326,6 +436,7 @@ describe('ForeignKeyMapper', () => {
       expect(stats.subgraphMappings).toBe(0);
       expect(stats.containerMappings).toBe(0);
       expect(stats.moduleDefinitionMappings).toBe(0);
+      expect(stats.paramDefinitionMappingsByModuleId).toBe(0);
       expect(stats.spfModuleMappings).toBe(0);
       expect(stats.moduleInputPortMappings).toBe(0);
       expect(stats.moduleOutputPortMappings).toBe(0);
@@ -335,28 +446,95 @@ describe('ForeignKeyMapper', () => {
     });
 
     it('should return correct stats after adding mappings', () => {
-      mapper.addKeyDefinitionMapping(100, 1);
-      mapper.addKeyDefinitionMapping(200, 2);
-      mapper.addValueDefinitionMapping(100, 10, 101);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addKeyDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
 
       const stats = mapper.getStats();
 
       expect(stats.keyMappings).toBe(2);
       expect(stats.valueMappings).toBe(1);
     });
+
+    it('should return correct stats after adding module definition mappings', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addModuleDefinitionMapping(asNaturalId(300), asSystemId(3));
+
+      const stats = mapper.getStats();
+
+      expect(stats.moduleDefinitionMappings).toBe(3);
+    });
+
+    it('should return correct stats after adding parameter definition mappings', () => {
+      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(1),
+        asNaturalId(20),
+        asSystemId(102),
+      );
+      mapper.addParamDefinitionMapping(
+        asSystemId(2),
+        asNaturalId(30),
+        asSystemId(201),
+      );
+
+      const stats = mapper.getStats();
+
+      expect(stats.paramDefinitionMappingsByModuleId).toBe(2); // 2 modules with params
+    });
+
+    it('should return correct stats with mixed mapping types', () => {
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
+      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addParamDefinitionMapping(
+        asSystemId(2),
+        asNaturalId(20),
+        asSystemId(201),
+      );
+
+      const stats = mapper.getStats();
+
+      expect(stats.keyMappings).toBe(1);
+      expect(stats.valueMappings).toBe(1);
+      expect(stats.moduleDefinitionMappings).toBe(1);
+      expect(stats.paramDefinitionMappingsByModuleId).toBe(1);
+    });
   });
 
   describe('Clear', () => {
     it('should clear all mappings', () => {
-      mapper.addKeyDefinitionMapping(100, 1);
-      mapper.addKeyDefinitionMapping(200, 2);
-      mapper.addValueDefinitionMapping(100, 10, 101);
+      mapper.addKeyDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addKeyDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addValueDefinitionMapping(
+        asNaturalId(100),
+        asNaturalId(10),
+        asSystemId(101),
+      );
 
       mapper.clear();
 
-      expect(mapper.getKeySystemId(100)).toBeUndefined();
-      expect(mapper.getKeySystemId(200)).toBeUndefined();
-      expect(mapper.getValueSystemId(100, 10)).toBeUndefined();
+      expect(mapper.getKeySystemId(asNaturalId(100))).toBeUndefined();
+      expect(mapper.getKeySystemId(asNaturalId(200))).toBeUndefined();
+      expect(
+        mapper.getValueSystemId(asNaturalId(100), asNaturalId(10)),
+      ).toBeUndefined();
 
       const stats = mapper.getStats();
       expect(stats.keyMappings).toBe(0);

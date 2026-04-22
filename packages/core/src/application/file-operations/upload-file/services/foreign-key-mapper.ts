@@ -8,6 +8,10 @@ import type {
   BulkControlLinkInsertResult,
 } from '../../../ports/persistence/repositories/bulk-import/link-insertion-report.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
+import type {
+  NaturalId,
+  SystemId,
+} from '../../../../shared/types/branded-ids.js';
 
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
@@ -15,24 +19,45 @@ import type {Logger} from '../../../../shared/types/logger.interface.js';
  * Values are dependent on their parent keys: Map<keySystemId, Map<valueId, systemId>>
  */
 export class ForeignKeyMapper {
-  private keyDefinitionMappings = new Map<number, number>(); // keyId -> systemId
-  private valueDefinitionMappings = new Map<number, Map<number, number>>(); // keySystemId -> Map<valueId, systemId>
-  private subgraphMappings = new Map<number, number>(); // subgraphId -> systemId
-  private containerMappings = new Map<number, number>(); // containerId -> systemId
-  private moduleDefinitionMappings = new Map<number, number>(); // moduleId -> systemId
-  private spfModuleMappings = new Map<number, number>(); // instanceId -> systemId
-  private moduleInputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
-  private moduleOutputPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
-  private moduleControlPortMappings = new Map<number, Map<number, number>>(); // moduleSystemId -> Map<portNaturalId, portSystemId>
-  private dataLinkMappings = new Map<string, number>(); // naturalKey -> systemId
-  private controlLinkMappings = new Map<string, number>(); // naturalKey -> systemId
+  private keyDefinitionMappings = new Map<NaturalId, SystemId>();
+  private valueDefinitionMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private subgraphMappings = new Map<NaturalId, SystemId>();
+  private containerMappings = new Map<NaturalId, SystemId>();
+  private moduleDefinitionMappings = new Map<NaturalId, SystemId>();
+  private paramDefinitionMappingsByModuleId = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private spfModuleMappings = new Map<NaturalId, SystemId>();
+  private moduleInputPortMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private moduleOutputPortMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private moduleControlPortMappings = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private dataLinkMappings = new Map<string, SystemId>();
+  private controlLinkMappings = new Map<string, SystemId>();
 
   constructor(private readonly logger?: Logger) {}
 
   /**
    * Add a single key definition mapping
    */
-  addKeyDefinitionMapping(keyId: number, systemId: number): void {
+  addKeyDefinitionMapping(keyId: NaturalId, systemId: SystemId): void {
+    if (this.keyDefinitionMappings.has(keyId)) {
+      throw new Error(
+        `Key definition ${keyId} already mapped to systemId ${this.keyDefinitionMappings.get(keyId)}`,
+      );
+    }
     this.keyDefinitionMappings.set(keyId, systemId);
   }
 
@@ -40,26 +65,25 @@ export class ForeignKeyMapper {
    * Add a single value definition mapping
    */
   addValueDefinitionMapping(
-    keyId: number,
-    valueId: number,
-    systemId: number,
+    keyId: NaturalId,
+    valueId: NaturalId,
+    systemId: SystemId,
   ): void {
     const keySystemId = this.getKeySystemId(keyId);
     if (!keySystemId) {
-      this.logger?.logError({
-        msg: `Cannot add value mapping: key ${keyId} not found`,
-        action: 'value_mapping_failed',
-        component: 'ForeignKeyMapper',
-        tag: 'foreign-key-mapping',
-        timestamp: new Date(),
-      });
-      return;
+      throw new Error(`Cannot add value mapping: key ${keyId} not found`);
     }
 
     let valueMap = this.valueDefinitionMappings.get(keySystemId);
     if (!valueMap) {
-      valueMap = new Map<number, number>();
+      valueMap = new Map<NaturalId, SystemId>();
       this.valueDefinitionMappings.set(keySystemId, valueMap);
+    }
+
+    if (valueMap.has(valueId)) {
+      throw new Error(
+        `Value ${valueId} already mapped for key ${keyId} (keySystemId: ${keySystemId})`,
+      );
     }
 
     valueMap.set(valueId, systemId);
@@ -108,14 +132,14 @@ export class ForeignKeyMapper {
   /**
    * Get systemId for a given keyId
    */
-  getKeySystemId(keyId: number): number | undefined {
+  getKeySystemId(keyId: NaturalId): SystemId | undefined {
     return this.keyDefinitionMappings.get(keyId);
   }
 
   /**
    * Get systemId for a given valueId within the context of a keyId
    */
-  getValueSystemId(keyId: number, valueId: number): number | undefined {
+  getValueSystemId(keyId: NaturalId, valueId: NaturalId): SystemId | undefined {
     const keySystemId = this.getKeySystemId(keyId);
     if (!keySystemId) {
       return undefined;
@@ -128,14 +152,14 @@ export class ForeignKeyMapper {
   /**
    * Check if a keyId has a mapping
    */
-  hasKeyMapping(keyId: number): boolean {
+  hasKeyMapping(keyId: NaturalId): boolean {
     return this.keyDefinitionMappings.has(keyId);
   }
 
   /**
    * Check if a valueId has a mapping within the context of a keyId
    */
-  hasValueMapping(keyId: number, valueId: number): boolean {
+  hasValueMapping(keyId: NaturalId, valueId: NaturalId): boolean {
     const keySystemId = this.getKeySystemId(keyId);
     if (!keySystemId) {
       return false;
@@ -148,14 +172,16 @@ export class ForeignKeyMapper {
   /**
    * Get all key mappings
    */
-  getAllKeyMappings(): Map<number, number> {
+  getAllKeyMappings(): Map<NaturalId, SystemId> {
     return new Map(this.keyDefinitionMappings);
   }
 
   /**
    * Get all value mappings for a specific key
    */
-  getValueMappingsForKey(keyId: number): Map<number, number> | undefined {
+  getValueMappingsForKey(
+    keyId: NaturalId,
+  ): Map<NaturalId, SystemId> | undefined {
     const keySystemId = this.getKeySystemId(keyId);
     if (!keySystemId) {
       return undefined;
@@ -348,28 +374,85 @@ export class ForeignKeyMapper {
   /**
    * Get systemId for a given subgraphId
    */
-  getSubgraphSystemId(subgraphId: number): number | undefined {
+  getSubgraphSystemId(subgraphId: NaturalId): SystemId | undefined {
     return this.subgraphMappings.get(subgraphId);
   }
 
   /**
    * Get systemId for a given containerId
    */
-  getContainerSystemId(containerId: number): number | undefined {
+  getContainerSystemId(containerId: NaturalId): SystemId | undefined {
     return this.containerMappings.get(containerId);
+  }
+
+  /**
+   * Add a single module definition mapping
+   */
+  addModuleDefinitionMapping(moduleId: NaturalId, systemId: SystemId): void {
+    if (this.moduleDefinitionMappings.has(moduleId)) {
+      throw new Error(
+        `Module definition ${moduleId} already mapped to systemId ${this.moduleDefinitionMappings.get(moduleId)}`,
+      );
+    }
+    this.moduleDefinitionMappings.set(moduleId, systemId);
   }
 
   /**
    * Get systemId for a given moduleId (definition)
    */
-  getModuleDefinitionSystemId(moduleId: number): number | undefined {
+  getModuleDefinitionSystemId(moduleId: NaturalId): SystemId | undefined {
     return this.moduleDefinitionMappings.get(moduleId);
+  }
+
+  /**
+   * Add param definition mapping for a module
+   */
+  addParamDefinitionMapping(
+    moduleDefinitionId: SystemId,
+    paramId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (!this.paramDefinitionMappingsByModuleId.has(moduleDefinitionId)) {
+      this.paramDefinitionMappingsByModuleId.set(moduleDefinitionId, new Map());
+    }
+
+    const moduleParams =
+      this.paramDefinitionMappingsByModuleId.get(moduleDefinitionId)!;
+
+    if (moduleParams.has(paramId)) {
+      throw new Error(
+        `Param ${paramId} already mapped for module ${moduleDefinitionId}`,
+      );
+    }
+
+    moduleParams.set(paramId, systemId);
+  }
+
+  /**
+   * Get param definition systemId
+   */
+  getParamDefinitionSystemId(
+    moduleDefinitionId: SystemId,
+    paramId: NaturalId,
+  ): SystemId | undefined {
+    return this.paramDefinitionMappingsByModuleId
+      .get(moduleDefinitionId)
+      ?.get(paramId);
+  }
+
+  /**
+   * Get all param systemIds for a module
+   */
+  getModuleParamSystemIds(moduleDefinitionId: SystemId): SystemId[] {
+    const moduleParams =
+      this.paramDefinitionMappingsByModuleId.get(moduleDefinitionId);
+    return moduleParams ? [...moduleParams.values()] : [];
   }
 
   /**
    * Get systemId for a given module instanceId
    */
-  getSpfModuleSystemId(instanceId: number): number | undefined {
+  getSpfModuleSystemId(instanceId: NaturalId): SystemId | undefined {
     return this.spfModuleMappings.get(instanceId);
   }
 
@@ -377,8 +460,8 @@ export class ForeignKeyMapper {
    * Get all input port system IDs for a given module system ID
    */
   getModuleInputPortSystemIds(
-    moduleSystemId: number,
-  ): Map<number, number> | undefined {
+    moduleSystemId: SystemId,
+  ): Map<NaturalId, SystemId> | undefined {
     const portMap = this.moduleInputPortMappings.get(moduleSystemId);
     return portMap ? new Map(portMap) : undefined;
   }
@@ -387,8 +470,8 @@ export class ForeignKeyMapper {
    * Get all output port system IDs for a given module system ID
    */
   getModuleOutputPortSystemIds(
-    moduleSystemId: number,
-  ): Map<number, number> | undefined {
+    moduleSystemId: SystemId,
+  ): Map<NaturalId, SystemId> | undefined {
     const portMap = this.moduleOutputPortMappings.get(moduleSystemId);
     return portMap ? new Map(portMap) : undefined;
   }
@@ -397,9 +480,9 @@ export class ForeignKeyMapper {
    * Get system ID for a specific input port of a module
    */
   getInputPortSystemId(
-    moduleSystemId: number,
-    portNaturalId: number,
-  ): number | undefined {
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+  ): SystemId | undefined {
     const portMap = this.moduleInputPortMappings.get(moduleSystemId);
     return portMap?.get(portNaturalId);
   }
@@ -408,9 +491,9 @@ export class ForeignKeyMapper {
    * Get system ID for a specific output port of a module
    */
   getOutputPortSystemId(
-    moduleSystemId: number,
-    portNaturalId: number,
-  ): number | undefined {
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+  ): SystemId | undefined {
     const portMap = this.moduleOutputPortMappings.get(moduleSystemId);
     return portMap?.get(portNaturalId);
   }
@@ -419,8 +502,8 @@ export class ForeignKeyMapper {
    * Get all control port system IDs for a given module system ID
    */
   getModuleControlPortSystemIds(
-    moduleSystemId: number,
-  ): Map<number, number> | undefined {
+    moduleSystemId: SystemId,
+  ): Map<NaturalId, SystemId> | undefined {
     const portMap = this.moduleControlPortMappings.get(moduleSystemId);
     return portMap ? new Map(portMap) : undefined;
   }
@@ -429,9 +512,9 @@ export class ForeignKeyMapper {
    * Get system ID for a specific control port of a module
    */
   getControlPortSystemId(
-    moduleSystemId: number,
-    portNaturalId: number,
-  ): number | undefined {
+    moduleSystemId: SystemId,
+    portNaturalId: NaturalId,
+  ): SystemId | undefined {
     const portMap = this.moduleControlPortMappings.get(moduleSystemId);
     return portMap?.get(portNaturalId);
   }
@@ -483,14 +566,14 @@ export class ForeignKeyMapper {
   /**
    * Get systemId for a given data link natural key
    */
-  getDataLinkSystemId(naturalKey: string): number | undefined {
+  getDataLinkSystemId(naturalKey: string): SystemId | undefined {
     return this.dataLinkMappings.get(naturalKey);
   }
 
   /**
    * Get systemId for a given control link natural key
    */
-  getControlLinkSystemId(naturalKey: string): number | undefined {
+  getControlLinkSystemId(naturalKey: string): SystemId | undefined {
     return this.controlLinkMappings.get(naturalKey);
   }
 
@@ -503,6 +586,7 @@ export class ForeignKeyMapper {
     this.subgraphMappings.clear();
     this.containerMappings.clear();
     this.moduleDefinitionMappings.clear();
+    this.paramDefinitionMappingsByModuleId.clear();
     this.spfModuleMappings.clear();
     this.moduleInputPortMappings.clear();
     this.moduleOutputPortMappings.clear();
@@ -520,6 +604,7 @@ export class ForeignKeyMapper {
     subgraphMappings: number;
     containerMappings: number;
     moduleDefinitionMappings: number;
+    paramDefinitionMappingsByModuleId: number;
     spfModuleMappings: number;
     moduleInputPortMappings: number;
     moduleOutputPortMappings: number;
@@ -533,6 +618,8 @@ export class ForeignKeyMapper {
       subgraphMappings: this.subgraphMappings.size,
       containerMappings: this.containerMappings.size,
       moduleDefinitionMappings: this.moduleDefinitionMappings.size,
+      paramDefinitionMappingsByModuleId:
+        this.paramDefinitionMappingsByModuleId.size,
       spfModuleMappings: this.spfModuleMappings.size,
       moduleInputPortMappings: this.moduleInputPortMappings.size,
       moduleOutputPortMappings: this.moduleOutputPortMappings.size,

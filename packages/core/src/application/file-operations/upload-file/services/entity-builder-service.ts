@@ -13,6 +13,7 @@ import type {DataLink} from '../../../../domain/entities/usecase-data/links/data
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {ParsedAcdb} from '../models/parsed-acdb.js';
 import type {ParsedAwsp} from '../models/parsed-awsp.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js';
 import {SpfModuleDefinitionBuilder} from './entity-builders/spf-module-definition-builder.js';
 import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
@@ -88,15 +89,20 @@ export class EntityBuilderService {
   private controlLinkBuilder: ControlLinkBuilder;
 
   constructor(
-    readonly foreignKeyMapper: ForeignKeyMapper, //TODO: remove once logic is moved
+    private readonly idGenerator: IdGenerationPort,
+    readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {
     this.keyDefinitionBuilder = new KeyDefinitionBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
       this.workerPool,
       this.logger,
     );
     this.spfModuleDefinitionBuilder = new SpfModuleDefinitionBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
       this.workerPool,
       this.logger,
     );
@@ -576,10 +582,11 @@ export class EntityBuilderService {
   }
 
   /**
-   * Build key definitions from AWSP data
+   * Build key definitions from AWSP data with system IDs assigned
    */
   async buildKeyDefinitions(
     parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
   ): Promise<BuildResult<KeyDefinition>> {
     // Extract key definitions from AWSP
     const awspKeyDefinitions = parsedAwsp.getKeyDefinitions();
@@ -594,12 +601,14 @@ export class EntityBuilderService {
       };
     }
 
-    // Build domain key definitions - now returns BuildResult with issues collected
-    const result =
-      await this.keyDefinitionBuilder.buildKeyDefinitions(awspKeyDefinitions);
+    // Build domain key definitions with system IDs assigned
+    const result = await this.keyDefinitionBuilder.buildKeyDefinitions(
+      awspKeyDefinitions,
+      fileSystemId,
+    );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} key definitions from AWSP, ${result.errorCount} failures`,
+      msg: `Successfully built ${result.successCount} key definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
       action: 'awsp_key_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
@@ -610,34 +619,41 @@ export class EntityBuilderService {
   }
 
   /**
-   * Build SPF module definitions from AWSP data
+   * Build SPF module definitions from AWSP data with system IDs assigned
+   * @param parsedAwsp - Parsed AWSP data
+   * @param fileSystemId - File system ID for the module definitions
    */
   async buildSpfModuleDefinitions(
     parsedAwsp: ParsedAwsp,
     fileSystemId: number,
-  ): Promise<SpfModuleDefinition[]> {
+  ): Promise<BuildResult<SpfModuleDefinition>> {
     // Extract SPF module definitions from AWSP
     const awspModuleDefinitions = parsedAwsp.getSpfModuleDefinitions();
 
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      return [];
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
-    // Build domain SPF module definitions
-    const moduleDefinitions =
-      await this.spfModuleDefinitionBuilder.buildModuleDefinitions(
-        awspModuleDefinitions,
-        fileSystemId,
-      );
+    // Build domain SPF module definitions with system IDs assigned
+    const result = await this.spfModuleDefinitionBuilder.buildModuleDefinitions(
+      awspModuleDefinitions,
+      fileSystemId,
+    );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${moduleDefinitions.length} SPF module definitions from AWSP`,
+      msg: `Successfully built ${result.successCount} SPF module definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
       action: 'awsp_spf_module_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
       timestamp: new Date(),
     });
 
-    return moduleDefinitions;
+    return result;
   }
 }

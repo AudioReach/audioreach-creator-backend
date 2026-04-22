@@ -5,26 +5,26 @@
 
 import {Expose, Type} from 'class-transformer';
 import {IsArray, IsOptional, ValidateNested} from 'class-validator';
-import {StaticControlPort} from './static-control-port.js';
-import {Intent} from './intent.js';
+import {AwspStaticControlPort} from './static-control-port.js';
+import {AwspIntent} from './intent.js';
 
 /**
  * Represents control ports information with static ports and dynamic intents.
  */
-export class ControlPortsInfo {
+export class AwspControlPortsInfo {
   /** List of static control ports (optional) */
   @Expose()
   @IsOptional()
   @IsArray()
   @ValidateNested({each: true})
-  @Type(() => StaticControlPort)
-  staticPorts?: StaticControlPort[];
+  @Type(() => AwspStaticControlPort)
+  staticPorts?: AwspStaticControlPort[];
 
   /** List of dynamic intents (optional) */
   @Expose()
   @IsOptional()
   @IsArray()
   @ValidateNested({each: true})
-  @Type(() => Intent)
-  dynamicIntents?: Intent[];
+  @Type(() => AwspIntent)
+  dynamicIntents?: AwspIntent[];
 }

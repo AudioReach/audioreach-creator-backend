@@ -4,15 +4,15 @@
  */
 
 import {Type} from 'class-transformer';
-import {BaseArrayElement} from './base-array-element.js';
-import {Struct} from './struct.js';
+import {AwspBaseArrayElement} from './base-array-element.js';
+import {AwspStruct} from './struct.js';
 
 /**
  * Represents a structure array element.
  * Extends ArrayElement with structure-specific properties.
  */
-export class StructArray extends BaseArrayElement {
+export class AwspStructArray extends AwspBaseArrayElement {
   /** Key structure definition (required) */
-  @Type(() => Struct)
-  keyStructureDefinition!: Struct;
+  @Type(() => AwspStruct)
+  keyStructureDefinition!: AwspStruct;
 }

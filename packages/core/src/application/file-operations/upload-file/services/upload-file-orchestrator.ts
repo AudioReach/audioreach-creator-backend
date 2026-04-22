@@ -7,16 +7,6 @@ import type {UnitOfWork} from 'application/ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 import type {BulkInsertResult} from '../../../ports/persistence/repositories/bulk-import/bulk-insert-result-types.js';
 import {EntityBuilderService} from './entity-builder-service.js';
-import {EntitySystemIdService} from './entity-system-id-service.js';
-//eslint -disable-next-line sonarjs/no-commented-code
-//import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/key-definition.js';
-//import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
-//import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
-//import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
-//import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
-//import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
-//import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
-//import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import {ForeignKeyMapper} from './foreign-key-mapper.js';
 import {AcdbFileOrchestrator} from './acdb-file-orchestrator.js';
 import {AwspFileOrchestrator} from './awsp-file-orchestrator.js';
@@ -58,7 +48,6 @@ export interface OrchestratorResult {
 export class UploadFileOrchestrator {
   private issueCollector: IssueCollector = new IssueCollector();
   private builderService: EntityBuilderService;
-  private entitySystemIdService: EntitySystemIdService;
   private acdbParser: AcdbFileOrchestrator;
   private awspParser: AwspFileOrchestrator;
   private foreignKeyMapper: ForeignKeyMapper;
@@ -81,18 +70,9 @@ export class UploadFileOrchestrator {
     // Initialize services
     this.foreignKeyMapper = new ForeignKeyMapper(logger);
     this.builderService = new EntityBuilderService(
+      this.idGenerator,
       this.foreignKeyMapper,
       workerPool,
-      logger,
-    );
-    this.entitySystemIdService = new EntitySystemIdService(
-      this.idGenerator,
-      logger,
-    );
-
-    this.acdbParser = new AcdbFileOrchestrator(
-      this.filereader,
-      //workerPool,
       logger,
     );
 
@@ -312,11 +292,11 @@ export class UploadFileOrchestrator {
       // Phase 1a: Build and Insert Key Definitions (no dependencies)
       await this.buildAndInsertKeyDefinitions(bulkRepo);
 
-      //eslint-disable-next-line sonarjs/no-commented-code
-      /*
       // Phase 1b: Build and Insert SPF Module Definitions (no dependencies)
       await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
 
+      //eslint-disable-next-line sonarjs/no-commented-code
+      /*
       // Phase 2: Build and Insert Subgraphs (no dependencies)
       await this.buildAndInsertSubgraphs(bulkRepo);
 
@@ -386,22 +366,17 @@ export class UploadFileOrchestrator {
   private async buildAndInsertKeyDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    // Build key definitions with issue collection
+    // Build key definitions with system IDs assigned
     const result = await this.builderService.buildKeyDefinitions(
       this.parsedAwsp!,
+      this.currentFileId,
     );
 
     // Collect build issues
     this.issueCollector.addIssues(result.issues);
 
     if (result.entities.length > 0) {
-      // Assign system IDs
-      await this.entitySystemIdService.assignSystemIdsToKeyDefinitions(
-        result.entities,
-        this.currentFileId,
-      );
-
-      // Insert key definitions and capture result
+      // Insert key definitions
       const insertResult = await bulkRepo.insertKeyDefinitions(result.entities);
 
       // Collect insertion errors from the insert result
@@ -425,12 +400,13 @@ export class UploadFileOrchestrator {
    */
   private collectInsertionErrors(insertResult: BulkInsertResult): void {
     if (!insertResult.ok) {
-      // Categorize the error to determine the appropriate error code
-      const errorCode = this.categorizeInsertionError(insertResult.message);
+      // Type narrowing: insertResult is now {ok: false; message: string}
+      const errorMessage = insertResult.message;
+      const errorCode = this.categorizeInsertionError(errorMessage);
 
       this.issueCollector.addError({
         code: errorCode,
-        message: insertResult.message,
+        message: errorMessage,
         entityType: ENTITY_TYPES.KEY_DEFINITION,
       });
     }
@@ -455,38 +431,40 @@ export class UploadFileOrchestrator {
     return ERROR_CODES.INSERTION_FAILED;
   }
 
-  /*
   /**
    * Phase 1b: Build and Insert SPF Module Definitions
-
+   */
   private async buildAndInsertSpfModuleDefinitions(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    // Build SPF module definitions
-    const spfModuleDefinitions =
-      await this.builderService.buildSpfModuleDefinitions(
-        this.parsedAwsp!,
-        this.currentFileId,
+    // Get count of SPF module definitions to pre-allocate system IDs
+    const awspModuleDefinitions =
+      this.parsedAwsp!.getSpfModuleDefinitions() || [];
+
+    if (awspModuleDefinitions.length === 0) {
+      return;
+    }
+
+    // Build SPF module definitions with system IDs assigned
+    const result = await this.builderService.buildSpfModuleDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert SPF module definitions
+      const insertResult = await bulkRepo.insertModuleDefinitions(
+        result.entities,
       );
 
-    if (spfModuleDefinitions && spfModuleDefinitions.length > 0) {
-      const spfModuleDefResult: BulkModuleDefinitionInsertResult =
-        await bulkRepo.insertSpfModuleDefinitions(
-          spfModuleDefinitions as readonly Omit<
-            SpfModuleDefinition,
-            'systemId'
-          >[],
-        );
-
-      // Store foreign key mappings for subsequent phases
-      this.foreignKeyMapper.setModuleDefinitionMappings(spfModuleDefResult);
-
-      const successfulInserts = spfModuleDefResult.results.filter(
-        r => r.success,
-      ).length;
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} SPF module definitions (${spfModuleDefResult.results.length} total)`,
+        msg: `Built and inserted ${result.entities.length} SPF module definitions (${result.errorCount} errors, ${result.warningCount} warnings)`,
         action: 'spf_module_definitions_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',

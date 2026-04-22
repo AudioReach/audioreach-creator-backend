@@ -13,6 +13,7 @@ import type {ParsedAcdb} from '../../models/parsed-acdb.js';
 import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import {asNaturalId} from '../../../../../shared/types/branded-ids.js';
 
 /**
  * Builder for converting UsecaseEntry data to UseCase domain entities.
@@ -148,8 +149,8 @@ export class UsecaseBuilder {
     for (const keyValue of entry.keyValuePairList.keyValueList) {
       try {
         const valueSystemId = this.foreignKeyMapper?.getValueSystemId(
-          keyValue.keyId,
-          keyValue.value,
+          asNaturalId(keyValue.keyId),
+          asNaturalId(keyValue.value),
         );
 
         if (valueSystemId) {
@@ -204,7 +205,7 @@ export class UsecaseBuilder {
       if (sgList.includes(moduleInfo.subgraphId)) {
         for (const moduleInstance of moduleInfo.spfModules) {
           const systemId = this.foreignKeyMapper.getSpfModuleSystemId(
-            moduleInstance.instanceId,
+            asNaturalId(moduleInstance.instanceId),
           );
           if (systemId) {
             moduleSystemIds.push(systemId);

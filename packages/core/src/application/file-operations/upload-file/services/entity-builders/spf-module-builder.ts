@@ -16,11 +16,12 @@ import {
   PORT_IO_TYPE,
   type PortIoType,
 } from '../../../../../domain/entities/common/enums/port-io-type.js';
-import type {SpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
+import type {AwspSpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 import {
   MODULE_PORT_STRATEGIES,
   type ModulePortStrategy,
 } from '../../../shared/awsp-serializers/v1/configuration/index.js';
+import {asNaturalId} from '../../../../../shared/types/branded-ids.js';
 
 /**
  * Dynamic control port ID starts from this value
@@ -53,7 +54,7 @@ export class SpfModuleBuilder {
     fileSystemId: number,
     portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
-    spfModuleDefinitions: SpfModuleDefinition[] = [],
+    spfModuleDefinitions: AwspSpfModuleDefinition[] = [],
     dynamicControlPortInfo?: DynamicControlPortInfo,
   ): SpfModule[] {
     // Input validation
@@ -86,7 +87,7 @@ export class SpfModuleBuilder {
   }
 
   private buildDisplayNameLookup(
-    spfModuleDefinitions: SpfModuleDefinition[],
+    spfModuleDefinitions: AwspSpfModuleDefinition[],
   ): Map<number, string> {
     const moduleDisplayNames = new Map<number, string>();
 
@@ -110,7 +111,7 @@ export class SpfModuleBuilder {
     portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[],
     moduleDisplayNames: Map<number, string>,
-    spfModuleDefinitions: SpfModuleDefinition[],
+    spfModuleDefinitions: AwspSpfModuleDefinition[],
     dynamicControlPortInfo?: DynamicControlPortInfo,
   ): {spfModules: SpfModule[]; successCount: number; errorCount: number} {
     const spfModules: SpfModule[] = [];
@@ -184,7 +185,7 @@ export class SpfModuleBuilder {
     portStrategy: ModulePortStrategy,
     modulePropertyConfig?: ModulePropertyConfig,
     moduleDisplayNames?: Map<number, string>,
-    moduleDefinition?: SpfModuleDefinition,
+    moduleDefinition?: AwspSpfModuleDefinition,
     dynamicControlPortInfo?: DynamicControlPortInfo,
   ): SpfModule {
     // Get foreign key mappings
@@ -236,7 +237,9 @@ export class SpfModuleBuilder {
    * Get subgraph systemId from foreign key mapper
    */
   private getSubgraphSystemId(subgraphId: number): number {
-    const systemId = this.foreignKeyMapper.getSubgraphSystemId?.(subgraphId);
+    const systemId = this.foreignKeyMapper.getSubgraphSystemId?.(
+      asNaturalId(subgraphId),
+    );
     if (!systemId) {
       throw new Error(
         `No subgraph systemId mapping found for subgraphId ${subgraphId}`,
@@ -249,7 +252,9 @@ export class SpfModuleBuilder {
    * Get container systemId from foreign key mapper
    */
   private getContainerSystemId(containerId: number): number {
-    const systemId = this.foreignKeyMapper.getContainerSystemId?.(containerId);
+    const systemId = this.foreignKeyMapper.getContainerSystemId?.(
+      asNaturalId(containerId),
+    );
     if (!systemId) {
       throw new Error(
         `No container systemId mapping found for containerId ${containerId}`,
@@ -262,8 +267,9 @@ export class SpfModuleBuilder {
    * Get definition systemId from foreign key mapper
    */
   private getDefinitionSystemId(moduleId: number): number {
-    const systemId =
-      this.foreignKeyMapper.getModuleDefinitionSystemId?.(moduleId);
+    const systemId = this.foreignKeyMapper.getModuleDefinitionSystemId?.(
+      asNaturalId(moduleId),
+    );
     if (!systemId) {
       throw new Error(
         `No module definition systemId mapping found for moduleId ${moduleId}`,
@@ -367,7 +373,7 @@ export class SpfModuleBuilder {
   private createDataPortsFromProperties(
     portStrategy: ModulePortStrategy,
     modulePropertyConfig?: ModulePropertyConfig,
-    moduleDefinition?: SpfModuleDefinition,
+    moduleDefinition?: AwspSpfModuleDefinition,
   ): DataPort[] {
     if (!modulePropertyConfig) {
       return [];
@@ -415,7 +421,7 @@ export class SpfModuleBuilder {
    */
   private createControlPortsFromProperties(
     instanceId: number,
-    moduleDefinition?: SpfModuleDefinition,
+    moduleDefinition?: AwspSpfModuleDefinition,
     dynamicControlPortInfo?: DynamicControlPortInfo,
   ): ControlPort[] {
     const controlPorts: ControlPort[] = [];

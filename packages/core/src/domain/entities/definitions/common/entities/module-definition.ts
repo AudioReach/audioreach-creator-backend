@@ -23,9 +23,9 @@ export interface ModuleDefinitionInit {
 }
 
 export abstract class ModuleDefinition {
-  readonly systemId: number;
+  systemId: number;
   readonly moduleDefinitionId: number;
-  readonly fileSystemId: number;
+  fileSystemId: number;
   name: string;
   displayName: string;
   description?: string;
