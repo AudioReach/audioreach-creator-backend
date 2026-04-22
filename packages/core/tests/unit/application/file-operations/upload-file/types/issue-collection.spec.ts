@@ -6,7 +6,6 @@
 import {
   IssueCollector,
   ISSUE_SEVERITY,
-  ISSUE_PHASE,
   ENTITY_TYPES,
   type EntityBuildIssue,
 } from '../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
@@ -26,8 +25,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Test error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '123',
-        phase: ISSUE_PHASE.BUILDING,
       };
 
       collector.addIssue(issue);
@@ -45,16 +42,12 @@ describe('IssueCollector', () => {
           code: ERROR_CODES.INVALID_ENTITY_DATA,
           message: 'Error 1',
           entityType: ENTITY_TYPES.KEY_DEFINITION,
-          entityIdentifier: '1',
-          phase: ISSUE_PHASE.BUILDING,
         },
         {
           severity: ISSUE_SEVERITY.WARNING,
           code: ERROR_CODES.MISSING_REQUIRED_FIELD,
           message: 'Warning 1',
           entityType: ENTITY_TYPES.SPF_MODULE,
-          entityIdentifier: '2',
-          phase: ISSUE_PHASE.PARSING,
         },
       ];
 
@@ -71,8 +64,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Test error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '123',
-        phase: ISSUE_PHASE.BUILDING,
       });
 
       expect(collector.getErrorCount()).toBe(1);
@@ -86,8 +77,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Test warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '456',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       expect(collector.getWarningCount()).toBe(1);
@@ -101,15 +90,11 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
       collector.addWarning({
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '2',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       const errors = collector.getErrors();
@@ -125,15 +110,11 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
       collector.addWarning({
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '2',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       const warnings = collector.getWarnings();
@@ -153,8 +134,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
 
       expect(collector.hasIssues()).toBe(true);
@@ -171,8 +150,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
 
       expect(collector.hasErrors()).toBe(true);
@@ -183,8 +160,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       expect(collector.hasErrors()).toBe(false);
@@ -201,8 +176,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       expect(collector.hasWarnings()).toBe(true);
@@ -213,8 +186,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
 
       expect(collector.hasWarnings()).toBe(false);
@@ -231,15 +202,11 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
       collector.addWarning({
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '2',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       expect(collector.getIssueCount()).toBe(2);
@@ -252,22 +219,16 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error 1',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
       collector.addError({
         code: ERROR_CODES.DUPLICATE_ENTITY,
         message: 'Error 2',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '2',
-        phase: ISSUE_PHASE.BUILDING,
       });
       collector.addWarning({
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '3',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       expect(collector.getErrorCount()).toBe(2);
@@ -280,22 +241,16 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning 1',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.PARSING,
       });
       collector.addWarning({
         code: ERROR_CODES.INVALID_DATA_TYPE,
         message: 'Warning 2',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '2',
-        phase: ISSUE_PHASE.PARSING,
       });
       collector.addError({
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '3',
-        phase: ISSUE_PHASE.BUILDING,
       });
 
       expect(collector.getWarningCount()).toBe(2);
@@ -308,15 +263,11 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
       collector.addWarning({
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Warning',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '2',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       collector.clear();
@@ -332,65 +283,32 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Invalid data',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '123',
-        phase: ISSUE_PHASE.BUILDING,
       });
       collector.addWarning({
         code: ERROR_CODES.MISSING_REQUIRED_FIELD,
         message: 'Missing field',
         entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '456',
-        phase: ISSUE_PHASE.PARSING,
       });
 
       const formatted = collector.formatForApi();
 
+      expect(formatted.errors).toBeDefined();
+      expect(formatted.warnings).toBeDefined();
       expect(formatted.errors).toHaveLength(1);
       expect(formatted.warnings).toHaveLength(1);
-      expect(formatted.errors[0]).toBe(
-        '[ERR_2004] KeyDefinition (123): Invalid data',
+      expect(formatted.errors![0]).toBe(
+        '[ERR_2004] KeyDefinition: Invalid data',
       );
-      expect(formatted.warnings[0]).toBe(
-        '[ERR_1002] SpfModule (456): Missing field',
+      expect(formatted.warnings![0]).toBe(
+        '[ERR_1002] SpfModule: Missing field',
       );
     });
 
-    it('should return empty arrays when no issues', () => {
+    it('should return empty object when no issues', () => {
       const formatted = collector.formatForApi();
 
-      expect(formatted.errors).toEqual([]);
-      expect(formatted.warnings).toEqual([]);
-    });
-  });
-
-  describe('getInsertionIssues', () => {
-    it('should return only insertion phase issues', () => {
-      collector.addError({
-        code: ERROR_CODES.INVALID_ENTITY_DATA,
-        message: 'Building error',
-        entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
-      });
-      collector.addError({
-        code: ERROR_CODES.INSERTION_FAILED,
-        message: 'Insertion error',
-        entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '2',
-        phase: ISSUE_PHASE.INSERTION,
-      });
-      collector.addWarning({
-        code: ERROR_CODES.MISSING_REQUIRED_FIELD,
-        message: 'Parsing warning',
-        entityType: ENTITY_TYPES.SPF_MODULE,
-        entityIdentifier: '3',
-        phase: ISSUE_PHASE.PARSING,
-      });
-
-      const insertionIssues = collector.getInsertionIssues();
-
-      expect(insertionIssues).toHaveLength(1);
-      expect(insertionIssues[0].phase).toBe(ISSUE_PHASE.INSERTION);
+      expect(formatted.errors).toBeUndefined();
+      expect(formatted.warnings).toBeUndefined();
     });
   });
 
@@ -400,8 +318,6 @@ describe('IssueCollector', () => {
         code: ERROR_CODES.INVALID_ENTITY_DATA,
         message: 'Error',
         entityType: ENTITY_TYPES.KEY_DEFINITION,
-        entityIdentifier: '1',
-        phase: ISSUE_PHASE.BUILDING,
       });
 
       const issues1 = collector.getIssues();

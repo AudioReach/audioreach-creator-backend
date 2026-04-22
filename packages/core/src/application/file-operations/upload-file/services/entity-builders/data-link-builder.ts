@@ -6,6 +6,10 @@ import {DataLink} from '../../../../../domain/entities/usecase-data/links/data-l
 import type {DataLink as DataLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import {
+  asNaturalId,
+  asSystemId,
+} from '../../../../../shared/types/branded-ids.js';
 
 /**
  * Builder for converting DataLink property data to DataLink domain entities.
@@ -188,7 +192,9 @@ export class DataLinkBuilder {
    * Get module instance systemId from foreign key mapper
    */
   private getSpfModuleSystemId(instanceId: number): number | null {
-    const systemId = this.foreignKeyMapper.getSpfModuleSystemId(instanceId);
+    const systemId = this.foreignKeyMapper.getSpfModuleSystemId(
+      asNaturalId(instanceId),
+    );
     return systemId || null;
   }
 
@@ -201,8 +207,8 @@ export class DataLinkBuilder {
     portNaturalId: number,
   ): number | null {
     const systemId = this.foreignKeyMapper.getOutputPortSystemId(
-      moduleSystemId,
-      portNaturalId,
+      asSystemId(moduleSystemId),
+      asNaturalId(portNaturalId),
     );
     return systemId || null;
   }
@@ -216,8 +222,8 @@ export class DataLinkBuilder {
     portNaturalId: number,
   ): number | null {
     const systemId = this.foreignKeyMapper.getInputPortSystemId(
-      moduleSystemId,
-      portNaturalId,
+      asSystemId(moduleSystemId),
+      asNaturalId(portNaturalId),
     );
     return systemId || null;
   }

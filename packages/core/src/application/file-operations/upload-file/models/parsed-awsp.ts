@@ -8,7 +8,7 @@ import type {
   TagDefinition,
   SpfPropertyDefinition,
   DriverPropertyDefinition,
-  SpfModuleDefinition,
+  AwspSpfModuleDefinition,
   DriverModuleDefinition,
   ProcessorDefinition,
   ContainerType,
@@ -24,7 +24,7 @@ export type DefinitionCollection =
   | TagDefinition[]
   | SpfPropertyDefinition[]
   | DriverPropertyDefinition[]
-  | SpfModuleDefinition[]
+  | AwspSpfModuleDefinition[]
   | DriverModuleDefinition[]
   | ProcessorDefinition[]
   | ContainerType[];
@@ -151,8 +151,8 @@ export class ParsedAwsp {
   /**
    * Get SPF module definitions
    */
-  getSpfModuleDefinitions(): SpfModuleDefinition[] | undefined {
-    return this.getDefinitions<SpfModuleDefinition[]>(
+  getSpfModuleDefinitions(): AwspSpfModuleDefinition[] | undefined {
+    return this.getDefinitions<AwspSpfModuleDefinition[]>(
       DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS,
     );
   }

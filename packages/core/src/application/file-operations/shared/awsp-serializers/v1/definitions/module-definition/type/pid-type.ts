@@ -6,4 +6,4 @@
 /**
  * PID type values
  */
-export type PidType = 'None' | 'Shared' | 'GlobalShared';
+export type AwspPidType = 'None' | 'Shared' | 'GlobalShared';

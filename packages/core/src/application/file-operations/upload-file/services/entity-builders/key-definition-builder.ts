@@ -5,7 +5,13 @@
 import type {WorkerPoolPort} from '../../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../../ports/worker/worker-types.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
+import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import {HANDLER_KEYS} from '../../../shared/constants/registry-keys.js';
+import {
+  asNaturalId,
+  asSystemId,
+} from '../../../../../shared/types/branded-ids.js';
 import {AwspKeyDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
 import {KeyDefinition} from '../../../../../domain/entities/definitions/key-value/key-definition.js';
 import {ValueDefinition} from '../../../../../domain/entities/definitions/key-value/entities/value-definition.js';
@@ -44,17 +50,21 @@ export interface KeyDefinitionBuildOutput {
  */
 export class KeyDefinitionBuilder {
   constructor(
+    private readonly idGenerator: IdGenerationPort,
+    private readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {}
 
   /**
-   * Build domain KeyDefinition entities from AWSP KeyDefinitions
+   * Build domain KeyDefinition entities from AWSP KeyDefinitions with system IDs assigned
    * @param awspKeyDefinitions - Array of AWSP key definitions to transform
+   * @param fileSystemId - File system ID to assign to entities
    * @returns Promise resolving to BuildResult with entities and errors
    */
   async buildKeyDefinitions(
     awspKeyDefinitions: AwspKeyDefinition[],
+    fileSystemId: number,
   ): Promise<BuildResult<KeyDefinition>> {
     if (!awspKeyDefinitions || awspKeyDefinitions.length === 0) {
       return {
@@ -72,14 +82,20 @@ export class KeyDefinitionBuilder {
     const useParallel = this.shouldUseParallel(awspKeyDefinitions);
 
     try {
+      // Step 1: Build entities (systemId = 0)
       result = await (useParallel
         ? this.buildParallel(awspKeyDefinitions)
         : this.buildSequential(awspKeyDefinitions));
 
+      // Step 2: Assign system IDs to all successfully built entities
+      if (result.entities.length > 0) {
+        await this.assignSystemIds(result.entities, fileSystemId);
+      }
+
       this.logger?.logInfo({
-        msg: `Successfully built ${result.successCount} key definitions, ${result.errorCount} failures`,
+        msg: `Successfully built ${result.successCount} key definitions with system IDs assigned, ${result.errorCount} failures`,
         action: 'key_definition_building_complete',
-        component: 'KeyDefinitionBuilderService',
+        component: 'KeyDefinitionBuilder',
         tag: 'key-definitions',
         timestamp: new Date(),
       });
@@ -89,12 +105,51 @@ export class KeyDefinitionBuilder {
       this.logger?.logError({
         msg: 'Key definition building failed',
         action: 'key_definition_building_failed',
-        component: 'KeyDefinitionBuilderService',
+        component: 'KeyDefinitionBuilder',
         tag: 'key-definitions',
         error: error as Error,
         timestamp: new Date(),
       });
       throw error;
+    }
+  }
+
+  /**
+   * Assign system IDs to key definitions and their value definitions.
+   * Also stores foreign key mappings immediately after ID generation.
+   * Mutates the input objects directly.
+   *
+   * @param keyDefinitions - Key definitions with systemId = 0 (from builder)
+   * @param fileSystemId - File system ID to assign
+   */
+  private async assignSystemIds(
+    keyDefinitions: KeyDefinition[],
+    fileSystemId: number,
+  ): Promise<void> {
+    for (const keyDef of keyDefinitions) {
+      // Assign file system ID
+      keyDef.fileSystemId = fileSystemId;
+
+      // Assign system ID to key definition
+      keyDef.systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      // Store key definition mapping immediately
+      this.foreignKeyMapper.addKeyDefinitionMapping(
+        asNaturalId(keyDef.keyId),
+        asSystemId(keyDef.systemId),
+      );
+
+      // Assign system IDs to value definitions and store mappings
+      for (const valueDef of keyDef.values) {
+        valueDef.systemId = await this.idGenerator.getNextId(fileSystemId);
+
+        // Store value definition mapping immediately
+        this.foreignKeyMapper.addValueDefinitionMapping(
+          asNaturalId(keyDef.keyId),
+          asNaturalId(valueDef.valueId),
+          asSystemId(valueDef.systemId),
+        );
+      }
     }
   }
 
@@ -220,7 +275,7 @@ export class KeyDefinitionBuilder {
 
   /**
    * Build key definitions sequentially in the main thread
-   * Creates objects with systemId = 0 and fileSystemId = 0 (to be assigned later by EntitySystemIdService)
+   * Creates objects with systemId = 0 and fileSystemId = 0 (to be assigned later)
    */
   private buildSequential(
     keyDefinitions: AwspKeyDefinition[],
@@ -318,7 +373,7 @@ export class KeyDefinitionBuilder {
   /**
    * Static method for transforming AWSP KeyDefinition to Domain KeyDefinition
    * Creates objects with placeholder IDs (systemId = 0, fileSystemId = 0)
-   * IDs will be assigned later by EntitySystemIdService
+   * IDs will be assigned later during the build process
    * This method is used both in sequential processing and worker threads
    */
   static transformKeyDefinition(awsp: AwspKeyDefinition): KeyDefinition {
@@ -333,7 +388,7 @@ export class KeyDefinitionBuilder {
             systemId: 0, // Will be generated during insertion
             valueId: awspValue.id,
             name: awspValue.name,
-            description: awspValue.description || '',
+            description: awspValue.description,
             cHeaderEnumValue: awspValue.enumValue,
             specialValue: awspValue.specialValue, // TODO: Implement specialty mapping when available
           });
@@ -350,9 +405,9 @@ export class KeyDefinitionBuilder {
     const domainKeyDef = new KeyDefinition({
       systemId: 0, // Will be generated during insertion
       keyId: awsp.id,
-      fileSystemId: 0, // Placeholder - will be assigned by EntitySystemIdService
+      fileSystemId: 0, // Placeholder - will be assigned during build process
       name: awsp.name,
-      description: awsp.description || '',
+      description: awsp.description,
       isCalibrationKey: awsp.isCalKey ?? false,
       isGraphKey: awsp.isGraphKey ?? false,
       isVoice: awsp.isVoice ?? false,

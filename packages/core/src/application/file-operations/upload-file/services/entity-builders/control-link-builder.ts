@@ -6,6 +6,10 @@ import {ControlLink} from '../../../../../domain/entities/usecase-data/links/con
 import type {ControlLink as ControlLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import {
+  asNaturalId,
+  asSystemId,
+} from '../../../../../shared/types/branded-ids.js';
 
 /**
  * Builder for converting ControlLink property data to ControlLink domain entities.
@@ -302,7 +306,9 @@ export class ControlLinkBuilder {
    * Get module instance systemId from foreign key mapper
    */
   private getSpfModuleSystemId(instanceId: number): number {
-    const systemId = this.foreignKeyMapper.getSpfModuleSystemId(instanceId);
+    const systemId = this.foreignKeyMapper.getSpfModuleSystemId(
+      asNaturalId(instanceId),
+    );
     if (!systemId) {
       throw new Error(
         `No module instance systemId mapping found for instanceId ${instanceId}`,
@@ -319,8 +325,8 @@ export class ControlLinkBuilder {
     portNaturalId: number,
   ): number {
     const systemId = this.foreignKeyMapper.getControlPortSystemId(
-      moduleSystemId,
-      portNaturalId,
+      asSystemId(moduleSystemId),
+      asNaturalId(portNaturalId),
     );
     if (!systemId) {
       throw new Error(

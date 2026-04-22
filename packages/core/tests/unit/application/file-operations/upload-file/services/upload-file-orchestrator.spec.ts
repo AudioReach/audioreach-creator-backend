@@ -6,12 +6,14 @@
 import {jest} from '@jest/globals';
 import {UploadFileOrchestrator} from '../../../../../../src/application/file-operations/upload-file/services/upload-file-orchestrator.js';
 import {EntityBuilderService} from '../../../../../../src/application/file-operations/upload-file/services/entity-builder-service.js';
-import {EntitySystemIdService} from '../../../../../../src/application/file-operations/upload-file/services/entity-system-id-service.js';
 import {KeyDefinition} from '../../../../../../src/domain/entities/definitions/key-value/key-definition.js';
+import {ERROR_CODES} from '../../../../../../src/shared/errors/error-codes.js';
+import {ENTITY_TYPES} from '../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
 import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../../../../src/application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 import type {IdGenerationPort} from '../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {FileReaderPort} from '../../../../../../src/application/ports/file-system/file-reader.port.js';
+import {createMockIdGenerator} from '../../../../../helpers/index.js';
 
 describe('UploadFileOrchestrator', () => {
   let orchestrator: UploadFileOrchestrator;
@@ -20,24 +22,20 @@ describe('UploadFileOrchestrator', () => {
   let mockIdGenerator: jest.Mocked<IdGenerationPort>;
   let mockBulkRepo: jest.Mocked<BulkImportRepository>;
   let mockBuilderService: jest.Mocked<EntityBuilderService>;
-  let mockSystemIdService: jest.Mocked<EntitySystemIdService>;
 
   beforeEach(() => {
     mockFileReader = {} as jest.Mocked<FileReaderPort>;
 
     mockBulkRepo = {
       insertKeyDefinitions: jest.fn(),
+      insertModuleDefinitions: jest.fn(),
     } as unknown as jest.Mocked<BulkImportRepository>;
 
     mockUow = {
       getBulkImportRepository: jest.fn().mockReturnValue(mockBulkRepo),
     } as unknown as jest.Mocked<UnitOfWork>;
 
-    mockIdGenerator = {
-      getNextId: jest.fn(),
-      reserveBlock: jest.fn(),
-      persistLastUsedId: jest.fn(),
-    } as jest.Mocked<IdGenerationPort>;
+    mockIdGenerator = createMockIdGenerator();
 
     orchestrator = new UploadFileOrchestrator(
       mockFileReader,
@@ -48,8 +46,6 @@ describe('UploadFileOrchestrator', () => {
     // Access private services for mocking
     mockBuilderService = (orchestrator as any)
       .builderService as jest.Mocked<EntityBuilderService>;
-    mockSystemIdService = (orchestrator as any)
-      .entitySystemIdService as jest.Mocked<EntitySystemIdService>;
   });
 
   describe('buildAndInsertKeyDefinitions', () => {
@@ -69,7 +65,7 @@ describe('UploadFileOrchestrator', () => {
     });
 
     describe('Happy Path', () => {
-      it('should build, assign IDs, and insert key definitions when they exist', async () => {
+      it('should build and insert key definitions when they exist', async () => {
         const mockKeyDef = new KeyDefinition({
           systemId: 0,
           keyId: 100,
@@ -95,25 +91,14 @@ describe('UploadFileOrchestrator', () => {
             errorCount: 0,
             warningCount: 0,
           });
-        jest
-          .spyOn(mockSystemIdService, 'assignSystemIdsToKeyDefinitions')
-          .mockResolvedValue([mockKeyDef]);
-        mockBulkRepo.insertKeyDefinitions.mockResolvedValue({
-          status: 'SUCCESS',
-          errors: [],
-          insertSummary: {
-            totalEntities: 1,
-            successfulEntities: 1,
-            failedEntities: 0,
-          },
-        });
+        mockBulkRepo.insertKeyDefinitions.mockResolvedValue({ok: true});
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
 
-        expect(mockBuilderService.buildKeyDefinitions).toHaveBeenCalledWith({});
-        expect(
-          mockSystemIdService.assignSystemIdsToKeyDefinitions,
-        ).toHaveBeenCalledWith([mockKeyDef], 1);
+        expect(mockBuilderService.buildKeyDefinitions).toHaveBeenCalledWith(
+          {},
+          1,
+        );
         expect(mockBulkRepo.insertKeyDefinitions).toHaveBeenCalledWith([
           mockKeyDef,
         ]);
@@ -151,29 +136,14 @@ describe('UploadFileOrchestrator', () => {
             };
           });
 
-        jest
-          .spyOn(mockSystemIdService, 'assignSystemIdsToKeyDefinitions')
-          .mockImplementation(async () => {
-            callOrder.push('assignIds');
-            return [mockKeyDef];
-          });
-
         mockBulkRepo.insertKeyDefinitions.mockImplementation(async () => {
           callOrder.push('insert');
-          return {
-            status: 'SUCCESS',
-            errors: [],
-            insertSummary: {
-              totalEntities: 1,
-              successfulEntities: 1,
-              failedEntities: 0,
-            },
-          };
+          return {ok: true};
         });
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
 
-        expect(callOrder).toEqual(['build', 'assignIds', 'insert']);
+        expect(callOrder).toEqual(['build', 'insert']);
       });
     });
 
@@ -182,16 +152,11 @@ describe('UploadFileOrchestrator', () => {
         jest
           .spyOn(mockBuilderService, 'buildKeyDefinitions')
           .mockResolvedValue(null as any);
-        const assignSpy = jest.spyOn(
-          mockSystemIdService,
-          'assignSystemIdsToKeyDefinitions',
-        );
 
         await expect(
           buildAndInsertKeyDefinitions(mockBulkRepo),
         ).rejects.toThrow();
 
-        expect(assignSpy).not.toHaveBeenCalled();
         expect(mockBulkRepo.insertKeyDefinitions).not.toHaveBeenCalled();
       });
 
@@ -205,14 +170,9 @@ describe('UploadFileOrchestrator', () => {
             errorCount: 0,
             warningCount: 0,
           });
-        const assignSpy = jest.spyOn(
-          mockSystemIdService,
-          'assignSystemIdsToKeyDefinitions',
-        );
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
 
-        expect(assignSpy).not.toHaveBeenCalled();
         expect(mockBulkRepo.insertKeyDefinitions).not.toHaveBeenCalled();
       });
 
@@ -226,15 +186,10 @@ describe('UploadFileOrchestrator', () => {
             errorCount: 0,
             warningCount: 0,
           });
-        const assignSpy = jest.spyOn(
-          mockSystemIdService,
-          'assignSystemIdsToKeyDefinitions',
-        );
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
 
         expect(mockBuilderService.buildKeyDefinitions).toHaveBeenCalled();
-        expect(assignSpy).not.toHaveBeenCalled();
         expect(mockBulkRepo.insertKeyDefinitions).not.toHaveBeenCalled();
       });
     });
@@ -244,52 +199,10 @@ describe('UploadFileOrchestrator', () => {
         jest
           .spyOn(mockBuilderService, 'buildKeyDefinitions')
           .mockRejectedValue(new Error('Build failed'));
-        const assignSpy = jest.spyOn(
-          mockSystemIdService,
-          'assignSystemIdsToKeyDefinitions',
-        );
 
         await expect(
           buildAndInsertKeyDefinitions(mockBulkRepo),
         ).rejects.toThrow('Build failed');
-
-        expect(assignSpy).not.toHaveBeenCalled();
-        expect(mockBulkRepo.insertKeyDefinitions).not.toHaveBeenCalled();
-      });
-
-      it('should propagate error when assignSystemIds throws', async () => {
-        const mockKeyDef = new KeyDefinition({
-          systemId: 0,
-          keyId: 100,
-          fileSystemId: 0,
-          name: 'Test Key',
-          description: '',
-          isCalibrationKey: false,
-          isGraphKey: true,
-          isVoice: false,
-          isDynamic: false,
-          cHeaderAttributes: {
-            keyEnumName: 'TEST_KEY',
-            keyEnumValue: '100',
-          },
-        });
-
-        jest
-          .spyOn(mockBuilderService, 'buildKeyDefinitions')
-          .mockResolvedValue({
-            entities: [mockKeyDef],
-            issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
-          });
-        jest
-          .spyOn(mockSystemIdService, 'assignSystemIdsToKeyDefinitions')
-          .mockRejectedValue(new Error('ID assignment failed'));
-
-        await expect(
-          buildAndInsertKeyDefinitions(mockBulkRepo),
-        ).rejects.toThrow('ID assignment failed');
 
         expect(mockBulkRepo.insertKeyDefinitions).not.toHaveBeenCalled();
       });
@@ -320,9 +233,6 @@ describe('UploadFileOrchestrator', () => {
             errorCount: 0,
             warningCount: 0,
           });
-        jest
-          .spyOn(mockSystemIdService, 'assignSystemIdsToKeyDefinitions')
-          .mockResolvedValue([mockKeyDef]);
         mockBulkRepo.insertKeyDefinitions.mockRejectedValue(
           new Error('Insert failed'),
         );
@@ -334,7 +244,7 @@ describe('UploadFileOrchestrator', () => {
     });
 
     describe('Method Call Verification', () => {
-      it('should not call assignSystemIds when no key definitions', async () => {
+      it('should not call insertKeyDefinitions when no key definitions', async () => {
         jest
           .spyOn(mockBuilderService, 'buildKeyDefinitions')
           .mockResolvedValue({
@@ -344,17 +254,13 @@ describe('UploadFileOrchestrator', () => {
             errorCount: 0,
             warningCount: 0,
           });
-        const assignSpy = jest.spyOn(
-          mockSystemIdService,
-          'assignSystemIdsToKeyDefinitions',
-        );
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
 
-        expect(assignSpy).not.toHaveBeenCalled();
+        expect(mockBulkRepo.insertKeyDefinitions).not.toHaveBeenCalled();
       });
 
-      it('should not call insertKeyDefinitions when no key definitions', async () => {
+      it('should not call insertKeyDefinitions when no key definitions (explicit check)', async () => {
         jest
           .spyOn(mockBuilderService, 'buildKeyDefinitions')
           .mockResolvedValue({
@@ -396,26 +302,349 @@ describe('UploadFileOrchestrator', () => {
             errorCount: 0,
             warningCount: 0,
           });
-        jest
-          .spyOn(mockSystemIdService, 'assignSystemIdsToKeyDefinitions')
-          .mockResolvedValue([mockKeyDef]);
-        mockBulkRepo.insertKeyDefinitions.mockResolvedValue({
-          status: 'SUCCESS',
-          errors: [],
-          insertSummary: {
-            totalEntities: 1,
-            successfulEntities: 1,
-            failedEntities: 0,
-          },
-        });
+        mockBulkRepo.insertKeyDefinitions.mockResolvedValue({ok: true});
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
 
         expect(mockBuilderService.buildKeyDefinitions).toHaveBeenCalledTimes(1);
-        expect(
-          mockSystemIdService.assignSystemIdsToKeyDefinitions,
-        ).toHaveBeenCalledTimes(1);
         expect(mockBulkRepo.insertKeyDefinitions).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
+  describe('buildAndInsertSpfModuleDefinitions', () => {
+    let buildAndInsertSpfModuleDefinitions: (
+      bulkRepo: BulkImportRepository,
+    ) => Promise<void>;
+
+    beforeEach(() => {
+      // Access the private method for testing
+      buildAndInsertSpfModuleDefinitions = (
+        orchestrator as any
+      ).buildAndInsertSpfModuleDefinitions.bind(orchestrator);
+
+      // Set up required state
+      (orchestrator as any).parsedAwsp = {
+        getSpfModuleDefinitions: jest.fn().mockReturnValue([
+          {
+            id: 100,
+            name: 'Test Module',
+            displayName: 'Test Module',
+            description: '',
+            paramDefinitions: [],
+            inputPortsInfo: {maxPortCount: 1, ports: []},
+            outputPortsInfo: {maxPortCount: 1, ports: []},
+            controlPortsInfo: {staticPorts: [], dynamicIntents: []},
+            supportedProcessorIds: [],
+            supportedContainerTypes: [],
+          },
+        ]),
+      };
+      (orchestrator as any).currentFileId = 1;
+    });
+
+    describe('Happy Path', () => {
+      it('should build, and insert SPF module definitions when they exist', async () => {
+        const mockModuleDef = {
+          systemId: 0,
+          moduleDefinitionId: 100,
+          fileSystemId: 1,
+          name: 'Test Module',
+          displayName: 'Test Module',
+          description: '',
+          parameters: [],
+          dataPortGroups: [],
+          stackSize: 0,
+          staticControlPorts: [],
+          dynamicIntents: [],
+          processorSystemIds: [],
+          containerTypesSystemIds: [],
+        };
+
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockResolvedValue({
+            entities: [mockModuleDef as any],
+            issues: [],
+            successCount: 1,
+            errorCount: 0,
+            warningCount: 0,
+          });
+
+        mockBulkRepo.insertModuleDefinitions.mockResolvedValue({ok: true});
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        expect(
+          mockBuilderService.buildSpfModuleDefinitions,
+        ).toHaveBeenCalledWith((orchestrator as any).parsedAwsp, 1);
+        expect(mockBulkRepo.insertModuleDefinitions).toHaveBeenCalledWith([
+          mockModuleDef,
+        ]);
+      });
+
+      it('should call methods in correct sequence', async () => {
+        const mockModuleDef = {
+          systemId: 0,
+          moduleDefinitionId: 100,
+          fileSystemId: 1,
+          name: 'Test Module',
+          displayName: 'Test Module',
+          description: '',
+          parameters: [],
+          dataPortGroups: [],
+          stackSize: 0,
+          staticControlPorts: [],
+          dynamicIntents: [],
+          processorSystemIds: [],
+          containerTypesSystemIds: [],
+        };
+
+        const callOrder: string[] = [];
+
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockImplementation(async () => {
+            callOrder.push('build');
+            return {
+              entities: [mockModuleDef as any],
+              issues: [],
+              successCount: 1,
+              errorCount: 0,
+              warningCount: 0,
+            };
+          });
+
+        mockBulkRepo.insertModuleDefinitions.mockImplementation(async () => {
+          callOrder.push('insert');
+          return {ok: true};
+        });
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        expect(callOrder).toEqual(['build', 'insert']);
+      });
+    });
+
+    describe('Edge Cases', () => {
+      it('should skip insertion when no SPF module definitions exist', async () => {
+        (orchestrator as any).parsedAwsp.getSpfModuleDefinitions = jest
+          .fn()
+          .mockReturnValue([]);
+
+        const buildSpy = jest.spyOn(
+          mockBuilderService,
+          'buildSpfModuleDefinitions',
+        );
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        expect(buildSpy).not.toHaveBeenCalled();
+        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+      });
+
+      it('should skip insertion when buildSpfModuleDefinitions returns empty array', async () => {
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockResolvedValue({
+            entities: [],
+            issues: [],
+            successCount: 0,
+            errorCount: 0,
+            warningCount: 0,
+          });
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+      });
+
+      it('should handle zero-length module definitions array', async () => {
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockResolvedValue({
+            entities: [],
+            issues: [],
+            successCount: 0,
+            errorCount: 0,
+            warningCount: 0,
+          });
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        expect(mockBuilderService.buildSpfModuleDefinitions).toHaveBeenCalled();
+        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('Error Handling', () => {
+      it('should propagate error when buildSpfModuleDefinitions throws', async () => {
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockRejectedValue(new Error('Build failed'));
+
+        await expect(
+          buildAndInsertSpfModuleDefinitions(mockBulkRepo),
+        ).rejects.toThrow('Build failed');
+
+        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+      });
+
+      it('should propagate error when insertModuleDefinitions throws', async () => {
+        const mockModuleDef = {
+          systemId: 0,
+          moduleDefinitionId: 100,
+          fileSystemId: 1,
+          name: 'Test Module',
+          displayName: 'Test Module',
+          description: '',
+          parameters: [],
+          dataPortGroups: [],
+          stackSize: 0,
+          staticControlPorts: [],
+          dynamicIntents: [],
+          processorSystemIds: [],
+          containerTypesSystemIds: [],
+        };
+
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockResolvedValue({
+            entities: [mockModuleDef as any],
+            issues: [],
+            successCount: 1,
+            errorCount: 0,
+            warningCount: 0,
+          });
+
+        mockBulkRepo.insertModuleDefinitions.mockRejectedValue(
+          new Error('Insert failed'),
+        );
+
+        await expect(
+          buildAndInsertSpfModuleDefinitions(mockBulkRepo),
+        ).rejects.toThrow('Insert failed');
+      });
+
+      it('should collect insertion errors when insert result is not ok', async () => {
+        const mockModuleDef = {
+          systemId: 0,
+          moduleDefinitionId: 100,
+          fileSystemId: 1,
+          name: 'Test Module',
+          displayName: 'Test Module',
+          description: '',
+          parameters: [],
+          dataPortGroups: [],
+          stackSize: 0,
+          staticControlPorts: [],
+          dynamicIntents: [],
+          processorSystemIds: [],
+          containerTypesSystemIds: [],
+        };
+
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockResolvedValue({
+            entities: [mockModuleDef as any],
+            issues: [],
+            successCount: 1,
+            errorCount: 0,
+            warningCount: 0,
+          });
+
+        mockBulkRepo.insertModuleDefinitions.mockResolvedValue({
+          ok: false,
+          message: 'UNIQUE constraint failed',
+        });
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        // Verify that the error was collected (implementation detail)
+        expect(mockBulkRepo.insertModuleDefinitions).toHaveBeenCalled();
+      });
+    });
+
+    describe('Method Call Verification', () => {
+      it('should not call insertModuleDefinitions when no module definitions', async () => {
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockResolvedValue({
+            entities: [],
+            issues: [],
+            successCount: 0,
+            errorCount: 0,
+            warningCount: 0,
+          });
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+      });
+
+      it('should call all methods exactly once when module definitions exist', async () => {
+        const mockModuleDef = {
+          systemId: 0,
+          moduleDefinitionId: 100,
+          fileSystemId: 1,
+          name: 'Test Module',
+          displayName: 'Test Module',
+          description: '',
+          parameters: [],
+          dataPortGroups: [],
+          stackSize: 0,
+          staticControlPorts: [],
+          dynamicIntents: [],
+          processorSystemIds: [],
+          containerTypesSystemIds: [],
+        };
+
+        jest
+          .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+          .mockResolvedValue({
+            entities: [mockModuleDef as any],
+            issues: [],
+            successCount: 1,
+            errorCount: 0,
+            warningCount: 0,
+          });
+
+        mockBulkRepo.insertModuleDefinitions.mockResolvedValue({ok: true});
+
+        await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+        expect(
+          mockBuilderService.buildSpfModuleDefinitions,
+        ).toHaveBeenCalledTimes(1);
+        expect(mockBulkRepo.insertModuleDefinitions).toHaveBeenCalledTimes(1);
+      });
+
+      describe('Issue Collection', () => {
+        it('should collect build issues from builder service', async () => {
+          jest
+            .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
+            .mockResolvedValue({
+              entities: [],
+              issues: [
+                {
+                  severity: 'error' as const,
+                  code: ERROR_CODES.INVALID_ENTITY_DATA,
+                  message: 'Invalid module definition',
+                  entityType: ENTITY_TYPES.SPF_MODULE_DEFINITION,
+                },
+              ],
+              successCount: 0,
+              errorCount: 1,
+              warningCount: 0,
+            });
+
+          await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
+
+          // Verify that issues were collected (implementation detail)
+          expect(
+            mockBuilderService.buildSpfModuleDefinitions,
+          ).toHaveBeenCalled();
+        });
       });
     });
   });

@@ -25,6 +25,7 @@ export * from './application/ports/persistence/repositories/project/project.repo
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
+export * from './shared/types/branded-ids.js';
 
 // Shared Change Types
 export * from './application/shared/change-vocabulary.js';
