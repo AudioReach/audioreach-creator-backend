@@ -13,41 +13,47 @@ import type {ParsedAcdb} from '../../models/parsed-acdb.js';
 import {CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import {asNaturalId} from '../../../../../shared/types/branded-ids.js';
 
 /**
  * Builder for converting UsecaseEntry data to UseCase domain entities.
  * Handles conversion of KeyValuePairList to KvData with foreign key mapping.
- * Simplified sequential implementation similar to KeyDefinitionBuilder.
+ * Simplified sequential implementation similar to DataLinkBuilder.
  */
 export class UsecaseBuilder {
   constructor(
+    private readonly idGenerator: IdGenerationPort,
     private readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly parsedAcdb: ParsedAcdb,
     private readonly logger?: Logger,
   ) {}
 
   /**
-   * Build UseCase entities from usecase entries
-   * Main API method similar to KeyDefinitionBuilder.buildKeyDefinitions()
+   * Build UseCase entities from usecase entries with system IDs assigned
+   * Main API method similar to DataLinkBuilder.buildDataLinks()
    */
-  buildUsecases(
+  async buildUsecases(
     usecaseEntries: UsecaseEntry[],
     fileSystemId: number,
-  ): UseCase[] {
+  ): Promise<UseCase[]> {
     // Input validation
     if (!usecaseEntries || usecaseEntries.length === 0) {
       return [];
     }
 
-    // Direct conversion logic
+    // Direct conversion logic with system ID assignment
     const usecases: UseCase[] = [];
     let successCount = 0;
     let errorCount = 0;
 
     for (const [i, usecaseEntry] of usecaseEntries.entries()) {
       try {
-        const usecase = this.convertUsecaseEntry(usecaseEntry, i, fileSystemId);
+        const usecase = await this.convertUsecaseEntry(
+          usecaseEntry,
+          i,
+          fileSystemId,
+        );
         usecases.push(usecase);
         successCount++;
       } catch (error) {
@@ -63,7 +69,7 @@ export class UsecaseBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Converted ${successCount} usecases successfully, ${errorCount} failed`,
+      msg: `Converted ${successCount} usecases successfully, ${errorCount} failed, system IDs assigned`,
       action: 'usecase_conversion_complete',
       component: 'UsecaseBuilder',
       tag: 'usecase-building',
@@ -74,19 +80,22 @@ export class UsecaseBuilder {
   }
 
   /**
-   * Convert single UsecaseEntry to UseCase entity
+   * Convert single UsecaseEntry to UseCase entity with system ID assigned
    */
-  private convertUsecaseEntry(
+  private async convertUsecaseEntry(
     entry: UsecaseEntry,
     index: number,
     fileSystemId: number,
-  ): UseCase {
+  ): Promise<UseCase> {
     // Convert KeyValuePairList to KeyVectorInput
     const keyVector = this.convertToKeyVector(entry, index);
 
-    // Create UseCase entity
+    // Assign system ID using foreign key mapper
+    const systemId = await this.idGenerator.getNextId(fileSystemId);
+
+    // Create UseCase entity with assigned system ID
     const useCase = new UseCase({
-      systemId: 0, // Will be generated during insertion
+      systemId: systemId,
       fileSystemId: fileSystemId, // Use actual file system ID from database
       keyVector: keyVector,
       alias: undefined, // Could be derived from sgList if needed

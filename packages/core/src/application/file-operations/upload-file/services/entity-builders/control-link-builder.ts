@@ -6,6 +6,7 @@ import {ControlLink} from '../../../../../domain/entities/usecase-data/links/con
 import type {ControlLink as ControlLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import {
   asNaturalId,
   asSystemId,
@@ -17,24 +18,25 @@ import {
  */
 export class ControlLinkBuilder {
   constructor(
+    private readonly idGenerator: IdGenerationPort,
     private readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly logger?: Logger,
   ) {}
 
   /**
-   * Build ControlLink entities from control link properties
+   * Build ControlLink entities from control link properties with system IDs assigned
    * Main API method similar to UsecaseBuilder.buildUsecases()
    * Uses early deduplication for optimal performance
    *
    * @returns Object containing control links and extracted intents for control ports
    */
-  buildControlLinks(
+  async buildControlLinks(
     controlLinkProperties: ControlLinkProperty[],
     fileSystemId: number,
-  ): {
+  ): Promise<{
     controlLinks: ControlLink[];
     controlPortIntents: Map<number, number[]>;
-  } {
+  }> {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
       this.logger?.logDebug({
@@ -67,14 +69,19 @@ export class ControlLinkBuilder {
     const {controlLinks, controlPortIntentsMap, successCount, errorCount} =
       this.processUniqueProperties(uniqueProperties, fileSystemId);
 
-    // STEP 3: Convert Sets to Arrays for final result
+    // STEP 3: Assign system IDs to all successfully built entities
+    if (controlLinks.length > 0) {
+      await this.assignSystemIds(controlLinks, fileSystemId);
+    }
+
+    // STEP 4: Convert Sets to Arrays for final result
     const controlPortIntents = this.convertIntentSetsToArrays(
       controlPortIntentsMap,
     );
 
-    // STEP 4: Performance and results logging
+    // STEP 5: Performance and results logging
     this.logger?.logInfo({
-      msg: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated), ${controlPortIntents.size} control ports with intents`,
+      msg: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated), ${controlPortIntents.size} control ports with intents, system IDs assigned`,
       action: 'control_link_building_complete',
       component: 'ControlLinkBuilder',
       tag: 'control-link-building',
@@ -85,6 +92,24 @@ export class ControlLinkBuilder {
       controlLinks,
       controlPortIntents,
     };
+  }
+
+  /**
+   * Assign system IDs to control links.
+   * Mutates the input objects directly.
+   *
+   * @param controlLinks - Control links with systemId = 0 (from builder)
+   * @param fileSystemId - File system ID to assign
+   */
+  private async assignSystemIds(
+    controlLinks: ControlLink[],
+    fileSystemId: number,
+  ): Promise<void> {
+    for (const controlLink of controlLinks) {
+      // Assign system ID to control link
+      controlLink.systemId = await this.idGenerator.getNextId(fileSystemId);
+      // Note: Foreign key mappings are stored after DB insertion, not here
+    }
   }
 
   /**

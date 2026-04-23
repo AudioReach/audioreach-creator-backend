@@ -106,26 +106,40 @@ export class EntityBuilderService {
       this.workerPool,
       this.logger,
     );
-    this.subgraphBuilder = new SubgraphBuilder(this.logger);
-    this.containerBuilder = new ContainerBuilder(this.logger);
+    this.subgraphBuilder = new SubgraphBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
+      this.logger,
+    );
+    this.containerBuilder = new ContainerBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
+      this.logger,
+    );
     this.spfModuleBuilder = new SpfModuleBuilder(
+      this.idGenerator,
       this.foreignKeyMapper,
       this.logger,
     );
     this.dataLinkBuilder = new DataLinkBuilder(
+      this.idGenerator,
       this.foreignKeyMapper,
       this.logger,
     );
     this.controlLinkBuilder = new ControlLinkBuilder(
+      this.idGenerator,
       this.foreignKeyMapper,
       this.logger,
     );
   }
 
   /**
-   * Build subgraphs from ACDB data
+   * Build subgraphs from ACDB data with system IDs assigned
    */
-  buildSubgraphs(parsedAcdb: ParsedAcdb, fileSystemId: number): Subgraph[] {
+  async buildSubgraphs(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<BuildResult<Subgraph>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -139,37 +153,52 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return [];
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
     // Extract subgraph properties from SPF data
-    const subgraphProperties = subgraphDataChunk.getAllSubgraphs();
+    const subgraphs = subgraphDataChunk.getAllSubgraphs();
 
-    if (!subgraphProperties || subgraphProperties.length === 0) {
-      return [];
+    if (!subgraphs || subgraphs.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
-    // Build domain subgraphs
-    const subgraphs = this.subgraphBuilder.buildSubgraphs(
-      subgraphProperties,
+    // Build domain subgraphs with system IDs assigned
+    const result = await this.subgraphBuilder.buildSubgraphs(
+      subgraphs,
       fileSystemId,
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${subgraphs.length} subgraphs from ACDB`,
+      msg: `Successfully built ${result.entities.length} subgraphs from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
       action: 'acdb_subgraphs_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
       timestamp: new Date(),
     });
 
-    return subgraphs;
+    return result;
   }
 
   /**
-   * Build containers from ACDB data
+   * Build containers from ACDB data with system IDs assigned
    */
-  buildContainers(parsedAcdb: ParsedAcdb, fileSystemId: number): Container[] {
+  async buildContainers(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<BuildResult<Container>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -183,31 +212,43 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return [];
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
     // Extract container properties from SPF data (deduplicated)
-    const containerProperties = subgraphDataChunk.getAllContainers();
+    const containers = subgraphDataChunk.getAllContainers();
 
-    if (!containerProperties || containerProperties.length === 0) {
-      return [];
+    if (!containers || containers.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
-    // Build domain containers
-    const containers = this.containerBuilder.buildContainers(
-      containerProperties,
+    // Build domain containers with system IDs assigned
+    const result = await this.containerBuilder.buildContainers(
+      containers,
       fileSystemId,
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${containers.length} containers from ACDB`,
+      msg: `Successfully built ${result.entities.length} containers from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
       action: 'acdb_containers_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
       timestamp: new Date(),
     });
 
-    return containers;
+    return result;
   }
 
   /**
@@ -348,13 +389,13 @@ export class EntityBuilderService {
   }
 
   /**
-   * Build SPF modules from ACDB data
+   * Build SPF modules from ACDB data with system IDs assigned
    */
-  buildSpfModules(
+  async buildSpfModules(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
     parsedAwsp?: ParsedAwsp,
-  ): SpfModule[] {
+  ): Promise<BuildResult<SpfModule>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
       CHUNK_TYPES.SUBGRAPH_DATA,
@@ -368,14 +409,26 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return [];
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
     // Extract module instance info from SPF data
     const spfModuleInfos = subgraphDataChunk.getAllModules();
 
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
-      return [];
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
     }
 
     // Extract module properties from SPF data
@@ -397,8 +450,8 @@ export class EntityBuilderService {
     // Analyze control links to determine dynamic control port usage
     const dynamicControlPortInfo = this.analyzeDynamicControlPorts(parsedAcdb);
 
-    // Build domain SPF modules with module properties and definitions
-    const spfModules = this.spfModuleBuilder.buildSpfModules(
+    // Build domain SPF modules with module properties, definitions, and system IDs assigned
+    const result = await this.spfModuleBuilder.buildSpfModules(
       spfModuleInfos,
       fileSystemId,
       portStrategy,
@@ -408,21 +461,24 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${spfModules.length} SPF modules from ACDB`,
+      msg: `Successfully built ${result.entities.length} SPF modules from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
       action: 'acdb_spf_modules_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
       timestamp: new Date(),
     });
 
-    return spfModules;
+    return result;
   }
 
   /**
-   * Build data links from ACDB data
+   * Build data links from ACDB data with system IDs assigned
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    */
-  buildDataLinks(parsedAcdb: ParsedAcdb, fileSystemId: number): DataLink[] {
+  async buildDataLinks(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<DataLink[]> {
     const allDataLinkProperties: DataLinkProperty[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
@@ -459,8 +515,8 @@ export class EntityBuilderService {
       return [];
     }
 
-    // 4. Build domain data links from all sources
-    const dataLinks = this.dataLinkBuilder.buildDataLinks(
+    // 4. Build domain data links from all sources with system IDs assigned
+    const dataLinks = await this.dataLinkBuilder.buildDataLinks(
       allDataLinkProperties,
       fileSystemId,
     );
@@ -477,17 +533,17 @@ export class EntityBuilderService {
   }
 
   /**
-   * Build control links from ACDB data
+   * Build control links from ACDB data with system IDs assigned
    * Includes both intra-subgraph links (from SubgraphDataChunk) and inter-subgraph links (from SubgraphPairDataChunk)
    * @returns Object containing control links and extracted intents for control ports
    */
-  buildControlLinks(
+  async buildControlLinks(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
-  ): {
+  ): Promise<{
     controlLinks: ControlLink[];
     controlPortIntents: Map<number, number[]>;
-  } {
+  }> {
     const allControlLinkProperties: ControlLinkProperty[] = [];
     let intraSubgraphCount = 0;
     let interSubgraphCount = 0;
@@ -527,8 +583,8 @@ export class EntityBuilderService {
       };
     }
 
-    // 4. Build domain control links from all sources and extract intents
-    const result = this.controlLinkBuilder.buildControlLinks(
+    // 4. Build domain control links from all sources with system IDs assigned and extract intents
+    const result = await this.controlLinkBuilder.buildControlLinks(
       allControlLinkProperties,
       fileSystemId,
     );
@@ -545,9 +601,12 @@ export class EntityBuilderService {
   }
 
   /**
-   * Build usecases from ACDB data
+   * Build usecases from ACDB data with system IDs assigned
    */
-  buildUsecases(parsedAcdb: ParsedAcdb, fileSystemId: number): UseCase[] {
+  async buildUsecases(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<UseCase[]> {
     // Extract usecase data from ACDB
     const usecaseChunk = parsedAcdb.getChunk<UsecaseDataChunk>(
       CHUNK_TYPES.GKV_TABLE,
@@ -559,19 +618,20 @@ export class EntityBuilderService {
 
     // Create usecase builder with parsed ACDB data
     const usecaseBuilder = new UsecaseBuilder(
+      this.idGenerator,
       this.foreignKeyMapper,
       parsedAcdb,
       this.logger,
     );
 
-    // Build domain usecases
-    const usecases = usecaseBuilder.buildUsecases(
+    // Build domain usecases with system IDs assigned
+    const usecases = await usecaseBuilder.buildUsecases(
       usecaseChunk.usecases,
       fileSystemId,
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${usecases.length} usecases from ACDB`,
+      msg: `Successfully built ${usecases.length} usecases from ACDB with system IDs assigned`,
       action: 'acdb_usecases_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',

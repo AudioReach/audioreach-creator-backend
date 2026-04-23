@@ -4,14 +4,14 @@
  */
 
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
-import type {SubgraphProperty} from './types.js';
+import type {AcdbSubgraphProperties} from './types.js';
 
 /**
  * Handles parsing of subgraph configuration properties from binary data.
  */
 export class SubgraphConfigProperty {
   /** List of subgraph properties */
-  readonly subgraphProperties: SubgraphProperty[] = [];
+  readonly subgraphProperties: AcdbSubgraphProperties[] = [];
 
   private constructor() {}
 
@@ -76,7 +76,7 @@ export class SubgraphConfigProperty {
     view: DataView,
     payload: Uint8Array,
     startPos: number,
-  ): {property: SubgraphProperty; newPos: number} {
+  ): {property: AcdbSubgraphProperties; newPos: number} {
     let pos = startPos;
 
     // Read subgraph ID
@@ -94,7 +94,7 @@ export class SubgraphConfigProperty {
     const properties = result.properties;
     pos = result.newPos;
 
-    const property: SubgraphProperty = {
+    const property: AcdbSubgraphProperties = {
       subgraphId,
       properties,
     };

@@ -427,17 +427,15 @@ export class SpfModuleDefinitionBuilder {
   }
 
   /**
-   * Static method for transforming AWSP SpfModuleDefinition to Domain SpfModuleDefinition
-   * This method is used both in sequential processing and worker threads
-   * Collects all errors instead of throwing on first error
+   * Transform parameters with error handling
    */
-  static transformModuleDefinition(
-    awsp: AwspSpfModuleDefinition,
-  ): TransformResult {
+  private static transformParameters(awsp: AwspSpfModuleDefinition): {
+    parameters: ParamDefinition[];
+    errors: string[];
+  } {
+    const parameters: ParamDefinition[] = [];
     const errors: string[] = [];
 
-    // Transform parameters - collect errors instead of throwing
-    const parameters: ParamDefinition[] = [];
     if (awsp.paramDefinitions && Array.isArray(awsp.paramDefinitions)) {
       let tempSysId = 0; // Temporary systemId for parameters, to be assigned properly later
       for (const awspParam of awsp.paramDefinitions) {
@@ -453,59 +451,118 @@ export class SpfModuleDefinitionBuilder {
       }
     }
 
-    // Transform input ports - collect errors instead of throwing
-    let inputDataPortsGroup: DataPortGroupDefinition;
+    return {parameters, errors};
+  }
+
+  /**
+   * Create input port group with error handling
+   */
+  private static createInputPortGroup(awsp: AwspSpfModuleDefinition): {
+    portGroup: DataPortGroupDefinition;
+    error: string | null;
+  } {
     try {
-      inputDataPortsGroup = this.createInputPortGroup(awsp);
+      const portGroup = this.buildInputPortGroup(awsp);
+      return {portGroup, error: null};
     } catch (error) {
-      errors.push(
-        `Input ports: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const errorMessage = `Input ports: ${error instanceof Error ? error.message : String(error)}`;
       // Create empty group as fallback
-      inputDataPortsGroup = new DataPortGroupDefinition({
+      const portGroup = new DataPortGroupDefinition({
         maxAllowedPortCount: 0,
         portIoType: 'Input',
         staticPortDefinitions: [],
       });
+      return {portGroup, error: errorMessage};
     }
+  }
 
-    // Transform output ports - collect errors instead of throwing
-    let outputDataPortsGroup: DataPortGroupDefinition;
+  /**
+   * Create output port group with error handling
+   */
+  private static createOutputPortGroup(awsp: AwspSpfModuleDefinition): {
+    portGroup: DataPortGroupDefinition;
+    error: string | null;
+  } {
     try {
-      outputDataPortsGroup = this.createOutputPortGroup(awsp);
+      const portGroup = this.buildOutputPortGroup(awsp);
+      return {portGroup, error: null};
     } catch (error) {
-      errors.push(
-        `Output ports: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const errorMessage = `Output ports: ${error instanceof Error ? error.message : String(error)}`;
       // Create empty group as fallback
-      outputDataPortsGroup = new DataPortGroupDefinition({
+      const portGroup = new DataPortGroupDefinition({
         maxAllowedPortCount: 0,
         portIoType: 'Output',
         staticPortDefinitions: [],
       });
+      return {portGroup, error: errorMessage};
     }
+  }
 
-    // Transform static control ports - collect errors instead of throwing
-    let staticControlPorts: StaticControlPortDefinition[];
+  /**
+   * Transform static control ports with error handling
+   */
+  private static transformStaticControlPorts(awsp: AwspSpfModuleDefinition): {
+    ports: StaticControlPortDefinition[];
+    error: string | null;
+  } {
     try {
-      staticControlPorts = this.transformStaticControlPorts(awsp);
+      const ports = this.buildStaticControlPorts(awsp);
+      return {ports, error: null};
     } catch (error) {
-      errors.push(
-        `Static control ports: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      staticControlPorts = [];
+      const errorMessage = `Static control ports: ${error instanceof Error ? error.message : String(error)}`;
+      return {ports: [], error: errorMessage};
     }
+  }
 
-    // Transform dynamic intents - collect errors instead of throwing
-    let dynamicIntents: DynamicIntentDefinition[];
+  /**
+   * Transform dynamic intents with error handling
+   */
+  private static transformDynamicIntents(awsp: AwspSpfModuleDefinition): {
+    intents: DynamicIntentDefinition[];
+    error: string | null;
+  } {
     try {
-      dynamicIntents = this.transformDynamicIntents(awsp);
+      const intents = this.buildDynamicIntents(awsp);
+      return {intents, error: null};
     } catch (error) {
-      errors.push(
-        `Dynamic intents: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      dynamicIntents = [];
+      const errorMessage = `Dynamic intents: ${error instanceof Error ? error.message : String(error)}`;
+      return {intents: [], error: errorMessage};
     }
+  }
+
+  /**
+   * Static method for transforming AWSP SpfModuleDefinition to Domain SpfModuleDefinition
+   * This method is used both in sequential processing and worker threads
+   * Collects all errors instead of throwing on first error
+   */
+  static transformModuleDefinition(
+    awsp: AwspSpfModuleDefinition,
+  ): TransformResult {
+    const errors: string[] = [];
+
+    // Transform parameters
+    const {parameters, errors: paramErrors} = this.transformParameters(awsp);
+    errors.push(...paramErrors);
+
+    // Transform input ports
+    const {portGroup: inputDataPortsGroup, error: inputError} =
+      this.createInputPortGroup(awsp);
+    if (inputError) errors.push(inputError);
+
+    // Transform output ports
+    const {portGroup: outputDataPortsGroup, error: outputError} =
+      this.createOutputPortGroup(awsp);
+    if (outputError) errors.push(outputError);
+
+    // Transform static control ports
+    const {ports: staticControlPorts, error: controlPortsError} =
+      this.transformStaticControlPorts(awsp);
+    if (controlPortsError) errors.push(controlPortsError);
+
+    // Transform dynamic intents
+    const {intents: dynamicIntents, error: intentsError} =
+      this.transformDynamicIntents(awsp);
+    if (intentsError) errors.push(intentsError);
 
     // If any errors occurred, return null entity with all errors
     if (errors.length > 0) {
@@ -538,7 +595,7 @@ export class SpfModuleDefinitionBuilder {
     };
   }
 
-  private static createInputPortGroup(
+  private static buildInputPortGroup(
     awsp: AwspSpfModuleDefinition,
   ): DataPortGroupDefinition {
     const staticPortDefinitions: DataPortDefinition[] = [];
@@ -566,7 +623,7 @@ export class SpfModuleDefinitionBuilder {
     });
   }
 
-  private static createOutputPortGroup(
+  private static buildOutputPortGroup(
     awsp: AwspSpfModuleDefinition,
   ): DataPortGroupDefinition {
     const staticPortDefinitions: DataPortDefinition[] = [];
@@ -594,7 +651,7 @@ export class SpfModuleDefinitionBuilder {
     });
   }
 
-  private static transformStaticControlPorts(
+  private static buildStaticControlPorts(
     awsp: AwspSpfModuleDefinition,
   ): StaticControlPortDefinition[] {
     const staticControlPorts: StaticControlPortDefinition[] = [];
@@ -620,7 +677,7 @@ export class SpfModuleDefinitionBuilder {
     return staticControlPorts;
   }
 
-  private static transformDynamicIntents(
+  private static buildDynamicIntents(
     awsp: AwspSpfModuleDefinition,
   ): DynamicIntentDefinition[] {
     if (!awsp.controlPortsInfo?.dynamicIntents) {

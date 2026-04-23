@@ -6,6 +6,7 @@ import {DataLink} from '../../../../../domain/entities/usecase-data/links/data-l
 import type {DataLink as DataLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
+import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
 import {
   asNaturalId,
   asSystemId,
@@ -17,19 +18,20 @@ import {
  */
 export class DataLinkBuilder {
   constructor(
+    private readonly idGenerator: IdGenerationPort,
     private readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly logger?: Logger,
   ) {}
 
   /**
-   * Build DataLink entities from data link properties
+   * Build DataLink entities from data link properties with system IDs assigned
    * Main API method similar to UsecaseBuilder.buildUsecases()
    * Uses early deduplication for optimal performance
    */
-  buildDataLinks(
+  async buildDataLinks(
     dataLinkProperties: DataLinkProperty[],
     fileSystemId: number,
-  ): DataLink[] {
+  ): Promise<DataLink[]> {
     // Input validation
     if (!dataLinkProperties || dataLinkProperties.length === 0) {
       this.logger?.logDebug({
@@ -80,9 +82,14 @@ export class DataLinkBuilder {
       }
     }
 
-    // STEP 3: Performance and results logging
+    // STEP 3: Assign system IDs to all successfully built entities
+    if (dataLinks.length > 0) {
+      await this.assignSystemIds(dataLinks, fileSystemId);
+    }
+
+    // STEP 4: Performance and results logging
     this.logger?.logInfo({
-      msg: `Data link building complete: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${failureCount} failed (${duplicateCount} duplicates eliminated)`,
+      msg: `Data link building complete: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${failureCount} failed (${duplicateCount} duplicates eliminated), system IDs assigned`,
       action: 'data_link_building_complete',
       component: 'DataLinkBuilder',
       tag: 'data-link-building',
@@ -90,6 +97,24 @@ export class DataLinkBuilder {
     });
 
     return dataLinks;
+  }
+
+  /**
+   * Assign system IDs to data links.
+   * Mutates the input objects directly.
+   *
+   * @param dataLinks - Data links with systemId = 0 (from builder)
+   * @param fileSystemId - File system ID to assign
+   */
+  private async assignSystemIds(
+    dataLinks: DataLink[],
+    fileSystemId: number,
+  ): Promise<void> {
+    for (const dataLink of dataLinks) {
+      // Assign system ID to data link
+      dataLink.systemId = await this.idGenerator.getNextId(fileSystemId);
+      // Note: Foreign key mappings are stored after DB insertion, not here
+    }
   }
 
   /**

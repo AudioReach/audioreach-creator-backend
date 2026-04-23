@@ -68,7 +68,7 @@ export class UploadFileOrchestrator {
     private profiler?: ProfilerPort,
   ) {
     // Initialize services
-    this.foreignKeyMapper = new ForeignKeyMapper(logger);
+    this.foreignKeyMapper = new ForeignKeyMapper();
     this.builderService = new EntityBuilderService(
       this.idGenerator,
       this.foreignKeyMapper,
@@ -109,7 +109,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Log entity building performance metrics with throughput calculation
-
+   */
   private logEntityBuildMetrics(
     metrics: PerformanceMetrics | undefined,
     entityCount: number,
@@ -135,44 +135,29 @@ export class UploadFileOrchestrator {
 
   /**
    * Log entity insertion performance metrics with success rates
-
+   */
   private logEntityInsertMetrics(
     metrics: PerformanceMetrics | undefined,
-    insertResult:
-      | BulkEntityInsertResult<number>
-      | BulkModuleInsertResult
-      | BulkDataLinkInsertResult
-      | BulkControlLinkInsertResult
-      | BulkKeyDefinitionInsertResult
-      | BulkModuleDefinitionInsertResult,
+    entityCount: number,
   ): void {
-    if (!metrics || !insertResult) return;
+    if (!metrics) return;
 
     const memoryDelta =
       metrics.endMemory.heapUsed - metrics.startMemory.heapUsed;
     const memoryDeltaMB = (memoryDelta / 1024 / 1024).toFixed(2);
-
-    const totalEntities = insertResult.results?.length || 0;
-    const successfulInserts =
-      insertResult.results?.filter(r => r.success)?.length || 0;
-    const successRate =
-      totalEntities > 0
-        ? ((successfulInserts / totalEntities) * 100).toFixed(1)
-        : '0';
     const throughput =
-      totalEntities > 0
-        ? (totalEntities / (metrics.duration / 1000)).toFixed(1)
+      entityCount > 0
+        ? (entityCount / (metrics.duration / 1000)).toFixed(1)
         : '0';
 
     this.logger?.logInfo({
-      msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (entities: ${totalEntities}, success: ${successfulInserts}/${totalEntities} (${successRate}%), throughput: ${throughput}/sec, memory delta: ${memoryDeltaMB}MB)`,
+      msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (entities: ${entityCount}, throughput: ${throughput}/sec, memory delta: ${memoryDeltaMB}MB)`,
       timestamp: new Date(),
       action: 'entity-insert-performance',
       component: 'UploadFileOrchestrator',
       tag: 'profiling-metrics',
     });
   }
-*/
 
   /**
    * Log memory snapshots from profiler
@@ -295,8 +280,6 @@ export class UploadFileOrchestrator {
       // Phase 1b: Build and Insert SPF Module Definitions (no dependencies)
       await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
 
-      //eslint-disable-next-line sonarjs/no-commented-code
-      /*
       // Phase 2: Build and Insert Subgraphs (no dependencies)
       await this.buildAndInsertSubgraphs(bulkRepo);
 
@@ -314,7 +297,6 @@ export class UploadFileOrchestrator {
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
-*/
     } catch (error) {
       // Log persistence errors
       this.logger?.logError({
@@ -475,48 +457,28 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 2: Build and Insert Subgraphs
-
+   */
   private async buildAndInsertSubgraphs(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    // Profile building phase
-    this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_BUILDING);
-    const subgraphs = this.builderService.buildSubgraphs(
+    // Build subgraphs with system IDs assigned
+    const result = await this.builderService.buildSubgraphs(
       this.parsedAcdb!,
       this.currentFileId,
     );
-    const buildMetrics = this.profiler?.end(
-      PROFILER_OPERATIONS.SUBGRAPH_BUILDING,
-    );
-    this.logEntityBuildMetrics(buildMetrics, subgraphs?.length || 0);
-    this.logMemorySnapshot(
-      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SUBGRAPH_BUILD),
-    );
 
-    if (subgraphs && subgraphs.length > 0) {
-      // Profile insertion phase
-      this.profiler?.start(PROFILER_OPERATIONS.SUBGRAPH_INSERT);
-      const subgraphResult: BulkEntityInsertResult<number> =
-        await bulkRepo.insertSubgraphs(
-          subgraphs as readonly Omit<Subgraph, 'systemId'>[],
-        );
-      const insertMetrics = this.profiler?.end(
-        PROFILER_OPERATIONS.SUBGRAPH_INSERT,
-      );
-      this.logEntityInsertMetrics(insertMetrics, subgraphResult);
-      this.logMemorySnapshot(
-        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SUBGRAPH_INSERT),
-      );
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
 
-      // Store subgraph mappings from bulk insertion result
-      this.foreignKeyMapper.setSubgraphMappings(subgraphResult);
+    if (result.entities.length > 0) {
+      // Insert subgraphs and capture result
+      const insertResult = await bulkRepo.insertSubgraphs(result.entities);
 
-      const successfulInserts = subgraphResult.results.filter(
-        r => r.success,
-      ).length;
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} subgraphs (${subgraphResult.results.length} total)`,
+        msg: `Built and inserted ${result.entities.length} subgraphs with system IDs assigned (${result.errorCount} errors, ${result.warningCount} warnings)`,
         action: 'subgraphs_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
@@ -527,48 +489,28 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 3: Build and Insert Containers
-
+   */
   private async buildAndInsertContainers(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
-    // Profile building phase
-    this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_BUILDING);
-    const containers = this.builderService.buildContainers(
+    // Build containers with system IDs assigned
+    const result = await this.builderService.buildContainers(
       this.parsedAcdb!,
       this.currentFileId,
     );
-    const buildMetrics = this.profiler?.end(
-      PROFILER_OPERATIONS.CONTAINER_BUILDING,
-    );
-    this.logEntityBuildMetrics(buildMetrics, containers?.length || 0);
-    this.logMemorySnapshot(
-      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTAINER_BUILD),
-    );
 
-    if (containers && containers.length > 0) {
-      // Profile insertion phase
-      this.profiler?.start(PROFILER_OPERATIONS.CONTAINER_INSERT);
-      const containerResult: BulkEntityInsertResult<number> =
-        await bulkRepo.insertContainers(
-          containers as readonly Omit<Container, 'systemId'>[],
-        );
-      const insertMetrics = this.profiler?.end(
-        PROFILER_OPERATIONS.CONTAINER_INSERT,
-      );
-      this.logEntityInsertMetrics(insertMetrics, containerResult);
-      this.logMemorySnapshot(
-        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTAINER_INSERT),
-      );
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
 
-      // Store container mappings from bulk insertion result
-      this.foreignKeyMapper.setContainerMappings(containerResult);
+    if (result.entities.length > 0) {
+      // Insert containers and capture result
+      const insertResult = await bulkRepo.insertContainers(result.entities);
 
-      const successfulInserts = containerResult.results.filter(
-        r => r.success,
-      ).length;
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} containers (${containerResult.results.length} total)`,
+        msg: `Built and inserted ${result.entities.length} containers with system IDs assigned (${result.errorCount} errors, ${result.warningCount} warnings)`,
         action: 'containers_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
@@ -579,13 +521,13 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 4: Build and Insert SPF Modules
-
+   */
   private async buildAndInsertSpfModules(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_BUILDING);
-    const spfModules = this.builderService.buildSpfModules(
+    const result = await this.builderService.buildSpfModules(
       this.parsedAcdb!,
       this.currentFileId,
       this.parsedAwsp!,
@@ -593,35 +535,31 @@ export class UploadFileOrchestrator {
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.SPF_MODULE_BUILDING,
     );
-    this.logEntityBuildMetrics(buildMetrics, spfModules?.length || 0);
+    this.logEntityBuildMetrics(buildMetrics, result.entities.length);
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SPF_MODULE_BUILD),
     );
 
-    if (spfModules && spfModules.length > 0) {
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_INSERT);
-      const spfModuleResult: BulkModuleInsertResult =
-        await bulkRepo.insertSpfModules(
-          spfModules as readonly Omit<SpfModule, 'systemId'>[],
-        );
+      const insertResult = await bulkRepo.insertSpfModules(result.entities);
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.SPF_MODULE_INSERT,
       );
-      this.logEntityInsertMetrics(insertMetrics, spfModuleResult);
+      this.logEntityInsertMetrics(insertMetrics, result.entities.length);
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_SPF_MODULE_INSERT),
       );
 
-      // Store module instance mappings from bulk insertion result
-      this.foreignKeyMapper.setSpfModuleMappings(spfModuleResult);
-
-      const successfulInserts = spfModuleResult.results.filter(
-        r => r.success,
-      ).length;
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} SPF modules (${spfModuleResult.results.length} total)`,
+        msg: `Built and inserted ${result.entities.length} SPF modules with system IDs assigned (${result.errorCount} errors, ${result.warningCount} warnings)`,
         action: 'spf_modules_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
@@ -632,48 +570,41 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 5: Build and Insert Data Links
-
+   */
   private async buildAndInsertDataLinks(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_BUILDING);
-    const dataLinks = this.builderService.buildDataLinks(
+    const dataLinks = await this.builderService.buildDataLinks(
       this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.DATA_LINK_BUILDING,
     );
-    this.logEntityBuildMetrics(buildMetrics, dataLinks?.length || 0);
+    this.logEntityBuildMetrics(buildMetrics, dataLinks.length);
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_BUILD),
     );
 
-    if (dataLinks && dataLinks.length > 0) {
+    if (dataLinks.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_INSERT);
-      const dataLinkResult: BulkDataLinkInsertResult =
-        await bulkRepo.insertDataLinks(
-          dataLinks as readonly Omit<DataLink, 'systemId'>[],
-        );
+      const insertResult = await bulkRepo.insertDataLinks(dataLinks);
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.DATA_LINK_INSERT,
       );
-      this.logEntityInsertMetrics(insertMetrics, dataLinkResult);
+      this.logEntityInsertMetrics(insertMetrics, dataLinks.length);
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_INSERT),
       );
 
-      // Store datalink mappings for usecases
-      this.foreignKeyMapper.setDataLinkMappings(dataLinkResult);
-
-      const successfulInserts = dataLinkResult.results.filter(
-        r => r.success,
-      ).length;
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} data links (${dataLinkResult.results.length} total)`,
+        msg: `Built and inserted ${dataLinks.length} data links with system IDs assigned`,
         action: 'data_links_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
@@ -684,49 +615,42 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 6: Build and Insert Control Links
-
+   */
   private async buildAndInsertControlLinks(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING);
     const {controlLinks, controlPortIntents} =
-      this.builderService.buildControlLinks(
+      await this.builderService.buildControlLinks(
         this.parsedAcdb!,
         this.currentFileId,
       );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.CONTROL_LINK_BUILDING,
     );
-    this.logEntityBuildMetrics(buildMetrics, controlLinks?.length || 0);
+    this.logEntityBuildMetrics(buildMetrics, controlLinks.length);
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_BUILD),
     );
 
-    if (controlLinks && controlLinks.length > 0) {
+    if (controlLinks.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_INSERT);
-      const controlLinkResult: BulkControlLinkInsertResult =
-        await bulkRepo.insertControlLinks(
-          controlLinks as readonly Omit<ControlLink, 'systemId'>[],
-        );
+      const insertResult = await bulkRepo.insertControlLinks(controlLinks);
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.CONTROL_LINK_INSERT,
       );
-      this.logEntityInsertMetrics(insertMetrics, controlLinkResult);
+      this.logEntityInsertMetrics(insertMetrics, controlLinks.length);
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_INSERT),
       );
 
-      // Store control link mappings for usecases
-      this.foreignKeyMapper.setControlLinkMappings(controlLinkResult);
-
-      const successfulInserts = controlLinkResult.results.filter(
-        r => r.success,
-      ).length;
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} control links (${controlLinkResult.results.length} total)`,
+        msg: `Built and inserted ${controlLinks.length} control links with system IDs assigned`,
         action: 'control_links_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
@@ -763,58 +687,46 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 7: Build and Insert Usecases
-
+   */
   private async buildAndInsertUsecases(
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
     // Profile building phase
     this.profiler?.start(PROFILER_OPERATIONS.USECASE_BUILDING);
-    const usecases = this.builderService.buildUsecases(
+    const usecases = await this.builderService.buildUsecases(
       this.parsedAcdb!,
       this.currentFileId,
     );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.USECASE_BUILDING,
     );
-    this.logEntityBuildMetrics(buildMetrics, usecases?.length || 0);
+    this.logEntityBuildMetrics(buildMetrics, usecases.length);
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_USECASE_BUILD),
     );
 
-    if (usecases && usecases.length > 0) {
+    if (usecases.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.USECASE_INSERT);
-      const usecaseResult: BulkEntityInsertResult<number> =
-        await bulkRepo.insertUseCases(
-          usecases as readonly Omit<UseCase, 'systemId'>[],
-        );
+      const insertResult = await bulkRepo.insertUseCases(usecases);
       const insertMetrics = this.profiler?.end(
         PROFILER_OPERATIONS.USECASE_INSERT,
       );
-      this.logEntityInsertMetrics(insertMetrics, usecaseResult);
+      this.logEntityInsertMetrics(insertMetrics, usecases.length);
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_USECASE_INSERT),
       );
 
-      const successfulInserts = usecaseResult.results.filter(
-        r => r.success,
-      ).length;
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult);
 
       this.logger?.logInfo({
-        msg: `Built and inserted ${successfulInserts} usecases (${usecaseResult.results.length} total)`,
+        msg: `Built and inserted ${usecases.length} usecases with system IDs assigned`,
         action: 'usecases_persisted',
         component: 'UploadFileOrchestrator',
         tag: 'database-persistence',
         timestamp: new Date(),
       });
-    } else {
-      this.logger?.logInfo({
-        msg: 'No usecases found to process',
-        action: 'no_usecases_found',
-        component: 'UploadFileOrchestrator',
-        tag: 'usecase-processing',
-        timestamp: new Date(),
-      });
     }
-  }*/
+  }
 }
