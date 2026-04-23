@@ -7,8 +7,8 @@ import {BaseChunk} from './base-chunk.js';
 import {CHUNK_TYPES} from '../constants/chunk-types.js';
 import type {SpfProperties} from './spf-properties/index.js';
 import type {
-  SubgraphProperty,
-  ContainerProperty,
+  AcdbSubgraphProperties,
+  AcdbContainerProperties,
   SpfModuleInfo,
   ModulePropertyConfig,
   DataLink,
@@ -71,8 +71,8 @@ export class SubgraphDataChunk extends BaseChunk {
   /**
    * Extract all subgraphs from SPF properties
    */
-  getAllSubgraphs(): SubgraphProperty[] {
-    const subgraphs: SubgraphProperty[] = [];
+  getAllSubgraphs(): AcdbSubgraphProperties[] {
+    const subgraphs: AcdbSubgraphProperties[] = [];
 
     for (const entry of this.subgraphData) {
       if (entry.spfProperties.subgraphConfig) {
@@ -88,8 +88,8 @@ export class SubgraphDataChunk extends BaseChunk {
   /**
    * Extract all containers from SPF properties (deduplicated across subgraphs)
    */
-  getAllContainers(): ContainerProperty[] {
-    const containerMap = new Map<number, ContainerProperty>();
+  getAllContainers(): AcdbContainerProperties[] {
+    const containerMap = new Map<number, AcdbContainerProperties>();
 
     for (const entry of this.subgraphData) {
       if (entry.spfProperties.containerConfig) {
