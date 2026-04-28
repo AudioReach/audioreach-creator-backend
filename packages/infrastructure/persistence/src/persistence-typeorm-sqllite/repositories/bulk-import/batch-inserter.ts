@@ -43,6 +43,10 @@ export type RawFailure = {
   readonly dbError: string;
 };
 
+function extractErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export const BatchInserter = {
   async insert<TEntity extends EntityBaseRow & ObjectLiteral>(
     manager: EntityManager,
@@ -70,8 +74,7 @@ export const BatchInserter = {
           try {
             await manager.insert<TEntity>(target, row);
           } catch (rowError: unknown) {
-            const message =
-              rowError instanceof Error ? rowError.message : String(rowError);
+            const message = extractErrorMessage(rowError);
 
             result.failedEntities.push({
               systemId: row.systemId,
