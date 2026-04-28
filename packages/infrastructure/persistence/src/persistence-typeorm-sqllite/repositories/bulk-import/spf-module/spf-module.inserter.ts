@@ -12,6 +12,8 @@ import type {
   ControlPort,
   TagData,
   KvData,
+  IdGenerationPort,
+  ModuleParameterData,
 } from '@arc/core';
 import {errBulkInsert, okBulkInsert} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
@@ -27,8 +29,14 @@ import {
 } from '../../../entity-schema/usecase-data/node/node.schema.js';
 import {DataPortSchema} from '../../../entity-schema/usecase-data/node/data-port-info.schema.js';
 import type {DataPortRow} from '../../../entity-schema/usecase-data/node/data-port-info.schema.js';
-import {ControlPortSchema} from '../../../entity-schema/usecase-data/node/control-port.js';
-import type {ControlPortRow} from '../../../entity-schema/usecase-data/node/control-port.js';
+import {
+  ControlPortSchema,
+  IntentSchema,
+} from '../../../entity-schema/usecase-data/node/control-port.js';
+import type {
+  ControlPortRow,
+  IntentRow,
+} from '../../../entity-schema/usecase-data/node/control-port.js';
 import {SpfModuleSchema} from '../../../entity-schema/usecase-data/module/spf-module.schema.js';
 import type {SpfModuleRow} from '../../../entity-schema/usecase-data/module/spf-module.schema.js';
 import {ModuleTagIdMapSchema} from '../../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
@@ -54,9 +62,11 @@ import type {
  */
 export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private readonly manager: EntityManager;
+  private readonly idGeneration: IdGenerationPort;
 
-  constructor(manager: EntityManager) {
+  constructor(manager: EntityManager, idGeneration: IdGenerationPort) {
     this.manager = manager;
+    this.idGeneration = idGeneration;
   }
 
   /**
@@ -229,53 +239,54 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
   // ─── Intent ──────────────────────────────────────────────────────────────────
 
   private async insertIntents(modules: SpfModule[]): Promise<RawFailure[]> {
-    const contextByIntentId = new Map<
-      number,
-      {readonly port: ControlPort; readonly module: SpfModule}
-    >(
-      modules.flatMap(m =>
-        m.controlPorts.flatMap(port =>
-          port.intentSystemIds.map(
-            intentId => [intentId, {port, module: m}] as const,
-          ),
-        ),
-      ),
-    );
-
-    const rows = modules.flatMap(m =>
+    // Collect all intent entries with their context for error reporting
+    const intentEntries = modules.flatMap(m =>
       m.controlPorts.flatMap(port =>
-        port.intentSystemIds.map(intentId => ({
+        port.intentIds.map(intentId => ({
           intentId,
           controlPortSystemId: port.systemId,
+          port,
+          module: m,
         })),
       ),
     );
 
-    if (rows.length === 0) return [];
+    if (intentEntries.length === 0) return [];
 
-    const failures: RawFailure[] = [];
+    // Generate a unique systemId for each intent row
+    const fileId = modules[0].fileSystemId;
+    const rows: InsertRow<IntentRow>[] = [];
+    const contextBySystemId = new Map<
+      number,
+      {readonly port: ControlPort; readonly module: SpfModule}
+    >();
 
-    try {
-      await this.manager.insert('Intent', rows);
-    } catch {
-      for (const row of rows) {
-        try {
-          await this.manager.insert('Intent', row);
-        } catch (rowError: unknown) {
-          const message =
-            rowError instanceof Error ? rowError.message : String(rowError);
-          const ctx = contextByIntentId.get(row.intentId);
-          failures.push({
-            systemId: ctx?.module.systemId ?? row.controlPortSystemId,
-            entityLabel: 'Intent',
-            failedRowJson: JSON.stringify(row),
-            dbError: message,
-          });
-        }
-      }
+    for (const entry of intentEntries) {
+      const systemId = await this.idGeneration.getNextId(fileId);
+      rows.push({
+        systemId,
+        intentId: entry.intentId,
+        controlPortSystemId: entry.controlPortSystemId,
+      });
+      contextBySystemId.set(systemId, {port: entry.port, module: entry.module});
     }
 
-    return failures;
+    const {failedEntities} = await BatchInserter.insert<IntentRow>(
+      this.manager,
+      IntentSchema,
+      rows,
+    );
+
+    return failedEntities.map(error => {
+      const ctx = contextBySystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.module.systemId,
+        entityLabel: 'Intent',
+        failedRowJson: `Intent row: ${JSON.stringify(failedRow)} Control Port: ${JSON.stringify({systemId: ctx.port.systemId, portId: ctx.port.portId})}`,
+        dbError: error.message,
+      };
+    });
   }
 
   // ─── Spf Module ──────────────────────────────────────────────────────────────
@@ -347,7 +358,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       return {
         systemId: ctx.module.systemId,
         entityLabel: 'Module Tag',
-        failedRowJson: JSON.stringify(failedRow),
+        failedRowJson: `Module Tag row: ${JSON.stringify(failedRow)} Tag Definition: ${JSON.stringify({tagDefinitionSystemId: ctx.tagData.tagDefinitionSystemId})}`,
         dbError: error.message,
       };
     });
@@ -450,35 +461,37 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private async insertCkvParameterPayloads(
     modules: SpfModule[],
   ): Promise<RawFailure[]> {
-    const contextByParamSystemId = new Map<
-      number,
-      {readonly ckv: KvData; readonly module: SpfModule}
-    >(
-      modules.flatMap(m =>
-        m.ckvs.flatMap(ckv =>
-          ckv.parameterPayloads.map(
-            param => [param.systemId, {ckv, module: m}] as const,
-          ),
-        ),
+    // Collect all CKV parameter entries with their context
+    const paramEntries = modules.flatMap(m =>
+      m.ckvs.flatMap(ckv =>
+        ckv.parameterPayloads.map(param => ({param, ckv, module: m})),
       ),
     );
+
+    if (paramEntries.length === 0) return [];
+
+    // Generate a unique systemId for each CKV parameter row
+    const fileId = modules[0].fileSystemId;
+    const rows: InsertRow<CkvParameterPayloadRow>[] = [];
+    const contextBySystemId = new Map<
+      number,
+      {readonly ckv: KvData; readonly module: SpfModule}
+    >();
+
+    for (const entry of paramEntries) {
+      const systemId = await this.idGeneration.getNextId(fileId);
+      rows.push({
+        systemId,
+        parameterSystemId: entry.param.paramDefintionSystemId,
+        ckvSystemId: entry.ckv.systemId,
+        payload: entry.param.getPayloadCopy(),
+      });
+      contextBySystemId.set(systemId, {ckv: entry.ckv, module: entry.module});
+    }
 
     const ckvBySystemId = new Map<number, KvData>(
       modules.flatMap(m => m.ckvs.map(ckv => [ckv.systemId, ckv] as const)),
     );
-
-    const rows: InsertRow<CkvParameterPayloadRow>[] = modules.flatMap(m =>
-      m.ckvs.flatMap(ckv =>
-        ckv.parameterPayloads.map(param => ({
-          systemId: param.systemId,
-          parameterSystemId: param.paramDefintionSystemId,
-          ckvSystemId: ckv.systemId,
-          payload: param.getPayloadCopy(),
-        })),
-      ),
-    );
-
-    if (rows.length === 0) return [];
 
     const {failedEntities} = await BatchInserter.insert<CkvParameterPayloadRow>(
       this.manager,
@@ -487,7 +500,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     );
 
     return failedEntities.map(error => {
-      const ctx = contextByParamSystemId.get(error.systemId)!;
+      const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       const parentCkv =
         failedRow && typeof failedRow.ckvSystemId === 'number'
@@ -504,27 +517,67 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
 
   // ─── TKV Parameter ───────────────────────────────────────────────────────────
 
+  private buildTkvParamEntriesForTagData(
+    m: SpfModule,
+    tagData: TagData,
+  ): {
+    param: ModuleParameterData;
+    tkv: KvData;
+    tagData: TagData;
+    module: SpfModule;
+  }[] {
+    return tagData.tkvs.flatMap(tkv =>
+      tkv.parameterPayloads.map(param => ({param, tkv, tagData, module: m})),
+    );
+  }
+
+  private buildTkvParamEntries(modules: SpfModule[]): {
+    param: ModuleParameterData;
+    tkv: KvData;
+    tagData: TagData;
+    module: SpfModule;
+  }[] {
+    return modules.flatMap(m =>
+      m.tagDataList.flatMap(tagData =>
+        this.buildTkvParamEntriesForTagData(m, tagData),
+      ),
+    );
+  }
+
   private async insertTkvParameterPayloads(
     modules: SpfModule[],
   ): Promise<RawFailure[]> {
-    const contextByParamSystemId = new Map<
+    // Collect all TKV parameter entries with their context
+    const paramEntries = this.buildTkvParamEntries(modules);
+
+    if (paramEntries.length === 0) return [];
+
+    // Generate a unique systemId for each TKV parameter row
+    const fileId = modules[0].fileSystemId;
+    const rows: InsertRow<TkvParameterPayloadRow>[] = [];
+    const contextBySystemId = new Map<
       number,
       {
         readonly tkv: KvData;
         readonly tagData: TagData;
         readonly module: SpfModule;
       }
-    >(
-      modules.flatMap(m =>
-        m.tagDataList.flatMap(tagData =>
-          tagData.tkvs.flatMap(tkv =>
-            tkv.parameterPayloads.map(
-              param => [param.systemId, {tkv, tagData, module: m}] as const,
-            ),
-          ),
-        ),
-      ),
-    );
+    >();
+
+    for (const entry of paramEntries) {
+      const systemId = await this.idGeneration.getNextId(fileId);
+      rows.push({
+        systemId,
+        parameterSystemId: entry.param.paramDefintionSystemId,
+        tkvSystemId: entry.tkv.systemId,
+        payload: entry.param.getPayloadCopy(),
+      });
+      contextBySystemId.set(systemId, {
+        tkv: entry.tkv,
+        tagData: entry.tagData,
+        module: entry.module,
+      });
+    }
 
     const tkvBySystemId = new Map<number, KvData>(
       modules.flatMap(m =>
@@ -534,21 +587,6 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       ),
     );
 
-    const rows: InsertRow<TkvParameterPayloadRow>[] = modules.flatMap(m =>
-      m.tagDataList.flatMap(tagData =>
-        tagData.tkvs.flatMap(tkv =>
-          tkv.parameterPayloads.map(param => ({
-            systemId: param.systemId,
-            parameterSystemId: param.paramDefintionSystemId,
-            tkvSystemId: tkv.systemId,
-            payload: param.getPayloadCopy(),
-          })),
-        ),
-      ),
-    );
-
-    if (rows.length === 0) return [];
-
     const {failedEntities} = await BatchInserter.insert<TkvParameterPayloadRow>(
       this.manager,
       'TkvParameterPayload',
@@ -556,7 +594,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     );
 
     return failedEntities.map(error => {
-      const ctx = contextByParamSystemId.get(error.systemId)!;
+      const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       const parentTkv =
         failedRow && typeof failedRow.tkvSystemId === 'number'
@@ -565,7 +603,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       return {
         systemId: ctx.module.systemId,
         entityLabel: 'TKV Parameter',
-        failedRowJson: `Tkv parameter row: ${JSON.stringify(failedRow)}\nParent Ckv:${JSON.stringify(parentTkv)}`,
+        failedRowJson: `Tkv parameter row: ${JSON.stringify(failedRow)}\nParent Tkv:${JSON.stringify(parentTkv)}`,
         dbError: error.message,
       };
     });

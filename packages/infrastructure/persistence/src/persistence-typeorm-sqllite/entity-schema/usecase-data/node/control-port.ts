@@ -81,13 +81,6 @@ export const IntentSchema = new EntitySchema<IntentRow>({
   tableName: 'intents',
   columns: {
     ...BaseColumnSchemaPart,
-    // Override: Intent has no domain class — systemId is DB-generated.
-    systemId: {
-      name: 'system_id',
-      type: 'integer',
-      primary: true,
-      generated: 'increment',
-    },
     intentId: {
       type: 'integer',
       name: 'intent_id',
