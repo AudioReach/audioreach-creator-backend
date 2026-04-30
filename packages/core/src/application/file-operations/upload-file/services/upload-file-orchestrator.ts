@@ -25,6 +25,8 @@ import {
   type MemorySnapshot,
 } from '../../../../shared/profiling/profiler-types.js';
 import {IssueCollector /*, ENTITY_TYPES*/} from '../types/issue-collection.js';
+import type {ValidationIssue} from '../../../../domain/validation/issue.js';
+
 /* eslint-disable sonarjs/no-commented-code */
 // import {
 //   ERROR_CODES,
@@ -39,12 +41,21 @@ import {IssueCollector /*, ENTITY_TYPES*/} from '../types/issue-collection.js';
 const ID_BLOCK_SIZE = 1_000_000;
 
 /**
- * Result of the orchestration process
+ * Result returned by UploadFileOrchestrator.orchestrate().
+ * Contains DATA_LOSS issues collected during bulk-insert.
+ * Domain validation issues (from ValidationEngine) are NOT included here —
+ * they are generated separately by the upload handler using fromEntities().
  */
-export interface OrchestratorResult {
+export interface UploadOrchestratorResult {
   success: boolean;
   errors?: string[];
   warnings?: string[];
+  /**
+   * DATA_LOSS issues collected during bulk-insert.
+   * Each entry represents an entity that failed to insert into the DB.
+   * Empty array when all inserts succeeded.
+   */
+  dataLossIssues: ValidationIssue[];
 }
 
 export class UploadFileOrchestrator {
@@ -58,6 +69,13 @@ export class UploadFileOrchestrator {
   private parsedAcdb: ParsedAcdb | null = null;
   private parsedAwsp: ParsedAwsp | null = null;
   private currentFileId: number = 0;
+
+  /**
+   * DATA_LOSS issues collected during bulk-insert.
+   * Entity builders push to this array when an insertion fails.
+   * Exposed via orchestrate() result after all phases complete.
+   */
+  private readonly dataLossIssues: ValidationIssue[] = [];
 
   /* -------------------------------------*/
 
@@ -183,7 +201,7 @@ export class UploadFileOrchestrator {
     acdbPath: PathRef,
     awspPath: PathRef,
     fileId: number,
-  ): Promise<OrchestratorResult> {
+  ): Promise<UploadOrchestratorResult> {
     this.issueCollector.clear();
     this.currentFileId = fileId;
     this.profiler?.start(PROFILER_OPERATIONS.FILE_ORCHESTRATION);
@@ -246,9 +264,12 @@ export class UploadFileOrchestrator {
 
     const formattedIssues = this.issueCollector.formatForApi();
     return {
-      success: !this.issueCollector.hasErrors(),
+      success: !(
+        this.dataLossIssues.length > 0 || this.issueCollector.hasErrors()
+      ),
       errors: formattedIssues.errors,
       warnings: formattedIssues.warnings,
+      dataLossIssues: [...this.dataLossIssues],
     };
   }
 

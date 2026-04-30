@@ -9,6 +9,7 @@ import type {ContainerRow} from '../usecase-data/container/container.schema.js';
 import type {SpfModuleRow} from '../usecase-data/module/spf-module.schema.js';
 import type {SubgraphRow} from '../usecase-data/subgraph/subgraph.schema.js';
 import {EntitySchema} from 'typeorm';
+import type {FileOpenStatus} from '@arc/core';
 
 export interface ArcDbFileRow extends EntityBaseRow {
   description: string;
@@ -23,6 +24,9 @@ export interface ArcDbFileRow extends EntityBaseRow {
    * all inserts succeed, keeping this value tight.
    */
   lastReservedId: number;
+  openStatus: FileOpenStatus;
+  /** JSON array of ValidationIssue[] — null when no DATA_LOSS issues exist. */
+  dataLossIssues: string | null;
 
   // FK to project
   projectSystemId: number;
@@ -40,16 +44,27 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
   columns: {
     ...BaseColumnSchemaPart,
     description: {type: 'text'},
-    metadata: {type: 'text'}, // or use `type: 'simple-json'` if you prefer object serialization
+    metadata: {type: 'text'},
     fileName: {name: 'file_name', type: 'varchar', length: 250},
-    isTarget: {type: 'integer'}, // SQLite stores boolean as 0/1
+    isTarget: {type: 'integer'},
     lastReservedId: {
       name: 'last_reserved_id',
       type: 'integer',
       nullable: false,
       default: 0,
     },
-
+    openStatus: {
+      name: 'open_status',
+      type: 'varchar',
+      length: 30,
+      nullable: false,
+      default: 'READY',
+    },
+    dataLossIssues: {
+      name: 'data_loss_issues',
+      type: 'text',
+      nullable: true,
+    },
     projectSystemId: {name: 'project_system_id', type: 'integer'},
   },
   relations: {
@@ -57,10 +72,8 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
       type: 'many-to-one',
       target: 'Project',
       joinColumn: {name: 'project_system_id', referencedColumnName: 'systemId'},
-      onDelete: 'CASCADE', // delete project => delete files
+      onDelete: 'CASCADE',
     },
-
-    // Optional read-only inverses (no save-cascade)
     subgraphs: {type: 'one-to-many', target: 'Subgraph', inverseSide: 'file'},
     containers: {type: 'one-to-many', target: 'Container', inverseSide: 'file'},
     modules: {type: 'one-to-many', target: 'SpfModule', inverseSide: 'file'},

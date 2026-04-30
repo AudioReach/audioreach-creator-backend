@@ -67,6 +67,7 @@ import {EditActionSchema} from './edit-session/edit-action.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
 import {ProjectSessionSchema} from './edit-session/project-session.schema.js';
 import {SessionCommitSchema} from './edit-session/session-commit.schema.js';
+import {ValidationPreferencesSchema} from './validation/validation-preferences.schema.js';
 
 // ===== DEFINITION SCHEMAS =====
 // Common
@@ -247,6 +248,10 @@ export {ProjectSessionSchema} from './edit-session/project-session.schema.js';
 export type {SessionCommitRow} from './edit-session/session-commit.schema.js';
 export {SessionCommitSchema} from './edit-session/session-commit.schema.js';
 
+// ===== VALIDATION SCHEMAS =====
+export type {ValidationPreferencesRow} from './validation/validation-preferences.schema.js';
+export {ValidationPreferencesSchema} from './validation/validation-preferences.schema.js';
+
 // ===== HELPER TYPES =====
 export type {BlobBytesConverter} from './usecase-data/module/helper/blob-unit8array.converter.js';
 export type {EntityBaseRow, EntityRowForInsert} from './entity-base.js';
@@ -321,5 +326,8 @@ export function getAllEntitySchemas(
     // Project Session Schemas (v2)
     ProjectSessionSchema,
     SessionCommitSchema,
+
+    // Validation Schemas
+    ValidationPreferencesSchema,
   ];
 }

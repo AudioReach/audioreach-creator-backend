@@ -6,12 +6,17 @@
 import type {
   UnitOfWork,
   BulkImportRepository,
-  ProjectRepository,
   IdGenerationPort,
+  ProjectRepository,
+  ValidationPreferencesRepository,
+  ValidationQueryRepository,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
-import {TypeOrmBulkImportRepository} from '@arc/persistence';
-import {NotImplementedException} from '@nestjs/common';
+import {
+  TypeOrmBulkImportRepository,
+  TypeOrmValidationPreferencesRepository,
+  TypeOrmValidationQueryRepository,
+} from '@arc/persistence';
 
 /**
  * TypeORM implementation of Unit of Work.
@@ -80,6 +85,18 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getProjectRepository(): ProjectRepository {
-    throw new NotImplementedException();
+    throw new Error('Not implemented');
+  }
+
+  getValidationPreferencesRepository(): ValidationPreferencesRepository {
+    return new TypeOrmValidationPreferencesRepository(
+      this.queryRunner.manager.connection,
+    );
+  }
+
+  getValidationQueryService(): ValidationQueryRepository {
+    return new TypeOrmValidationQueryRepository(
+      this.queryRunner.manager.connection,
+    );
   }
 }

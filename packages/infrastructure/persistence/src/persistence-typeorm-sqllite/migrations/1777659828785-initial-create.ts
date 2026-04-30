@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1775463707568 implements MigrationInterface {
-  name = 'InitialCreate1775463707568';
+export class InitialCreate1777659828785 implements MigrationInterface {
+  name = 'InitialCreate1777659828785';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -127,7 +127,7 @@ export class InitialCreate1775463707568 implements MigrationInterface {
       `CREATE TABLE "module_manager_data" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_type" integer NOT NULL, "interface_type" integer NOT NULL, "interface_version" integer NOT NULL, "file_name" varchar(255) NOT NULL, "tag" varchar(100) NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_reserved_id" integer NOT NULL DEFAULT (0), "project_system_id" integer NOT NULL)`,
+      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_reserved_id" integer NOT NULL DEFAULT (0), "open_status" varchar(30) NOT NULL DEFAULT ('READY'), "data_loss_issues" text, "project_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_files_project_filename" ON "files" ("project_system_id", "file_name") `,
@@ -338,6 +338,9 @@ export class InitialCreate1775463707568 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_session_commits_session" ON "session_commits" ("session_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "validation_preferences" ("file_system_id" integer PRIMARY KEY NOT NULL, "preferences" text NOT NULL DEFAULT ('{"overrides":{},"suppressions":{}}'), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`,
     );
     await queryRunner.query(
       `CREATE TABLE "key_vector_values" ("value_definition_id" integer NOT NULL, "key_vector_id" integer NOT NULL, PRIMARY KEY ("value_definition_id", "key_vector_id"))`,
@@ -636,10 +639,10 @@ export class InitialCreate1775463707568 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "uk_files_project_filename"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_reserved_id" integer NOT NULL DEFAULT (0), "project_system_id" integer NOT NULL, CONSTRAINT "FK_aac4841c3940d3251cc25b6c3be" FOREIGN KEY ("project_system_id") REFERENCES "projects" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_reserved_id" integer NOT NULL DEFAULT (0), "open_status" varchar(30) NOT NULL DEFAULT ('READY'), "data_loss_issues" text, "project_system_id" integer NOT NULL, CONSTRAINT "FK_aac4841c3940d3251cc25b6c3be" FOREIGN KEY ("project_system_id") REFERENCES "projects" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "project_system_id" FROM "files"`,
+      `INSERT INTO "temporary_files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "open_status", "data_loss_issues", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "open_status", "data_loss_issues", "project_system_id" FROM "files"`,
     );
     await queryRunner.query(`DROP TABLE "files"`);
     await queryRunner.query(`ALTER TABLE "temporary_files" RENAME TO "files"`);
@@ -1744,10 +1747,10 @@ export class InitialCreate1775463707568 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "uk_files_project_filename"`);
     await queryRunner.query(`ALTER TABLE "files" RENAME TO "temporary_files"`);
     await queryRunner.query(
-      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_reserved_id" integer NOT NULL DEFAULT (0), "project_system_id" integer NOT NULL)`,
+      `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_reserved_id" integer NOT NULL DEFAULT (0), "open_status" varchar(30) NOT NULL DEFAULT ('READY'), "data_loss_issues" text, "project_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "project_system_id" FROM "temporary_files"`,
+      `INSERT INTO "files"("system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "open_status", "data_loss_issues", "project_system_id") SELECT "system_id", "created_at", "updated_at", "version", "description", "metadata", "file_name", "isTarget", "last_reserved_id", "open_status", "data_loss_issues", "project_system_id" FROM "temporary_files"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_files"`);
     await queryRunner.query(
@@ -2022,6 +2025,7 @@ export class InitialCreate1775463707568 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "IDX_e1d7a23f49c46dcd7ddee72d44"`);
     await queryRunner.query(`DROP INDEX "IDX_8df8807723e992df41610e9667"`);
     await queryRunner.query(`DROP TABLE "key_vector_values"`);
+    await queryRunner.query(`DROP TABLE "validation_preferences"`);
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(`DROP TABLE "session_commits"`);
     await queryRunner.query(

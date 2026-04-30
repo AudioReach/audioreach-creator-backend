@@ -5,6 +5,8 @@
 
 import type {BulkImportRepository} from './repositories/bulk-import/bulk-import.repository.js';
 import type {ProjectRepository} from './repositories/project/project.repostiory.js';
+import type {ValidationPreferencesRepository} from './repositories/validation/validation-preferences.repository.js';
+import type {ValidationQueryRepository} from './repositories/validation/validation-query.repository.js';
 
 /**
  * Unit of Work pattern for managing database transactions and repository access.
@@ -52,4 +54,20 @@ export interface UnitOfWork {
    * Uses shared QueryRunner from this UOW.
    */
   getProjectRepository(): ProjectRepository;
+
+  /**
+   * Get validation preferences repository.
+   * Uses shared QueryRunner from this UOW.
+   */
+  getValidationPreferencesRepository(): ValidationPreferencesRepository;
+
+  /**
+   * Get validation query service for running validations from command handlers.
+   * Provides read-only access to domain entities needed by ValidationContextBuilder.fromDb().
+   * Uses the same DB connection as this UOW for consistency.
+   *
+   * Use this in command handlers (commit, save) that need to run validation
+   * against DB-persisted entities. For the upload path, use fromEntities() instead.
+   */
+  getValidationQueryService(): ValidationQueryRepository;
 }
