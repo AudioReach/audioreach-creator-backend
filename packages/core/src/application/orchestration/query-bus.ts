@@ -9,7 +9,6 @@ import {
   QueryHandlerRegistry,
 } from './cqrs/registries/query-handler-registry.js';
 import type {QueryServices} from '../services/query-services.js';
-
 export class QueryBus {
   constructor(
     private queryServices: QueryServices,

@@ -114,3 +114,20 @@ export * from './shared/profiling/profiler-types.js';
 
 // ID generation port
 export * from './application/ports/id-generation/id-generation.port.js';
+
+// Validation framework — domain types
+export * from './domain/validation/issue.js';
+export * from './domain/validation/validation-preferences.js';
+export * from './domain/validation/validation-report.js';
+export * from './domain/validation/validation-rule.js';
+export * from './domain/validation/validation-context.js';
+
+// Validation framework — application ports
+export * from './application/ports/persistence/repositories/validation/validation-preferences.repository.js';
+export * from './application/ports/persistence/repositories/validation/validation-query.repository.js';
+
+// Validation framework — CQRS
+export * from './application/validation/queries/validate-file.query.js';
+export * from './application/validation/commands/update-validation-preferences.command.js';
+export * from './application/validation/commands/acknowledge-data-loss.command.js';
+export * from './application/validation/validation-orchestrator.js';

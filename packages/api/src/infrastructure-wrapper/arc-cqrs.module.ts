@@ -22,6 +22,7 @@ import type {
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {createTypeOrmUnitOfWorkFactory} from './persistence/unit-of-work/typeorm-unit-of-work.factory.js';
 import {DbQueryServices, EntityIdServiceRegistry} from '@arc/persistence';
+import {FixCommandDispatcher} from './validation/fix-command-dispatcher.js';
 import type {DataSource} from 'typeorm';
 import {
   NodeFileReaderAdapter,
@@ -105,6 +106,10 @@ import {ConsoleLoggerService} from './logger/index.js';
       scope: Scope.REQUEST,
     },
     {
+      provide: FixCommandDispatcher,
+      useFactory: () => new FixCommandDispatcher(),
+    },
+    {
       provide: QueryBus,
       useFactory: (
         queryServices: QueryServices,
@@ -131,6 +136,7 @@ import {ConsoleLoggerService} from './logger/index.js';
   exports: [
     CommandBus,
     QueryBus,
+    FixCommandDispatcher,
     'QUERY_SERVICES',
     'COMMAND_HANDLER_REGISTRY',
     'QUERY_HANDLER_REGISTRY',

@@ -4,6 +4,8 @@
  */
 
 import {ArcDbFile, Project, type ProjectType} from '@arc/core';
+import type {FileOpenStatus} from '../../../../../domain/entities/usecase-data/project/arc-db-file.js';
+import type {ValidationIssue} from '../../../../../domain/validation/issue.js';
 
 export interface ProjectRepository {
   // Create offline project with initial file (for upload-file workflow)
@@ -33,6 +35,17 @@ export interface ProjectRepository {
   updateProject(
     systemId: number,
     updates: Partial<Pick<Project, 'name' | 'description'>>,
+  ): Promise<void>;
+
+  /**
+   * Persist the open_status and data_loss_issues for a file after bulk-insert.
+   * Called once by the upload handler after collecting all insertion failures.
+   * Pass an empty array to clear DATA_LOSS issues (used by AcknowledgeDataLossCommand).
+   */
+  updateFileStatus(
+    fileSystemId: number,
+    openStatus: FileOpenStatus,
+    dataLossIssues: ValidationIssue[],
   ): Promise<void>;
 
   // Delete operations

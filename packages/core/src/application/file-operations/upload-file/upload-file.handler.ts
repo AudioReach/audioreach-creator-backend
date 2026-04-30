@@ -18,6 +18,11 @@ import {
   Project,
 } from '../../../domain/entities/usecase-data/project/project.js';
 import {generateUuid} from '../../../shared/utilities/uuid.js';
+import {
+  FILE_OPEN_STATUS,
+  type FileOpenStatus,
+} from '../../../domain/entities/usecase-data/project/arc-db-file.js';
+import type {ValidationReport} from '../../../domain/validation/validation-report.js';
 
 export type UploadFileResult = {
   projectId: string;
@@ -25,6 +30,14 @@ export type UploadFileResult = {
   projectDescription: string;
   errors?: string[];
   warnings?: string[];
+  openStatus: string;
+  /**
+   * Null for now — domain validation via fromEntities() will be added
+   * when UploadOrchestrator exposes parsed entities.
+   * DATA_LOSS issues are stored in the files table and surfaced via
+   * POST /validate (which merges stored DATA_LOSS issues with live engine issues).
+   */
+  validationReport: ValidationReport | null;
 };
 
 export class UploadFileHandler implements CommandHandler<
@@ -82,6 +95,8 @@ export class UploadFileHandler implements CommandHandler<
             uploadedAt: new Date().toISOString(),
           }),
           isTarget: true,
+          openStatus: FILE_OPEN_STATUS.Ready,
+          dataLossIssues: [],
         },
       );
 
@@ -114,12 +129,27 @@ export class UploadFileHandler implements CommandHandler<
       fileSystemId,
     );
 
+    // ========== PHASE 3: Persist DATA_LOSS state ==========
+    let openStatus: FileOpenStatus = FILE_OPEN_STATUS.Ready;
+
+    if (uploadResult.dataLossIssues.length > 0) {
+      openStatus = FILE_OPEN_STATUS.PendingDataLossAck;
+      const projectRepo = this.uow.getProjectRepository();
+      await projectRepo.updateFileStatus(
+        fileSystemId,
+        FILE_OPEN_STATUS.PendingDataLossAck,
+        uploadResult.dataLossIssues,
+      );
+    }
+
     return {
       projectId: project.systemId.toString(),
       projectName: project.name,
       projectDescription: project.description,
       errors: uploadResult.errors,
       warnings: uploadResult.warnings,
+      openStatus,
+      validationReport: null,
     };
   }
 

@@ -3,6 +3,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {ValidationIssue} from '../../../validation/issue.js';
+
+export const FILE_OPEN_STATUS = {
+  Ready: 'READY',
+  PendingDataLossAck: 'PENDING_DATA_LOSS_ACK',
+} as const;
+export type FileOpenStatus =
+  (typeof FILE_OPEN_STATUS)[keyof typeof FILE_OPEN_STATUS];
+
 export interface ArcDbFileInit {
   systemId: number;
   description: string;
@@ -10,6 +19,8 @@ export interface ArcDbFileInit {
   fileName: string;
   isTarget: boolean;
   projectSystemId: number;
+  openStatus?: FileOpenStatus;
+  dataLossIssues?: ValidationIssue[];
 }
 
 export class ArcDbFile {
@@ -19,6 +30,8 @@ export class ArcDbFile {
   readonly fileName: string;
   readonly isTarget: boolean;
   readonly projectSystemId: number;
+  readonly openStatus: FileOpenStatus;
+  readonly dataLossIssues: ReadonlyArray<ValidationIssue>;
 
   constructor(initParams: ArcDbFileInit) {
     this.systemId = initParams.systemId;
@@ -27,5 +40,7 @@ export class ArcDbFile {
     this.fileName = initParams.fileName;
     this.isTarget = initParams.isTarget;
     this.projectSystemId = initParams.projectSystemId;
+    this.openStatus = initParams.openStatus ?? FILE_OPEN_STATUS.Ready;
+    this.dataLossIssues = initParams.dataLossIssues ?? [];
   }
 }
