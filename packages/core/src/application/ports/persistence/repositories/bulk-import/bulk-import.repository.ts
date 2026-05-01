@@ -15,6 +15,7 @@ import type {
   UseCase,
   SpfModuleDefinition,
   BulkInsertResult,
+  Node,
 } from '@arc/core';
 
 /**
@@ -44,6 +45,14 @@ export interface BulkImportRepository {
    * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
   insertSubgraphs(items: readonly Subgraph[]): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts subsystem node rows in bulk, including data ports, control ports, and intents.
+   *
+   * @param items - Subsystem nodes with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertSubsystems(items: readonly Node[]): Promise<BulkInsertResult>;
 
   /**
    * Inserts data link rows in bulk.

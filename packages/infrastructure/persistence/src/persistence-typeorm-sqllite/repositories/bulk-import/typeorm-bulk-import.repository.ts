@@ -13,6 +13,7 @@ import type {
   DataLink,
   IdGenerationPort,
   KeyDefinition,
+  Node,
   ProcessorDefinition,
   SpfModule,
   SpfModuleDefinition,
@@ -22,6 +23,9 @@ import type {
 import {okBulkInsert} from '@arc/core';
 import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
 import {ContainerInserter} from './container/container.inserter.js';
+import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
+import {UseCaseInserter} from './usecase/usecase.inserter.js';
+import {SubsystemInserter} from './subsystem/subsystem.inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
@@ -46,8 +50,16 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     return new ContainerInserter(this.manager, this.idGeneration).insert(items);
   }
 
-  insertSubgraphs(_items: readonly Subgraph[]): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+  insertSubgraphs(items: readonly Subgraph[]): Promise<BulkInsertResult> {
+    return new SubgraphInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
+  }
+
+  insertSubsystems(items: readonly Node[]): Promise<BulkInsertResult> {
+    return new SubsystemInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
   }
 
   insertDataLinks(_items: readonly DataLink[]): Promise<BulkInsertResult> {
@@ -60,8 +72,10 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     return Promise.resolve(okBulkInsert());
   }
 
-  insertUseCases(_items: readonly UseCase[]): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+  insertUseCases(items: readonly UseCase[]): Promise<BulkInsertResult> {
+    return new UseCaseInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
   }
 
   insertSpfModuleDefinitions(
