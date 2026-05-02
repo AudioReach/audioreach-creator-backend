@@ -118,7 +118,8 @@
       "outputs": ["coverage/**"],
       "inputs": [
         "src/**/*.ts",
-        "tests/**/*.ts",
+        "tests/Unit/**/*.ts",
+        "tests/Integration/**/*.ts",
         "../core/src/**/*.ts",
         "jest.config.js",
         "package.json"
