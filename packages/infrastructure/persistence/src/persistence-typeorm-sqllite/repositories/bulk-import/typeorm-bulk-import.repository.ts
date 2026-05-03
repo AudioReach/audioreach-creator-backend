@@ -15,16 +15,30 @@ import type {
   KeyDefinition,
   Node,
   ProcessorDefinition,
+  PropertyDefinition,
   SpfModule,
   SpfModuleDefinition,
   Subgraph,
+  SubgraphPropertyDefinition,
+  TagDefinition,
   UseCase,
+  VcpmModuleDefinition,
 } from '@arc/core';
 import {okBulkInsert} from '@arc/core';
 import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
+import {SpfModuleDefinitionInserter} from './spf-module-definition/spf-module-definition.inserter.js';
 import {ContainerInserter} from './container/container.inserter.js';
 import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
 import {SubsystemInserter} from './subsystem/subsystem.inserter.js';
+import {ProcessorDefinitionInserter} from './processor-definition/processor-definition.inserter.js';
+import {ContainerTypeInserter} from './container-type/container-type.inserter.js';
+import {KeyDefinitionInserter} from './key-definition/key-definition.inserter.js';
+import {TagDefinitionInserter} from './tag-definition/tag-definition.inserter.js';
+import {VcpmModuleDefinitionInserter} from './vcpm-module-definition/vcpm-module-definition.inserter.js';
+import {SubgraphPropertyDefinitionInserter} from './subgraph-property-definition/subgraph-property-definition.inserter.js';
+import {ContainerPropertyDefinitionInserter} from './container-property-definition/container-property-definition.inserter.js';
+import {DataLinkInserter} from './data-link/data-link.inserter.js';
+import {ControlLinkInserter} from './control-link/control-link.inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
@@ -59,14 +73,12 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     return new SubsystemInserter(this.manager).insert([...items]);
   }
 
-  insertDataLinks(_items: readonly DataLink[]): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+  insertDataLinks(items: readonly DataLink[]): Promise<BulkInsertResult> {
+    return new DataLinkInserter(this.manager).insert([...items]);
   }
 
-  insertControlLinks(
-    _items: readonly ControlLink[],
-  ): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+  insertControlLinks(items: readonly ControlLink[]): Promise<BulkInsertResult> {
+    return new ControlLinkInserter(this.manager).insert([...items]);
   }
 
   insertUseCases(_items: readonly UseCase[]): Promise<BulkInsertResult> {
@@ -74,26 +86,62 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   }
 
   insertSpfModuleDefinitions(
-    _items: readonly SpfModuleDefinition[],
+    items: readonly SpfModuleDefinition[],
   ): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+    return new SpfModuleDefinitionInserter(
+      this.manager,
+      this.idGeneration,
+    ).insert([...items]);
   }
 
   insertKeyDefinitions(
-    _items: readonly KeyDefinition[],
+    items: readonly KeyDefinition[],
   ): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+    return new KeyDefinitionInserter(this.manager).insert([...items]);
   }
 
   insertProcessorDefinitions(
-    _items: readonly ProcessorDefinition[],
+    items: readonly ProcessorDefinition[],
   ): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+    return new ProcessorDefinitionInserter(this.manager).insert([...items]);
   }
 
   insertContainerTypeDefinitions(
-    _items: readonly ContainerType[],
+    items: readonly ContainerType[],
   ): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+    return new ContainerTypeInserter(this.manager).insert([...items]);
+  }
+
+  insertVcpmModuleDefinitions(
+    items: readonly VcpmModuleDefinition[],
+  ): Promise<BulkInsertResult> {
+    return new VcpmModuleDefinitionInserter(
+      this.manager,
+      this.idGeneration,
+    ).insert([...items]);
+  }
+
+  insertTagDefinitions(
+    items: readonly TagDefinition[],
+  ): Promise<BulkInsertResult> {
+    return new TagDefinitionInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
+  }
+
+  insertSubgraphPropertyDefinitions(
+    items: readonly SubgraphPropertyDefinition[],
+  ): Promise<BulkInsertResult> {
+    return new SubgraphPropertyDefinitionInserter(this.manager).insert([
+      ...items,
+    ]);
+  }
+
+  insertContainerPropertyDefinitions(
+    items: readonly PropertyDefinition[],
+  ): Promise<BulkInsertResult> {
+    return new ContainerPropertyDefinitionInserter(this.manager).insert([
+      ...items,
+    ]);
   }
 }

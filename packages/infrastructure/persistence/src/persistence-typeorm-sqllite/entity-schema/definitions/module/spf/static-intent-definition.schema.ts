@@ -13,7 +13,6 @@ import type {StaticControlPortDefinitionRow} from './static-control-port-definit
 export interface StaticIntentDefinitionRow extends EntityBaseRow {
   intentId: number;
   name: string;
-  maxPort: number;
 
   // Foreign key relation
   staticControlPortDefinitionSystemId: number;
@@ -37,11 +36,6 @@ export const StaticIntentDefinitionSchema =
         length: 255,
         nullable: true,
         name: 'name',
-      },
-      maxPort: {
-        type: 'integer',
-        nullable: true,
-        name: 'max_port',
       },
       staticControlPortDefinitionSystemId: {
         type: 'integer',

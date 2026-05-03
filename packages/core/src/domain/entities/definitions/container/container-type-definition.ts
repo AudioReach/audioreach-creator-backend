@@ -4,13 +4,13 @@
  */
 
 export interface ContainerTypeInit {
-  systemId: string;
+  systemId: number;
   name: string;
   value: number;
 }
 
 export class ContainerType {
-  systemId: string;
+  systemId: number;
   name: string;
   value: number;
 

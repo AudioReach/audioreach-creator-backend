@@ -5,14 +5,12 @@
 
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
-import type {SpfModuleDefinitionRow} from '../module/spf/spf-module-definition.schema.js';
+import type {ModuleDefinitionProcessorLinkRow} from '../module/spf/module-definition-processor-link.schema.js';
 
 export interface ProcessorDefinitionRow extends EntityBaseRow {
   name: string;
   processorDefinitionId: number;
-
-  //relation
-  moduleDefinitions: SpfModuleDefinitionRow[];
+  moduleDefinitionLinks?: ModuleDefinitionProcessorLinkRow[];
 }
 
 export const ProcessorDefinitionSchema =
@@ -32,10 +30,10 @@ export const ProcessorDefinitionSchema =
       },
     },
     relations: {
-      moduleDefinitions: {
-        type: 'many-to-many',
-        target: 'SpfModuleDefinition',
-        inverseSide: 'processorDefinitions',
+      moduleDefinitionLinks: {
+        type: 'one-to-many',
+        target: 'ModuleDefinitionProcessorLink',
+        inverseSide: 'processorDefinition',
       },
     },
   });

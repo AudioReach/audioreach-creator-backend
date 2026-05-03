@@ -19,6 +19,7 @@ export * from './application/ports/persistence/repositories/bulk-import/bulk-ins
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 export * from './application/ports/persistence/repositories/project/project.repository.js';
 export * from './shared/utilities/uuid.js';
+export * from './shared/utilities/binary-utils.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
 export * from './shared/types/branded-ids.js';
@@ -108,6 +109,11 @@ export * from './domain/entities/definitions/key-value/entities/value-definition
 
 export * from './domain/entities/definitions/processor/processor-definition.js';
 export * from './domain/entities/definitions/container/container-type-definition.js';
+export * from './domain/entities/definitions/vcpm-module/vcpm-module-definition.js';
+export * from './domain/entities/definitions/tag-key-value/tag-definition.js';
+export * from './domain/entities/definitions/tag-key-value/value-objects/tag-key.js';
+export * from './domain/entities/definitions/subgraph/subgraph-property-definitions.js';
+export * from './domain/entities/definitions/common/entities/property-definition.js';
 
 // Profiling
 export * from './application/ports/profiling/profiler.port.js';

@@ -28,12 +28,12 @@ export const UseCaseQueryMappers = {
       key: {
         systemId: value.keys.systemId,
         keyId: value.keys.keyId,
-        name: value.keys.keyName,
+        name: value.keys.name,
       },
       value: {
         systemId: value.systemId,
         valueId: value.valueId,
-        name: value.valueName,
+        name: value.name,
       },
     };
   },

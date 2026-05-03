@@ -255,7 +255,10 @@ export class UsecaseBuilder {
 
       // Get system ID for this data link
       const systemId = this.foreignKeyMapper.getDataLinkSystemId(
-        dataLink.naturalKeyHash,
+        dataLink.sourceInstanceId,
+        dataLink.sourcePortId,
+        dataLink.destinationInstanceId,
+        dataLink.destinationPortId,
       );
       if (systemId) {
         dataLinkSystemIds.push(systemId);
@@ -271,7 +274,10 @@ export class UsecaseBuilder {
       for (const dataLink of subgraphPairDataLinks) {
         // Get system ID for this data link
         const systemId = this.foreignKeyMapper.getDataLinkSystemId(
-          dataLink.naturalKeyHash,
+          dataLink.sourceInstanceId,
+          dataLink.sourcePortId,
+          dataLink.destinationInstanceId,
+          dataLink.destinationPortId,
         );
         if (systemId) {
           dataLinkSystemIds.push(systemId);

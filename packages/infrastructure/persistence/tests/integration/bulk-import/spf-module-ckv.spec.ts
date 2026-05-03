@@ -76,7 +76,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     systemId: KEY_DEF_ID,
     fileSystemId: FILE_ID,
     keyId: 1,
-    keyName: 'TestKey',
+    name: 'TestKey',
     version: 1,
   });
 
@@ -89,7 +89,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
       systemId,
       keySystemId: KEY_DEF_ID,
       valueId,
-      valueName,
+      name: valueName,
       version: 1,
     });
   }

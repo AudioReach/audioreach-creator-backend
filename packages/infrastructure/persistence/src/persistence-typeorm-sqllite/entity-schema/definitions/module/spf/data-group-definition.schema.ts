@@ -13,7 +13,7 @@ import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import {PortIoType} from './port-io-type-definition.schema.js';
 
 export interface DataPortGroupRow extends EntityBaseRow {
-  max: number;
+  maxAllowedPortCount: number;
   portIoType: PortIoType;
 
   // Foreign key relation
@@ -31,10 +31,10 @@ export const DataPortGroupSchema = new EntitySchema<DataPortGroupRow>({
   tableName: 'data_port_groups',
   columns: {
     ...BaseColumnSchemaPart,
-    max: {
+    maxAllowedPortCount: {
       type: 'integer',
       default: 0,
-      name: 'max',
+      name: 'max_allowed_port_count',
     },
     portIoType: {
       type: 'varchar',

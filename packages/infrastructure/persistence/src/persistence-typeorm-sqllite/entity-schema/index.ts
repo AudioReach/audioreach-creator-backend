@@ -19,11 +19,18 @@ import {ModuleParameterAttributeSchema} from './definitions/module/spf/module-pa
 import {ModulePropertyDefinitionSchema} from './definitions/module/spf/module-property-definition.schema.js';
 import {SpfModuleDefinitionSchema} from './definitions/module/spf/spf-module-definition.schema.js';
 import {SpfModuleParameterDefinitionSchema} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
+import {ModuleDefinitionProcessorLinkSchema} from './definitions/module/spf/module-definition-processor-link.schema.js';
+import {ModuleDefinitionContainerTypeLinkSchema} from './definitions/module/spf/module-definition-container-type-link.schema.js';
+// Note: ModuleDefinitionProcessorLinkSchema and ModuleDefinitionContainerTypeLinkSchema
+// are already imported above and registered in getAllEntitySchemas below
 import {StaticControlPortDefinitionSchema} from './definitions/module/spf/static-control-port-definition.schema.js';
 import {StaticIntentDefinitionSchema} from './definitions/module/spf/static-intent-definition.schema.js';
 import {SubgraphPropertyDefinitionSchema} from './definitions/subgraph/subgraph-property-definition.schema.js';
 import {VcpmModuleDefinitionSchema} from './definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
 import {VcpmModuleParameterDefinitionSchema} from './definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
+import {TagDefinitionSchema} from './definitions/tag-key-value/tag-definition.schema.js';
+import {TagKeyDefLinkSchema} from './definitions/tag-key-value/tag-key-def-link.schema.js';
+import {VcpmModuleAttributeSchema} from './definitions/subgraph/vcpm/vcpm-module-attribute.schema.js';
 import {
   DriverModuleSchema,
   DkvSchema,
@@ -118,6 +125,11 @@ export type {SpfModuleDefinitionRow} from './definitions/module/spf/spf-module-d
 export {SpfModuleDefinitionSchema} from './definitions/module/spf/spf-module-definition.schema.js';
 export type {SpfModuleParameterDefinitionRow} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
 export {SpfModuleParameterDefinitionSchema} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
+export type {ModuleDefinitionProcessorLinkRow} from './definitions/module/spf/module-definition-processor-link.schema.js';
+export {ModuleDefinitionProcessorLinkSchema} from './definitions/module/spf/module-definition-processor-link.schema.js';
+export type {ModuleDefinitionContainerTypeLinkRow} from './definitions/module/spf/module-definition-container-type-link.schema.js';
+export {ModuleDefinitionContainerTypeLinkSchema} from './definitions/module/spf/module-definition-container-type-link.schema.js';
+// (already exported above)
 export type {StaticControlPortDefinitionRow} from './definitions/module/spf/static-control-port-definition.schema.js';
 export {StaticControlPortDefinitionSchema} from './definitions/module/spf/static-control-port-definition.schema.js';
 export type {StaticIntentDefinitionRow} from './definitions/module/spf/static-intent-definition.schema.js';
@@ -130,6 +142,14 @@ export type {VcpmModuleDefinitionRow} from './definitions/subgraph/vcpm/vcpm-mod
 export {VcpmModuleDefinitionSchema} from './definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
 export type {VcpmModuleParameterDefinitionRow} from './definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
 export {VcpmModuleParameterDefinitionSchema} from './definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
+export type {VcpmModuleAttributeRow} from './definitions/subgraph/vcpm/vcpm-module-attribute.schema.js';
+export {VcpmModuleAttributeSchema} from './definitions/subgraph/vcpm/vcpm-module-attribute.schema.js';
+
+// Tag Key-Value
+export type {TagDefinitionRow} from './definitions/tag-key-value/tag-definition.schema.js';
+export {TagDefinitionSchema} from './definitions/tag-key-value/tag-definition.schema.js';
+export type {TagKeyDefLinkRow} from './definitions/tag-key-value/tag-key-def-link.schema.js';
+export {TagKeyDefLinkSchema} from './definitions/tag-key-value/tag-key-def-link.schema.js';
 
 // ===== RUNTIME DATA SCHEMAS =====
 // Driver Module Data
@@ -300,12 +320,17 @@ export function getAllEntitySchemas(
     ModuleParameterAttributeSchema,
     ModulePropertyDefinitionSchema,
     SpfModuleDefinitionSchema,
-    SpfModuleParameterDefinitionSchema(blobConverter),
+    SpfModuleParameterDefinitionSchema,
+    ModuleDefinitionProcessorLinkSchema,
+    ModuleDefinitionContainerTypeLinkSchema,
     StaticControlPortDefinitionSchema,
     StaticIntentDefinitionSchema,
     SubgraphPropertyDefinitionSchema,
     VcpmModuleDefinitionSchema,
-    VcpmModuleParameterDefinitionSchema(blobConverter),
+    VcpmModuleParameterDefinitionSchema,
+    TagDefinitionSchema,
+    TagKeyDefLinkSchema,
+    VcpmModuleAttributeSchema,
 
     // Runtime Data Schemas
     DriverModuleSchema,

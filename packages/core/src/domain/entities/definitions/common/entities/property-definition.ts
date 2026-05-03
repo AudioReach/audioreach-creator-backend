@@ -17,6 +17,7 @@ export interface PropertyDefinitionInit {
   type: PropertyType;
   description?: string;
   elementsStructure: string;
+  maxSize?: number;
 }
 
 export class PropertyDefinition {
@@ -26,6 +27,7 @@ export class PropertyDefinition {
   type: PropertyType;
   description?: string;
   elementsStructure: string;
+  maxSize?: number;
 
   constructor(initParam: PropertyDefinitionInit) {
     this.systemId = initParam.systemId;
@@ -34,5 +36,6 @@ export class PropertyDefinition {
     this.type = initParam.type;
     this.description = initParam.description;
     this.elementsStructure = initParam.elementsStructure;
+    this.maxSize = initParam.maxSize;
   }
 }

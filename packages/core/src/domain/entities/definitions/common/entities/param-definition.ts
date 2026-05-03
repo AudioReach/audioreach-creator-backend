@@ -15,6 +15,8 @@ export interface ParamDefinitionInit {
   toolPolicies: ToolPolicy[];
   type: ParamType;
   elementsStructure: string;
+  isPersistent: boolean;
+  isReadOnly: boolean;
 }
 
 export class ParamDefinition {
@@ -26,6 +28,8 @@ export class ParamDefinition {
   toolPolicies: ToolPolicy[];
   pidType: ParamType;
   elementsStructure: string;
+  isPersistent: boolean;
+  isReadOnly: boolean;
 
   constructor(initParam: ParamDefinitionInit) {
     this.systemId = initParam.systemId;
@@ -36,5 +40,7 @@ export class ParamDefinition {
     this.toolPolicies = initParam.toolPolicies;
     this.pidType = initParam.type;
     this.elementsStructure = initParam.elementsStructure;
+    this.isPersistent = initParam.isPersistent;
+    this.isReadOnly = initParam.isReadOnly;
   }
 }

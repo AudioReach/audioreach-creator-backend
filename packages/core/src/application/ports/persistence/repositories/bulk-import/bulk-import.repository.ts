@@ -16,6 +16,10 @@ import type {
   SpfModuleDefinition,
   BulkInsertResult,
   Node,
+  VcpmModuleDefinition,
+  TagDefinition,
+  SubgraphPropertyDefinition,
+  PropertyDefinition,
 } from '@arc/core';
 
 /**
@@ -118,5 +122,45 @@ export interface BulkImportRepository {
    */
   insertContainerTypeDefinitions(
     items: readonly ContainerType[],
+  ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts VCPM module definition rows in bulk, including parameters and attributes.
+   *
+   * @param items - VCPM module definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertVcpmModuleDefinitions(
+    items: readonly VcpmModuleDefinition[],
+  ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts tag definition rows in bulk, including key links.
+   *
+   * @param items - Tag definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertTagDefinitions(
+    items: readonly TagDefinition[],
+  ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts subgraph property definition rows in bulk.
+   *
+   * @param items - Subgraph property definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertSubgraphPropertyDefinitions(
+    items: readonly SubgraphPropertyDefinition[],
+  ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts container property definition rows in bulk.
+   *
+   * @param items - Container property definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertContainerPropertyDefinitions(
+    items: readonly PropertyDefinition[],
   ): Promise<BulkInsertResult>;
 }

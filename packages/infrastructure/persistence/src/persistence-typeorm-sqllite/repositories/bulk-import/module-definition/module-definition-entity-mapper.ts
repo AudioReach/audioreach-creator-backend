@@ -32,11 +32,11 @@ export function toSpfModuleDefinitionRow(
   );
   if (inputDataPortsGroup) {
     const inputGroup: Partial<DataPortGroupRow> = {
-      max: inputDataPortsGroup.maxAllowedPortCount,
+      maxAllowedPortCount: inputDataPortsGroup.maxAllowedPortCount,
       portIoType: inputDataPortsGroup.portIoType as PortIoType,
       ports: inputDataPortsGroup.staticPortDefinitions.map(port => ({
         dataPortId: port.dataPortId,
-        name: port.dataPortName,
+        name: port.name,
       })) as unknown as DataPortDefinitionRow[],
     };
     dataPortGroups.push(inputGroup);
@@ -48,11 +48,11 @@ export function toSpfModuleDefinitionRow(
   );
   if (outputDataPortsGroup) {
     const outputGroup: Partial<DataPortGroupRow> = {
-      max: outputDataPortsGroup.maxAllowedPortCount,
+      maxAllowedPortCount: outputDataPortsGroup.maxAllowedPortCount,
       portIoType: outputDataPortsGroup.portIoType as PortIoType,
       ports: outputDataPortsGroup.staticPortDefinitions.map(port => ({
         dataPortId: port.dataPortId,
-        name: port.dataPortName,
+        name: port.name,
       })) as unknown as DataPortDefinitionRow[],
     };
     dataPortGroups.push(outputGroup);

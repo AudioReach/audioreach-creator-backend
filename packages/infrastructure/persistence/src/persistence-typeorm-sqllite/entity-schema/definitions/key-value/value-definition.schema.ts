@@ -11,12 +11,10 @@ export interface ValueDefinitionRow extends EntityBaseRow {
   systemId: number;
   keySystemId: number;
   valueId: number;
-  valueName: string;
+  name: string;
   description?: string;
-  cEnumMemberName?: string;
-  creationDate: Date;
-  updateDate: Date;
-
+  enumValue?: string;
+  specialValue?: string;
   keys: KeyDefinitionRow;
 }
 
@@ -35,12 +33,17 @@ export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
       type: 'integer',
       nullable: false,
     },
-    valueName: {
-      name: 'value_name',
+    name: {
+      name: 'name',
       type: 'text',
     },
-    cEnumMemberName: {
-      name: 'key_enum_value',
+    enumValue: {
+      name: 'enum_value',
+      type: 'text',
+      nullable: true,
+    },
+    specialValue: {
+      name: 'special_value',
       type: 'text',
       nullable: true,
     },

@@ -13,10 +13,10 @@ import type {DataPortGroupRow} from './data-group-definition.schema.js';
 import type {ModuleAttributeRow} from './module-attribute.schema.js';
 import type {StaticControlPortDefinitionRow} from './static-control-port-definition.schema.js';
 import type {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema.js';
-import type {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
-import type {ContainerTypeRow} from '../../container/container-definition.schema.js';
 import type {DynamicIntentDefinitionRow} from './dynamic-intent-definition.schema.js';
 import type {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema.js';
+import type {ModuleDefinitionProcessorLinkRow} from './module-definition-processor-link.schema.js';
+import type {ModuleDefinitionContainerTypeLinkRow} from './module-definition-container-type-link.schema.js';
 
 export interface SpfModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;
@@ -27,6 +27,7 @@ export interface SpfModuleDefinitionRow extends EntityBaseRow {
   modSearchKeys?: string;
   stackSize: number;
   fileSystemId: number;
+  metadata?: string;
 
   // Relations
   metaData?: ModuleDefinitionMetaDataRow;
@@ -35,8 +36,8 @@ export interface SpfModuleDefinitionRow extends EntityBaseRow {
   dynamicIntents?: DynamicIntentDefinitionRow[];
   parameters: SpfModuleParameterDefinitionRow[];
   attributes?: ModuleAttributeRow[];
-  processorDefinitions: ProcessorDefinitionRow[];
-  containerTypes: ContainerTypeRow[];
+  processorLinks?: ModuleDefinitionProcessorLinkRow[];
+  containerTypeLinks?: ModuleDefinitionContainerTypeLinkRow[];
   modules?: SpfModuleRow[];
 }
 
@@ -85,6 +86,11 @@ export const SpfModuleDefinitionSchema =
       fileSystemId: {
         type: 'integer',
         name: 'file_system_id',
+      },
+      metadata: {
+        type: 'text',
+        nullable: true,
+        name: 'metadata',
       },
     },
     relations: {
@@ -136,36 +142,15 @@ export const SpfModuleDefinitionSchema =
         inverseSide: 'moduleDefinition',
         cascade: ['insert', 'update'],
       },
-      processorDefinitions: {
-        type: 'many-to-many',
-        target: 'ProcessorDefinition',
-        inverseSide: 'moduleDefinitions',
-        joinTable: {
-          name: 'module_definition_processor_definitions',
-          joinColumn: {
-            name: 'module_definition_system_id',
-            referencedColumnName: 'systemId',
-          },
-          inverseJoinColumn: {
-            name: 'processor_definition_system_id',
-            referencedColumnName: 'systemId',
-          },
-        },
+      processorLinks: {
+        type: 'one-to-many',
+        target: 'ModuleDefinitionProcessorLink',
+        inverseSide: 'moduleDefinition',
       },
-      containerTypes: {
-        type: 'many-to-many',
-        target: 'ContainerType',
-        joinTable: {
-          name: 'module_definition_container_types',
-          joinColumn: {
-            name: 'module_definition_system_id',
-            referencedColumnName: 'systemId',
-          },
-          inverseJoinColumn: {
-            name: 'container_type_system_id',
-            referencedColumnName: 'systemId',
-          },
-        },
+      containerTypeLinks: {
+        type: 'one-to-many',
+        target: 'ModuleDefinitionContainerTypeLink',
+        inverseSide: 'moduleDefinition',
       },
       modules: {
         type: 'one-to-many',
