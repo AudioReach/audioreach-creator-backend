@@ -425,10 +425,52 @@ export class ForeignKeyMapper {
   }
 
   /**
-   * Get systemId for a given data link natural key
+   * Add a data link mapping keyed by natural IDs
    */
-  getDataLinkSystemId(naturalKey: string): SystemId | undefined {
-    return this.dataLinkMappings.get(naturalKey);
+  addDataLinkMapping(
+    sourceInstanceId: number,
+    sourcePortId: number,
+    destinationInstanceId: number,
+    destinationPortId: number,
+    systemId: SystemId,
+  ): void {
+    this.dataLinkMappings.set(
+      this.buildDataLinkKey(
+        sourceInstanceId,
+        sourcePortId,
+        destinationInstanceId,
+        destinationPortId,
+      ),
+      systemId,
+    );
+  }
+
+  /**
+   * Get systemId for a data link identified by its natural IDs
+   */
+  getDataLinkSystemId(
+    sourceInstanceId: number,
+    sourcePortId: number,
+    destinationInstanceId: number,
+    destinationPortId: number,
+  ): SystemId | undefined {
+    return this.dataLinkMappings.get(
+      this.buildDataLinkKey(
+        sourceInstanceId,
+        sourcePortId,
+        destinationInstanceId,
+        destinationPortId,
+      ),
+    );
+  }
+
+  private buildDataLinkKey(
+    sourceInstanceId: number,
+    sourcePortId: number,
+    destinationInstanceId: number,
+    destinationPortId: number,
+  ): string {
+    return `${sourceInstanceId}:${sourcePortId}->${destinationInstanceId}:${destinationPortId}`;
   }
 
   /**

@@ -36,12 +36,12 @@ export class StaticControlPortDefinition {
       `intentId is required for static intent in port ${BinaryUtils.toHexString(this.portId)}`,
     );
     assertNonNull(
-      staticIntent.intentName,
+      staticIntent.name,
       `intentName is required for static intent in port ${BinaryUtils.toHexString(this.portId)}`,
     );
 
     const idKey = `id:${staticIntent.intentId}`;
-    const nameKey = `name:${staticIntent.intentName}`;
+    const nameKey = `name:${staticIntent.name}`;
 
     invariant(
       !this.intentIds.has(idKey),
@@ -49,7 +49,7 @@ export class StaticControlPortDefinition {
     );
     invariant(
       !this.intentIds.has(nameKey),
-      `Intent Name: ${staticIntent.intentName} already exists for Port Id: ${BinaryUtils.toHexString(this.portId)}`,
+      `Intent Name: ${staticIntent.name} already exists for Port Id: ${BinaryUtils.toHexString(this.portId)}`,
     );
 
     this.intentIds.add(idKey);

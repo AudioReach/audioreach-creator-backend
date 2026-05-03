@@ -81,7 +81,7 @@ describe('EditAction CRUD Integration Tests', () => {
     });
 
     const file = await arcDbFileRepository.save({
-      systemId: 100,
+      systemId: 1,
       projectSystemId: project.systemId,
       fileName: 'test.acdb',
       description: 'Test file',

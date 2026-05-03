@@ -5,15 +5,15 @@
 
 export interface DataPortDefinitionInit {
   dataPortId: number;
-  dataPortName?: string;
+  name?: string;
 }
 
 export class DataPortDefinition {
   readonly dataPortId: number;
-  dataPortName?: string;
+  name?: string;
 
   constructor(initParam: DataPortDefinitionInit) {
     this.dataPortId = initParam.dataPortId;
-    this.dataPortName = initParam.dataPortName;
+    this.name = initParam.name;
   }
 }

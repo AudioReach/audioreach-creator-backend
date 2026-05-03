@@ -59,9 +59,8 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     getSpfModuleSystemId: jest.fn(),
 
     // Module Port mappings
-    addModuleInputPortMapping: jest.fn(),
-    addModuleOutputPortMapping: jest.fn(),
-    addModuleControlPortMapping: jest.fn(),
+    addDataPortMapping: jest.fn(),
+    addControlPortMapping: jest.fn(),
     getModuleInputPortSystemIds: jest.fn(),
     getModuleOutputPortSystemIds: jest.fn(),
     getInputPortSystemId: jest.fn(),
@@ -70,8 +69,7 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     getControlPortSystemId: jest.fn(),
 
     // Link mappings
-    setDataLinkMappings: jest.fn(),
-    setControlLinkMappings: jest.fn(),
+    addDataLinkMapping: jest.fn(),
     getDataLinkSystemId: jest.fn(),
     getControlLinkSystemId: jest.fn(),
 

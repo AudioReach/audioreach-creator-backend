@@ -70,7 +70,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
           {
             sourceInstanceId: 103,
@@ -78,7 +77,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 3,
             destinationPortId: 4,
             isInterGraph: true,
-            naturalKeyHash: 'hash2',
           },
         ];
 
@@ -99,12 +97,10 @@ describe('DataLinkBuilder', () => {
         expect(result[0].sourcePortSystemId).toBe(200);
         expect(result[0].destinationPortSystemId).toBe(300);
         expect(result[0].isInterGraph).toBe(false);
-        expect(result[0].naturalKeyHash).toBe('hash1');
 
         // Verify second data link
         expect(result[1].systemId).toBeGreaterThan(0);
         expect(result[1].isInterGraph).toBe(true);
-        expect(result[1].naturalKeyHash).toBe('hash2');
 
         // Verify ID generation was called
         expect(mockIdGenerator.getNextId).toHaveBeenCalledTimes(2);
@@ -125,7 +121,7 @@ describe('DataLinkBuilder', () => {
         );
       });
 
-      it('should deduplicate data links by naturalKeyHash', async () => {
+      it('should deduplicate data links with identical natural IDs', async () => {
         const dataLinkProperties: DataLinkProperty[] = [
           {
             sourceInstanceId: 101,
@@ -133,7 +129,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'duplicate_hash',
           },
           {
             sourceInstanceId: 101,
@@ -141,7 +136,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'duplicate_hash',
           },
           {
             sourceInstanceId: 103,
@@ -149,7 +143,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 3,
             destinationPortId: 4,
             isInterGraph: true,
-            naturalKeyHash: 'unique_hash',
           },
         ];
 
@@ -175,7 +168,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -198,7 +190,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
           {
             sourceInstanceId: 103,
@@ -206,7 +197,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 3,
             destinationPortId: 4,
             isInterGraph: true,
-            naturalKeyHash: 'hash2',
           },
         ];
 
@@ -248,7 +238,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'same_hash',
           },
           {
             sourceInstanceId: 101,
@@ -256,7 +245,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'same_hash',
           },
           {
             sourceInstanceId: 101,
@@ -264,7 +252,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'same_hash',
           },
         ];
 
@@ -290,7 +277,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -321,7 +307,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -351,7 +336,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -381,7 +365,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -420,7 +403,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
           {
             sourceInstanceId: 103,
@@ -428,7 +410,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 3,
             destinationPortId: 4,
             isInterGraph: true,
-            naturalKeyHash: 'hash2',
           },
         ];
 
@@ -438,7 +419,6 @@ describe('DataLinkBuilder', () => {
         );
 
         expect(result).toHaveLength(1);
-        expect(result[0].naturalKeyHash).toBe('hash2');
       });
 
       it('should handle unexpected errors during conversion', async () => {
@@ -455,7 +435,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -483,7 +462,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
           {
             sourceInstanceId: 101,
@@ -491,7 +469,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -519,7 +496,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -541,7 +517,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
           {
             sourceInstanceId: 103,
@@ -549,7 +524,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 3,
             destinationPortId: 4,
             isInterGraph: true,
-            naturalKeyHash: 'hash2',
           },
         ];
 
@@ -573,7 +547,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -592,7 +565,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: false,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -612,7 +584,6 @@ describe('DataLinkBuilder', () => {
             sourcePortId: 1,
             destinationPortId: 2,
             isInterGraph: true,
-            naturalKeyHash: 'hash1',
           },
         ];
 
@@ -622,26 +593,6 @@ describe('DataLinkBuilder', () => {
         );
 
         expect(result[0].isInterGraph).toBe(true);
-      });
-
-      it('should preserve naturalKeyHash', async () => {
-        const dataLinkProperties: DataLinkProperty[] = [
-          {
-            sourceInstanceId: 101,
-            destinationInstanceId: 102,
-            sourcePortId: 1,
-            destinationPortId: 2,
-            isInterGraph: false,
-            naturalKeyHash: 'unique_hash_value',
-          },
-        ];
-
-        const result = await builder.buildDataLinks(
-          dataLinkProperties,
-          TEST_FILE_SYSTEM_ID,
-        );
-
-        expect(result[0].naturalKeyHash).toBe('unique_hash_value');
       });
     });
   });

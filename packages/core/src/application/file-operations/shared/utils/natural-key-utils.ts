@@ -4,31 +4,6 @@
  */
 
 /**
- * Utility functions for creating natural key hashes based on natural IDs
- */
-
-/**
- * Build natural key hash for data links using natural IDs (instanceId + portId)
- * This hash is used for tracking and mapping data links back from repository results
- *
- * Format: "sourceInstanceId:sourcePortId->destinationInstanceId:destinationPortId"
- *
- * @param sourceInstanceId - Source module instance ID (natural ID)
- * @param sourcePortId - Source port ID (natural ID)
- * @param destinationInstanceId - Destination module instance ID (natural ID)
- * @param destinationPortId - Destination port ID (natural ID)
- * @returns Natural key hash string
- */
-export function buildDataLinkNaturalKeyHash(
-  sourceInstanceId: number,
-  sourcePortId: number,
-  destinationInstanceId: number,
-  destinationPortId: number,
-): string {
-  return `${sourceInstanceId}:${sourcePortId}->${destinationInstanceId}:${destinationPortId}`;
-}
-
-/**
  * Build natural key hash for control links using natural IDs (instanceId + portId)
  * This hash is used for tracking and mapping control links back from repository results
  *

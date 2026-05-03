@@ -423,6 +423,8 @@ export class SpfModuleDefinitionBuilder {
       toolPolicies: this.mapToolPolicies(awspParam.toolPolicies),
       type: this.PID_TYPE_MAPPING[awspParam.pidType],
       elementsStructure: JSON.stringify(awspParam.elements),
+      isPersistent: false,
+      isReadOnly: false,
     });
   }
 
@@ -605,7 +607,7 @@ export class SpfModuleDefinitionBuilder {
         try {
           const dataPort = new DataPortDefinition({
             dataPortId: awspPort.id,
-            dataPortName: awspPort.name || `Port_${awspPort.id}`,
+            name: awspPort.name || `Port_${awspPort.id}`,
           });
           staticPortDefinitions.push(dataPort);
         } catch (error) {
@@ -633,7 +635,7 @@ export class SpfModuleDefinitionBuilder {
         try {
           const dataPort = new DataPortDefinition({
             dataPortId: awspPort.id,
-            dataPortName: awspPort.name || `Port_${awspPort.id}`,
+            name: awspPort.name || `Port_${awspPort.id}`,
           });
           staticPortDefinitions.push(dataPort);
         } catch (error) {

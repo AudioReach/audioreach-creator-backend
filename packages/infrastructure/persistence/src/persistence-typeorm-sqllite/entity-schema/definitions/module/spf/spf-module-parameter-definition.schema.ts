@@ -12,21 +12,17 @@ import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import type {ModuleAttributeRow} from './module-attribute.schema.js';
 import type {CkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-calibration-data.schema.js';
 import type {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-tag-data.schema.js';
-import type {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
-import {DbTypeToBytesTransformer} from '../../../usecase-data/module/helper/bytes-transformer.js';
-
 export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
-  parameterId: number;
+  paramId: number;
   name?: string;
   description?: string;
   maxSize: number;
-  //toolPolicy: ToolPolicy[];
   pidType: string;
   isPersistent: boolean;
   attributes?: ModuleAttributeRow[];
-  paramStructure: string; // JSON
-  defaultData: Uint8Array;
+  elementsStructure: string; // JSON
   isReadOnly: boolean;
+  toolPolicies?: string;
 
   // Foreign key relation
   spfModuleDefinitionSystemId: number;
@@ -37,17 +33,15 @@ export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
   tkvParameterPayloads?: TkvParameterPayloadRow[];
 }
 
-export const SpfModuleParameterDefinitionSchema = (
-  blobConverter: BlobBytesConverter,
-) =>
+export const SpfModuleParameterDefinitionSchema =
   new EntitySchema<SpfModuleParameterDefinitionRow>({
     name: 'SpfModuleParameterDefinition',
     tableName: 'spf_module_parameter_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      parameterId: {
+      paramId: {
         type: 'integer',
-        name: 'parameter_id',
+        name: 'param_id',
       },
       name: {
         type: 'varchar',
@@ -73,18 +67,18 @@ export const SpfModuleParameterDefinitionSchema = (
         type: 'boolean',
         name: 'is_persistent',
       },
-      paramStructure: {
+      elementsStructure: {
         type: 'text',
-        name: 'param_structure',
-      },
-      defaultData: {
-        type: 'blob', // or 'blob' depending on your database
-        name: 'default_data',
-        transformer: DbTypeToBytesTransformer(blobConverter),
+        name: 'elements_structure',
       },
       isReadOnly: {
         type: 'boolean',
         name: 'is_read_only',
+      },
+      toolPolicies: {
+        type: 'text',
+        nullable: true,
+        name: 'tool_policies',
       },
       spfModuleDefinitionSystemId: {
         type: 'integer',

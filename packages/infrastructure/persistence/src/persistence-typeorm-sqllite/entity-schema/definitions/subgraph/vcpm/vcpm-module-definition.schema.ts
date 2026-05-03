@@ -10,10 +10,12 @@ import {
 import {EntitySchema} from 'typeorm';
 import type {VcpmModuleParameterDefinitionRow} from './vcpm-module-parameter-definition.schema.js';
 import type {VcpmInstanceRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
+import type {VcpmModuleAttributeRow} from './vcpm-module-attribute.schema.js';
 
 export interface VcpmModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;
   name: string;
+  displayName?: string;
   description?: string;
   groupName?: string;
   fileSystemId: number;
@@ -21,6 +23,7 @@ export interface VcpmModuleDefinitionRow extends EntityBaseRow {
   // Relations
   parameters: VcpmModuleParameterDefinitionRow[];
   vcpmInstances?: VcpmInstanceRow[];
+  attributes?: VcpmModuleAttributeRow[];
 }
 
 export const VcpmModuleDefinitionSchema =
@@ -37,6 +40,12 @@ export const VcpmModuleDefinitionSchema =
         type: 'varchar',
         length: 255,
         name: 'name',
+      },
+      displayName: {
+        type: 'varchar',
+        length: 255,
+        nullable: true,
+        name: 'display_name',
       },
       description: {
         type: 'text',
@@ -74,6 +83,12 @@ export const VcpmModuleDefinitionSchema =
         type: 'one-to-many',
         target: 'VcpmInstance',
         inverseSide: 'vcpmDefinition',
+      },
+      attributes: {
+        type: 'one-to-many',
+        target: 'VcpmModuleAttribute',
+        inverseSide: 'vcpmModuleDefinition',
+        cascade: ['insert', 'update'],
       },
     },
   });

@@ -13,7 +13,6 @@ import type {
   DataLink,
   ControlLink,
 } from '../../../shared/acdb-chunks/spf-properties/types.js';
-import {buildDataLinkNaturalKeyHash} from '../../../shared/utils/natural-key-utils.js';
 import type {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js';
 import {
   SPF_APM_MODULE_ID,
@@ -244,21 +243,12 @@ export class SubgraphPairDataChunkParser extends BaseChunkParser<SubgraphPairDat
         const dstPortId = BinaryUtils.readUint32(view, pos);
         pos += BinaryUtils.SIZEOF_UINT32;
 
-        // Generate natural key hash based on natural IDs
-        const naturalKeyHash = buildDataLinkNaturalKeyHash(
-          srcMid,
-          srcPortId,
-          dstMid,
-          dstPortId,
-        );
-
         dataLinks.push({
           sourceInstanceId: srcMid,
           sourcePortId: srcPortId,
           destinationInstanceId: dstMid,
           destinationPortId: dstPortId,
           isInterGraph: false, // Subgraph pair connections are intra-graph
-          naturalKeyHash,
         });
       }
 

@@ -6,13 +6,15 @@
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import type {ContainerPropertyDataRow} from '../../usecase-data/container/container-property-data.js';
 import {EntitySchema} from 'typeorm';
+import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
 export interface ContainerPropertyRow extends EntityBaseRow {
   propertyId: number;
   name: string;
   description?: string;
   maxSize: number;
-  propertyStructure: string; // JSON
+  propertyType: PropertyType;
+  elementsStructure: string; // JSON
 
   // Relations
   containerPropertyData?: ContainerPropertyDataRow[];
@@ -43,9 +45,14 @@ export const ContainerPropertyDefinitionSchema =
         type: 'integer',
         name: 'max_size',
       },
-      propertyStructure: {
+      propertyType: {
+        type: 'simple-enum',
+        enum: Object.values(PROPERTY_TYPE),
+        name: 'property_type',
+      },
+      elementsStructure: {
         type: 'text',
-        name: 'property_structure',
+        name: 'elements_structure',
       },
     },
     relations: {

@@ -5,14 +5,16 @@
 
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
+import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
 export interface SubgraphPropertyRow extends EntityBaseRow {
   propertyId: number;
   name: string;
   description?: string;
   maxSize: number;
-  propertyCategoryTpe: string;
-  propertyStructure: string; // JSON
+  propertyType: PropertyType;
+  elementsStructure: string; // JSON
+  isVoice: boolean;
 
   // Relations
 }
@@ -42,15 +44,18 @@ export const SubgraphPropertyDefinitionSchema =
         type: 'integer',
         name: 'max_size',
       },
-      propertyCategoryTpe: {
-        type: 'varchar',
-        length: 255,
-        nullable: true,
-        name: 'property_category_type',
+      propertyType: {
+        type: 'simple-enum',
+        enum: Object.values(PROPERTY_TYPE),
+        name: 'property_type',
       },
-      propertyStructure: {
+      elementsStructure: {
         type: 'text',
-        name: 'property_structure',
+        name: 'elements_structure',
+      },
+      isVoice: {
+        type: 'boolean',
+        name: 'is_voice',
       },
     },
   });

@@ -10,17 +10,17 @@ import {
 import {EntitySchema} from 'typeorm';
 import type {VcpmModuleDefinitionRow} from './vcpm-module-definition.schema.js';
 import type {VcpmParameterPayloadRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
-import type {BlobBytesConverter} from '../../../usecase-data/module/helper/blob-unit8array.converter.js';
-import {DbTypeToBytesTransformer} from '../../../usecase-data/module/helper/bytes-transformer.js';
 
 export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
-  parameterId: number;
+  paramId: number;
   name?: string;
   description?: string;
   maxSize: number;
-  //toolPolicy: ToolPolicy[];
-  paramStructure: string; // JSON
-  defaultData: Uint8Array;
+  pidType: string;
+  isPersistent: boolean;
+  isReadOnly: boolean;
+  toolPolicies?: string;
+  elementsStructure: string; // JSON
 
   // Foreign key relation
   vcpmModuleDefinitionSystemId: number;
@@ -30,17 +30,15 @@ export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   vcpmParameterPayloads?: VcpmParameterPayloadRow[];
 }
 
-export const VcpmModuleParameterDefinitionSchema = (
-  blobConverter: BlobBytesConverter,
-) =>
+export const VcpmModuleParameterDefinitionSchema =
   new EntitySchema<VcpmModuleParameterDefinitionRow>({
     name: 'VcpmModuleParameterDefinition',
     tableName: 'vcpm_module_parameter_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      parameterId: {
+      paramId: {
         type: 'integer',
-        name: 'parameter_id',
+        name: 'param_id',
       },
       name: {
         type: 'varchar',
@@ -57,14 +55,27 @@ export const VcpmModuleParameterDefinitionSchema = (
         type: 'integer',
         name: 'max_size',
       },
-      paramStructure: {
-        type: 'text',
-        name: 'param_structure',
+      pidType: {
+        type: 'varchar',
+        length: 100,
+        name: 'pid_type',
       },
-      defaultData: {
-        type: 'blob', // or 'blob' depending on your database
-        name: 'default_data',
-        transformer: DbTypeToBytesTransformer(blobConverter),
+      isPersistent: {
+        type: 'boolean',
+        name: 'is_persistent',
+      },
+      isReadOnly: {
+        type: 'boolean',
+        name: 'is_read_only',
+      },
+      toolPolicies: {
+        type: 'text',
+        nullable: true,
+        name: 'tool_policies',
+      },
+      elementsStructure: {
+        type: 'text',
+        name: 'elements_structure',
       },
       vcpmModuleDefinitionSystemId: {
         type: 'integer',

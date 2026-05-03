@@ -44,15 +44,16 @@ export class DataLinkBuilder {
       return [];
     }
 
-    // STEP 1: Early deduplication by naturalKeyHash (Performance Optimization)
+    // STEP 1: Early deduplication by composite natural key
     const uniqueProperties = new Map<string, DataLinkProperty>();
     let duplicateCount = 0;
 
     for (const property of dataLinkProperties) {
-      if (uniqueProperties.has(property.naturalKeyHash)) {
+      const key = `${property.sourceInstanceId}:${property.sourcePortId}->${property.destinationInstanceId}:${property.destinationPortId}`;
+      if (uniqueProperties.has(key)) {
         duplicateCount++;
       } else {
-        uniqueProperties.set(property.naturalKeyHash, property);
+        uniqueProperties.set(key, property);
       }
     }
 
@@ -67,6 +68,7 @@ export class DataLinkBuilder {
 
     // STEP 2: Build DataLink objects only for unique properties (Efficient Processing)
     const dataLinks: DataLink[] = [];
+    const builtProperties: DataLinkProperty[] = [];
     let successCount = 0;
     let failureCount = 0;
 
@@ -78,6 +80,7 @@ export class DataLinkBuilder {
         // The specific failure reason was already logged in convertDataLinkProperty
       } else {
         dataLinks.push(dataLink);
+        builtProperties.push(property);
         successCount++;
       }
     }
@@ -87,7 +90,19 @@ export class DataLinkBuilder {
       await this.assignSystemIds(dataLinks, fileSystemId);
     }
 
-    // STEP 4: Performance and results logging
+    // STEP 4: Register data link → systemId mappings in ForeignKeyMapper
+    for (const [i, link] of dataLinks.entries()) {
+      const prop = builtProperties[i];
+      this.foreignKeyMapper.addDataLinkMapping(
+        prop.sourceInstanceId,
+        prop.sourcePortId,
+        prop.destinationInstanceId,
+        prop.destinationPortId,
+        asSystemId(link.systemId),
+      );
+    }
+
+    // STEP 5: Performance and results logging
     this.logger?.logInfo({
       msg: `Data link building complete: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${failureCount} failed (${duplicateCount} duplicates eliminated), system IDs assigned`,
       action: 'data_link_building_complete',
@@ -137,7 +152,7 @@ export class DataLinkBuilder {
       // Check if module mappings failed
       if (sourceNodeSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map source module instance ID ${property.sourceInstanceId} for data link ${property.naturalKeyHash}`,
+          msg: `Failed to map source module instance ID ${property.sourceInstanceId} for data link`,
           action: 'source_module_mapping_failed',
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
@@ -148,7 +163,7 @@ export class DataLinkBuilder {
 
       if (destinationNodeSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map destination module instance ID ${property.destinationInstanceId} for data link ${property.naturalKeyHash}`,
+          msg: `Failed to map destination module instance ID ${property.destinationInstanceId} for data link`,
           action: 'destination_module_mapping_failed',
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
@@ -170,7 +185,7 @@ export class DataLinkBuilder {
       // Check if port mappings failed
       if (sourcePortSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map source port ID ${property.sourcePortId} for module ${sourceNodeSystemId} in data link ${property.naturalKeyHash}`,
+          msg: `Failed to map source port ID ${property.sourcePortId} for module ${sourceNodeSystemId} in data link`,
           action: 'source_port_mapping_failed',
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
@@ -181,7 +196,7 @@ export class DataLinkBuilder {
 
       if (destinationPortSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map destination port ID ${property.destinationPortId} for module ${destinationNodeSystemId} in data link ${property.naturalKeyHash}`,
+          msg: `Failed to map destination port ID ${property.destinationPortId} for module ${destinationNodeSystemId} in data link`,
           action: 'destination_port_mapping_failed',
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
@@ -190,7 +205,7 @@ export class DataLinkBuilder {
         return null;
       }
 
-      // Create DataLink entity with naturalKeyHash from parsed ACDB
+      // Create DataLink entity
       return new DataLink(
         0, // systemId - Will be generated during insertion
         sourceNodeSystemId,
@@ -198,12 +213,11 @@ export class DataLinkBuilder {
         sourcePortSystemId,
         destinationPortSystemId,
         property.isInterGraph, // Use the calculated value from parser
-        property.naturalKeyHash, // Use pre-computed hash from parsed ACDB
         fileSystemId, // Associate with the file being uploaded
       );
     } catch (error) {
       this.logger?.logWarn({
-        msg: `Unexpected error converting data link ${property.naturalKeyHash}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        msg: `Unexpected error converting data link (${property.sourceInstanceId}:${property.sourcePortId}->${property.destinationInstanceId}:${property.destinationPortId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
         action: 'data_link_conversion_error',
         component: 'DataLinkBuilder',
         tag: 'data-link-building',

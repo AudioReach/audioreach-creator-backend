@@ -17,7 +17,6 @@ export interface DataLinkRow extends EntityBaseRow {
   sourcePortSystemId: number;
   destinationPortSystemId: number;
   isInterGraph: boolean;
-  naturalKeyHash: string;
   fileSystemId: number;
 
   sourceNode?: NodeRow;
@@ -52,11 +51,6 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
     isInterGraph: {
       type: 'integer', // SQLite stores boolean as 0/1
       name: 'is_inter_graph',
-    },
-    naturalKeyHash: {
-      type: 'varchar',
-      name: 'natural_key_hash',
-      length: 255,
     },
     fileSystemId: {
       name: 'file_system_id',
@@ -118,8 +112,8 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
   },
   indices: [
     {
-      name: 'uk_data_link_file_natural_key',
-      columns: ['fileSystemId', 'naturalKeyHash'],
+      name: 'uk_data_link_ports',
+      columns: ['sourcePortSystemId', 'destinationPortSystemId'],
       unique: true,
     },
   ],

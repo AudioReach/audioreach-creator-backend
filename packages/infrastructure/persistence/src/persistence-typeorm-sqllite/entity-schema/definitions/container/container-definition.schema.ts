@@ -5,11 +5,12 @@
 
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
+import type {ModuleDefinitionContainerTypeLinkRow} from '../module/spf/module-definition-container-type-link.schema.js';
 
 export interface ContainerTypeRow extends EntityBaseRow {
-  containerId: number;
   name: string;
   value: number;
+  moduleDefinitionLinks?: ModuleDefinitionContainerTypeLinkRow[];
 }
 
 export const ContainerTypeSchema = new EntitySchema<ContainerTypeRow>({
@@ -25,6 +26,13 @@ export const ContainerTypeSchema = new EntitySchema<ContainerTypeRow>({
     value: {
       type: 'integer',
       name: 'value',
+    },
+  },
+  relations: {
+    moduleDefinitionLinks: {
+      type: 'one-to-many',
+      target: 'ModuleDefinitionContainerTypeLink',
+      inverseSide: 'containerType',
     },
   },
 });

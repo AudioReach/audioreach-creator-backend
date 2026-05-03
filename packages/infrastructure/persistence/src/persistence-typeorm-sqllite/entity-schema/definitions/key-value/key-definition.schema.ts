@@ -21,12 +21,19 @@ export interface KeyDefinitionRow extends EntityBaseRow {
 
   // member of key entity
   keyId: number;
-  keyName: string;
+  name: string;
 
   // used for generating C header files
   cEnumMemberName?: string;
   cEnumName?: string;
   description?: string;
+  isVoice?: boolean;
+  isDynamic?: boolean;
+  isCalibrationKey?: boolean;
+  isGraphKey?: boolean;
+  specialityKeyValue?: string;
+  calibrationEnumValue?: string;
+  graphEnumValue?: string;
 
   // base entity
   creationDate: Date;
@@ -52,8 +59,8 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
       type: 'integer',
       unique: false,
     },
-    keyName: {
-      name: 'key_name',
+    name: {
+      name: 'name',
       type: 'text',
       unique: false,
     },
@@ -68,6 +75,41 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
       nullable: true,
     },
     description: {
+      type: 'text',
+      nullable: true,
+    },
+    isVoice: {
+      name: 'is_voice',
+      type: 'boolean',
+      nullable: true,
+    },
+    isDynamic: {
+      name: 'is_dynamic',
+      type: 'boolean',
+      nullable: true,
+    },
+    isCalibrationKey: {
+      name: 'is_calibration_key',
+      type: 'boolean',
+      nullable: true,
+    },
+    isGraphKey: {
+      name: 'is_graph_key',
+      type: 'boolean',
+      nullable: true,
+    },
+    specialityKeyValue: {
+      name: 'speciality_key_value',
+      type: 'text',
+      nullable: true,
+    },
+    calibrationEnumValue: {
+      name: 'calibration_enum_value',
+      type: 'text',
+      nullable: true,
+    },
+    graphEnumValue: {
+      name: 'graph_enum_value',
       type: 'text',
       nullable: true,
     },

@@ -12,7 +12,6 @@ export class DataLink {
   public sourcePortSystemId: number;
   public destinationPortSystemId: number;
   public isInterGraph: boolean;
-  public naturalKeyHash: string;
   public fileSystemId: number;
 
   constructor(
@@ -22,7 +21,6 @@ export class DataLink {
     sourcePortSystemId: number,
     destinationPortSystemId: number,
     isInterGraph: boolean,
-    naturalKeyHash: string,
     fileSystemId: number,
   ) {
     this.systemId = systemId;
@@ -31,7 +29,6 @@ export class DataLink {
     this.sourcePortSystemId = sourcePortSystemId;
     this.destinationPortSystemId = destinationPortSystemId;
     this.isInterGraph = isInterGraph;
-    this.naturalKeyHash = naturalKeyHash;
     this.fileSystemId = fileSystemId;
     if (this.sourceNodeSystemId == this.destinationNodeSystemId) {
       throw new SameNodeException(sourceNodeSystemId);

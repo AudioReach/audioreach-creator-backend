@@ -4,19 +4,19 @@
  */
 
 export interface ProcessorDefinitionInit {
-  systemId: string;
+  systemId: number;
   name: string;
-  processorId: number;
+  processorDefinitionId: number;
 }
 
 export class ProcessorDefinition {
-  systemId: string;
+  systemId: number;
   name: string;
-  readonly processorId: number;
+  readonly processorDefinitionId: number;
 
   constructor(initParam: ProcessorDefinitionInit) {
     this.systemId = initParam.systemId;
     this.name = initParam.name;
-    this.processorId = initParam.processorId;
+    this.processorDefinitionId = initParam.processorDefinitionId;
   }
 }

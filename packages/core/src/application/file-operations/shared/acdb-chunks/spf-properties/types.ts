@@ -90,8 +90,6 @@ export interface DataLink {
   destinationPortId: number;
   /** Whether this link crosses subgraph boundaries */
   isInterGraph: boolean;
-  /** Natural key hash for tracking and mapping (based on natural IDs) */
-  naturalKeyHash: string;
 }
 
 /**
