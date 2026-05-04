@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {SubgraphBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/subgraph-builder.js';
 import {Subgraph} from '../../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
-import type {SubgraphProperty} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
+import type {AcdbSubgraphProperties} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
@@ -50,7 +50,7 @@ describe('SubgraphBuilder', () => {
   describe('buildSubgraphs', () => {
     describe('Happy Path', () => {
       it('should build subgraphs successfully from valid properties with system IDs assigned', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -108,7 +108,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should process multiple subgraph properties', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -136,7 +136,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should verify correct BuildResult structure', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -158,7 +158,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should log info message on successful conversion', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -179,7 +179,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should assign fileSystemId to all subgraphs', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -200,7 +200,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should handle multiple subgraphs with different IDs', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -228,7 +228,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should use naming convention Subgraph_{id}', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 123,
             properties: new Map(),
@@ -244,7 +244,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should set isExported to false by default', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -286,7 +286,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should handle subgraph properties with empty properties map', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -307,7 +307,7 @@ describe('SubgraphBuilder', () => {
         propertiesMap.set(1, new Uint8Array([100]));
         propertiesMap.set(2, new Uint8Array([200]));
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: propertiesMap,
@@ -324,7 +324,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should handle large number of subgraph properties', async () => {
-        const properties: SubgraphProperty[] = [];
+        const properties: AcdbSubgraphProperties[] = [];
         for (let i = 1; i <= 100; i++) {
           properties.push({
             subgraphId: i,
@@ -345,14 +345,14 @@ describe('SubgraphBuilder', () => {
 
     describe('Error Handling', () => {
       it('should collect issues when subgraph conversion fails', async () => {
-        // Spy on the private convertSubgraphProperty method to simulate failure
+        // Spy on the private convertAcdbSubgraphPropertyData method to simulate failure
         const convertSpy = jest
-          .spyOn(builder as any, 'convertSubgraphProperty')
+          .spyOn(builder as any, 'convertAcdbSubgraphPropertyData')
           .mockImplementation(() => {
             throw new Error('Invalid subgraph data');
           });
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -374,14 +374,14 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should log warning when conversion fails', async () => {
-        // Spy on the private convertSubgraphProperty method to simulate failure
+        // Spy on the private convertAcdbSubgraphPropertyData method to simulate failure
         const convertSpy = jest
-          .spyOn(builder as any, 'convertSubgraphProperty')
+          .spyOn(builder as any, 'convertAcdbSubgraphPropertyData')
           .mockImplementation(() => {
             throw new Error('Test error');
           });
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -403,11 +403,11 @@ describe('SubgraphBuilder', () => {
 
       it('should continue processing after a conversion failure', async () => {
         let callCount = 0;
-        const originalConvert = (builder as any).convertSubgraphProperty.bind(
-          builder,
-        );
+        const originalConvert = (
+          builder as any
+        ).convertAcdbSubgraphPropertyData.bind(builder);
         const convertSpy = jest
-          .spyOn(builder as any, 'convertSubgraphProperty')
+          .spyOn(builder as any, 'convertAcdbSubgraphPropertyData')
           .mockImplementation((...args: unknown[]) => {
             callCount++;
             if (callCount === 2) {
@@ -416,7 +416,7 @@ describe('SubgraphBuilder', () => {
             return originalConvert(...args);
           });
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -446,12 +446,12 @@ describe('SubgraphBuilder', () => {
 
       it('should include subgraphId in error issue', async () => {
         const convertSpy = jest
-          .spyOn(builder as any, 'convertSubgraphProperty')
+          .spyOn(builder as any, 'convertAcdbSubgraphPropertyData')
           .mockImplementation(() => {
             throw new Error('Test error');
           });
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 42,
             properties: new Map(),
@@ -470,12 +470,12 @@ describe('SubgraphBuilder', () => {
 
       it('should use correct error code in issues', async () => {
         const convertSpy = jest
-          .spyOn(builder as any, 'convertSubgraphProperty')
+          .spyOn(builder as any, 'convertAcdbSubgraphPropertyData')
           .mockImplementation(() => {
             throw new Error('Test error');
           });
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -494,12 +494,12 @@ describe('SubgraphBuilder', () => {
 
       it('should handle unknown error types', async () => {
         const convertSpy = jest
-          .spyOn(builder as any, 'convertSubgraphProperty')
+          .spyOn(builder as any, 'convertAcdbSubgraphPropertyData')
           .mockImplementation(() => {
             throw 'String error'; // Non-Error object
           });
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -520,7 +520,7 @@ describe('SubgraphBuilder', () => {
 
     describe('Logging', () => {
       it('should log conversion complete with success and error counts', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -549,7 +549,7 @@ describe('SubgraphBuilder', () => {
           mockForeignKeyMapper,
         );
 
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -565,7 +565,7 @@ describe('SubgraphBuilder', () => {
 
     describe('BuildResult Structure', () => {
       it('should return BuildResult with all required fields', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -587,7 +587,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should have warningCount always 0', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -603,7 +603,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should have entities as Subgraph instances', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -621,7 +621,7 @@ describe('SubgraphBuilder', () => {
 
     describe('System ID Assignment', () => {
       it('should call idGenerator.getNextId for each subgraph', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -645,7 +645,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should store foreign key mappings for all subgraphs', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),
@@ -664,7 +664,7 @@ describe('SubgraphBuilder', () => {
       });
 
       it('should assign unique system IDs to each subgraph', async () => {
-        const properties: SubgraphProperty[] = [
+        const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
             properties: new Map(),

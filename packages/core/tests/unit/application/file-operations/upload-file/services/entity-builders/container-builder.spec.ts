@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {ContainerBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/container-builder.js';
 import {Container} from '../../../../../../../src/domain/entities/usecase-data/container/container.js';
-import type {ContainerProperty} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
+import type {AcdbContainerProperties} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
@@ -50,7 +50,7 @@ describe('ContainerBuilder', () => {
   describe('buildContainers', () => {
     describe('Happy Path', () => {
       it('should build containers successfully from valid properties with system IDs assigned', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -105,7 +105,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should process multiple container properties', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -133,7 +133,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should verify correct BuildResult structure', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -155,7 +155,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should log info message on successful conversion', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -176,7 +176,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should assign fileSystemId to all containers', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -197,7 +197,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should handle multiple containers with different IDs', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -251,7 +251,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should handle container properties with empty properties map', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -272,7 +272,7 @@ describe('ContainerBuilder', () => {
         propertiesMap.set(1, new Uint8Array([100]));
         propertiesMap.set(2, new Uint8Array([200]));
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: propertiesMap,
@@ -289,7 +289,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should handle large number of container properties', async () => {
-        const properties: ContainerProperty[] = [];
+        const properties: AcdbContainerProperties[] = [];
         for (let i = 1; i <= 100; i++) {
           properties.push({
             containerId: i,
@@ -310,14 +310,14 @@ describe('ContainerBuilder', () => {
 
     describe('Error Handling', () => {
       it('should collect issues when container conversion fails', async () => {
-        // Spy on the private convertContainerProperty method to simulate failure
+        // Spy on the private convertAcdbContainer method to simulate failure
         const convertSpy = jest
-          .spyOn(builder as any, 'convertContainerProperty')
+          .spyOn(builder as any, 'convertAcdbContainer')
           .mockImplementation(() => {
             throw new Error('Invalid container data');
           });
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -339,14 +339,14 @@ describe('ContainerBuilder', () => {
       });
 
       it('should log warning when conversion fails', async () => {
-        // Spy on the private convertContainerProperty method to simulate failure
+        // Spy on the private convertAcdbContainer method to simulate failure
         const convertSpy = jest
-          .spyOn(builder as any, 'convertContainerProperty')
+          .spyOn(builder as any, 'convertAcdbContainer')
           .mockImplementation(() => {
             throw new Error('Test error');
           });
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -370,11 +370,11 @@ describe('ContainerBuilder', () => {
 
       it('should continue processing after a conversion failure', async () => {
         let callCount = 0;
-        const originalConvert = (builder as any).convertContainerProperty.bind(
+        const originalConvert = (builder as any).convertAcdbContainer.bind(
           builder,
         );
         const convertSpy = jest
-          .spyOn(builder as any, 'convertContainerProperty')
+          .spyOn(builder as any, 'convertAcdbContainer')
           .mockImplementation((...args: unknown[]) => {
             callCount++;
             if (callCount === 2) {
@@ -383,7 +383,7 @@ describe('ContainerBuilder', () => {
             return originalConvert(...args);
           });
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -413,12 +413,12 @@ describe('ContainerBuilder', () => {
 
       it('should include containerId in error issue', async () => {
         const convertSpy = jest
-          .spyOn(builder as any, 'convertContainerProperty')
+          .spyOn(builder as any, 'convertAcdbContainer')
           .mockImplementation(() => {
             throw new Error('Test error');
           });
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 42,
             properties: new Map(),
@@ -437,12 +437,12 @@ describe('ContainerBuilder', () => {
 
       it('should use correct error code in issues', async () => {
         const convertSpy = jest
-          .spyOn(builder as any, 'convertContainerProperty')
+          .spyOn(builder as any, 'convertAcdbContainer')
           .mockImplementation(() => {
             throw new Error('Test error');
           });
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -461,12 +461,12 @@ describe('ContainerBuilder', () => {
 
       it('should handle unknown error types', async () => {
         const convertSpy = jest
-          .spyOn(builder as any, 'convertContainerProperty')
+          .spyOn(builder as any, 'convertAcdbContainer')
           .mockImplementation(() => {
             throw 'String error'; // Non-Error object
           });
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -487,7 +487,7 @@ describe('ContainerBuilder', () => {
 
     describe('Logging', () => {
       it('should log conversion complete with success and error counts', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -516,7 +516,7 @@ describe('ContainerBuilder', () => {
           mockForeignKeyMapper,
         );
 
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -532,7 +532,7 @@ describe('ContainerBuilder', () => {
 
     describe('BuildResult Structure', () => {
       it('should return BuildResult with all required fields', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -554,7 +554,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should have warningCount always 0', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -570,7 +570,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should have entities as Container instances', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -588,7 +588,7 @@ describe('ContainerBuilder', () => {
 
     describe('System ID Assignment', () => {
       it('should call idGenerator.getNextId for each container', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -612,7 +612,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should store foreign key mappings for all containers', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),
@@ -631,7 +631,7 @@ describe('ContainerBuilder', () => {
       });
 
       it('should assign unique system IDs to each container', async () => {
-        const properties: ContainerProperty[] = [
+        const properties: AcdbContainerProperties[] = [
           {
             containerId: 1,
             properties: new Map(),

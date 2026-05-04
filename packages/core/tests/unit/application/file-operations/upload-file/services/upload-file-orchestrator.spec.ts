@@ -28,7 +28,7 @@ describe('UploadFileOrchestrator', () => {
 
     mockBulkRepo = {
       insertKeyDefinitions: jest.fn(),
-      insertModuleDefinitions: jest.fn(),
+      insertSpfModuleDefinitions: jest.fn(),
     } as unknown as jest.Mocked<BulkImportRepository>;
 
     mockUow = {
@@ -371,14 +371,14 @@ describe('UploadFileOrchestrator', () => {
             warningCount: 0,
           });
 
-        mockBulkRepo.insertModuleDefinitions.mockResolvedValue({ok: true});
+        mockBulkRepo.insertSpfModuleDefinitions.mockResolvedValue({ok: true});
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
         expect(
           mockBuilderService.buildSpfModuleDefinitions,
         ).toHaveBeenCalledWith((orchestrator as any).parsedAwsp, 1);
-        expect(mockBulkRepo.insertModuleDefinitions).toHaveBeenCalledWith([
+        expect(mockBulkRepo.insertSpfModuleDefinitions).toHaveBeenCalledWith([
           mockModuleDef,
         ]);
       });
@@ -415,7 +415,7 @@ describe('UploadFileOrchestrator', () => {
             };
           });
 
-        mockBulkRepo.insertModuleDefinitions.mockImplementation(async () => {
+        mockBulkRepo.insertSpfModuleDefinitions.mockImplementation(async () => {
           callOrder.push('insert');
           return {ok: true};
         });
@@ -440,7 +440,7 @@ describe('UploadFileOrchestrator', () => {
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
         expect(buildSpy).not.toHaveBeenCalled();
-        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+        expect(mockBulkRepo.insertSpfModuleDefinitions).not.toHaveBeenCalled();
       });
 
       it('should skip insertion when buildSpfModuleDefinitions returns empty array', async () => {
@@ -456,7 +456,7 @@ describe('UploadFileOrchestrator', () => {
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
-        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+        expect(mockBulkRepo.insertSpfModuleDefinitions).not.toHaveBeenCalled();
       });
 
       it('should handle zero-length module definitions array', async () => {
@@ -473,7 +473,7 @@ describe('UploadFileOrchestrator', () => {
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
         expect(mockBuilderService.buildSpfModuleDefinitions).toHaveBeenCalled();
-        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+        expect(mockBulkRepo.insertSpfModuleDefinitions).not.toHaveBeenCalled();
       });
     });
 
@@ -487,10 +487,10 @@ describe('UploadFileOrchestrator', () => {
           buildAndInsertSpfModuleDefinitions(mockBulkRepo),
         ).rejects.toThrow('Build failed');
 
-        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+        expect(mockBulkRepo.insertSpfModuleDefinitions).not.toHaveBeenCalled();
       });
 
-      it('should propagate error when insertModuleDefinitions throws', async () => {
+      it('should propagate error when insertSpfModuleDefinitions throws', async () => {
         const mockModuleDef = {
           systemId: 0,
           moduleDefinitionId: 100,
@@ -517,7 +517,7 @@ describe('UploadFileOrchestrator', () => {
             warningCount: 0,
           });
 
-        mockBulkRepo.insertModuleDefinitions.mockRejectedValue(
+        mockBulkRepo.insertSpfModuleDefinitions.mockRejectedValue(
           new Error('Insert failed'),
         );
 
@@ -553,7 +553,7 @@ describe('UploadFileOrchestrator', () => {
             warningCount: 0,
           });
 
-        mockBulkRepo.insertModuleDefinitions.mockResolvedValue({
+        mockBulkRepo.insertSpfModuleDefinitions.mockResolvedValue({
           ok: false,
           message: 'UNIQUE constraint failed',
         });
@@ -561,12 +561,12 @@ describe('UploadFileOrchestrator', () => {
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
         // Verify that the error was collected (implementation detail)
-        expect(mockBulkRepo.insertModuleDefinitions).toHaveBeenCalled();
+        expect(mockBulkRepo.insertSpfModuleDefinitions).toHaveBeenCalled();
       });
     });
 
     describe('Method Call Verification', () => {
-      it('should not call insertModuleDefinitions when no module definitions', async () => {
+      it('should not call insertSpfModuleDefinitions when no module definitions', async () => {
         jest
           .spyOn(mockBuilderService, 'buildSpfModuleDefinitions')
           .mockResolvedValue({
@@ -579,7 +579,7 @@ describe('UploadFileOrchestrator', () => {
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
-        expect(mockBulkRepo.insertModuleDefinitions).not.toHaveBeenCalled();
+        expect(mockBulkRepo.insertSpfModuleDefinitions).not.toHaveBeenCalled();
       });
 
       it('should call all methods exactly once when module definitions exist', async () => {
@@ -609,14 +609,16 @@ describe('UploadFileOrchestrator', () => {
             warningCount: 0,
           });
 
-        mockBulkRepo.insertModuleDefinitions.mockResolvedValue({ok: true});
+        mockBulkRepo.insertSpfModuleDefinitions.mockResolvedValue({ok: true});
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
         expect(
           mockBuilderService.buildSpfModuleDefinitions,
         ).toHaveBeenCalledTimes(1);
-        expect(mockBulkRepo.insertModuleDefinitions).toHaveBeenCalledTimes(1);
+        expect(mockBulkRepo.insertSpfModuleDefinitions).toHaveBeenCalledTimes(
+          1,
+        );
       });
 
       describe('Issue Collection', () => {
