@@ -54,23 +54,28 @@ describe('EntityIdServiceRegistry', () => {
     await setupEachTest();
 
     const project = await projectRepository.save({
+      systemId: 1,
       name: 'Test Project',
       description: 'Test',
       type: 'Offline',
     });
     const file1 = await arcDbFileRepository.save({
+      systemId: 100,
       projectSystemId: project.systemId,
       fileName: 'file1.acdb',
       description: 'File 1',
       metadata: '{}',
       isTarget: false,
+      lastReservedId: 0,
     });
     const file2 = await arcDbFileRepository.save({
+      systemId: 101,
       projectSystemId: project.systemId,
       fileName: 'file2.acdb',
       description: 'File 2',
       metadata: '{}',
       isTarget: false,
+      lastReservedId: 0,
     });
     // Initialize last_reserved_id = fileId for correct composite ID encoding
     await dataSource.query(

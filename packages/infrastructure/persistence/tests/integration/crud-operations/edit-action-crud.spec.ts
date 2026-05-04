@@ -74,17 +74,20 @@ describe('EditAction CRUD Integration Tests', () => {
    */
   async function createFileDependency(): Promise<{fileSystemId: number}> {
     const project = await projectRepository.save({
+      systemId: 1,
       name: 'Test Project',
       description: 'Test',
       type: 'Offline',
     });
 
     const file = await arcDbFileRepository.save({
+      systemId: 100,
       projectSystemId: project.systemId,
       fileName: 'test.acdb',
       description: 'Test file',
       metadata: '{}',
       isTarget: false,
+      lastReservedId: 0,
     });
 
     return {fileSystemId: file.systemId};
