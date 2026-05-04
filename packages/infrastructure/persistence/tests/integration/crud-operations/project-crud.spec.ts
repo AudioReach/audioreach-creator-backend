@@ -46,6 +46,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should insert project with Offline type', async () => {
       // Arrange
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Offline Project',
         description: 'Test offline project',
         type: 'Offline',
@@ -55,7 +56,7 @@ describe('Project CRUD Integration Tests', () => {
       const savedProject = await projectRepository.save(projectData);
 
       // Assert
-      expect(savedProject.systemId).toBeDefined();
+      expect(savedProject.systemId).toBe(1);
       expect(savedProject.name).toBe('Offline Project');
       expect(savedProject.type).toBe('Offline');
       expect(savedProject.version).toBe(1);
@@ -66,6 +67,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should insert project with Device type', async () => {
       // Arrange
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Device Project',
         description: 'Test device project',
         type: 'Device',
@@ -75,25 +77,26 @@ describe('Project CRUD Integration Tests', () => {
       const savedProject = await projectRepository.save(projectData);
 
       // Assert
-      expect(savedProject.systemId).toBeDefined();
+      expect(savedProject.systemId).toBe(1);
       expect(savedProject.name).toBe('Device Project');
       expect(savedProject.type).toBe('Device');
       expect(savedProject.version).toBe(1);
     });
 
-    it('should auto-generate systemId, creationDate, updateDate, and version', async () => {
+    it('should persist systemId, creationDate, updateDate, and version', async () => {
       // Arrange
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 42,
         name: 'Auto Fields Test',
-        description: 'Testing auto-generated fields',
+        description: 'Testing auto-managed fields',
         type: 'Offline',
       };
 
       // Act
       const savedProject = await projectRepository.save(projectData);
 
-      // Assert - All auto-managed fields should be set
-      expect(savedProject.systemId).toBeGreaterThan(0);
+      // Assert
+      expect(savedProject.systemId).toBe(42);
       expect(savedProject.creationDate).toBeInstanceOf(Date);
       expect(savedProject.updateDate).toBeInstanceOf(Date);
       expect(savedProject.version).toBe(1);
@@ -104,6 +107,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should query back inserted project by systemId', async () => {
       // Arrange
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Query Test Project',
         description: 'Project for query testing',
         type: 'Offline',
@@ -117,7 +121,7 @@ describe('Project CRUD Integration Tests', () => {
 
       // Assert
       expect(queriedProject).toBeDefined();
-      expect(queriedProject!.systemId).toBe(savedProject.systemId);
+      expect(queriedProject!.systemId).toBe(1);
       expect(queriedProject!.name).toBe('Query Test Project');
       expect(queriedProject!.description).toBe('Project for query testing');
       expect(queriedProject!.type).toBe('Offline');
@@ -126,6 +130,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should query back inserted project by name', async () => {
       // Arrange
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Unique Name Project',
         description: 'Testing name query',
         type: 'Device',
@@ -147,11 +152,13 @@ describe('Project CRUD Integration Tests', () => {
     it('should enforce unique constraint on project name', async () => {
       // Arrange
       const projectData1: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Duplicate Name',
         description: 'First project',
         type: 'Offline',
       };
       const projectData2: EntityRowForInsert<ProjectRow> = {
+        systemId: 2,
         name: 'Duplicate Name',
         description: 'Second project with same name',
         type: 'Device',
@@ -167,11 +174,13 @@ describe('Project CRUD Integration Tests', () => {
     it('should allow different projects with different names', async () => {
       // Arrange
       const projectData1: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Project One',
         description: 'First project',
         type: 'Offline',
       };
       const projectData2: EntityRowForInsert<ProjectRow> = {
+        systemId: 2,
         name: 'Project Two',
         description: 'Second project',
         type: 'Device',
@@ -192,6 +201,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should establish one-to-many relationship with ArcDbFile', async () => {
       // Arrange - Create project
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Project with Files',
         description: 'Testing file relations',
         type: 'Offline',
@@ -200,11 +210,13 @@ describe('Project CRUD Integration Tests', () => {
 
       // Create ArcDbFile linked to project
       const fileData: EntityRowForInsert<ArcDbFileRow> = {
+        systemId: 100,
         projectSystemId: savedProject.systemId,
         fileName: 'test.acdb',
         description: 'Test ACDB file',
         metadata: '{"version": "1.0"}',
         isTarget: false,
+        lastReservedId: 0,
       };
       await arcDbFileRepository.save(fileData);
 
@@ -225,6 +237,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should support multiple files per project', async () => {
       // Arrange - Create project
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Multi-File Project',
         description: 'Project with multiple files',
         type: 'Device',
@@ -233,18 +246,22 @@ describe('Project CRUD Integration Tests', () => {
 
       // Create multiple files
       const file1: EntityRowForInsert<ArcDbFileRow> = {
+        systemId: 100,
         projectSystemId: savedProject.systemId,
         fileName: 'file1.acdb',
         description: 'First ACDB file',
         metadata: '{}',
         isTarget: false,
+        lastReservedId: 0,
       };
       const file2: EntityRowForInsert<ArcDbFileRow> = {
+        systemId: 101,
         projectSystemId: savedProject.systemId,
         fileName: 'file2.awsp',
         description: 'Workspace file',
         metadata: '{}',
         isTarget: true,
+        lastReservedId: 0,
       };
       await arcDbFileRepository.save(file1);
       await arcDbFileRepository.save(file2);
@@ -265,6 +282,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should enforce unique constraint on projectSystemId + fileName', async () => {
       // Arrange - Create project
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Unique File Test',
         description: 'Testing unique file constraint',
         type: 'Offline',
@@ -273,21 +291,25 @@ describe('Project CRUD Integration Tests', () => {
 
       // Create first file
       const file1: EntityRowForInsert<ArcDbFileRow> = {
+        systemId: 100,
         projectSystemId: savedProject.systemId,
         fileName: 'duplicate.acdb',
         description: 'First file',
         metadata: '{}',
         isTarget: false,
+        lastReservedId: 0,
       };
       await arcDbFileRepository.save(file1);
 
       // Try to create second file with same name in same project
       const file2: EntityRowForInsert<ArcDbFileRow> = {
+        systemId: 101,
         projectSystemId: savedProject.systemId,
         fileName: 'duplicate.acdb',
         description: 'Second file with same name',
         metadata: '{}',
         isTarget: false,
+        lastReservedId: 0,
       };
 
       // Assert - Should fail due to unique constraint
@@ -297,11 +319,13 @@ describe('Project CRUD Integration Tests', () => {
     it('should allow same fileName in different projects', async () => {
       // Arrange - Create two projects
       const project1Data: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Project 1',
         description: 'First project',
         type: 'Offline',
       };
       const project2Data: EntityRowForInsert<ProjectRow> = {
+        systemId: 2,
         name: 'Project 2',
         description: 'Second project',
         type: 'Device',
@@ -311,18 +335,22 @@ describe('Project CRUD Integration Tests', () => {
 
       // Create files with same name in different projects
       const file1: EntityRowForInsert<ArcDbFileRow> = {
+        systemId: 100,
         projectSystemId: project1.systemId,
         fileName: 'common.acdb',
         description: 'File in project 1',
         metadata: '{}',
         isTarget: false,
+        lastReservedId: 0,
       };
       const file2: EntityRowForInsert<ArcDbFileRow> = {
+        systemId: 101,
         projectSystemId: project2.systemId,
         fileName: 'common.acdb',
         description: 'File in project 2',
         metadata: '{}',
         isTarget: false,
+        lastReservedId: 0,
       };
 
       // Act & Assert - Should succeed
@@ -339,6 +367,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should initialize version to 1 on insert', async () => {
       // Arrange
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Version Test',
         description: 'Testing version field',
         type: 'Offline',
@@ -354,6 +383,7 @@ describe('Project CRUD Integration Tests', () => {
     it('should increment version on update', async () => {
       // Arrange
       const projectData: EntityRowForInsert<ProjectRow> = {
+        systemId: 1,
         name: 'Version Update Test',
         description: 'Original description',
         type: 'Offline',
