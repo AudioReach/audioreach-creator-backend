@@ -3,9 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-// IMPORTANT: reflect-metadata must be imported first, before any other imports
-// This polyfill is required for class-transformer decorators to work in worker threads
-import 'reflect-metadata';
 import {parentPort, workerData} from 'node:worker_threads';
 import type {WorkerTask, WorkerResult} from '@arc/core';
 import {NodeRegistry} from './node-registry.adapter.js';

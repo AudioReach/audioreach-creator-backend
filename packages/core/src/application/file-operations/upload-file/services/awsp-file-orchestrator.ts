@@ -3,18 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-// IMPORTANT: reflect-metadata must be imported first, before any other imports
-// This polyfill is required for class-transformer decorators to work
-
-import 'reflect-metadata';
-
-import {plainToInstance} from 'class-transformer';
 import {AwspParser} from './awsp-parser.js';
 import {
   FILE_NAMES,
   FILE_EXTENSIONS,
 } from '../../shared/constants/definition-block-names.js';
-import {Configuration} from '../../shared/awsp-serializers/v1/configuration/index.js';
+import {Configuration} from '../../shared/awsp-serializers/v1/configuration/configuration.js';
 import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
@@ -149,22 +143,13 @@ export class AwspFileOrchestrator {
         );
       }
 
-      // Parse the entire configuration file structure using class-transformer
-      const configurationRoot = plainToInstance(Configuration, configJsonData, {
-        excludeExtraneousValues: true,
-      });
+      // Parse and hydrate to class instance using fromJSON (which calls ConfigurationSchema.parse internally)
+      const configurationInstance = Configuration.fromJSON(configJsonData);
 
-      // Validate that configuration was parsed successfully
-      if (!configurationRoot || !configurationRoot.configuration) {
-        throw new Error(
-          'Failed to parse configuration.json: configuration data is missing',
-        );
-      }
+      // Extract the nested configuration data (already a class instance)
+      const configurationData = configurationInstance.configuration;
 
-      // Extract the nested configuration data
-      const configurationData = configurationRoot.configuration;
-
-      // Set configuration data in ParsedAwsp
+      // Set configuration data in ParsedAwsp (no cast needed)
       parsedAwsp.setConfiguration(configurationData);
 
       this.logger?.logInfo({

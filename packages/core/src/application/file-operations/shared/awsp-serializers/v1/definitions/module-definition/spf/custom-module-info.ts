@@ -3,40 +3,50 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Expose} from 'class-transformer';
-import {IsNotEmpty, IsNumber, IsString} from 'class-validator';
+import {AwspCustomModuleInfoSchema} from './custom-module-info.schema.js';
+import {BaseDefinition} from '../../common/base-definition.js';
 
 /**
  * Represents custom module information.
  */
-export class AwspCustomModuleInfo {
+export class AwspCustomModuleInfo extends BaseDefinition {
   /** Major type identifier (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsNumber()
   majorTypeID!: number;
 
   /** Interface type identifier (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsNumber()
   interfaceTypeID!: number;
 
   /** Interface version identifier (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsNumber()
   interfaceVersionID!: number;
 
   /** File name (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsString()
   fileName!: string;
 
   /** Entry point tag (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsString()
   entryPointTag!: string;
+
+  /**
+   * Parse JSON data into AwspCustomModuleInfo instance
+   * @param data - Raw JSON data
+   * @returns Validated AwspCustomModuleInfo instance
+   * @throws ZodError if validation fails
+   */
+  static fromJSON(data: unknown): AwspCustomModuleInfo {
+    const validated = AwspCustomModuleInfoSchema.parse(data);
+    return Object.assign(new AwspCustomModuleInfo(), validated);
+  }
+
+  /**
+   * Serialize AwspCustomModuleInfo to JSON
+   * @returns Plain object suitable for JSON serialization
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      majorTypeID: this.majorTypeID,
+      interfaceTypeID: this.interfaceTypeID,
+      interfaceVersionID: this.interfaceVersionID,
+      fileName: this.fileName,
+      entryPointTag: this.entryPointTag,
+    };
+  }
 }

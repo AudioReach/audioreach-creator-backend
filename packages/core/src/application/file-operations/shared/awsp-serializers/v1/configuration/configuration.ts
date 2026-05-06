@@ -3,178 +3,222 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Expose, Type} from 'class-transformer';
 import {
-  IsIn,
-  IsString,
-  IsNumber,
-  IsBoolean,
-  IsArray,
-  ValidateNested,
-} from 'class-validator';
-import {
-  MODULE_PORT_STRATEGIES,
-  PROCESSOR_DOMAINS,
-  ALSA_FILE_TYPES,
   type ModulePortStrategy,
   type ProcessorDomain,
   type AlsaFileType,
 } from './types.js';
+import {
+  MetadataSchema,
+  BufferSizeSchema,
+  ProcessorConfigSchema,
+  RtcConfigurationSchema,
+  AlsaGroupSchema,
+  AlsaLibConfigurationSchema,
+  ConfigurationDataSchema,
+  ConfigurationSchema,
+} from './configuration.schema.js';
+import {BaseDefinition} from '../definitions/common/base-definition.js';
 
 /**
  * Represents metadata information about the configuration file.
  * Contains information about when the file was last modified and what tool generated it.
  */
-export class Metadata {
+export class Metadata extends BaseDefinition {
   /**
    * ISO 8601 timestamp of when the configuration was last modified
    * @example "2026-02-03T04:06:17Z"
    */
-  @Expose()
-  @IsString()
   lastModified!: string;
 
   /**
    * Name and version of the tool that generated this configuration
    * @example "QwspConverter-1.0.0"
    */
-  @Expose()
-  @IsString()
   generator!: string;
+
+  static fromJSON(data: unknown): Metadata {
+    const validated = MetadataSchema.parse(data);
+    return Object.assign(new Metadata(), validated);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      lastModified: this.lastModified,
+      generator: this.generator,
+    };
+  }
 }
 
 /**
  * Represents buffer size configuration for a processor.
  * Defines memory allocation sizes for PID and RTC buffers.
  */
-export class BufferSize {
+export class BufferSize extends BaseDefinition {
   /**
    * Size of the PID (Process ID) buffer in bytes
    * @example 8192
    */
-  @Expose()
-  @IsNumber()
   pidSize!: number;
 
   /**
    * Size of the RTC (Real-Time Clock) buffer in bytes
    * @example 2097152
    */
-  @Expose()
-  @IsNumber()
   rtcSize!: number;
 
   /**
    * Whether the buffer configuration is enabled
    */
-  @Expose()
-  @IsBoolean()
   isEnabled!: boolean;
+
+  static fromJSON(data: unknown): BufferSize {
+    const validated = BufferSizeSchema.parse(data);
+    return Object.assign(new BufferSize(), validated);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      pidSize: this.pidSize,
+      rtcSize: this.rtcSize,
+      isEnabled: this.isEnabled,
+    };
+  }
 }
 
 /**
  * Represents configuration for a single processor.
  * Contains processor identification and buffer settings.
  */
-export class ProcessorConfig {
+export class ProcessorConfig extends BaseDefinition {
   /**
    * Name of the processor
    * @example "ADSP"
    */
-  @Expose()
-  @IsString()
   name!: string;
 
   /**
    * Unique identifier for the processor
    * @example 2
    */
-  @Expose()
-  @IsNumber()
   id!: number;
 
   /**
    * Buffer size configuration for this processor
    */
-  @Expose()
-  @Type(() => BufferSize)
-  @ValidateNested()
   bufferSize!: BufferSize;
+
+  static fromJSON(data: unknown): ProcessorConfig {
+    const validated = ProcessorConfigSchema.parse(data);
+    return this.hydrateInstance(new ProcessorConfig(), validated, [
+      {field: 'bufferSize', hydrator: BufferSize},
+    ]);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      id: this.id,
+      bufferSize: this.serializeField(this.bufferSize),
+    };
+  }
 }
 
 /**
  * Represents RTC (Real-Time Clock) configuration.
  * Contains settings for processor configurations in the RTC subsystem.
  */
-export class RtcConfiguration {
+export class RtcConfiguration extends BaseDefinition {
   /**
    * Array of processor configurations
    */
-  @Expose()
-  @IsArray()
-  @ValidateNested({each: true})
-  @Type(() => ProcessorConfig)
   processors!: ProcessorConfig[];
+
+  static fromJSON(data: unknown): RtcConfiguration {
+    const validated = RtcConfigurationSchema.parse(data);
+    return this.hydrateInstance(new RtcConfiguration(), validated, [
+      {field: 'processors', hydrator: ProcessorConfig, isArray: true},
+    ]);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      processors: this.serializeField(this.processors),
+    };
+  }
 }
 
 /**
  * Represents a group in ALSA lib configuration.
  * Groups are used to organize properties for ALSA library integration.
  */
-export class AlsaGroup {
+export class AlsaGroup extends BaseDefinition {
   /**
    * Unique identifier for the group
    * @example 1
    */
-  @Expose()
-  @IsNumber()
   id!: number;
 
   /**
    * Human-readable name for the group
    * @example "Group 1"
    */
-  @Expose()
-  @IsString()
   name!: string;
 
   /**
    * Array of property IDs that belong to this group
    * @example [1, 4]
    */
-  @Expose()
-  @IsArray()
-  @IsNumber({}, {each: true})
   propertyIds!: number[];
+
+  static fromJSON(data: unknown): AlsaGroup {
+    const validated = AlsaGroupSchema.parse(data);
+    return Object.assign(new AlsaGroup(), validated);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      id: this.id,
+      name: this.name,
+      propertyIds: this.propertyIds,
+    };
+  }
 }
 
 /**
  * Represents ALSA (Advanced Linux Sound Architecture) library configuration.
  * Contains settings for ALSA integration including file format and property groups.
  */
-export class AlsaLibConfiguration {
+export class AlsaLibConfiguration extends BaseDefinition {
   /**
    * Whether to include TLV (Type-Length-Value) header in the output
    */
-  @Expose()
-  @IsBoolean()
   includeTlvHeader!: boolean;
 
   /**
    * File type for ALSA configuration output
    */
-  @Expose()
-  @IsIn(Object.values(ALSA_FILE_TYPES))
   fileType!: AlsaFileType;
 
   /**
    * Array of property groups for ALSA configuration
    */
-  @Expose()
-  @IsArray()
-  @ValidateNested({each: true})
-  @Type(() => AlsaGroup)
   groups!: AlsaGroup[];
+
+  static fromJSON(data: unknown): AlsaLibConfiguration {
+    const validated = AlsaLibConfigurationSchema.parse(data);
+    return this.hydrateInstance(new AlsaLibConfiguration(), validated, [
+      {field: 'groups', hydrator: AlsaGroup, isArray: true},
+    ]);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      includeTlvHeader: this.includeTlvHeader,
+      fileType: this.fileType,
+      groups: this.serializeField(this.groups),
+    };
+  }
 }
 
 /**
@@ -182,64 +226,85 @@ export class AlsaLibConfiguration {
  * Contains all system-wide settings including port strategy, processor domain,
  * RTC configuration, and ALSA library settings.
  */
-export class ConfigurationData {
+export class ConfigurationData extends BaseDefinition {
   /**
    * Strategy for assigning port IDs to module ports (required)
    */
-  @Expose()
-  @IsIn(Object.values(MODULE_PORT_STRATEGIES))
   portStrategy!: ModulePortStrategy;
 
   /**
    * Default processor domain for the system
    */
-  @Expose()
-  @IsIn(Object.values(PROCESSOR_DOMAINS))
   defaultProcessorDomain!: ProcessorDomain;
 
   /**
    * RTC (Real-Time Clock) configuration settings
    */
-  @Expose()
-  @Type(() => RtcConfiguration)
-  @ValidateNested()
   rtcConfiguration!: RtcConfiguration;
 
   /**
    * ALSA library configuration settings
    */
-  @Expose()
-  @Type(() => AlsaLibConfiguration)
-  @ValidateNested()
   alsaLibConfiguration!: AlsaLibConfiguration;
+
+  static fromJSON(data: unknown): ConfigurationData {
+    const validated = ConfigurationDataSchema.parse(data);
+    return this.hydrateInstance(new ConfigurationData(), validated, [
+      {field: 'rtcConfiguration', hydrator: RtcConfiguration},
+      {field: 'alsaLibConfiguration', hydrator: AlsaLibConfiguration},
+    ]);
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      portStrategy: this.portStrategy,
+      defaultProcessorDomain: this.defaultProcessorDomain,
+      rtcConfiguration: this.serializeField(this.rtcConfiguration),
+      alsaLibConfiguration: this.serializeField(this.alsaLibConfiguration),
+    };
+  }
 }
 
 /**
  * Root configuration class representing the entire configuration.json file structure.
  * This is the top-level class that wraps version, metadata, and configuration data.
  */
-export class Configuration {
+export class Configuration extends BaseDefinition {
   /**
    * Version number of the configuration file format
    * @example 1
    */
-  @Expose({name: '$version'})
-  @IsNumber()
   version!: number;
 
   /**
    * Metadata about the configuration file
    */
-  @Expose({name: '$metadata'})
-  @Type(() => Metadata)
-  @ValidateNested()
   metadata!: Metadata;
 
   /**
    * The actual configuration data
    */
-  @Expose()
-  @Type(() => ConfigurationData)
-  @ValidateNested()
   configuration!: ConfigurationData;
+
+  static fromJSON(data: unknown): Configuration {
+    const validated = ConfigurationSchema.parse(data);
+    const instance = new Configuration();
+
+    // Map $version and $metadata to version and metadata
+    instance.version = validated.$version;
+    instance.metadata = Metadata.fromJSON(validated.$metadata);
+    instance.configuration = ConfigurationData.fromJSON(
+      validated.configuration,
+    );
+
+    return instance;
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      $version: this.version,
+      $metadata: this.serializeField(this.metadata),
+      configuration: this.serializeField(this.configuration),
+    };
+  }
 }

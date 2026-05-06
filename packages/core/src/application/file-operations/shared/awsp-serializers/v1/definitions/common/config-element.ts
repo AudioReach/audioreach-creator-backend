@@ -7,6 +7,7 @@ import {AwspBaseElement} from './base-element.js';
 import type {DataType} from './type/data-type.js';
 import type {DisplayType} from './type/display-type.js';
 import type {ElementPolicy} from './type/element-policy.js';
+import {ConfigElementSchema} from './config-element.schema.js';
 
 /**
  * Represents a configuration element with data type and display properties.
@@ -45,4 +46,36 @@ export class AwspConfigElement extends AwspBaseElement {
 
   /** List of default data dependencies (optional) */
   defaultDataDepends?: string[];
+
+  /**
+   * Parse JSON data into AwspConfigElement instance
+   * @param data - Raw JSON data
+   * @returns Validated AwspConfigElement instance
+   * @throws ZodError if validation fails
+   */
+  static fromJSON(data: unknown): AwspConfigElement {
+    const validated = ConfigElementSchema.parse(data);
+    return Object.assign(new AwspConfigElement(), validated);
+  }
+
+  /**
+   * Serialize AwspConfigElement to JSON
+   * @returns Plain object suitable for JSON serialization
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      ...this.serializeBaseElementFields(),
+      dataType: this.dataType,
+      defaultValue: this.defaultValue,
+      displayType: this.displayType,
+      policy: this.policy,
+      isReadOnly: this.isReadOnly,
+      displayName: this.displayName,
+      unitStr: this.unitStr,
+      qFormat: this.qFormat,
+      precision: this.precision,
+      linkedByForFormula: this.linkedByForFormula,
+      defaultDataDepends: this.defaultDataDepends,
+    };
+  }
 }

@@ -18,4 +18,17 @@ export abstract class AwspBaseArrayElement extends AwspBaseElement {
 
   /** List of copy source information (required) */
   copySrcInfoList!: string[];
+
+  /**
+   * Helper method for subclasses to serialize base array element fields
+   * @returns Base array element fields as plain object
+   */
+  protected serializeBaseArrayElementFields(): Record<string, unknown> {
+    return {
+      ...this.serializeBaseElementFields(),
+      arrayLength: this.arrayLength,
+      arrayLenFormulaStr: this.arrayLenFormulaStr,
+      copySrcInfoList: this.copySrcInfoList,
+    };
+  }
 }

@@ -3,28 +3,43 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Expose} from 'class-transformer';
-import {IsNotEmpty, IsNumber, IsString, IsOptional} from 'class-validator';
+import {TagKeyDefinitionSchema} from './tag-key-definition.schema.js';
+import {BaseDefinition} from '../common/base-definition.js';
 
 /**
  * Represents a tag key definition with identifier, name, and enumeration value.
+ * Note: Parsing now uses Zod schemas. This class is kept for domain methods and database entities.
  */
-export class TagKeyDefinition {
+export class TagKeyDefinition extends BaseDefinition {
   /** Unique identifier for the tag key definition */
-  @Expose()
-  @IsNotEmpty()
-  @IsNumber()
   id!: number;
 
   /** Name of the tag key definition */
-  @Expose()
-  @IsNotEmpty()
-  @IsString()
   name!: string;
 
   /** optional enumeration value associated with the tag key definition */
-  @Expose()
-  @IsOptional()
-  @IsString()
   enumValue?: string;
+
+  /**
+   * Parse JSON data into TagKeyDefinition instance
+   * @param data - Raw JSON data
+   * @returns Validated TagKeyDefinition instance
+   * @throws ZodError if validation fails
+   */
+  static fromJSON(data: unknown): TagKeyDefinition {
+    const validated = TagKeyDefinitionSchema.parse(data);
+    return Object.assign(new TagKeyDefinition(), validated);
+  }
+
+  /**
+   * Serialize TagKeyDefinition to JSON
+   * @returns Plain object suitable for JSON serialization
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      id: this.id,
+      name: this.name,
+      enumValue: this.enumValue,
+    };
+  }
 }

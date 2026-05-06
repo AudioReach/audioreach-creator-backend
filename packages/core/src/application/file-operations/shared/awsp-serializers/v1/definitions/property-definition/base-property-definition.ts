@@ -3,46 +3,40 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Expose} from 'class-transformer';
-import {
-  IsNotEmpty,
-  IsNumber,
-  IsString,
-  IsArray,
-  IsOptional,
-} from 'class-validator';
 import type {AwspDefinitionElement} from '../common/element-types.js';
+import {BaseDefinition} from '../common/base-definition.js';
 
 /**
  * Represents a base property definition with core identification and elements.
+ * Note: Parsing now uses Zod schemas. This class is kept for domain methods and database entities.
  */
-export abstract class BasePropertyDefinition {
+export abstract class BasePropertyDefinition extends BaseDefinition {
   /** Unique identifier for the property definition (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsNumber()
   id!: number;
 
   /** Name of the property definition (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsString()
   name!: string;
 
   /** Description of the property definition (optional) */
-  @Expose()
-  @IsOptional()
-  @IsString()
   description?: string;
 
   /** Maximum size for the property (optional) */
-  @Expose()
-  @IsOptional()
-  @IsNumber()
   maxSize?: number;
 
   /** List of element associated with this property (required) */
-  @Expose()
-  @IsArray()
   elements!: AwspDefinitionElement[];
+
+  /**
+   * Helper method for subclasses to serialize base property fields
+   * @returns Base property fields as plain object
+   */
+  protected serializeBasePropertyFields(): Record<string, unknown> {
+    return {
+      id: this.id,
+      name: this.name,
+      description: this.description,
+      maxSize: this.maxSize,
+      elements: this.serializeField(this.elements),
+    };
+  }
 }
