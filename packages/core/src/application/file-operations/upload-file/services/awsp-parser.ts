@@ -3,31 +3,30 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-// IMPORTANT: reflect-metadata must be imported first, before any other imports
-// This polyfill is required for class-transformer decorators to work
-import 'reflect-metadata';
-
-import {plainToInstance} from 'class-transformer';
-import type {ClassConstructor} from 'class-transformer';
-import {DefinitionValidatorService} from './validations/definition-validator.service.js';
+import {z} from 'zod';
 import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-names.js';
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../ports/worker/worker-types.js';
 import type {JsonObject} from '../../../../shared/types/json-types.js';
+import {type DefinitionCollection} from '../models/parsed-awsp.js';
 import {
-  type DefinitionBlockName,
-  type DefinitionCollection,
-} from '../models/parsed-awsp.js';
-import {
-  ContainerType,
-  DriverModuleDefinition,
-  DriverPropertyDefinition,
+  KeyDefinitionSchema,
+  TagDefinitionSchema,
+  SpfPropertyDefinitionSchema,
+  DriverPropertyDefinitionSchema,
+  ContainerTypeSchema,
+  ProcessorDefinitionSchema,
+  AwspSpfModuleDefinitionSchema,
+  AwspDriverModuleDefinitionSchema,
   AwspKeyDefinition,
-  ProcessorDefinition,
-  AwspSpfModuleDefinition,
-  SpfPropertyDefinition,
   TagDefinition,
+  SpfPropertyDefinition,
+  DriverPropertyDefinition,
+  AwspSpfModuleDefinition,
+  DriverModuleDefinition,
+  ProcessorDefinition,
+  ContainerType,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
 
 /**
@@ -45,16 +44,13 @@ export interface DefinitionParseInput {
  * Contains all definition parsing business logic with parallel processing support.
  */
 export class AwspParser {
-  private readonly definitionValidator: DefinitionValidatorService;
-
-  constructor(private readonly workerPool?: WorkerPoolPort) {
-    this.definitionValidator = new DefinitionValidatorService();
-  }
+  constructor(private readonly workerPool?: WorkerPoolPort) {}
 
   /**
    * Static method for parsing definitions in worker threads.
    * This method is called by the worker registry and contains the core parsing logic.
    * @param input - Definition parsing input containing blocks to parse
+   * @param logger - Optional logger for debug output
    * @returns Parsed definitions object (only includes blocks with data)
    */
   static parse(
@@ -68,26 +64,29 @@ export class AwspParser {
     )) {
       if (blockData && Array.isArray(blockData) && blockData.length > 0) {
         try {
-          // Get the appropriate class type for this block
-          const classType = AwspParser.getClassTypeForBlock(blockName);
+          // Get the appropriate Zod schema for this block
+          const schema = AwspParser.getSchemaForBlock(blockName);
 
-          // Transform the data using class-transformer
-          const parsedData = plainToInstance(classType, blockData, {
-            excludeExtraneousValues: true,
-          });
+          // Parse and validate with Zod
+          const validated = schema.parse(blockData) as unknown[];
 
-          results[blockName] = parsedData as DefinitionCollection;
+          // Hydrate to class instances using fromJSON
+          const hydrated = AwspParser.hydrateDefinitions(blockName, validated);
+
+          results[blockName] = hydrated;
         } catch (error) {
+          if (error instanceof z.ZodError) {
+            // Format Zod validation errors
+            const errorMessages = error.errors
+              .map(e => `${e.path.join('.')}: ${e.message}`)
+              .join(', ');
+            throw new Error(`Failed to parse ${blockName}: ${errorMessages}`);
+          }
           if (error instanceof Error) {
             throw new Error(`Failed to parse ${blockName}: ${error.message}`);
           }
           throw new Error(`Failed to parse ${blockName}: Unknown error`);
         }
-      } else {
-        // Log warning for empty or missing blocks
-        console.warn(
-          `Definition block '${blockName}' is empty or missing - skipping`,
-        );
       }
     }
 
@@ -95,31 +94,73 @@ export class AwspParser {
   }
 
   /**
-   * Static method to map definition block names to their corresponding class constructors.
+   * Static method to map definition block names to their corresponding Zod schemas.
    * This enables generic definition parsing without hardcoded type logic.
    */
-  private static getClassTypeForBlock(
-    blockName: string,
-  ): ClassConstructor<unknown> {
-    const classMap: Record<string, ClassConstructor<unknown>> = {
-      [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: AwspKeyDefinition,
-      [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: TagDefinition,
-      [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: SpfPropertyDefinition,
-      [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
-        DriverPropertyDefinition,
-      [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: AwspSpfModuleDefinition,
-      [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]:
-        DriverModuleDefinition,
-      [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: ProcessorDefinition,
-      [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]: ContainerType,
+  private static getSchemaForBlock(blockName: string): z.ZodSchema {
+    const schemaMap: Record<string, z.ZodSchema> = {
+      [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: z.array(KeyDefinitionSchema),
+      [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: z.array(TagDefinitionSchema),
+      [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: z.array(
+        SpfPropertyDefinitionSchema,
+      ),
+      [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]: z.array(
+        DriverPropertyDefinitionSchema,
+      ),
+      [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: z.array(
+        AwspSpfModuleDefinitionSchema,
+      ),
+      [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]: z.array(
+        AwspDriverModuleDefinitionSchema,
+      ),
+      [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: z.array(
+        ProcessorDefinitionSchema,
+      ),
+      [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]:
+        z.array(ContainerTypeSchema),
     };
 
-    const classType = classMap[blockName];
-    if (!classType) {
+    const schema = schemaMap[blockName];
+    if (!schema) {
       throw new Error(`Unknown definition block name: ${blockName}`);
     }
+    return schema;
+  }
 
-    return classType;
+  /**
+   * Hydrate plain Zod-validated objects to class instances using fromJSON.
+   * @param blockName - The definition block name
+   * @param data - Array of plain objects from Zod validation
+   * @returns Array of class instances
+   */
+  private static hydrateDefinitions(
+    blockName: string,
+    data: unknown[],
+  ): DefinitionCollection {
+    const hydratorMap: Record<string, {fromJSON: (data: unknown) => unknown}> =
+      {
+        [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: AwspKeyDefinition,
+        [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: TagDefinition,
+        [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]:
+          SpfPropertyDefinition,
+        [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
+          DriverPropertyDefinition,
+        [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]:
+          AwspSpfModuleDefinition,
+        [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]:
+          DriverModuleDefinition,
+        [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: ProcessorDefinition,
+        [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]: ContainerType,
+      };
+
+    const Hydrator = hydratorMap[blockName];
+    if (!Hydrator) {
+      throw new Error(`No hydrator found for definition block: ${blockName}`);
+    }
+
+    return data.map((item: unknown) =>
+      Hydrator.fromJSON(item),
+    ) as DefinitionCollection;
   }
 
   /**
@@ -149,22 +190,6 @@ export class AwspParser {
       throw new Error('Parsing failed: Unknown error');
     }
 
-    // TODO: Validation temporarily disabled - will be re-enabled after review
-    // The definitionValidator is kept as a field for future use
-    if (this.definitionValidator) {
-      // Intentionally empty - placeholder for future validation logic
-    }
-
-    /* TODO: commenting validation for now, check and add back later.
-    // Step 2: Validate parsed definitions
-    try {
-      await this.definitionValidator.validateAllDefinitions(parsedDefinitions);
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Validation failed: ${error.message}`);
-      }
-      throw new Error('Validation failed: Unknown error');
-    }*/
     return parsedDefinitions;
   }
 
@@ -245,7 +270,7 @@ export class AwspParser {
     const results = await this.workerPool.executeParallel<
       DefinitionParseInput,
       unknown,
-      Record<DefinitionBlockName, DefinitionCollection>
+      Record<string, DefinitionCollection>
     >(tasks);
 
     // Process results
@@ -261,8 +286,9 @@ export class AwspParser {
       }
 
       // Merge results from worker into final definitions object
-      const workerResults = result.data as Record<string, DefinitionCollection>;
-      Object.assign(parsedDefinitions, workerResults);
+      if (result.data) {
+        Object.assign(parsedDefinitions, result.data);
+      }
     }
 
     return parsedDefinitions;

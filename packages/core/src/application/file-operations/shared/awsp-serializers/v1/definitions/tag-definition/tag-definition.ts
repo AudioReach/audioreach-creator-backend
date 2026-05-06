@@ -3,63 +3,66 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Expose, Type} from 'class-transformer';
-import {
-  IsNotEmpty,
-  IsNumber,
-  IsString,
-  IsOptional,
-  IsBoolean,
-  IsArray,
-  ValidateNested,
-} from 'class-validator';
 import {TagKeyDefinition} from './tag-key-definition.js';
+import {TagDefinitionSchema} from './tag-definition.schema.js';
+import {BaseDefinition} from '../common/base-definition.js';
 
 /**
  * Represents a tag definition with metadata and supported keys.
+ * Note: Parsing now uses Zod schemas. This class is kept for domain methods and database entities.
  */
-export class TagDefinition {
+export class TagDefinition extends BaseDefinition {
   /** Unique identifier for the tag definition (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsNumber()
   id!: number;
 
   /** Name of the tag definition (required) */
-  @Expose()
-  @IsNotEmpty()
-  @IsString()
   name!: string;
 
   /** Description of the tag definition (optional) */
-  @Expose()
-  @IsOptional()
-  @IsString()
   description?: string;
 
   /** Collection of supported key definitions for this tag (optional) */
-  @Expose()
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({each: true})
-  @Type(() => TagKeyDefinition)
   supportedKeys?: TagKeyDefinition[];
 
   /** Indicates whether this tag is voice-related (optional) */
-  @Expose()
-  @IsOptional()
-  @IsBoolean()
   isVoice?: boolean;
 
   /** Enumeration name associated with the tag definition (optional) */
-  @Expose()
-  @IsOptional()
-  @IsString()
   enumName?: string;
 
   /** Enumeration value associated with the tag definition (optional) */
-  @Expose()
-  @IsOptional()
-  @IsString()
   enumValue?: string;
+
+  /**
+   * Parse JSON data into TagDefinition instance
+   * @param data - Raw JSON data
+   * @returns Validated TagDefinition instance
+   * @throws ZodError if validation fails
+   */
+  static fromJSON(data: unknown): TagDefinition {
+    const validated = TagDefinitionSchema.parse(data);
+    return this.hydrateInstance(
+      new TagDefinition(),
+      validated,
+      validated.supportedKeys
+        ? [{field: 'supportedKeys', hydrator: TagKeyDefinition, isArray: true}]
+        : [],
+    );
+  }
+
+  /**
+   * Serialize TagDefinition to JSON
+   * @returns Plain object suitable for JSON serialization
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      id: this.id,
+      name: this.name,
+      description: this.description,
+      supportedKeys: this.serializeField(this.supportedKeys),
+      isVoice: this.isVoice,
+      enumName: this.enumName,
+      enumValue: this.enumValue,
+    };
+  }
 }

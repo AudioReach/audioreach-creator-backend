@@ -41,3 +41,17 @@ export {ProcessorDefinition} from './processor-definition/processor-definition.j
 
 // Container Type Definitions
 export {ContainerType} from './container-type/container-type.js';
+
+// Zod Schemas
+export {TagDefinitionSchema} from './tag-definition/tag-definition.schema.js';
+export {TagKeyDefinitionSchema} from './tag-definition/tag-key-definition.schema.js';
+export {KeyDefinitionSchema} from './key-definition/key-definition.schema.js';
+export {ValueDefinitionSchema} from './key-definition/value-definition.schema.js';
+export {BasePropertyDefinitionSchema} from './property-definition/base-property-definition.schema.js';
+export {SpfPropertyDefinitionSchema} from './property-definition/spf-property-definition.schema.js';
+export {DriverPropertyDefinitionSchema} from './property-definition/driver-property-definition.schema.js';
+export {ContainerTypeSchema} from './container-type/container-type.schema.js';
+export {ProcessorDefinitionSchema} from './processor-definition/processor-definition.schema.js';
+export {BaseElementSchema} from './common/base-element.schema.js';
+export {AwspSpfModuleDefinitionSchema} from './module-definition/spf/spf-module-definition.schema.js';
+export {AwspDriverModuleDefinitionSchema} from './module-definition/driver/driver-module-definition.schema.js';
