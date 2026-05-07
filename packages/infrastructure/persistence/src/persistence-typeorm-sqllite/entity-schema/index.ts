@@ -28,11 +28,11 @@ import {
   DriverModuleSchema,
   DkvSchema,
   DkvParameterPayloadSchema,
+  DkvValuesSchema,
 } from './driver-module-data/driver-module.js';
 import {ModuleManagerDataSchema} from './module-manager/module-manager-data.js';
 import {ArcDbFileSchema} from './project-data/arc-db-file.schema.js';
 import {ProjectSchema} from './project-data/project.schema.js';
-import {KeyVectorSchema} from './usecase-data/common/key-vector-schema.js';
 import {ContainerPropertyDataSchema} from './usecase-data/container/container-property-data.js';
 import {ContainerSchema} from './usecase-data/container/container.schema.js';
 import {ControlLinkSchema} from './usecase-data/Links/control-link.js';
@@ -40,12 +40,14 @@ import {DataLinkSchema} from './usecase-data/Links/data-link.js';
 import {
   CkvSchema,
   CkvParameterPayloadRowSchema,
+  CkvValuesSchema,
 } from './usecase-data/module/spf-module-calibration-data.schema.js';
 import {SpfModulePropertiesDataSchema} from './usecase-data/module/spf-module-properties-data.js';
 import {
   ModuleTagIdMapSchema,
   TkvSchema,
   TkvParameterPayloadSchema,
+  TkvValuesSchema,
 } from './usecase-data/module/spf-module-tag-data.schema.js';
 import {SpfModuleSchema} from './usecase-data/module/spf-module.schema.js';
 import {
@@ -59,10 +61,15 @@ import {
   VcpmInstanceSchema,
   VcpmCkvSchema,
   VcpmParameterPayloadSchema,
+  VcpmCkvValuesSchema,
 } from './usecase-data/subgraph/subgraph-vcpm-data.js';
 import {SubgraphSchema} from './usecase-data/subgraph/subgraph.schema.js';
 import {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
-import {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
+import {
+  UseCaseSchema,
+  UseCaseCategorySchema,
+  UsecaseGkvValuesSchema,
+} from './usecase-data/use-case.js';
 import {EditActionSchema} from './edit-session/edit-action.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
 import {ProjectSessionSchema} from './edit-session/project-session.schema.js';
@@ -130,11 +137,13 @@ export type {
   DriverModuleRow,
   DkvRow,
   DkvParameterPayloadRow,
+  DkvValuesRow,
 } from './driver-module-data/driver-module.js';
 export {
   DriverModuleSchema,
   DkvSchema,
   DkvParameterPayloadSchema,
+  DkvValuesSchema,
 } from './driver-module-data/driver-module.js';
 
 // Module Manager
@@ -146,10 +155,6 @@ export type {ArcDbFileRow} from './project-data/arc-db-file.schema.js';
 export {ArcDbFileSchema} from './project-data/arc-db-file.schema.js';
 export type {ProjectRow} from './project-data/project.schema.js';
 export {ProjectSchema} from './project-data/project.schema.js';
-
-// Use Case Data - Common
-export type {KeyVectorRow} from './usecase-data/common/key-vector-schema.js';
-export {KeyVectorSchema} from './usecase-data/common/key-vector-schema.js';
 
 // Use Case Data - Container
 export type {ContainerPropertyDataRow} from './usecase-data/container/container-property-data.js';
@@ -167,10 +172,12 @@ export {DataLinkSchema} from './usecase-data/Links/data-link.js';
 export type {
   CkvRow,
   CkvParameterPayloadRow,
+  CkvValuesRow,
 } from './usecase-data/module/spf-module-calibration-data.schema.js';
 export {
   CkvSchema,
   CkvParameterPayloadRowSchema,
+  CkvValuesSchema,
 } from './usecase-data/module/spf-module-calibration-data.schema.js';
 export type {SpfModulePropertiesDataRow} from './usecase-data/module/spf-module-properties-data.js';
 export {SpfModulePropertiesDataSchema} from './usecase-data/module/spf-module-properties-data.js';
@@ -178,11 +185,13 @@ export type {
   ModuleTagIdMapRow,
   TkvRow,
   TkvParameterPayloadRow,
+  TkvValuesRow,
 } from './usecase-data/module/spf-module-tag-data.schema.js';
 export {
   ModuleTagIdMapSchema,
   TkvSchema,
   TkvParameterPayloadSchema,
+  TkvValuesSchema,
 } from './usecase-data/module/spf-module-tag-data.schema.js';
 export type {SpfModuleRow} from './usecase-data/module/spf-module.schema.js';
 export {SpfModuleSchema} from './usecase-data/module/spf-module.schema.js';
@@ -208,11 +217,13 @@ export type {
   VcpmInstanceRow,
   VcpmCkvRow,
   VcpmParameterPayloadRow,
+  VcpmCkvValuesRow,
 } from './usecase-data/subgraph/subgraph-vcpm-data.js';
 export {
   VcpmInstanceSchema,
   VcpmCkvSchema,
   VcpmParameterPayloadSchema,
+  VcpmCkvValuesSchema,
 } from './usecase-data/subgraph/subgraph-vcpm-data.js';
 export type {SubgraphRow} from './usecase-data/subgraph/subgraph.schema.js';
 export {SubgraphSchema} from './usecase-data/subgraph/subgraph.schema.js';
@@ -222,8 +233,16 @@ export type {SubsystemRow} from './usecase-data/subsystem/subsystem.js';
 export {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
 
 // Use Case Data - Main
-export type {UseCaseRow, UseCaseCategoryRow} from './usecase-data/use-case.js';
-export {UseCaseSchema, UseCaseCategorySchema} from './usecase-data/use-case.js';
+export type {
+  UseCaseRow,
+  UseCaseCategoryRow,
+  UsecaseGkvValuesRow,
+} from './usecase-data/use-case.js';
+export {
+  UseCaseSchema,
+  UseCaseCategorySchema,
+  UsecaseGkvValuesSchema,
+} from './usecase-data/use-case.js';
 
 export type {EditActionRow} from './edit-session/edit-action.schema.js';
 export {EditActionSchema} from './edit-session/edit-action.schema.js';
@@ -292,20 +311,22 @@ export function getAllEntitySchemas(
     DriverModuleSchema,
     DkvSchema,
     DkvParameterPayloadSchema(blobConverter), // Factory with blob converter
+    DkvValuesSchema,
     ModuleManagerDataSchema,
     ArcDbFileSchema,
     ProjectSchema,
-    KeyVectorSchema,
     ContainerPropertyDataSchema(blobConverter), // Factory with blob converter
     ContainerSchema,
     ControlLinkSchema,
     DataLinkSchema,
     CkvSchema(blobConverter), // Factory with blob converter
     CkvParameterPayloadRowSchema(blobConverter), // Factory with blob converter
+    CkvValuesSchema,
     SpfModulePropertiesDataSchema(blobConverter), // Factory with blob converter
     ModuleTagIdMapSchema,
     TkvSchema(blobConverter), // Factory with blob converter
     TkvParameterPayloadSchema(blobConverter), // Factory with blob converter
+    TkvValuesSchema,
     SpfModuleSchema,
     ControlPortSchema,
     IntentSchema,
@@ -315,10 +336,12 @@ export function getAllEntitySchemas(
     VcpmInstanceSchema,
     VcpmCkvSchema,
     VcpmParameterPayloadSchema(blobConverter), // Factory with blob converter
+    VcpmCkvValuesSchema,
     SubgraphSchema,
     SubsystemSchema,
     UseCaseSchema,
     UseCaseCategorySchema,
+    UsecaseGkvValuesSchema,
 
     EditActionSchema,
     RestorePointSchema,

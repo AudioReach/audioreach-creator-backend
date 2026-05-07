@@ -5,30 +5,29 @@
 
 import {BaseColumnSchemaPart} from '../../entity-base.js';
 import type {EntityBaseRow} from '../../entity-base.js';
-import type {KeyVectorRow} from '../common/key-vector-schema.js';
 import type {BlobBytesConverter} from './helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
 import type {SpfModuleRow} from './spf-module.schema.js';
 import type {SpfModuleParameterDefinitionRow} from '../../definitions/module/spf/spf-module-parameter-definition.schema.js';
+import type {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ModuleTagIdMapRow extends EntityBaseRow {
   spfModuleSystemId: number;
   tagDefinitionSystemId: number;
 
-  module?: SpfModuleRow; // many- one
+  module?: SpfModuleRow; // many-one
   // To Do Add tag definition relation here
   tkvs?: TkvRow[]; // one-many
 }
 
 export interface TkvRow extends EntityBaseRow {
-  moduleTagIdMapSystemId: number; // Fk to ModuleTagIdMapRow
-  keyVectorSystemId: number;
+  moduleTagIdMapSystemId: number; // FK to ModuleTagIdMapRow
   uiPersistence?: Uint8Array | null;
 
-  keyVector?: KeyVectorRow; // many-one
   moduleTagIdMapRow?: ModuleTagIdMapRow; // many-one to ModuleTagIdMapRow table
   payloadCollection: TkvParameterPayloadRow[]; // one-many
+  values?: TkvValuesRow[]; // one-many — the key-value combination that identifies this tag bin
 }
 
 export interface TkvParameterPayloadRow extends EntityBaseRow {
@@ -38,6 +37,14 @@ export interface TkvParameterPayloadRow extends EntityBaseRow {
   tkvSystemId: number; // FK
   tkv?: TkvRow; // relation
   spfParameter?: SpfModuleParameterDefinitionRow; // relation
+}
+
+export interface TkvValuesRow {
+  tkvSystemId: number;
+  valueDefSystemId: number;
+
+  tkv?: TkvRow;
+  valueDef?: ValueDefinitionRow;
 }
 
 export const ModuleTagIdMapSchema = new EntitySchema<ModuleTagIdMapRow>({
@@ -83,23 +90,14 @@ export const TkvSchema = (blobConverter: BlobBytesConverter) =>
         name: 'module_tag_id_map_system_id',
         type: 'integer',
       },
-      keyVectorSystemId: {name: 'key_vector_system_id', type: 'integer'},
       uiPersistence: {
         name: 'ui_persistence',
         type: 'blob',
+        nullable: true,
         transformer: DbTypeToBytesTransformer(blobConverter),
       },
     },
     relations: {
-      keyVector: {
-        type: 'many-to-one',
-        target: 'KeyVector',
-        joinColumn: {
-          name: 'key_vector_system_id',
-          referencedColumnName: 'systemId',
-        },
-        onDelete: 'RESTRICT',
-      },
       moduleTagIdMapRow: {
         type: 'many-to-one',
         target: 'ModuleTagIdMap',
@@ -114,14 +112,12 @@ export const TkvSchema = (blobConverter: BlobBytesConverter) =>
         target: 'TkvParameterPayload',
         inverseSide: 'tkv',
       },
-    },
-    indices: [
-      {
-        name: 'ix_tkv_module_tag_keyvector',
-        columns: ['moduleTagIdMapSystemId', 'keyVectorSystemId'],
-        unique: true,
+      values: {
+        type: 'one-to-many',
+        target: 'TkvValues',
+        inverseSide: 'tkv',
       },
-    ],
+    },
   });
 
 export const TkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
@@ -162,3 +158,33 @@ export const TkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
       },
     ],
   });
+
+export const TkvValuesSchema = new EntitySchema<TkvValuesRow>({
+  name: 'TkvValues',
+  tableName: 'tkv_values',
+  columns: {
+    tkvSystemId: {name: 'tkv_system_id', type: 'integer', primary: true},
+    valueDefSystemId: {
+      name: 'value_def_system_id',
+      type: 'integer',
+      primary: true,
+    },
+  },
+  relations: {
+    tkv: {
+      type: 'many-to-one',
+      target: 'Tkv',
+      joinColumn: {name: 'tkv_system_id', referencedColumnName: 'systemId'},
+      onDelete: 'CASCADE',
+    },
+    valueDef: {
+      type: 'many-to-one',
+      target: 'ValueDefinition',
+      joinColumn: {
+        name: 'value_def_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'RESTRICT',
+    },
+  },
+});

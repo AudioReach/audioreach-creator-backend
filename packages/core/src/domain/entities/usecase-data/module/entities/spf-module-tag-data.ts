@@ -7,8 +7,8 @@ import type {KvData} from '../../../common/entities/kv-data.js';
 
 export class DuplicateTkvExceptionError extends Error {
   constructor(
-    readonly idType: 'systemId' | 'keyVectorSystemId',
-    readonly id: number,
+    readonly idType: 'systemId' | 'valueDefinitionSystemIds',
+    readonly id: number | string,
   ) {
     super(`Tkv with ${idType} ${id} already exists`);
     this.name = 'DuplicateTkvExceptionError';
@@ -34,18 +34,18 @@ export class TagData {
 
   addTkv(tkv: KvData): void {
     const systemIdKey = `sys:${tkv.systemId}`;
-    const keyVectorIdKey = `kv:${tkv.keyVectorSystemId}`;
+    const valuesKey = `vals:${[...tkv.valueDefinitionSystemIds].sort((a, b) => a - b).join(',')}`;
 
     if (this.tkvIds.has(systemIdKey))
       throw new DuplicateTkvExceptionError('systemId', tkv.systemId);
-    if (this.tkvIds.has(keyVectorIdKey))
+    if (this.tkvIds.has(valuesKey))
       throw new DuplicateTkvExceptionError(
-        'keyVectorSystemId',
-        tkv.keyVectorSystemId,
+        'valueDefinitionSystemIds',
+        valuesKey,
       );
 
     this.tkvIds.add(systemIdKey);
-    this.tkvIds.add(keyVectorIdKey);
+    this.tkvIds.add(valuesKey);
     this.tkvs.push(tkv);
   }
 }

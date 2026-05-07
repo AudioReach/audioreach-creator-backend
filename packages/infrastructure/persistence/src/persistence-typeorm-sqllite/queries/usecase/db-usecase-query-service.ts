@@ -32,8 +32,8 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       .getRepository('UseCase')
       .createQueryBuilder('uc')
       .where('uc.fileSystemId = :fileId', {fileId})
-      .leftJoinAndSelect('uc.keyVector', 'kv')
-      .leftJoinAndSelect('kv.values', 'v')
+      .leftJoinAndSelect('uc.gkvEntries', 'gkv')
+      .leftJoinAndSelect('gkv.valueDef', 'v')
       .leftJoinAndSelect('v.keys', 'k')
       .leftJoinAndSelect('uc.categories', 'cat')
       .getMany();
@@ -166,9 +166,11 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   private mapToReadModel(useCaseRow: UseCaseRow): UseCaseReadModel {
     const gkv: KeyVectorReadModel[] = [];
 
-    if (useCaseRow.keyVector?.values) {
-      for (const value of useCaseRow.keyVector.values) {
-        gkv.push(UseCaseQueryMappers.mapValueToKeyVector(value));
+    if (useCaseRow.gkvEntries) {
+      for (const entry of useCaseRow.gkvEntries) {
+        if (entry.valueDef) {
+          gkv.push(UseCaseQueryMappers.mapValueToKeyVector(entry.valueDef));
+        }
       }
     }
 

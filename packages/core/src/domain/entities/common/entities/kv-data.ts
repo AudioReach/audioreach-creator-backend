@@ -14,7 +14,7 @@ export class DuplicateParameterPayloadError extends Error {
 
 export interface KvDataInit {
   systemId: number;
-  keyVectorSystemId: number;
+  valueDefinitionSystemIds: readonly number[];
   uiPersistence: Uint8Array | null;
 }
 
@@ -27,11 +27,11 @@ export class KvData {
 
   readonly parameterPayloads: ModuleParameterData[] = [];
   readonly systemId: number;
-  readonly keyVectorSystemId: number;
+  readonly valueDefinitionSystemIds: readonly number[];
   readonly uiPersistence: Uint8Array | null;
   constructor(init: KvDataInit) {
     this.systemId = init.systemId;
-    this.keyVectorSystemId = init.keyVectorSystemId;
+    this.valueDefinitionSystemIds = init.valueDefinitionSystemIds;
     this.uiPersistence = init.uiPersistence;
   }
 

@@ -43,8 +43,10 @@ export const ENTITY_NAMES = {
   SpfModulePropertiesData: 'SpfModulePropertiesData',
   Ckv: 'Ckv',
   CkvParameterPayload: 'CkvParameterPayload',
+  CkvValues: 'CkvValues',
   Tkv: 'Tkv',
   TkvParameterPayload: 'TkvParameterPayload',
+  TkvValues: 'TkvValues',
   ModuleTagIdMap: 'ModuleTagIdMap',
 
   // ── Node / Port data ──────────────────────────────────────────────────────
@@ -62,22 +64,24 @@ export const ENTITY_NAMES = {
   SubgraphPropertyData: 'SubgraphPropertyData',
   VcpmInstance: 'VcpmInstance',
   VcpmCkv: 'VcpmCkv',
+  VcpmCkvValues: 'VcpmCkvValues',
   VcpmParameterPayload: 'VcpmParameterPayload',
 
   // ── Container data ────────────────────────────────────────────────────────
   Container: 'Container',
   ContainerPropertyData: 'ContainerPropertyData',
 
-  // ── Subsystem / UseCase / KeyVector ───────────────────────────────────────
+  // ── Subsystem / UseCase ───────────────────────────────────────────────────
   Subsystem: 'Subsystem',
   UseCase: 'UseCase',
   UseCaseCategory: 'UseCaseCategory',
-  KeyVector: 'KeyVector',
+  UsecaseGkvValues: 'UsecaseGkvValues',
 
   // ── Driver module data ────────────────────────────────────────────────────
   DriverModule: 'DriverModule',
   Dkv: 'Dkv',
   DkvParameterPayload: 'DkvParameterPayload',
+  DkvValues: 'DkvValues',
 
   // ── Project / File ────────────────────────────────────────────────────────
   ArcDbFile: 'ArcDbFile',
