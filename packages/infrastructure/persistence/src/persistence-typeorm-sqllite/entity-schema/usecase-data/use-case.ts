@@ -9,14 +9,13 @@ import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 import type {NodeRow} from './node/node.schema.js';
 import type {DataLinkRow} from './Links/data-link.js';
 import type {ControlLinkRow} from './Links/control-link.js';
-import type {KeyVectorRow} from './common/key-vector-schema.js';
+import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface UseCaseRow extends EntityBaseRow {
   aliasId: number;
   alias: string;
   fileSystemId: number;
-  keyVectorSystemId: number;
 
   // Relations
   file?: ArcDbFileRow;
@@ -24,7 +23,7 @@ export interface UseCaseRow extends EntityBaseRow {
   nodes?: NodeRow[];
   dataLinks?: DataLinkRow[];
   controlLinks?: ControlLinkRow[];
-  keyVector?: KeyVectorRow;
+  gkvEntries?: UsecaseGkvValuesRow[];
 }
 
 export interface UseCaseCategoryRow extends EntityBaseRow {
@@ -32,6 +31,14 @@ export interface UseCaseCategoryRow extends EntityBaseRow {
 
   // Relations
   useCases?: UseCaseRow[];
+}
+
+export interface UsecaseGkvValuesRow {
+  usecaseSystemId: number;
+  valueDefSystemId: number;
+
+  useCase?: UseCaseRow;
+  valueDef?: ValueDefinitionRow;
 }
 
 export const UseCaseSchema = new EntitySchema<UseCaseRow>({
@@ -50,11 +57,6 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     fileSystemId: {
       type: 'integer',
       name: 'file_system_id',
-    },
-    keyVectorSystemId: {
-      type: 'integer',
-      name: 'key_vector_system_id',
-      nullable: false,
     },
   },
   relations: {
@@ -127,13 +129,9 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
         },
       },
     },
-    keyVector: {
-      type: 'one-to-one',
-      target: 'KeyVector',
-      joinColumn: {
-        name: 'key_vector_system_id',
-        referencedColumnName: 'systemId',
-      },
+    gkvEntries: {
+      type: 'one-to-many',
+      target: 'UsecaseGkvValues',
       inverseSide: 'useCase',
     },
   },
@@ -145,10 +143,6 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     {
       name: 'ix_use_case_file',
       columns: ['fileSystemId'],
-    },
-    {
-      name: 'ix_use_case_key_vector',
-      columns: ['keyVectorSystemId'],
     },
   ],
 });
@@ -169,6 +163,40 @@ export const UseCaseCategorySchema = new EntitySchema<UseCaseCategoryRow>({
       type: 'many-to-many',
       target: 'UseCase',
       inverseSide: 'categories',
+    },
+  },
+});
+
+export const UsecaseGkvValuesSchema = new EntitySchema<UsecaseGkvValuesRow>({
+  name: 'UsecaseGkvValues',
+  tableName: 'usecase_gkv_values',
+  columns: {
+    usecaseSystemId: {
+      name: 'usecase_system_id',
+      type: 'integer',
+      primary: true,
+    },
+    valueDefSystemId: {
+      name: 'value_def_system_id',
+      type: 'integer',
+      primary: true,
+    },
+  },
+  relations: {
+    useCase: {
+      type: 'many-to-one',
+      target: 'UseCase',
+      joinColumn: {name: 'usecase_system_id', referencedColumnName: 'systemId'},
+      onDelete: 'CASCADE',
+    },
+    valueDef: {
+      type: 'many-to-one',
+      target: 'ValueDefinition',
+      joinColumn: {
+        name: 'value_def_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'RESTRICT',
     },
   },
 });

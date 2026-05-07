@@ -6,9 +6,9 @@
 import type {DriverModuleDefinitionRow} from '../definitions/module/driver/driver-module-definition.schema.js';
 import type {DriverModuleParameterDefinitionRow} from '../definitions/module/driver/driver-module-parameter-definition.schema.js';
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../entity-base.js';
-import type {KeyVectorRow} from '../usecase-data/common/key-vector-schema.js';
 import type {BlobBytesConverter} from '../usecase-data/module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../usecase-data/module/helper/bytes-transformer.js';
+import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface DriverModuleRow extends EntityBaseRow {
@@ -18,11 +18,10 @@ export interface DriverModuleRow extends EntityBaseRow {
 
 export interface DkvRow extends EntityBaseRow {
   driverModuleId: number;
-  keyVectorSystemId: number;
 
   driverModule: DriverModuleRow;
-  keyVector: KeyVectorRow;
   payloadCollection: DkvParameterPayloadRow[];
+  values?: DkvValuesRow[]; // one-many — the key-value combination
 }
 
 export interface DkvParameterPayloadRow extends EntityBaseRow {
@@ -32,6 +31,14 @@ export interface DkvParameterPayloadRow extends EntityBaseRow {
   dkvSystemId: number; // FK
   dkv?: DkvRow; // relation
   driverParameter?: DriverModuleParameterDefinitionRow;
+}
+
+export interface DkvValuesRow {
+  dkvSystemId: number;
+  valueDefSystemId: number;
+
+  dkv?: DkvRow;
+  valueDef?: ValueDefinitionRow;
 }
 
 export const DriverModuleSchema = new EntitySchema<DriverModuleRow>({
@@ -52,7 +59,7 @@ export const DriverModuleSchema = new EntitySchema<DriverModuleRow>({
         name: 'definition_system_id',
         referencedColumnName: 'systemId',
       },
-      onDelete: 'RESTRICT', // prevent deletion of definition if modules exist
+      onDelete: 'RESTRICT',
     },
   },
   indices: [
@@ -72,10 +79,6 @@ export const DkvSchema = new EntitySchema<DkvRow>({
       name: 'module_instance_id',
       type: 'integer',
     },
-    keyVectorSystemId: {
-      name: 'key_vector_system_id',
-      type: 'integer',
-    },
   },
   relations: {
     driverModule: {
@@ -87,28 +90,17 @@ export const DkvSchema = new EntitySchema<DkvRow>({
       },
       onDelete: 'CASCADE',
     },
-    keyVector: {
-      type: 'many-to-one',
-      target: 'KeyVector',
-      joinColumn: {
-        name: 'key_vector_system_id',
-        referencedColumnName: 'systemId',
-      },
-      onDelete: 'RESTRICT',
-    },
     payloadCollection: {
       type: 'one-to-many',
       target: 'DkvParameterPayload',
       inverseSide: 'dkv',
     },
-  },
-  indices: [
-    {
-      name: 'uk_dkv_module_keyvector',
-      columns: ['driverModuleId', 'keyVectorSystemId'],
-      unique: true,
+    values: {
+      type: 'one-to-many',
+      target: 'DkvValues',
+      inverseSide: 'dkv',
     },
-  ],
+  },
 });
 
 export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
@@ -158,3 +150,33 @@ export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
       },
     ],
   });
+
+export const DkvValuesSchema = new EntitySchema<DkvValuesRow>({
+  name: 'DkvValues',
+  tableName: 'dkv_values',
+  columns: {
+    dkvSystemId: {name: 'dkv_system_id', type: 'integer', primary: true},
+    valueDefSystemId: {
+      name: 'value_def_system_id',
+      type: 'integer',
+      primary: true,
+    },
+  },
+  relations: {
+    dkv: {
+      type: 'many-to-one',
+      target: 'Dkv',
+      joinColumn: {name: 'dkv_system_id', referencedColumnName: 'systemId'},
+      onDelete: 'CASCADE',
+    },
+    valueDef: {
+      type: 'many-to-one',
+      target: 'ValueDefinition',
+      joinColumn: {
+        name: 'value_def_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'RESTRICT',
+    },
+  },
+});

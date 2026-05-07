@@ -132,13 +132,13 @@ describe('EditAction CRUD Integration Tests', () => {
           {
             systemId: 200,
             spfModuleSystemId: 100,
-            keyVectorSystemId: 456, // Level_0
+            valueDefinitionSystemIds: [456], // Level_0
             uiPersistence: 'base64_encoded_data_level0',
           },
           {
             systemId: 201,
             spfModuleSystemId: 100,
-            keyVectorSystemId: 457, // Level_1
+            valueDefinitionSystemIds: [457], // Level_1
             uiPersistence: 'base64_encoded_data_level1',
           },
         ],
@@ -176,8 +176,8 @@ describe('EditAction CRUD Integration Tests', () => {
       const parsedPayload = JSON.parse(savedAction.payload as string);
       expect(parsedPayload.moduleData.alias).toBe('VolumeControl_Module');
       expect(parsedPayload.ckvs).toHaveLength(2);
-      expect(parsedPayload.ckvs[0].keyVectorSystemId).toBe(456);
-      expect(parsedPayload.ckvs[1].keyVectorSystemId).toBe(457);
+      expect(parsedPayload.ckvs[0].valueDefinitionSystemIds).toEqual([456]);
+      expect(parsedPayload.ckvs[1].valueDefinitionSystemIds).toEqual([457]);
 
       // Verify we can query it back
       const foundAction = await editActionRepository.findOne({

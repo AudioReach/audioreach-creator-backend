@@ -26,8 +26,10 @@ import type {SubgraphPropertyDataRow} from '../../../entity-schema/usecase-data/
 import {
   VcpmInstanceSchema,
   VcpmCkvSchema,
+  VcpmCkvValuesSchema,
   type VcpmInstanceRow,
   type VcpmCkvRow,
+  type VcpmCkvValuesRow,
   type VcpmParameterPayloadRow,
 } from '../../../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
 
@@ -230,7 +232,6 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
     const rows: InsertRow<VcpmCkvRow>[] = ckvEntries.map(e => ({
       systemId: e.ckv.systemId,
       vcpmInstanceSystemId: e.vcpmSystemId,
-      keyVectorSystemId: e.ckv.keyVectorSystemId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -239,7 +240,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const failures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -249,6 +250,65 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         dbError: error.message,
       };
     });
+
+    const failedIds = new Set(failedEntities.map(e => e.systemId));
+    const valueFailures = await this.insertVcpmCkvValues(ckvEntries, failedIds);
+    return [...failures, ...valueFailures];
+  }
+
+  private async insertVcpmCkvValues(
+    ckvEntries: {ckv: KvData; vcpmSystemId: number; subgraph: Subgraph}[],
+    failedIds: Set<number>,
+  ): Promise<RawFailure[]> {
+    const allValueRows: VcpmCkvValuesRow[] = ckvEntries
+      .filter(e => !failedIds.has(e.ckv.systemId))
+      .flatMap(e =>
+        e.ckv.valueDefinitionSystemIds.map(valueId => ({
+          vcpmCkvSystemId: e.ckv.systemId,
+          valueDefSystemId: valueId,
+        })),
+      );
+
+    if (allValueRows.length === 0) return [];
+
+    try {
+      await this.manager.insert(VcpmCkvValuesSchema, allValueRows);
+      return [];
+    } catch {
+      return this.insertVcpmCkvValuesWithFallback(ckvEntries, failedIds);
+    }
+  }
+
+  private async insertVcpmCkvValuesWithFallback(
+    ckvEntries: {ckv: KvData; vcpmSystemId: number; subgraph: Subgraph}[],
+    failedIds: Set<number>,
+  ): Promise<RawFailure[]> {
+    const failures: RawFailure[] = [];
+    for (const entry of ckvEntries) {
+      if (failedIds.has(entry.ckv.systemId)) continue;
+      if (entry.ckv.valueDefinitionSystemIds.length === 0) continue;
+
+      const valueRows: VcpmCkvValuesRow[] =
+        entry.ckv.valueDefinitionSystemIds.map(valueId => ({
+          vcpmCkvSystemId: entry.ckv.systemId,
+          valueDefSystemId: valueId,
+        }));
+      try {
+        await this.manager.insert(VcpmCkvValuesSchema, valueRows);
+      } catch (error) {
+        await this.manager.delete('VcpmCkv', {systemId: entry.ckv.systemId});
+        failures.push({
+          systemId: entry.subgraph.systemId,
+          entityLabel: 'VcpmCkv',
+          failedRowJson: JSON.stringify({
+            vcpmCkvSystemId: entry.ckv.systemId,
+            valueRows,
+          }),
+          dbError: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return failures;
   }
 
   // ─── VcpmParameterPayload ─────────────────────────────────────────────────────

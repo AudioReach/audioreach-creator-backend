@@ -7,10 +7,10 @@ import type {VcpmModuleDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm
 import type {VcpmModuleParameterDefinitionRow} from '../../definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
 import {BaseColumnSchemaPart} from '../../entity-base.js';
 import type {EntityBaseRow} from '../../entity-base.js';
-import type {KeyVectorRow} from '../common/key-vector-schema.js';
 import type {SubgraphRow} from './subgraph.schema.js';
 import type {BlobBytesConverter} from '../module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
+import type {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface VcpmInstanceRow extends EntityBaseRow {
@@ -24,11 +24,10 @@ export interface VcpmInstanceRow extends EntityBaseRow {
 
 export interface VcpmCkvRow extends EntityBaseRow {
   vcpmInstanceSystemId: number;
-  keyVectorSystemId: number;
 
-  vcpmInstance: VcpmInstanceRow; //many-one
-  keyVector?: KeyVectorRow; // many-one
+  vcpmInstance: VcpmInstanceRow; // many-one
   vcpmParameterPayloads?: VcpmParameterPayloadRow[];
+  values?: VcpmCkvValuesRow[]; // one-many — the key-value combination
 }
 
 export interface VcpmParameterPayloadRow extends EntityBaseRow {
@@ -39,6 +38,14 @@ export interface VcpmParameterPayloadRow extends EntityBaseRow {
 
   vcpmCkvSystemId: number;
   vcpmCkv: VcpmCkvRow;
+}
+
+export interface VcpmCkvValuesRow {
+  vcpmCkvSystemId: number;
+  valueDefSystemId: number;
+
+  vcpmCkv?: VcpmCkvRow;
+  valueDef?: ValueDefinitionRow;
 }
 
 export const VcpmInstanceSchema = new EntitySchema<VcpmInstanceRow>({
@@ -98,10 +105,6 @@ export const VcpmCkvSchema = new EntitySchema<VcpmCkvRow>({
       name: 'vcpm_instance_system_id',
       type: 'integer',
     },
-    keyVectorSystemId: {
-      name: 'key_vector_system_id',
-      type: 'integer',
-    },
   },
   relations: {
     vcpmInstance: {
@@ -113,28 +116,17 @@ export const VcpmCkvSchema = new EntitySchema<VcpmCkvRow>({
       },
       onDelete: 'CASCADE',
     },
-    keyVector: {
-      type: 'many-to-one',
-      target: 'KeyVector',
-      joinColumn: {
-        name: 'key_vector_system_id',
-        referencedColumnName: 'systemId',
-      },
-      onDelete: 'RESTRICT',
-    },
     vcpmParameterPayloads: {
       type: 'one-to-many',
       target: 'VcpmParameterPayload',
       inverseSide: 'vcpmCkv',
     },
-  },
-  indices: [
-    {
-      name: 'uk_vcpm_ckv_instance_keyvector',
-      columns: ['vcpmInstanceSystemId', 'keyVectorSystemId'],
-      unique: true,
+    values: {
+      type: 'one-to-many',
+      target: 'VcpmCkvValues',
+      inverseSide: 'vcpmCkv',
     },
-  ],
+  },
 });
 
 export const VcpmParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
@@ -184,3 +176,40 @@ export const VcpmParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
       },
     ],
   });
+
+export const VcpmCkvValuesSchema = new EntitySchema<VcpmCkvValuesRow>({
+  name: 'VcpmCkvValues',
+  tableName: 'vcpm_ckv_values',
+  columns: {
+    vcpmCkvSystemId: {
+      name: 'vcpm_ckv_system_id',
+      type: 'integer',
+      primary: true,
+    },
+    valueDefSystemId: {
+      name: 'value_def_system_id',
+      type: 'integer',
+      primary: true,
+    },
+  },
+  relations: {
+    vcpmCkv: {
+      type: 'many-to-one',
+      target: 'VcpmCkv',
+      joinColumn: {
+        name: 'vcpm_ckv_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    valueDef: {
+      type: 'many-to-one',
+      target: 'ValueDefinition',
+      joinColumn: {
+        name: 'value_def_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'RESTRICT',
+    },
+  },
+});

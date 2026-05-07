@@ -7,8 +7,8 @@ import type {KvData} from './kv-data.js';
 
 export class DuplicateCkvExceptionError extends Error {
   constructor(
-    readonly idType: 'systemId' | 'keyVectorSystemId',
-    readonly id: number,
+    readonly idType: 'systemId' | 'valueDefinitionSystemIds',
+    readonly id: number | string,
   ) {
     super(`Ckv with ${idType} ${id} already exists`);
     this.name = 'DuplicateCkvExceptionError';
@@ -17,7 +17,7 @@ export class DuplicateCkvExceptionError extends Error {
 
 /**
  * Encapsulates CKV (Calibration Key-Value) collection management with duplicate protection.
- * Ensures uniqueness by both systemId and keyVectorSystemId.
+ * Ensures uniqueness by both systemId and value-definition combination.
  */
 export class CkvCollection {
   private readonly ckvIds = new Set<string>();
@@ -25,24 +25,24 @@ export class CkvCollection {
 
   /**
    * Adds a CKV to the collection.
-   * @throws {DuplicateCkvExceptionError} if a CKV with the same systemId or keyVectorSystemId already exists.
+   * @throws {DuplicateCkvExceptionError} if a CKV with the same systemId or valueDefinitionSystemIds combination already exists.
    */
   addCkv(kvData: KvData): void {
     const systemIdKey = `sys:${kvData.systemId}`;
-    const keyVectorIdKey = `kv:${kvData.keyVectorSystemId}`;
+    const valuesKey = `vals:${[...kvData.valueDefinitionSystemIds].sort((a, b) => a - b).join(',')}`;
 
     if (this.ckvIds.has(systemIdKey)) {
       throw new DuplicateCkvExceptionError('systemId', kvData.systemId);
     }
-    if (this.ckvIds.has(keyVectorIdKey)) {
+    if (this.ckvIds.has(valuesKey)) {
       throw new DuplicateCkvExceptionError(
-        'keyVectorSystemId',
-        kvData.keyVectorSystemId,
+        'valueDefinitionSystemIds',
+        valuesKey,
       );
     }
 
     this.ckvIds.add(systemIdKey);
-    this.ckvIds.add(keyVectorIdKey);
+    this.ckvIds.add(valuesKey);
     this.ckvs.push(kvData);
   }
 }
