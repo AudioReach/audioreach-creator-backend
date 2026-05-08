@@ -4,7 +4,7 @@
  */
 
 import type {BulkImportRepository} from './repositories/bulk-import/bulk-import.repository.js';
-import type {ProjectRepository} from './repositories/project/project.repostiory.js';
+import type {ProjectRepository} from './repositories/project/project.repository.js';
 import type {ValidationPreferencesRepository} from './repositories/validation/validation-preferences.repository.js';
 import type {ValidationQueryRepository} from './repositories/validation/validation-query.repository.js';
 

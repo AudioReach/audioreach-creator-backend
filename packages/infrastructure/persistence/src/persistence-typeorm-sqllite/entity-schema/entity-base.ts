@@ -45,6 +45,15 @@ export type EntityRowForInsert<T extends EntityBaseRow> = Omit<
   'creationDate' | 'updateDate' | 'version'
 >;
 
+/**
+ * Insert type for entities with auto-generated systemId (projects, files).
+ * systemId is omitted — the DB assigns it on INSERT via AUTOINCREMENT.
+ */
+export type EntityRowForAutoInsert<T extends EntityBaseRow> = Omit<
+  T,
+  'systemId' | 'creationDate' | 'updateDate' | 'version'
+>;
+
 export const BaseColumnSchemaPart: Record<string, EntitySchemaColumnOptions> = {
   systemId: {
     name: 'system_id',

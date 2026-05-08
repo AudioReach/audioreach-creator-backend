@@ -20,6 +20,12 @@ export const ProjectSchema = new EntitySchema<ProjectRow>({
   tableName: 'projects',
   columns: {
     ...BaseColumnSchemaPart,
+    systemId: {
+      name: 'system_id',
+      type: 'integer',
+      primary: true,
+      generated: 'increment',
+    },
     name: {type: 'varchar', length: 256},
     description: {type: 'text'},
     type: {type: 'varchar', length: 64},

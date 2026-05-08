@@ -43,6 +43,12 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
   tableName: 'files',
   columns: {
     ...BaseColumnSchemaPart,
+    systemId: {
+      name: 'system_id',
+      type: 'integer',
+      primary: true,
+      generated: 'increment',
+    },
     description: {type: 'text'},
     metadata: {type: 'text'},
     fileName: {name: 'file_name', type: 'varchar', length: 250},
@@ -58,7 +64,7 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
       type: 'varchar',
       length: 30,
       nullable: false,
-      default: 'READY',
+      default: 'LOADING',
     },
     dataLossIssues: {
       name: 'data_loss_issues',

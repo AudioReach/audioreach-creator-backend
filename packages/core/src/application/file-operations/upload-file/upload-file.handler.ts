@@ -13,10 +13,6 @@ import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../../ports/profiling/profiler.port.js';
 import type {IdGenerationPort} from '../../ports/id-generation/id-generation.port.js';
-import {
-  PROJECT_TYPE,
-  Project,
-} from '../../../domain/entities/usecase-data/project/project.js';
 import {generateUuid} from '../../../shared/utilities/uuid.js';
 import {
   FILE_OPEN_STATUS,
@@ -30,7 +26,7 @@ export type UploadFileResult = {
   projectDescription: string;
   errors?: string[];
   warnings?: string[];
-  openStatus: string;
+  openStatus: FileOpenStatus;
   /**
    * Null for now — domain validation via fromEntities() will be added
    * when UploadOrchestrator exposes parsed entities.
@@ -77,68 +73,82 @@ export class UploadFileHandler implements CommandHandler<
     );
 
     // ========== PHASE 1: Project Creation (TRANSACTIONAL) ==========
-    let project: Project;
-    let fileSystemId: number;
-
     await this.uow.startTransaction();
 
-    try {
-      const projectRepo = this.uow.getProjectRepository();
-      const result = await projectRepo.createOfflineProject(
-        new Project(0, projectName, projectDescription, PROJECT_TYPE.OFFLINE),
-        {
-          description: `ACDB: ${command.acdb.name}, AWSP: ${command.awsp.name}`,
-          metadata: 'upload',
-          fileName: JSON.stringify({
-            acdb: command.acdb.name,
-            awsp: command.awsp.name,
-            uploadedAt: new Date().toISOString(),
-          }),
-          isTarget: true,
-          openStatus: FILE_OPEN_STATUS.Ready,
-          dataLossIssues: [],
-        },
-      );
+    const createResult = await this.uow
+      .getProjectRepository()
+      .createOfflineProject(projectName, projectDescription, {
+        description: `ACDB: ${command.acdb.name}, AWSP: ${command.awsp.name}`,
+        metadata: 'upload',
+        fileName: JSON.stringify({
+          acdb: command.acdb.name,
+          awsp: command.awsp.name,
+          uploadedAt: new Date().toISOString(),
+        }),
+        isTarget: true,
+        openStatus: FILE_OPEN_STATUS.Loading,
+        dataLossIssues: [],
+      });
 
-      project = result.project;
-      fileSystemId = result.file.systemId;
-
-      await this.uow.commit();
-    } catch (error) {
+    if (!createResult.success) {
       await this.uow.rollback();
-      throw new Error(
-        `Project creation failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      throw new Error(`Project creation failed: ${createResult.errorMessage}`);
     }
 
-    // ========== VERIFICATION: Ensure transaction is closed ==========
+    await this.uow.commit();
+
     if (this.uow.isInTransaction()) {
       throw new Error(
-        'Transaction state error: Phase 1 commit succeeded but transaction is still active. ' +
-          'Cannot proceed to Phase 2 bulk upload. This indicates a critical issue with transaction management.',
+        'Transaction state error: Phase 1 commit succeeded but transaction is still active.',
       );
     }
+
+    const project = createResult.data.project;
+    const fileSystemId = createResult.data.file.systemId;
 
     // ========== PHASE 2: Bulk Upload (NON-TRANSACTIONAL) ==========
     // Note: UOW still has active QueryRunner (CommandBus will release it)
     // Bulk upload uses same connection but NO transaction
-    // Collects errors instead of throwing
-    const uploadResult = await this.uploadOrchestrator.orchestrate(
-      command.acdb,
-      command.awsp,
-      fileSystemId,
-    );
-
-    // ========== PHASE 3: Persist DATA_LOSS state ==========
-    let openStatus: FileOpenStatus = FILE_OPEN_STATUS.Ready;
-
-    if (uploadResult.dataLossIssues.length > 0) {
-      openStatus = FILE_OPEN_STATUS.PendingDataLossAck;
-      const projectRepo = this.uow.getProjectRepository();
-      await projectRepo.updateFileStatus(
+    // Collects errors instead of throwing.
+    // On unexpected throw: delete the project (cascades to file) so no orphaned LOADING record is left.
+    let uploadResult: Awaited<
+      ReturnType<typeof this.uploadOrchestrator.orchestrate>
+    >;
+    try {
+      uploadResult = await this.uploadOrchestrator.orchestrate(
+        command.acdb,
+        command.awsp,
         fileSystemId,
-        FILE_OPEN_STATUS.PendingDataLossAck,
-        uploadResult.dataLossIssues,
+      );
+    } catch (error) {
+      const originalMessage =
+        error instanceof Error ? error.message : String(error);
+      try {
+        await this.uow.getProjectRepository().deleteProject(project.systemId);
+      } catch {
+        // cleanup failure swallowed — original error takes precedence
+      }
+      throw new Error(`Upload failed unexpectedly: ${originalMessage}`);
+    }
+
+    // ========== PHASE 3: Persist file status ==========
+    const finalStatus: FileOpenStatus =
+      uploadResult.dataLossIssues.length > 0
+        ? FILE_OPEN_STATUS.PendingDataLossAck
+        : FILE_OPEN_STATUS.Ready;
+
+    try {
+      await this.uow
+        .getProjectRepository()
+        .updateFileStatus(
+          fileSystemId,
+          finalStatus,
+          uploadResult.dataLossIssues,
+        );
+    } catch (error) {
+      await this.uow.getProjectRepository().deleteProject(project.systemId);
+      throw new Error(
+        `Failed to persist file status after upload: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 
@@ -148,7 +158,7 @@ export class UploadFileHandler implements CommandHandler<
       projectDescription: project.description,
       errors: uploadResult.errors,
       warnings: uploadResult.warnings,
-      openStatus,
+      openStatus: finalStatus,
       validationReport: null,
     };
   }

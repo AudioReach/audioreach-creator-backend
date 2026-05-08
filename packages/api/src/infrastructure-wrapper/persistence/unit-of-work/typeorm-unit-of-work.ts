@@ -14,6 +14,7 @@ import type {
 import type {QueryRunner, EntityManager} from 'typeorm';
 import {
   TypeOrmBulkImportRepository,
+  TypeOrmProjectRepository,
   TypeOrmValidationPreferencesRepository,
   TypeOrmValidationQueryRepository,
 } from '@arc/persistence';
@@ -85,7 +86,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getProjectRepository(): ProjectRepository {
-    throw new Error('Not implemented');
+    return new TypeOrmProjectRepository(this.queryRunner.manager);
   }
 
   getValidationPreferencesRepository(): ValidationPreferencesRepository {
