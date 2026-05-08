@@ -32,8 +32,13 @@ import {
 import {FileFieldsInterceptor} from '@nestjs/platform-express';
 
 import {memoryStorage} from 'multer';
-import {CommandBus, UploadFileCommand} from '@arc/core';
-import type {PathRef, Logger} from '@arc/core';
+import {
+  CommandBus,
+  QueryBus,
+  UploadFileCommand,
+  DownloadFileQuery,
+} from '@arc/core';
+import type {PathRef, Logger, DownloadFileResult} from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
 interface UploadFileCommandResult {
@@ -64,6 +69,7 @@ import {SessionMode} from './enums/session-mode.enum.js';
 export class ProjectController {
   constructor(
     private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
     @Inject('LOGGER') private readonly logger: Logger,
   ) {}
 
@@ -600,18 +606,23 @@ export class ProjectController {
     },
   })
   async downloadArcDbFiles(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
   ): Promise<ApiResult<DownloadArcDatabaseFilesResponseDto>> {
-    await Promise.resolve();
-    const acdbWorkspaceFilesResponse: DownloadArcDatabaseFilesResponseDto =
-      new DownloadArcDatabaseFilesResponseDto();
-    const acdbWorkspaceFilesResult: ApiResult<DownloadArcDatabaseFilesResponseDto> =
-      {
-        data: acdbWorkspaceFilesResponse,
-        success: true,
-        message: '',
-      };
-    return acdbWorkspaceFilesResult;
+    const clientId = '';
+    // TODO: gather from jwt
+
+    const result = await this.queryBus.execute<DownloadFileResult>(
+      new DownloadFileQuery(Number(projectId), clientId),
+    );
+
+    return {
+      data: {
+        acdbFile: result.acdbFile,
+        workspaceFile: result.workspaceFile,
+      },
+      success: true,
+      message: 'Files downloaded successfully',
+    };
   }
 
   @Delete('/:projectId')

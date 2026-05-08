@@ -9,11 +9,13 @@ import type {
   UseCaseQueryService,
   ProjectQueryService,
   ValidationQueryRepository,
+  BulkReadRepository,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
 import {DbUseCaseQueryService} from './usecase/index.js';
 import {DbProjectQueryService} from './db-project-query-service.js';
 import {TypeOrmValidationQueryRepository} from '../repositories/validation/typeorm-validation-query.repository.js';
+import {TypeOrmBulkReadRepository} from '../repositories/bulk-read/typeorm-bulk-read.repository.js';
 
 // Database implementation of ModuleQueryService
 class DbModuleQueryService implements ModuleQueryService {
@@ -25,6 +27,7 @@ export class DbQueryServices implements QueryServices {
   readonly useCaseQueryService: UseCaseQueryService;
   readonly projectQueryService: ProjectQueryService;
   readonly validationQueryService: ValidationQueryRepository;
+  readonly bulkReadRepository: BulkReadRepository;
 
   constructor(dataSource: DataSource) {
     this.modulesQueryService = new DbModuleQueryService();
@@ -33,5 +36,6 @@ export class DbQueryServices implements QueryServices {
     this.validationQueryService = new TypeOrmValidationQueryRepository(
       dataSource,
     );
+    this.bulkReadRepository = new TypeOrmBulkReadRepository(dataSource);
   }
 }
