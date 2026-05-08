@@ -15,6 +15,8 @@ import {GetComponentsQuery} from '../../../usecase-designer/usecase/get-componen
 import {QueryHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 import {ValidateFileQuery} from '../../../validation/queries/validate-file.query.js';
 import {ValidateFileQueryHandler} from '../../../validation/queries/validate-file.handler.js';
+import {DownloadFileQuery} from '../../../file-operations/download-file/download-file.query.js';
+import {DownloadFileHandler} from '../../../file-operations/download-file/download-file.handler.js';
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
 }
@@ -75,6 +77,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(ValidateFileQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new ValidateFileQueryHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(DownloadFileQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new DownloadFileHandler(deps.queryServices),
     });
   }
 }

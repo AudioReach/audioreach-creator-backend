@@ -14,5 +14,5 @@ export class FileInfo {
   fileType!: string;
 
   @ApiProperty({description: 'Binary content of the file'})
-  content!: Buffer;
+  content!: Uint8Array;
 }

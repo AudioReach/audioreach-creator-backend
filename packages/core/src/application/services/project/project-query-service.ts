@@ -14,4 +14,15 @@ export interface ProjectQueryService {
    * @throws Error if project not found or has no associated file
    */
   getFileIdByProjectId(projectId: number): Promise<number>;
+
+  /**
+   * Get the original uploaded file names for a project.
+   * Names are stored in arc_db_file.fileName as JSON: { acdb: "...", awsp: "..." }
+   * @param projectId - The project system ID
+   * @returns Promise resolving to { acdb: string, awsp: string }
+   * @throws Error if project not found or has no associated file
+   */
+  getFileNamesByProjectId(
+    projectId: number,
+  ): Promise<{acdb: string; awsp: string}>;
 }
