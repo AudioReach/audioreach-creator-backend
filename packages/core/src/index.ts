@@ -17,11 +17,12 @@ export * from './application/ports/persistence/unit-of-work.js';
 export * from './application/ports/persistence/unit-of-work-factory.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-insert-result-types.js';
 export * from './application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
-export * from './application/ports/persistence/repositories/project/project.repostiory.js';
+export * from './application/ports/persistence/repositories/project/project.repository.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
 export * from './shared/types/branded-ids.js';
+export * from './shared/types/operation-result.js';
 
 // Shared Change Types
 export * from './application/shared/change-vocabulary.js';
