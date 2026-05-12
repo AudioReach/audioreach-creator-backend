@@ -13,8 +13,6 @@ import {
   SubsystemFilteredKeyValuePairsInfo,
 } from '../../../common/dto/kv.dto.js';
 import {EndPointLink, ModificationAction} from '../../../common/utils/index.js';
-import {ComponentCollectionDto} from '../../../common/dto/component-collection.dto.js';
-
 /**
  * TypeScript interface for equality comparison
  */
@@ -223,31 +221,5 @@ export class UsecaseWithModificationSummary {
     this.usecase = usecaseWithComponents;
     this.usecaseModification = usecaseModificaiton;
     this.modificationSummary = summary;
-  }
-}
-
-/**
- * DTO for usecase components API response.
- * Contains usecase identifiers and their associated component collection.
- */
-export class UsecaseComponentsDto {
-  @ApiProperty({
-    description: 'Array of usecase identifiers that these components belong to',
-    type: [UsecaseIdentifierDto],
-  })
-  usecaseIdentifiers: UsecaseIdentifierDto[];
-
-  @ApiProperty({
-    description: 'Collection of all components for the specified usecases',
-    type: ComponentCollectionDto,
-  })
-  components: ComponentCollectionDto;
-
-  constructor(
-    usecaseIdentifiers: UsecaseIdentifierDto[],
-    components: ComponentCollectionDto,
-  ) {
-    this.usecaseIdentifiers = usecaseIdentifiers;
-    this.components = components;
   }
 }

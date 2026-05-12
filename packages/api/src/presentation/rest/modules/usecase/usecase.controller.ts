@@ -22,12 +22,11 @@ import {
   UsecaseIdentifierDto,
   UsecaseDto,
   SubsystemFilteredUsecasesDto,
-  UsecaseComponentsDto,
   UsecaseWithModificationSummary,
   UsecaseType,
 } from './dto/usecase.dto.js';
-import {UsecaseComponentsWithSubsystemsDto} from './dto/usecase-components-with-subsystems.dto.js';
 import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
+import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {UpdateUsecaseRequestDto} from './dto/request/update-usecase-request.dto.js';
 import {UsecaseResponseDto} from './dto/response/usecase-response.dto.js';
 import {SpfModuleDto} from '../spf-module/dto/shared/spf-module.dto.js';
@@ -83,6 +82,8 @@ import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
   BaseComponentDto,
   SpfModuleDto,
   SubsystemDto,
+  ComponentCollectionDto,
+  ComponentCollectionWithSubsystemsDto,
 )
 export class UseCaseController extends BaseController {
   constructor(private readonly queryBus: QueryBus) {
@@ -561,7 +562,7 @@ export class UseCaseController extends BaseController {
       'URL length limits (>2000 characters). This operation does not modify server state and is safe to retry.\n\n' +
       '**Response Structure:**\n' +
       '- Returns flat structure with all modules, data links, and control links\n' +
-      '- No subsystem hierarchy included\n\n' +
+      '- No subsystem hierarchy included\n' +
       '**For hierarchical structure with subsystems:**\n' +
       '- Use the `/components/query-with-subsystems` endpoint instead\n\n' +
       '**Note:** For components shared across different usecases, only one copy will be returned.',
@@ -574,7 +575,7 @@ export class UseCaseController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Components are returned successfully',
-        dto: [UsecaseComponentsDto],
+        dto: ComponentCollectionDto,
         example: {
           className: 'UsecaseComponentsExample',
         },
@@ -592,7 +593,7 @@ export class UseCaseController extends BaseController {
   async queryUsecaseComponents(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<UsecaseComponentsDto[]>> {
+  ): Promise<ApiResult<ComponentCollectionDto>> {
     try {
       console.log(
         'Getting components for usecases in project:',
@@ -630,47 +631,12 @@ export class UseCaseController extends BaseController {
       const components =
         await this.queryBus.execute<UseCaseComponentsReadModel>(query);
 
-      // Execute the query to get usecase identifiers
-      const usecaseQuery = new GetAllUseCasesQuery(
-        Number.parseInt(projectId),
-        'client-id',
-      );
-      const usecases =
-        await this.queryBus.execute<UseCaseReadModel[]>(usecaseQuery);
-
-      // Filter usecases to only include the requested system IDs
-      const requestedUsecases = usecases.filter(uc =>
-        systemIds.includes(uc.systemId),
-      );
-
-      // Transform usecases to UsecaseIdentifierDto[]
-      const usecaseIdentifiers = requestedUsecases.map(usecase => {
-        const keyValueCollection = this.transformKeyVectors(usecase.gkv);
-        const kvInfo = new KeyValuePairsInfo(keyValueCollection);
-        kvInfo.systemId = usecase.systemId.toString();
-
-        return new UsecaseIdentifierDto(
-          usecase.systemId.toString(),
-          UsecaseType.Regular,
-          kvInfo,
-          usecase.aliasId,
-          usecase.alias,
-          usecase.categories?.join(','),
-        );
-      });
-
       // Transform components to ComponentCollectionDto (flat structure)
       const componentCollection =
         this.transformToComponentCollectionDto(components);
 
-      // Create the UsecaseComponentsDto wrapper
-      const usecaseComponentsDto = new UsecaseComponentsDto(
-        usecaseIdentifiers,
-        componentCollection,
-      );
-
       return {
-        data: [usecaseComponentsDto], // Wrap in array to match the expected return type
+        data: componentCollection,
         success: true,
         message: 'Components retrieved successfully',
       };
@@ -707,7 +673,8 @@ export class UseCaseController extends BaseController {
       '**Response Structure:**\n' +
       '- Components are organized by their subsystem relationships\n' +
       '- The `subsystems` field contains the complete subsystem hierarchy\n' +
-      '- Modules, links, and other components are nested within their respective subsystems\n\n' +
+      '- Modules, links, and other components are nested within their respective subsystems\n' +
+      '- Components are returned directly without wrapper objects\n\n' +
       '**For flat structure without subsystems:**\n' +
       '- Use the `/components/query` endpoint instead\n\n' +
       '**Note:** For components shared across different usecases, only one copy will be returned.',
@@ -721,7 +688,7 @@ export class UseCaseController extends BaseController {
         status: HttpStatus.OK,
         description:
           'Components with subsystem hierarchy returned successfully',
-        dto: [UsecaseComponentsWithSubsystemsDto],
+        dto: ComponentCollectionWithSubsystemsDto,
         example: {
           className: 'UsecaseComponentsExample',
         },
@@ -739,7 +706,7 @@ export class UseCaseController extends BaseController {
   queryUsecaseComponentsWithSubsystems(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<UsecaseComponentsWithSubsystemsDto[]>> {
+  ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
     try {
       console.log(
         'Getting components with subsystem hierarchy for usecases in project:',
