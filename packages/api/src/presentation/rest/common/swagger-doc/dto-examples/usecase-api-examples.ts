@@ -7,7 +7,6 @@ import {
   UsecaseIdentifierDto,
   SubsystemFilteredUsecasesDto,
   UsecaseType,
-  UsecaseComponentsDto,
   UsecaseWithModificationSummary,
   UsecaseWithComponents,
 } from '../../../modules/usecase/dto/usecase.dto.js';
@@ -171,10 +170,7 @@ export const UseCaseIdentifierCollectionExample = {
  * Example provider for UsecaseComponents
  */
 export const UsecaseComponentsExample = {
-  getExample(): UsecaseComponentsDto {
-    // Create a usecase identifier for the components
-    const usecaseIdentifier = UsecaseIdentifierDtoExample.getExample();
-
+  getExample(): ComponentCollectionDto {
     // Create the ComponentCollectionDto
     const componentCollection = new ComponentCollectionDto();
 
@@ -300,8 +296,8 @@ export const UsecaseComponentsExample = {
 
     componentCollection.controlLinks = [controlLink];
 
-    // Create the UsecaseComponentsDto wrapper with usecase identifiers and components
-    return new UsecaseComponentsDto([usecaseIdentifier], componentCollection);
+    // Return the component collection directly (no wrapper)
+    return componentCollection;
   },
 };
 
@@ -314,9 +310,8 @@ export const UsecaseWithComponentsExample = {
     const usecaseIdentifier = UsecaseIdentifierDtoExample.getExample();
     const usecaseWithComponents = new UsecaseWithComponents(usecaseIdentifier);
 
-    // Get the grouped components and flatten them for backward compatibility
-    const usecaseComponentsDto = UsecaseComponentsExample.getExample();
-    const componentCollection = usecaseComponentsDto.components;
+    // Get the component collection and flatten them for backward compatibility
+    const componentCollection = UsecaseComponentsExample.getExample();
     const flatComponents: BaseComponentDto<number>[] = [
       ...componentCollection.spfModules,
       ...componentCollection.dataLinks,
@@ -372,8 +367,8 @@ export const UsecaseWithComponentsExample = {
     // Create the usecase with components
     const usecaseWithComponents = new UsecaseWithComponents(usecaseIdentifier);
 
-    // Get base components
-    const baseComponents = UsecaseComponentsExample.getExample();
+    // Get base component collection
+    const baseComponentCollection = UsecaseComponentsExample.getExample();
 
     // Add additional components
 
@@ -422,7 +417,6 @@ export const UsecaseWithComponentsExample = {
     eqModule.controlPorts = [eqControlPort1, eqControlPort2];
 
     // Find the MBDRC module from base components (for reference)
-    const baseComponentCollection = baseComponents.components;
     const mbdrcModule = baseComponentCollection.spfModules.find(
       (c: SpfModuleDto) => c.id === 1002,
     );
