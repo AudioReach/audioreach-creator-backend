@@ -68,7 +68,7 @@ export class DataLinkBuilder {
 
     // STEP 2: Build DataLink objects only for unique properties (Efficient Processing)
     const dataLinks: DataLink[] = [];
-    const builtProperties: DataLinkProperty[] = [];
+    const propertyByLink = new Map<DataLink, DataLinkProperty>();
     let successCount = 0;
     let failureCount = 0;
 
@@ -80,7 +80,7 @@ export class DataLinkBuilder {
         // The specific failure reason was already logged in convertDataLinkProperty
       } else {
         dataLinks.push(dataLink);
-        builtProperties.push(property);
+        propertyByLink.set(dataLink, property);
         successCount++;
       }
     }
@@ -91,8 +91,8 @@ export class DataLinkBuilder {
     }
 
     // STEP 4: Register data link → systemId mappings in ForeignKeyMapper
-    for (const [i, link] of dataLinks.entries()) {
-      const prop = builtProperties[i];
+    for (const link of dataLinks) {
+      const prop = propertyByLink.get(link)!;
       this.foreignKeyMapper.addDataLinkMapping(
         prop.sourceInstanceId,
         prop.sourcePortId,
