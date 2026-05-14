@@ -27,7 +27,7 @@ export class TagDefinition {
   description?: string;
   isVoice: boolean;
   cHeaderEnumName?: string;
-  cHEaderEnumValue?: string;
+  cHeaderEnumValue?: string;
   fileSystemId: number;
 
   private readonly keyIds: Set<number>;
@@ -39,7 +39,7 @@ export class TagDefinition {
     this.description = initParam.description;
     this.isVoice = initParam.isVoice;
     this.cHeaderEnumName = initParam.cHeaderEnumName;
-    this.cHEaderEnumValue = initParam.cHeaderEnumValue;
+    this.cHeaderEnumValue = initParam.cHeaderEnumValue;
     this.fileSystemId = initParam.fileSystemId;
     this.keyIds = new Set<number>();
     for (const key of initParam.keysAllowed) {

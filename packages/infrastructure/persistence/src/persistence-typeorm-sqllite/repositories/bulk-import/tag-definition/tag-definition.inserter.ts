@@ -68,7 +68,7 @@ export class TagDefinitionInserter {
       description: tag.description,
       isVoice: tag.isVoice,
       cHeaderEnumName: tag.cHeaderEnumName,
-      cHeaderEnumValue: tag.cHEaderEnumValue,
+      cHeaderEnumValue: tag.cHeaderEnumValue,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
