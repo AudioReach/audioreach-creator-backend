@@ -18,8 +18,12 @@ import {SubgraphDataChunkParser} from './acdb-chunk-parsers/subgraph-data-chunk-
 import {SubgraphPairDataChunkParser} from './acdb-chunk-parsers/subgraph-pair-data-chunk-parser.js';
 import {VoiceCalibrationChunkParser} from './acdb-chunk-parsers/voice-calibration-chunk-parser.js';
 import {AudioCalibrationChunkParser} from './acdb-chunk-parsers/audio-calibration-chunk-parser.js';
+import {TagDataChunkParser} from './acdb-chunk-parsers/tag-data-chunk-parser.js';
+import {TaggedModuleMapChunkParser} from './acdb-chunk-parsers/tagged-module-map-chunk-parser.js';
 import {VoiceCalibrationChunk} from '../../shared/acdb-chunks/voice-calibration-chunk.js';
 import {AudioCalibrationChunk} from '../../shared/acdb-chunks/audio-calibration-chunk.js';
+import {TagDataChunk} from '../../shared/acdb-chunks/tag-data-chunk.js';
+import {TaggedModuleMapChunk} from '../../shared/acdb-chunks/tagged-module-map-chunk.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 
 /**
@@ -34,6 +38,8 @@ export class AcdbParser {
   private readonly subgraphPairDataParser = new SubgraphPairDataChunkParser();
   private readonly voiceCalibrationParser: VoiceCalibrationChunkParser;
   private readonly audioCalibrationParser: AudioCalibrationChunkParser;
+  private readonly tagDataParser: TagDataChunkParser;
+  private readonly taggedModuleMapParser: TaggedModuleMapChunkParser;
   private readonly logger?: Logger;
 
   constructor(logger?: Logger) {
@@ -41,6 +47,8 @@ export class AcdbParser {
     this.subgraphDataParser = new SubgraphDataChunkParser(logger);
     this.voiceCalibrationParser = new VoiceCalibrationChunkParser(logger);
     this.audioCalibrationParser = new AudioCalibrationChunkParser(logger);
+    this.tagDataParser = new TagDataChunkParser(logger);
+    this.taggedModuleMapParser = new TaggedModuleMapChunkParser(logger);
   }
 
   /**
@@ -63,6 +71,10 @@ export class AcdbParser {
         return this.parseVoiceCalibrationChunk(context);
       case PARSED_CHUNK_TYPES.AUDIO_CALIBRATION_DATA:
         return this.parseAudioCalibrationChunk(context);
+      case PARSED_CHUNK_TYPES.TAG_DATA:
+        return this.parseTagDataChunk(context);
+      case PARSED_CHUNK_TYPES.TAGGED_MODULE_MAP:
+        return this.parseTaggedModuleMapChunk(context);
       default:
         // Log warning for unknown parser types but don't crash
         if (this.logger) {
@@ -135,5 +147,21 @@ export class AcdbParser {
     context: ChunkParseContext,
   ): AudioCalibrationChunk {
     return this.audioCalibrationParser.parse(context);
+  }
+
+  /**
+   * Parse MODULE_TAG_KEY_TABLE chunk using TagDataChunkParser
+   */
+  private parseTagDataChunk(context: ChunkParseContext): TagDataChunk {
+    return this.tagDataParser.parse(context);
+  }
+
+  /**
+   * Parse TAGGED_MODULES_LUT chunk using TaggedModuleMapChunkParser
+   */
+  private parseTaggedModuleMapChunk(
+    context: ChunkParseContext,
+  ): TaggedModuleMapChunk {
+    return this.taggedModuleMapParser.parse(context);
   }
 }

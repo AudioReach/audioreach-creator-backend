@@ -45,6 +45,7 @@ export class ForeignKeyMapper {
   >();
   private dataLinkMappings = new Map<string, SystemId>();
   private controlLinkMappings = new Map<string, SystemId>();
+  private tagDefinitionMappings = new Map<NaturalId, SystemId>();
 
   constructor() {}
 
@@ -583,6 +584,25 @@ export class ForeignKeyMapper {
   }
 
   /**
+   * Add a single tag definition mapping
+   */
+  addTagDefinitionMapping(tagId: NaturalId, systemId: SystemId): void {
+    if (this.tagDefinitionMappings.has(tagId)) {
+      throw new Error(
+        `Tag definition ${tagId} already mapped to systemId ${this.tagDefinitionMappings.get(tagId)}`,
+      );
+    }
+    this.tagDefinitionMappings.set(tagId, systemId);
+  }
+
+  /**
+   * Get systemId for a given tagId
+   */
+  getTagDefinitionSystemId(tagId: NaturalId): SystemId | undefined {
+    return this.tagDefinitionMappings.get(tagId);
+  }
+
+  /**
    * Get hash for a KeyVector (for deduplication checks).
    *
    * @param valueSystemIds - Array of value systemIds
@@ -611,6 +631,7 @@ export class ForeignKeyMapper {
     this.moduleControlPortMappings.clear();
     this.dataLinkMappings.clear();
     this.controlLinkMappings.clear();
+    this.tagDefinitionMappings.clear();
   }
 
   /**
@@ -632,6 +653,7 @@ export class ForeignKeyMapper {
     moduleControlPortMappings: number;
     dataLinkMappings: number;
     controlLinkMappings: number;
+    tagDefinitionMappings: number;
   } {
     return {
       keyMappings: this.keyDefinitionMappings.size,
@@ -650,6 +672,7 @@ export class ForeignKeyMapper {
       moduleControlPortMappings: this.moduleControlPortMappings.size,
       dataLinkMappings: this.dataLinkMappings.size,
       controlLinkMappings: this.controlLinkMappings.size,
+      tagDefinitionMappings: this.tagDefinitionMappings.size,
     };
   }
 }

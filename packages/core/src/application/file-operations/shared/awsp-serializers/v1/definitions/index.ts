@@ -4,8 +4,7 @@ export type {SpecialKey} from './key-definition/type/special-key-type.js';
 export {AwspValueDefinition} from './key-definition/value-definition.js';
 
 // Tag Definitions
-export {TagDefinition} from './tag-definition/tag-definition.js';
-export {TagKeyDefinition} from './tag-definition/tag-key-definition.js';
+export {AwspTagDefinition} from './tag-definition/tag-definition.js';
 
 // Property Definitions
 export {BasePropertyDefinition} from './property-definition/base-property-definition.js';

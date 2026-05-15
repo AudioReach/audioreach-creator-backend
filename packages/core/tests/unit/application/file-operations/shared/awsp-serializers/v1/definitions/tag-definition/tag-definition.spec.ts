@@ -4,8 +4,8 @@
  */
 
 import {describe, it, expect} from '@jest/globals';
-import {TagDefinition} from '../../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/tag-definition/tag-definition.js';
-import {TagKeyDefinition} from '../../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/tag-definition/tag-key-definition.js';
+import {AwspTagDefinition} from '../../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/tag-definition/tag-definition.js';
+import {AwspTagKeyDefinition} from '../../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/tag-definition/tag-key-definition.js';
 
 describe('TagDefinition', () => {
   const testData = {
@@ -33,18 +33,18 @@ describe('TagDefinition', () => {
 
   describe('fromJSON', () => {
     it('should create proper class instances for nested objects', () => {
-      const instance = TagDefinition.fromJSON(testData);
+      const instance = AwspTagDefinition.fromJSON(testData);
 
       // Verify root instance
-      expect(instance).toBeInstanceOf(TagDefinition);
+      expect(instance).toBeInstanceOf(AwspTagDefinition);
       expect(typeof instance.toJSON).toBe('function');
 
       // Verify nested array contains class instances
       expect(Array.isArray(instance.supportedKeys)).toBe(true);
       expect(instance.supportedKeys).toHaveLength(2);
-      expect(instance.supportedKeys![0]).toBeInstanceOf(TagKeyDefinition);
+      expect(instance.supportedKeys![0]).toBeInstanceOf(AwspTagKeyDefinition);
       expect(typeof instance.supportedKeys![0].toJSON).toBe('function');
-      expect(instance.supportedKeys![1]).toBeInstanceOf(TagKeyDefinition);
+      expect(instance.supportedKeys![1]).toBeInstanceOf(AwspTagKeyDefinition);
       expect(typeof instance.supportedKeys![1].toJSON).toBe('function');
     });
 
@@ -55,9 +55,9 @@ describe('TagDefinition', () => {
         description: 'Test description',
       };
 
-      const tag = TagDefinition.fromJSON(json);
+      const tag = AwspTagDefinition.fromJSON(json);
 
-      expect(tag).toBeInstanceOf(TagDefinition);
+      expect(tag).toBeInstanceOf(AwspTagDefinition);
       expect(tag.id).toBe(1);
       expect(tag.name).toBe('TestTag');
       expect(tag.description).toBe('Test description');
@@ -69,7 +69,7 @@ describe('TagDefinition', () => {
         name: 'TestTag',
       };
 
-      const tag = TagDefinition.fromJSON(json);
+      const tag = AwspTagDefinition.fromJSON(json);
 
       expect(tag.id).toBe(1);
       expect(tag.name).toBe('TestTag');
@@ -82,9 +82,9 @@ describe('TagDefinition', () => {
         name: 'TestTag',
       };
 
-      const withoutOpt = TagDefinition.fromJSON(dataWithoutOptional);
+      const withoutOpt = AwspTagDefinition.fromJSON(dataWithoutOptional);
 
-      expect(withoutOpt).toBeInstanceOf(TagDefinition);
+      expect(withoutOpt).toBeInstanceOf(AwspTagDefinition);
       expect(withoutOpt.supportedKeys).toBeUndefined();
       expect(withoutOpt.description).toBeUndefined();
     });
@@ -95,13 +95,13 @@ describe('TagDefinition', () => {
         name: 'TestTag',
       };
 
-      expect(() => TagDefinition.fromJSON(invalidJson)).toThrow();
+      expect(() => AwspTagDefinition.fromJSON(invalidJson)).toThrow();
     });
   });
 
   describe('toJSON', () => {
     it('should serialize to JSON', () => {
-      const tag = new TagDefinition();
+      const tag = new AwspTagDefinition();
       tag.id = 1;
       tag.name = 'TestTag';
       tag.description = 'Test';
@@ -114,7 +114,7 @@ describe('TagDefinition', () => {
     });
 
     it('should omit undefined optional fields', () => {
-      const tag = new TagDefinition();
+      const tag = new AwspTagDefinition();
       tag.id = 1;
       tag.name = 'TestTag';
 
@@ -128,9 +128,9 @@ describe('TagDefinition', () => {
 
   describe('round-trip', () => {
     it('should support round-trip serialization', () => {
-      const instance = TagDefinition.fromJSON(testData);
+      const instance = AwspTagDefinition.fromJSON(testData);
       const serialized = instance.toJSON();
-      const deserialized = TagDefinition.fromJSON(serialized);
+      const deserialized = AwspTagDefinition.fromJSON(serialized);
 
       // Verify structure matches
       expect(deserialized.id).toBe(instance.id);
@@ -140,7 +140,9 @@ describe('TagDefinition', () => {
       );
 
       // Verify nested objects are still class instances
-      expect(deserialized.supportedKeys![0]).toBeInstanceOf(TagKeyDefinition);
+      expect(deserialized.supportedKeys![0]).toBeInstanceOf(
+        AwspTagKeyDefinition,
+      );
       expect(typeof deserialized.supportedKeys![0].toJSON).toBe('function');
     });
 
@@ -154,7 +156,7 @@ describe('TagDefinition', () => {
         enumValue: 'TEST_VALUE',
       };
 
-      const tag = TagDefinition.fromJSON(original);
+      const tag = AwspTagDefinition.fromJSON(original);
       const serialized = tag.toJSON();
 
       expect(serialized).toEqual(original);
