@@ -17,7 +17,10 @@ import {
   PORT_IO_TYPE,
   type PortIoType,
 } from '../../../../../domain/entities/common/enums/port-io-type.js';
-import type {AwspSpfModuleDefinition} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
+import type {
+  AwspSpfModuleDefinition,
+  AwspTagDefinition,
+} from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 import {
   MODULE_PORT_STRATEGIES,
   type ModulePortStrategy,
@@ -25,6 +28,8 @@ import {
 import {
   asNaturalId,
   asSystemId,
+  type NaturalId,
+  type SystemId,
 } from '../../../../../shared/types/branded-ids.js';
 import type {
   BuildResult,
@@ -34,6 +39,8 @@ import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import type {ParsedAcdb} from '../../models/parsed-acdb.js';
 import {CalibrationDataBuilder} from './calibration-data-builder.js';
+import {TagDataBuilder} from './tag-data-builder.js';
+import type {TagData} from '../../../../../domain/entities/usecase-data/module/entities/spf-module-tag-data.js';
 
 /**
  * Dynamic control port ID starts from this value
@@ -68,6 +75,7 @@ export class SpfModuleBuilder {
     portStrategy: ModulePortStrategy,
     modulePropertyConfigs: ModulePropertyConfig[] = [],
     spfModuleDefinitions: AwspSpfModuleDefinition[] = [],
+    awspTagDefinitions: AwspTagDefinition[],
     dynamicControlPortInfo?: DynamicControlPortInfo,
     parsedAcdb?: ParsedAcdb,
   ): Promise<BuildResult<SpfModule>> {
@@ -115,6 +123,14 @@ export class SpfModuleBuilder {
         parsedAcdb,
         fileSystemId,
       );
+      if (awspTagDefinitions && awspTagDefinitions.length > 0) {
+        await this.attachTagData(
+          result.entities,
+          parsedAcdb,
+          fileSystemId,
+          awspTagDefinitions,
+        );
+      }
     }
 
     this.logger?.logInfo({
@@ -255,6 +271,129 @@ export class SpfModuleBuilder {
         tag: 'calibration-attachment',
         timestamp: new Date(),
       });
+    }
+  }
+
+  /**
+   * Attach tag data to SPF modules.
+   * Processes both tag formats with priority-based merging:
+   * 1. tagKvData (4-chunk format with KV pairs) - always added
+   * 2. taggedModuleData (2-chunk format, simple associations) - only if tag doesn't exist
+   */
+  private async attachTagData(
+    spfModules: SpfModule[],
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+    awspTagDefinitions: AwspTagDefinition[],
+  ): Promise<void> {
+    try {
+      await this.processTagDataAttachment(
+        spfModules,
+        parsedAcdb,
+        fileSystemId,
+        awspTagDefinitions,
+      );
+      this.logTagDataSuccess(spfModules.length);
+    } catch (error) {
+      this.logTagDataFailure(error);
+    }
+  }
+
+  /**
+   * Process tag data attachment with two-step merging
+   */
+  private async processTagDataAttachment(
+    spfModules: SpfModule[],
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+    awspTagDefinitions: AwspTagDefinition[],
+  ): Promise<void> {
+    const tagDataBuilder = new TagDataBuilder(this.idGenerator, this.logger);
+    const instanceToDefinitionMap =
+      this.buildInstanceToDefinitionMap(spfModules);
+
+    // STEP 1: Process tag data with key-values (MTKT/MTLU/MTDE/MTDO)
+    const tagKvData = await tagDataBuilder.buildTagDataByModule(
+      parsedAcdb,
+      this.foreignKeyMapper,
+      fileSystemId,
+      awspTagDefinitions,
+      instanceToDefinitionMap,
+    );
+    this.attachTagDataToModules(spfModules, tagKvData, false);
+
+    // STEP 2: Process tagged module associations (TMLU/TMDE - no KV data)
+    const taggedModuleData =
+      await tagDataBuilder.buildTagDataFromTaggedModuleMap(
+        parsedAcdb,
+        this.foreignKeyMapper,
+        fileSystemId,
+      );
+    this.attachTagDataToModules(spfModules, taggedModuleData, true);
+  }
+
+  /**
+   * Log successful tag data attachment
+   */
+  private logTagDataSuccess(moduleCount: number): void {
+    this.logger?.logInfo({
+      msg: `Attached tag data to ${moduleCount} SPF modules`,
+      action: 'tag_data_attached',
+      component: 'SpfModuleBuilder',
+      tag: 'tag-attachment',
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Log tag data attachment failure
+   */
+  private logTagDataFailure(error: unknown): void {
+    this.logger?.logWarn({
+      msg: `Failed to attach tag data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      action: 'tag_attachment_failed',
+      component: 'SpfModuleBuilder',
+      tag: 'tag-attachment',
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Build instance-to-definition map from SpfModule array
+   */
+  private buildInstanceToDefinitionMap(
+    spfModules: SpfModule[],
+  ): Map<NaturalId, SystemId> {
+    const map = new Map<NaturalId, SystemId>();
+    for (const spfModule of spfModules) {
+      map.set(
+        asNaturalId(spfModule.instanceId),
+        asSystemId(spfModule.definitionSystemId),
+      );
+    }
+    return map;
+  }
+
+  /**
+   * Attach tag data to modules with optional duplicate checking
+   */
+  private attachTagDataToModules(
+    spfModules: SpfModule[],
+    tagDataByModule: Map<number, TagData[]>,
+    checkDuplicates: boolean,
+  ): void {
+    for (const spfModule of spfModules) {
+      const moduleTags = tagDataByModule.get(spfModule.systemId);
+      if (moduleTags) {
+        for (const tagData of moduleTags) {
+          if (
+            !checkDuplicates ||
+            !spfModule.hasTag(tagData.tagDefinitionSystemId)
+          ) {
+            spfModule.addTagData(tagData);
+          }
+        }
+      }
     }
   }
 

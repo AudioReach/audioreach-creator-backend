@@ -4,6 +4,7 @@
  */
 
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/key-definition.js';
+import type {TagDefinition} from '../../../../domain/entities/definitions/tag-key-value/tag-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
@@ -22,6 +23,7 @@ import type {ParsedAcdb} from '../models/parsed-acdb.js';
 import type {ParsedAwsp} from '../models/parsed-awsp.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js';
+import {TagDefinitionBuilder} from './entity-builders/tag-definition-builder.js';
 import {SpfModuleDefinitionBuilder} from './entity-builders/spf-module-definition-builder.js';
 import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
 import {SubgraphBuilder} from './entity-builders/subgraph-builder.js';
@@ -92,6 +94,7 @@ export class EntityModel {
  */
 export class EntityBuilderService {
   private keyDefinitionBuilder: KeyDefinitionBuilder;
+  private tagDefinitionBuilder: TagDefinitionBuilder;
   private spfModuleDefinitionBuilder: SpfModuleDefinitionBuilder;
   private subgraphBuilder: SubgraphBuilder;
   private containerBuilder: ContainerBuilder;
@@ -109,6 +112,11 @@ export class EntityBuilderService {
       this.idGenerator,
       this.foreignKeyMapper,
       this.workerPool,
+      this.logger,
+    );
+    this.tagDefinitionBuilder = new TagDefinitionBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
       this.logger,
     );
     this.spfModuleDefinitionBuilder = new SpfModuleDefinitionBuilder(
@@ -449,6 +457,9 @@ export class EntityBuilderService {
     // Get SPF module definitions from ParsedAwsp for display names
     const spfModuleDefinitions = parsedAwsp?.getSpfModuleDefinitions() || [];
 
+    // Get tag definitions from ParsedAwsp for tag data value resolution
+    const awspTagDefinitions = parsedAwsp?.getTagDefinitions() || [];
+
     // Get port strategy from configuration (required)
     const configuration = parsedAwsp?.getConfiguration();
     if (!configuration?.portStrategy) {
@@ -469,6 +480,7 @@ export class EntityBuilderService {
       portStrategy,
       modulePropertyConfigs,
       spfModuleDefinitions,
+      awspTagDefinitions, // Pass AWSP tag definitions for tag data value resolution
       dynamicControlPortInfo,
       parsedAcdb, // Pass parsedAcdb for calibration data attachment
     );
@@ -683,6 +695,43 @@ export class EntityBuilderService {
     this.logger?.logInfo({
       msg: `Successfully built ${result.successCount} key definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
       action: 'awsp_key_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
+
+    return result;
+  }
+
+  /**
+   * Build tag definitions from AWSP data with system IDs assigned
+   */
+  async buildTagDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<BuildResult<TagDefinition>> {
+    // Extract tag definitions from AWSP
+    const awspTagDefinitions = parsedAwsp.getTagDefinitions();
+
+    if (!awspTagDefinitions || awspTagDefinitions.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    // Build domain tag definitions with system IDs assigned
+    const result = await this.tagDefinitionBuilder.buildTagDefinitions(
+      awspTagDefinitions,
+      fileSystemId,
+    );
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${result.successCount} tag definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      action: 'awsp_tag_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
       timestamp: new Date(),

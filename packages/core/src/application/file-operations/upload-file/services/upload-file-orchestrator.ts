@@ -300,6 +300,9 @@ export class UploadFileOrchestrator {
       // Phase 1a: Build and Insert Key Definitions (no dependencies)
       await this.buildAndInsertKeyDefinitions(bulkRepo);
 
+      // Phase 1a2: Insert Tag Definitions (no dependencies)
+      await this.insertTagDefinitions(bulkRepo);
+
       // Phase 1b: Build and Insert Processor Definitions (no dependencies)
       await this.buildAndInsertProcessorDefinitions(bulkRepo);
 
@@ -468,6 +471,52 @@ export class UploadFileOrchestrator {
   //   return ERROR_CODES.INSERTION_FAILED;
   // }
   /* eslint-enable sonarjs/no-commented-code */
+
+  /**
+   * Phase 1a2: Build and Insert Tag Definitions
+   */
+  private async insertTagDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Build tag definitions with system IDs assigned
+    const result = await this.builderService.buildTagDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert tag definitions
+      const insertResult = await bulkRepo.insertTagDefinitions(result.entities);
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'TagDefinition');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} tag definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'tag_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some tag definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'tag_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
 
   /**
    * Phase 1b: Build and Insert Processor Definitions

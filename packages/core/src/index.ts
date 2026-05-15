@@ -59,6 +59,7 @@ export * from './application/file-operations/upload-file/workers/parser-registry
 export * from './application/file-operations/upload-file/workers/entity-builder-registry.js';
 export * from './application/file-operations/upload-file/services/acdb-chunk-parsers/base-chunk-parser.js';
 export * from './application/file-operations/upload-file/services/acdb-chunk-parsers/header-chunk-parser.js';
+export * from './application/file-operations/upload-file/services/acdb-chunk-parsers/tagged-module-map-chunk-parser.js';
 export * from './application/file-operations/upload-file/services/acdb-parser.js';
 export * from './application/file-operations/upload-file/services/acdb-file-orchestrator.js';
 export * from './application/file-operations/upload-file/services/awsp-parser.js';
@@ -73,6 +74,7 @@ export * from './application/file-operations/upload-file/models/parsed-acdb.js';
 export * from './application/file-operations/shared/acdb-chunks/base-chunk.js';
 export * from './application/file-operations/shared/acdb-chunks/header-chunk.js';
 export * from './application/file-operations/shared/acdb-chunks/subgraph-data-chunk.js';
+export * from './application/file-operations/shared/acdb-chunks/tagged-module-map-chunk.js';
 export * from './application/file-operations/upload-file/services/chunk-metadata-registry.js';
 
 // ACDB entities and factories

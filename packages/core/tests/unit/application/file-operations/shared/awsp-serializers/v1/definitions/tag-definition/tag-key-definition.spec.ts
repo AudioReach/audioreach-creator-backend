@@ -4,9 +4,9 @@
  */
 
 import {describe, it, expect} from '@jest/globals';
-import {TagKeyDefinition} from '../../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/tag-definition/tag-key-definition.js';
+import {AwspTagKeyDefinition} from '../../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/tag-definition/tag-key-definition.js';
 
-describe('TagKeyDefinition serialization', () => {
+describe('AwspTagKeyDefinition serialization', () => {
   describe('fromJSON', () => {
     it('should parse valid JSON data', () => {
       const json = {
@@ -14,9 +14,9 @@ describe('TagKeyDefinition serialization', () => {
         name: 'TestKey',
       };
 
-      const key = TagKeyDefinition.fromJSON(json);
+      const key = AwspTagKeyDefinition.fromJSON(json);
 
-      expect(key).toBeInstanceOf(TagKeyDefinition);
+      expect(key).toBeInstanceOf(AwspTagKeyDefinition);
       expect(key.id).toBe(1);
       expect(key.name).toBe('TestKey');
     });
@@ -24,7 +24,7 @@ describe('TagKeyDefinition serialization', () => {
 
   describe('toJSON', () => {
     it('should serialize to JSON', () => {
-      const key = new TagKeyDefinition();
+      const key = new AwspTagKeyDefinition();
       key.id = 1;
       key.name = 'TestKey';
 
@@ -42,7 +42,7 @@ describe('TagKeyDefinition serialization', () => {
         name: 'TestKey',
       };
 
-      const key = TagKeyDefinition.fromJSON(original);
+      const key = AwspTagKeyDefinition.fromJSON(original);
       const serialized = key.toJSON();
 
       expect(serialized).toEqual(original);

@@ -20,7 +20,7 @@ import {
   AwspSpfModuleDefinitionSchema,
   AwspDriverModuleDefinitionSchema,
   AwspKeyDefinition,
-  TagDefinition,
+  AwspTagDefinition,
   SpfPropertyDefinition,
   DriverPropertyDefinition,
   AwspSpfModuleDefinition,
@@ -140,7 +140,7 @@ export class AwspParser {
     const hydratorMap: Record<string, {fromJSON: (data: unknown) => unknown}> =
       {
         [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: AwspKeyDefinition,
-        [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: TagDefinition,
+        [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: AwspTagDefinition,
         [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]:
           SpfPropertyDefinition,
         [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:

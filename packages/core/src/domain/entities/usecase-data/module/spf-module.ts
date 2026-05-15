@@ -81,6 +81,18 @@ export class SpfModule extends Node {
     this.tagDataList.push(tagData);
   }
 
+  /**
+   * Check if module has a tag with the given tag definition system ID.
+   * Uses O(1) Set lookup for performance.
+   *
+   * @param tagDefinitionSystemId The tag definition system ID to check
+   * @returns true if tag exists, false otherwise
+   */
+  hasTag(tagDefinitionSystemId: number): boolean {
+    const tagDefIdKey = `tagDef:${tagDefinitionSystemId}`;
+    return this.tagIds.has(tagDefIdKey);
+  }
+
   addModuleCkv(kvData: KvData) {
     this.ckvCollection.addCkv(kvData);
   }

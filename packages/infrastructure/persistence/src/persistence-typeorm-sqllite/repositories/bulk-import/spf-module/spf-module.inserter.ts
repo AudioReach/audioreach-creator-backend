@@ -345,7 +345,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     const rows: InsertRow<ModuleTagIdMapRow>[] = modules.flatMap(m =>
       m.tagDataList.map(tagData => ({
         systemId: tagData.systemId,
-        spfsystemId: m.systemId,
+        spfModuleSystemId: m.systemId,
         tagDefinitionSystemId: tagData.tagDefinitionSystemId,
       })),
     );

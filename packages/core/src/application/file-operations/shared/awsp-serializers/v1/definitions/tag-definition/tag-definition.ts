@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {TagKeyDefinition} from './tag-key-definition.js';
+import {AwspTagKeyDefinition} from './tag-key-definition.js';
 import {TagDefinitionSchema} from './tag-definition.schema.js';
 import {BaseDefinition} from '../common/base-definition.js';
 
@@ -11,7 +11,7 @@ import {BaseDefinition} from '../common/base-definition.js';
  * Represents a tag definition with metadata and supported keys.
  * Note: Parsing now uses Zod schemas. This class is kept for domain methods and database entities.
  */
-export class TagDefinition extends BaseDefinition {
+export class AwspTagDefinition extends BaseDefinition {
   /** Unique identifier for the tag definition (required) */
   id!: number;
 
@@ -22,7 +22,7 @@ export class TagDefinition extends BaseDefinition {
   description?: string;
 
   /** Collection of supported key definitions for this tag (optional) */
-  supportedKeys?: TagKeyDefinition[];
+  supportedKeys?: AwspTagKeyDefinition[];
 
   /** Indicates whether this tag is voice-related (optional) */
   isVoice?: boolean;
@@ -39,13 +39,19 @@ export class TagDefinition extends BaseDefinition {
    * @returns Validated TagDefinition instance
    * @throws ZodError if validation fails
    */
-  static fromJSON(data: unknown): TagDefinition {
+  static fromJSON(data: unknown): AwspTagDefinition {
     const validated = TagDefinitionSchema.parse(data);
     return this.hydrateInstance(
-      new TagDefinition(),
+      new AwspTagDefinition(),
       validated,
       validated.supportedKeys
-        ? [{field: 'supportedKeys', hydrator: TagKeyDefinition, isArray: true}]
+        ? [
+            {
+              field: 'supportedKeys',
+              hydrator: AwspTagKeyDefinition,
+              isArray: true,
+            },
+          ]
         : [],
     );
   }

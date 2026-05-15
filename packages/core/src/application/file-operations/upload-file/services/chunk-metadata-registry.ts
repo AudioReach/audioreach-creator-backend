@@ -114,6 +114,30 @@ export class ChunkMetadataRegistry {
       parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
       description: 'Audio calibration data from CALIBRATION_SUBGRAPH_LUT chunk',
     },
+    {
+      parserType: PARSED_CHUNK_TYPES.TAG_DATA,
+      rawDependencies: [
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_KEY_TABLE,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_DATA_LUT,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_DATA_DEF,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_DATA_DOT,
+      ],
+      // NOTE: DATAPOOL is listed as a parsed dependency to enforce ordering in the orchestrator,
+      // even though the parser itself only uses rawChunks. The parsed DATAPOOL chunk is actually
+      // consumed later by TagDataBuilder when resolving data offsets.
+      // This dependency ensures DATAPOOL is parsed before tag data parsing begins.
+      parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
+      description: 'Module tag data with key-value pairs',
+    },
+    {
+      parserType: PARSED_CHUNK_TYPES.TAGGED_MODULE_MAP,
+      rawDependencies: [
+        ACDB_RAW_CHUNK_TYPES.TAGGED_MODULES_LUT,
+        ACDB_RAW_CHUNK_TYPES.TAGGED_MODULES_DEF,
+      ],
+      parsedDependencies: [],
+      description: 'Tagged module map - associates tags with modules',
+    },
   ];
 
   /**
