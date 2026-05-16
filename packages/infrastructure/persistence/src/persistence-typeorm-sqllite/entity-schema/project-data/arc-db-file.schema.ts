@@ -28,6 +28,16 @@ export interface ArcDbFileRow extends EntityBaseRow {
   /** JSON array of ValidationIssue[] — null when no DATA_LOSS issues exist. */
   dataLossIssues: string | null;
 
+  // ACDB Header Information (required - all ACDB files have headers)
+  headerVersion: number;
+  acdbVersionMajor: number;
+  acdbVersionMinor: number;
+  acdbVersionRevision: number;
+  acdbVersionCplInfo: number;
+  codecInfos: string;
+  modifiedDate: number;
+  oemInfo: string;
+
   // FK to project
   projectSystemId: number;
   project?: ProjectRow;
@@ -71,6 +81,57 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
       type: 'text',
       nullable: true,
     },
+
+    // ACDB Header columns
+    headerVersion: {
+      name: 'header_version',
+      type: 'integer',
+      nullable: false,
+      default: 0,
+    },
+    acdbVersionMajor: {
+      name: 'acdb_version_major',
+      type: 'integer',
+      nullable: false,
+      default: 0,
+    },
+    acdbVersionMinor: {
+      name: 'acdb_version_minor',
+      type: 'integer',
+      nullable: false,
+      default: 0,
+    },
+    acdbVersionRevision: {
+      name: 'acdb_version_revision',
+      type: 'integer',
+      nullable: false,
+      default: 0,
+    },
+    acdbVersionCplInfo: {
+      name: 'acdb_version_cpl_info',
+      type: 'integer',
+      nullable: false,
+      default: 0,
+    },
+    codecInfos: {
+      name: 'codec_infos',
+      type: 'text',
+      nullable: false,
+      default: '[]',
+    },
+    modifiedDate: {
+      name: 'modified_date',
+      type: 'integer',
+      nullable: false,
+      default: 0,
+    },
+    oemInfo: {
+      name: 'oem_info',
+      type: 'text',
+      nullable: false,
+      default: '',
+    },
+
     projectSystemId: {name: 'project_system_id', type: 'integer'},
   },
   relations: {

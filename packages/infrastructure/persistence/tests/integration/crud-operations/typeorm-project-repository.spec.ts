@@ -224,4 +224,194 @@ describe('TypeOrmProjectRepository', () => {
       expect(files).toHaveLength(0);
     });
   });
+
+  describe('updateFileHeader', () => {
+    it('updates all ACDB header fields when provided', async () => {
+      const qr = await createTestTransaction();
+      const repo = new TypeOrmProjectRepository(qr.manager);
+      const createResult = await repo.createOfflineProject(
+        'HeaderProject',
+        'desc',
+        {
+          description: 'desc',
+          metadata: '{}',
+          fileName: 'header.acdb',
+          isTarget: true,
+          openStatus: FILE_OPEN_STATUS.Loading,
+          dataLossIssues: [],
+        },
+      );
+      expect(createResult.success).toBe(true);
+      if (!createResult.success) return;
+      const fileSystemId = createResult.data.file.systemId;
+
+      await repo.updateFileHeader(fileSystemId, {
+        headerVersion: 1,
+        acdbVersionMajor: 2,
+        acdbVersionMinor: 3,
+        acdbVersionRevision: 4,
+        acdbVersionCplInfo: 5,
+        codecInfos: 'codec1,codec2',
+        modifiedDate: 1234567890,
+        oemInfo: 'OEM Data',
+      });
+      await commitTestTransaction(qr);
+
+      const dataSource = getTestDataSource();
+      const rows: Pick<
+        ArcDbFileRow,
+        | 'headerVersion'
+        | 'acdbVersionMajor'
+        | 'acdbVersionMinor'
+        | 'acdbVersionRevision'
+        | 'acdbVersionCplInfo'
+        | 'codecInfos'
+        | 'modifiedDate'
+        | 'oemInfo'
+      >[] = await dataSource.getRepository<ArcDbFileRow>(ArcDbFileSchema).find({
+        select: [
+          'headerVersion',
+          'acdbVersionMajor',
+          'acdbVersionMinor',
+          'acdbVersionRevision',
+          'acdbVersionCplInfo',
+          'codecInfos',
+          'modifiedDate',
+          'oemInfo',
+        ],
+      });
+
+      expect(rows[0].headerVersion).toBe(1);
+      expect(rows[0].acdbVersionMajor).toBe(2);
+      expect(rows[0].acdbVersionMinor).toBe(3);
+      expect(rows[0].acdbVersionRevision).toBe(4);
+      expect(rows[0].acdbVersionCplInfo).toBe(5);
+      expect(rows[0].codecInfos).toBe('codec1,codec2');
+      expect(rows[0].modifiedDate).toBe(1234567890);
+      expect(rows[0].oemInfo).toBe('OEM Data');
+    });
+
+    it('updates header fields with specific values', async () => {
+      const qr = await createTestTransaction();
+      const repo = new TypeOrmProjectRepository(qr.manager);
+      const createResult = await repo.createOfflineProject(
+        'PartialHeaderProject',
+        'desc',
+        {
+          description: 'desc',
+          metadata: '{}',
+          fileName: 'partial.acdb',
+          isTarget: true,
+          openStatus: FILE_OPEN_STATUS.Loading,
+          dataLossIssues: [],
+        },
+      );
+      expect(createResult.success).toBe(true);
+      if (!createResult.success) return;
+      const fileSystemId = createResult.data.file.systemId;
+
+      await repo.updateFileHeader(fileSystemId, {
+        headerVersion: 1,
+        acdbVersionMajor: 10,
+        acdbVersionMinor: 20,
+        acdbVersionRevision: 30,
+        acdbVersionCplInfo: 40,
+        codecInfos: '[]',
+        modifiedDate: 1234567890,
+        oemInfo: 'Partial OEM',
+      });
+      await commitTestTransaction(qr);
+
+      const dataSource = getTestDataSource();
+      const rows: Pick<
+        ArcDbFileRow,
+        | 'headerVersion'
+        | 'acdbVersionMajor'
+        | 'acdbVersionMinor'
+        | 'acdbVersionRevision'
+        | 'acdbVersionCplInfo'
+        | 'codecInfos'
+        | 'modifiedDate'
+        | 'oemInfo'
+      >[] = await dataSource.getRepository<ArcDbFileRow>(ArcDbFileSchema).find({
+        select: [
+          'headerVersion',
+          'acdbVersionMajor',
+          'acdbVersionMinor',
+          'acdbVersionRevision',
+          'acdbVersionCplInfo',
+          'codecInfos',
+          'modifiedDate',
+          'oemInfo',
+        ],
+      });
+
+      expect(rows[0].headerVersion).toBe(1);
+      expect(rows[0].acdbVersionMajor).toBe(10);
+      expect(rows[0].acdbVersionMinor).toBe(20);
+      expect(rows[0].acdbVersionRevision).toBe(30);
+      expect(rows[0].acdbVersionCplInfo).toBe(40);
+      expect(rows[0].codecInfos).toBe('[]');
+      expect(rows[0].modifiedDate).toBe(1234567890);
+      expect(rows[0].oemInfo).toBe('Partial OEM');
+    });
+
+    it('can update header fields multiple times', async () => {
+      const qr = await createTestTransaction();
+      const repo = new TypeOrmProjectRepository(qr.manager);
+      const createResult = await repo.createOfflineProject(
+        'MultiUpdateProject',
+        'desc',
+        {
+          description: 'desc',
+          metadata: '{}',
+          fileName: 'multiupdate.acdb',
+          isTarget: true,
+          openStatus: FILE_OPEN_STATUS.Loading,
+          dataLossIssues: [],
+        },
+      );
+      expect(createResult.success).toBe(true);
+      if (!createResult.success) return;
+      const fileSystemId = createResult.data.file.systemId;
+
+      // First update
+      await repo.updateFileHeader(fileSystemId, {
+        headerVersion: 1,
+        acdbVersionMajor: 1,
+        acdbVersionMinor: 0,
+        acdbVersionRevision: 0,
+        acdbVersionCplInfo: 0,
+        codecInfos: '[]',
+        modifiedDate: 1000000000,
+        oemInfo: 'First OEM',
+      });
+
+      // Second update
+      await repo.updateFileHeader(fileSystemId, {
+        headerVersion: 2,
+        acdbVersionMajor: 2,
+        acdbVersionMinor: 5,
+        acdbVersionRevision: 10,
+        acdbVersionCplInfo: 15,
+        codecInfos: '[{"id":1}]',
+        modifiedDate: 2000000000,
+        oemInfo: 'Second OEM',
+      });
+
+      await commitTestTransaction(qr);
+
+      const dataSource = getTestDataSource();
+      const rows: Pick<
+        ArcDbFileRow,
+        'acdbVersionMajor' | 'acdbVersionMinor' | 'oemInfo'
+      >[] = await dataSource.getRepository<ArcDbFileRow>(ArcDbFileSchema).find({
+        select: ['acdbVersionMajor', 'acdbVersionMinor', 'oemInfo'],
+      });
+
+      expect(rows[0].acdbVersionMajor).toBe(2);
+      expect(rows[0].acdbVersionMinor).toBe(5);
+      expect(rows[0].oemInfo).toBe('Second OEM');
+    });
+  });
 });

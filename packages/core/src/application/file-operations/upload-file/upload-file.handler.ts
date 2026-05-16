@@ -131,7 +131,7 @@ export class UploadFileHandler implements CommandHandler<
       throw new Error(`Upload failed unexpectedly: ${originalMessage}`);
     }
 
-    // ========== PHASE 3: Persist file status ==========
+    // ========== PHASE 3: Persist file status and header metadata ==========
     const finalStatus: FileOpenStatus =
       uploadResult.dataLossIssues.length > 0
         ? FILE_OPEN_STATUS.PendingDataLossAck
@@ -145,10 +145,17 @@ export class UploadFileHandler implements CommandHandler<
           finalStatus,
           uploadResult.dataLossIssues,
         );
+
+      // Persist ACDB header metadata if available
+      if (uploadResult.headerData) {
+        await this.uow
+          .getProjectRepository()
+          .updateFileHeader(fileSystemId, uploadResult.headerData);
+      }
     } catch (error) {
       await this.uow.getProjectRepository().deleteProject(project.systemId);
       throw new Error(
-        `Failed to persist file status after upload: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to persist file metadata after upload: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

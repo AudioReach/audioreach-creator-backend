@@ -26,6 +26,8 @@ import {
 } from '../../../../shared/profiling/profiler-types.js';
 import {IssueCollector /*, ENTITY_TYPES*/} from '../types/issue-collection.js';
 import type {ValidationIssue} from '../../../../domain/validation/issue.js';
+import {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
+import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 
 /* eslint-disable sonarjs/no-commented-code */
 // import {
@@ -39,6 +41,20 @@ import type {ValidationIssue} from '../../../../domain/validation/issue.js';
  * This reduces database round-trips during entity creation.
  */
 const ID_BLOCK_SIZE = 1_000_000;
+
+/**
+ * ACDB header metadata extracted from the parsed file
+ */
+export interface AcdbHeaderData {
+  headerVersion: number;
+  acdbVersionMajor: number;
+  acdbVersionMinor: number;
+  acdbVersionRevision: number;
+  acdbVersionCplInfo: number;
+  codecInfos: string;
+  modifiedDate: number;
+  oemInfo: string;
+}
 
 /**
  * Result returned by UploadFileOrchestrator.orchestrate().
@@ -56,6 +72,11 @@ export interface UploadOrchestratorResult {
    * Empty array when all inserts succeeded.
    */
   dataLossIssues: ValidationIssue[];
+  /**
+   * ACDB header metadata extracted from the parsed file.
+   * Undefined if header chunk was not found or failed to parse.
+   */
+  headerData?: AcdbHeaderData;
 }
 
 export class UploadFileOrchestrator {
@@ -270,6 +291,37 @@ export class UploadFileOrchestrator {
       errors: formattedIssues.errors,
       warnings: formattedIssues.warnings,
       dataLossIssues: [...this.dataLossIssues],
+      headerData: this.extractHeaderData(),
+    };
+  }
+
+  /**
+   * Extract ACDB header metadata from parsed file
+   */
+  private extractHeaderData(): AcdbHeaderData | undefined {
+    if (!this.parsedAcdb) {
+      return undefined;
+    }
+
+    const headerChunk = this.parsedAcdb.getChunk<HeaderChunk>(
+      PARSED_CHUNK_TYPES.HEADER,
+    );
+    if (!headerChunk) {
+      return undefined;
+    }
+
+    // Serialize codec infos to JSON string
+    const codecInfosJson = JSON.stringify(headerChunk.codecInfos);
+
+    return {
+      headerVersion: headerChunk.headerVersion,
+      acdbVersionMajor: headerChunk.version.major,
+      acdbVersionMinor: headerChunk.version.minor,
+      acdbVersionRevision: headerChunk.version.revision,
+      acdbVersionCplInfo: headerChunk.version.cplInfo,
+      codecInfos: codecInfosJson,
+      modifiedDate: headerChunk.modifiedDate,
+      oemInfo: headerChunk.oemInfo,
     };
   }
 
