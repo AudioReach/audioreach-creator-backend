@@ -24,7 +24,6 @@ import type {
   UseCase,
   VcpmModuleDefinition,
 } from '@arc/core';
-import {okBulkInsert} from '@arc/core';
 import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
 import {SpfModuleDefinitionInserter} from './spf-module-definition/spf-module-definition.inserter.js';
 import {ContainerInserter} from './container/container.inserter.js';
@@ -39,6 +38,7 @@ import {SubgraphPropertyDefinitionInserter} from './subgraph-property-definition
 import {ContainerPropertyDefinitionInserter} from './container-property-definition/container-property-definition.inserter.js';
 import {DataLinkInserter} from './data-link/data-link.inserter.js';
 import {ControlLinkInserter} from './control-link/control-link.inserter.js';
+import {UsecaseInserter} from './usecase/usecase.inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
@@ -81,8 +81,8 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     return new ControlLinkInserter(this.manager).insert([...items]);
   }
 
-  insertUseCases(_items: readonly UseCase[]): Promise<BulkInsertResult> {
-    return Promise.resolve(okBulkInsert());
+  insertUseCases(items: readonly UseCase[]): Promise<BulkInsertResult> {
+    return new UsecaseInserter(this.manager).insert([...items]);
   }
 
   insertSpfModuleDefinitions(
