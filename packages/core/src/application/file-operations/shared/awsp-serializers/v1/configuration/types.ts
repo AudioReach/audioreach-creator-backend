@@ -8,6 +8,8 @@
  * Defines how port IDs are assigned to input and output ports.
  */
 export const MODULE_PORT_STRATEGIES = {
+  //TODO: Fix this. OUTPUT_ODD_INPUT_EVEN is correct.
+  //update conversion and here accordingly
   /**
    * Input ports use odd IDs (1, 3, 5, 7...)
    * Output ports use even IDs (2, 4, 6, 8...)

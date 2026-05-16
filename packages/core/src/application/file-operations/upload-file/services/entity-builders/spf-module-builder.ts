@@ -483,9 +483,9 @@ export class SpfModuleBuilder {
   ): number {
     switch (portStrategy) {
       case MODULE_PORT_STRATEGIES.INPUT_ODD_OUTPUT_EVEN:
-        // Input ports: 1, 3, 5, 7... (odd numbers)
-        // Output ports: 2, 4, 6, 8... (even numbers)
-        return isInput ? baseIndex * 2 + 1 : baseIndex * 2 + 2;
+        // Input ports: 2, 4, 6, 8... (even numbers)
+        // Output ports: 1, 3, 5, 7... (odd numbers)
+        return isInput ? baseIndex * 2 + 2 : baseIndex * 2 + 1;
 
       case MODULE_PORT_STRATEGIES.SEQUENTIAL:
         // Both input and output ports: 1, 2, 3, 4... (sequential)
@@ -493,7 +493,7 @@ export class SpfModuleBuilder {
 
       default:
         // Default to INPUT_ODD_OUTPUT_EVEN if unknown strategy
-        return isInput ? baseIndex * 2 + 1 : baseIndex * 2 + 2;
+        return isInput ? baseIndex * 2 + 2 : baseIndex * 2 + 1;
     }
   }
 
