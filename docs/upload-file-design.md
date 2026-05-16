@@ -365,6 +365,51 @@ foreignKeyMapper.setSpfModuleMappings(result);
 // Now we can use these systemIds when building DataLinks
 ```
 
+### 3.3 Phase 3: Header Metadata Persistence
+
+**Purpose**: Persist ACDB header metadata extracted during file parsing.
+
+**Steps**:
+
+1. **Extract Header Data**
+   - During ACDB parsing, the header chunk is extracted
+   - Contains version information, codec details, OEM info, etc.
+
+2. **Persist Header Metadata**
+   ```typescript
+   // After Phase 2 completes successfully
+   if (uploadResult.headerData) {
+     await projectRepo.updateFileHeader(
+       fileSystemId,
+       uploadResult.headerData
+     );
+   }
+   ```
+
+3. **Header Fields Stored**:
+   - `headerVersion`: ACDB header format version
+   - `acdbVersionMajor/Minor/Revision`: ACDB version (e.g., 2.3.4)
+   - `acdbVersionCplInfo`: CPL information
+   - `codecInfos`: JSON array of codec information
+   - `modifiedDate`: File modification timestamp
+   - `oemInfo`: OEM-specific information
+
+**Error Handling**: If header persistence fails, the entire project is deleted (cascades to file record).
+
+**Query Methods**:
+
+The system provides query methods to retrieve header information:
+
+```typescript
+// Get complete header information
+const headerInfo = await projectQueryService.getFileHeaderInfo(projectId);
+// Returns: { headerVersion, acdbVersion, codecInfos, modifiedDate, oemInfo }
+
+// Get ACDB version string
+const version = await projectQueryService.getAcdbVersion(projectId);
+// Returns: "2.3.4" or null if not available
+```
+
 ---
 
 ## 4) Sequence Diagrams

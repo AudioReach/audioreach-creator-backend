@@ -56,4 +56,45 @@ export class DbProjectQueryService implements ProjectQueryService {
 
     return {acdb: parsed.acdb, awsp: parsed.awsp};
   }
+
+  async getFileHeaderInfo(projectId: number): Promise<{
+    headerVersion: number;
+    acdbVersion: {
+      major: number;
+      minor: number;
+      revision: number;
+      cplInfo: number;
+    };
+    codecInfos: string;
+    modifiedDate: number;
+    oemInfo: string;
+  }> {
+    const project = (await this.dataSource
+      .getRepository('Project')
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.files', 'f')
+      .where('p.systemId = :projectId', {projectId})
+      .getOne()) as ProjectRow | null;
+
+    if (!project?.files || project.files.length === 0) {
+      throw new Error(
+        `Project with ID ${projectId} not found or has no associated files`,
+      );
+    }
+
+    const file = project.files[0];
+
+    return {
+      headerVersion: file.headerVersion,
+      acdbVersion: {
+        major: file.acdbVersionMajor,
+        minor: file.acdbVersionMinor,
+        revision: file.acdbVersionRevision,
+        cplInfo: file.acdbVersionCplInfo,
+      },
+      codecInfos: file.codecInfos,
+      modifiedDate: file.modifiedDate,
+      oemInfo: file.oemInfo,
+    };
+  }
 }

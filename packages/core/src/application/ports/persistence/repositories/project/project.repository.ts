@@ -17,6 +17,17 @@ export interface ProjectCreationResult {
   file: ArcDbFile;
 }
 
+export interface FileHeaderData {
+  headerVersion: number;
+  acdbVersionMajor: number;
+  acdbVersionMinor: number;
+  acdbVersionRevision: number;
+  acdbVersionCplInfo: number;
+  codecInfos: string;
+  modifiedDate: number;
+  oemInfo: string;
+}
+
 export interface ProjectRepository {
   /**
    * Insert a new offline project and its initial file in a single operation.
@@ -41,4 +52,13 @@ export interface ProjectRepository {
   ): Promise<void>;
 
   deleteProject(systemId: number): Promise<void>;
+
+  /**
+   * Update ACDB header metadata for a file after parsing.
+   * Called by the upload handler after successfully parsing the ACDB header.
+   */
+  updateFileHeader(
+    fileSystemId: number,
+    headerData: FileHeaderData,
+  ): Promise<void>;
 }

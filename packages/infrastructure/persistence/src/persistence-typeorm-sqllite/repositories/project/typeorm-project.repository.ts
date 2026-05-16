@@ -9,6 +9,7 @@ import {
   Project,
   PROJECT_TYPE,
   type ArcDbFileInit,
+  type FileHeaderData,
   type FileOpenStatus,
   type OperationResult,
   type ProjectCreationResult,
@@ -90,5 +91,25 @@ export class TypeOrmProjectRepository implements ProjectRepository {
 
   async deleteProject(systemId: number): Promise<void> {
     await this.manager.delete(ProjectSchema, {systemId});
+  }
+
+  async updateFileHeader(
+    fileSystemId: number,
+    headerData: FileHeaderData,
+  ): Promise<void> {
+    await this.manager.update(
+      ArcDbFileSchema,
+      {systemId: fileSystemId},
+      {
+        headerVersion: headerData.headerVersion,
+        acdbVersionMajor: headerData.acdbVersionMajor,
+        acdbVersionMinor: headerData.acdbVersionMinor,
+        acdbVersionRevision: headerData.acdbVersionRevision,
+        acdbVersionCplInfo: headerData.acdbVersionCplInfo,
+        codecInfos: headerData.codecInfos,
+        modifiedDate: headerData.modifiedDate,
+        oemInfo: headerData.oemInfo,
+      },
+    );
   }
 }
