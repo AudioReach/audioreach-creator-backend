@@ -3,6 +3,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from '@jest/globals';
 import {Repository} from 'typeorm';
 import {
   setupIntegrationTest,

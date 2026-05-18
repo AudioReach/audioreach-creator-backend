@@ -76,6 +76,7 @@ export const VcpmModuleParameterDefinitionSchema =
       elementsStructure: {
         type: 'text',
         name: 'elements_structure',
+        nullable: true,
       },
       vcpmModuleDefinitionSystemId: {
         type: 'integer',

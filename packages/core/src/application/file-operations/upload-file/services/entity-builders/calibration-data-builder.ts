@@ -79,7 +79,6 @@ export class CalibrationDataBuilder {
     // Step 2: Assign systemIds to KeyVectors and KvData entities
     const kvDataWithModules = await this.assignSystemIds(
       rawResult.kvDataWithModules,
-      foreignKeyMapper,
       fileSystemId,
     );
 
@@ -92,7 +91,7 @@ export class CalibrationDataBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Built calibration data: ${kvDataWithModules.length} KvData entries for ${kvDataByModule.size} modules, ${foreignKeyMapper.getKeyVectorCount()} unique KeyVectors`,
+      msg: `Built calibration data: ${kvDataWithModules.length} KvData entries for ${kvDataByModule.size} modules`,
       action: 'calibration_data_built',
       component: 'CalibrationDataBuilder',
       tag: 'calibration-building',
@@ -158,27 +157,13 @@ export class CalibrationDataBuilder {
    */
   private async assignSystemIds(
     rawKvDataWithModules: KvDataWithModule[],
-    foreignKeyMapper: ForeignKeyMapper,
     fileSystemId: number,
   ): Promise<KvDataWithModule[]> {
     for (const {kvData} of rawKvDataWithModules) {
-      // Use valueDefinitionSystemIds directly for KeyVector lookup
-      // Convert readonly array to mutable array for ForeignKeyMapper
-      const valueSystemIds = [...kvData.valueDefinitionSystemIds];
-
-      let keyVectorSystemId =
-        foreignKeyMapper.getKeyVectorSystemId(valueSystemIds);
-
-      // If not found, generate new systemId and store mapping
-      if (keyVectorSystemId === undefined) {
-        keyVectorSystemId = asSystemId(
-          await this.idGenerator.getNextId(fileSystemId),
-        );
-        foreignKeyMapper.addKeyVectorMapping(valueSystemIds, keyVectorSystemId);
-      }
-
       // Assign keyVectorSystemId
-      kvData.systemId = keyVectorSystemId;
+      kvData.systemId = asSystemId(
+        await this.idGenerator.getNextId(fileSystemId),
+      );
     }
 
     return rawKvDataWithModules;
@@ -935,13 +920,7 @@ export class CalibrationDataBuilder {
         );
 
         if (parameterSystemId === undefined) {
-          this.logger?.logWarn({
-            msg: `Failed to resolve parameter system ID for module ${moduleSystemId}, parameter ${payload.parameterId}`,
-            action: 'parameter_resolution_failed',
-            component: 'CalibrationDataBuilder',
-            tag: 'calibration-building',
-            timestamp: new Date(),
-          });
+          //TODO: summarize and print error at the end.
           continue;
         }
 

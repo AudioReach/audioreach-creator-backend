@@ -158,11 +158,29 @@ export class ContainerBuilder {
 
     // Add properties to the container
     for (const [propertyId, propertyData] of acdbContainer.properties) {
+      // Resolve property ID to system ID using foreign key mapper
+      const propertySystemId =
+        this.foreignKeyMapper.getContainerPropertyDefinitionSystemId(
+          asNaturalId(propertyId),
+        );
+
+      if (propertySystemId === undefined) {
+        this.logger?.logWarn({
+          msg: `Container property definition not found for propertyId ${propertyId} in container ${acdbContainer.containerId}`,
+          action: 'property_definition_not_found',
+          component: 'ContainerBuilder',
+          tag: 'container-building',
+          timestamp: new Date(),
+        });
+        // Skip this property if definition not found
+        continue;
+      }
+
       const containerPropertyValue = new ContainerPropertyValue(
-        propertyId, //TODO: insert from propertydefinition systemId later
+        propertySystemId,
         propertyData,
       );
-      container.properties.set(propertyId, containerPropertyValue);
+      container.properties.set(propertySystemId, containerPropertyValue);
     }
 
     return container;

@@ -11,6 +11,13 @@ import type {Container} from '../../../../domain/entities/usecase-data/container
 import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
+import {ProcessorDefinition} from '../../../../domain/entities/definitions/processor/processor-definition.js';
+import {ContainerType} from '../../../../domain/entities/definitions/container/container-type-definition.js';
+import {SubgraphPropertyDefinition} from '../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
+import {
+  PropertyDefinition,
+  PROPERTY_TYPE,
+} from '../../../../domain/entities/definitions/common/entities/property-definition.js';
 import type {ParsedAcdb} from '../models/parsed-acdb.js';
 import type {ParsedAwsp} from '../models/parsed-awsp.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
@@ -34,6 +41,10 @@ import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ForeignKeyMapper} from './foreign-key-mapper.js';
 import type {DynamicControlPortInfo} from './entity-builders/spf-module-builder.js';
+import type {
+  NaturalId,
+  SystemId,
+} from '../../../../shared/types/branded-ids.js';
 import type {BuildResult} from '../types/issue-collection.js';
 
 /**
@@ -681,6 +692,192 @@ export class EntityBuilderService {
   }
 
   /**
+   * Build processor definitions from AWSP data with system IDs assigned
+   * Extracts processor definitions directly from AWSP file
+   */
+  async buildProcessorDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<BuildResult<ProcessorDefinition>> {
+    // Extract processor definitions from AWSP
+    const awspProcessorDefs = parsedAwsp.getProcessorDefinitions();
+
+    if (!awspProcessorDefs || awspProcessorDefs.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    const entities: ProcessorDefinition[] = [];
+
+    // Build domain processor definitions with system IDs assigned
+    for (const awspProcessor of awspProcessorDefs) {
+      const systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      const processor = new ProcessorDefinition({
+        systemId,
+        processorDefinitionId: awspProcessor.id,
+        name: awspProcessor.name,
+      });
+
+      entities.push(processor);
+
+      // Store mapping for foreign key resolution
+      this.foreignKeyMapper.addProcessorDefinitionMapping(
+        awspProcessor.id as NaturalId,
+        systemId as SystemId,
+      );
+    }
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${entities.length} processor definitions from AWSP with system IDs assigned`,
+      action: 'awsp_processor_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
+
+    return {
+      entities,
+      issues: [],
+      successCount: entities.length,
+      errorCount: 0,
+      warningCount: 0,
+    };
+  }
+
+  /**
+   * Build container type definitions from AWSP data with system IDs assigned
+   * Extracts container type definitions directly from AWSP file
+   */
+  async buildContainerTypeDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<BuildResult<ContainerType>> {
+    // Extract container type definitions from AWSP
+    const awspContainerTypes = parsedAwsp.getContainerTypes();
+
+    if (!awspContainerTypes || awspContainerTypes.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    const entities: ContainerType[] = [];
+
+    // Build domain container type definitions with system IDs assigned
+    for (const awspContainerType of awspContainerTypes) {
+      const systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      const containerType = new ContainerType({
+        systemId,
+        value: awspContainerType.id,
+        name: awspContainerType.name,
+      });
+
+      entities.push(containerType);
+
+      // Store mapping for foreign key resolution
+      this.foreignKeyMapper.addContainerTypeMapping(
+        awspContainerType.id as NaturalId,
+        systemId as SystemId,
+      );
+    }
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${entities.length} container type definitions from AWSP with system IDs assigned`,
+      action: 'awsp_container_type_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
+
+    return {
+      entities,
+      issues: [],
+      successCount: entities.length,
+      errorCount: 0,
+      warningCount: 0,
+    };
+  }
+
+  /**
+   * Build subgraph property definitions from AWSP data with system IDs assigned
+   * @param parsedAwsp - Parsed AWSP data
+   * @param fileSystemId - File system ID for the property definitions
+   */
+  async buildSubgraphPropertyDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<BuildResult<SubgraphPropertyDefinition>> {
+    // Extract SPF property definitions from AWSP and filter for SG_CFG category (subgraph properties)
+    const allSpfProperties = parsedAwsp.getSpfPropertyDefinitions();
+    const awspPropertyDefinitions = allSpfProperties?.filter(
+      prop => prop.categoryName === 'SG_CFG',
+    );
+
+    if (!awspPropertyDefinitions || awspPropertyDefinitions.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    const entities: SubgraphPropertyDefinition[] = [];
+
+    // Build domain subgraph property definitions with system IDs assigned
+    for (const awspProperty of awspPropertyDefinitions) {
+      const systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      const propertyDef = new SubgraphPropertyDefinition({
+        systemId,
+        propertyId: awspProperty.id,
+        name: awspProperty.name,
+        type: PROPERTY_TYPE.Spf,
+        description: awspProperty.description,
+        maxSize: awspProperty.maxSize,
+        elementsStructure: JSON.stringify(awspProperty.elements),
+        isVoice: awspProperty.isVoice || false,
+      });
+
+      entities.push(propertyDef);
+
+      // Store mapping for foreign key resolution
+      this.foreignKeyMapper.addSubgraphPropertyDefinitionMapping(
+        awspProperty.id as NaturalId,
+        systemId as SystemId,
+      );
+    }
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${entities.length} subgraph property definitions from AWSP with system IDs assigned`,
+      action: 'awsp_subgraph_property_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
+
+    return {
+      entities,
+      issues: [],
+      successCount: entities.length,
+      errorCount: 0,
+      warningCount: 0,
+    };
+  }
+
+  /**
    * Build SPF module definitions from AWSP data with system IDs assigned
    * @param parsedAwsp - Parsed AWSP data
    * @param fileSystemId - File system ID for the module definitions
@@ -717,5 +914,72 @@ export class EntityBuilderService {
     });
 
     return result;
+  }
+
+  /**
+   * Build container property definitions from AWSP data with system IDs assigned
+   * @param parsedAwsp - Parsed AWSP data
+   * @param fileSystemId - File system ID for the property definitions
+   */
+  async buildContainerPropertyDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<BuildResult<PropertyDefinition>> {
+    // Extract SPF property definitions from AWSP and filter for CONTAINER_CFG category (container properties)
+    const allSpfProperties = parsedAwsp.getSpfPropertyDefinitions();
+    const awspPropertyDefinitions = allSpfProperties?.filter(
+      prop => prop.categoryName === 'CONTAINTER_CFG', //TODO: fix in awsp file.
+    );
+
+    if (!awspPropertyDefinitions || awspPropertyDefinitions.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    const entities: PropertyDefinition[] = [];
+
+    // Build domain container property definitions with system IDs assigned
+    for (const awspProperty of awspPropertyDefinitions) {
+      const systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      const propertyDef = new PropertyDefinition({
+        systemId,
+        propertyId: awspProperty.id,
+        name: awspProperty.name,
+        type: PROPERTY_TYPE.Spf,
+        description: awspProperty.description,
+        maxSize: awspProperty.maxSize,
+        elementsStructure: JSON.stringify(awspProperty.elements),
+      });
+
+      entities.push(propertyDef);
+
+      // Store mapping for foreign key resolution
+      this.foreignKeyMapper.addContainerPropertyDefinitionMapping(
+        awspProperty.id as NaturalId,
+        systemId as SystemId,
+      );
+    }
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${entities.length} container property definitions from AWSP with system IDs assigned`,
+      action: 'awsp_container_property_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
+
+    return {
+      entities,
+      issues: [],
+      successCount: entities.length,
+      errorCount: 0,
+      warningCount: 0,
+    };
   }
 }

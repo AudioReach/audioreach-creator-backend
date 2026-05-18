@@ -165,7 +165,8 @@ export class SpfModuleDefinitionBuilder {
 
   /**
    * Assign system IDs to SPF module definitions and their parameter definitions.
-   * Also stores foreign key mappings immediately after ID generation.
+   * Also transforms processor and container type natural IDs to systemIds.
+   * Stores foreign key mappings immediately after ID generation.
    * Mutates the input objects directly.
    *
    * @param moduleDefinitions - SPF module definitions with systemId = 0 (from builder)
@@ -189,16 +190,88 @@ export class SpfModuleDefinitionBuilder {
       );
 
       // Assign system IDs to parameter definitions and store mappings
-      for (const paramDef of moduleDef.parameters) {
-        paramDef.systemId = await this.idGenerator.getNextId(fileSystemId);
+      await this.assignParameterSystemIds(moduleDef, fileSystemId);
 
-        // Store parameter definition mapping immediately
-        this.foreignKeyMapper.addParamDefinitionMapping(
-          asSystemId(moduleDef.systemId),
-          asNaturalId(paramDef.paramId),
-          asSystemId(paramDef.systemId),
-        );
+      // Transform processor definition natural IDs to systemIds
+      this.mapProcessorSystemIds(moduleDef);
+
+      // Transform container type natural IDs to systemIds
+      this.mapContainerTypeSystemIds(moduleDef);
+    }
+  }
+
+  /**
+   * Assign system IDs to parameter definitions and store mappings
+   */
+  private async assignParameterSystemIds(
+    moduleDef: SpfModuleDefinition,
+    fileSystemId: number,
+  ): Promise<void> {
+    for (const paramDef of moduleDef.parameters) {
+      paramDef.systemId = await this.idGenerator.getNextId(fileSystemId);
+
+      // Store parameter definition mapping immediately
+      this.foreignKeyMapper.addParamDefinitionMapping(
+        asSystemId(moduleDef.systemId),
+        asNaturalId(paramDef.paramId),
+        asSystemId(paramDef.systemId),
+      );
+    }
+  }
+
+  /**
+   * Map processor natural IDs to system IDs
+   */
+  private mapProcessorSystemIds(moduleDef: SpfModuleDefinition): void {
+    const processorSystemIds: number[] = [];
+    for (const processorNaturalId of moduleDef.processorSystemIds) {
+      const systemId = this.foreignKeyMapper.getProcessorDefinitionSystemId(
+        asNaturalId(processorNaturalId),
+      );
+      if (systemId === undefined) {
+        this.logger?.logWarn({
+          msg: `Processor definition ID ${processorNaturalId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
+          action: 'processor_mapping_not_found',
+          component: 'SpfModuleDefinitionBuilder',
+          tag: 'spf-module-definitions',
+          timestamp: new Date(),
+        });
+      } else {
+        processorSystemIds.push(systemId);
       }
+    }
+    // Replace the Set with mapped systemIds
+    moduleDef.processorSystemIds.clear();
+    for (const systemId of processorSystemIds) {
+      moduleDef.processorSystemIds.add(systemId);
+    }
+  }
+
+  /**
+   * Map container type natural IDs to system IDs
+   */
+  private mapContainerTypeSystemIds(moduleDef: SpfModuleDefinition): void {
+    const containerTypeSystemIds: number[] = [];
+    for (const containerTypeNaturalId of moduleDef.containerTypesSystemIds) {
+      const systemId = this.foreignKeyMapper.getContainerTypeSystemId(
+        asNaturalId(containerTypeNaturalId),
+      );
+      if (systemId === undefined) {
+        this.logger?.logWarn({
+          msg: `Container type ID ${containerTypeNaturalId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
+          action: 'container_type_mapping_not_found',
+          component: 'SpfModuleDefinitionBuilder',
+          tag: 'spf-module-definitions',
+          timestamp: new Date(),
+        });
+      } else {
+        containerTypeSystemIds.push(systemId);
+      }
+    }
+    // Replace the Set with mapped systemIds
+    moduleDef.containerTypesSystemIds.clear();
+    for (const systemId of containerTypeSystemIds) {
+      moduleDef.containerTypesSystemIds.add(systemId);
     }
   }
 
@@ -536,6 +609,8 @@ export class SpfModuleDefinitionBuilder {
    * Static method for transforming AWSP SpfModuleDefinition to Domain SpfModuleDefinition
    * This method is used both in sequential processing and worker threads
    * Collects all errors instead of throwing on first error
+   *
+   * @param awsp - AWSP module definition to transform
    */
   static transformModuleDefinition(
     awsp: AwspSpfModuleDefinition,

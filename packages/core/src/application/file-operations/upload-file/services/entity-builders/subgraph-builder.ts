@@ -160,11 +160,29 @@ export class SubgraphBuilder {
 
     // Add properties to the subgraph
     for (const [propertyId, propertyData] of subgraphPropertyData.properties) {
-      const subgraphPropertyData = new SubgraphPropertyData(
-        propertyId, //TODO: insert from propertydefinition systemId later
+      // Resolve property ID to system ID using foreign key mapper
+      const propertySystemId =
+        this.foreignKeyMapper.getSubgraphPropertyDefinitionSystemId(
+          asNaturalId(propertyId),
+        );
+
+      if (propertySystemId === undefined) {
+        this.logger?.logWarn({
+          msg: `Subgraph property definition not found for propertyId ${propertyId} in subgraph ${subgraphPropertyData.subgraphId}`,
+          action: 'property_definition_not_found',
+          component: 'SubgraphBuilder',
+          tag: 'subgraph-building',
+          timestamp: new Date(),
+        });
+        // Skip this property if definition not found
+        continue;
+      }
+
+      const propertyDataObj = new SubgraphPropertyData(
+        propertySystemId,
         propertyData,
       );
-      subgraph.addProperty(subgraphPropertyData);
+      subgraph.addProperty(propertyDataObj);
     }
 
     return subgraph;

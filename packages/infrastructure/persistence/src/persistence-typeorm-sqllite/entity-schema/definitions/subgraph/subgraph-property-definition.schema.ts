@@ -52,6 +52,7 @@ export const SubgraphPropertyDefinitionSchema =
       elementsStructure: {
         type: 'text',
         name: 'elements_structure',
+        nullable: true,
       },
       isVoice: {
         type: 'boolean',

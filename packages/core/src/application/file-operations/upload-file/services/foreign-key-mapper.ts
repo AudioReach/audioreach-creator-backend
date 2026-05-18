@@ -27,6 +27,9 @@ export class ForeignKeyMapper {
     SystemId,
     Map<NaturalId, SystemId>
   >();
+  private processorDefinitionMappings = new Map<NaturalId, SystemId>();
+  private propertyDefinitionMap = new Map<NaturalId, SystemId>();
+  private containerTypeMappings = new Map<NaturalId, SystemId>();
   private spfModuleMappings = new Map<NaturalId, SystemId>();
   private moduleInputPortMappings = new Map<
     SystemId,
@@ -42,15 +45,6 @@ export class ForeignKeyMapper {
   >();
   private dataLinkMappings = new Map<string, SystemId>();
   private controlLinkMappings = new Map<string, SystemId>();
-
-  // KeyVector deduplication support
-  private keyVectorMappings = new Map<
-    string,
-    {
-      systemId: SystemId;
-      valueSystemIds: number[];
-    }
-  >();
 
   constructor() {}
 
@@ -232,6 +226,104 @@ export class ForeignKeyMapper {
    */
   getContainerSystemId(containerId: NaturalId): SystemId | undefined {
     return this.containerMappings.get(containerId);
+  }
+
+  /**
+   * Add a single processor definition mapping
+   */
+  addProcessorDefinitionMapping(
+    processorDefinitionId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (this.processorDefinitionMappings.has(processorDefinitionId)) {
+      throw new Error(
+        `Processor definition ${processorDefinitionId} already mapped to systemId ${this.processorDefinitionMappings.get(processorDefinitionId)}`,
+      );
+    }
+    this.processorDefinitionMappings.set(processorDefinitionId, systemId);
+  }
+
+  /**
+   * Get systemId for a given processorDefinitionId
+   */
+  getProcessorDefinitionSystemId(
+    processorDefinitionId: NaturalId,
+  ): SystemId | undefined {
+    return this.processorDefinitionMappings.get(processorDefinitionId);
+  }
+
+  /**
+   * Add a single container type mapping
+   */
+  addContainerTypeMapping(
+    containerTypeValue: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (this.containerTypeMappings.has(containerTypeValue)) {
+      throw new Error(
+        `Container type ${containerTypeValue} already mapped to systemId ${this.containerTypeMappings.get(containerTypeValue)}`,
+      );
+    }
+    this.containerTypeMappings.set(containerTypeValue, systemId);
+  }
+
+  /**
+   * Get systemId for a given container type value
+   */
+  getContainerTypeSystemId(
+    containerTypeValue: NaturalId,
+  ): SystemId | undefined {
+    return this.containerTypeMappings.get(containerTypeValue);
+  }
+
+  /**
+   * Add a mapping for a subgraph property definition
+   */
+  addSubgraphPropertyDefinitionMapping(
+    naturalId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (this.propertyDefinitionMap.has(naturalId)) {
+      throw new Error(
+        `Subgraph property definition ${naturalId} already mapped to systemId ${this.propertyDefinitionMap.get(naturalId)}`,
+      );
+    }
+    this.propertyDefinitionMap.set(naturalId, systemId);
+  }
+
+  /**
+   * Get systemId for a given subgraph property definition ID
+   */
+  getSubgraphPropertyDefinitionSystemId(
+    propertyId: NaturalId,
+  ): SystemId | undefined {
+    return this.propertyDefinitionMap.get(propertyId);
+  }
+
+  /**
+   * Add a mapping for a container property definition
+   */
+  addContainerPropertyDefinitionMapping(
+    naturalId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    // Container property definitions use the same map as subgraph properties
+    // since they share the same property_id space
+    if (this.propertyDefinitionMap.has(naturalId)) {
+      throw new Error(
+        `Container property definition ${naturalId} already mapped to systemId ${this.propertyDefinitionMap.get(naturalId)}`,
+      );
+    }
+    this.propertyDefinitionMap.set(naturalId, systemId);
+  }
+
+  /**
+   * Get systemId for a given container property definition ID
+   */
+  getContainerPropertyDefinitionSystemId(
+    propertyId: NaturalId,
+  ): SystemId | undefined {
+    return this.propertyDefinitionMap.get(propertyId);
   }
 
   /**
@@ -491,47 +583,6 @@ export class ForeignKeyMapper {
   }
 
   /**
-   * Add a KeyVector mapping.
-   * Called by builder after generating systemId for a new KeyVector.
-   *
-   * @param valueSystemIds - Array of value systemIds that make up the KeyVector
-   * @param systemId - The generated systemId for this KeyVector
-   */
-  addKeyVectorMapping(valueSystemIds: number[], systemId: SystemId): void {
-    const kvHash = KvHashGenerator.generateHash(valueSystemIds);
-
-    if (this.keyVectorMappings.has(kvHash)) {
-      throw new Error(
-        `KeyVector with hash ${kvHash} already mapped to systemId ${this.keyVectorMappings.get(kvHash)?.systemId}`,
-      );
-    }
-
-    this.keyVectorMappings.set(kvHash, {
-      systemId,
-      valueSystemIds: [...valueSystemIds],
-    });
-  }
-
-  /**
-   * Get systemId for a KeyVector if it exists.
-   *
-   * @param valueSystemIds - Array of value systemIds
-   * @returns systemId if KeyVector exists, undefined otherwise
-   */
-  getKeyVectorSystemId(valueSystemIds: number[]): SystemId | undefined {
-    const kvHash = KvHashGenerator.generateHash(valueSystemIds);
-    return this.keyVectorMappings.get(kvHash)?.systemId;
-  }
-
-  /**
-   * Check if a KeyVector already has a mapping.
-   */
-  hasKeyVectorMapping(valueSystemIds: number[]): boolean {
-    const kvHash = KvHashGenerator.generateHash(valueSystemIds);
-    return this.keyVectorMappings.has(kvHash);
-  }
-
-  /**
    * Get hash for a KeyVector (for deduplication checks).
    *
    * @param valueSystemIds - Array of value systemIds
@@ -539,39 +590,6 @@ export class ForeignKeyMapper {
    */
   getKeyVectorHash(valueSystemIds: number[]): string {
     return KvHashGenerator.generateHash(valueSystemIds);
-  }
-
-  /**
-   * Get all unique KeyVectors with their systemIds for DB insertion.
-   * Returns array of KeyVectors ready for bulk insert.
-   */
-  getAllKeyVectors(): Array<{
-    systemId: SystemId;
-    kvHash: string;
-    valueSystemIds: number[];
-  }> {
-    const result: Array<{
-      systemId: SystemId;
-      kvHash: string;
-      valueSystemIds: number[];
-    }> = [];
-
-    for (const [kvHash, entry] of this.keyVectorMappings) {
-      result.push({
-        systemId: entry.systemId,
-        kvHash,
-        valueSystemIds: entry.valueSystemIds,
-      });
-    }
-
-    return result;
-  }
-
-  /**
-   * Get count of unique KeyVectors tracked.
-   */
-  getKeyVectorCount(): number {
-    return this.keyVectorMappings.size;
   }
 
   /**
@@ -584,13 +602,15 @@ export class ForeignKeyMapper {
     this.containerMappings.clear();
     this.moduleDefinitionMappings.clear();
     this.paramDefinitionMappingsByModuleId.clear();
+    this.processorDefinitionMappings.clear();
+    this.containerTypeMappings.clear();
+    this.propertyDefinitionMap.clear();
     this.spfModuleMappings.clear();
     this.moduleInputPortMappings.clear();
     this.moduleOutputPortMappings.clear();
     this.moduleControlPortMappings.clear();
     this.dataLinkMappings.clear();
     this.controlLinkMappings.clear();
-    this.keyVectorMappings.clear();
   }
 
   /**
@@ -601,31 +621,35 @@ export class ForeignKeyMapper {
     valueMappings: number;
     subgraphMappings: number;
     containerMappings: number;
+    propertyDefinitionMappings: number;
     moduleDefinitionMappings: number;
     paramDefinitionMappingsByModuleId: number;
+    processorDefinitionMappings: number;
+    containerTypeMappings: number;
     spfModuleMappings: number;
     moduleInputPortMappings: number;
     moduleOutputPortMappings: number;
     moduleControlPortMappings: number;
     dataLinkMappings: number;
     controlLinkMappings: number;
-    keyVectorMappings: number;
   } {
     return {
       keyMappings: this.keyDefinitionMappings.size,
       valueMappings: this.valueDefinitionMappings.size,
       subgraphMappings: this.subgraphMappings.size,
       containerMappings: this.containerMappings.size,
+      propertyDefinitionMappings: this.propertyDefinitionMap.size,
       moduleDefinitionMappings: this.moduleDefinitionMappings.size,
       paramDefinitionMappingsByModuleId:
         this.paramDefinitionMappingsByModuleId.size,
+      processorDefinitionMappings: this.processorDefinitionMappings.size,
+      containerTypeMappings: this.containerTypeMappings.size,
       spfModuleMappings: this.spfModuleMappings.size,
       moduleInputPortMappings: this.moduleInputPortMappings.size,
       moduleOutputPortMappings: this.moduleOutputPortMappings.size,
       moduleControlPortMappings: this.moduleControlPortMappings.size,
       dataLinkMappings: this.dataLinkMappings.size,
       controlLinkMappings: this.controlLinkMappings.size,
-      keyVectorMappings: this.keyVectorMappings.size,
     };
   }
 }

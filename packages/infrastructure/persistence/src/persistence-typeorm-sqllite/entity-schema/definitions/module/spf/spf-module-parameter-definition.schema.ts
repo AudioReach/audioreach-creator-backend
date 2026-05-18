@@ -70,6 +70,7 @@ export const SpfModuleParameterDefinitionSchema =
       elementsStructure: {
         type: 'text',
         name: 'elements_structure',
+        nullable: true,
       },
       isReadOnly: {
         type: 'boolean',
