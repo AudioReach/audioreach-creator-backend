@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {ComponentInfoType} from '../utils/enums.js';
 import {EndPointLink} from '../utils/utilities.js';
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseDto} from './base.dto.js';
@@ -17,12 +16,6 @@ export class BaseComponentDto<T> extends BaseDto {
 
   @ApiProperty({description: 'Component name'})
   name?: string;
-
-  @ApiProperty({
-    description: 'Component type',
-    enum: ComponentInfoType,
-  })
-  componentType!: ComponentInfoType;
 
   @ApiProperty({description: 'Related endpoint links', type: [EndPointLink]})
   relatedEndPointLinks: EndPointLink[] = [];

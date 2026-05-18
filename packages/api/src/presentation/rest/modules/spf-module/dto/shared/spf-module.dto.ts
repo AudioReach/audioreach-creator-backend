@@ -6,7 +6,6 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseConnectableComponentDto} from '../../../../common/dto/component.dto.js';
 import {PropertyDto} from '../../../../common/dto/index.js';
-import {ComponentInfoType} from '../../../../common/utils/enums.js';
 
 /**
  * DTO for SPF module properties
@@ -59,6 +58,5 @@ export class SpfModuleDto extends BaseConnectableComponentDto {
     this.moduleId = moduleId;
     this.name = name;
     this.parentId = parentId;
-    this.componentType = ComponentInfoType.Module;
   }
 }

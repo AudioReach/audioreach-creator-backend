@@ -2476,7 +2476,6 @@
                           "systemId": "1001",
                           "id": 1001,
                           "name": "PCM Decoder",
-                          "componentType": "Module",
                           "relatedEndPointLinks": [
                             {
                               "hypertextRef": "/components/1001/properties",
@@ -2525,7 +2524,6 @@
                           "systemId": "1002",
                           "id": 1002,
                           "name": "Audio MBDRC",
-                          "componentType": "Module",
                           "relatedEndPointLinks": [
                             {
                               "hypertextRef": "/components/1002/properties",
@@ -2584,7 +2582,6 @@
                           "systemId": "4001",
                           "id": 4001,
                           "name": "data_link",
-                          "componentType": "DataLink",
                           "relatedEndPointLinks": [],
                           "sourceId": 1001,
                           "sourcePortId": 2002,
@@ -2600,7 +2597,6 @@
                           "systemId": "5001",
                           "id": 5001,
                           "name": "control_link",
-                          "componentType": "ControlLink",
                           "relatedEndPointLinks": [],
                           "sourceId": 1001,
                           "sourcePortId": 3001,
@@ -2698,7 +2694,6 @@
                           "systemId": "1001",
                           "id": 1001,
                           "name": "PCM Decoder",
-                          "componentType": "Module",
                           "relatedEndPointLinks": [
                             {
                               "hypertextRef": "/components/1001/properties",
@@ -2747,7 +2742,6 @@
                           "systemId": "1002",
                           "id": 1002,
                           "name": "Audio MBDRC",
-                          "componentType": "Module",
                           "relatedEndPointLinks": [
                             {
                               "hypertextRef": "/components/1002/properties",
@@ -2806,7 +2800,6 @@
                           "systemId": "4001",
                           "id": 4001,
                           "name": "data_link",
-                          "componentType": "DataLink",
                           "relatedEndPointLinks": [],
                           "sourceId": 1001,
                           "sourcePortId": 2002,
@@ -2822,7 +2815,6 @@
                           "systemId": "5001",
                           "id": 5001,
                           "name": "control_link",
-                          "componentType": "ControlLink",
                           "relatedEndPointLinks": [],
                           "sourceId": 1001,
                           "sourcePortId": 3001,
@@ -3571,7 +3563,6 @@
                       "systemId": "1",
                       "id": 1,
                       "name": "Example Module",
-                      "componentType": "Module",
                       "relatedEndPointLinks": [
                         {
                           "hypertextRef": "/components/1/properties",
@@ -7271,18 +7262,6 @@
             "type": "string",
             "description": "Component name"
           },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
             "type": "array",
@@ -7296,7 +7275,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks"
         ]
       },
@@ -7379,18 +7357,6 @@
             "type": "string",
             "description": "Component name"
           },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
             "type": "array",
@@ -7424,7 +7390,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks",
           "portIoType",
           "portType",
@@ -7471,18 +7436,6 @@
             "type": "string",
             "description": "Component name"
           },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
             "type": "array",
@@ -7515,7 +7468,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks",
           "portType",
           "controlPortName",
@@ -7544,18 +7496,6 @@
           "name": {
             "type": "string",
             "description": "Component name"
-          },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
           },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
@@ -7620,7 +7560,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks",
           "dataPorts",
           "controlPorts",
@@ -7657,18 +7596,6 @@
             "type": "string",
             "description": "Component name"
           },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
             "type": "array",
@@ -7716,7 +7643,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks",
           "sourceId",
           "sourcePortId",
@@ -7749,18 +7675,6 @@
             "type": "string",
             "description": "Component name"
           },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
             "type": "array",
@@ -7808,7 +7722,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks",
           "sourceId",
           "sourcePortId",
@@ -7840,18 +7753,6 @@
           "name": {
             "type": "string",
             "description": "Component name"
-          },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
           },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
@@ -7899,7 +7800,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks",
           "dataPorts",
           "controlPorts",
@@ -9397,18 +9297,6 @@
             "type": "string",
             "description": "Component name"
           },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
             "type": "array",
@@ -9464,7 +9352,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks",
           "scenarioType",
           "deviceType",
@@ -9510,18 +9397,6 @@
             "type": "string",
             "description": "Component name"
           },
-          "componentType": {
-            "type": "string",
-            "description": "Component type",
-            "enum": [
-              "Module",
-              "Subsystem",
-              "Container",
-              "DataLink",
-              "ControlLink",
-              "Subgraph"
-            ]
-          },
           "relatedEndPointLinks": {
             "description": "Related endpoint links",
             "type": "array",
@@ -9535,7 +9410,6 @@
           "systemId",
           "id",
           "name",
-          "componentType",
           "relatedEndPointLinks"
         ]
       },

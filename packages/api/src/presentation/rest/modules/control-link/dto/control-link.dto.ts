@@ -5,10 +5,7 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseComponentDto, BaseValueElement} from '../../../common/dto/index.js';
-import {
-  ComponentInfoType,
-  CONN_CTRL_TYPE,
-} from '../../../common/utils/enums.js';
+import {CONN_CTRL_TYPE} from '../../../common/utils/enums.js';
 
 /**
  * DTO for control port intents
@@ -155,6 +152,5 @@ export class ControlLinkDto extends BaseComponentDto<number> {
     this.isDangling = isDangling;
     this.connectionType = connectionType;
     this.parentId = parentId;
-    this.componentType = ComponentInfoType.ControlLink;
   }
 }

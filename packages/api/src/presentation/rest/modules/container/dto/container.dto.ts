@@ -4,7 +4,6 @@
  */
 
 import {BaseComponentDto, PropertyDto} from '../../../common/dto/index.js';
-import {ComponentInfoType} from '../../../common/utils/index.js';
 import {ApiProperty} from '@nestjs/swagger';
 
 /**
@@ -25,6 +24,5 @@ export class ContainerPropertiesDto {
 export class ContainerDto extends BaseComponentDto<number> {
   constructor(sysemId: string, id: number) {
     super(sysemId, id);
-    this.componentType = ComponentInfoType.Container;
   }
 }
