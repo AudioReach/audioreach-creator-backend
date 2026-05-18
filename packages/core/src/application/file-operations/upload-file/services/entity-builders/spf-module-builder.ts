@@ -678,14 +678,6 @@ export class SpfModuleBuilder {
             }),
           );
         }
-
-        this.logger?.logDebug({
-          msg: `Created ${numDynamicPorts} dynamic control ports for module instance ${instanceId} (0x${DYNAMIC_CONTROL_PORT_ID_START.toString(16)} to 0x${maxDynamicPortId.toString(16)})`,
-          action: 'dynamic_control_ports_created',
-          component: 'SpfModuleBuilder',
-          tag: 'control-port-building',
-          timestamp: new Date(),
-        });
       }
     }
 

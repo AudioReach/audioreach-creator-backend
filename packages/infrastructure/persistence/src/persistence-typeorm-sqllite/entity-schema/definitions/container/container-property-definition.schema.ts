@@ -53,6 +53,7 @@ export const ContainerPropertyDefinitionSchema =
       elementsStructure: {
         type: 'text',
         name: 'elements_structure',
+        nullable: true,
       },
     },
     relations: {

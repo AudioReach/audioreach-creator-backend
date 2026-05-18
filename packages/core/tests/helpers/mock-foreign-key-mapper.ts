@@ -49,6 +49,20 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     addModuleDefinitionMapping: jest.fn(),
     getModuleDefinitionSystemId: jest.fn(),
 
+    // Processor Definition mappings
+    addProcessorDefinitionMapping: jest.fn(),
+    getProcessorDefinitionSystemId: jest.fn(),
+
+    // Container Type mappings
+    addContainerTypeMapping: jest.fn(),
+    getContainerTypeSystemId: jest.fn(),
+
+    // Property Definition mappings
+    addSubgraphPropertyDefinitionMapping: jest.fn(),
+    getSubgraphPropertyDefinitionSystemId: jest.fn(),
+    addContainerPropertyDefinitionMapping: jest.fn(),
+    getContainerPropertyDefinitionSystemId: jest.fn(),
+
     // Parameter Definition mappings
     addParamDefinitionMapping: jest.fn(),
     getParamDefinitionSystemId: jest.fn(),
@@ -72,14 +86,6 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     addDataLinkMapping: jest.fn(),
     getDataLinkSystemId: jest.fn(),
     getControlLinkSystemId: jest.fn(),
-
-    // KeyVector mappings
-    addKeyVectorMapping: jest.fn(),
-    getKeyVectorSystemId: jest.fn(),
-    hasKeyVectorMapping: jest.fn(),
-    getKeyVectorHash: jest.fn(),
-    getAllKeyVectors: jest.fn(),
-    getKeyVectorCount: jest.fn(),
 
     // Utility methods
     clear: jest.fn(),

@@ -300,8 +300,20 @@ export class UploadFileOrchestrator {
       // Phase 1a: Build and Insert Key Definitions (no dependencies)
       await this.buildAndInsertKeyDefinitions(bulkRepo);
 
-      // Phase 1b: Build and Insert SPF Module Definitions (no dependencies)
+      // Phase 1b: Build and Insert Processor Definitions (no dependencies)
+      await this.buildAndInsertProcessorDefinitions(bulkRepo);
+
+      // Phase 1c: Build and Insert Container Type Definitions (no dependencies)
+      await this.buildAndInsertContainerTypeDefinitions(bulkRepo);
+
+      // Phase 1d: Build and Insert SPF Module Definitions (depends on 1b, 1c)
       await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
+
+      // Phase 1e: Build and Insert Subgraph Property Definitions (no dependencies)
+      await this.buildAndInsertSubgraphPropertyDefinitions(bulkRepo);
+
+      // Phase 1f: Build and Insert Container Property Definitions (no dependencies)
+      await this.buildAndInsertContainerPropertyDefinitions(bulkRepo);
 
       // Phase 2: Build and Insert Subgraphs (no dependencies)
       await this.buildAndInsertSubgraphs(bulkRepo);
@@ -385,34 +397,54 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertKeyDefinitions(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'KeyDefinition');
 
-      // TODO: Record insertion failures in validation_errors table (to be implemented later)
-      // await this.recordInsertionFailures(insertResult, result.entities, 'KeyDefinition');
-
-      this.logger?.logInfo({
-        msg: `Built and inserted ${result.entities.length} key definitions (${result.errorCount} errors, ${result.warningCount} warnings)`,
-        action: 'key_definitions_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} key definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'key_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some key definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'key_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
     }
   }
 
   /**
-   * Collect insertion errors from BulkInsertResult and add them to issueCollector
+   * Collect insertion errors from BulkInsertResult and log them
+   * Note: Insertion errors are already included in the BulkInsertResult and logged.
+   * The errors will be visible in the logs for debugging.
    */
-  private collectInsertionErrors(insertResult: BulkInsertResult): void {
+  private collectInsertionErrors(
+    insertResult: BulkInsertResult,
+    entityType: string,
+  ): void {
     if (!insertResult.ok) {
-      // Type narrowing: insertResult is now {ok: false; message: string}
-      // const errorMessage = insertResult.errors;
-      // const errorCode = this.categorizeInsertionError(errorMessage);
-      // this.issueCollector.addError({
-      //   code: errorCode,
-      //   message: errorMessage,
-      //   entityType: ENTITY_TYPES.KEY_DEFINITION,
-      // });
+      // Type narrowing: insertResult is now {ok: false; errors: readonly BulkInsertError[]}
+      // Log detailed error information for debugging
+      this.logger?.logError({
+        msg: `Insertion errors for ${entityType}: ${insertResult.errors.length} failures`,
+        timestamp: new Date(),
+        action: 'insertion_errors_collected',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        error: new Error(
+          insertResult.errors.map(e => `${e.message}: ${e.details}`).join('\n'),
+        ),
+      });
     }
   }
 
@@ -438,7 +470,103 @@ export class UploadFileOrchestrator {
   /* eslint-enable sonarjs/no-commented-code */
 
   /**
-   * Phase 1b: Build and Insert SPF Module Definitions
+   * Phase 1b: Build and Insert Processor Definitions
+   */
+  private async buildAndInsertProcessorDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Build processor definitions with system IDs assigned
+    const result = await this.builderService.buildProcessorDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert processor definitions
+      const insertResult = await bulkRepo.insertProcessorDefinitions(
+        result.entities,
+      );
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'ProcessorDefinition');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} processor definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'processor_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some processor definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'processor_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 1c: Build and Insert Container Type Definitions
+   */
+  private async buildAndInsertContainerTypeDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Build container type definitions with system IDs assigned
+    const result = await this.builderService.buildContainerTypeDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert container type definitions
+      const insertResult = await bulkRepo.insertContainerTypeDefinitions(
+        result.entities,
+      );
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'ContainerType');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} container type definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'container_type_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some container type definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'container_type_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 1d: Build and Insert SPF Module Definitions
    */
   private async buildAndInsertSpfModuleDefinitions(
     bulkRepo: BulkImportRepository,
@@ -467,15 +595,125 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'SpfModuleDefinition');
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${result.entities.length} SPF module definitions (${result.errorCount} errors, ${result.warningCount} warnings)`,
-        action: 'spf_module_definitions_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} SPF module definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'spf_module_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some SPF module definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'spf_module_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 1e: Build and Insert Subgraph Property Definitions
+   */
+  private async buildAndInsertSubgraphPropertyDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Build subgraph property definitions with system IDs assigned
+    const result = await this.builderService.buildSubgraphPropertyDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert subgraph property definitions
+      const insertResult = await bulkRepo.insertSubgraphPropertyDefinitions(
+        result.entities,
+      );
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'SubgraphPropertyDefinition');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} subgraph property definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'subgraph_property_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some subgraph property definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'subgraph_property_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 1f: Build and Insert Container Property Definitions
+   */
+  private async buildAndInsertContainerPropertyDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Build container property definitions with system IDs assigned
+    const result = await this.builderService.buildContainerPropertyDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert container property definitions
+      const insertResult = await bulkRepo.insertContainerPropertyDefinitions(
+        result.entities,
+      );
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'ContainerPropertyDefinition');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} container property definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'container_property_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some container property definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'container_property_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
     }
   }
 
@@ -499,15 +737,29 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertSubgraphs(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'Subgraph');
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${result.entities.length} subgraphs with system IDs assigned (${result.errorCount} errors, ${result.warningCount} warnings)`,
-        action: 'subgraphs_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} subgraphs (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'subgraphs_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some subgraphs: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'subgraphs_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
     }
   }
 
@@ -531,15 +783,29 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertContainers(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'Container');
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${result.entities.length} containers with system IDs assigned (${result.errorCount} errors, ${result.warningCount} warnings)`,
-        action: 'containers_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} containers (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'containers_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some containers: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'containers_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
     }
   }
 
@@ -581,15 +847,29 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'SpfModule');
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${result.entities.length} SPF modules (${result.errorCount} errors, ${result.warningCount} warnings)`,
-        action: 'spf_modules_with_calibration_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} SPF modules (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'spf_modules_with_calibration_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some SPF modules: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'spf_modules_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
     }
   }
 
@@ -626,15 +906,29 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'DataLink');
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${dataLinks.length} data links with system IDs assigned`,
-        action: 'data_links_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${dataLinks.length} data links`,
+          action: 'data_links_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some data links: ${insertResult.errors.length} insertion failures out of ${dataLinks.length} entities`,
+          action: 'data_links_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
     }
   }
 
@@ -672,15 +966,29 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'ControlLink');
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${controlLinks.length} control links with system IDs assigned`,
-        action: 'control_links_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${controlLinks.length} control links`,
+          action: 'control_links_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some control links: ${insertResult.errors.length} insertion failures out of ${controlLinks.length} entities`,
+          action: 'control_links_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
 
       // TODO: Insert intents for control ports
       // The controlPortIntents Map contains: Map<controlPortSystemId, intentIds[]>
@@ -743,15 +1051,29 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult);
+      this.collectInsertionErrors(insertResult, 'UseCase');
 
-      this.logger?.logInfo({
-        msg: `Built and inserted ${usecases.length} usecases with system IDs assigned`,
-        action: 'usecases_persisted',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${usecases.length} usecases`,
+          action: 'usecases_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some usecases: ${insertResult.errors.length} insertion failures out of ${usecases.length} entities`,
+          action: 'usecases_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
     }
   }
 }

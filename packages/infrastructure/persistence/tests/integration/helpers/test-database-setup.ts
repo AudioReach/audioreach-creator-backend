@@ -23,25 +23,39 @@ export const setupTestDatabase = async (): Promise<DataSource> => {
     return testDataSource;
   }
 
+  // Prevent concurrent initialization attempts
+  if (testDataSource && !testDataSource.isInitialized) {
+    // Another test is currently initializing, wait for it
+    let attempts = 0;
+    while (!testDataSource.isInitialized && attempts < 100) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      attempts++;
+    }
+    if (testDataSource.isInitialized) {
+      return testDataSource;
+    }
+  }
+
   // Create a test blob converter for binary data handling
   const blobConverter = new TestBlobConverter();
 
   // Get all entity schemas with blob converter
   const entities = getAllEntitySchemas(blobConverter);
 
-  try {
-    testDataSource = new DataSource({
-      type: 'sqlite',
-      database: ':memory:',
-      synchronize: true, // Auto-create tables from schemas
-      logging: false, // Set to true for debugging
-      entities,
-    });
+  testDataSource = new DataSource({
+    type: 'sqlite',
+    database: ':memory:',
+    synchronize: true, // Auto-create tables from schemas
+    logging: false, // Set to true for debugging
+    entities,
+  });
 
+  try {
     await testDataSource.initialize();
     return testDataSource;
   } catch (error) {
     console.error('Error initializing test database:', error);
+    testDataSource = null;
     throw error;
   }
 };

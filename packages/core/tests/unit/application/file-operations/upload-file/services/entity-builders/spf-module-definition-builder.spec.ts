@@ -21,6 +21,31 @@ import {
   createMockForeignKeyMapper,
 } from '../../../../../../helpers/index.js';
 
+/**
+ * Helper function to setup processor and container type mappings for tests
+ */
+function setupForeignKeyMapperMappings(
+  mockForeignKeyMapper: jest.Mocked<ForeignKeyMapper>,
+  processorIds: number[] = [],
+  containerTypeIds: number[] = [],
+): void {
+  // Mock processor definition mappings - return the same ID as systemId
+  mockForeignKeyMapper.getProcessorDefinitionSystemId.mockImplementation(
+    (naturalId: any) => {
+      const id = Number(naturalId);
+      return processorIds.includes(id) ? (id as any) : undefined;
+    },
+  );
+
+  // Mock container type mappings - return the same ID as systemId
+  mockForeignKeyMapper.getContainerTypeSystemId.mockImplementation(
+    (naturalId: any) => {
+      const id = Number(naturalId);
+      return containerTypeIds.includes(id) ? (id as any) : undefined;
+    },
+  );
+}
+
 describe('SpfModuleDefinitionBuilder', () => {
   let builder: SpfModuleDefinitionBuilder;
   let mockIdGenerator: jest.Mocked<IdGenerationPort>;
@@ -34,6 +59,14 @@ describe('SpfModuleDefinitionBuilder', () => {
     mockIdGenerator = createMockIdGenerator();
     mockForeignKeyMapper = createMockForeignKeyMapper();
     mockWorkerPool = createMockWorkerPool();
+
+    // Setup default foreign key mappings for all tests
+    // These can be overridden in individual tests if needed
+    setupForeignKeyMapperMappings(
+      mockForeignKeyMapper,
+      [1, 2, 3], // Default processor IDs
+      [10, 20, 30], // Default container type IDs
+    );
 
     builder = new SpfModuleDefinitionBuilder(
       mockIdGenerator,
