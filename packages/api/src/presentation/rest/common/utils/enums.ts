@@ -3,18 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-export const ComponentInfoType = {
-  Module: 'Module',
-  Subsystem: 'Subsystem',
-  Container: 'Container',
-  DataLink: 'DataLink',
-  ControlLink: 'ControlLink',
-  Subgraph: 'Subgraph',
-} as const;
-
-export type ComponentInfoType =
-  (typeof ComponentInfoType)[keyof typeof ComponentInfoType];
-
 export const PROPERTY_TYPE = {
   Spf: 'Spf',
   Driver: 'Driver',

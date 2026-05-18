@@ -8,7 +8,6 @@ import {IsNotEmpty, IsOptional, IsNumber} from 'class-validator';
 import {BaseComponentDto, PropertyDto} from '../../../common/dto/index.js';
 import {KeyValuePairsInfo} from '../../../common/dto/kv.dto.js';
 import {
-  ComponentInfoType,
   SubgraphScenarioType,
   SubgraphDeviceType,
   SharedType,
@@ -68,7 +67,6 @@ export class SubgraphDto extends BaseComponentDto<number> {
 
   constructor(sysemId: string, id: number) {
     super(sysemId, id);
-    this.componentType = ComponentInfoType.Subgraph;
   }
 }
 

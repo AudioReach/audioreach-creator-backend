@@ -5,7 +5,6 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseConnectableComponentDto} from '../../../common/dto/component.dto.js';
-import {ComponentInfoType} from '../../../common/utils/enums.js';
 import {KeyInfo} from '../../../common/dto/kv.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../../common/dto/component-collection-with-subsystems.dto.js';
 
@@ -31,7 +30,6 @@ export class SubsystemDto extends BaseConnectableComponentDto {
     super(systemId, id);
     this.name = name;
     this.parentId = parentId;
-    this.componentType = ComponentInfoType.Subsystem;
     this.filteredKeys = [];
   }
 }
