@@ -41,11 +41,40 @@ export class SubgraphController extends BaseController {
   }
 
   /**
-   * Get subgraphs for subgraph system ids.
+   * Get all subgraphs in the project.
    */
-  @Post('get')
+  @Get()
   @ApiDocumentationWithExample({
-    summary: 'Get subgraphs for subgraph systemIds',
+    summary: 'Get all subgraphs in the project',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Success',
+        dto: [SubgraphDto],
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get subgraphs',
+      },
+    ],
+  })
+  async getAllSubgraphs(
+    @Param('projectId') projectId: string,
+  ): Promise<ApiResult<SubgraphDto[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(`Getting all subgraphs in project ${projectId}`);
+    throw new HttpException(
+      'Get all subgraphs functionality is not implemented yet.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  /**
+   * Query subgraphs for subgraph system ids.
+   */
+  @Post('query')
+  @ApiDocumentationWithExample({
+    summary: 'Query subgraphs for subgraph systemIds',
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of subgraph system ids',
 
@@ -65,7 +94,7 @@ export class SubgraphController extends BaseController {
       },
     ],
   })
-  async getSubgraphs(
+  async querySubgraphs(
     @Param('projectId') projectId: string,
     @Body() subgraphSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<SubgraphDto[]>> {

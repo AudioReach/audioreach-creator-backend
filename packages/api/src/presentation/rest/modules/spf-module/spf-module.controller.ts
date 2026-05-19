@@ -74,11 +74,11 @@ export class SpfModuleController extends BaseController {
   }
 
   /**
-   * Get SPF modules.
+   * Query SPF modules.
    */
-  @Post('get')
+  @Post('query')
   @ApiDocumentationWithExample({
-    summary: 'Get SPF modules for provided systemIds',
+    summary: 'Query SPF modules for provided systemIds',
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of SPF module system ids',
 
@@ -98,7 +98,7 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
-  async getSpfModules(
+  async querySpfModules(
     @Param('projectId') projectId: string,
     @Body() spfModuleSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<SpfModuleDto[]>> {

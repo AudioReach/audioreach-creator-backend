@@ -45,11 +45,11 @@ export class ControlLinkController extends BaseController {
   }
 
   /**
-   * Get control-links.
+   * Query control-links.
    */
-  @Post('get')
+  @Post('query')
   @ApiDocumentationWithExample({
-    summary: 'Get control-links for provided systemIds',
+    summary: 'Query control-links for provided systemIds',
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of control-link system ids',
 
@@ -69,7 +69,7 @@ export class ControlLinkController extends BaseController {
       },
     ],
   })
-  async getControlLinks(
+  async queryControlLinks(
     @Param('projectId') projectId: string,
     @Body() controlLinkSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<ControlLinkDto[]>> {

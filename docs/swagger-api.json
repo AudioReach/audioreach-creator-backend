@@ -3436,9 +3436,9 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/spf-modules/get": {
+    "/arc-api/v1/projects/{projectId}/spf-modules/query": {
       "post": {
-        "operationId": "SpfModuleController_getSpfModules",
+        "operationId": "SpfModuleController_querySpfModules",
         "parameters": [
           {
             "name": "projectId",
@@ -3494,7 +3494,7 @@
             "description": "Failed to get SPF modules"
           }
         },
-        "summary": "Get SPF modules for provided systemIds",
+        "summary": "Query SPF modules for provided systemIds",
         "tags": [
           "spf-modules"
         ]
@@ -4160,9 +4160,59 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/subgraphs/get": {
+    "/arc-api/v1/projects/{projectId}/subgraphs": {
+      "get": {
+        "operationId": "SubgraphController_getAllSubgraphs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubgraphDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Failed to get subgraphs"
+          }
+        },
+        "summary": "Get all subgraphs in the project",
+        "tags": [
+          "subgraphs"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subgraphs/query": {
       "post": {
-        "operationId": "SubgraphController_getSubgraphs",
+        "operationId": "SubgraphController_querySubgraphs",
         "parameters": [
           {
             "name": "projectId",
@@ -4218,7 +4268,7 @@
             "description": "Failed to get subgraphs"
           }
         },
-        "summary": "Get subgraphs for subgraph systemIds",
+        "summary": "Query subgraphs for subgraph systemIds",
         "tags": [
           "subgraphs"
         ]
@@ -4454,9 +4504,9 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/subsystems/get": {
+    "/arc-api/v1/projects/{projectId}/subsystems/query": {
       "post": {
-        "operationId": "SubsystemController_getSubsystems",
+        "operationId": "SubsystemController_querySubsystems",
         "parameters": [
           {
             "name": "projectId",
@@ -4512,15 +4562,15 @@
             "description": "Failed to get subsystems"
           }
         },
-        "summary": "Get subsystems for provided systemIds",
+        "summary": "Query subsystems for provided systemIds",
         "tags": [
           "subsystems"
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}/components/get": {
+    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}/components/query": {
       "post": {
-        "operationId": "SubsystemController_getComponentsInSubsystem",
+        "operationId": "SubsystemController_queryComponentsInSubsystem",
         "parameters": [
           {
             "name": "projectId",
@@ -4591,9 +4641,9 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/containers/get": {
+    "/arc-api/v1/projects/{projectId}/containers/query": {
       "post": {
-        "operationId": "ContainerController_getContainers",
+        "operationId": "ContainerController_queryContainers",
         "parameters": [
           {
             "name": "projectId",
@@ -4649,7 +4699,7 @@
             "description": "Failed to get container(s)"
           }
         },
-        "summary": "Get containers for provided systemIds",
+        "summary": "Query containers for provided systemIds",
         "tags": [
           "containers"
         ]
@@ -4714,9 +4764,9 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/data-links/get": {
+    "/arc-api/v1/projects/{projectId}/data-links/query": {
       "post": {
-        "operationId": "DataLinkController_getDataLinks",
+        "operationId": "DataLinkController_queryDataLinks",
         "parameters": [
           {
             "name": "projectId",
@@ -4772,7 +4822,7 @@
             "description": "Failed to get data-link(s)"
           }
         },
-        "summary": "Get data-links for provided systemIds",
+        "summary": "Query data-links for provided systemIds",
         "tags": [
           "data-links"
         ]
@@ -4839,9 +4889,9 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/control-links/get": {
+    "/arc-api/v1/projects/{projectId}/control-links/query": {
       "post": {
-        "operationId": "ControlLinkController_getControlLinks",
+        "operationId": "ControlLinkController_queryControlLinks",
         "parameters": [
           {
             "name": "projectId",
@@ -4897,7 +4947,7 @@
             "description": "Failed to get control-link(s)"
           }
         },
-        "summary": "Get control-links for provided systemIds",
+        "summary": "Query control-links for provided systemIds",
         "tags": [
           "control-links"
         ]
@@ -9334,10 +9384,6 @@
               "Imported"
             ],
             "default": "None"
-          },
-          "VSID": {
-            "type": "number",
-            "description": "VSID"
           },
           "SGKV": {
             "description": "SGKV - List of KV information",
