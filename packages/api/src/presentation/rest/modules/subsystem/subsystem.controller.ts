@@ -39,11 +39,11 @@ export class SubsystemController extends BaseController {
   }
 
   /**
-   * Get subsystems for system ids
+   * Query subsystems for system ids
    */
-  @Post('get')
+  @Post('query')
   @ApiDocumentationWithExample({
-    summary: 'Get subsystems for provided systemIds',
+    summary: 'Query subsystems for provided systemIds',
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of subsystem system ids',
 
@@ -63,7 +63,7 @@ export class SubsystemController extends BaseController {
       },
     ],
   })
-  async getSubsystems(
+  async querySubsystems(
     @Param('projectId') projectId: string,
     @Body() subsystemSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<SubsystemDto[]>> {
@@ -83,7 +83,7 @@ export class SubsystemController extends BaseController {
    * @param usecaseIds - usecase ids. If not provided, components in a subsystem for all usecases will be returned.
    * @returns List of components in the subsystem
    */
-  @Post(':subsystemSystemId/components/get')
+  @Post(':subsystemSystemId/components/query')
   @ApiParam({
     name: 'subsystemSystemId',
     required: true,
@@ -116,7 +116,7 @@ export class SubsystemController extends BaseController {
       },
     ],
   })
-  async getComponentsInSubsystem(
+  async queryComponentsInSubsystem(
     @Param('projectId') projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
     @Body() usecaseSystemIds?: SystemIdsRequestDto,

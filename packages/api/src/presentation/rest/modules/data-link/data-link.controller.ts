@@ -40,11 +40,11 @@ export class DataLinkController extends BaseController {
   }
 
   /**
-   * Get data-links.
+   * Query data-links.
    */
-  @Post('get')
+  @Post('query')
   @ApiDocumentationWithExample({
-    summary: 'Get data-links for provided systemIds',
+    summary: 'Query data-links for provided systemIds',
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of data-link system ids',
 
@@ -64,7 +64,7 @@ export class DataLinkController extends BaseController {
       },
     ],
   })
-  async getDataLinks(
+  async queryDataLinks(
     @Param('projectId') projectId: string,
     @Body() dataLinkSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<DataLinkDto[]>> {

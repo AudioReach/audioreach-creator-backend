@@ -51,15 +51,6 @@ export class SubgraphDto extends BaseComponentDto<number> {
   subGraphSharedType: SharedType = SharedType.None;
 
   @ApiProperty({
-    description: 'VSID',
-    type: Number,
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  VSID?: number;
-
-  @ApiProperty({
     description: 'SGKV - List of KV information',
     type: [KeyValuePairsInfo],
   })

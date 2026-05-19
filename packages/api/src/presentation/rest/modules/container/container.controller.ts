@@ -40,11 +40,11 @@ export class ContainerController extends BaseController {
   }
 
   /**
-   * Get containers.
+   * Query containers.
    */
-  @Post('get')
+  @Post('query')
   @ApiDocumentationWithExample({
-    summary: 'Get containers for provided systemIds',
+    summary: 'Query containers for provided systemIds',
     requestDto: SystemIdsRequestDto,
 
     responses: [
@@ -63,7 +63,7 @@ export class ContainerController extends BaseController {
       },
     ],
   })
-  async getContainers(
+  async queryContainers(
     @Param('projectId') projectId: string,
     @Body() request: SystemIdsRequestDto,
   ): Promise<ApiResult<ContainerDto[]>> {
