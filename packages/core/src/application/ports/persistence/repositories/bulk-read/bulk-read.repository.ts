@@ -11,6 +11,20 @@ import type {ControlLink} from '../../../../../domain/entities/usecase-data/link
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {KeyDefinition} from '../../../../../domain/entities/definitions/key-value/key-definition.js';
 import type {SpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
+import type {
+  ACDBVersionInfo,
+  CodecInfo,
+} from '../../../../file-operations/shared/acdb-chunks/header-chunk.js';
+
+/**
+ * ACDB project header metadata from database.
+ */
+export interface ProjectHeaderMetadata {
+  version: ACDBVersionInfo;
+  codecInfos: CodecInfo[];
+  modifiedDate: number;
+  oemInfo: string;
+}
 
 /**
  * All domain entities needed to reconstruct .acdb and .awsp files for a given file.
@@ -24,6 +38,7 @@ export interface DownloadEntities {
   usecases: UseCase[];
   keyDefinitions: KeyDefinition[];
   moduleDefinitions: SpfModuleDefinition[];
+  headerMetadata: ProjectHeaderMetadata;
 }
 
 /**

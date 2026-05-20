@@ -57,6 +57,8 @@ export * from './application/file-operations/upload-file/models/parsed-awsp.js';
 export * from './application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
 export * from './application/file-operations/download-file/download-file.query.js';
 export * from './application/file-operations/download-file/download-file.handler.js';
+export * from './application/file-operations/queries/project-header.query.js';
+export * from './application/file-operations/queries/project-header.handler.js';
 export * from './application/ports/file-system/file-reader.port.js';
 export * from './application/file-operations/upload-file/types/chunk-parse.types.js';
 export * from './application/file-operations/upload-file/types/entity-builder.types.js';

@@ -3,8 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {BulkReadRepository, DownloadEntities} from '@arc/core';
+import type {
+  BulkReadRepository,
+  DownloadEntities,
+  ProjectHeaderMetadata,
+} from '@arc/core';
 import type {DataSource} from 'typeorm';
+import {DbFileQuery} from '../../queries/db-file-query.js';
 
 /**
  * TypeORM implementation of BulkReadRepository.
@@ -35,6 +40,7 @@ export class TypeOrmBulkReadRepository implements BulkReadRepository {
       usecases,
       keyDefinitions,
       moduleDefinitions,
+      headerMetadata,
     ] = await Promise.all([
       this.findSubgraphs(fileSystemId),
       this.findContainers(fileSystemId),
@@ -44,6 +50,7 @@ export class TypeOrmBulkReadRepository implements BulkReadRepository {
       this.findUsecases(fileSystemId),
       this.findKeyDefinitions(fileSystemId),
       this.findModuleDefinitions(fileSystemId),
+      this.readProjectHeader(fileSystemId),
     ]);
 
     return {
@@ -55,6 +62,7 @@ export class TypeOrmBulkReadRepository implements BulkReadRepository {
       usecases,
       keyDefinitions,
       moduleDefinitions,
+      headerMetadata,
     };
   }
 
@@ -138,5 +146,19 @@ export class TypeOrmBulkReadRepository implements BulkReadRepository {
         'TypeOrmBulkReadRepository.findModuleDefinitions() not yet implemented. See Phase 4.',
       ),
     );
+  }
+
+  /**
+   * Read ACDB project header metadata from the files table.
+   * Returns header information persisted during upload.
+   *
+   * @param fileSystemId - The file system ID to query
+   * @returns ProjectHeaderMetadata object with version, codecs, OEM info, etc.
+   * @throws Error if file not found
+   */
+  async readProjectHeader(
+    fileSystemId: number,
+  ): Promise<ProjectHeaderMetadata> {
+    return new DbFileQuery(this.dataSource).readProjectHeader(fileSystemId);
   }
 }

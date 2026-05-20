@@ -37,8 +37,14 @@ import {
   QueryBus,
   UploadFileCommand,
   DownloadFileQuery,
+  ProjectHeaderQuery,
 } from '@arc/core';
-import type {PathRef, Logger, DownloadFileResult} from '@arc/core';
+import type {
+  PathRef,
+  Logger,
+  DownloadFileResult,
+  ProjectHeaderResult,
+} from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
 interface UploadFileCommandResult {
@@ -61,6 +67,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
 import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
 import {DownloadArcDatabaseFilesResponseDto} from './dto/download-arc-database-files-response.dto.js';
+import {ProjectHeaderResponseDto} from './dto/project-header.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 
@@ -622,6 +629,62 @@ export class ProjectController {
       },
       success: true,
       message: 'Files downloaded successfully',
+    };
+  }
+
+  @Get('/:projectId/header')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiOperation({
+    summary: 'Get ACDB project header information',
+    description:
+      'Retrieves header metadata including ACDB version, codec information, and OEM details',
+  })
+  @ApiExtraModels(ApiResult, ProjectHeaderResponseDto)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Project header information retrieved successfully',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(ProjectHeaderResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project or header information not found',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  async getProjectHeader(
+    @Param('projectId') projectId: string,
+  ): Promise<ApiResult<ProjectHeaderResponseDto>> {
+    const clientId = '';
+    // TODO: gather from jwt
+
+    const result = await this.queryBus.execute<ProjectHeaderResult>(
+      new ProjectHeaderQuery(projectId, clientId),
+    );
+
+    return {
+      data: result,
+      success: true,
+      message: 'Project header information retrieved successfully',
     };
   }
 

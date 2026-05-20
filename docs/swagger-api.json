@@ -597,6 +597,72 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/header": {
+      "get": {
+        "description": "Retrieves header metadata including ACDB version, codec information, and OEM details",
+        "operationId": "ProjectController_getProjectHeader",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Id of project",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project header information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ProjectHeaderResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or header information not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get ACDB project header information",
+        "tags": [
+          "Project"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/definitions/keys": {
       "get": {
         "description": "Return the list of key definitions based on project id",
@@ -5286,7 +5352,7 @@
           }
         }
       },
-      "Buffer": {
+      "Uint8Array": {
         "type": "object",
         "properties": {}
       },
@@ -5305,7 +5371,7 @@
             "description": "Binary content of the file",
             "allOf": [
               {
-                "$ref": "#/components/schemas/Buffer"
+                "$ref": "#/components/schemas/Uint8Array"
               }
             ]
           }
@@ -5339,6 +5405,104 @@
         "required": [
           "acdbFile",
           "workspaceFile"
+        ]
+      },
+      "ACDBVersionDto": {
+        "type": "object",
+        "properties": {
+          "major": {
+            "type": "number",
+            "description": "ACDB major version number"
+          },
+          "minor": {
+            "type": "number",
+            "description": "ACDB minor version number"
+          },
+          "revision": {
+            "type": "number",
+            "description": "ACDB revision number"
+          },
+          "cplInfo": {
+            "type": "number",
+            "description": "ACDB CPL info"
+          }
+        },
+        "required": [
+          "major",
+          "minor",
+          "revision",
+          "cplInfo"
+        ]
+      },
+      "CodecInfoDto": {
+        "type": "object",
+        "properties": {
+          "codecId": {
+            "type": "number",
+            "description": "Codec identifier"
+          },
+          "majorVersion": {
+            "type": "number",
+            "description": "Codec major version"
+          },
+          "minorVersion": {
+            "type": "number",
+            "description": "Codec minor version"
+          }
+        },
+        "required": [
+          "codecId",
+          "majorVersion",
+          "minorVersion"
+        ]
+      },
+      "ProjectHeaderResponseDto": {
+        "type": "object",
+        "properties": {
+          "headerVersion": {
+            "type": "number",
+            "description": "Header format version"
+          },
+          "acdbVersion": {
+            "description": "ACDB version information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ACDBVersionDto"
+              }
+            ]
+          },
+          "acdbVersionString": {
+            "type": "string",
+            "description": "ACDB version as formatted string (major.minor.revision.cplInfo)"
+          },
+          "codecInfos": {
+            "description": "Array of codec information",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodecInfoDto"
+            }
+          },
+          "modifiedDate": {
+            "type": "number",
+            "description": "File modification date (Unix timestamp)"
+          },
+          "modifiedDateFormatted": {
+            "type": "string",
+            "description": "File modification date (ISO 8601 format)"
+          },
+          "oemInfo": {
+            "type": "string",
+            "description": "OEM information string"
+          }
+        },
+        "required": [
+          "headerVersion",
+          "acdbVersion",
+          "acdbVersionString",
+          "codecInfos",
+          "modifiedDate",
+          "modifiedDateFormatted",
+          "oemInfo"
         ]
       },
       "TagValueDefinitionInfo": {

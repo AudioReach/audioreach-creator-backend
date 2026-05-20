@@ -6,6 +6,7 @@
 import type {ProjectQueryService} from '@arc/core';
 import {DataSource} from 'typeorm';
 import type {ProjectRow} from '../entity-schema/index.js';
+import {DbFileQuery} from './db-file-query.js';
 
 /**
  * Database implementation of ProjectQueryService
@@ -57,7 +58,7 @@ export class DbProjectQueryService implements ProjectQueryService {
     return {acdb: parsed.acdb, awsp: parsed.awsp};
   }
 
-  async getFileHeaderInfo(projectId: number): Promise<{
+  async getProjectHeader(projectId: number): Promise<{
     headerVersion: number;
     acdbVersion: {
       major: number;
@@ -69,32 +70,25 @@ export class DbProjectQueryService implements ProjectQueryService {
     modifiedDate: number;
     oemInfo: string;
   }> {
-    const project = (await this.dataSource
-      .getRepository('Project')
-      .createQueryBuilder('p')
-      .leftJoinAndSelect('p.files', 'f')
-      .where('p.systemId = :projectId', {projectId})
-      .getOne()) as ProjectRow | null;
+    // Get fileSystemId from projectId
+    const fileSystemId = await this.getFileIdByProjectId(projectId);
 
-    if (!project?.files || project.files.length === 0) {
-      throw new Error(
-        `Project with ID ${projectId} not found or has no associated files`,
-      );
-    }
+    // Use shared DbFileQuery to get header metadata
+    const fileQuery = new DbFileQuery(this.dataSource);
+    const metadata = await fileQuery.readProjectHeader(fileSystemId);
 
-    const file = project.files[0];
-
+    // Transform ProjectHeaderMetadata to expected format
     return {
-      headerVersion: file.headerVersion,
+      headerVersion: 1, // Default value, can be added to ProjectHeaderMetadata if needed
       acdbVersion: {
-        major: file.acdbVersionMajor,
-        minor: file.acdbVersionMinor,
-        revision: file.acdbVersionRevision,
-        cplInfo: file.acdbVersionCplInfo,
+        major: metadata.version.major,
+        minor: metadata.version.minor,
+        revision: metadata.version.revision,
+        cplInfo: metadata.version.cplInfo,
       },
-      codecInfos: file.codecInfos,
-      modifiedDate: file.modifiedDate,
-      oemInfo: file.oemInfo,
+      codecInfos: JSON.stringify(metadata.codecInfos),
+      modifiedDate: metadata.modifiedDate,
+      oemInfo: metadata.oemInfo,
     };
   }
 }
