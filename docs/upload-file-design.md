@@ -367,48 +367,279 @@ foreignKeyMapper.setSpfModuleMappings(result);
 
 ### 3.3 Phase 3: Header Metadata Persistence
 
-**Purpose**: Persist ACDB header metadata extracted during file parsing.
+**Purpose**: Persist ACDB header metadata extracted during file parsing to enable version tracking, OEM information display, and codec information queries.
 
-**Steps**:
+#### 3.3.1 Overview
 
-1. **Extract Header Data**
-   - During ACDB parsing, the header chunk is extracted
-   - Contains version information, codec details, OEM info, etc.
+The ACDB file header contains important metadata that should be preserved in the database:
 
-2. **Persist Header Metadata**
-   ```typescript
-   // After Phase 2 completes successfully
-   if (uploadResult.headerData) {
-     await projectRepo.updateFileHeader(
-       fileSystemId,
-       uploadResult.headerData
-     );
-   }
-   ```
+- **ACDB Version Information**: Major, minor, revision, and CPL info (e.g., 2.3.4.5)
+- **Codec Information**: Array of codec IDs with their version numbers
+- **File Modification Date**: Unix timestamp of when the file was last modified
+- **OEM Information**: OEM-specific identification string
 
-3. **Header Fields Stored**:
-   - `headerVersion`: ACDB header format version
-   - `acdbVersionMajor/Minor/Revision`: ACDB version (e.g., 2.3.4)
-   - `acdbVersionCplInfo`: CPL information
-   - `codecInfos`: JSON array of codec information
-   - `modifiedDate`: File modification timestamp
-   - `oemInfo`: OEM-specific information
+This metadata is extracted during ACDB parsing and persisted after the bulk upload phase completes successfully.
 
-**Error Handling**: If header persistence fails, the entire project is deleted (cascades to file record).
+#### 3.3.2 Workflow Integration
 
-**Query Methods**:
+**Location in Upload Flow:**
 
-The system provides query methods to retrieve header information:
+```
+Phase 1: Project Creation (Transactional)
+  ↓
+Phase 2: Bulk Upload (Non-Transactional)
+  ├─> Parse ACDB file → Extract header chunk
+  ├─> Parse AWSP file
+  ├─> Build and insert entities
+  └─> [All entities inserted successfully]
+  ↓
+Phase 3: Header Metadata Persistence ← YOU ARE HERE
+  ├─> Extract header data from ParsedAcdb
+  ├─> Call repository to update file record
+  └─> Log success/failure
+```
+
+#### 3.3.3 Implementation in UploadFileOrchestrator
+
+**Method: `updateFileHeaderInfo()`**
+
+```typescript
+/**
+ * Update file record with ACDB header information.
+ * Called after Phase 2 completes successfully.
+ *
+ * Non-fatal: Logs warning if header not found but continues.
+ * The upload succeeds even if header update fails.
+ */
+private async updateFileHeaderInfo(fileId: number): Promise<void> {
+  try {
+    // Get header chunk from parsed ACDB data
+    const headerChunk = this.parsedAcdb.getChunk<HeaderChunk>(
+      PARSED_CHUNK_TYPES.HEADER,
+    );
+
+    if (!headerChunk) {
+      this.logger?.logWarning({
+        msg: 'No HEADER chunk found in ACDB file, skipping header update',
+        action: 'update_file_header_skipped',
+        component: 'UploadFileOrchestrator',
+        fileId,
+        timestamp: new Date(),
+      });
+      return; // Non-fatal: continue with upload
+    }
+
+    // Validate header chunk has required data
+    if (
+      headerChunk.headerVersion == null ||
+      !headerChunk.version ||
+      !headerChunk.codecInfos ||
+      headerChunk.modifiedDate == null ||
+      headerChunk.oemInfo == null
+    ) {
+      this.logger?.logWarning({
+        msg: 'HEADER chunk missing required fields, skipping header update',
+        action: 'update_file_header_skipped',
+        component: 'UploadFileOrchestrator',
+        fileId,
+        timestamp: new Date(),
+      });
+      return; // Non-fatal: continue with upload
+    }
+
+    // Get repository
+    const bulkRepo = this.uow.getBulkImportRepository();
+
+    // Update file record with header information
+    await bulkRepo.updateFileHeader(fileId, {
+      headerVersion: headerChunk.headerVersion,
+      acdbVersionMajor: headerChunk.version.major,
+      acdbVersionMinor: headerChunk.version.minor,
+      acdbVersionRevision: headerChunk.version.revision,
+      acdbVersionCplInfo: headerChunk.version.cplInfo,
+      codecInfos: headerChunk.codecInfos,
+      modifiedDate: headerChunk.modifiedDate,
+      oemInfo: headerChunk.oemInfo,
+    });
+
+    this.logger?.logInfo({
+      msg: 'Successfully updated file header information',
+      action: 'update_file_header_success',
+      component: 'UploadFileOrchestrator',
+      fileId,
+      headerVersion: headerChunk.headerVersion,
+      acdbVersion: `${headerChunk.version.major}.${headerChunk.version.minor}.${headerChunk.version.revision}.${headerChunk.version.cplInfo}`,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    // Log error but don't fail the upload
+    this.logger?.logError({
+      msg: 'Failed to update file header information, continuing with upload',
+      action: 'update_file_header_failed',
+      component: 'UploadFileOrchestrator',
+      fileId,
+      error: error as Error,
+      timestamp: new Date(),
+    });
+    // Don't throw - header update failure shouldn't fail entire upload
+  }
+}
+```
+
+**Integration Point:**
+
+```typescript
+async orchestrate(
+  acdbPath: PathRef,
+  awspPath: PathRef,
+  fileId: number,
+): Promise<boolean> {
+  this.currentFileId = fileId;
+
+  try {
+    // Step 1: Parse files
+    this.parsedAcdb = await this.acdbParser.parseACDB(acdbPath);
+    this.parsedAwsp = await this.awspParser.parseAWSP(awspPath);
+
+    // Step 2: Build and insert entities in hierarchical order
+    await this.persistEntitiesInHierarchicalOrder();
+
+    // Step 3: Update file header information (NEW)
+    await this.updateFileHeaderInfo(fileId);
+
+    return true;
+  } catch (error) {
+    this.logger?.logError({
+      msg: 'File upload orchestration failed',
+      action: 'orchestrate_failed',
+      component: 'UploadFileOrchestrator',
+      error: error as Error,
+      timestamp: new Date(),
+    });
+    throw error;
+  }
+}
+```
+
+#### 3.3.4 Error Handling Strategy
+
+**Non-Fatal Errors:**
+
+The header update operation uses **continue-on-error** semantics:
+
+- ✅ **Missing header chunk**: Log warning, continue upload
+- ✅ **Invalid header data**: Log warning, continue upload
+- ✅ **Repository update failure**: Log error, continue upload
+
+**Rationale:**
+
+1. Header information is **metadata**, not critical for core functionality
+2. Upload should succeed even if header update fails
+3. User can still work with uploaded data
+4. Errors are logged for debugging and monitoring
+
+**What Gets Logged:**
+
+```typescript
+// Success case
+{
+  msg: 'Successfully updated file header information',
+  action: 'update_file_header_success',
+  fileId: 123,
+  headerVersion: 1,
+  acdbVersion: '2.3.4.5'
+}
+
+// Warning case (missing header)
+{
+  msg: 'No HEADER chunk found in ACDB file, skipping header update',
+  action: 'update_file_header_skipped',
+  fileId: 123
+}
+
+// Error case (update failed)
+{
+  msg: 'Failed to update file header information, continuing with upload',
+  action: 'update_file_header_failed',
+  fileId: 123,
+  error: Error
+}
+```
+
+#### 3.3.5 Header Data Structure
+
+**FileHeaderData Interface:**
+
+```typescript
+export interface FileHeaderData {
+  headerVersion: number;
+  acdbVersionMajor: number;
+  acdbVersionMinor: number;
+  acdbVersionRevision: number;
+  acdbVersionCplInfo: number;
+  codecInfos: CodecInfo[];
+  modifiedDate: number;
+  oemInfo: string;
+}
+
+export interface CodecInfo {
+  codecId: number;
+  majorVersion: number;
+  minorVersion: number;
+}
+```
+
+**Example Data:**
+
+```typescript
+{
+  headerVersion: 1,
+  acdbVersionMajor: 2,
+  acdbVersionMinor: 3,
+  acdbVersionRevision: 4,
+  acdbVersionCplInfo: 5,
+  codecInfos: [
+    { codecId: 1, majorVersion: 2, minorVersion: 0 },
+    { codecId: 2, majorVersion: 1, minorVersion: 5 }
+  ],
+  modifiedDate: 1234567890,
+  oemInfo: 'Qualcomm Technologies, Inc.'
+}
+```
+
+#### 3.3.6 Querying Header Information
+
+After upload, header information can be queried through the application layer:
 
 ```typescript
 // Get complete header information
-const headerInfo = await projectQueryService.getFileHeaderInfo(projectId);
-// Returns: { headerVersion, acdbVersion, codecInfos, modifiedDate, oemInfo }
+const headerInfo = await projectQueryService.getProjectHeader(projectId);
+// Returns: {
+//   headerVersion: 1,
+//   version: { major: 2, minor: 3, revision: 4, cplInfo: 5 },
+//   codecInfos: [...],
+//   modifiedDate: 1234567890,
+//   oemInfo: 'Qualcomm Technologies, Inc.'
+// }
 
 // Get ACDB version string
 const version = await projectQueryService.getAcdbVersion(projectId);
-// Returns: "2.3.4" or null if not available
+// Returns: "2.3.4.5" or null if not available
 ```
+
+**API Endpoint:**
+
+```
+GET /arc-api/v1/projects/:projectId/header
+```
+
+**Use Cases:**
+
+- Display ACDB version in project details UI
+- Show OEM information in file metadata
+- List codec information for debugging
+- Track file modification dates
+- Filter projects by ACDB version
 
 ---
 
@@ -1617,11 +1848,12 @@ const systemId = this.foreignKeyMapper.getSubgraphSystemId(naturalId);
 
 ### 11.5 BulkImportRepository
 
-**Purpose:** Handle batch insertion of entities into database.
+**Purpose:** Handle batch insertion of entities into database and file metadata updates.
 
 **Interface:**
 ```typescript
 class BulkImportRepository {
+  // Entity insertion methods
   insertKeyDefinitions(entities): Promise<InsertResult>
   insertSpfModuleDefinitions(entities): Promise<InsertResult>
   insertSubgraphs(entities): Promise<InsertResult>
@@ -1629,6 +1861,26 @@ class BulkImportRepository {
   insertSpfModules(entities): Promise<InsertResult>
   insertDataLinks(entities): Promise<InsertResult>
   insertUseCases(entities): Promise<InsertResult>
+
+  // File metadata update method
+  updateFileHeader(fileSystemId: number, headerData: FileHeaderData): Promise<void>
+}
+
+export interface FileHeaderData {
+  headerVersion: number;
+  acdbVersionMajor: number;
+  acdbVersionMinor: number;
+  acdbVersionRevision: number;
+  acdbVersionCplInfo: number;
+  codecInfos: CodecInfo[];
+  modifiedDate: number;
+  oemInfo: string;
+}
+
+export interface CodecInfo {
+  codecId: number;
+  majorVersion: number;
+  minorVersion: number;
 }
 ```
 
@@ -1637,12 +1889,31 @@ class BulkImportRepository {
 - Fallback to individual inserts on batch failure
 - Return detailed success/failure results
 - Provide natural key to systemId mappings
+- Update file record with ACDB header metadata
 
 **Usage in Orchestrator:**
+
+**Entity Insertion:**
 ```typescript
 const result = await bulkRepo.insertSubgraphs(
   subgraphs as readonly Omit<Subgraph, 'systemId'>[],
 );
+```
+
+**Header Update:**
+```typescript
+await bulkRepo.updateFileHeader(fileId, {
+  headerVersion: 1,
+  acdbVersionMajor: 2,
+  acdbVersionMinor: 3,
+  acdbVersionRevision: 4,
+  acdbVersionCplInfo: 5,
+  codecInfos: [
+    { codecId: 1, majorVersion: 2, minorVersion: 0 }
+  ],
+  modifiedDate: 1234567890,
+  oemInfo: 'Qualcomm Technologies, Inc.'
+});
 ```
 
 ---

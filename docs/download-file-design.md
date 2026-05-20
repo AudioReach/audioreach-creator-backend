@@ -784,11 +784,24 @@ export class AcdbFileSerializer {
 **Location**: `packages/core/src/application/ports/persistence/repositories/bulk-read/bulk-read.repository.ts`
 
 ```typescript
-export interface HeaderMetadata {
+export interface ProjectHeaderMetadata {
   version: ACDBVersionInfo;
   codecInfos: CodecInfo[];
   modifiedDate: number;
   oemInfo: string;
+}
+
+export interface ACDBVersionInfo {
+  major: number;
+  minor: number;
+  revision: number;
+  cplInfo: number;
+}
+
+export interface CodecInfo {
+  codecId: number;
+  majorVersion: number;
+  minorVersion: number;
 }
 
 export interface DownloadEntities {
@@ -802,32 +815,43 @@ export interface DownloadEntities {
   keyDefinitions: KeyDefinition[];
   moduleDefinitions: SpfModuleDefinition[];
 
-  // NEW: Header metadata
-  headerMetadata?: HeaderMetadata;
+  // NEW: Project header metadata
+  headerMetadata?: ProjectHeaderMetadata;
 }
 
 export interface BulkReadRepository {
+  /**
+   * Reads all entities for a file in parallel.
+   * Single entry point for download orchestrator.
+   */
   readAllEntitiesForFile(fileSystemId: number): Promise<DownloadEntities>;
 
-  // NEW: Read header metadata
-  readHeaderMetadata(fileSystemId: number): Promise<HeaderMetadata>;
+  /**
+   * Read project header metadata from the database.
+   * Returns header information persisted during upload.
+   */
+  readProjectHeader(fileSystemId: number): Promise<ProjectHeaderMetadata>;
 }
 ```
 
-#### TypeOrmBulkReadRepository (Stub Implementation)
+**Usage in DownloadFileOrchestrator:**
+
+The `readAllEntitiesForFile()` method automatically includes project header metadata in the returned `DownloadEntities` object:
 
 ```typescript
-async readHeaderMetadata(fileSystemId: number): Promise<HeaderMetadata> {
-  // TODO: Implement actual DB query
-  // For now, return default values for proof of concept
-  return {
-    version: { major: 1, minor: 0, revision: 0, cplInfo: 0 },
-    codecInfos: [],
-    modifiedDate: Date.now(),
-    oemInfo: 'AudioReach Creator'
-  };
-}
+// In DownloadFileOrchestrator
+const entities = await this.bulkReadRepository.readAllEntitiesForFile(fileSystemId);
+
+// entities.headerMetadata is now available for HeaderChunkBuilder
+const headerStructure = HeaderChunkBuilder.buildChunk({
+  entities,  // Contains headerMetadata
+  taskName: 'header-chunk'
+});
 ```
+
+**Implementation Note:**
+
+The infrastructure layer (`TypeOrmBulkReadRepository`) implements the actual database query to retrieve project header metadata from the `files` table columns that were populated during upload. See the upload-file-design.md document for details on how header data is persisted.
 
 ### 5.7 Parallelization Strategy
 
@@ -953,14 +977,20 @@ async downloadArcDbFiles(
 
 **Note**: `QueryBus` needs to be injected alongside the existing `CommandBus`.
 
+**API Endpoint**:
+```
+GET /arc-api/v1/projects/:projectId/download-files
+```
+
 ---
 
 ### 6.2 `packages/core` — Application Layer
 
 #### `DownloadFileQuery` (NEW)
 
+**File**: `packages/core/src/application/file-operations/download-file/download-file.query.ts`
+
 ```typescript
-// packages/core/src/application/file-operations/download-file/download-file.query.ts
 export class DownloadFileQuery implements Query {
   constructor(public readonly projectId: string) {}
 }
@@ -968,8 +998,9 @@ export class DownloadFileQuery implements Query {
 
 #### `DownloadFileHandler` (NEW)
 
+**File**: `packages/core/src/application/file-operations/download-file/download-file.handler.ts`
+
 ```typescript
-// packages/core/src/application/file-operations/download-file/download-file.handler.ts
 export type DownloadFileResult = {
   acdbFile: FileInfo;
   workspaceFile: FileInfo;

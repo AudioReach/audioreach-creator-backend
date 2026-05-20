@@ -17,6 +17,8 @@ import {ValidateFileQuery} from '../../../validation/queries/validate-file.query
 import {ValidateFileQueryHandler} from '../../../validation/queries/validate-file.handler.js';
 import {DownloadFileQuery} from '../../../file-operations/download-file/download-file.query.js';
 import {DownloadFileHandler} from '../../../file-operations/download-file/download-file.handler.js';
+import {ProjectHeaderQuery} from '../../../file-operations/queries/project-header.query.js';
+import {ProjectHeaderHandler} from '../../../file-operations/queries/project-header.handler.js';
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
 }
@@ -82,6 +84,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(DownloadFileQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new DownloadFileHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(ProjectHeaderQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new ProjectHeaderHandler(deps.queryServices),
     });
   }
 }
