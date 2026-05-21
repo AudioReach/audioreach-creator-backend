@@ -11,7 +11,7 @@ import path from 'node:path';
 import Parser from 'stream-json/Parser.js';
 import Pick from 'stream-json/filters/Pick.js';
 import StreamValues from 'stream-json/streamers/StreamValues.js';
-import type {FileReaderPort, PathRef, JsonValue} from '@arc/core';
+import type {FileSystemPort, PathRef, JsonValue} from '@arc/core';
 import {access} from 'node:fs/promises';
 
 const mkdir = promisify(fs.mkdir);
@@ -53,13 +53,13 @@ interface JsonParseError extends Error {
   offset?: number;
 }
 /**
- * Node adapter implementing FileReaderPort.
+ * Node adapter implementing FileSystemPort.
  * Supports only PathRef; reads from absolute path or file:// URI and returns Uint8Array.
  */
-export class NodeFileReaderAdapter implements FileReaderPort {
+export class NodeFileSystemAdapter implements FileSystemPort {
   async readAll(ref: PathRef): Promise<Uint8Array> {
     if (ref.kind !== 'path') {
-      throw new Error('NodeFileReaderAdapter supports only PathRef');
+      throw new Error('NodeFileSystemAdapter supports only PathRef');
     }
     const filePath = this.normalizeUriToPath(ref.uri);
     const buffer = await promises.readFile(filePath);
@@ -136,6 +136,22 @@ export class NodeFileReaderAdapter implements FileReaderPort {
       // Use fs.rmSync with recursive option (available in Node.js 14.14.0+)
       fs.rmSync(dirPath, {recursive: true, force: true});
     }
+  }
+
+  zipToBuffer(files: Map<string, string | Uint8Array>): Promise<Uint8Array> {
+    const zip = new AdmZip();
+
+    // Add each file to the zip
+    for (const [filename, content] of files) {
+      if (typeof content === 'string') {
+        zip.addFile(filename, Buffer.from(content, 'utf8'));
+      } else {
+        zip.addFile(filename, Buffer.from(content));
+      }
+    }
+
+    // Return as Uint8Array
+    return Promise.resolve(new Uint8Array(zip.toBuffer()));
   }
 
   /**

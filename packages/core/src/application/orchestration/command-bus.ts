@@ -6,7 +6,7 @@
 import type {Command} from './cqrs/commands/command.js';
 import {CommandHandlerRegistry} from './cqrs/registries/command-handler-registry.js';
 import type {CommandHandlerDependencies} from './cqrs/registries/command-handler-registry.js';
-import type {FileReaderPort} from '../ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../ports/file-system/file-system.port.js';
 import type {WorkerPoolPort} from '../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../ports/profiling/profiler.port.js';
@@ -18,7 +18,7 @@ export class CommandBus {
   constructor(
     private readonly handlerRegistry: CommandHandlerRegistry,
     private readonly idGeneration: IdGenerationPort,
-    private readonly fileReader: FileReaderPort,
+    private readonly fileSystem: FileSystemPort,
     private readonly uowFactory: UnitOfWorkFactory,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
@@ -110,7 +110,7 @@ export class CommandBus {
     const dependencies: CommandHandlerDependencies = {
       uow,
       idGeneration: this.idGeneration,
-      fileReader: this.fileReader,
+      fileSystem: this.fileSystem,
       workerPool: this.workerPool,
       logger: this.logger,
       profiler: this.profiler,

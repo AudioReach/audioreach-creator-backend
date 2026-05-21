@@ -18,7 +18,7 @@ import {
 describe('CommandBus', () => {
   let mockUnitOfWork: any;
   let mockRegistry: any;
-  let mockFileReader: any;
+  let mockFileSystem: any;
   let mockUowFactory: any;
   let mockIdGeneration: any;
   let commandBus: CommandBus;
@@ -26,7 +26,7 @@ describe('CommandBus', () => {
   beforeEach(() => {
     mockUnitOfWork = createMockUnitOfWork();
     mockRegistry = createMockCommandHandlerRegistry();
-    mockFileReader = {} as any;
+    mockFileSystem = {} as any;
     mockIdGeneration = {
       getNextId: jest.fn().mockResolvedValue(8_388_613),
       reserveBlock: jest.fn().mockResolvedValue(8_388_613),
@@ -42,7 +42,7 @@ describe('CommandBus', () => {
     commandBus = new CommandBus(
       mockRegistry,
       mockIdGeneration,
-      mockFileReader,
+      mockFileSystem,
       mockUowFactory,
     );
   });
@@ -80,7 +80,7 @@ describe('CommandBus', () => {
       const realCommandBus = new CommandBus(
         realRegistry,
         mockIdGeneration,
-        mockFileReader,
+        mockFileSystem,
         mockUowFactory,
       );
 
@@ -123,7 +123,7 @@ describe('CommandBus', () => {
       expect(mockFactory.create).toHaveBeenCalledWith(
         expect.objectContaining({
           uow: mockUnitOfWork,
-          fileReader: mockFileReader,
+          fileSystem: mockFileSystem,
         }),
       );
     });
@@ -150,7 +150,7 @@ describe('CommandBus', () => {
       const failingCommandBus = new CommandBus(
         failingRegistry,
         mockIdGeneration,
-        mockFileReader,
+        mockFileSystem,
         mockUowFactory,
       );
       const unknownCommand = new UnknownCommand();
@@ -198,7 +198,7 @@ describe('CommandBus', () => {
       const strictCommandBus = new CommandBus(
         strictRegistry,
         mockIdGeneration,
-        mockFileReader,
+        mockFileSystem,
         mockUowFactory,
       );
 
@@ -217,7 +217,7 @@ describe('CommandBus', () => {
       const realCommandBus = new CommandBus(
         realRegistry,
         mockIdGeneration,
-        mockFileReader,
+        mockFileSystem,
         mockUowFactory,
       );
       const unknownCommand = new UnknownCommand();

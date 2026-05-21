@@ -7,7 +7,7 @@ import {describe, it, expect, beforeAll} from '@jest/globals';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import {AwspFileOrchestrator} from '../../../../src/application/file-operations/upload-file/services/awsp-file-orchestrator.js';
-import {NodeFileReaderAdapter} from '@arc/fs';
+import {NodeFileSystemAdapter} from '@arc/fs';
 import {ParsedAwsp} from '../../../../src/application/file-operations/upload-file/models/parsed-awsp.js';
 import type {PathRef} from '../../../../src/application/file-operations/shared/utils/file-ref.js';
 
@@ -18,7 +18,7 @@ describe('AWSP Parser Integration Tests', () => {
   let orchestrator: AwspFileOrchestrator;
 
   beforeAll(() => {
-    const fs = new NodeFileReaderAdapter();
+    const fs = new NodeFileSystemAdapter();
     orchestrator = new AwspFileOrchestrator(fs);
   });
 

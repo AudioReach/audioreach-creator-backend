@@ -15,7 +15,7 @@ import {ParsedAwsp} from '../models/parsed-awsp.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
-import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import {
@@ -101,7 +101,7 @@ export class UploadFileOrchestrator {
   /* -------------------------------------*/
 
   constructor(
-    private filereader: FileReaderPort,
+    private fileSystem: FileSystemPort,
     private uow: UnitOfWork,
     private idGenerator: IdGenerationPort,
     workerPool?: WorkerPoolPort,
@@ -118,12 +118,12 @@ export class UploadFileOrchestrator {
     );
 
     this.acdbParser = new AcdbFileOrchestrator(
-      this.filereader,
+      this.fileSystem,
       //workerPool,
       logger,
     );
     this.awspParser = new AwspFileOrchestrator(
-      this.filereader,
+      this.fileSystem,
       workerPool,
       logger,
     );

@@ -19,8 +19,10 @@ import {DownloadFileQuery} from '../../../file-operations/download-file/download
 import {DownloadFileHandler} from '../../../file-operations/download-file/download-file.handler.js';
 import {ProjectHeaderQuery} from '../../../file-operations/queries/project-header.query.js';
 import {ProjectHeaderHandler} from '../../../file-operations/queries/project-header.handler.js';
+import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
+  fileSystem: FileSystemPort;
 }
 
 export interface QueryHandlerFactory<THandler> {
@@ -83,7 +85,7 @@ export class QueryHandlerRegistry {
 
     this.queryHandlerFactories.set(DownloadFileQuery, {
       create: (deps: QueryHandlerDependencies) =>
-        new DownloadFileHandler(deps.queryServices),
+        new DownloadFileHandler(deps.queryServices, deps.fileSystem),
     });
 
     this.queryHandlerFactories.set(ProjectHeaderQuery, {

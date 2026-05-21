@@ -6,14 +6,14 @@
 import {describe, it, expect, jest} from '@jest/globals';
 import {AwspFileOrchestrator} from '../../../../../src/application/file-operations/upload-file/services/awsp-file-orchestrator.js';
 import {ConfigurationData} from '../../../../../src/application/file-operations/shared/awsp-serializers/v1/configuration/configuration.js';
-import type {FileReaderPort} from '../../../../../src/application/ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../../../../../src/application/ports/file-system/file-system.port.js';
 import type {PathRef} from '../../../../../src/application/file-operations/shared/utils/file-ref.js';
 
 describe('AwspFileOrchestrator', () => {
   describe('parseAWSP', () => {
     it('should hydrate configuration to ConfigurationData class instance', async () => {
       // Mock file system
-      const mockFs: FileReaderPort = {
+      const mockFs: FileSystemPort = {
         exists: jest.fn().mockResolvedValue(true),
         readAll: jest.fn(),
         unzip: jest.fn().mockResolvedValue(undefined),

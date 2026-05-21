@@ -59,7 +59,7 @@ export * from './application/file-operations/download-file/download-file.query.j
 export * from './application/file-operations/download-file/download-file.handler.js';
 export * from './application/file-operations/queries/project-header.query.js';
 export * from './application/file-operations/queries/project-header.handler.js';
-export * from './application/ports/file-system/file-reader.port.js';
+export * from './application/ports/file-system/file-system.port.js';
 export * from './application/file-operations/upload-file/types/chunk-parse.types.js';
 export * from './application/file-operations/upload-file/types/entity-builder.types.js';
 export * from './application/file-operations/upload-file/workers/parser-registry.js';
