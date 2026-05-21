@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "uuid": "^11.1.0",
-    "zod": "^3.22.4"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
