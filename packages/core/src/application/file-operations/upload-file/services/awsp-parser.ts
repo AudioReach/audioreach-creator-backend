@@ -77,7 +77,7 @@ export class AwspParser {
         } catch (error) {
           if (error instanceof z.ZodError) {
             // Format Zod validation errors
-            const errorMessages = error.errors
+            const errorMessages = error.issues
               .map(e => `${e.path.join('.')}: ${e.message}`)
               .join(', ');
             throw new Error(`Failed to parse ${blockName}: ${errorMessages}`);

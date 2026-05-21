@@ -23,6 +23,6 @@ export const BaseElementSchema = z
     subGroup: z.string().optional(),
     copySrc: z.string().optional(),
   })
-  .passthrough(); // Allow additional properties for different element types
+  .catchall(z.unknown()); // Allow additional properties for different element types
 
 export type BaseElement = z.infer<typeof BaseElementSchema>;
