@@ -11,16 +11,20 @@ import type {
   BulkReadRepository,
   DownloadEntities,
 } from '../../../../../src/application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+import {createMockFileSystem} from '../../../../helpers/index.js';
 
 const makeEmptyEntities = (): DownloadEntities => ({
-  subgraphs: [],
-  containers: [],
-  modules: [],
-  dataLinks: [],
-  controlLinks: [],
-  usecases: [],
-  keyDefinitions: [],
-  moduleDefinitions: [],
+  headerMetadata: {
+    version: {
+      major: 1,
+      minor: 0,
+      revision: 0,
+      cplInfo: 0,
+    },
+    codecInfos: [],
+    modifiedDate: Date.now(),
+    oemInfo: '',
+  },
 });
 
 const makeMockQueryServices = (
@@ -39,6 +43,33 @@ const makeMockQueryServices = (
         acdb: 'test.acdb',
         awsp: 'test.awsp',
       }),
+    getProjectHeader: jest
+      .fn<
+        (projectId: number) => Promise<{
+          headerVersion: number;
+          acdbVersion: {
+            major: number;
+            minor: number;
+            revision: number;
+            cplInfo: number;
+          };
+          codecInfos: string;
+          modifiedDate: number;
+          oemInfo: string;
+        }>
+      >()
+      .mockResolvedValue({
+        headerVersion: 1,
+        acdbVersion: {
+          major: 1,
+          minor: 0,
+          revision: 0,
+          cplInfo: 0,
+        },
+        codecInfos: '[]',
+        modifiedDate: Date.now(),
+        oemInfo: '',
+      }),
   },
   bulkReadRepository: {
     readAllEntitiesForFile: jest
@@ -52,12 +83,11 @@ describe('DownloadFileHandler', () => {
   describe('handle()', () => {
     it('resolves fileSystemId from projectId before orchestrating', async () => {
       const queryServices = makeMockQueryServices();
-      const handler = new DownloadFileHandler(queryServices);
+      const mockFileSystem = createMockFileSystem();
+      const handler = new DownloadFileHandler(queryServices, mockFileSystem);
       const query = new DownloadFileQuery(7, 'client-1');
 
-      await expect(handler.handle(query)).rejects.toThrow(
-        'AcdbFileSerializer.serialize() is not yet implemented',
-      );
+      await handler.handle(query);
 
       expect(
         queryServices.projectQueryService.getFileIdByProjectId,
@@ -66,10 +96,11 @@ describe('DownloadFileHandler', () => {
 
     it('resolves file names from projectId before orchestrating', async () => {
       const queryServices = makeMockQueryServices();
-      const handler = new DownloadFileHandler(queryServices);
+      const mockFileSystem = createMockFileSystem();
+      const handler = new DownloadFileHandler(queryServices, mockFileSystem);
       const query = new DownloadFileQuery(7, 'client-1');
 
-      await expect(handler.handle(query)).rejects.toThrow();
+      await handler.handle(query);
 
       expect(
         queryServices.projectQueryService.getFileNamesByProjectId,
@@ -78,14 +109,40 @@ describe('DownloadFileHandler', () => {
 
     it('calls BulkReadRepository with the resolved fileSystemId', async () => {
       const queryServices = makeMockQueryServices();
-      const handler = new DownloadFileHandler(queryServices);
+      const mockFileSystem = createMockFileSystem();
+      const handler = new DownloadFileHandler(queryServices, mockFileSystem);
       const query = new DownloadFileQuery(7, 'client-1');
 
-      await expect(handler.handle(query)).rejects.toThrow();
+      await handler.handle(query);
 
       expect(
         queryServices.bulkReadRepository.readAllEntitiesForFile,
       ).toHaveBeenCalledWith(99); // fileSystemId resolved from projectId 7
+    });
+
+    it('returns download result with acdb and workspace files', async () => {
+      const queryServices = makeMockQueryServices();
+      const mockFileSystem = createMockFileSystem();
+      const handler = new DownloadFileHandler(queryServices, mockFileSystem);
+      const query = new DownloadFileQuery(7, 'client-1');
+
+      const result = await handler.handle(query);
+
+      expect(result).toHaveProperty('acdbFile');
+      expect(result.acdbFile).toHaveProperty('name', 'test.acdb');
+      expect(result.acdbFile).toHaveProperty(
+        'fileType',
+        'application/octet-stream',
+      );
+      expect(result.acdbFile.content).toBeInstanceOf(Uint8Array);
+      expect(result.acdbFile.content.length).toBeGreaterThan(0);
+
+      expect(result).toHaveProperty('workspaceFile');
+      expect(result.workspaceFile).toHaveProperty('name', 'test.awsp');
+      expect(result.workspaceFile).toHaveProperty(
+        'fileType',
+        'application/json',
+      );
     });
   });
 });

@@ -13,7 +13,7 @@ import {
 import type {
   UnitOfWorkFactory,
   QueryServices,
-  FileReaderPort,
+  FileSystemPort,
   WorkerPoolPort,
   Logger,
   ProfilerPort,
@@ -25,7 +25,7 @@ import {DbQueryServices, EntityIdServiceRegistry} from '@arc/persistence';
 import {FixCommandDispatcher} from './validation/fix-command-dispatcher.js';
 import type {DataSource} from 'typeorm';
 import {
-  NodeFileReaderAdapter,
+  NodeFileSystemAdapter,
   NodeProfilerAdapter,
   createWorkerPool,
 } from '@arc/fs';
@@ -41,8 +41,8 @@ import {ConsoleLoggerService} from './logger/index.js';
       inject: [DataSourceProvider],
     },
     {
-      provide: 'NODE_FILE_READER_ADAPTER',
-      useFactory: () => new NodeFileReaderAdapter(),
+      provide: 'NODE_FILE_SYSTEM_ADAPTER',
+      useFactory: () => new NodeFileSystemAdapter(),
       scope: Scope.REQUEST,
     },
     {
@@ -79,7 +79,7 @@ import {ConsoleLoggerService} from './logger/index.js';
       useFactory: (
         registry: CommandHandlerRegistry,
         idGeneration: IdGenerationPort,
-        fileReader: FileReaderPort,
+        fileSystem: FileSystemPort,
         uowFactory: UnitOfWorkFactory,
         workerPool: WorkerPoolPort,
         logger: Logger,
@@ -88,7 +88,7 @@ import {ConsoleLoggerService} from './logger/index.js';
         new CommandBus(
           registry,
           idGeneration,
-          fileReader,
+          fileSystem,
           uowFactory,
           workerPool,
           logger,
@@ -97,7 +97,7 @@ import {ConsoleLoggerService} from './logger/index.js';
       inject: [
         'COMMAND_HANDLER_REGISTRY',
         'ID_GENERATION',
-        'NODE_FILE_READER_ADAPTER',
+        'NODE_FILE_SYSTEM_ADAPTER',
         'UNIT_OF_WORK_FACTORY',
         'WORKER_POOL',
         'LOGGER',
@@ -114,8 +114,13 @@ import {ConsoleLoggerService} from './logger/index.js';
       useFactory: (
         queryServices: QueryServices,
         registry: QueryHandlerRegistry,
-      ) => new QueryBus(queryServices, registry),
-      inject: ['QUERY_SERVICES', 'QUERY_HANDLER_REGISTRY'],
+        fileSystem: FileSystemPort,
+      ) => new QueryBus(queryServices, registry, fileSystem),
+      inject: [
+        'QUERY_SERVICES',
+        'QUERY_HANDLER_REGISTRY',
+        'NODE_FILE_SYSTEM_ADAPTER',
+      ],
       scope: Scope.REQUEST,
     },
     {

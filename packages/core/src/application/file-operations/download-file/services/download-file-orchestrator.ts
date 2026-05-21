@@ -4,6 +4,7 @@
  */
 
 import type {BulkReadRepository} from '../../../ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import {AcdbFileSerializer} from './acdb-file-serializer.js';
 import {AwspFileSerializer} from './awsp-file-serializer.js';
 
@@ -25,7 +26,7 @@ export interface DownloadResult {
 export class DownloadFileOrchestrator {
   constructor(
     private readonly bulkReadRepository: BulkReadRepository,
-    private readonly options: DownloadOptions = {},
+    private readonly fileSystem: FileSystemPort,
   ) {}
 
   async orchestrate(
@@ -38,20 +39,13 @@ export class DownloadFileOrchestrator {
 
     // Step 2: Serialize to files
     const acdbSerializer = new AcdbFileSerializer();
-    const awspSerializer = new AwspFileSerializer();
+    const awspSerializer = new AwspFileSerializer(this.fileSystem);
 
-    let acdbBuffer: Uint8Array;
-    let awspBuffer: Uint8Array;
+    // ACDB serialization is synchronous (HeaderChunk only for now)
+    const acdbBuffer = acdbSerializer.serialize(entities);
 
-    if (this.options.sequential) {
-      acdbBuffer = await acdbSerializer.serialize(entities);
-      awspBuffer = await awspSerializer.serialize(entities);
-    } else {
-      [acdbBuffer, awspBuffer] = await Promise.all([
-        acdbSerializer.serialize(entities),
-        awspSerializer.serialize(entities),
-      ]);
-    }
+    // AWSP serialization is async
+    const awspBuffer = await awspSerializer.serialize(entities);
 
     return {acdbBuffer, awspBuffer};
   }
