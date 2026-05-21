@@ -6,7 +6,7 @@
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import type {UploadFileCommand} from './upload-file.command.js';
-import type {FileReaderPort} from '../../ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../../ports/file-system/file-system.port.js';
 import type {PathRef} from '../shared/utils/file-ref.js';
 import {UploadFileOrchestrator} from './services/upload-file-orchestrator.js';
 import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
@@ -44,14 +44,14 @@ export class UploadFileHandler implements CommandHandler<
 
   constructor(
     private readonly uow: UnitOfWork,
-    private readonly fileReader: FileReaderPort,
+    private readonly fileSystem: FileSystemPort,
     private readonly idGenerator: IdGenerationPort,
     workerPool?: WorkerPoolPort,
     logger?: Logger,
     profiler?: ProfilerPort,
   ) {
     this.uploadOrchestrator = new UploadFileOrchestrator(
-      this.fileReader,
+      this.fileSystem,
       this.uow,
       this.idGenerator,
       workerPool,

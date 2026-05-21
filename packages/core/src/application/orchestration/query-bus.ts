@@ -9,10 +9,12 @@ import {
   QueryHandlerRegistry,
 } from './cqrs/registries/query-handler-registry.js';
 import type {QueryServices} from '../services/query-services.js';
+import type {FileSystemPort} from './../ports/file-system/file-system.port.js';
 export class QueryBus {
   constructor(
     private queryServices: QueryServices,
     private handlerRegistry: QueryHandlerRegistry,
+    private readonly fileSystem: FileSystemPort,
   ) {}
 
   async execute<TResponse = any>(query: Query): Promise<TResponse> {
@@ -24,6 +26,7 @@ export class QueryBus {
     const factory = this.handlerRegistry.getQueryHandlerFactory(query);
     const dependencies: QueryHandlerDependencies = {
       queryServices: this.queryServices,
+      fileSystem: this.fileSystem,
     };
     return factory.create(dependencies);
   }

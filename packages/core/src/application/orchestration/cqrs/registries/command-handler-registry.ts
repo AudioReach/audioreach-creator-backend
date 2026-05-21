@@ -56,7 +56,7 @@ import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-e
 import {AddModuleCommand} from '../../../usecase-designer/index.js';
 import {UploadFileCommand} from '../../../file-operations/upload-file/upload-file.command.js';
 import {UploadFileHandler} from '../../../file-operations/upload-file/upload-file.handler.js';
-import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
@@ -69,7 +69,7 @@ import {AcknowledgeDataLossHandler} from '../../../validation/commands/acknowled
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
   idGeneration: IdGenerationPort;
-  fileReader: FileReaderPort;
+  fileSystem: FileSystemPort;
   workerPool?: WorkerPoolPort;
   logger?: Logger;
   profiler?: ProfilerPort;
@@ -124,7 +124,7 @@ export class CommandHandlerRegistry {
       create: deps =>
         new UploadFileHandler(
           deps.uow,
-          deps.fileReader,
+          deps.fileSystem,
           deps.idGeneration,
           deps.workerPool,
           deps.logger,

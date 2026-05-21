@@ -10,7 +10,7 @@ import type {ChunkParseContext} from '../models/chunk-parse-context.js';
 import {AcdbParser} from './acdb-parser.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {ChunkMetadataRegistry} from './chunk-metadata-registry.js';
-import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 import {AcdbFileInfo} from '../models/acdb-file-info.js';
@@ -24,7 +24,7 @@ export class AcdbFileOrchestrator {
   private readonly chunkParser: AcdbParser;
 
   constructor(
-    private readonly fileReader: FileReaderPort,
+    private readonly fileSystem: FileSystemPort,
     //private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {
@@ -110,7 +110,7 @@ export class AcdbFileOrchestrator {
     const startTime = Date.now();
 
     // Read files
-    const bytes = await this.fileReader.readAll(acdbRef);
+    const bytes = await this.fileSystem.readAll(acdbRef);
 
     this.logger?.logInfo({
       msg: 'ACDB parsing started',

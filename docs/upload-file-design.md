@@ -709,7 +709,7 @@ sequenceDiagram
     participant UFO as UploadFileOrchestrator
     participant ACDB as AcdbFileOrchestrator
     participant AWSP as AwspFileOrchestrator
-    participant FR as FileReader
+    participant FR as FileSystem
     participant WP as WorkerPool
 
     Note over UFO: Parse ACDB File
@@ -865,7 +865,7 @@ classDiagram
         -ParsedAcdb parsedAcdb
         -ParsedAwsp parsedAwsp
         -number currentFileId
-        -FileReaderPort filereader
+        -FileSystemPort filesystem
         -UnitOfWork uow
         -Logger logger
 
@@ -1944,7 +1944,7 @@ const bulkRepo = this.uow.getBulkImportRepository();
 ```typescript
 // Create orchestrator
 const orchestrator = new UploadFileOrchestrator(
-  fileReader,
+  fileSystem,
   unitOfWork,
   workerPool,
   logger,

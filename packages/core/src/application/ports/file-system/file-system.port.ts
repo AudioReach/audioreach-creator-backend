@@ -6,7 +6,7 @@
 import type {PathRef} from '../../file-operations/shared/utils/file-ref.js';
 import type {JsonValue} from '../../../shared/types/json-types.js';
 
-export interface FileReaderPort {
+export interface FileSystemPort {
   /**
    * Read entire content of a file reference and return as Uint8Array.
    * Implementations must be platform-specific adapters (Node, RN),
@@ -25,4 +25,11 @@ export interface FileReaderPort {
   deleteDirectory(dirPath: string): void;
 
   unzip(zipFilePath: string, outputDir: string): Promise<void>;
+
+  /**
+   * Create a ZIP archive from files and return as buffer.
+   * @param files - Map of filename to file content (string or Uint8Array)
+   * @returns ZIP file as Uint8Array
+   */
+  zipToBuffer(files: Map<string, string | Uint8Array>): Promise<Uint8Array>;
 }

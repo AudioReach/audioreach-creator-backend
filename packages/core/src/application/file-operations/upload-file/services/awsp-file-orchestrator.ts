@@ -9,7 +9,7 @@ import {
   FILE_EXTENSIONS,
 } from '../../shared/constants/definition-block-names.js';
 import {Configuration} from '../../shared/awsp-serializers/v1/configuration/configuration.js';
-import type {FileReaderPort} from '../../../ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
@@ -28,7 +28,7 @@ export class AwspFileOrchestrator {
   private readonly definitionParser: AwspParser;
 
   constructor(
-    private readonly fs: FileReaderPort,
+    private readonly fs: FileSystemPort,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {

@@ -12,19 +12,19 @@ import {ENTITY_TYPES} from '../../../../../../src/application/file-operations/up
 import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../../../../src/application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 import type {IdGenerationPort} from '../../../../../../src/application/ports/id-generation/id-generation.port.js';
-import type {FileReaderPort} from '../../../../../../src/application/ports/file-system/file-reader.port.js';
+import type {FileSystemPort} from '../../../../../../src/application/ports/file-system/file-system.port.js';
 import {createMockIdGenerator} from '../../../../../helpers/index.js';
 
 describe('UploadFileOrchestrator', () => {
   let orchestrator: UploadFileOrchestrator;
-  let mockFileReader: jest.Mocked<FileReaderPort>;
+  let mockFileSystem: jest.Mocked<FileSystemPort>;
   let mockUow: jest.Mocked<UnitOfWork>;
   let mockIdGenerator: jest.Mocked<IdGenerationPort>;
   let mockBulkRepo: jest.Mocked<BulkImportRepository>;
   let mockBuilderService: jest.Mocked<EntityBuilderService>;
 
   beforeEach(() => {
-    mockFileReader = {} as jest.Mocked<FileReaderPort>;
+    mockFileSystem = {} as jest.Mocked<FileSystemPort>;
 
     mockBulkRepo = {
       insertKeyDefinitions: jest.fn(),
@@ -38,7 +38,7 @@ describe('UploadFileOrchestrator', () => {
     mockIdGenerator = createMockIdGenerator();
 
     orchestrator = new UploadFileOrchestrator(
-      mockFileReader,
+      mockFileSystem,
       mockUow,
       mockIdGenerator,
     );

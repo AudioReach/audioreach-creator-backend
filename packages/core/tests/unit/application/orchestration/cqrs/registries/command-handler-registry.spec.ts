@@ -100,7 +100,11 @@ describe('CommandHandlerRegistry', () => {
       // Given: Registry and mock dependencies
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
+      const dependencies = {
+        uow: mockUnitOfWork,
+        fileSystem: {} as any,
+        idGeneration: {} as any,
+      };
 
       // When: Creating handler via factory
       const factory = registry.getCommandHandlerFactory(command);
@@ -116,7 +120,11 @@ describe('CommandHandlerRegistry', () => {
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const factory = registry.getCommandHandlerFactory(command);
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
+      const dependencies = {
+        uow: mockUnitOfWork,
+        fileSystem: {} as any,
+        idGeneration: {} as any,
+      };
 
       // When: Creating multiple handlers
       const handler1 = factory.create(dependencies);
@@ -133,7 +141,11 @@ describe('CommandHandlerRegistry', () => {
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const factory = registry.getCommandHandlerFactory(command);
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
+      const dependencies = {
+        uow: mockUnitOfWork,
+        fileSystem: {} as any,
+        idGeneration: {} as any,
+      };
 
       // When: Creating and calling handler
       const handler = factory.create(dependencies);
@@ -149,7 +161,11 @@ describe('CommandHandlerRegistry', () => {
       const command = new AddModuleCommand(1, 2, 3, 'test-module');
       const factory = registry.getCommandHandlerFactory(command);
       const mockUnitOfWork = createMockUnitOfWork();
-      const dependencies = {uow: mockUnitOfWork, fileReader: {} as any};
+      const dependencies = {
+        uow: mockUnitOfWork,
+        fileSystem: {} as any,
+        idGeneration: {} as any,
+      };
 
       // When: Creating handler
       const handler = factory.create(dependencies);

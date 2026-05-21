@@ -447,7 +447,7 @@ packages/infrastructure/
 3. Controller dispatches UploadFileCommand
    ↓
 4. UploadFileHandler orchestrates workflow:
-   - Read file from disk (FileReader port)
+   - Read file from disk (FileSystem port)
    - Parse file in worker pool (Worker port)
    - Extract domain entities
    - Validate business rules
@@ -541,7 +541,7 @@ const result = await commandBus.execute(new UploadFileCommand(clientId, acdbRef,
 - Handler registry pattern for loose coupling
 - Automatic Unit of Work creation and cleanup
 - Built-in transaction safety (auto-rollback on errors)
-- Dependency injection for handlers (UoW, FileReader, WorkerPool, Logger, Profiler)
+- Dependency injection for handlers (UoW, FileSystem, WorkerPool, Logger, Profiler)
 
 **Query Bus**:
 ```typescript
@@ -615,13 +615,13 @@ const result = await workerPool.execute({
 ### 7.1 Port/Adapter Pattern
 
 **Ports** (Interfaces in core):
-- `IFileReader` - File reading abstraction
+- `IFileSystem` - File reading abstraction
 - `IProjectRepository` - Project persistence abstraction
 - `IWorkerPool` - Worker pool abstraction
 - `IProfiler` - Profiling abstraction
 
 **Adapters** (Implementations in infrastructure):
-- `NodeFileReaderAdapter` - Node.js file reading
+- `NodeFileSystemAdapter` - Node.js file reading
 - `TypeOrmProjectRepository` - TypeORM persistence
 - `NodeWorkerPoolAdapter` - Node.js worker threads
 - `NodeProfilerAdapter` - Node.js profiling
