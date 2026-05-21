@@ -50,3 +50,9 @@ export {
   createMockForeignKeyMapper,
   createMockForeignKeyMapperWithOverrides,
 } from './mock-foreign-key-mapper.js';
+
+// File System mocks
+export {
+  createMockFileSystem,
+  createMockFileSystemWithOverrides,
+} from './mock-file-system.js';

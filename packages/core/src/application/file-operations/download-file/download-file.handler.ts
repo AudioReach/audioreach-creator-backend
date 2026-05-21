@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {FileSystemPort} from '../../ports/file-system/file-system.port.js';
 import type {QueryHandler} from '../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../services/query-services.js';
 import type {DownloadFileQuery} from './download-file.query.js';
@@ -21,7 +22,10 @@ export class DownloadFileHandler implements QueryHandler<
   DownloadFileQuery,
   Promise<DownloadFileResult>
 > {
-  constructor(private readonly queryServices: QueryServices) {}
+  constructor(
+    private readonly queryServices: QueryServices,
+    private readonly fileSystem: FileSystemPort,
+  ) {}
 
   async handle(query: DownloadFileQuery): Promise<DownloadFileResult> {
     // 1. Resolve fileSystemId from projectId
@@ -39,6 +43,7 @@ export class DownloadFileHandler implements QueryHandler<
     // 3. Orchestrate download
     const orchestrator = new DownloadFileOrchestrator(
       this.queryServices.bulkReadRepository,
+      this.fileSystem,
     );
 
     const result = await orchestrator.orchestrate(fileSystemId, fileNames);

@@ -46,7 +46,7 @@ describe('DbFileQuery', () => {
     testProjectId = project.systemId;
   });
 
-  describe('readHeaderMetadata', () => {
+  describe('readProjectHeader', () => {
     it('should read header metadata from files table', async () => {
       // Insert test file with header data
       const testFile = await fileRepository.save({
@@ -69,7 +69,7 @@ describe('DbFileQuery', () => {
         oemInfo: 'Test OEM',
       });
 
-      const result = await fileQuery.readHeaderMetadata(testFile.systemId);
+      const result = await fileQuery.readProjectHeader(testFile.systemId);
 
       expect(result).toBeDefined();
       expect(result.version.major).toBe(2);
@@ -83,7 +83,7 @@ describe('DbFileQuery', () => {
     });
 
     it('should throw error if file not found', async () => {
-      await expect(fileQuery.readHeaderMetadata(99999)).rejects.toThrow(
+      await expect(fileQuery.readProjectHeader(99999)).rejects.toThrow(
         'File not found: 99999',
       );
     });
@@ -107,7 +107,7 @@ describe('DbFileQuery', () => {
         oemInfo: '',
       });
 
-      const result = await fileQuery.readHeaderMetadata(testFile.systemId);
+      const result = await fileQuery.readProjectHeader(testFile.systemId);
 
       expect(result.version.major).toBe(1);
       expect(result.version.minor).toBe(0);

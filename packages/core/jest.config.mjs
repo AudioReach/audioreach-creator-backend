@@ -76,7 +76,7 @@ export default {
 
   // Show only failures and summary
   verbose: false,
-  silent: false,
+  silent: true,
   bail: false,
   errorOnDeprecated: false,
 };

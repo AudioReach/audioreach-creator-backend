@@ -9,6 +9,7 @@ import {AppModule} from '../../../src/app.module.js';
 import {MockJwtStrategy} from './auth.helper.js';
 import {DataSource} from 'typeorm';
 import {NodeWorkerPoolSingleton} from '@arc/fs';
+import {DataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/data-source-provider.js';
 
 /**
  * Create a proxy app that connects to an external running server
@@ -49,17 +50,50 @@ export function createExternalServerApp(
 
 /**
  * Create a NestJS application configured for E2E testing
- * - Uses in-memory SQLite database
+ * - Uses in-memory SQLite database (unique per test suite)
  * - Mocks JWT authentication
  * - Applies same configuration as production app
+ *
+ * Note: Each test suite gets its own DataSource instance by overriding
+ * the DataSourceProvider, which allows parallel test execution.
  */
 export async function createTestApp(): Promise<INestApplication> {
-  // Create test module with AppModule and override JWT strategy
+  // Create a custom DataSourceProvider that doesn't use singleton pattern
+  class TestDataSourceProvider extends DataSourceProvider {
+    private testInstance: DataSource | null = null;
+
+    async getDataSource(): Promise<DataSource> {
+      if (this.testInstance) {
+        return this.testInstance;
+      }
+
+      // Create a new DataSource for this test suite (not using static singleton class)
+      const newDataSource = (this as any).createDataSource() as DataSource;
+      await newDataSource.initialize();
+
+      // Use synchronize instead of migrations for test isolation
+      await newDataSource.synchronize();
+
+      this.testInstance = newDataSource;
+      return newDataSource;
+    }
+
+    async onModuleDestroy() {
+      if (this.testInstance?.isInitialized) {
+        await this.testInstance.destroy();
+        this.testInstance = null;
+      }
+    }
+  }
+
+  // Create test module with AppModule and override providers
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
     .overrideProvider('JwtStrategy')
     .useClass(MockJwtStrategy)
+    .overrideProvider(DataSourceProvider)
+    .useClass(TestDataSourceProvider)
     .compile();
 
   const app = moduleFixture.createNestApplication();
