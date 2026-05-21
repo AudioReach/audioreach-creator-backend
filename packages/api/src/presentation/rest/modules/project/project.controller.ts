@@ -18,6 +18,7 @@ import {
   UseInterceptors,
   BadRequestException,
   Inject,
+  Res,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -63,13 +64,14 @@ interface AuthenticatedRequest extends Request {
 }
 import * as os from 'node:os';
 import path from 'node:path';
+import type {Response} from 'express';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
 import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
-import {DownloadArcDatabaseFilesResponseDto} from './dto/download-arc-database-files-response.dto.js';
 import {ProjectHeaderResponseDto} from './dto/project-header.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
+import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
 
 @Controller('arc-api/v1/projects')
 //@UseGuards(AuthGuard('jwt'))
@@ -575,61 +577,134 @@ export class ProjectController {
     return new ApiResult<ProjectInfoResponseDto>();
   }
 
+  /**
+   * Downloads ACDB and workspace files for a project as multipart/form-data.
+   *
+   * This endpoint returns both files in a single response using the multipart/form-data format,
+   * which mirrors the format used by the upload endpoint. This ensures symmetry in the API design.
+   *
+   * **Response Format:**
+   * - Content-Type: `multipart/form-data; boundary=<generated-boundary>`
+   * - Body: RFC 2046 compliant multipart response containing two parts:
+   *   1. `acdbFile`: Binary ACDB calibration database file
+   *   2. `workspaceFile`: Binary workspace configuration file
+   *
+   * **Parsing the Response:**
+   *
+   * Most HTTP clients have built-in multipart parsing support:
+   *
+   * - **JavaScript (Browser):**
+   *   ```javascript
+   *   const formData = await response.formData();
+   *   const acdbFile = formData.get('acdbFile');
+   *   const workspaceFile = formData.get('workspaceFile');
+   *   ```
+   *
+   * - **Node.js (with busboy):**
+   *   ```javascript
+   *   const busboy = require('busboy');
+   *   const bb = busboy({ headers: response.headers });
+   *   bb.on('file', (name, file, info) => {
+   *     // name will be 'acdbFile' or 'workspaceFile'
+   *   });
+   *   response.pipe(bb);
+   *   ```
+   *
+   * **Why Multipart Format?**
+   * - Mirrors the upload endpoint format (symmetry)
+   * - Standard HTTP format (RFC 2046)
+   * - Efficient binary transfer (no base64 encoding overhead)
+   * - Widely supported by HTTP clients
+   *
+   * @param projectId - The ID of the project to download files for
+   * @param res - Express response object (injected by NestJS)
+   * @returns void - Response is sent directly via the res object
+   *
+   * @throws {NotFoundException} If the project does not exist
+   * @throws {InternalServerErrorException} If file generation fails
+   */
   @Get('/:projectId/download-files')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
-    summary: 'Download the ACDB and workspace files',
-    description: 'Download the ACDB and workspace files based on project Id.',
+    summary: 'Download the ACDB and workspace files as multipart/form-data',
+    description:
+      'Downloads both ACDB and workspace files in a single multipart response. ' +
+      'The response format mirrors the upload endpoint for API symmetry. ' +
+      'See documentation for parsing examples in various languages.',
   })
-  @ApiExtraModels(ApiResult, DownloadArcDatabaseFilesResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
+    description:
+      'Files downloaded successfully as multipart/form-data. ' +
+      'Parse the response using standard HTTP client multipart parsers.',
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
           properties: {
-            data: {$ref: getSchemaPath(DownloadArcDatabaseFilesResponseDto)},
+            acdbFile: {
+              type: 'string',
+              format: 'binary',
+              description: 'ACDB calibration database file (binary)',
+            },
+            workspaceFile: {
+              type: 'string',
+              format: 'binary',
+              description: 'Workspace configuration file (binary)',
+            },
           },
         },
-      ],
+      },
     },
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Project does not exist',
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {
-              type: 'object',
-              nullable: true,
-            },
-          },
-        },
-      ],
-    },
   })
   async downloadArcDbFiles(
     @Param('projectId') projectId: string,
-  ): Promise<ApiResult<DownloadArcDatabaseFilesResponseDto>> {
+    @Res() res: Response,
+  ): Promise<void> {
     const clientId = '';
     // TODO: gather from jwt
+
+    this.logger.logInfo({
+      component: 'ProjectController',
+      action: 'downloadArcDbFiles',
+      msg: 'Downloading files as multipart response',
+      projectId,
+      timestamp: new Date(),
+      tag: 'file-download',
+    });
 
     const result = await this.queryBus.execute<DownloadFileResult>(
       new DownloadFileQuery(Number(projectId), clientId),
     );
 
-    return {
-      data: {
-        acdbFile: result.acdbFile,
-        workspaceFile: result.workspaceFile,
+    // Send multipart response using helper
+    MultipartResponseHelper.sendMultipartResponse(res, [
+      {
+        name: 'acdbFile',
+        filename: result.acdbFile.name,
+        content: result.acdbFile.content,
+        contentType: result.acdbFile.fileType,
       },
-      success: true,
-      message: 'Files downloaded successfully',
-    };
+      {
+        name: 'workspaceFile',
+        filename: result.workspaceFile.name,
+        content: result.workspaceFile.content,
+        contentType: result.workspaceFile.fileType,
+      },
+    ]);
+
+    this.logger.logInfo({
+      component: 'ProjectController',
+      action: 'downloadArcDbFiles',
+      msg: 'Multipart response sent successfully',
+      projectId,
+      timestamp: new Date(),
+      tag: 'file-download',
+    });
   }
 
   @Get('/:projectId/header')

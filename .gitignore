@@ -39,6 +39,9 @@ logs/
 #Test-results
 test-results
 
+# E2E test temp files
+packages/api/tests/e2e/temp/
+
 # Coverage
 coverage/
 .nyc_output/

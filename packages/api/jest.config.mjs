@@ -91,4 +91,7 @@ export default {
       },
     ],
   ],
+
+  // Suppress console output during tests (only show errors)
+  silent: true,
 };
