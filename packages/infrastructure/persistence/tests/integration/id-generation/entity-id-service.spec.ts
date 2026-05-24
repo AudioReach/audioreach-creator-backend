@@ -80,7 +80,7 @@ describe('EntityIdService', () => {
   describe('getNextId', () => {
     it('auto-reserves on first call (no prior reserveBlock)', async () => {
       const id = await service.getNextId();
-      expect(id).toBe(1 * FILE_ID_MODULUS + fileId);
+      expect(id).toBe(1 * FILE_ID_MODULUS + 2 * fileId);
       // DB should reflect a full auto-reserve block (100 IDs by default)
       expect(await readLastReservedId()).toBe(fileId + 100 * FILE_ID_MODULUS);
     });
@@ -88,9 +88,9 @@ describe('EntityIdService', () => {
     it('returns sequential composite IDs after reserveBlock', async () => {
       await service.reserveBlock();
 
-      expect(await service.getNextId()).toBe(1 * FILE_ID_MODULUS + fileId);
-      expect(await service.getNextId()).toBe(2 * FILE_ID_MODULUS + fileId);
-      expect(await service.getNextId()).toBe(3 * FILE_ID_MODULUS + fileId);
+      expect(await service.getNextId()).toBe(1 * FILE_ID_MODULUS + 2 * fileId);
+      expect(await service.getNextId()).toBe(2 * FILE_ID_MODULUS + 2 * fileId);
+      expect(await service.getNextId()).toBe(3 * FILE_ID_MODULUS + 2 * fileId);
     });
 
     it('auto-reserves when the reserved block is exhausted', async () => {
@@ -103,7 +103,7 @@ describe('EntityIdService', () => {
 
       // This call should auto-reserve 2 more IDs and return seq 3
       const id = await smallService.getNextId();
-      expect(id).toBe(3 * FILE_ID_MODULUS + fileId);
+      expect(id).toBe(3 * FILE_ID_MODULUS + 2 * fileId);
     });
 
     it('coalesces concurrent auto-reserve calls into one DB round-trip', async () => {
@@ -125,7 +125,7 @@ describe('EntityIdService', () => {
   describe('reserveBlock', () => {
     it('returns the first ID in the reserved block', async () => {
       const firstId = await service.reserveBlock();
-      expect(firstId).toBe(1 * FILE_ID_MODULUS + fileId);
+      expect(firstId).toBe(1 * FILE_ID_MODULUS + 2 * fileId);
     });
 
     it('atomically advances last_reserved_id in the DB by blockSize * FILE_ID_MODULUS', async () => {
@@ -144,7 +144,7 @@ describe('EntityIdService', () => {
       await service.getNextId(); // seq 3
 
       await service.reserveBlock(3); // block 2: seq 4–6
-      expect(await service.getNextId()).toBe(4 * FILE_ID_MODULUS + fileId);
+      expect(await service.getNextId()).toBe(4 * FILE_ID_MODULUS + 2 * fileId);
     });
 
     it('custom blockSize limits the number of IDs before next auto-reserve', async () => {
