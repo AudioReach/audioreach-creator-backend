@@ -64,7 +64,7 @@ export class EntityIdService {
       await this.pendingReserve;
     }
     this.current += FILE_ID_MODULUS;
-    return this.current;
+    return this.current + this.fileId;
   }
 
   /**
@@ -92,7 +92,7 @@ export class EntityIdService {
 
     this.blockEnd = newHighWaterMark;
     this.current = newHighWaterMark - increment;
-    return this.current + FILE_ID_MODULUS; // first ID in block
+    return this.current + FILE_ID_MODULUS + this.fileId; // first ID in block
   }
 
   /**

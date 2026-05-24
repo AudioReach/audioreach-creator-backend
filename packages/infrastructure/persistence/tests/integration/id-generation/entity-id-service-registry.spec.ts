@@ -95,8 +95,8 @@ describe('EntityIdServiceRegistry', () => {
     const id1 = await registry.getNextId(fileId1);
     const id2 = await registry.getNextId(fileId2);
 
-    expect(id1).toBe(1 * FILE_ID_MODULUS + fileId1);
-    expect(id2).toBe(1 * FILE_ID_MODULUS + fileId2);
+    expect(id1).toBe(1 * FILE_ID_MODULUS + 2 * fileId1);
+    expect(id2).toBe(1 * FILE_ID_MODULUS + 2 * fileId2);
     expect(id1).not.toBe(id2);
   });
 
@@ -108,7 +108,7 @@ describe('EntityIdServiceRegistry', () => {
     const id1 = await registry.getNextId(fileId1);
     const id2 = await registry.getNextId(fileId1);
 
-    expect(id1).toBe(1 * FILE_ID_MODULUS + fileId1);
-    expect(id2).toBe(2 * FILE_ID_MODULUS + fileId1);
+    expect(id1).toBe(1 * FILE_ID_MODULUS + 2 * fileId1);
+    expect(id2).toBe(2 * FILE_ID_MODULUS + 2 * fileId1);
   });
 });
