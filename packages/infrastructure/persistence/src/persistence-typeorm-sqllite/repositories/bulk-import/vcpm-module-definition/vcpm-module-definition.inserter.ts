@@ -16,6 +16,7 @@ import {
   type RawFailure,
 } from '../batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
+import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
 import {
   VcpmModuleDefinitionSchema,
@@ -29,10 +30,6 @@ import {
   VcpmModuleAttributeSchema,
   type VcpmModuleAttributeRow,
 } from '../../../entity-schema/definitions/subgraph/vcpm/vcpm-module-attribute.schema.js';
-
-function emptyStepResult(): StepResult {
-  return {rawFailures: [], failedEntityIds: new Set()};
-}
 
 export class VcpmModuleDefinitionInserter {
   constructor(

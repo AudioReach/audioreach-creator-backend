@@ -12,6 +12,7 @@ import {
   type RawFailure,
 } from '../batch-inserter.js';
 import {groupRawFailures} from '../common/group-raw-failures.js';
+import {emptyStepResult} from '../common/step-result.js';
 import type {StepResult} from '../common/step-result.js';
 import {
   KeyDefinitionSchema,
@@ -21,10 +22,6 @@ import {
   ValueDefinitionSchema,
   type ValueDefinitionRow,
 } from '../../../entity-schema/definitions/key-value/value-definition.schema.js';
-
-function emptyStepResult(): StepResult {
-  return {rawFailures: [], failedEntityIds: new Set()};
-}
 
 export class KeyDefinitionInserter {
   constructor(private readonly manager: EntityManager) {}

@@ -4,87 +4,58 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {
-  Container,
-  BulkInsertError,
-  BulkInsertResult,
-  IdGenerationPort,
-} from '@arc/core';
-import {errBulkInsert, okBulkInsert} from '@arc/core';
+import type {Container, BulkInsertResult, IdGenerationPort} from '@arc/core';
+import {okBulkInsert} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
   type InsertRow,
   type RawFailure,
 } from '../batch-inserter.js';
+import {groupRawFailures} from '../common/group-raw-failures.js';
+import {emptyStepResult} from '../common/step-result.js';
+import type {StepResult} from '../common/step-result.js';
 import {
   ContainerSchema,
   type ContainerRow,
 } from '../../../entity-schema/usecase-data/container/container.schema.js';
 import type {ContainerPropertyDataRow} from '../../../entity-schema/usecase-data/container/container-property-data.js';
 
-/**
- * Inserts Container domain entities and their ContainerPropertyData children
- * into the database using ordered bulk batch inserts.
- *
- * All insert steps are always attempted regardless of prior failures.
- *
- * Insert order (FK-safe):
- *   Container → ContainerPropertyData
- */
 export class ContainerInserter implements BulkInserter<Container> {
   constructor(
     private readonly manager: EntityManager,
     private readonly idGeneration: IdGenerationPort,
   ) {}
 
-  /**
-   * Inserts all Container entities and their property data in FK-safe order.
-   * Failures are grouped by Container aggregate and returned as
-   * `BulkInsertError[]` — one entry per failing container.
-   * @returns BulkInsertResult — ok if all inserts succeeded, err otherwise.
-   */
   public async insert(containers: Container[]): Promise<BulkInsertResult> {
     if (containers.length === 0) return okBulkInsert();
 
     const containerBySystemId = new Map(containers.map(c => [c.systemId, c]));
 
-    const rawFailures: RawFailure[] = [
-      ...(await this.insertContainers(containers)),
-      ...(await this.insertContainerPropertyData(containers)),
-    ];
-
-    if (rawFailures.length === 0) return okBulkInsert();
-
-    // Group raw failures by Container systemId.
-    const grouped = new Map<number, string[]>();
-    for (const f of rawFailures) {
-      if (!grouped.has(f.systemId)) grouped.set(f.systemId, []);
-      grouped
-        .get(f.systemId)!
-        .push(
-          `${f.entityLabel}: Failed to insert\n${f.failedRowJson}\nerror: ${f.dbError}`,
-        );
-    }
-
-    const errors: BulkInsertError[] = [...grouped.entries()].map(
-      ([systemId, lines]) => {
-        const container = containerBySystemId.get(systemId)!;
-        return {
-          message: `Failed to insert some or all data belonging to Container {containerId=${container.containerId}, systemId=${container.systemId}}`,
-          details: lines.join('\n'),
-        };
-      },
+    const containerStep = await this.insertContainers(containers);
+    const activeContainers = containers.filter(
+      c => !containerStep.failedEntityIds.has(c.systemId),
     );
 
-    return errBulkInsert(errors);
+    const propertyDataStep =
+      await this.insertContainerPropertyData(activeContainers);
+
+    const allRawFailures: RawFailure[] = [
+      ...containerStep.rawFailures,
+      ...propertyDataStep.rawFailures,
+    ];
+
+    return groupRawFailures(
+      allRawFailures,
+      containerBySystemId,
+      c =>
+        `some or all data belonging to Container {containerId=${c.containerId}, systemId=${c.systemId}}`,
+    );
   }
 
   // ─── Container ───────────────────────────────────────────────────────────────
 
-  private async insertContainers(
-    containers: Container[],
-  ): Promise<RawFailure[]> {
+  private async insertContainers(containers: Container[]): Promise<StepResult> {
     const rows: InsertRow<ContainerRow>[] = containers.map(c => ({
       systemId: c.systemId,
       containerId: c.containerId,
@@ -98,7 +69,7 @@ export class ContainerInserter implements BulkInserter<Container> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const container = containers.find(c => c.systemId === error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -108,21 +79,24 @@ export class ContainerInserter implements BulkInserter<Container> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── Container Property Data ─────────────────────────────────────────────────
 
   private async insertContainerPropertyData(
     containers: Container[],
-  ): Promise<RawFailure[]> {
-    // Collect all property entries with their context
+  ): Promise<StepResult> {
     const propEntries = containers.flatMap(c =>
       [...c.properties.values()].map(prop => ({prop, container: c})),
     );
 
-    if (propEntries.length === 0) return [];
+    if (propEntries.length === 0) return emptyStepResult();
 
-    // Generate a unique systemId for each property data row
     const fileId = containers[0].fileSystemId;
     const rows: InsertRow<ContainerPropertyDataRow>[] = [];
     const contextBySystemId = new Map<
@@ -148,7 +122,7 @@ export class ContainerInserter implements BulkInserter<Container> {
         rows,
       );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -158,5 +132,10 @@ export class ContainerInserter implements BulkInserter<Container> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 }
