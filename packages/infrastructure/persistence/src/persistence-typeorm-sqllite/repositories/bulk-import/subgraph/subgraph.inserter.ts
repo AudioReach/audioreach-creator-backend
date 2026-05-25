@@ -6,18 +6,20 @@
 import type {EntityManager} from 'typeorm';
 import type {
   Subgraph,
-  BulkInsertError,
   BulkInsertResult,
   KvData,
   IdGenerationPort,
 } from '@arc/core';
-import {errBulkInsert, okBulkInsert} from '@arc/core';
+import {okBulkInsert} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
   type InsertRow,
   type RawFailure,
 } from '../batch-inserter.js';
+import {groupRawFailures} from '../common/group-raw-failures.js';
+import {emptyStepResult} from '../common/step-result.js';
+import type {StepResult} from '../common/step-result.js';
 import {
   SubgraphSchema,
   type SubgraphRow,
@@ -33,69 +35,57 @@ import {
   type VcpmParameterPayloadRow,
 } from '../../../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
 
-/**
- * Inserts Subgraph domain entities and all their children into the database
- * using ordered bulk batch inserts.
- *
- * All insert steps are always attempted regardless of prior failures.
- *
- * Insert order (FK-safe):
- *   Subgraph → SubgraphPropertyData → VcpmInstance → VcpmCkv → VcpmParameterPayload
- */
 export class SubgraphInserter implements BulkInserter<Subgraph> {
   constructor(
     private readonly manager: EntityManager,
     private readonly idGeneration: IdGenerationPort,
   ) {}
 
-  /**
-   * Inserts all Subgraph entities and their children in FK-safe order.
-   * Failures are grouped by Subgraph aggregate and returned as
-   * `BulkInsertError[]` — one entry per failing subgraph.
-   * @returns BulkInsertResult — ok if all inserts succeeded, err otherwise.
-   */
   public async insert(subgraphs: Subgraph[]): Promise<BulkInsertResult> {
     if (subgraphs.length === 0) return okBulkInsert();
 
     const subgraphBySystemId = new Map(subgraphs.map(s => [s.systemId, s]));
 
-    const rawFailures: RawFailure[] = [
-      ...(await this.insertSubgraphs(subgraphs)),
-      ...(await this.insertSubgraphPropertyData(subgraphs)),
-      ...(await this.insertVcpmInstances(subgraphs)),
-      ...(await this.insertVcpmCkvs(subgraphs)),
-      ...(await this.insertVcpmParameterPayloads(subgraphs)),
-    ];
-
-    if (rawFailures.length === 0) return okBulkInsert();
-
-    // Group raw failures by Subgraph systemId.
-    const grouped = new Map<number, string[]>();
-    for (const f of rawFailures) {
-      if (!grouped.has(f.systemId)) grouped.set(f.systemId, []);
-      grouped
-        .get(f.systemId)!
-        .push(
-          `${f.entityLabel}: Failed to insert\n${f.failedRowJson}\nerror: ${f.dbError}`,
-        );
-    }
-
-    const errors: BulkInsertError[] = [...grouped.entries()].map(
-      ([systemId, lines]) => {
-        const subgraph = subgraphBySystemId.get(systemId)!;
-        return {
-          message: `Failed to insert some or all data belonging to Subgraph {subgraphId=${subgraph.subgraphId}, systemId=${subgraph.systemId}}`,
-          details: lines.join('\n'),
-        };
-      },
+    const subgraphStep = await this.insertSubgraphs(subgraphs);
+    const activeSubgraphs = subgraphs.filter(
+      s => !subgraphStep.failedEntityIds.has(s.systemId),
     );
 
-    return errBulkInsert(errors);
+    const [propertyDataStep, vcpmInstanceStep] = await Promise.all([
+      this.insertSubgraphPropertyData(activeSubgraphs),
+      this.insertVcpmInstances(activeSubgraphs),
+    ]);
+
+    const vcpmCkvStep = await this.insertVcpmCkvs(
+      activeSubgraphs,
+      vcpmInstanceStep.failedEntityIds,
+    );
+
+    const vcpmParamStep = await this.insertVcpmParameterPayloads(
+      activeSubgraphs,
+      vcpmInstanceStep.failedEntityIds,
+      vcpmCkvStep.failedEntityIds,
+    );
+
+    const allRawFailures: RawFailure[] = [
+      ...subgraphStep.rawFailures,
+      ...propertyDataStep.rawFailures,
+      ...vcpmInstanceStep.rawFailures,
+      ...vcpmCkvStep.rawFailures,
+      ...vcpmParamStep.rawFailures,
+    ];
+
+    return groupRawFailures(
+      allRawFailures,
+      subgraphBySystemId,
+      s =>
+        `some or all data belonging to Subgraph {subgraphId=${s.subgraphId}, systemId=${s.systemId}}`,
+    );
   }
 
   // ─── Subgraph ─────────────────────────────────────────────────────────────────
 
-  private async insertSubgraphs(subgraphs: Subgraph[]): Promise<RawFailure[]> {
+  private async insertSubgraphs(subgraphs: Subgraph[]): Promise<StepResult> {
     const rows: InsertRow<SubgraphRow>[] = subgraphs.map(s => ({
       systemId: s.systemId,
       subgraphId: s.subgraphId,
@@ -110,7 +100,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const subgraph = subgraphs.find(s => s.systemId === error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -120,20 +110,24 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── Subgraph Property Data ───────────────────────────────────────────────────
 
   private async insertSubgraphPropertyData(
     subgraphs: Subgraph[],
-  ): Promise<RawFailure[]> {
+  ): Promise<StepResult> {
     const propEntries = subgraphs.flatMap(s =>
       s.properties.map(prop => ({prop, subgraph: s})),
     );
 
-    if (propEntries.length === 0) return [];
+    if (propEntries.length === 0) return emptyStepResult();
 
-    // Generate a unique systemId for each property data row
     const fileId = subgraphs[0].fileSystemId;
     const rows: InsertRow<SubgraphPropertyDataRow>[] = [];
     const contextBySystemId = new Map<number, {readonly subgraph: Subgraph}>();
@@ -156,7 +150,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         rows,
       );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -166,18 +160,23 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── VcpmInstance ─────────────────────────────────────────────────────────────
 
   private async insertVcpmInstances(
     subgraphs: Subgraph[],
-  ): Promise<RawFailure[]> {
+  ): Promise<StepResult> {
     const vcpmEntries = subgraphs
       .filter(s => s.vcpmDataInstance !== null)
       .map(s => ({vcpm: s.vcpmDataInstance!, subgraph: s}));
 
-    if (vcpmEntries.length === 0) return [];
+    if (vcpmEntries.length === 0) return emptyStepResult();
 
     const contextBySystemId = new Map<number, {readonly subgraph: Subgraph}>(
       vcpmEntries.map(e => [e.vcpm.systemId, {subgraph: e.subgraph}]),
@@ -195,7 +194,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -205,13 +204,25 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── VcpmCkv ─────────────────────────────────────────────────────────────────
 
-  private async insertVcpmCkvs(subgraphs: Subgraph[]): Promise<RawFailure[]> {
+  private async insertVcpmCkvs(
+    subgraphs: Subgraph[],
+    failedVcpmInstanceIds: Set<number>,
+  ): Promise<StepResult> {
     const ckvEntries = subgraphs
-      .filter(s => s.vcpmDataInstance !== null)
+      .filter(
+        s =>
+          s.vcpmDataInstance !== null &&
+          !failedVcpmInstanceIds.has(s.vcpmDataInstance.systemId),
+      )
       .flatMap(s =>
         s.vcpmDataInstance!.ckvs.map(ckv => ({
           ckv,
@@ -220,7 +231,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         })),
       );
 
-    if (ckvEntries.length === 0) return [];
+    if (ckvEntries.length === 0) return emptyStepResult();
 
     const contextBySystemId = new Map<
       number,
@@ -240,7 +251,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       rows,
     );
 
-    const failures: RawFailure[] = failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -251,9 +262,16 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       };
     });
 
-    const failedIds = new Set(failedEntities.map(e => e.systemId));
-    const valueFailures = await this.insertVcpmCkvValues(ckvEntries, failedIds);
-    return [...failures, ...valueFailures];
+    const failedCkvIds = new Set(failedEntities.map(e => e.systemId));
+    const valueFailures = await this.insertVcpmCkvValues(
+      ckvEntries,
+      failedCkvIds,
+    );
+
+    return {
+      rawFailures: [...rawFailures, ...valueFailures],
+      failedEntityIds: failedCkvIds,
+    };
   }
 
   private async insertVcpmCkvValues(
@@ -315,18 +333,25 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
 
   private async insertVcpmParameterPayloads(
     subgraphs: Subgraph[],
-  ): Promise<RawFailure[]> {
+    failedVcpmInstanceIds: Set<number>,
+    failedCkvIds: Set<number>,
+  ): Promise<StepResult> {
     const paramEntries = subgraphs
-      .filter(s => s.vcpmDataInstance !== null)
+      .filter(
+        s =>
+          s.vcpmDataInstance !== null &&
+          !failedVcpmInstanceIds.has(s.vcpmDataInstance.systemId),
+      )
       .flatMap(s =>
-        s.vcpmDataInstance!.ckvs.flatMap(ckv =>
-          ckv.parameterPayloads.map(param => ({param, ckv, subgraph: s})),
-        ),
+        s
+          .vcpmDataInstance!.ckvs.filter(ckv => !failedCkvIds.has(ckv.systemId))
+          .flatMap(ckv =>
+            ckv.parameterPayloads.map(param => ({param, ckv, subgraph: s})),
+          ),
       );
 
-    if (paramEntries.length === 0) return [];
+    if (paramEntries.length === 0) return emptyStepResult();
 
-    // Generate a unique systemId for each VcpmParameterPayload row
     const fileId = subgraphs[0].fileSystemId;
     const rows: InsertRow<VcpmParameterPayloadRow>[] = [];
     const contextBySystemId = new Map<
@@ -361,7 +386,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         rows,
       );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       const parentCkv =
@@ -375,5 +400,10 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 }

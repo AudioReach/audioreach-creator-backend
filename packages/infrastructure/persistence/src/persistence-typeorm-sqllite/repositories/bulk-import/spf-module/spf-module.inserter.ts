@@ -6,7 +6,6 @@
 import type {EntityManager} from 'typeorm';
 import type {
   SpfModule,
-  BulkInsertError,
   BulkInsertResult,
   DataPort,
   ControlPort,
@@ -15,13 +14,16 @@ import type {
   IdGenerationPort,
   ModuleParameterData,
 } from '@arc/core';
-import {errBulkInsert, okBulkInsert} from '@arc/core';
+import {okBulkInsert} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
   type InsertRow,
   type RawFailure,
 } from '../batch-inserter.js';
+import {groupRawFailures} from '../common/group-raw-failures.js';
+import {emptyStepResult} from '../common/step-result.js';
+import type {StepResult} from '../common/step-result.js';
 import {
   NodeSchema,
   NODE_TYPE,
@@ -56,16 +58,6 @@ import type {
 } from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
 import {CkvValuesSchema} from '../../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
 
-/**
- * Inserts SpfModule domain entities and all their children into the database
- * using ordered bulk batch inserts.
- *
- * All insert steps are always attempted regardless of prior failures.
- *
- * Insert order (FK-safe, leaf-first):
- *   Node → Data Port → Control Port → Intent → Spf Module
- *   → Module Tag → CKV → TKV → CKV Parameter → TKV Parameter
- */
 export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private readonly manager: EntityManager;
   private readonly idGeneration: IdGenerationPort;
@@ -75,61 +67,76 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     this.idGeneration = idGeneration;
   }
 
-  /**
-   *  Inserts all SpfModule entities and their children in FK-safe order.
-   * Failures are grouped by SpfModule aggregate and returned as
-   * `BulkInsertError[]` — one entry per failing module.
-   * @returns BulkInsertResult — ok if all inserts succeeded, err otherwise.
-   */
   public async insert(modules: SpfModule[]): Promise<BulkInsertResult> {
     if (modules.length === 0) return okBulkInsert();
 
     const moduleBySystemId = new Map(modules.map(m => [m.systemId, m]));
 
-    // Collect all raw failures from all insert steps.
-    const rawFailures: RawFailure[] = [
-      ...(await this.insertNodes(modules)),
-      ...(await this.insertDataPorts(modules)),
-      ...(await this.insertControlPorts(modules)),
-      ...(await this.insertIntents(modules)),
-      ...(await this.insertSpfModules(modules)),
-      ...(await this.insertModuleTagIdMaps(modules)),
-      ...(await this.insertCkvs(modules)),
-      ...(await this.insertTkvs(modules)),
-      ...(await this.insertCkvParameterPayloads(modules)),
-      ...(await this.insertTkvParameterPayloads(modules)),
-    ];
-
-    if (rawFailures.length === 0) return okBulkInsert();
-
-    // Group raw failures by SpfModule systemId.
-    const grouped = new Map<number, string[]>();
-    for (const f of rawFailures) {
-      if (!grouped.has(f.systemId)) grouped.set(f.systemId, []);
-      grouped
-        .get(f.systemId)!
-        .push(
-          `${f.entityLabel}: Failed to insert\n${f.failedRowJson}\nerror: ${f.dbError}`,
-        );
-    }
-
-    // Build one BulkInsertError per failing module.
-    const errors: BulkInsertError[] = [...grouped.entries()].map(
-      ([systemId, lines]) => {
-        const module = moduleBySystemId.get(systemId)!;
-        return {
-          message: `Failed to insert some or all data belonging to Spf Module {instanceId=${module.instanceId}, systemId=${module.systemId}}`,
-          details: lines.join('\n'),
-        };
-      },
+    const nodeStep = await this.insertNodes(modules);
+    const activeModules = modules.filter(
+      m => !nodeStep.failedEntityIds.has(m.systemId),
     );
 
-    return errBulkInsert(errors);
+    const [dataPortsStep, controlPortsStep, spfModulesStep] = await Promise.all(
+      [
+        this.insertDataPorts(activeModules),
+        this.insertControlPorts(activeModules),
+        this.insertSpfModules(activeModules),
+      ],
+    );
+
+    const intentsStep = await this.insertIntents(
+      activeModules,
+      controlPortsStep.failedEntityIds,
+    );
+
+    const activeSpfModules = activeModules.filter(
+      m => !spfModulesStep.failedEntityIds.has(m.systemId),
+    );
+
+    const [tagIdMapsStep, ckvStep] = await Promise.all([
+      this.insertModuleTagIdMaps(activeSpfModules),
+      this.insertCkvs(activeSpfModules),
+    ]);
+
+    const [tkvStep, ckvParamStep] = await Promise.all([
+      this.insertTkvs(activeSpfModules, tagIdMapsStep.failedEntityIds),
+      this.insertCkvParameterPayloads(
+        activeSpfModules,
+        ckvStep.failedEntityIds,
+      ),
+    ]);
+
+    const tkvParamStep = await this.insertTkvParameterPayloads(
+      activeSpfModules,
+      tagIdMapsStep.failedEntityIds,
+      tkvStep.failedEntityIds,
+    );
+
+    const allRawFailures: RawFailure[] = [
+      ...nodeStep.rawFailures,
+      ...dataPortsStep.rawFailures,
+      ...controlPortsStep.rawFailures,
+      ...spfModulesStep.rawFailures,
+      ...intentsStep.rawFailures,
+      ...tagIdMapsStep.rawFailures,
+      ...ckvStep.rawFailures,
+      ...tkvStep.rawFailures,
+      ...ckvParamStep.rawFailures,
+      ...tkvParamStep.rawFailures,
+    ];
+
+    return groupRawFailures(
+      allRawFailures,
+      moduleBySystemId,
+      m =>
+        `some or all data belonging to Spf Module {instanceId=${m.instanceId}, systemId=${m.systemId}}`,
+    );
   }
 
   // ─── Node ────────────────────────────────────────────────────────────────────
 
-  private async insertNodes(modules: SpfModule[]): Promise<RawFailure[]> {
+  private async insertNodes(modules: SpfModule[]): Promise<StepResult> {
     const rows: InsertRow<NodeRow>[] = modules.map(m => ({
       systemId: m.systemId,
       parentId: m.parentId,
@@ -143,7 +150,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const module = modules.find(m => m.systemId === error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -153,11 +160,16 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── Data Port ───────────────────────────────────────────────────────────────
 
-  private async insertDataPorts(modules: SpfModule[]): Promise<RawFailure[]> {
+  private async insertDataPorts(modules: SpfModule[]): Promise<StepResult> {
     const contextByPortSystemId = new Map<
       number,
       {readonly port: DataPort; readonly module: SpfModule}
@@ -178,7 +190,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       })),
     );
 
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return emptyStepResult();
 
     const {failedEntities} = await BatchInserter.insert(
       this.manager,
@@ -186,7 +198,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextByPortSystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -196,13 +208,16 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── Control Port ────────────────────────────────────────────────────────────
 
-  private async insertControlPorts(
-    modules: SpfModule[],
-  ): Promise<RawFailure[]> {
+  private async insertControlPorts(modules: SpfModule[]): Promise<StepResult> {
     const contextByPortSystemId = new Map<
       number,
       {readonly port: ControlPort; readonly module: SpfModule}
@@ -222,7 +237,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       })),
     );
 
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return emptyStepResult();
 
     const {failedEntities} = await BatchInserter.insert(
       this.manager,
@@ -230,7 +245,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextByPortSystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -240,26 +255,34 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── Intent ──────────────────────────────────────────────────────────────────
 
-  private async insertIntents(modules: SpfModule[]): Promise<RawFailure[]> {
-    // Collect all intent entries with their context for error reporting
+  private async insertIntents(
+    modules: SpfModule[],
+    failedPortIds: Set<number>,
+  ): Promise<StepResult> {
     const intentEntries = modules.flatMap(m =>
-      m.controlPorts.flatMap(port =>
-        port.intentIds.map(intentId => ({
-          intentId,
-          controlPortSystemId: port.systemId,
-          port,
-          module: m,
-        })),
-      ),
+      m.controlPorts
+        .filter(port => !failedPortIds.has(port.systemId))
+        .flatMap(port =>
+          port.intentIds.map(intentId => ({
+            intentId,
+            controlPortSystemId: port.systemId,
+            port,
+            module: m,
+          })),
+        ),
     );
 
-    if (intentEntries.length === 0) return [];
+    if (intentEntries.length === 0) return emptyStepResult();
 
-    // Generate a unique systemId for each intent row
     const fileId = modules[0].fileSystemId;
     const rows: InsertRow<IntentRow>[] = [];
     const contextBySystemId = new Map<
@@ -283,7 +306,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -293,11 +316,16 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── Spf Module ──────────────────────────────────────────────────────────────
 
-  private async insertSpfModules(modules: SpfModule[]): Promise<RawFailure[]> {
+  private async insertSpfModules(modules: SpfModule[]): Promise<StepResult> {
     const rows: InsertRow<SpfModuleRow>[] = modules.map(m => ({
       systemId: m.systemId,
       instanceId: m.instanceId,
@@ -314,7 +342,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const module = modules.find(m => m.systemId === error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -324,13 +352,18 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── Module Tag ──────────────────────────────────────────────────────────────
 
   private async insertModuleTagIdMaps(
     modules: SpfModule[],
-  ): Promise<RawFailure[]> {
+  ): Promise<StepResult> {
     const contextByTagSystemId = new Map<
       number,
       {readonly tagData: TagData; readonly module: SpfModule}
@@ -350,7 +383,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       })),
     );
 
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return emptyStepResult();
 
     const {failedEntities} = await BatchInserter.insert(
       this.manager,
@@ -358,7 +391,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextByTagSystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -368,11 +401,16 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── CKV ─────────────────────────────────────────────────────────────────────
 
-  private async insertCkvs(modules: SpfModule[]): Promise<RawFailure[]> {
+  private async insertCkvs(modules: SpfModule[]): Promise<StepResult> {
     const contextByCkvSystemId = new Map<
       number,
       {readonly ckv: KvData; readonly module: SpfModule}
@@ -390,7 +428,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       })),
     );
 
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return emptyStepResult();
 
     const {failedEntities} = await BatchInserter.insert<CkvRow>(
       this.manager,
@@ -398,7 +436,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    const failures: RawFailure[] = failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextByCkvSystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -415,7 +453,11 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       failedCkvIds,
       contextByCkvSystemId,
     );
-    return [...failures, ...valueFailures];
+
+    return {
+      rawFailures: [...rawFailures, ...valueFailures],
+      failedEntityIds: failedCkvIds,
+    };
   }
 
   private async insertCkvValues(
@@ -473,7 +515,10 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
 
   // ─── TKV ─────────────────────────────────────────────────────────────────────
 
-  private async insertTkvs(modules: SpfModule[]): Promise<RawFailure[]> {
+  private async insertTkvs(
+    modules: SpfModule[],
+    failedTagIds: Set<number>,
+  ): Promise<StepResult> {
     const contextByTkvSystemId = new Map<
       number,
       {
@@ -483,25 +528,29 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       }
     >(
       modules.flatMap(m =>
-        m.tagDataList.flatMap(tagData =>
-          tagData.tkvs.map(
-            tkv => [tkv.systemId, {tkv, tagData, module: m}] as const,
+        m.tagDataList
+          .filter(tagData => !failedTagIds.has(tagData.systemId))
+          .flatMap(tagData =>
+            tagData.tkvs.map(
+              tkv => [tkv.systemId, {tkv, tagData, module: m}] as const,
+            ),
           ),
-        ),
       ),
     );
 
     const rows: InsertRow<TkvRow>[] = modules.flatMap(m =>
-      m.tagDataList.flatMap(tagData =>
-        tagData.tkvs.map(tkv => ({
-          systemId: tkv.systemId,
-          moduleTagIdMapSystemId: tagData.systemId,
-          uiPersistence: tkv.uiPersistence,
-        })),
-      ),
+      m.tagDataList
+        .filter(tagData => !failedTagIds.has(tagData.systemId))
+        .flatMap(tagData =>
+          tagData.tkvs.map(tkv => ({
+            systemId: tkv.systemId,
+            moduleTagIdMapSystemId: tagData.systemId,
+            uiPersistence: tkv.uiPersistence,
+          })),
+        ),
     );
 
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return emptyStepResult();
 
     const {failedEntities} = await BatchInserter.insert<TkvRow>(
       this.manager,
@@ -509,7 +558,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    const failures: RawFailure[] = failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextByTkvSystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
@@ -524,14 +573,20 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     const valueFailures = await this.insertTkvValues(
       modules,
       failedTkvIds,
+      failedTagIds,
       contextByTkvSystemId,
     );
-    return [...failures, ...valueFailures];
+
+    return {
+      rawFailures: [...rawFailures, ...valueFailures],
+      failedEntityIds: failedTkvIds,
+    };
   }
 
   private async insertTkvValues(
     modules: SpfModule[],
     failedTkvIds: Set<number>,
+    failedTagIds: Set<number>,
     context: Map<
       number,
       {
@@ -549,13 +604,15 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       });
 
     const allValueRows: TkvValuesRow[] = modules.flatMap(m =>
-      m.tagDataList.flatMap(tagData =>
-        tagData.tkvs
-          .filter(tkv => !failedTkvIds.has(tkv.systemId))
-          .flatMap(tkv =>
-            tkv.valueDefinitionSystemIds.map(toValueRow(tkv.systemId)),
-          ),
-      ),
+      m.tagDataList
+        .filter(tagData => !failedTagIds.has(tagData.systemId))
+        .flatMap(tagData =>
+          tagData.tkvs
+            .filter(tkv => !failedTkvIds.has(tkv.systemId))
+            .flatMap(tkv =>
+              tkv.valueDefinitionSystemIds.map(toValueRow(tkv.systemId)),
+            ),
+        ),
     );
 
     if (allValueRows.length === 0) return [];
@@ -606,17 +663,18 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
 
   private async insertCkvParameterPayloads(
     modules: SpfModule[],
-  ): Promise<RawFailure[]> {
-    // Collect all CKV parameter entries with their context
+    failedCkvIds: Set<number>,
+  ): Promise<StepResult> {
     const paramEntries = modules.flatMap(m =>
-      m.ckvs.flatMap(ckv =>
-        ckv.parameterPayloads.map(param => ({param, ckv, module: m})),
-      ),
+      m.ckvs
+        .filter(ckv => !failedCkvIds.has(ckv.systemId))
+        .flatMap(ckv =>
+          ckv.parameterPayloads.map(param => ({param, ckv, module: m})),
+        ),
     );
 
-    if (paramEntries.length === 0) return [];
+    if (paramEntries.length === 0) return emptyStepResult();
 
-    // Generate a unique systemId for each CKV parameter row
     const fileId = modules[0].fileSystemId;
     const rows: InsertRow<CkvParameterPayloadRow>[] = [];
     const contextBySystemId = new Map<
@@ -645,7 +703,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       const parentCkv =
@@ -659,6 +717,11 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 
   // ─── TKV Parameter ───────────────────────────────────────────────────────────
@@ -666,39 +729,52 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private buildTkvParamEntriesForTagData(
     m: SpfModule,
     tagData: TagData,
+    failedTkvIds: Set<number>,
   ): {
     param: ModuleParameterData;
     tkv: KvData;
     tagData: TagData;
     module: SpfModule;
   }[] {
-    return tagData.tkvs.flatMap(tkv =>
-      tkv.parameterPayloads.map(param => ({param, tkv, tagData, module: m})),
-    );
+    return tagData.tkvs
+      .filter(tkv => !failedTkvIds.has(tkv.systemId))
+      .flatMap(tkv =>
+        tkv.parameterPayloads.map(param => ({param, tkv, tagData, module: m})),
+      );
   }
 
-  private buildTkvParamEntries(modules: SpfModule[]): {
+  private buildTkvParamEntries(
+    modules: SpfModule[],
+    failedTagIds: Set<number>,
+    failedTkvIds: Set<number>,
+  ): {
     param: ModuleParameterData;
     tkv: KvData;
     tagData: TagData;
     module: SpfModule;
   }[] {
     return modules.flatMap(m =>
-      m.tagDataList.flatMap(tagData =>
-        this.buildTkvParamEntriesForTagData(m, tagData),
-      ),
+      m.tagDataList
+        .filter(tagData => !failedTagIds.has(tagData.systemId))
+        .flatMap(tagData =>
+          this.buildTkvParamEntriesForTagData(m, tagData, failedTkvIds),
+        ),
     );
   }
 
   private async insertTkvParameterPayloads(
     modules: SpfModule[],
-  ): Promise<RawFailure[]> {
-    // Collect all TKV parameter entries with their context
-    const paramEntries = this.buildTkvParamEntries(modules);
+    failedTagIds: Set<number>,
+    failedTkvIds: Set<number>,
+  ): Promise<StepResult> {
+    const paramEntries = this.buildTkvParamEntries(
+      modules,
+      failedTagIds,
+      failedTkvIds,
+    );
 
-    if (paramEntries.length === 0) return [];
+    if (paramEntries.length === 0) return emptyStepResult();
 
-    // Generate a unique systemId for each TKV parameter row
     const fileId = modules[0].fileSystemId;
     const rows: InsertRow<TkvParameterPayloadRow>[] = [];
     const contextBySystemId = new Map<
@@ -739,7 +815,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       rows,
     );
 
-    return failedEntities.map(error => {
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
       const ctx = contextBySystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       const parentTkv =
@@ -753,5 +829,10 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
         dbError: error.message,
       };
     });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
   }
 }

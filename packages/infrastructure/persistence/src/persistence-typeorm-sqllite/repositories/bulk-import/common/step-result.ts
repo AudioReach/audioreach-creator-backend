@@ -9,3 +9,7 @@ export interface StepResult {
   readonly rawFailures: RawFailure[];
   readonly failedEntityIds: Set<number>;
 }
+
+export function emptyStepResult(): StepResult {
+  return {rawFailures: [], failedEntityIds: new Set()};
+}
