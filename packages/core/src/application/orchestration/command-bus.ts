@@ -13,6 +13,7 @@ import type {ProfilerPort} from '../ports/profiling/profiler.port.js';
 import type {UnitOfWorkFactory} from '../ports/persistence/unit-of-work-factory.js';
 import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../ports/id-generation/id-generation.port.js';
+import type {QueryServices} from '../ports/persistence/query-services/query-services.js';
 
 export class CommandBus {
   constructor(
@@ -20,6 +21,7 @@ export class CommandBus {
     private readonly idGeneration: IdGenerationPort,
     private readonly fileSystem: FileSystemPort,
     private readonly uowFactory: UnitOfWorkFactory,
+    private readonly queryServices: QueryServices,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
     private readonly profiler?: ProfilerPort,
@@ -111,6 +113,7 @@ export class CommandBus {
       uow,
       idGeneration: this.idGeneration,
       fileSystem: this.fileSystem,
+      queryServices: this.queryServices,
       workerPool: this.workerPool,
       logger: this.logger,
       profiler: this.profiler,

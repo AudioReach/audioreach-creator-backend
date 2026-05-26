@@ -7,11 +7,11 @@ import {ApiProperty} from '@nestjs/swagger';
 import {ParameterDetailDto} from '../../../../common/dto/parameter.dto.js';
 
 /**
- * Request DTO for updating tag data - supports multiple parameters
+ * Request DTO for updating SPF module calibration data - supports multiple parameters
  */
-export class UpdateTagDataRequestDto {
+export class UpdateSpfModuleCalDataRequest {
   @ApiProperty({
-    description: 'Array of tag data updates for multiple parameters',
+    description: 'Array of calibration data updates for multiple parameters',
     type: [ParameterDetailDto],
   })
   data!: ParameterDetailDto[];

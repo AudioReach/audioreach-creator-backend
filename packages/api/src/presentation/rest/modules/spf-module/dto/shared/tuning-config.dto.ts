@@ -143,36 +143,3 @@ export class TagInfoDto {
     this.tkvs = tkvs;
   }
 }
-
-/**
- * Main response DTO for SPF module tuning configuration
- */
-export class SpfModuleTuningConfigResponseDto {
-  @ApiProperty({
-    description: 'SPF module system ID',
-    type: String,
-  })
-  spfModuleSystemId: string;
-
-  @ApiProperty({
-    description: 'Calibration key-values configuration',
-    type: [CkvDto],
-  })
-  ckvs: CkvDto[];
-
-  @ApiProperty({
-    description: 'Tag information containing tag key-values',
-    type: [TagInfoDto],
-  })
-  tags: TagInfoDto[];
-
-  constructor(
-    spfModuleSystemId: string,
-    ckvs: CkvDto[] = [],
-    tags: TagInfoDto[] = [],
-  ) {
-    this.spfModuleSystemId = spfModuleSystemId;
-    this.ckvs = ckvs;
-    this.tags = tags;
-  }
-}
