@@ -65,11 +65,21 @@ import {UpdateValidationPreferencesCommand} from '../../../validation/commands/u
 import {UpdateValidationPreferencesHandler} from '../../../validation/commands/update-validation-preferences.handler.js';
 import {AcknowledgeDataLossCommand} from '../../../validation/commands/acknowledge-data-loss.command.js';
 import {AcknowledgeDataLossHandler} from '../../../validation/commands/acknowledge-data-loss.handler.js';
+import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
+import {CreateDataLinkCommand} from '../../../usecase-designer/data-links/create/create-data-link.command.js';
+import {CreateDataLinkHandler} from '../../../usecase-designer/data-links/create/create-data-link.handler.js';
+import {DeleteDataLinkCommand} from '../../../usecase-designer/data-links/delete/delete-data-link.command.js';
+import {DeleteDataLinkHandler} from '../../../usecase-designer/data-links/delete/delete-data-link.handler.js';
+import {CreateControlLinkCommand} from '../../../usecase-designer/control-links/create/create-control-link.command.js';
+import {CreateControlLinkHandler} from '../../../usecase-designer/control-links/create/create-control-link.handler.js';
+import {DeleteControlLinkCommand} from '../../../usecase-designer/control-links/delete/delete-control-link.command.js';
+import {DeleteControlLinkHandler} from '../../../usecase-designer/control-links/delete/delete-control-link.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
   idGeneration: IdGenerationPort;
   fileSystem: FileSystemPort;
+  queryServices: QueryServices;
   workerPool?: WorkerPoolPort;
   logger?: Logger;
   profiler?: ProfilerPort;
@@ -138,6 +148,32 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(AcknowledgeDataLossCommand, {
       create: deps => new AcknowledgeDataLossHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(CreateDataLinkCommand, {
+      create: deps =>
+        new CreateDataLinkHandler(
+          deps.uow,
+          deps.queryServices,
+          deps.idGeneration,
+        ),
+    });
+
+    this.commandHandlerFactories.set(CreateControlLinkCommand, {
+      create: deps =>
+        new CreateControlLinkHandler(
+          deps.uow,
+          deps.queryServices,
+          deps.idGeneration,
+        ),
+    });
+
+    this.commandHandlerFactories.set(DeleteDataLinkCommand, {
+      create: deps => new DeleteDataLinkHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(DeleteControlLinkCommand, {
+      create: deps => new DeleteControlLinkHandler(deps.uow),
     });
   }
 }

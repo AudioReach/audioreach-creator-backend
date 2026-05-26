@@ -579,10 +579,10 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/header": {
+    "/arc-api/v1/projects/{projectId}/file-properties": {
       "get": {
-        "description": "Retrieves header metadata including ACDB version, codec information, and OEM details",
-        "operationId": "ProjectController_getProjectHeader",
+        "description": "Retrieves file properties including ACDB version, codec information, and OEM details",
+        "operationId": "ProjectController_getFileProperties",
         "parameters": [
           {
             "name": "projectId",
@@ -596,7 +596,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Project header information retrieved successfully",
+            "description": "Project file properties retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -607,7 +607,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ProjectHeaderResponseDto"
+                          "$ref": "#/components/schemas/ProjectFilePropertiesResponseDto"
                         }
                       }
                     }
@@ -617,7 +617,7 @@
             }
           },
           "404": {
-            "description": "Project or header information not found",
+            "description": "Project or file properties not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -639,7 +639,7 @@
             }
           }
         },
-        "summary": "Get ACDB project header information",
+        "summary": "Get ACDB project file properties",
         "tags": [
           "Project"
         ]
@@ -3486,6 +3486,7 @@
     },
     "/arc-api/v1/projects/{projectId}/spf-modules/query": {
       "post": {
+        "description": "Query SPF modules for provided systemIds with optional data inclusion.\n\n**Optional Query Parameters:**\n- `include`: Comma-separated list of optional data to include\n  - `ckvs`: Include Calibration Key-Values\n  - `tags`: Include Tags with Tag Key-Values\n  - `properties`: Include module properties\n\n**Examples:**\n```\nPOST /spf-modules/query\nPOST /spf-modules/query?include=ckvs\nPOST /spf-modules/query?include=ckvs,tags\nPOST /spf-modules/query?include=ckvs,tags,properties\n```",
         "operationId": "SpfModuleController_querySpfModules",
         "parameters": [
           {
@@ -3495,6 +3496,16 @@
             "description": "The unique identifier of the project",
             "schema": {
               "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "include",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated list of optional data to include (ckvs, tags, properties)",
+            "schema": {
+              "example": "ckvs,tags",
               "type": "string"
             }
           }
@@ -3542,7 +3553,7 @@
             "description": "Failed to get SPF modules"
           }
         },
-        "summary": "Query SPF modules for provided systemIds",
+        "summary": "Query SPF modules with optional data inclusion",
         "tags": [
           "spf-modules"
         ]
@@ -3550,6 +3561,7 @@
     },
     "/arc-api/v1/projects/{projectId}/spf-modules": {
       "post": {
+        "description": "Creates a new SPF module with the specified module system ID and processor ID.\n\n**Required Parameters:**\n- `moduleSystemId`: Module definition system ID\n- `procId`: Processor ID\n\n**Optional Parameters:**\n- `parentId`: Parent module ID\n- `subgraphId`: Existing subgraph ID (if not provided, creates new subgraph)\n- `containerId`: Existing container ID (if not provided, creates new container)\n- `ckvData`: CKV calibration data array (if not provided, creates zero CKV and defaults)\n- `tagData`: Tag data array with TKVs (if not provided, creates default tag data)\n\n**Auto-Creation Logic:**\nWhen subgraphId or containerId are not provided, the system automatically creates them with default configurations.",
         "operationId": "SpfModuleController_addSpfModule",
         "parameters": [
           {
@@ -3565,21 +3577,21 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: BaseSpfModuleRequest",
+          "description": "Request body parameter type: CreateSpfModuleRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BaseSpfModuleRequest"
+                "$ref": "#/components/schemas/CreateSpfModuleRequest"
               },
               "examples": {
                 "default": {
-                  "summary": "Example BaseSpfModuleRequest",
+                  "summary": "Example CreateSpfModuleRequest",
                   "value": {
-                    "moduleId": 117444629,
-                    "procId": 2,
-                    "parentId": 251658241,
-                    "subgraphId": 2952790017,
-                    "containerId": 3758096385
+                    "moduleSystemId": 135266313,
+                    "procSystemId": 2,
+                    "parentId": 100,
+                    "subgraphSystemId": 200,
+                    "containerSystemId": 300
                   }
                 }
               }
@@ -3588,7 +3600,7 @@
         },
         "responses": {
           "200": {
-            "description": "New created SPF module information",
+            "description": "SPF module created successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -3636,213 +3648,16 @@
             }
           },
           "400": {
-            "description": "Invalid input"
-          },
-          "422": {
-            "description": "Failed to add a new SPF module"
-          }
-        },
-        "summary": "Create a new SPF module for a given module id",
-        "tags": [
-          "spf-modules"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/properties": {
-      "get": {
-        "operationId": "SpfModuleController_getSpfModuleProperties",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "spfModuleSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System id of an SPF module",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/SpfModulePropertiesDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "Invalid input parameters"
           },
           "404": {
-            "description": "SPF module is not found"
+            "description": "Module definition or processor not found"
           },
           "422": {
-            "description": "Failed to get SPF module properties"
+            "description": "Failed to create SPF module"
           }
         },
-        "summary": "Get all property data for an SPF module",
-        "tags": [
-          "spf-modules"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/tuning-config": {
-      "get": {
-        "description": "Retrieves the complete tuning configuration for a specific SPF module, including:\n\n**CKVS (Calibration Key-Values):** Module-level calibration configuration parameters\n**Tags with TKVS:** Tag-specific configuration where each tag contains its own Tag Key-Values\n\nThe response structure includes:\n- Module CKVs for calibration (each CKV has systemId and key-value pairs)\n- Tags with their TKVs (each tag has systemId, tagId, tagName, and array of TKVs)\n- Each TKV has systemId and key-value pairs\n\nParameter payloads and UI persistence data are available through separate APIs.",
-        "operationId": "SpfModuleController_getSpfModuleTuningConfig",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "spfModuleSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System id of an SPF module",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Tuning configuration retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/SpfModuleTuningConfigResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                },
-                "examples": {
-                  "default": {
-                    "value": {
-                      "spfModuleSystemId": "12345",
-                      "ckvs": [
-                        {
-                          "keyValueCollection": [
-                            {
-                              "keyInfo": {
-                                "keyId": 1,
-                                "keyLabel": "SampleRate",
-                                "keySystemId": "KEY_SYS_001"
-                              },
-                              "valueInfo": {
-                                "valueId": 10,
-                                "valueLabel": "48000",
-                                "valueSystemId": "VAL_SYS_001"
-                              }
-                            }
-                          ],
-                          "systemId": "101",
-                          "supportedParameters": [
-                            {
-                              "paramId": 1001,
-                              "paramSystemId": "PARAM_SYS_001",
-                              "name": "SampleRate",
-                              "description": "Audio sample rate configuration parameter"
-                            },
-                            {
-                              "paramId": 1002,
-                              "paramSystemId": "PARAM_SYS_002",
-                              "name": "BitDepth",
-                              "description": "Audio bit depth configuration parameter"
-                            }
-                          ]
-                        }
-                      ],
-                      "tags": [
-                        {
-                          "systemId": 201,
-                          "tagId": 301,
-                          "tagName": "AudioProcessing",
-                          "tkvs": [
-                            {
-                              "keyValueCollection": [
-                                {
-                                  "keyInfo": {
-                                    "keyId": 2,
-                                    "keyLabel": "Channels",
-                                    "keySystemId": "KEY_SYS_002"
-                                  },
-                                  "valueInfo": {
-                                    "valueId": 20,
-                                    "valueLabel": "Stereo",
-                                    "valueSystemId": "VAL_SYS_002"
-                                  }
-                                }
-                              ],
-                              "systemId": "202",
-                              "supportedParameters": [
-                                {
-                                  "paramId": 2001,
-                                  "paramSystemId": "PARAM_SYS_003",
-                                  "name": "Channels",
-                                  "description": "Audio channel configuration parameter"
-                                },
-                                {
-                                  "paramId": 2002,
-                                  "paramSystemId": "PARAM_SYS_004",
-                                  "name": "Volume",
-                                  "description": "Audio volume level parameter"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "SPF module not found"
-          },
-          "422": {
-            "description": "Failed to get tuning configuration"
-          }
-        },
-        "summary": "Get all tuning configuration (CKVS and TKVS) for an SPF module",
+        "summary": "Create a new SPF module",
         "tags": [
           "spf-modules"
         ]
@@ -3907,7 +3722,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SpfModuleCalDataResponseDto"
+                          "$ref": "#/components/schemas/CalDataDto"
                         }
                       }
                     }
@@ -3968,11 +3783,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdateCalDataRequestDto",
+          "description": "Request body parameter type: UpdateSpfModuleCalDataRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCalDataRequestDto"
+                "$ref": "#/components/schemas/UpdateSpfModuleCalDataRequest"
               }
             }
           }
@@ -3990,7 +3805,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SpfModuleCalDataResponseDto"
+                          "$ref": "#/components/schemas/CalDataDto"
                         }
                       }
                     }
@@ -4158,11 +3973,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdateTagDataRequestDto",
+          "description": "Request body parameter type: UpdateSpfModuleTagDataRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateTagDataRequestDto"
+                "$ref": "#/components/schemas/UpdateSpfModuleTagDataRequest"
               }
             }
           }
@@ -4878,7 +4693,8 @@
     },
     "/arc-api/v1/projects/{projectId}/data-links": {
       "post": {
-        "operationId": "DataLinkController_addDataConnection",
+        "description": "Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. Returns a flat ComponentCollectionDto with the created link.",
+        "operationId": "DataLinkController_createDataLink",
         "parameters": [
           {
             "name": "projectId",
@@ -4893,18 +4709,18 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: NewDataLinkRequest",
+          "description": "Data link creation parameters",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NewDataLinkRequest"
+                "$ref": "#/components/schemas/CreateDataLinkRequest"
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Success",
+          "201": {
+            "description": "Data link created successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -4915,10 +4731,7 @@
                     {
                       "properties": {
                         "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/DataLinkDto"
-                          }
+                          "$ref": "#/components/schemas/ComponentCollectionDto"
                         }
                       }
                     }
@@ -4927,11 +4740,142 @@
               }
             }
           },
-          "422": {
-            "description": "Failed to add a data-link"
+          "400": {
+            "description": "Invalid request data"
+          },
+          "404": {
+            "description": "Source or destination module not found"
+          },
+          "500": {
+            "description": "Failed to create data link"
           }
         },
-        "summary": "Add a new data link",
+        "summary": "Create a new data link (flat view)",
+        "tags": [
+          "data-links"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/data-links/with-subsystems": {
+      "post": {
+        "description": "Creates a data link — SAME DB write as POST /data-links. Returns ComponentCollectionWithSubsystemsDto with the created link and subsystem structure.",
+        "operationId": "DataLinkController_createDataLinkWithSubsystems",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Data link creation parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDataLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Data link created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request data"
+          },
+          "404": {
+            "description": "Source or destination module not found"
+          },
+          "500": {
+            "description": "Failed to create data link"
+          }
+        },
+        "summary": "Create a new data link (full view with subsystem hierarchy)",
+        "tags": [
+          "data-links"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/data-links/{dataLinkSystemId}": {
+      "delete": {
+        "description": "Deletes a data link by systemId. Returns the deleted link snapshot for undo support.",
+        "operationId": "DataLinkController_deleteDataLink",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dataLinkSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of the data link to delete",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data link deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DataLinkDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data link not found"
+          },
+          "500": {
+            "description": "Failed to delete data link"
+          }
+        },
+        "summary": "Delete a data link",
         "tags": [
           "data-links"
         ]
@@ -5003,7 +4947,8 @@
     },
     "/arc-api/v1/projects/{projectId}/control-links": {
       "post": {
-        "operationId": "ControlLinkController_addControlConnection",
+        "description": "Creates a control link between two modules. Stores all segments in DB. Returns flat ComponentCollectionDto with the created link.",
+        "operationId": "ControlLinkController_createControlLink",
         "parameters": [
           {
             "name": "projectId",
@@ -5018,18 +4963,18 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: NewLinkRequest",
+          "description": "Request body parameter type: CreateControlLinkRequest",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NewLinkRequest"
+                "$ref": "#/components/schemas/CreateControlLinkRequest"
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Success",
+          "201": {
+            "description": "Control link created successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -5040,10 +4985,7 @@
                     {
                       "properties": {
                         "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ControlLinkDto"
-                          }
+                          "$ref": "#/components/schemas/ComponentCollectionDto"
                         }
                       }
                     }
@@ -5052,11 +4994,82 @@
               }
             }
           },
-          "422": {
-            "description": "Failed to add a control-link"
+          "400": {
+            "description": "Invalid request data"
+          },
+          "404": {
+            "description": "Source or destination module not found"
+          },
+          "500": {
+            "description": "Failed to create control link"
           }
         },
-        "summary": "Add a new control link",
+        "summary": "Create a new control link (flat view)",
+        "tags": [
+          "control-links"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/control-links/with-subsystems": {
+      "post": {
+        "description": "Creates a control link — SAME DB write as POST /control-links. Returns ComponentCollectionWithSubsystemsDto with the created link and subsystem structure.",
+        "operationId": "ControlLinkController_createControlLinkWithSubsystems",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateControlLinkRequest",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateControlLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Control link created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request data"
+          },
+          "404": {
+            "description": "Source or destination module not found"
+          },
+          "500": {
+            "description": "Failed to create control link"
+          }
+        },
+        "summary": "Create a new control link (full view with subsystem hierarchy)",
         "tags": [
           "control-links"
         ]
@@ -5186,6 +5199,66 @@
           }
         },
         "summary": "Get all property data for a control link",
+        "tags": [
+          "control-links"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/control-links/{controlLinkSystemId}": {
+      "delete": {
+        "description": "Deletes a control link by systemId. Returns the deleted link snapshot for undo support.",
+        "operationId": "ControlLinkController_deleteControlLink",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "controlLinkSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of the control link to delete",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Control link deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ControlLinkDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Control link not found"
+          },
+          "500": {
+            "description": "Failed to delete control link"
+          }
+        },
+        "summary": "Delete a control link",
         "tags": [
           "control-links"
         ]
@@ -5383,7 +5456,7 @@
           "minorVersion"
         ]
       },
-      "ProjectHeaderResponseDto": {
+      "ProjectFilePropertiesResponseDto": {
         "type": "object",
         "properties": {
           "acdbVersion": {
@@ -7600,6 +7673,188 @@
           "intents"
         ]
       },
+      "ParamInfo": {
+        "type": "object",
+        "properties": {
+          "paramId": {
+            "type": "number",
+            "description": "Parameter ID"
+          },
+          "paramSystemId": {
+            "type": "string",
+            "description": "Parameter system ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Parameter name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Parameter description"
+          }
+        },
+        "required": [
+          "paramId",
+          "paramSystemId",
+          "name",
+          "description"
+        ]
+      },
+      "CkvDto": {
+        "type": "object",
+        "properties": {
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          },
+          "systemId": {
+            "type": "string",
+            "description": "CKV system ID"
+          },
+          "supportedParameters": {
+            "description": "Supported parameters for this CKV",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamInfo"
+            }
+          }
+        },
+        "required": [
+          "keyValueCollection",
+          "systemId",
+          "supportedParameters"
+        ]
+      },
+      "TkvDto": {
+        "type": "object",
+        "properties": {
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          },
+          "systemId": {
+            "type": "string",
+            "description": "TKV system ID"
+          },
+          "supportedParameters": {
+            "description": "Supported parameters for this TKV",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamInfo"
+            }
+          }
+        },
+        "required": [
+          "keyValueCollection",
+          "systemId",
+          "supportedParameters"
+        ]
+      },
+      "TagInfoDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "number",
+            "description": "Tag system ID"
+          },
+          "tagId": {
+            "type": "number",
+            "description": "Tag ID"
+          },
+          "tagName": {
+            "type": "string",
+            "description": "Tag name"
+          },
+          "tkvs": {
+            "description": "Tag key-values configuration",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TkvDto"
+            }
+          }
+        },
+        "required": [
+          "systemId",
+          "tagId",
+          "tagName"
+        ]
+      },
+      "BaseValueElement": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name property (e.g. \"enable\")"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type property (e.g. \"uint32\", \"int16\", etc.)"
+          },
+          "value": {
+            "type": "string",
+            "description": "Value property (real value, e.g. 1, 2, 3, etc.)"
+          },
+          "valueLabel": {
+            "type": "string",
+            "description": "ValueLabel property (e.g. \"Enable\", etc.)"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "value",
+          "valueLabel"
+        ]
+      },
+      "PropertyDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System ID"
+          },
+          "propertyId": {
+            "type": "number",
+            "description": "Property ID"
+          },
+          "propertyName": {
+            "type": "string",
+            "description": "Property name"
+          },
+          "hasDefinition": {
+            "type": "boolean",
+            "description": "Has definition or not"
+          },
+          "propertyValues": {
+            "description": "Property values",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BaseValueElement"
+            }
+          },
+          "definitionLink": {
+            "description": "Definition link",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EndPointLink"
+              }
+            ]
+          }
+        },
+        "required": [
+          "systemId",
+          "propertyId",
+          "propertyName",
+          "hasDefinition",
+          "propertyValues"
+        ]
+      },
       "SpfModuleDto": {
         "type": "object",
         "properties": {
@@ -7679,6 +7934,27 @@
           "heapId": {
             "type": "number",
             "description": "Heap ID"
+          },
+          "ckvs": {
+            "description": "Calibration key-values configuration",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CkvDto"
+            }
+          },
+          "tags": {
+            "description": "Tag information containing tag key-values",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagInfoDto"
+            }
+          },
+          "properties": {
+            "description": "Module instance properties",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PropertyDto"
+            }
           }
         },
         "required": [
@@ -8945,147 +9221,7 @@
           "allowedValues"
         ]
       },
-      "ParamInfo": {
-        "type": "object",
-        "properties": {
-          "paramId": {
-            "type": "number",
-            "description": "Parameter ID"
-          },
-          "paramSystemId": {
-            "type": "string",
-            "description": "Parameter system ID"
-          },
-          "name": {
-            "type": "string",
-            "description": "Parameter name"
-          },
-          "description": {
-            "type": "string",
-            "description": "Parameter description"
-          }
-        },
-        "required": [
-          "paramId",
-          "paramSystemId",
-          "name",
-          "description"
-        ]
-      },
-      "CkvDto": {
-        "type": "object",
-        "properties": {
-          "keyValueCollection": {
-            "description": "Collection of key-value pairs",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/KeyValueInfo"
-            }
-          },
-          "systemId": {
-            "type": "string",
-            "description": "CKV system ID"
-          },
-          "supportedParameters": {
-            "description": "Supported parameters for this CKV",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ParamInfo"
-            }
-          }
-        },
-        "required": [
-          "keyValueCollection",
-          "systemId",
-          "supportedParameters"
-        ]
-      },
-      "TkvDto": {
-        "type": "object",
-        "properties": {
-          "keyValueCollection": {
-            "description": "Collection of key-value pairs",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/KeyValueInfo"
-            }
-          },
-          "systemId": {
-            "type": "string",
-            "description": "TKV system ID"
-          },
-          "supportedParameters": {
-            "description": "Supported parameters for this TKV",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ParamInfo"
-            }
-          }
-        },
-        "required": [
-          "keyValueCollection",
-          "systemId",
-          "supportedParameters"
-        ]
-      },
-      "TagInfoDto": {
-        "type": "object",
-        "properties": {
-          "systemId": {
-            "type": "number",
-            "description": "Tag system ID"
-          },
-          "tagId": {
-            "type": "number",
-            "description": "Tag ID"
-          },
-          "tagName": {
-            "type": "string",
-            "description": "Tag name"
-          },
-          "tkvs": {
-            "description": "Tag key-values configuration",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TkvDto"
-            }
-          }
-        },
-        "required": [
-          "systemId",
-          "tagId",
-          "tagName"
-        ]
-      },
-      "SpfModuleTuningConfigResponseDto": {
-        "type": "object",
-        "properties": {
-          "spfModuleSystemId": {
-            "type": "string",
-            "description": "SPF module system ID"
-          },
-          "ckvs": {
-            "description": "Calibration key-values configuration",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CkvDto"
-            }
-          },
-          "tags": {
-            "description": "Tag information containing tag key-values",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TagInfoDto"
-            }
-          }
-        },
-        "required": [
-          "spfModuleSystemId",
-          "ckvs",
-          "tags"
-        ]
-      },
-      "SpfModuleCalDataResponseDto": {
+      "CalDataDto": {
         "type": "object",
         "properties": {
           "changeInfo": {
@@ -9122,7 +9258,7 @@
           "parameters"
         ]
       },
-      "UpdateCalDataRequestDto": {
+      "UpdateSpfModuleCalDataRequest": {
         "type": "object",
         "properties": {
           "data": {
@@ -9174,7 +9310,7 @@
           "parameters"
         ]
       },
-      "UpdateTagDataRequestDto": {
+      "UpdateSpfModuleTagDataRequest": {
         "type": "object",
         "properties": {
           "data": {
@@ -9189,195 +9325,57 @@
           "data"
         ]
       },
-      "BaseSpfModuleRequest": {
+      "CreateSpfModuleRequest": {
         "type": "object",
         "properties": {
-          "moduleId": {
+          "moduleSystemId": {
             "type": "number",
-            "description": "Module ID"
+            "description": "Module system ID (module definition ID)"
           },
-          "procId": {
+          "procSystemId": {
             "type": "number",
             "description": "Processor ID"
           },
           "parentId": {
             "type": "number",
-            "description": "Parent ID, Optional"
+            "description": "Parent ID. Optional."
           },
-          "subgraphId": {
+          "subgraphSystemId": {
             "type": "number",
-            "description": "Subgraph ID. Optional. If not provided, should create a new subgraph."
+            "description": "Subgraph ID. If not provided, a new subgraph will be created automatically."
           },
-          "containerId": {
+          "containerSystemId": {
             "type": "number",
-            "description": "Container ID. Optional. If not provided, should create a container."
+            "description": "Container ID. If not provided, a new container will be created automatically."
           }
         },
         "required": [
-          "moduleId",
-          "procId"
-        ]
-      },
-      "DetailedSpfModuleRequest": {
-        "type": "object",
-        "properties": {
-          "moduleId": {
-            "type": "number",
-            "description": "Module ID"
-          },
-          "procId": {
-            "type": "number",
-            "description": "Processor ID"
-          },
-          "parentId": {
-            "type": "number",
-            "description": "Parent ID, Optional"
-          },
-          "subgraphId": {
-            "type": "number",
-            "description": "Subgraph ID. Optional. If not provided, should create a new subgraph."
-          },
-          "containerId": {
-            "type": "number",
-            "description": "Container ID. Optional. If not provided, should create a container."
-          },
-          "requestType": {
-            "type": "string",
-            "description": "Request type",
-            "enum": [
-              "detailed"
-            ],
-            "default": "detailed"
-          },
-          "ckvData": {
-            "type": "object",
-            "description": "ckv calibration data. Required when requestType is detailed."
-          },
-          "tkvData": {
-            "type": "object",
-            "description": "tkv calibration data. Required when requestType is detailed."
-          },
-          "tagData": {
-            "type": "object",
-            "description": "Module tag data. Required when requestType is detailed."
-          }
-        },
-        "required": [
-          "moduleId",
-          "procId",
-          "requestType",
-          "ckvData",
-          "tkvData",
-          "tagData"
+          "moduleSystemId",
+          "procSystemId"
         ]
       },
       "CloneSpfModuleRequest": {
         "type": "object",
         "properties": {
-          "referenceModuleIid": {
+          "referenceModuleSystemId": {
             "type": "number",
-            "description": "Reference Module instance ID"
+            "description": "Reference spf-module system ID"
           },
-          "targetParentId": {
+          "parentId": {
             "type": "number",
             "description": "Target parent ID"
           },
-          "targetSubgraphId": {
+          "subgraphSystemId": {
             "type": "number",
             "description": "Target subgraph ID. If not provided, a new subgraph will be created"
           },
-          "targetContainerId": {
+          "containerSystemId": {
             "type": "number",
             "description": "Target container ID. If not provided, a new container will be created"
           }
         },
         "required": [
-          "referenceModuleIid"
-        ]
-      },
-      "BaseValueElement": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Name property (e.g. \"enable\")"
-          },
-          "type": {
-            "type": "string",
-            "description": "Type property (e.g. \"uint32\", \"int16\", etc.)"
-          },
-          "value": {
-            "type": "string",
-            "description": "Value property (real value, e.g. 1, 2, 3, etc.)"
-          },
-          "valueLabel": {
-            "type": "string",
-            "description": "ValueLabel property (e.g. \"Enable\", etc.)"
-          }
-        },
-        "required": [
-          "name",
-          "type",
-          "value",
-          "valueLabel"
-        ]
-      },
-      "PropertyDto": {
-        "type": "object",
-        "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "System ID"
-          },
-          "propertyId": {
-            "type": "number",
-            "description": "Property ID"
-          },
-          "propertyName": {
-            "type": "string",
-            "description": "Property name"
-          },
-          "hasDefinition": {
-            "type": "boolean",
-            "description": "Has definition or not"
-          },
-          "propertyValues": {
-            "description": "Property values",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BaseValueElement"
-            }
-          },
-          "definitionLink": {
-            "description": "Definition link",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/EndPointLink"
-              }
-            ]
-          }
-        },
-        "required": [
-          "systemId",
-          "propertyId",
-          "propertyName",
-          "hasDefinition",
-          "propertyValues"
-        ]
-      },
-      "SpfModulePropertiesDto": {
-        "type": "object",
-        "properties": {
-          "properties": {
-            "description": "Array of module instance properties",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PropertyDto"
-            }
-          }
-        },
-        "required": [
-          "properties"
+          "referenceModuleSystemId"
         ]
       },
       "KeyValuePairsInfo": {
@@ -9550,44 +9548,44 @@
           "properties"
         ]
       },
-      "NewDataLinkRequest": {
+      "CreateDataLinkRequest": {
         "type": "object",
         "properties": {
-          "startComponentId": {
-            "type": "number",
-            "description": "Start component ID"
+          "type": {
+            "type": "string",
+            "description": "Type of data link",
+            "enum": [
+              "normal",
+              "EC",
+              "interUsecase"
+            ],
+            "default": "normal"
           },
-          "startPortId": {
+          "sourceNodeSystemId": {
             "type": "number",
-            "description": "Start port ID"
+            "description": "System ID of the source node/module"
           },
-          "endComponentId": {
+          "sourcePortSystemId": {
             "type": "number",
-            "description": "End component ID"
+            "description": "System ID of the source port"
           },
-          "endPortId": {
+          "destinationNodeSystemId": {
             "type": "number",
-            "description": "End port ID"
+            "description": "System ID of the destination node/module"
           },
-          "parentId": {
+          "destinationPortSystemId": {
             "type": "number",
-            "description": "Parent ID"
-          },
-          "isDangling": {
-            "type": "boolean",
-            "description": "Is dangling",
-            "default": false
+            "description": "System ID of the destination port"
           }
         },
         "required": [
-          "startComponentId",
-          "startPortId",
-          "endComponentId",
-          "endPortId",
-          "isDangling"
+          "sourceNodeSystemId",
+          "sourcePortSystemId",
+          "destinationNodeSystemId",
+          "destinationPortSystemId"
         ]
       },
-      "NewLinkRequest": {
+      "CreateControlLinkRequest": {
         "type": "object",
         "properties": {
           "startComponentId": {

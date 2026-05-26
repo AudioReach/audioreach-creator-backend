@@ -44,6 +44,14 @@ export * from './application/usecase-designer/spf-module/get/get-module-compact.
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';
 export * from './application/usecase-designer/usecase/get-components/index.js';
+export * from './application/usecase-designer/data-links/create/create-data-link.command.js';
+export * from './application/usecase-designer/data-links/create/create-data-link.handler.js';
+export * from './application/usecase-designer/data-links/delete/delete-data-link.command.js';
+export * from './application/usecase-designer/data-links/delete/delete-data-link.handler.js';
+export * from './application/usecase-designer/control-links/create/create-control-link.command.js';
+export * from './application/usecase-designer/control-links/create/create-control-link.handler.js';
+export * from './application/usecase-designer/control-links/delete/delete-control-link.command.js';
+export * from './application/usecase-designer/control-links/delete/delete-control-link.handler.js';
 // Generic Worker Abstractions
 export * from './application/ports/worker/worker-pool.port.js';
 export * from './application/ports/worker/handler-registry.port.js';

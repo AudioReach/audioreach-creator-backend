@@ -6,9 +6,9 @@
 import {ApiProperty} from '@nestjs/swagger';
 
 /**
- * DTO for new link request
+ * DTO for creating a new control link
  */
-export class NewLinkRequest {
+export class CreateControlLinkRequest {
   @ApiProperty({
     description: 'Start component ID',
   })

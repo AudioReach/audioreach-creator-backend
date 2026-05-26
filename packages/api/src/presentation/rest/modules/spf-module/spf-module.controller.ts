@@ -18,14 +18,10 @@ import {
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {
-  SpfModuleDto,
-  SpfModulePropertiesDto,
-} from './dto/shared/spf-module.dto.js';
-import {SpfModuleTuningConfigResponseDto} from './dto/response/spf-module-tuning-config-response.dto.js';
-import {SpfModuleCalDataResponseDto} from './dto/response/spf-module-cal-data-response.dto.js';
-import {UpdateCalDataRequestDto} from './dto/request/update-cal-data-request.dto.js';
-import {UpdateTagDataRequestDto} from './dto/request/update-tag-data-request.dto.js';
+import {SpfModuleDto} from './dto/shared/spf-module.dto.js';
+import {CalDataDto} from '../../common/dto/tuning-data/cal-data.dto.js';
+import {UpdateSpfModuleCalDataRequest} from './dto/request/update-spf-module-cal-data-request.dto.js';
+import {UpdateSpfModuleTagDataRequest} from './dto/request/update-spf-module-tag-data-request.dto.js';
 import {TagDataDto} from '../../common/dto/tuning-data/tag-data.dto.js';
 import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
@@ -33,8 +29,7 @@ import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/el
 import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
-  BaseSpfModuleRequest,
-  DetailedSpfModuleRequest,
+  CreateSpfModuleRequest,
   CloneSpfModuleRequest,
 } from './dto/request/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
@@ -55,17 +50,15 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 })
 @ApiExtraModels(
   SpfModuleDto,
-  SpfModuleTuningConfigResponseDto,
-  SpfModuleCalDataResponseDto,
-  UpdateCalDataRequestDto,
+  CalDataDto,
+  UpdateSpfModuleCalDataRequest,
   TagDataDto,
-  UpdateTagDataRequestDto,
+  UpdateSpfModuleTagDataRequest,
   ParameterDetailDto,
   ConfigElementDto,
   ElementTemplateArrayDto,
   StructDto,
-  BaseSpfModuleRequest,
-  DetailedSpfModuleRequest,
+  CreateSpfModuleRequest,
   CloneSpfModuleRequest,
 )
 export class SpfModuleController extends BaseController {
@@ -74,11 +67,33 @@ export class SpfModuleController extends BaseController {
   }
 
   /**
-   * Query SPF modules.
+   * Query SPF modules with optional data inclusion.
    */
   @Post('query')
+  @ApiQuery({
+    name: 'include',
+    required: false,
+    type: String,
+    description:
+      'Comma-separated list of optional data to include (ckvs, tags, properties)',
+    example: 'ckvs,tags',
+  })
   @ApiDocumentationWithExample({
-    summary: 'Query SPF modules for provided systemIds',
+    summary: 'Query SPF modules with optional data inclusion',
+    description:
+      'Query SPF modules for provided systemIds with optional data inclusion.\n\n' +
+      '**Optional Query Parameters:**\n' +
+      '- `include`: Comma-separated list of optional data to include\n' +
+      '  - `ckvs`: Include Calibration Key-Values\n' +
+      '  - `tags`: Include Tags with Tag Key-Values\n' +
+      '  - `properties`: Include module properties\n\n' +
+      '**Examples:**\n' +
+      '```\n' +
+      'POST /spf-modules/query\n' +
+      'POST /spf-modules/query?include=ckvs\n' +
+      'POST /spf-modules/query?include=ckvs,tags\n' +
+      'POST /spf-modules/query?include=ckvs,tags,properties\n' +
+      '```',
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of SPF module system ids',
 
@@ -101,13 +116,21 @@ export class SpfModuleController extends BaseController {
   async querySpfModules(
     @Param('projectId') projectId: string,
     @Body() spfModuleSystemIds: SystemIdsRequestDto,
+    @Query('include') include?: string,
   ): Promise<ApiResult<SpfModuleDto[]>> {
+    const includeOptions =
+      include?.split(',').map(s => s.trim().toLowerCase()) || [];
+
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Getting SPF modules in project:',
       projectId,
       'with system IDs:',
       spfModuleSystemIds,
+      'including:',
+      includeOptions.length > 0
+        ? includeOptions.join(', ')
+        : 'base fields only',
     );
     throw new HttpException(
       'SPF modules retrieval functionality is not implemented yet.',
@@ -120,15 +143,28 @@ export class SpfModuleController extends BaseController {
    */
   @Post()
   @ApiDocumentationWithExample({
-    summary: 'Create a new SPF module for a given module id',
-    requestDto: BaseSpfModuleRequest,
+    summary: 'Create a new SPF module',
+    description:
+      'Creates a new SPF module with the specified module system ID and processor ID.\n\n' +
+      '**Required Parameters:**\n' +
+      '- `moduleSystemId`: Module definition system ID\n' +
+      '- `procId`: Processor ID\n\n' +
+      '**Optional Parameters:**\n' +
+      '- `parentId`: Parent module ID\n' +
+      '- `subgraphId`: Existing subgraph ID (if not provided, creates new subgraph)\n' +
+      '- `containerId`: Existing container ID (if not provided, creates new container)\n' +
+      '- `ckvData`: CKV calibration data array (if not provided, creates zero CKV and defaults)\n' +
+      '- `tagData`: Tag data array with TKVs (if not provided, creates default tag data)\n\n' +
+      '**Auto-Creation Logic:**\n' +
+      'When subgraphId or containerId are not provided, the system automatically creates them with default configurations.',
+    requestDto: CreateSpfModuleRequest,
     requestDtoExample: {
-      className: 'NewSpfModuleRequestExample',
+      className: 'CreateSpfModuleRequestExample',
     },
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'New created SPF module information',
+        description: 'SPF module created successfully',
         dto: SpfModuleDto,
         example: {
           className: 'SpfModuleDTOExample',
@@ -136,17 +172,21 @@ export class SpfModuleController extends BaseController {
       },
       {
         status: HttpStatus.BAD_REQUEST,
-        description: 'Invalid input',
+        description: 'Invalid input parameters',
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Module definition or processor not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to add a new SPF module',
+        description: 'Failed to create SPF module',
       },
     ],
   })
   async addSpfModule(
     @Param('projectId') projectId: string,
-    @Body() request: BaseSpfModuleRequest,
+    @Body() request: CreateSpfModuleRequest,
   ): Promise<ApiResult<SpfModuleDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
@@ -157,109 +197,6 @@ export class SpfModuleController extends BaseController {
     ); // Placeholder usage to satisfy linter
     throw new HttpException(
       'This functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  /**
-   * Get all property data for an SPF module (subgraph, container, subsystem, module).
-   */
-  @Get('/:spfModuleSystemId/properties')
-  @ApiParam({
-    name: 'spfModuleSystemId',
-    required: true,
-    type: String,
-    description: 'System id of an SPF module',
-  })
-  @ApiDocumentationWithExample({
-    summary: 'Get all property data for an SPF module',
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Success',
-        dto: SpfModulePropertiesDto,
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'SPF module is not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get SPF module properties',
-      },
-    ],
-  })
-  async getSpfModuleProperties(
-    @Param('projectId') projectId: string,
-    @Param('spfModuleSystemId') spfModuleSystemId: string,
-  ): Promise<ApiResult<SpfModulePropertiesDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Getting properties in project:',
-      projectId,
-      'for SPF module:',
-      spfModuleSystemId,
-    );
-    throw new HttpException(
-      'SPF module properties retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  /**
-   * Get all tuning configuration (CKVS and TKVS) for an SPF module.
-   */
-  @Get('/:spfModuleSystemId/tuning-config')
-  @ApiParam({
-    name: 'spfModuleSystemId',
-    required: true,
-    type: String,
-    description: 'System id of an SPF module',
-    example: '12345',
-  })
-  @ApiDocumentationWithExample({
-    summary: 'Get all tuning configuration (CKVS and TKVS) for an SPF module',
-    description:
-      'Retrieves the complete tuning configuration for a specific SPF module, including:\n\n' +
-      '**CKVS (Calibration Key-Values):** Module-level calibration configuration parameters\n' +
-      '**Tags with TKVS:** Tag-specific configuration where each tag contains its own Tag Key-Values\n\n' +
-      'The response structure includes:\n' +
-      '- Module CKVs for calibration (each CKV has systemId and key-value pairs)\n' +
-      '- Tags with their TKVs (each tag has systemId, tagId, tagName, and array of TKVs)\n' +
-      '- Each TKV has systemId and key-value pairs\n\n' +
-      'Parameter payloads and UI persistence data are available through separate APIs.',
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Tuning configuration retrieved successfully',
-        dto: SpfModuleTuningConfigResponseDto,
-        example: {
-          className: 'SpfModuleTuningConfigExample',
-        },
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'SPF module not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get tuning configuration',
-      },
-    ],
-  })
-  async getSpfModuleTuningConfig(
-    @Param('projectId') projectId: string,
-    @Param('spfModuleSystemId') spfModuleSystemId: string,
-  ): Promise<ApiResult<SpfModuleTuningConfigResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Getting tuning config for SPF module:',
-      spfModuleSystemId,
-      'in project:',
-      projectId,
-    );
-    throw new HttpException(
-      'SPF module tuning configuration retrieval functionality is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
     );
   }
@@ -315,7 +252,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Calibration data retrieved successfully',
-        dto: SpfModuleCalDataResponseDto,
+        dto: CalDataDto,
       },
       {
         status: HttpStatus.FORBIDDEN,
@@ -336,7 +273,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
-  ): Promise<ApiResult<SpfModuleCalDataResponseDto>> {
+  ): Promise<ApiResult<CalDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Getting calibration data for SPF module:',
@@ -392,12 +329,12 @@ export class SpfModuleController extends BaseController {
       'Returns the updated calibration data in the same format as the GET endpoint.\n\n' +
       '**Batch Updates:**\n' +
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.',
-    requestDto: UpdateCalDataRequestDto,
+    requestDto: UpdateSpfModuleCalDataRequest,
     responses: [
       {
         status: HttpStatus.OK,
         description: 'Calibration data updated successfully',
-        dto: SpfModuleCalDataResponseDto,
+        dto: CalDataDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -421,8 +358,8 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
-    @Body() updateRequest: UpdateCalDataRequestDto,
-  ): Promise<ApiResult<SpfModuleCalDataResponseDto>> {
+    @Body() updateRequest: UpdateSpfModuleCalDataRequest,
+  ): Promise<ApiResult<CalDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Updating calibration data for SPF module:',
@@ -590,7 +527,7 @@ export class SpfModuleController extends BaseController {
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.\n\n' +
       '**Tag-Specific Updates:**\n' +
       'Updates are scoped to the specific tag context identified by tagSystemId and tkvSystemId.',
-    requestDto: UpdateTagDataRequestDto,
+    requestDto: UpdateSpfModuleTagDataRequest,
     responses: [
       {
         status: HttpStatus.OK,
@@ -620,7 +557,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
-    @Body() updateRequest: UpdateTagDataRequestDto,
+    @Body() updateRequest: UpdateSpfModuleTagDataRequest,
   ): Promise<ApiResult<TagDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
