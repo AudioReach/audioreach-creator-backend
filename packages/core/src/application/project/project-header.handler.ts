@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {QueryHandler} from '../../orchestration/cqrs/queries/query-handler.js';
+import type {QueryHandler} from '../orchestration/cqrs/queries/query-handler.js';
 import type {
   ProjectHeaderQuery,
   ProjectHeaderResult,
   HeaderResultCodecInfo,
 } from './project-header.query.js';
-import type {QueryServices} from '../../services/query-services.js';
+import type {QueryServices} from '../ports/persistence/query-services/query-services.js';
 
 /**
  * Handler for ProjectHeaderQuery.

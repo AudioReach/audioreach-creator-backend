@@ -8,7 +8,7 @@ import type {
   ValidateFileQuery,
   ValidateFileResult,
 } from './validate-file.query.js';
-import type {QueryServices} from '../../services/query-services.js';
+import type {QueryServices} from '../../ports/persistence/query-services/query-services.js';
 import {ValidationEngine} from '../validation-engine.js';
 import {ValidationContextBuilder} from '../validation-context-builder.js';
 import {ValidationOrchestrator} from '../validation-orchestrator.js';

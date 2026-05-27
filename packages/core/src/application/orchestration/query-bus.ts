@@ -8,7 +8,7 @@ import {
   type QueryHandlerDependencies,
   QueryHandlerRegistry,
 } from './cqrs/registries/query-handler-registry.js';
-import type {QueryServices} from '../services/query-services.js';
+import type {QueryServices} from '../ports/persistence/query-services/query-services.js';
 import type {FileSystemPort} from './../ports/file-system/file-system.port.js';
 export class QueryBus {
   constructor(
