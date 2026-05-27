@@ -29,12 +29,12 @@ export * from './shared/types/operation-result.js';
 export * from './application/shared/change-vocabulary.js';
 
 // Application services
-export * from './application/services/query-services.js';
-export * from './application/services/module/module-query-service.js';
-export * from './application/services/module/query-models/module-compact.js';
-export * from './application/services/usecase/usecase-query-service.js';
-export * from './application/services/usecase/query-models/index.js';
-export * from './application/services/project/project-query-service.js';
+export * from './application/ports/persistence/query-services/query-services.js';
+export * from './application/ports/persistence/query-services/module/module-query-service.js';
+export * from './application/ports/persistence/query-services/module/query-models/module-compact.js';
+export * from './application/ports/persistence/query-services/usecase/usecase-query-service.js';
+export * from './application/ports/persistence/query-services/usecase/query-models/index.js';
+export * from './application/ports/persistence/query-services/project/project-query-service.js';
 
 // Use case designer
 export * from './application/usecase-designer/index.js';
@@ -57,8 +57,8 @@ export * from './application/file-operations/upload-file/models/parsed-awsp.js';
 export * from './application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
 export * from './application/file-operations/download-file/download-file.query.js';
 export * from './application/file-operations/download-file/download-file.handler.js';
-export * from './application/file-operations/queries/project-header.query.js';
-export * from './application/file-operations/queries/project-header.handler.js';
+export * from './application/project/project-header.query.js';
+export * from './application/project/project-header.handler.js';
 export * from './application/ports/file-system/file-system.port.js';
 export * from './application/file-operations/upload-file/types/chunk-parse.types.js';
 export * from './application/file-operations/upload-file/types/entity-builder.types.js';

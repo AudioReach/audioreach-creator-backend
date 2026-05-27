@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseQuery} from '../../shared/base-query.js';
+import {BaseQuery} from '../shared/base-query.js';
 
 /**
  * Query to retrieve ACDB project header information for a project.

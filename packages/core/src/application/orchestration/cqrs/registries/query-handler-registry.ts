@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {QueryServices} from '../../../services/query-services.js';
+import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {Query} from '../queries/query.js';
 import type {QueryHandler} from '../queries/query-handler.js';
 import {GetModuleCompactHandler} from '../../../usecase-designer/spf-module/get/get-module-compact.handler.js';
@@ -17,8 +17,8 @@ import {ValidateFileQuery} from '../../../validation/queries/validate-file.query
 import {ValidateFileQueryHandler} from '../../../validation/queries/validate-file.handler.js';
 import {DownloadFileQuery} from '../../../file-operations/download-file/download-file.query.js';
 import {DownloadFileHandler} from '../../../file-operations/download-file/download-file.handler.js';
-import {ProjectHeaderQuery} from '../../../file-operations/queries/project-header.query.js';
-import {ProjectHeaderHandler} from '../../../file-operations/queries/project-header.handler.js';
+import {ProjectHeaderQuery} from '../../../project/project-header.query.js';
+import {ProjectHeaderHandler} from '../../../project/project-header.handler.js';
 import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;

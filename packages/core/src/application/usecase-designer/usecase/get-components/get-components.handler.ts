@@ -4,8 +4,8 @@
  */
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
-import type {QueryServices} from '../../../services/query-services.js';
-import type {UseCaseComponentsReadModel} from '../../../services/usecase/query-models/index.js';
+import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
+import type {UseCaseComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/index.js';
 import {GetComponentsQuery} from './get-components.query.js';
 
 /**
