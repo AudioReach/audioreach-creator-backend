@@ -58,7 +58,7 @@ export class DbProjectQueryService implements ProjectQueryService {
     return {acdb: parsed.acdb, awsp: parsed.awsp};
   }
 
-  async getProjectHeader(projectId: number): Promise<{
+  async getFileProperties(projectId: number): Promise<{
     headerVersion: number;
     acdbVersion: {
       major: number;
@@ -73,9 +73,9 @@ export class DbProjectQueryService implements ProjectQueryService {
     // Get fileSystemId from projectId
     const fileSystemId = await this.getFileIdByProjectId(projectId);
 
-    // Use shared DbFileQuery to get header metadata
+    // Use shared DbFileQuery to get file properties metadata
     const fileQuery = new DbFileQuery(this.dataSource);
-    const metadata = await fileQuery.readProjectHeader(fileSystemId);
+    const metadata = await fileQuery.readFileProperties(fileSystemId);
 
     // Transform ProjectHeaderMetadata to expected format
     return {

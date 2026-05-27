@@ -533,7 +533,7 @@
     },
     "/arc-api/v1/projects/{projectId}/download-files": {
       "get": {
-        "description": "Download the ACDB and workspace files based on project Id.",
+        "description": "Downloads both ACDB and workspace files in a single multipart response. The response format mirrors the upload endpoint for API symmetry. See documentation for parsing examples in various languages.",
         "operationId": "ProjectController_downloadArcDbFiles",
         "parameters": [
           {
@@ -548,50 +548,32 @@
         ],
         "responses": {
           "200": {
-            "description": "",
+            "description": "Files downloaded successfully as multipart/form-data. Parse the response using standard HTTP client multipart parsers.",
             "content": {
-              "application/json": {
+              "multipart/form-data": {
                 "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
+                  "type": "object",
+                  "properties": {
+                    "acdbFile": {
+                      "type": "string",
+                      "format": "binary",
+                      "description": "ACDB calibration database file (binary)"
                     },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/DownloadArcDatabaseFilesResponseDto"
-                        }
-                      }
+                    "workspaceFile": {
+                      "type": "string",
+                      "format": "binary",
+                      "description": "Workspace configuration file (binary)"
                     }
-                  ]
+                  }
                 }
               }
             }
           },
           "404": {
-            "description": "Project does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "object",
-                          "nullable": true
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "Project does not exist"
           }
         },
-        "summary": "Download the ACDB and workspace files",
+        "summary": "Download the ACDB and workspace files as multipart/form-data",
         "tags": [
           "Project"
         ]
@@ -5352,61 +5334,6 @@
           }
         }
       },
-      "Uint8Array": {
-        "type": "object",
-        "properties": {}
-      },
-      "FileInfo": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Name of the file"
-          },
-          "fileType": {
-            "type": "string",
-            "description": "MIME type or file extension"
-          },
-          "content": {
-            "description": "Binary content of the file",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Uint8Array"
-              }
-            ]
-          }
-        },
-        "required": [
-          "name",
-          "fileType",
-          "content"
-        ]
-      },
-      "DownloadArcDatabaseFilesResponseDto": {
-        "type": "object",
-        "properties": {
-          "acdbFile": {
-            "description": "Acdb file information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/FileInfo"
-              }
-            ]
-          },
-          "workspaceFile": {
-            "description": "Workspace file information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/FileInfo"
-              }
-            ]
-          }
-        },
-        "required": [
-          "acdbFile",
-          "workspaceFile"
-        ]
-      },
       "ACDBVersionDto": {
         "type": "object",
         "properties": {
@@ -5459,10 +5386,6 @@
       "ProjectHeaderResponseDto": {
         "type": "object",
         "properties": {
-          "headerVersion": {
-            "type": "number",
-            "description": "Header format version"
-          },
           "acdbVersion": {
             "description": "ACDB version information",
             "allOf": [
@@ -5470,10 +5393,6 @@
                 "$ref": "#/components/schemas/ACDBVersionDto"
               }
             ]
-          },
-          "acdbVersionString": {
-            "type": "string",
-            "description": "ACDB version as formatted string (major.minor.revision.cplInfo)"
           },
           "codecInfos": {
             "description": "Array of codec information",
@@ -5483,10 +5402,6 @@
             }
           },
           "modifiedDate": {
-            "type": "number",
-            "description": "File modification date (Unix timestamp)"
-          },
-          "modifiedDateFormatted": {
             "type": "string",
             "description": "File modification date (ISO 8601 format)"
           },
@@ -5496,12 +5411,9 @@
           }
         },
         "required": [
-          "headerVersion",
           "acdbVersion",
-          "acdbVersionString",
           "codecInfos",
           "modifiedDate",
-          "modifiedDateFormatted",
           "oemInfo"
         ]
       },

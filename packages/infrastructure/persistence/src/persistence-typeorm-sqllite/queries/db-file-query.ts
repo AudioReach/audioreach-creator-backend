@@ -32,14 +32,14 @@ export class DbFileQuery {
   constructor(private readonly dataSource: DataSource) {}
 
   /**
-   * Read ACDB project header metadata from the files table.
-   * Returns header information persisted during upload.
+   * Read ACDB project file properties metadata from the files table.
+   * Returns file properties information persisted during upload.
    *
    * @param fileSystemId - The file system ID to query
    * @returns ProjectHeaderMetadata object with version, codecs, OEM info, etc.
    * @throws Error if file not found
    */
-  async readProjectHeader(
+  async readFileProperties(
     fileSystemId: number,
   ): Promise<ProjectHeaderMetadata> {
     const fileRepo = this.dataSource.getRepository('ArcDbFile');

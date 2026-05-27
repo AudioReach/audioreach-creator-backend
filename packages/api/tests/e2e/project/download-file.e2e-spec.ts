@@ -75,7 +75,7 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
 
     // STEP 2: Query original header
     const originalHeaderResponse = await request(httpServer)
-      .get(`/arc-api/v1/projects/${originalProjectId}/header`)
+      .get(`/arc-api/v1/projects/${originalProjectId}/file-properties`)
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(3000000)
       .expect(200);
@@ -86,17 +86,14 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     const originalHeader = originalHeaderResponse.body.data;
 
     // Verify original header structure
-    expect(originalHeader.headerVersion).toBeDefined();
     expect(originalHeader.acdbVersion).toBeDefined();
     expect(originalHeader.acdbVersion.major).toBeDefined();
     expect(originalHeader.acdbVersion.minor).toBeDefined();
     expect(originalHeader.acdbVersion.revision).toBeDefined();
     expect(originalHeader.acdbVersion.cplInfo).toBeDefined();
-    expect(originalHeader.acdbVersionString).toBeDefined();
     expect(originalHeader.codecInfos).toBeDefined();
     expect(Array.isArray(originalHeader.codecInfos)).toBe(true);
     expect(originalHeader.modifiedDate).toBeDefined();
-    expect(originalHeader.modifiedDateFormatted).toBeDefined();
     expect(originalHeader.oemInfo).toBeDefined();
 
     // STEP 3: Download files as multipart
@@ -160,7 +157,7 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
 
     // STEP 5: Query new header
     const newHeaderResponse = await request(httpServer)
-      .get(`/arc-api/v1/projects/${newProjectId}/header`)
+      .get(`/arc-api/v1/projects/${newProjectId}/file-properties`)
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(3000000)
       .expect(200);
@@ -183,9 +180,6 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
       originalHeader.acdbVersion.cplInfo,
     );
 
-    // Compare version string
-    expect(newHeader.acdbVersionString).toBe(originalHeader.acdbVersionString);
-
     // Compare codecInfos array
     expect(newHeader.codecInfos.length).toBe(originalHeader.codecInfos.length);
     for (let i = 0; i < originalHeader.codecInfos.length; i++) {
@@ -202,9 +196,6 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
 
     // Compare modifiedDate and oemInfo
     expect(newHeader.modifiedDate).toBe(originalHeader.modifiedDate);
-    expect(newHeader.modifiedDateFormatted).toBe(
-      originalHeader.modifiedDateFormatted,
-    );
     expect(newHeader.oemInfo).toBe(originalHeader.oemInfo);
 
     console.log('✓ Header consistency verified - all fields match');
