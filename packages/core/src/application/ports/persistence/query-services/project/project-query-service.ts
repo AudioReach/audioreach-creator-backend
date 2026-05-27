@@ -27,12 +27,12 @@ export interface ProjectQueryService {
   ): Promise<{acdb: string; awsp: string}>;
 
   /**
-   * Get ACDB project header information for a project's file.
+   * Get ACDB project file properties for a project's file.
    * @param projectId - The project system ID
-   * @returns Promise resolving to header data
+   * @returns Promise resolving to file properties data
    * @throws Error if project not found or has no associated file
    */
-  getProjectHeader(projectId: number): Promise<{
+  getFileProperties(projectId: number): Promise<{
     headerVersion: number;
     acdbVersion: {
       major: number;

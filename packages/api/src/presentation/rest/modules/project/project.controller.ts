@@ -38,13 +38,13 @@ import {
   QueryBus,
   UploadFileCommand,
   DownloadFileQuery,
-  ProjectHeaderQuery,
+  ProjectFilePropertiesQuery,
 } from '@arc/core';
 import type {
   PathRef,
   Logger,
   DownloadFileResult,
-  ProjectHeaderResult,
+  ProjectFilePropertiesResult,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -68,7 +68,7 @@ import type {Response} from 'express';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
 import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
-import {ProjectHeaderResponseDto} from './dto/project-header.dto.js';
+import {ProjectFilePropertiesResponseDto} from './dto/project-file-properties.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
@@ -707,23 +707,23 @@ export class ProjectController {
     });
   }
 
-  @Get('/:projectId/header')
+  @Get('/:projectId/file-properties')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
-    summary: 'Get ACDB project header information',
+    summary: 'Get ACDB project file properties',
     description:
-      'Retrieves header metadata including ACDB version, codec information, and OEM details',
+      'Retrieves file properties including ACDB version, codec information, and OEM details',
   })
-  @ApiExtraModels(ApiResult, ProjectHeaderResponseDto)
+  @ApiExtraModels(ApiResult, ProjectFilePropertiesResponseDto)
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Project header information retrieved successfully',
+    description: 'Project file properties retrieved successfully',
     schema: {
       allOf: [
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(ProjectHeaderResponseDto)},
+            data: {$ref: getSchemaPath(ProjectFilePropertiesResponseDto)},
           },
         },
       ],
@@ -731,7 +731,7 @@ export class ProjectController {
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
-    description: 'Project or header information not found',
+    description: 'Project or file properties not found',
     schema: {
       allOf: [
         {$ref: getSchemaPath(ApiResult)},
@@ -746,20 +746,20 @@ export class ProjectController {
       ],
     },
   })
-  async getProjectHeader(
+  async getFileProperties(
     @Param('projectId') projectId: string,
-  ): Promise<ApiResult<ProjectHeaderResponseDto>> {
+  ): Promise<ApiResult<ProjectFilePropertiesResponseDto>> {
     const clientId = '';
     // TODO: gather from jwt
 
-    const result = await this.queryBus.execute<ProjectHeaderResult>(
-      new ProjectHeaderQuery(projectId, clientId),
+    const result = await this.queryBus.execute<ProjectFilePropertiesResult>(
+      new ProjectFilePropertiesQuery(projectId, clientId),
     );
 
     return {
       data: result,
       success: true,
-      message: 'Project header information retrieved successfully',
+      message: 'Project file properties retrieved successfully',
     };
   }
 

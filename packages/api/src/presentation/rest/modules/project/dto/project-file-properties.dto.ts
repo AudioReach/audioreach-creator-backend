@@ -51,25 +51,14 @@ export class CodecInfoDto {
 }
 
 /**
- * Complete project header information response.
+ * Complete project file properties response.
  */
-export class ProjectHeaderResponseDto {
-  @ApiProperty({
-    description: 'Header format version',
-  })
-  headerVersion!: number;
-
+export class ProjectFilePropertiesResponseDto {
   @ApiProperty({
     type: ACDBVersionDto,
     description: 'ACDB version information',
   })
   acdbVersion!: ACDBVersionDto;
-
-  @ApiProperty({
-    description:
-      'ACDB version as formatted string (major.minor.revision.cplInfo)',
-  })
-  acdbVersionString!: string;
 
   @ApiProperty({
     type: [CodecInfoDto],
@@ -78,14 +67,9 @@ export class ProjectHeaderResponseDto {
   codecInfos!: CodecInfoDto[];
 
   @ApiProperty({
-    description: 'File modification date (Unix timestamp)',
-  })
-  modifiedDate!: number;
-
-  @ApiProperty({
     description: 'File modification date (ISO 8601 format)',
   })
-  modifiedDateFormatted!: string;
+  modifiedDate!: string;
 
   @ApiProperty({
     description: 'OEM information string',
