@@ -42,7 +42,10 @@ export class DataLinkInserter {
       destinationNodeSystemId: item.destinationNodeSystemId,
       sourcePortSystemId: item.sourcePortSystemId,
       destinationPortSystemId: item.destinationPortSystemId,
-      isInterGraph: item.isInterGraph,
+      linkType: item.linkType,
+      sourceSubgraphSystemId: item.sourceSubgraphSystemId,
+      destSubgraphSystemId: item.destSubgraphSystemId,
+      isEc: item.isEc ?? null,
       fileSystemId: item.fileSystemId,
     }));
 

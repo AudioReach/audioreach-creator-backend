@@ -147,20 +147,23 @@ function buildContext(
   const subgraphsBySystemId = new Map(subgraphs.map(s => [s.systemId, s]));
   const definitionsMap = new Map(definitions.map(d => [d.systemId, d]));
 
-  const usecasesByModuleId = new Map<number, UseCase[]>();
-  for (const uc of usecases) {
-    for (const moduleId of uc.moduleSystemIds) {
-      const list = usecasesByModuleId.get(moduleId) ?? [];
-      list.push(uc);
-      usecasesByModuleId.set(moduleId, list);
-    }
-  }
-
   const modulesBySubgraphId = new Map<number, SpfModule[]>();
   for (const mod of modules) {
     const list = modulesBySubgraphId.get(mod.subgraphSystemId) ?? [];
     list.push(mod);
     modulesBySubgraphId.set(mod.subgraphSystemId, list);
+  }
+
+  const usecasesByModuleId = new Map<number, UseCase[]>();
+  for (const uc of usecases) {
+    for (const sgId of uc.subgraphSystemIds) {
+      const sgModules = modulesBySubgraphId.get(sgId) ?? [];
+      for (const mod of sgModules) {
+        const list = usecasesByModuleId.get(mod.systemId) ?? [];
+        list.push(uc);
+        usecasesByModuleId.set(mod.systemId, list);
+      }
+    }
   }
 
   return {

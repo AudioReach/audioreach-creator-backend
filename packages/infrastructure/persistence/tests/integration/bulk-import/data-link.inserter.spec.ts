@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {DataLink} from '@arc/core';
+import {DataLink, LINK_TYPE} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -16,6 +16,7 @@ import {DataLinkInserter} from '../../../src/persistence-typeorm-sqllite/reposit
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FILE_ID = 100;
+const SUBGRAPH_ID = 400;
 const NODE_A_ID = 200;
 const NODE_B_ID = 201;
 const SRC_PORT_ID = 300;
@@ -40,6 +41,15 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     metadata: '{}',
     isTarget: 0,
     lastReservedId: 0,
+    version: 1,
+  });
+
+  await manager.insert('Subgraph', {
+    systemId: SUBGRAPH_ID,
+    subgraphId: 1,
+    name: 'test-subgraph',
+    isExported: 0,
+    fileSystemId: FILE_ID,
     version: 1,
   });
 
@@ -87,7 +97,9 @@ function buildDataLink(
     NODE_B_ID,
     srcPortSystemId,
     dstPortSystemId,
-    false,
+    LINK_TYPE.IntraSubgraph,
+    SUBGRAPH_ID,
+    SUBGRAPH_ID,
     FILE_ID,
   );
 }
@@ -134,11 +146,10 @@ describe('DataLinkInserter', () => {
     expect(rows[0].source_port_system_id).toBe(SRC_PORT_ID);
     expect(rows[0].destination_port_system_id).toBe(DST_PORT_ID);
     expect(rows[0].file_system_id).toBe(FILE_ID);
-    expect(rows[0].is_inter_graph).toBe(0);
+    expect(rows[0].link_type).toBe('INTRA_SUBGRAPH');
   });
 
   it('inserts multiple data links', async () => {
-    // Need extra nodes and ports for a second link
     await manager.insert('Node', {
       systemId: 202,
       type: 'module',
@@ -174,23 +185,35 @@ describe('DataLinkInserter', () => {
       NODE_B_ID,
       SRC_PORT_ID,
       DST_PORT_ID,
-      false,
+      LINK_TYPE.IntraSubgraph,
+      SUBGRAPH_ID,
+      SUBGRAPH_ID,
       FILE_ID,
     );
-    const link2 = new DataLink(1002, 202, 203, 302, 303, true, FILE_ID);
+    const link2 = new DataLink(
+      1002,
+      202,
+      203,
+      302,
+      303,
+      LINK_TYPE.InterUsecase,
+      SUBGRAPH_ID,
+      SUBGRAPH_ID,
+      FILE_ID,
+    );
 
     const result = await inserter.insert([link1, link2]);
 
     expect(result.ok).toBe(true);
 
     const rows = await dataSource.query(
-      `SELECT system_id, is_inter_graph FROM data_links ORDER BY system_id`,
+      `SELECT system_id, link_type FROM data_links ORDER BY system_id`,
     );
     expect(rows).toHaveLength(2);
     expect(rows[0].system_id).toBe(1001);
-    expect(rows[0].is_inter_graph).toBe(0);
+    expect(rows[0].link_type).toBe('INTRA_SUBGRAPH');
     expect(rows[1].system_id).toBe(1002);
-    expect(rows[1].is_inter_graph).toBe(1);
+    expect(rows[1].link_type).toBe('INTER_USECASE');
   });
 
   it('reports failure when source port FK does not exist', async () => {
@@ -238,7 +261,17 @@ describe('DataLinkInserter', () => {
       version: 1,
     });
 
-    const good = new DataLink(1004, 204, 205, 304, 305, false, FILE_ID);
+    const good = new DataLink(
+      1004,
+      204,
+      205,
+      304,
+      305,
+      LINK_TYPE.IntraSubgraph,
+      SUBGRAPH_ID,
+      SUBGRAPH_ID,
+      FILE_ID,
+    );
     const bad = buildDataLink(1005, 9999, DST_PORT_ID);
 
     const result = await inserter.insert([good, bad]);

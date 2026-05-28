@@ -3,40 +3,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-/**
- * Exception thrown when attempting to add a duplicate module systemId to a UseCase.
- */
-export class DuplicateModuleSystemIdException extends Error {
-  constructor(systemId: number) {
-    super(`Module systemId ${systemId} already exists in this UseCase`);
-  }
-}
+import {assertNonNull, invariant} from '../../../../shared/assertions/index.js';
 
-/**
- * Exception thrown when attempting to add a duplicate data link systemId to a UseCase.
- */
-export class DuplicateDataLinkSystemIdException extends Error {
-  constructor(systemId: number) {
-    super(`Data link systemId ${systemId} already exists in this UseCase`);
-  }
-}
-
-/**
- * Exception thrown when attempting to add a duplicate control link systemId to a UseCase.
- */
-export class DuplicateControlLinkSystemIdException extends Error {
-  constructor(systemId: number) {
-    super(`Control link systemId ${systemId} already exists in this UseCase`);
-  }
-}
-
-/**
- * Input for key vector definition.
- * Represents the key-value configuration for a use case.
- */
 export interface KeyVectorInput {
-  /** Array of value definition systemIds that make up this key vector */
   valueSystemIds: number[];
+}
+
+export interface SubgraphPair {
+  sourceSubgraphSystemId: number;
+  destSubgraphSystemId: number;
 }
 
 export interface UseCaseInit {
@@ -46,19 +21,23 @@ export interface UseCaseInit {
   alias?: string;
   aliasId?: number;
   categories?: string[];
+  subgraphSystemIds: number[];
+  subgraphPairs: SubgraphPair[];
 }
 
 export class UseCase {
   readonly systemId: number;
   readonly fileSystemId: number;
-  readonly moduleSystemIds: number[] = [];
-  readonly dataLinkSystemIds: number[] = [];
-  readonly controlLinkSystemIds: number[] = [];
+  readonly subgraphSystemIds: number[] = [];
+  readonly subgraphPairs: SubgraphPair[] = [];
   readonly keyVector: KeyVectorInput;
 
   alias?: string;
   aliasId?: number;
   categories?: string[];
+
+  private readonly subgraphIdSet = new Set<number>();
+  private readonly subgraphPairKeys = new Set<string>();
 
   constructor(initParams: UseCaseInit) {
     this.systemId = initParams.systemId;
@@ -67,158 +46,48 @@ export class UseCase {
     this.alias = initParams.alias;
     this.aliasId = initParams.aliasId;
     this.categories = initParams.categories;
-  }
-
-  /**
-   * Adds a module systemId to the UseCase.
-   * Throws DuplicateModuleSystemIdException if the systemId already exists.
-   *
-   * @param systemId - The module systemId to add
-   * @throws {DuplicateModuleSystemIdException} When systemId already exists
-   *
-   * @example
-   * ```typescript
-   * const useCase = new UseCase(initParams);
-   * useCase.addModuleSystemId(123); // Success
-   * useCase.addModuleSystemId(123); // Throws DuplicateModuleSystemIdException
-   * ```
-   */
-  addModuleSystemId(systemId: number): void {
-    if (this.moduleSystemIds.includes(systemId)) {
-      throw new DuplicateModuleSystemIdException(systemId);
+    for (const id of initParams.subgraphSystemIds) {
+      this.AddSubgraph(id);
     }
-    this.moduleSystemIds.push(systemId);
-  }
-
-  /**
-   * Adds multiple module systemIds to the UseCase.
-   * Throws DuplicateModuleSystemIdException if any systemId already exists.
-   *
-   * @param systemIds - Array of module systemIds to add
-   * @throws {DuplicateModuleSystemIdException} When any systemId already exists
-   *
-   * @example
-   * ```typescript
-   * const useCase = new UseCase(initParams);
-   * useCase.addModuleSystemIds([123, 456, 789]); // Success
-   * useCase.addModuleSystemIds([999, 123]); // Throws DuplicateModuleSystemIdException for 123
-   * ```
-   */
-  addModuleSystemIds(systemIds: number[]): void {
-    for (const systemId of systemIds) {
-      this.addModuleSystemId(systemId);
+    for (const pair of initParams.subgraphPairs) {
+      this.AddSubgraphPair(
+        pair.sourceSubgraphSystemId,
+        pair.destSubgraphSystemId,
+      );
     }
   }
 
-  /**
-   * Adds a data link systemId to the UseCase.
-   * Throws DuplicateDataLinkSystemIdException if the systemId already exists.
-   *
-   * @param systemId - The data link systemId to add
-   * @throws {DuplicateDataLinkSystemIdException} When systemId already exists
-   *
-   * @example
-   * ```typescript
-   * const useCase = new UseCase(initParams);
-   * useCase.addDataLinkSystemId(456); // Success
-   * useCase.addDataLinkSystemId(456); // Throws DuplicateDataLinkSystemIdException
-   * ```
-   */
-  addDataLinkSystemId(systemId: number): void {
-    if (this.dataLinkSystemIds.includes(systemId)) {
-      throw new DuplicateDataLinkSystemIdException(systemId);
-    }
-    this.dataLinkSystemIds.push(systemId);
+  private AddSubgraph(subgraphSystemId: number): void {
+    assertNonNull(
+      subgraphSystemId,
+      `subgraphSystemId is null in UseCase ${this.systemId}`,
+    );
+    invariant(
+      !this.subgraphIdSet.has(subgraphSystemId),
+      `Subgraph ${subgraphSystemId} already exists in UseCase ${this.systemId}`,
+    );
+    this.subgraphIdSet.add(subgraphSystemId);
+    this.subgraphSystemIds.push(subgraphSystemId);
   }
 
-  /**
-   * Adds multiple data link systemIds to the UseCase.
-   * Throws DuplicateDataLinkSystemIdException if any systemId already exists.
-   *
-   * @param systemIds - Array of data link systemIds to add
-   * @throws {DuplicateDataLinkSystemIdException} When any systemId already exists
-   *
-   * @example
-   * ```typescript
-   * const useCase = new UseCase(initParams);
-   * useCase.addDataLinkSystemIds([456, 789, 101]); // Success
-   * useCase.addDataLinkSystemIds([999, 456]); // Throws DuplicateDataLinkSystemIdException for 456
-   * ```
-   */
-  addDataLinkSystemIds(systemIds: number[]): void {
-    for (const systemId of systemIds) {
-      this.addDataLinkSystemId(systemId);
-    }
-  }
-
-  /**
-   * Adds a control link systemId to the UseCase.
-   * Throws DuplicateControlLinkSystemIdException if the systemId already exists.
-   *
-   * @param systemId - The control link systemId to add
-   * @throws {DuplicateControlLinkSystemIdException} When systemId already exists
-   *
-   * @example
-   * ```typescript
-   * const useCase = new UseCase(initParams);
-   * useCase.addControlLinkSystemId(789); // Success
-   * useCase.addControlLinkSystemId(789); // Throws DuplicateControlLinkSystemIdException
-   * ```
-   */
-  addControlLinkSystemId(systemId: number): void {
-    if (this.controlLinkSystemIds.includes(systemId)) {
-      throw new DuplicateControlLinkSystemIdException(systemId);
-    }
-    this.controlLinkSystemIds.push(systemId);
-  }
-
-  /**
-   * Adds multiple control link systemIds to the UseCase.
-   * Throws DuplicateControlLinkSystemIdException if any systemId already exists.
-   *
-   * @param systemIds - Array of control link systemIds to add
-   * @throws {DuplicateControlLinkSystemIdException} When any systemId already exists
-   *
-   * @example
-   * ```typescript
-   * const useCase = new UseCase(initParams);
-   * useCase.addControlLinkSystemIds([789, 101, 202]); // Success
-   * useCase.addControlLinkSystemIds([999, 789]); // Throws DuplicateControlLinkSystemIdException for 789
-   * ```
-   */
-  addControlLinkSystemIds(systemIds: number[]): void {
-    for (const systemId of systemIds) {
-      this.addControlLinkSystemId(systemId);
-    }
-  }
-
-  /**
-   * Checks if a module systemId exists in the UseCase.
-   *
-   * @param systemId - The module systemId to check
-   * @returns True if the systemId exists, false otherwise
-   */
-  hasModuleSystemId(systemId: number): boolean {
-    return this.moduleSystemIds.includes(systemId);
-  }
-
-  /**
-   * Checks if a data link systemId exists in the UseCase.
-   *
-   * @param systemId - The data link systemId to check
-   * @returns True if the systemId exists, false otherwise
-   */
-  hasDataLinkSystemId(systemId: number): boolean {
-    return this.dataLinkSystemIds.includes(systemId);
-  }
-
-  /**
-   * Checks if a control link systemId exists in the UseCase.
-   *
-   * @param systemId - The control link systemId to check
-   * @returns True if the systemId exists, false otherwise
-   */
-  hasControlLinkSystemId(systemId: number): boolean {
-    return this.controlLinkSystemIds.includes(systemId);
+  private AddSubgraphPair(
+    sourceSubgraphSystemId: number,
+    destSubgraphSystemId: number,
+  ): void {
+    assertNonNull(
+      sourceSubgraphSystemId,
+      `sourceSubgraphSystemId is null in UseCase ${this.systemId}`,
+    );
+    assertNonNull(
+      destSubgraphSystemId,
+      `destSubgraphSystemId is null in UseCase ${this.systemId}`,
+    );
+    const key = `${sourceSubgraphSystemId}:${destSubgraphSystemId}`;
+    invariant(
+      !this.subgraphPairKeys.has(key),
+      `Subgraph pair (${sourceSubgraphSystemId}, ${destSubgraphSystemId}) already exists in UseCase ${this.systemId}`,
+    );
+    this.subgraphPairKeys.add(key);
+    this.subgraphPairs.push({sourceSubgraphSystemId, destSubgraphSystemId});
   }
 }

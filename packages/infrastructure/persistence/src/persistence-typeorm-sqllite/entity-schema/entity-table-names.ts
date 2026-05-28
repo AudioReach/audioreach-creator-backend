@@ -76,6 +76,8 @@ export const ENTITY_NAMES = {
   UseCase: 'UseCase',
   UseCaseCategory: 'UseCaseCategory',
   UsecaseGkvValues: 'UsecaseGkvValues',
+  UseCaseSubgraph: 'UseCaseSubgraph',
+  UseCaseSubgraphPair: 'UseCaseSubgraphPair',
 
   // ── Driver module data ────────────────────────────────────────────────────
   DriverModule: 'DriverModule',

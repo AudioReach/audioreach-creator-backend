@@ -38,7 +38,7 @@ import {SubgraphPropertyDefinitionInserter} from './subgraph-property-definition
 import {ContainerPropertyDefinitionInserter} from './container-property-definition/container-property-definition.inserter.js';
 import {DataLinkInserter} from './data-link/data-link.inserter.js';
 import {ControlLinkInserter} from './control-link/control-link.inserter.js';
-import {UsecaseInserter} from './usecase/usecase.inserter.js';
+import {UseCaseInserter} from './use-case/use-case.inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
@@ -82,7 +82,7 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   }
 
   insertUseCases(items: readonly UseCase[]): Promise<BulkInsertResult> {
-    return new UsecaseInserter(this.manager).insert([...items]);
+    return new UseCaseInserter(this.manager).insert([...items]);
   }
 
   insertSpfModuleDefinitions(

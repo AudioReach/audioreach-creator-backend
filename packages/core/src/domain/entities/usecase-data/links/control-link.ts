@@ -4,6 +4,7 @@
  */
 
 import {SameNodeException} from './exceptions.js';
+import type {LinkType} from './link-type.js';
 
 export class ControlLink {
   public systemId: number;
@@ -13,7 +14,9 @@ export class ControlLink {
   public nodeAPortSystemId: number;
   public nodeBPortSystemId: number;
   public heapId: number;
-  public isInterGraph: boolean;
+  public linkType: LinkType;
+  public sourceSubgraphSystemId: number;
+  public destSubgraphSystemId: number;
 
   constructor(
     systemId: number,
@@ -23,7 +26,9 @@ export class ControlLink {
     nodeAPortSystemId: number,
     nodeBPortSystemId: number,
     heapId: number,
-    isInterGraph: boolean,
+    linkType: LinkType,
+    sourceSubgraphSystemId: number,
+    destSubgraphSystemId: number,
   ) {
     this.systemId = systemId;
     this.fileSystemId = fileSystemId;
@@ -32,7 +37,9 @@ export class ControlLink {
     this.nodeAPortSystemId = nodeAPortSystemId;
     this.nodeBPortSystemId = nodeBPortSystemId;
     this.heapId = heapId;
-    this.isInterGraph = isInterGraph;
+    this.linkType = linkType;
+    this.sourceSubgraphSystemId = sourceSubgraphSystemId;
+    this.destSubgraphSystemId = destSubgraphSystemId;
     if (this.peerNodeASystemId == this.peerNodeBSystemId) {
       throw new SameNodeException(peerNodeASystemId);
     }

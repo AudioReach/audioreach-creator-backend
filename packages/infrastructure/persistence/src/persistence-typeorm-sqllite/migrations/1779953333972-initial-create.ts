@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1779295362243 implements MigrationInterface {
-  name = 'InitialCreate1779295362243';
+export class InitialCreate1779953333972 implements MigrationInterface {
+  name = 'InitialCreate1779953333972';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -172,16 +172,28 @@ export class InitialCreate1779295362243 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uq_containers_container_id_file_system_id" ON "containers" ("container_id", "file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL)`,
+      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "data_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "is_inter_graph" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE INDEX "idx_control_links_src_sg_scope" ON "control_links" ("source_subgraph_system_id", "link_type") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_control_links_dst_sg" ON "control_links" ("dest_subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "data_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, "is_ec" integer, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_data_link_ports" ON "data_links" ("source_port_system_id", "destination_port_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_data_links_src_sg_scope" ON "data_links" ("source_subgraph_system_id", "link_type") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_data_links_dst_sg" ON "data_links" ("dest_subgraph_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "ckv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "ui_persistence" blob)`,
@@ -304,6 +316,18 @@ export class InitialCreate1779295362243 implements MigrationInterface {
       `CREATE TABLE "usecase_gkv_values" ("usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
+      `CREATE TABLE "use_case_subgraphs" ("usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "subgraph_system_id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_use_case_subgraphs_subgraph" ON "use_case_subgraphs" ("subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "use_case_subgraph_pairs" ("usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
+    );
+    await queryRunner.query(
       `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
     );
     await queryRunner.query(
@@ -364,31 +388,10 @@ export class InitialCreate1779295362243 implements MigrationInterface {
       `CREATE INDEX "IDX_06f2962641e6632eb9a7ac63da" ON "use_case_categories" ("category_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_case_nodes" ("use_case_system_id" integer NOT NULL, "node_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "node_system_id"))`,
+      `CREATE INDEX "IDX_65e66135d222dfa6dc5fe528e6" ON "use_case_subgraphs" ("usecase_system_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_2792b1dd53b37dcdfaa9c299f4" ON "use_case_nodes" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b74332a6384cb6c02c4c5d4603" ON "use_case_nodes" ("node_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "use_case_data_links" ("use_case_system_id" integer NOT NULL, "data_link_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "data_link_system_id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_0edb3f03f9d44b4df238afb76e" ON "use_case_data_links" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_a946d97ac3e454e74aca69dd10" ON "use_case_data_links" ("data_link_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "use_case_control_links" ("use_case_system_id" integer NOT NULL, "control_link_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "control_link_system_id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b9d2885195c73a8cafa57bb635" ON "use_case_control_links" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_9e857a3d76f08c2575e272af5f" ON "use_case_control_links" ("control_link_system_id") `,
+      `CREATE INDEX "IDX_943c72ed8170978a8c8402bdc1" ON "use_case_subgraphs" ("subgraph_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_arc_keys" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "key_id" integer NOT NULL, "name" text NOT NULL, "key_enum_name" text, "key_enum_value" text, "description" text, "is_voice" boolean, "is_dynamic" boolean, "is_calibration_key" boolean, "is_graph_key" boolean, "speciality_key_value" text, "calibration_enum_value" text, "graph_enum_value" text, CONSTRAINT "FK_d236cb5f4166104e54da9a1d885" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -723,11 +726,13 @@ export class InitialCreate1779295362243 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uq_containers_container_id_file_system_id" ON "containers" ("container_id", "file_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uk_control_link_unique"`);
+    await queryRunner.query(`DROP INDEX "idx_control_links_src_sg_scope"`);
+    await queryRunner.query(`DROP INDEX "idx_control_links_dst_sg"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL, CONSTRAINT "FK_6990d878f1170b958d2b5b84abc" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bc6af2a635beb595adbc823353f" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c4d63ebdc45c6656eae61597da" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_23e7e524f43b619b95126e0beae" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_6990d878f1170b958d2b5b84abc" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bc6af2a635beb595adbc823353f" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c4d63ebdc45c6656eae61597da" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_23e7e524f43b619b95126e0beae" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_94b068792b7eebd8af177381b5a" FOREIGN KEY ("source_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_44d7c0e83b3d27b4c6702361141" FOREIGN KEY ("dest_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_905a5bdeac2241c40d8f9317333" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "control_links"`,
+      `INSERT INTO "temporary_control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "control_links"`,
     );
     await queryRunner.query(`DROP TABLE "control_links"`);
     await queryRunner.query(
@@ -736,12 +741,20 @@ export class InitialCreate1779295362243 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "uk_data_link_ports"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_data_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "is_inter_graph" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_0689ab223db533fec111096d269" FOREIGN KEY ("source_node_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_b413f58bc20c73d373e13cc890c" FOREIGN KEY ("destination_node_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_6181688ff8eab9191e146c4c713" FOREIGN KEY ("source_port_system_id") REFERENCES "data_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_77d577c47cf5c909e2574b08daf" FOREIGN KEY ("destination_port_system_id") REFERENCES "data_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_628cc7d2bad0784170587371c68" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE INDEX "idx_control_links_src_sg_scope" ON "control_links" ("source_subgraph_system_id", "link_type") `,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_data_links"("system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "is_inter_graph", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "is_inter_graph", "file_system_id" FROM "data_links"`,
+      `CREATE INDEX "idx_control_links_dst_sg" ON "control_links" ("dest_subgraph_system_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "uk_data_link_ports"`);
+    await queryRunner.query(`DROP INDEX "idx_data_links_src_sg_scope"`);
+    await queryRunner.query(`DROP INDEX "idx_data_links_dst_sg"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_data_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, "is_ec" integer, "file_system_id" integer NOT NULL, CONSTRAINT "FK_0689ab223db533fec111096d269" FOREIGN KEY ("source_node_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_b413f58bc20c73d373e13cc890c" FOREIGN KEY ("destination_node_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_6181688ff8eab9191e146c4c713" FOREIGN KEY ("source_port_system_id") REFERENCES "data_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_77d577c47cf5c909e2574b08daf" FOREIGN KEY ("destination_port_system_id") REFERENCES "data_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_85d0be5e966e332a322cc1bdee0" FOREIGN KEY ("source_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c9cd91ed8e7db389e00481cacf" FOREIGN KEY ("dest_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_628cc7d2bad0784170587371c68" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_data_links"("system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id", "is_ec", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id", "is_ec", "file_system_id" FROM "data_links"`,
     );
     await queryRunner.query(`DROP TABLE "data_links"`);
     await queryRunner.query(
@@ -749,6 +762,12 @@ export class InitialCreate1779295362243 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_data_link_ports" ON "data_links" ("source_port_system_id", "destination_port_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_data_links_src_sg_scope" ON "data_links" ("source_subgraph_system_id", "link_type") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_data_links_dst_sg" ON "data_links" ("dest_subgraph_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_ckv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "ui_persistence" blob, CONSTRAINT "FK_54454123d07e1f81369d5e16604" FOREIGN KEY ("spf_module_system_id") REFERENCES "spf_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -1042,6 +1061,42 @@ export class InitialCreate1779295362243 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "temporary_usecase_gkv_values" RENAME TO "usecase_gkv_values"`,
     );
+    await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
+    await queryRunner.query(`DROP INDEX "IDX_65e66135d222dfa6dc5fe528e6"`);
+    await queryRunner.query(`DROP INDEX "IDX_943c72ed8170978a8c8402bdc1"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_use_case_subgraphs" ("usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_65e66135d222dfa6dc5fe528e6f" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_943c72ed8170978a8c8402bdc10" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("usecase_system_id", "subgraph_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_use_case_subgraphs"("usecase_system_id", "subgraph_system_id") SELECT "usecase_system_id", "subgraph_system_id" FROM "use_case_subgraphs"`,
+    );
+    await queryRunner.query(`DROP TABLE "use_case_subgraphs"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_use_case_subgraphs" RENAME TO "use_case_subgraphs"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_use_case_subgraphs_subgraph" ON "use_case_subgraphs" ("subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_65e66135d222dfa6dc5fe528e6" ON "use_case_subgraphs" ("usecase_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_943c72ed8170978a8c8402bdc1" ON "use_case_subgraphs" ("subgraph_system_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_use_case_subgraph_pairs" ("usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_aaead9a615196a87f12481a7d34" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_6d87d19e3e67fcbb513f97e54ab" FOREIGN KEY ("source_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_e46025dba07dfa20cd556172205" FOREIGN KEY ("dest_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_use_case_subgraph_pairs"("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "use_case_subgraph_pairs"`,
+    );
+    await queryRunner.query(`DROP TABLE "use_case_subgraph_pairs"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_use_case_subgraph_pairs" RENAME TO "use_case_subgraph_pairs"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
+    );
     await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_entity_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
@@ -1132,117 +1187,9 @@ export class InitialCreate1779295362243 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "IDX_06f2962641e6632eb9a7ac63da" ON "use_case_categories" ("category_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "IDX_2792b1dd53b37dcdfaa9c299f4"`);
-    await queryRunner.query(`DROP INDEX "IDX_b74332a6384cb6c02c4c5d4603"`);
-    await queryRunner.query(
-      `CREATE TABLE "temporary_use_case_nodes" ("use_case_system_id" integer NOT NULL, "node_system_id" integer NOT NULL, CONSTRAINT "FK_2792b1dd53b37dcdfaa9c299f45" FOREIGN KEY ("use_case_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "FK_b74332a6384cb6c02c4c5d46036" FOREIGN KEY ("node_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, PRIMARY KEY ("use_case_system_id", "node_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "temporary_use_case_nodes"("use_case_system_id", "node_system_id") SELECT "use_case_system_id", "node_system_id" FROM "use_case_nodes"`,
-    );
-    await queryRunner.query(`DROP TABLE "use_case_nodes"`);
-    await queryRunner.query(
-      `ALTER TABLE "temporary_use_case_nodes" RENAME TO "use_case_nodes"`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_2792b1dd53b37dcdfaa9c299f4" ON "use_case_nodes" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b74332a6384cb6c02c4c5d4603" ON "use_case_nodes" ("node_system_id") `,
-    );
-    await queryRunner.query(`DROP INDEX "IDX_0edb3f03f9d44b4df238afb76e"`);
-    await queryRunner.query(`DROP INDEX "IDX_a946d97ac3e454e74aca69dd10"`);
-    await queryRunner.query(
-      `CREATE TABLE "temporary_use_case_data_links" ("use_case_system_id" integer NOT NULL, "data_link_system_id" integer NOT NULL, CONSTRAINT "FK_0edb3f03f9d44b4df238afb76e9" FOREIGN KEY ("use_case_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "FK_a946d97ac3e454e74aca69dd102" FOREIGN KEY ("data_link_system_id") REFERENCES "data_links" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, PRIMARY KEY ("use_case_system_id", "data_link_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "temporary_use_case_data_links"("use_case_system_id", "data_link_system_id") SELECT "use_case_system_id", "data_link_system_id" FROM "use_case_data_links"`,
-    );
-    await queryRunner.query(`DROP TABLE "use_case_data_links"`);
-    await queryRunner.query(
-      `ALTER TABLE "temporary_use_case_data_links" RENAME TO "use_case_data_links"`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_0edb3f03f9d44b4df238afb76e" ON "use_case_data_links" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_a946d97ac3e454e74aca69dd10" ON "use_case_data_links" ("data_link_system_id") `,
-    );
-    await queryRunner.query(`DROP INDEX "IDX_b9d2885195c73a8cafa57bb635"`);
-    await queryRunner.query(`DROP INDEX "IDX_9e857a3d76f08c2575e272af5f"`);
-    await queryRunner.query(
-      `CREATE TABLE "temporary_use_case_control_links" ("use_case_system_id" integer NOT NULL, "control_link_system_id" integer NOT NULL, CONSTRAINT "FK_b9d2885195c73a8cafa57bb635c" FOREIGN KEY ("use_case_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "FK_9e857a3d76f08c2575e272af5f4" FOREIGN KEY ("control_link_system_id") REFERENCES "control_links" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, PRIMARY KEY ("use_case_system_id", "control_link_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "temporary_use_case_control_links"("use_case_system_id", "control_link_system_id") SELECT "use_case_system_id", "control_link_system_id" FROM "use_case_control_links"`,
-    );
-    await queryRunner.query(`DROP TABLE "use_case_control_links"`);
-    await queryRunner.query(
-      `ALTER TABLE "temporary_use_case_control_links" RENAME TO "use_case_control_links"`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b9d2885195c73a8cafa57bb635" ON "use_case_control_links" ("use_case_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_9e857a3d76f08c2575e272af5f" ON "use_case_control_links" ("control_link_system_id") `,
-    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "IDX_9e857a3d76f08c2575e272af5f"`);
-    await queryRunner.query(`DROP INDEX "IDX_b9d2885195c73a8cafa57bb635"`);
-    await queryRunner.query(
-      `ALTER TABLE "use_case_control_links" RENAME TO "temporary_use_case_control_links"`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "use_case_control_links" ("use_case_system_id" integer NOT NULL, "control_link_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "control_link_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "use_case_control_links"("use_case_system_id", "control_link_system_id") SELECT "use_case_system_id", "control_link_system_id" FROM "temporary_use_case_control_links"`,
-    );
-    await queryRunner.query(`DROP TABLE "temporary_use_case_control_links"`);
-    await queryRunner.query(
-      `CREATE INDEX "IDX_9e857a3d76f08c2575e272af5f" ON "use_case_control_links" ("control_link_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b9d2885195c73a8cafa57bb635" ON "use_case_control_links" ("use_case_system_id") `,
-    );
-    await queryRunner.query(`DROP INDEX "IDX_a946d97ac3e454e74aca69dd10"`);
-    await queryRunner.query(`DROP INDEX "IDX_0edb3f03f9d44b4df238afb76e"`);
-    await queryRunner.query(
-      `ALTER TABLE "use_case_data_links" RENAME TO "temporary_use_case_data_links"`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "use_case_data_links" ("use_case_system_id" integer NOT NULL, "data_link_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "data_link_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "use_case_data_links"("use_case_system_id", "data_link_system_id") SELECT "use_case_system_id", "data_link_system_id" FROM "temporary_use_case_data_links"`,
-    );
-    await queryRunner.query(`DROP TABLE "temporary_use_case_data_links"`);
-    await queryRunner.query(
-      `CREATE INDEX "IDX_a946d97ac3e454e74aca69dd10" ON "use_case_data_links" ("data_link_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_0edb3f03f9d44b4df238afb76e" ON "use_case_data_links" ("use_case_system_id") `,
-    );
-    await queryRunner.query(`DROP INDEX "IDX_b74332a6384cb6c02c4c5d4603"`);
-    await queryRunner.query(`DROP INDEX "IDX_2792b1dd53b37dcdfaa9c299f4"`);
-    await queryRunner.query(
-      `ALTER TABLE "use_case_nodes" RENAME TO "temporary_use_case_nodes"`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "use_case_nodes" ("use_case_system_id" integer NOT NULL, "node_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "node_system_id"))`,
-    );
-    await queryRunner.query(
-      `INSERT INTO "use_case_nodes"("use_case_system_id", "node_system_id") SELECT "use_case_system_id", "node_system_id" FROM "temporary_use_case_nodes"`,
-    );
-    await queryRunner.query(`DROP TABLE "temporary_use_case_nodes"`);
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b74332a6384cb6c02c4c5d4603" ON "use_case_nodes" ("node_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_2792b1dd53b37dcdfaa9c299f4" ON "use_case_nodes" ("use_case_system_id") `,
-    );
     await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
     await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(
@@ -1332,6 +1279,42 @@ export class InitialCreate1779295362243 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_session" ON "edit_actions" ("session_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
+    await queryRunner.query(
+      `ALTER TABLE "use_case_subgraph_pairs" RENAME TO "temporary_use_case_subgraph_pairs"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "use_case_subgraph_pairs" ("usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "use_case_subgraph_pairs"("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "temporary_use_case_subgraph_pairs"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_use_case_subgraph_pairs"`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "IDX_943c72ed8170978a8c8402bdc1"`);
+    await queryRunner.query(`DROP INDEX "IDX_65e66135d222dfa6dc5fe528e6"`);
+    await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
+    await queryRunner.query(
+      `ALTER TABLE "use_case_subgraphs" RENAME TO "temporary_use_case_subgraphs"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "use_case_subgraphs" ("usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "subgraph_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "use_case_subgraphs"("usecase_system_id", "subgraph_system_id") SELECT "usecase_system_id", "subgraph_system_id" FROM "temporary_use_case_subgraphs"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_use_case_subgraphs"`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_943c72ed8170978a8c8402bdc1" ON "use_case_subgraphs" ("subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_65e66135d222dfa6dc5fe528e6" ON "use_case_subgraphs" ("usecase_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_use_case_subgraphs_subgraph" ON "use_case_subgraphs" ("subgraph_system_id") `,
     );
     await queryRunner.query(
       `ALTER TABLE "usecase_gkv_values" RENAME TO "temporary_usecase_gkv_values"`,
@@ -1627,31 +1610,47 @@ export class InitialCreate1779295362243 implements MigrationInterface {
       `INSERT INTO "ckv"("system_id", "created_at", "updated_at", "version", "spf_module_system_id", "ui_persistence") SELECT "system_id", "created_at", "updated_at", "version", "spf_module_system_id", "ui_persistence" FROM "temporary_ckv"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_ckv"`);
+    await queryRunner.query(`DROP INDEX "idx_data_links_dst_sg"`);
+    await queryRunner.query(`DROP INDEX "idx_data_links_src_sg_scope"`);
     await queryRunner.query(`DROP INDEX "uk_data_link_ports"`);
     await queryRunner.query(
       `ALTER TABLE "data_links" RENAME TO "temporary_data_links"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "data_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "is_inter_graph" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "data_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, "is_ec" integer, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "data_links"("system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "is_inter_graph", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "is_inter_graph", "file_system_id" FROM "temporary_data_links"`,
+      `INSERT INTO "data_links"("system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id", "is_ec", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "source_node_system_id", "destination_node_system_id", "source_port_system_id", "destination_port_system_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id", "is_ec", "file_system_id" FROM "temporary_data_links"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_data_links"`);
     await queryRunner.query(
+      `CREATE INDEX "idx_data_links_dst_sg" ON "data_links" ("dest_subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_data_links_src_sg_scope" ON "data_links" ("source_subgraph_system_id", "link_type") `,
+    );
+    await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_data_link_ports" ON "data_links" ("source_port_system_id", "destination_port_system_id") `,
     );
+    await queryRunner.query(`DROP INDEX "idx_control_links_dst_sg"`);
+    await queryRunner.query(`DROP INDEX "idx_control_links_src_sg_scope"`);
     await queryRunner.query(`DROP INDEX "uk_control_link_unique"`);
     await queryRunner.query(
       `ALTER TABLE "control_links" RENAME TO "temporary_control_links"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "is_inter_graph" boolean NOT NULL)`,
+      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "is_inter_graph" FROM "temporary_control_links"`,
+      `INSERT INTO "control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "temporary_control_links"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_control_links"`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_control_links_dst_sg" ON "control_links" ("dest_subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_control_links_src_sg_scope" ON "control_links" ("source_subgraph_system_id", "link_type") `,
+    );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `,
     );
@@ -2003,15 +2002,8 @@ export class InitialCreate1779295362243 implements MigrationInterface {
       `INSERT INTO "arc_keys"("system_id", "created_at", "updated_at", "version", "file_system_id", "key_id", "name", "key_enum_name", "key_enum_value", "description", "is_voice", "is_dynamic", "is_calibration_key", "is_graph_key", "speciality_key_value", "calibration_enum_value", "graph_enum_value") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "key_id", "name", "key_enum_name", "key_enum_value", "description", "is_voice", "is_dynamic", "is_calibration_key", "is_graph_key", "speciality_key_value", "calibration_enum_value", "graph_enum_value" FROM "temporary_arc_keys"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_arc_keys"`);
-    await queryRunner.query(`DROP INDEX "IDX_9e857a3d76f08c2575e272af5f"`);
-    await queryRunner.query(`DROP INDEX "IDX_b9d2885195c73a8cafa57bb635"`);
-    await queryRunner.query(`DROP TABLE "use_case_control_links"`);
-    await queryRunner.query(`DROP INDEX "IDX_a946d97ac3e454e74aca69dd10"`);
-    await queryRunner.query(`DROP INDEX "IDX_0edb3f03f9d44b4df238afb76e"`);
-    await queryRunner.query(`DROP TABLE "use_case_data_links"`);
-    await queryRunner.query(`DROP INDEX "IDX_b74332a6384cb6c02c4c5d4603"`);
-    await queryRunner.query(`DROP INDEX "IDX_2792b1dd53b37dcdfaa9c299f4"`);
-    await queryRunner.query(`DROP TABLE "use_case_nodes"`);
+    await queryRunner.query(`DROP INDEX "IDX_943c72ed8170978a8c8402bdc1"`);
+    await queryRunner.query(`DROP INDEX "IDX_65e66135d222dfa6dc5fe528e6"`);
     await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
     await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(`DROP TABLE "use_case_categories"`);
@@ -2034,6 +2026,10 @@ export class InitialCreate1779295362243 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_edit_actions_entity_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
     await queryRunner.query(`DROP TABLE "edit_actions"`);
+    await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
+    await queryRunner.query(`DROP TABLE "use_case_subgraph_pairs"`);
+    await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
+    await queryRunner.query(`DROP TABLE "use_case_subgraphs"`);
     await queryRunner.query(`DROP TABLE "usecase_gkv_values"`);
     await queryRunner.query(`DROP TABLE "use_case_categories_master"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
@@ -2084,8 +2080,12 @@ export class InitialCreate1779295362243 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "ix_ckv_parameter"`);
     await queryRunner.query(`DROP TABLE "ckv_parameter_payload"`);
     await queryRunner.query(`DROP TABLE "ckv"`);
+    await queryRunner.query(`DROP INDEX "idx_data_links_dst_sg"`);
+    await queryRunner.query(`DROP INDEX "idx_data_links_src_sg_scope"`);
     await queryRunner.query(`DROP INDEX "uk_data_link_ports"`);
     await queryRunner.query(`DROP TABLE "data_links"`);
+    await queryRunner.query(`DROP INDEX "idx_control_links_dst_sg"`);
+    await queryRunner.query(`DROP INDEX "idx_control_links_src_sg_scope"`);
     await queryRunner.query(`DROP INDEX "uk_control_link_unique"`);
     await queryRunner.query(`DROP TABLE "control_links"`);
     await queryRunner.query(

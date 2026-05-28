@@ -44,7 +44,9 @@ export class ControlLinkInserter {
       nodeAPortSystemId: item.nodeAPortSystemId,
       nodeBPortSystemId: item.nodeBPortSystemId,
       heapId: item.heapId,
-      isInterGraph: item.isInterGraph,
+      linkType: item.linkType,
+      sourceSubgraphSystemId: item.sourceSubgraphSystemId,
+      destSubgraphSystemId: item.destSubgraphSystemId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(

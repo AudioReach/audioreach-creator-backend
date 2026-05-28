@@ -77,6 +77,8 @@ import {
   UseCaseCategorySchema,
   UsecaseGkvValuesSchema,
 } from './usecase-data/use-case.js';
+import {UseCaseSubgraphSchema} from './usecase-data/use-case-subgraph.schema.js';
+import {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.schema.js';
 import {EditActionSchema} from './edit-session/edit-action.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
 import {ProjectSessionSchema} from './edit-session/project-session.schema.js';
@@ -264,6 +266,12 @@ export {
   UsecaseGkvValuesSchema,
 } from './usecase-data/use-case.js';
 
+export type {UseCaseSubgraphRow} from './usecase-data/use-case-subgraph.schema.js';
+export {UseCaseSubgraphSchema} from './usecase-data/use-case-subgraph.schema.js';
+
+export type {UseCaseSubgraphPairRow} from './usecase-data/use-case-subgraph-pair.schema.js';
+export {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.schema.js';
+
 export type {EditActionRow} from './edit-session/edit-action.schema.js';
 export {EditActionSchema} from './edit-session/edit-action.schema.js';
 export {RESTORE_TYPE} from './edit-session/restore-point.schema.js';
@@ -367,6 +375,8 @@ export function getAllEntitySchemas(
     UseCaseSchema,
     UseCaseCategorySchema,
     UsecaseGkvValuesSchema,
+    UseCaseSubgraphSchema,
+    UseCaseSubgraphPairSchema,
 
     EditActionSchema,
     RestorePointSchema,

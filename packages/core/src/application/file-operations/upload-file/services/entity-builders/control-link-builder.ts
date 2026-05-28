@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
+import {LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/link-type.js';
+import type {LinkType} from '../../../../../domain/entities/usecase-data/links/link-type.js';
 import type {ControlLink as ControlLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
@@ -199,8 +201,14 @@ export class ControlLinkBuilder {
     controlPortIntentsMap: Map<number, Set<number>>,
   ): {success: boolean; controlLink?: ControlLink} {
     try {
+      const result = this.convertControlLinkProperty(property, fileSystemId);
+
+      if (result === null) {
+        return {success: false};
+      }
+
       const {controlLink, nodeAPortSystemId, nodeBPortSystemId, intents} =
-        this.convertControlLinkProperty(property, fileSystemId);
+        result;
 
       this.collectIntentsForPorts(
         intents,
@@ -284,7 +292,7 @@ export class ControlLinkBuilder {
     nodeAPortSystemId: number;
     nodeBPortSystemId: number;
     intents: number[];
-  } {
+  } | null {
     // Get node systemIds from foreign key mapper
     const peerNodeASystemId = this.getSpfModuleSystemId(
       property.peer1InstanceId,
@@ -308,15 +316,56 @@ export class ControlLinkBuilder {
     const heapId = property.heapId;
 
     // Create ControlLink entity (without intents - they go to control ports)
+    const sourceSgId =
+      this.foreignKeyMapper.getSubgraphSystemIdForModuleInstance(
+        asNaturalId(property.peer1InstanceId),
+      );
+    const destSgId = this.foreignKeyMapper.getSubgraphSystemIdForModuleInstance(
+      asNaturalId(property.peer2InstanceId),
+    );
+
+    if (sourceSgId === undefined) {
+      this.logger?.logWarn({
+        msg: `Failed to resolve source subgraph for control link module instance ${property.peer1InstanceId}`,
+        action: 'source_subgraph_mapping_failed',
+        component: 'ControlLinkBuilder',
+        tag: 'control-link-building',
+        timestamp: new Date(),
+      });
+      return null;
+    }
+
+    if (destSgId === undefined) {
+      this.logger?.logWarn({
+        msg: `Failed to resolve dest subgraph for control link module instance ${property.peer2InstanceId}`,
+        action: 'dest_subgraph_mapping_failed',
+        component: 'ControlLinkBuilder',
+        tag: 'control-link-building',
+        timestamp: new Date(),
+      });
+      return null;
+    }
+
+    let linkType: LinkType;
+    if (property.isInterGraph) {
+      linkType = LINK_TYPE.InterUsecase;
+    } else if (sourceSgId === destSgId) {
+      linkType = LINK_TYPE.IntraSubgraph;
+    } else {
+      linkType = LINK_TYPE.IntraUsecase;
+    }
+
     const controlLink = new ControlLink(
       0, // systemId - Will be generated during insertion
-      fileSystemId, // Associate with the file being uploaded
+      fileSystemId,
       peerNodeASystemId,
       peerNodeBSystemId,
       nodeAPortSystemId,
       nodeBPortSystemId,
       heapId,
-      property.isInterGraph, // Use the calculated value from parser
+      linkType,
+      sourceSgId,
+      destSgId,
     );
 
     return {

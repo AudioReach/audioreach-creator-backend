@@ -3,11 +3,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
+import {BaseColumnSchemaPart} from '../../entity-base.js';
+import type {EntityBaseRow} from '../../entity-base.js';
 import type {NodeRow} from '../node/node.schema.js';
-import type {UseCaseRow} from '../use-case.js';
-import {EntitySchema} from 'typeorm';
+import type {SubgraphRow} from '../subgraph/subgraph.schema.js';
 import type {ControlPortRow} from '../node/control-port.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import type {LinkType} from '@arc/core';
+import {LINK_TYPE} from '@arc/core';
+import {EntitySchema} from 'typeorm';
 
 export interface ControlLinkRow extends EntityBaseRow {
   fileSystemId: number;
@@ -16,13 +20,17 @@ export interface ControlLinkRow extends EntityBaseRow {
   nodeAPortSystemId: number;
   nodeBPortSystemId: number;
   heapId: number;
-  isInterGraph: boolean;
+  linkType: LinkType;
+  sourceSubgraphSystemId: number;
+  destSubgraphSystemId: number;
 
   peerNodeA?: NodeRow;
   peerNodeB?: NodeRow;
   nodeAPort?: ControlPortRow;
   nodeBPort?: ControlPortRow;
-  useCases?: UseCaseRow[];
+  sourceSubgraph?: SubgraphRow;
+  destSubgraph?: SubgraphRow;
+  file?: ArcDbFileRow;
 }
 
 export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
@@ -55,9 +63,21 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
       type: 'integer',
       name: 'heap_id',
     },
-    isInterGraph: {
-      type: 'boolean',
-      name: 'is_inter_graph',
+    linkType: {
+      type: 'simple-enum',
+      name: 'link_type',
+      enum: Object.values(LINK_TYPE),
+      nullable: false,
+    },
+    sourceSubgraphSystemId: {
+      type: 'integer',
+      name: 'source_subgraph_system_id',
+      nullable: false,
+    },
+    destSubgraphSystemId: {
+      type: 'integer',
+      name: 'dest_subgraph_system_id',
+      nullable: false,
     },
   },
   relations: {
@@ -97,10 +117,32 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
       },
       onDelete: 'RESTRICT',
     },
-    useCases: {
-      type: 'many-to-many',
-      target: 'UseCase',
-      inverseSide: 'controlLinks',
+    sourceSubgraph: {
+      type: 'many-to-one',
+      target: 'Subgraph',
+      joinColumn: {
+        name: 'source_subgraph_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    destSubgraph: {
+      type: 'many-to-one',
+      target: 'Subgraph',
+      joinColumn: {
+        name: 'dest_subgraph_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {
+        name: 'file_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
     },
   },
   indices: [
@@ -113,6 +155,14 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
         'nodeBPortSystemId',
       ],
       unique: true,
+    },
+    {
+      name: 'idx_control_links_src_sg_scope',
+      columns: ['sourceSubgraphSystemId', 'linkType'],
+    },
+    {
+      name: 'idx_control_links_dst_sg',
+      columns: ['destSubgraphSystemId'],
     },
   ],
 });

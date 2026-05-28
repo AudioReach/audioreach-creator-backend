@@ -7,6 +7,7 @@ import 'reflect-metadata';
 import {jest} from '@jest/globals';
 import {DataLinkBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/data-link-builder.js';
 import {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';
+import {LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/link-type.js';
 import type {DataLink as DataLinkProperty} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -52,6 +53,10 @@ describe('DataLinkBuilder', () => {
     mockForeignKeyMapper.getInputPortSystemId.mockImplementation(() =>
       asSystemId(300),
     );
+    // Return distinct subgraph IDs so intra vs intra-usecase can be differentiated
+    mockForeignKeyMapper.getSubgraphSystemIdForModuleInstance.mockImplementation(
+      instanceId => asSystemId(2000 + (instanceId as unknown as number)),
+    );
 
     builder = new DataLinkBuilder(
       mockIdGenerator,
@@ -96,11 +101,11 @@ describe('DataLinkBuilder', () => {
         );
         expect(result[0].sourcePortSystemId).toBe(200);
         expect(result[0].destinationPortSystemId).toBe(300);
-        expect(result[0].isInterGraph).toBe(false);
+        expect(result[0].linkType).toBe(LINK_TYPE.IntraUsecase);
 
         // Verify second data link
         expect(result[1].systemId).toBeGreaterThan(0);
-        expect(result[1].isInterGraph).toBe(true);
+        expect(result[1].linkType).toBe(LINK_TYPE.InterUsecase);
 
         // Verify ID generation was called
         expect(mockIdGenerator.getNextId).toHaveBeenCalledTimes(2);
@@ -576,7 +581,7 @@ describe('DataLinkBuilder', () => {
         expect(result[0]).toBeInstanceOf(DataLink);
       });
 
-      it('should preserve isInterGraph flag', async () => {
+      it('should preserve linkType flag', async () => {
         const dataLinkProperties: DataLinkProperty[] = [
           {
             sourceInstanceId: 101,
@@ -592,7 +597,7 @@ describe('DataLinkBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
-        expect(result[0].isInterGraph).toBe(true);
+        expect(result[0].linkType).toBe(LINK_TYPE.InterUsecase);
       });
     });
   });

@@ -4,6 +4,7 @@
  */
 
 import {SameNodeException} from './exceptions.js';
+import type {LinkType} from './link-type.js';
 
 export class DataLink {
   public systemId: number;
@@ -11,7 +12,10 @@ export class DataLink {
   public destinationNodeSystemId: number;
   public sourcePortSystemId: number;
   public destinationPortSystemId: number;
-  public isInterGraph: boolean;
+  public linkType: LinkType;
+  public sourceSubgraphSystemId: number;
+  public destSubgraphSystemId: number;
+  public isEc?: boolean;
   public fileSystemId: number;
 
   constructor(
@@ -20,16 +24,22 @@ export class DataLink {
     destinationNodeSystemId: number,
     sourcePortSystemId: number,
     destinationPortSystemId: number,
-    isInterGraph: boolean,
+    linkType: LinkType,
+    sourceSubgraphSystemId: number,
+    destSubgraphSystemId: number,
     fileSystemId: number,
+    isEc?: boolean,
   ) {
     this.systemId = systemId;
     this.sourceNodeSystemId = sourceNodeSystemId;
     this.destinationNodeSystemId = destinationNodeSystemId;
     this.sourcePortSystemId = sourcePortSystemId;
     this.destinationPortSystemId = destinationPortSystemId;
-    this.isInterGraph = isInterGraph;
+    this.linkType = linkType;
+    this.sourceSubgraphSystemId = sourceSubgraphSystemId;
+    this.destSubgraphSystemId = destSubgraphSystemId;
     this.fileSystemId = fileSystemId;
+    this.isEc = isEc;
     if (this.sourceNodeSystemId == this.destinationNodeSystemId) {
       throw new SameNodeException(sourceNodeSystemId);
     }

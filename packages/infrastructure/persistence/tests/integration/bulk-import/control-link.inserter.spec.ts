@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {ControlLink} from '@arc/core';
+import {ControlLink, LINK_TYPE} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -16,6 +16,7 @@ import {ControlLinkInserter} from '../../../src/persistence-typeorm-sqllite/repo
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FILE_ID = 100;
+const SUBGRAPH_ID = 400;
 const NODE_A_ID = 200;
 const NODE_B_ID = 201;
 const PORT_A_ID = 300;
@@ -40,6 +41,15 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     metadata: '{}',
     isTarget: 0,
     lastReservedId: 0,
+    version: 1,
+  });
+
+  await manager.insert('Subgraph', {
+    systemId: SUBGRAPH_ID,
+    subgraphId: 1,
+    name: 'test-subgraph',
+    isExported: 0,
+    fileSystemId: FILE_ID,
     version: 1,
   });
 
@@ -87,7 +97,9 @@ function buildControlLink(
     portASystemId,
     portBSystemId,
     0,
-    false,
+    LINK_TYPE.IntraSubgraph,
+    SUBGRAPH_ID,
+    SUBGRAPH_ID,
   );
 }
 
@@ -134,7 +146,7 @@ describe('ControlLinkInserter', () => {
     expect(rows[0].nodeB_port_system_id).toBe(PORT_B_ID);
     expect(rows[0].file_system_id).toBe(FILE_ID);
     expect(rows[0].heap_id).toBe(0);
-    expect(rows[0].is_inter_graph).toBe(0);
+    expect(rows[0].link_type).toBe('INTRA_SUBGRAPH');
   });
 
   it('inserts multiple control links', async () => {
@@ -173,23 +185,36 @@ describe('ControlLinkInserter', () => {
       PORT_A_ID,
       PORT_B_ID,
       0,
-      false,
+      LINK_TYPE.IntraSubgraph,
+      SUBGRAPH_ID,
+      SUBGRAPH_ID,
     );
-    const link2 = new ControlLink(1002, FILE_ID, 202, 203, 302, 303, 5, true);
+    const link2 = new ControlLink(
+      1002,
+      FILE_ID,
+      202,
+      203,
+      302,
+      303,
+      5,
+      LINK_TYPE.IntraUsecase,
+      SUBGRAPH_ID,
+      SUBGRAPH_ID,
+    );
 
     const result = await inserter.insert([link1, link2]);
 
     expect(result.ok).toBe(true);
 
     const rows = await dataSource.query(
-      `SELECT system_id, heap_id, is_inter_graph FROM control_links ORDER BY system_id`,
+      `SELECT system_id, heap_id, link_type FROM control_links ORDER BY system_id`,
     );
     expect(rows).toHaveLength(2);
     expect(rows[0].system_id).toBe(1001);
     expect(rows[0].heap_id).toBe(0);
     expect(rows[1].system_id).toBe(1002);
     expect(rows[1].heap_id).toBe(5);
-    expect(rows[1].is_inter_graph).toBe(1);
+    expect(rows[1].link_type).toBe('INTRA_USECASE');
   });
 
   it('reports failure when node A port FK does not exist', async () => {
@@ -235,7 +260,18 @@ describe('ControlLinkInserter', () => {
       version: 1,
     });
 
-    const good = new ControlLink(1004, FILE_ID, 204, 205, 304, 305, 0, false);
+    const good = new ControlLink(
+      1004,
+      FILE_ID,
+      204,
+      205,
+      304,
+      305,
+      0,
+      LINK_TYPE.IntraSubgraph,
+      SUBGRAPH_ID,
+      SUBGRAPH_ID,
+    );
     const bad = buildControlLink(1005, 9999, PORT_B_ID);
 
     const result = await inserter.insert([good, bad]);
