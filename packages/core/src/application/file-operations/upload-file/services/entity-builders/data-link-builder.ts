@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
+import {LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/link-type.js';
+import type {LinkType} from '../../../../../domain/entities/usecase-data/links/link-type.js';
 import type {DataLink as DataLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
@@ -206,14 +208,62 @@ export class DataLinkBuilder {
       }
 
       // Create DataLink entity
+      const sourceSgId =
+        this.foreignKeyMapper.getSubgraphSystemIdForModuleInstance(
+          asNaturalId(property.sourceInstanceId),
+        );
+      const destSgId =
+        this.foreignKeyMapper.getSubgraphSystemIdForModuleInstance(
+          asNaturalId(property.destinationInstanceId),
+        );
+
+      if (sourceSgId === undefined) {
+        this.logger?.logWarn({
+          msg: `Failed to resolve source subgraph for module instance ${property.sourceInstanceId}`,
+          action: 'source_subgraph_mapping_failed',
+          component: 'DataLinkBuilder',
+          tag: 'data-link-building',
+          timestamp: new Date(),
+        });
+        return null;
+      }
+
+      if (destSgId === undefined) {
+        this.logger?.logWarn({
+          msg: `Failed to resolve dest subgraph for module instance ${property.destinationInstanceId}`,
+          action: 'dest_subgraph_mapping_failed',
+          component: 'DataLinkBuilder',
+          tag: 'data-link-building',
+          timestamp: new Date(),
+        });
+        return null;
+      }
+
+      let linkType: LinkType;
+      if (property.isInterGraph) {
+        linkType = LINK_TYPE.InterUsecase;
+      } else if (sourceSgId === destSgId) {
+        linkType = LINK_TYPE.IntraSubgraph;
+      } else {
+        linkType = LINK_TYPE.IntraUsecase;
+      }
+
+      const isEc =
+        linkType === LINK_TYPE.IntraUsecase
+          ? false // TODO: read isEc from workspace file once parser support is added
+          : undefined;
+
       return new DataLink(
         0, // systemId - Will be generated during insertion
         sourceNodeSystemId,
         destinationNodeSystemId,
         sourcePortSystemId,
         destinationPortSystemId,
-        property.isInterGraph, // Use the calculated value from parser
-        fileSystemId, // Associate with the file being uploaded
+        linkType,
+        sourceSgId,
+        destSgId,
+        fileSystemId,
+        isEc,
       );
     } catch (error) {
       this.logger?.logWarn({

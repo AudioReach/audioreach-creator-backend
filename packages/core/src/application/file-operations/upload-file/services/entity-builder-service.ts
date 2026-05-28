@@ -32,6 +32,7 @@ import {SpfModuleBuilder} from './entity-builders/spf-module-builder.js';
 import {DataLinkBuilder} from './entity-builders/data-link-builder.js';
 import {ControlLinkBuilder} from './entity-builders/control-link-builder.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
+import {asNaturalId, asSystemId} from '../../../../shared/types/branded-ids.js';
 import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
@@ -493,6 +494,13 @@ export class EntityBuilderService {
       timestamp: new Date(),
     });
 
+    for (const module of result.entities) {
+      this.foreignKeyMapper.addModuleInstanceSubgraphMapping(
+        asNaturalId(module.instanceId),
+        asSystemId(module.subgraphSystemId),
+      );
+    }
+
     return result;
   }
 
@@ -641,11 +649,10 @@ export class EntityBuilderService {
       return [];
     }
 
-    // Create usecase builder with parsed ACDB data
+    // Create usecase builder
     const usecaseBuilder = new UsecaseBuilder(
       this.idGenerator,
       this.foreignKeyMapper,
-      parsedAcdb,
       this.logger,
     );
 

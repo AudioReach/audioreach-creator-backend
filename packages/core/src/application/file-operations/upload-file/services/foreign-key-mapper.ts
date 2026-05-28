@@ -31,6 +31,7 @@ export class ForeignKeyMapper {
   private propertyDefinitionMap = new Map<NaturalId, SystemId>();
   private containerTypeMappings = new Map<NaturalId, SystemId>();
   private spfModuleMappings = new Map<NaturalId, SystemId>();
+  private moduleInstanceSubgraphMappings = new Map<NaturalId, SystemId>();
   private moduleInputPortMappings = new Map<
     SystemId,
     Map<NaturalId, SystemId>
@@ -410,6 +411,19 @@ export class ForeignKeyMapper {
     return this.spfModuleMappings.get(instanceId);
   }
 
+  addModuleInstanceSubgraphMapping(
+    instanceId: NaturalId,
+    subgraphSystemId: SystemId,
+  ): void {
+    this.moduleInstanceSubgraphMappings.set(instanceId, subgraphSystemId);
+  }
+
+  getSubgraphSystemIdForModuleInstance(
+    instanceId: NaturalId,
+  ): SystemId | undefined {
+    return this.moduleInstanceSubgraphMappings.get(instanceId);
+  }
+
   /**
    * Add a data port mapping for a module
    */
@@ -626,6 +640,7 @@ export class ForeignKeyMapper {
     this.containerTypeMappings.clear();
     this.propertyDefinitionMap.clear();
     this.spfModuleMappings.clear();
+    this.moduleInstanceSubgraphMappings.clear();
     this.moduleInputPortMappings.clear();
     this.moduleOutputPortMappings.clear();
     this.moduleControlPortMappings.clear();

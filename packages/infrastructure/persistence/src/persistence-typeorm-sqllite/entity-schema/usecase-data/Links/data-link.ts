@@ -7,8 +7,10 @@ import {BaseColumnSchemaPart} from '../../entity-base.js';
 import type {EntityBaseRow} from '../../entity-base.js';
 import type {NodeRow} from '../node/node.schema.js';
 import type {DataPortRow} from '../node/data-port-info.schema.js';
-import type {UseCaseRow} from '../use-case.js';
+import type {SubgraphRow} from '../subgraph/subgraph.schema.js';
 import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
+import type {LinkType} from '@arc/core';
+import {LINK_TYPE} from '@arc/core';
 import {EntitySchema} from 'typeorm';
 
 export interface DataLinkRow extends EntityBaseRow {
@@ -16,14 +18,18 @@ export interface DataLinkRow extends EntityBaseRow {
   destinationNodeSystemId: number;
   sourcePortSystemId: number;
   destinationPortSystemId: number;
-  isInterGraph: boolean;
+  linkType: LinkType;
+  sourceSubgraphSystemId: number;
+  destSubgraphSystemId: number;
+  isEc: boolean | null;
   fileSystemId: number;
 
   sourceNode?: NodeRow;
   destinationNode?: NodeRow;
   sourcePort?: DataPortRow;
   destinationPort?: DataPortRow;
-  useCases?: UseCaseRow[];
+  sourceSubgraph?: SubgraphRow;
+  destSubgraph?: SubgraphRow;
   file?: ArcDbFileRow;
 }
 
@@ -48,9 +54,26 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
       type: 'integer',
       name: 'destination_port_system_id',
     },
-    isInterGraph: {
-      type: 'integer', // SQLite stores boolean as 0/1
-      name: 'is_inter_graph',
+    linkType: {
+      type: 'simple-enum',
+      name: 'link_type',
+      enum: Object.values(LINK_TYPE),
+      nullable: false,
+    },
+    sourceSubgraphSystemId: {
+      type: 'integer',
+      name: 'source_subgraph_system_id',
+      nullable: false,
+    },
+    destSubgraphSystemId: {
+      type: 'integer',
+      name: 'dest_subgraph_system_id',
+      nullable: false,
+    },
+    isEc: {
+      type: 'integer',
+      name: 'is_ec',
+      nullable: true,
     },
     fileSystemId: {
       name: 'file_system_id',
@@ -95,6 +118,24 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
       },
       onDelete: 'RESTRICT',
     },
+    sourceSubgraph: {
+      type: 'many-to-one',
+      target: 'Subgraph',
+      joinColumn: {
+        name: 'source_subgraph_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    destSubgraph: {
+      type: 'many-to-one',
+      target: 'Subgraph',
+      joinColumn: {
+        name: 'dest_subgraph_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
     file: {
       type: 'many-to-one',
       target: 'ArcDbFile',
@@ -104,17 +145,20 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
       },
       onDelete: 'CASCADE',
     },
-    useCases: {
-      type: 'many-to-many',
-      target: 'UseCase',
-      inverseSide: 'dataLinks',
-    },
   },
   indices: [
     {
       name: 'uk_data_link_ports',
       columns: ['sourcePortSystemId', 'destinationPortSystemId'],
       unique: true,
+    },
+    {
+      name: 'idx_data_links_src_sg_scope',
+      columns: ['sourceSubgraphSystemId', 'linkType'],
+    },
+    {
+      name: 'idx_data_links_dst_sg',
+      columns: ['destSubgraphSystemId'],
     },
   ],
 });

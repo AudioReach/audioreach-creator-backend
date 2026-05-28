@@ -95,7 +95,8 @@ export const UseCaseQueryMappers = {
       destinationNodeSystemId: dataLink.destinationNodeSystemId,
       sourcePortSystemId: dataLink.sourcePortSystemId,
       destinationPortSystemId: dataLink.destinationPortSystemId,
-      isInterGraph: dataLink.isInterGraph,
+      linkType: dataLink.linkType,
+      isEc: dataLink.isEc,
     };
   },
 
@@ -107,7 +108,7 @@ export const UseCaseQueryMappers = {
       nodeAPortSystemId: controlLink.nodeAPortSystemId,
       nodeBPortSystemId: controlLink.nodeBPortSystemId,
       heapId: controlLink.heapId,
-      isInterGraph: controlLink.isInterGraph,
+      linkType: controlLink.linkType,
     };
   },
 };

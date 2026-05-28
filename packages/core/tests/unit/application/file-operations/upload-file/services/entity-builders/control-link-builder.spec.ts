@@ -7,6 +7,7 @@ import 'reflect-metadata';
 import {jest} from '@jest/globals';
 import {ControlLinkBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/control-link-builder.js';
 import {ControlLink} from '../../../../../../../src/domain/entities/usecase-data/links/control-link.js';
+import {LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/link-type.js';
 import type {ControlLink as ControlLinkProperty} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -48,6 +49,9 @@ describe('ControlLinkBuilder', () => {
     });
     mockForeignKeyMapper.getControlPortSystemId.mockImplementation(() =>
       asSystemId(200),
+    );
+    mockForeignKeyMapper.getSubgraphSystemIdForModuleInstance.mockImplementation(
+      instanceId => asSystemId(3000 + (instanceId as unknown as number)),
     );
 
     builder = new ControlLinkBuilder(
@@ -101,12 +105,12 @@ describe('ControlLinkBuilder', () => {
         expect(result.controlLinks[0].nodeAPortSystemId).toBe(200);
         expect(result.controlLinks[0].nodeBPortSystemId).toBe(200);
         expect(result.controlLinks[0].heapId).toBe(5);
-        expect(result.controlLinks[0].isInterGraph).toBe(false);
+        expect(result.controlLinks[0].linkType).toBe(LINK_TYPE.IntraUsecase);
 
         // Verify second control link
         expect(result.controlLinks[1].systemId).toBeGreaterThan(0);
         expect(result.controlLinks[1].heapId).toBe(6);
-        expect(result.controlLinks[1].isInterGraph).toBe(true);
+        expect(result.controlLinks[1].linkType).toBe(LINK_TYPE.InterUsecase);
 
         // Verify ID generation was called
         expect(mockIdGenerator.getNextId).toHaveBeenCalledTimes(2);
@@ -637,7 +641,7 @@ describe('ControlLinkBuilder', () => {
         expect(result.controlLinks[0]).toBeInstanceOf(ControlLink);
       });
 
-      it('should preserve isInterGraph flag', async () => {
+      it('should preserve linkType flag', async () => {
         const controlLinkProperties: ControlLinkProperty[] = [
           {
             peer1InstanceId: 101,
@@ -655,7 +659,7 @@ describe('ControlLinkBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
-        expect(result.controlLinks[0].isInterGraph).toBe(true);
+        expect(result.controlLinks[0].linkType).toBe(LINK_TYPE.InterUsecase);
       });
 
       it('should preserve heapId', async () => {

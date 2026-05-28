@@ -6,9 +6,8 @@
 import {BaseColumnSchemaPart} from '../entity-base.js';
 import type {EntityBaseRow} from '../entity-base.js';
 import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
-import type {NodeRow} from './node/node.schema.js';
-import type {DataLinkRow} from './Links/data-link.js';
-import type {ControlLinkRow} from './Links/control-link.js';
+import type {SubgraphRow} from './subgraph/subgraph.schema.js';
+import type {UseCaseSubgraphPairRow} from './use-case-subgraph-pair.schema.js';
 import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
@@ -20,9 +19,8 @@ export interface UseCaseRow extends EntityBaseRow {
   // Relations
   file?: ArcDbFileRow;
   categories?: UseCaseCategoryRow[];
-  nodes?: NodeRow[];
-  dataLinks?: DataLinkRow[];
-  controlLinks?: ControlLinkRow[];
+  subgraphs?: SubgraphRow[];
+  subgraphPairs?: UseCaseSubgraphPairRow[];
   gkvEntries?: UsecaseGkvValuesRow[];
 }
 
@@ -84,47 +82,17 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
         },
       },
     },
-    nodes: {
+    subgraphs: {
       type: 'many-to-many',
-      target: 'Node',
+      target: 'Subgraph',
       joinTable: {
-        name: 'use_case_nodes',
+        name: 'use_case_subgraphs',
         joinColumn: {
-          name: 'use_case_system_id',
+          name: 'usecase_system_id',
           referencedColumnName: 'systemId',
         },
         inverseJoinColumn: {
-          name: 'node_system_id',
-          referencedColumnName: 'systemId',
-        },
-      },
-    },
-    dataLinks: {
-      type: 'many-to-many',
-      target: 'DataLink',
-      joinTable: {
-        name: 'use_case_data_links',
-        joinColumn: {
-          name: 'use_case_system_id',
-          referencedColumnName: 'systemId',
-        },
-        inverseJoinColumn: {
-          name: 'data_link_system_id',
-          referencedColumnName: 'systemId',
-        },
-      },
-    },
-    controlLinks: {
-      type: 'many-to-many',
-      target: 'ControlLink',
-      joinTable: {
-        name: 'use_case_control_links',
-        joinColumn: {
-          name: 'use_case_system_id',
-          referencedColumnName: 'systemId',
-        },
-        inverseJoinColumn: {
-          name: 'control_link_system_id',
+          name: 'subgraph_system_id',
           referencedColumnName: 'systemId',
         },
       },
@@ -132,6 +100,11 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     gkvEntries: {
       type: 'one-to-many',
       target: 'UsecaseGkvValues',
+      inverseSide: 'useCase',
+    },
+    subgraphPairs: {
+      type: 'one-to-many',
+      target: 'UseCaseSubgraphPair',
       inverseSide: 'useCase',
     },
   },
