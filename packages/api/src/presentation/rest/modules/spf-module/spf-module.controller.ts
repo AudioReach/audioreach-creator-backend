@@ -13,7 +13,10 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  HttpException,
+  UseInterceptors,
+  BadRequestException,
+  NotImplementedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -33,6 +36,7 @@ import {
 } from './dto/request/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {
   QueryBus,
   QuerySpfModulesQuery as SpfModuleQuery,
@@ -59,6 +63,7 @@ import {
 @ApiTags('spf-modules')
 @Controller('arc-api/v1/projects/:projectId/spf-modules')
 //@UseGuards(AuthGuard('jwt'))
+@UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -117,12 +122,18 @@ export class SpfModuleController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Success',
+        description: 'All SPF modules found successfully',
+        dto: [SpfModuleDto],
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some SPF modules could not be retrieved (see errors array)',
         dto: [SpfModuleDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some SPF modules are not found',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -143,10 +154,7 @@ export class SpfModuleController extends BaseController {
     const systemIds = spfModuleSystemIds.systemIds.map(id => {
       const parsed = Number.parseInt(id, 10);
       if (Number.isNaN(parsed)) {
-        throw new HttpException(
-          `Invalid system ID: ${id}`,
-          HttpStatus.BAD_REQUEST,
-        );
+        throw new BadRequestException(`Invalid system ID: ${id}`);
       }
       return parsed;
     });
@@ -163,9 +171,8 @@ export class SpfModuleController extends BaseController {
       await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
 
     if (result.isFailure) {
-      throw new HttpException(
+      throw new UnprocessableEntityException(
         result.errors?.[0]?.message ?? 'Failed to retrieve SPF modules',
-        HttpStatus.UNPROCESSABLE_ENTITY,
       );
     }
 
@@ -216,7 +223,8 @@ export class SpfModuleController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Module definition or processor not found',
+        description:
+          'Project not found, or module definition or processor not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -235,10 +243,7 @@ export class SpfModuleController extends BaseController {
       'with request:',
       request,
     ); // Placeholder usage to satisfy linter
-    throw new HttpException(
-      'This functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('addSpfModule is not implemented yet');
   }
 
   /**
@@ -300,7 +305,7 @@ export class SpfModuleController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'SPF module or CKV system ID not found',
+        description: 'Project, SPF module, or CKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -327,9 +332,8 @@ export class SpfModuleController extends BaseController {
         : 'for all parameter system IDs',
       paramSystemIds || '',
     );
-    throw new HttpException(
-      'Calibration data retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getCalibrationData is not implemented yet',
     );
   }
 
@@ -386,7 +390,7 @@ export class SpfModuleController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'SPF module or CKV system ID not found',
+        description: 'Project, SPF module, or CKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -411,9 +415,8 @@ export class SpfModuleController extends BaseController {
       'for parameters:',
       updateRequest.data.map(item => item.parameterId).join(', '),
     );
-    throw new HttpException(
-      'Calibration data update functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'updateCalibrationData is not implemented yet',
     );
   }
 
@@ -484,7 +487,8 @@ export class SpfModuleController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'SPF module, tag system ID, or TKV system ID not found',
+        description:
+          'Project, SPF module, tag system ID, or TKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -514,10 +518,7 @@ export class SpfModuleController extends BaseController {
         : 'for all parameter system IDs',
       paramSystemIds || '',
     );
-    throw new HttpException(
-      'Tag data retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('getTagData is not implemented yet');
   }
 
   /**
@@ -584,7 +585,8 @@ export class SpfModuleController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'SPF module, tag system ID, or TKV system ID not found',
+        description:
+          'Project, SPF module, tag system ID, or TKV system ID not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -612,10 +614,7 @@ export class SpfModuleController extends BaseController {
       'for parameters:',
       updateRequest.data.map(item => item.parameterId).join(', '),
     );
-    throw new HttpException(
-      'Tag data update functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('updateTagData is not implemented yet');
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────

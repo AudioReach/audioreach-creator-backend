@@ -5,13 +5,14 @@
 
 import {
   Controller,
+  NotImplementedException,
   Post,
   Get,
   Body,
   Param,
   HttpStatus,
-  HttpException,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -24,6 +25,7 @@ import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {UsecaseIdentifierDto} from '../usecase/dto/usecase.dto.js';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 
 /**
  * Controller to support all subgraph related APIs for usecase design.
@@ -33,6 +35,7 @@ import {UsecaseIdentifierDto} from '../usecase/dto/usecase.dto.js';
 @Controller('arc-api/v1/projects/:projectId/subgraphs')
 @UseGuards(AuthGuard('jwt'))
 @ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
+@UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -57,6 +60,10 @@ export class SubgraphController extends BaseController {
         dto: [SubgraphDto],
       },
       {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project not found',
+      },
+      {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description: 'Failed to get subgraphs',
       },
@@ -67,10 +74,7 @@ export class SubgraphController extends BaseController {
   ): Promise<ApiResult<SubgraphDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(`Getting all subgraphs in project ${projectId}`);
-    throw new HttpException(
-      'Get all subgraphs functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('getAllSubgraphs is not implemented yet');
   }
 
   /**
@@ -85,12 +89,18 @@ export class SubgraphController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Success',
+        description: 'All subgraphs found successfully',
+        dto: [SubgraphDto],
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some subgraphs could not be retrieved (see errors array)',
         dto: [SubgraphDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some subgraphs are not found',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -106,10 +116,7 @@ export class SubgraphController extends BaseController {
     console.log(
       `Getting subgraphs in project ${projectId}: ${JSON.stringify(subgraphSystemIds)}`,
     );
-    throw new HttpException(
-      'subgraphs retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('querySubgraphs is not implemented yet');
   }
 
   /**
@@ -132,7 +139,7 @@ export class SubgraphController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Subgraph is not found',
+        description: 'Project or subgraph not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -148,9 +155,8 @@ export class SubgraphController extends BaseController {
     console.log(
       `Getting properties in project ${projectId} for subgraph ${subgraphSystemId}`,
     );
-    throw new HttpException(
-      'Subgraph properties retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getSubgraphProperties is not implemented yet',
     );
   }
 
@@ -178,7 +184,7 @@ export class SubgraphController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Subgraph is not found',
+        description: 'Project or subgraph not found',
       },
     ],
   })
@@ -190,9 +196,8 @@ export class SubgraphController extends BaseController {
     console.log(
       `Getting all usecases for project: ${projectId} and subgraph: ${subgraphSystemId}`,
     );
-    throw new HttpException(
-      'Usecases retrieval functionality for subgraph is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getUsecasesForSubgraph is not implemented yet',
     );
   }
 }

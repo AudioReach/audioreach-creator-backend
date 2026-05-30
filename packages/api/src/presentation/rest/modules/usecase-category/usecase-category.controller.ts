@@ -5,12 +5,12 @@
 
 import {
   Controller,
+  NotImplementedException,
   Post,
   Patch,
   Delete,
   //  UseGuards,
   HttpStatus,
-  HttpException,
   Param,
   Body,
 } from '@nestjs/common';
@@ -83,7 +83,7 @@ export class UseCaseCategoryController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'All usecases not found',
+        description: 'Project not found, or all usecases not found',
       },
       {
         status: HttpStatus.CONFLICT,
@@ -106,9 +106,8 @@ export class UseCaseCategoryController extends BaseController {
       'with data:',
       createCategoryDto,
     );
-    throw new HttpException(
-      'This API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'createUsecaseCategory is not implemented yet',
     );
   }
 
@@ -158,7 +157,8 @@ export class UseCaseCategoryController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Category not found or some usecases not found',
+        description:
+          'Project not found, or category not found, or some usecases not found',
       },
       {
         status: HttpStatus.CONFLICT,
@@ -189,9 +189,8 @@ export class UseCaseCategoryController extends BaseController {
       'with data:',
       updateCategoryDto,
     );
-    throw new HttpException(
-      'This API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'updateUsecaseCategory is not implemented yet',
     );
   }
 
@@ -224,7 +223,7 @@ export class UseCaseCategoryController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Category not found',
+        description: 'Project or category not found',
       },
       {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -248,9 +247,8 @@ export class UseCaseCategoryController extends BaseController {
       'in project:',
       projectId,
     );
-    throw new HttpException(
-      'This API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'deleteUsecaseCategory is not implemented yet',
     );
   }
 

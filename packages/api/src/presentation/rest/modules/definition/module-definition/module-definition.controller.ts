@@ -9,6 +9,7 @@ import {
   Delete,
   Get,
   HttpStatus,
+  NotImplementedException,
   Param,
   Patch,
   Put,
@@ -119,7 +120,9 @@ export class ModuleDefinitionController {
     @Query('includeCustomData') _includeCustomData: boolean = false,
   ): Promise<ApiResult<SpfModuleDefinitionResponseDto[]>> {
     await Promise.resolve();
-    return new ApiResult<SpfModuleDefinitionResponseDto[]>();
+    throw new NotImplementedException(
+      'getAllSpfModuleDefinitions is not implemented yet',
+    );
   }
 
   @Get('/:projectId/spf-module-definitions/:moduleSystemId')
@@ -167,7 +170,9 @@ export class ModuleDefinitionController {
     @Query('includeCustomData') _includeCustomData: boolean = false,
   ): Promise<ApiResult<SpfModuleDefinitionResponseDto>> {
     await Promise.resolve();
-    return new ApiResult<SpfModuleDefinitionResponseDto>();
+    throw new NotImplementedException(
+      'getSpfModuleDefinition is not implemented yet',
+    );
   }
 
   @Patch('/:projectId/spf-module-definitions/:moduleSystemId')
@@ -216,7 +221,9 @@ export class ModuleDefinitionController {
     @Query('includeCustomData') _includeCustomData: boolean = false,
   ): Promise<ApiResult<SpfModuleDefinitionResponseDto>> {
     await Promise.resolve();
-    return new ApiResult<SpfModuleDefinitionResponseDto>();
+    throw new NotImplementedException(
+      'patchSpfModuleDefinition is not implemented yet',
+    );
   }
 
   @Get(
@@ -262,7 +269,9 @@ export class ModuleDefinitionController {
     @Param('moduleSystemId') _moduleSystemId: string,
   ): Promise<ApiResult<SpfCustomModuleMetadataResponseDto>> {
     await Promise.resolve();
-    return new ApiResult<SpfCustomModuleMetadataResponseDto>();
+    throw new NotImplementedException(
+      'getSpfCustomModuleMetadata is not implemented yet',
+    );
   }
 
   @Put(
@@ -310,7 +319,9 @@ export class ModuleDefinitionController {
     _updateSpfCustomModuleMetadataDto: UpdateSpfCustomModuleMetadataRequestDto,
   ): Promise<ApiResult<SpfCustomModuleMetadataResponseDto>> {
     await Promise.resolve();
-    return new ApiResult<SpfCustomModuleMetadataResponseDto>();
+    throw new NotImplementedException(
+      'updateSpfCustomModuleMetadata is not implemented yet',
+    );
   }
 
   @Delete(
@@ -356,9 +367,11 @@ export class ModuleDefinitionController {
   async deleteSpfCustomModuleMetadata(
     @Param('projectId') _projectId: string,
     @Param('moduleSystemId') _moduleSystemId: string,
-  ): Promise<ApiResult<DeleteSpfCustomModuleMetadataResponseDto>> {
+  ): Promise<DeleteSpfCustomModuleMetadataResponseDto> {
     await Promise.resolve();
-    return new ApiResult<DeleteSpfCustomModuleMetadataResponseDto>();
+    throw new NotImplementedException(
+      'deleteSpfCustomModuleMetadata is not implemented yet',
+    );
   }
 
   @Get('/:projectId/driver-module-definitions')
@@ -406,7 +419,9 @@ export class ModuleDefinitionController {
     @Query('parameterId') _parameterId?: string,
   ): Promise<ApiResult<DriverModuleDefinitionResponseDto[]>> {
     await Promise.resolve();
-    return new ApiResult<DriverModuleDefinitionResponseDto[]>();
+    throw new NotImplementedException(
+      'getAllDriverModuleDefinitions is not implemented yet',
+    );
   }
 
   @Get('/:projectId/driver-module-definitions/:moduleSystemId')
@@ -445,7 +460,9 @@ export class ModuleDefinitionController {
     @Param('moduleSystemId') _moduleSystemId: string,
   ): Promise<ApiResult<DriverModuleDefinitionResponseDto>> {
     await Promise.resolve();
-    return new ApiResult<DriverModuleDefinitionResponseDto>();
+    throw new NotImplementedException(
+      'getDriverModuleDefinition is not implemented yet',
+    );
   }
 
   // @Get(':projectId/definitions/modules/spf/:moduleSystemId/parameters')

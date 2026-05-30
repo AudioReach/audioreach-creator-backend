@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ProjectQueryService} from '@arc/core';
+import {type ProjectQueryService, ResourceNotFoundException} from '@arc/core';
 import {DataSource} from 'typeorm';
 import type {ProjectRow} from '../entity-schema/index.js';
 import {DbFileQuery} from './db-file-query.js';
@@ -24,7 +24,7 @@ export class DbProjectQueryService implements ProjectQueryService {
       .getOne()) as ProjectRow | null;
 
     if (!project?.files || project.files.length === 0) {
-      throw new Error(
+      throw new ResourceNotFoundException(
         `Project with ID ${projectId} not found or has no associated files`,
       );
     }
@@ -43,7 +43,7 @@ export class DbProjectQueryService implements ProjectQueryService {
       .getOne()) as ProjectRow | null;
 
     if (!project?.files || project.files.length === 0) {
-      throw new Error(
+      throw new ResourceNotFoundException(
         `Project with ID ${projectId} not found or has no associated files`,
       );
     }

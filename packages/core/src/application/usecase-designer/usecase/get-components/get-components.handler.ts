@@ -19,6 +19,13 @@ export class GetComponentsHandler implements QueryHandler<
   constructor(private queryServices: QueryServices) {}
 
   async handle(query: GetComponentsQuery): Promise<UseCaseComponentsReadModel> {
+    // Validate project existence if projectId is provided
+    if (query.projectId !== undefined) {
+      await this.queryServices.projectQueryService.getFileIdByProjectId(
+        query.projectId,
+      );
+    }
+
     // Convert string array to number array for database query
     const useCaseSystemIds = query.useCaseSystemIds.map(Number);
 

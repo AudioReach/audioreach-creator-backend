@@ -5,11 +5,12 @@
 
 import {
   Controller,
+  NotImplementedException,
   Body,
   Param,
   HttpStatus,
-  HttpException,
   UseGuards,
+  UseInterceptors,
   Post,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
@@ -19,6 +20,7 @@ import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
 import {SubsystemDto} from './dto/subsystem.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 
 /**
  * Controller to support all Subsystem related APIs for usecase design.
@@ -27,6 +29,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 @ApiTags('subsystems')
 @Controller('arc-api/v1/projects/:projectId/subsystems')
 @UseGuards(AuthGuard('jwt'))
+@UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -50,12 +53,18 @@ export class SubsystemController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Success',
+        description: 'All subsystems found successfully',
+        dto: [SubsystemDto],
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some subsystems could not be retrieved (see errors array)',
         dto: [SubsystemDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some subsystems are not found',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -71,10 +80,7 @@ export class SubsystemController extends BaseController {
     console.log(
       `Getting subsystems in project ${projectId}: ${JSON.stringify(subsystemSystemIds)}`,
     );
-    throw new HttpException(
-      'subsystems retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('querySubsystems is not implemented yet');
   }
 
   /**
@@ -108,7 +114,7 @@ export class SubsystemController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Subsystem cannot be found',
+        description: 'Project or subsystem not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -125,9 +131,8 @@ export class SubsystemController extends BaseController {
     console.log(
       `Getting components for subgraph ${subsystemSystemId} in project ${projectId} with optional usecase system ids: ${JSON.stringify(usecaseSystemIds)}`,
     );
-    throw new HttpException(
-      'Get components in subsystem retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'queryComponentsInSubsystem is not implemented yet',
     );
   }
 }

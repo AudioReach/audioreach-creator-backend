@@ -5,13 +5,14 @@
 
 import {
   Controller,
+  NotImplementedException,
   Post,
   Get,
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
   HttpStatus,
-  HttpException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -23,6 +24,7 @@ import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/el
 import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 
 /**
  * Controller to support all container related APIs for usecase design.
@@ -32,6 +34,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 @Controller('arc-api/v1/projects/:projectId/containers')
 @UseGuards(AuthGuard('jwt'))
 @ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
+@UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -54,12 +57,18 @@ export class ContainerController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Success',
+        description: 'All containers found successfully',
+        dto: [ContainerDto],
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some containers could not be retrieved (see errors array)',
         dto: [ContainerDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some container(s) are not found',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -75,10 +84,7 @@ export class ContainerController extends BaseController {
     console.log(
       `Getting containers in project ${projectId}: ${JSON.stringify(request)}`,
     );
-    throw new HttpException(
-      'Containers retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('queryContainers is not implemented yet');
   }
 
   /**
@@ -101,7 +107,7 @@ export class ContainerController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Container is not found',
+        description: 'Project or container not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -117,9 +123,8 @@ export class ContainerController extends BaseController {
     console.log(
       `Getting properties in project ${projectId} for container ${containerSystemId}`,
     );
-    throw new HttpException(
-      'Container properties retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getContainerProperties is not implemented yet',
     );
   }
 }

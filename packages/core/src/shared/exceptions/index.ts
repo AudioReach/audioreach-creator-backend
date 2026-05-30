@@ -1,0 +1,9 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+export {DomainException} from './domain-exception.js';
+export {ResourceNotFoundException} from './resource-not-found.exception.js';
+export {InvalidOperationException} from './invalid-operation.exception.js';
+export {DomainNotImplementedException} from './not-implemented.exception.js';
