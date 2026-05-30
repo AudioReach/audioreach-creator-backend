@@ -108,6 +108,53 @@ export default [
     rules: {
       'custom/no-banned-keywords': 'error',
       'custom/no-api-property-example': 'error',
+
+      // Error handling enforcement rules
+      'custom/no-manual-status-codes': [
+        'error',
+        {
+          allowedSuccessCodes: [200, 201, 204, 207],
+          controllerPattern: '**/packages/api/src/presentation/**/*.ts',
+        },
+      ],
+
+      'custom/no-controller-try-catch': [
+        'error',
+        {
+          controllerPattern: '**/packages/api/src/presentation/**/*.ts',
+        },
+      ],
+
+      'custom/enforce-http-exceptions': [
+        'error',
+        {
+          controllerPattern: '**/packages/api/src/presentation/**/*.ts',
+          allowedExceptions: [
+            'BadRequestException',
+            'NotFoundException',
+            'UnauthorizedException',
+            'ForbiddenException',
+            'ConflictException',
+            'ValidationException',
+            'InternalServerErrorException',
+            'NotImplementedException',
+            'UnprocessableEntityException',
+          ],
+        },
+      ],
+
+      'custom/no-domain-infrastructure-deps': [
+        'error',
+        {
+          domainPattern: '**/packages/core/src/domain/**/*.ts',
+          bannedImports: [
+            '**/infrastructure/**',
+            '**/api/**',
+            'typeorm',
+            'express',
+          ],
+        },
+      ],
     },
   },
 

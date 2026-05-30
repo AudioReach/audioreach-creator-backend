@@ -4,3 +4,4 @@
  */
 
 export * from './error-codes.js';
+export * from '../exceptions/index.js';

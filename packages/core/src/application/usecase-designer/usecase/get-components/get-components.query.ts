@@ -12,6 +12,7 @@ export class GetComponentsQuery extends BaseQuery {
   constructor(
     public readonly useCaseSystemIds: number[],
     clientId: string,
+    public readonly projectId?: number,
   ) {
     super(clientId);
   }

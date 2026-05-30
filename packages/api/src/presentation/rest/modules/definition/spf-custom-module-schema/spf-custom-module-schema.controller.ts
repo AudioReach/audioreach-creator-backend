@@ -3,7 +3,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {Controller, Get, HttpStatus, Param, UseGuards} from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  NotImplementedException,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import {AuthGuard} from '@nestjs/passport';
 import {ApiExtraModels, ApiParam, ApiTags} from '@nestjs/swagger';
 import {ApiDocumentationWithExample} from '../../../common/swagger-doc/swagger.decorator.js';
@@ -72,6 +79,8 @@ export class SpfCustomModuleSchemaController extends BaseController {
     @Param('projectId') _projectId: string,
   ): Promise<ApiResult<SpfCustomModuleSchemaResponseDto>> {
     await Promise.resolve();
-    return new ApiResult<SpfCustomModuleSchemaResponseDto>();
+    throw new NotImplementedException(
+      'getSpfCustomModuleSchema is not implemented yet',
+    );
   }
 }

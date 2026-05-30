@@ -5,13 +5,14 @@
 
 import {
   Controller,
+  NotImplementedException,
   Post,
   Delete,
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
   HttpStatus,
-  HttpException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -20,6 +21,7 @@ import {DataLinkDto} from './dto/data-link.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
 import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
@@ -39,6 +41,7 @@ import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 @ApiTags('data-links')
 @Controller('arc-api/v1/projects/:projectId/data-links')
 @UseGuards(AuthGuard('jwt'))
+@UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -59,10 +62,20 @@ export class DataLinkController extends BaseController {
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of data-link system ids',
     responses: [
-      {status: HttpStatus.OK, description: 'Success', dto: [DataLinkDto]},
+      {
+        status: HttpStatus.OK,
+        description: 'All data-links found successfully',
+        dto: [DataLinkDto],
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some data-links could not be retrieved (see errors array)',
+        dto: [DataLinkDto],
+      },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some data-link(s) are not found',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -80,10 +93,7 @@ export class DataLinkController extends BaseController {
       projectId,
       JSON.stringify(dataLinkSystemIds),
     );
-    throw new HttpException(
-      'Data-links retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('queryDataLinks is not implemented yet');
   }
 
   /**
@@ -107,7 +117,8 @@ export class DataLinkController extends BaseController {
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Source or destination module not found',
+        description:
+          'Project not found, or source or destination module not found',
       },
       {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -119,40 +130,29 @@ export class DataLinkController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() createDto: CreateDataLinkRequest,
   ): Promise<ApiResult<ComponentCollectionDto>> {
-    try {
-      console.log(
-        'Creating data link for project:',
-        projectId,
-        'with data:',
-        createDto,
-      );
+    console.log(
+      'Creating data link for project:',
+      projectId,
+      'with data:',
+      createDto,
+    );
 
-      const command = new CreateDataLinkCommand(
-        createDto.sourceNodeSystemId,
-        createDto.sourcePortSystemId,
-        createDto.destinationNodeSystemId,
-        createDto.destinationPortSystemId,
-        createDto.type ?? 'normal',
-        'client-id',
-      );
+    const command = new CreateDataLinkCommand(
+      createDto.sourceNodeSystemId,
+      createDto.sourcePortSystemId,
+      createDto.destinationNodeSystemId,
+      createDto.destinationPortSystemId,
+      createDto.type ?? 'normal',
+      'client-id',
+    );
 
-      const components =
-        await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-      return {
-        data: this.toComponentCollectionDto(components),
-        success: true,
-        message: 'Data link created successfully',
-      };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof Error && /not found/i.test(error.message)) {
-        throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-      }
-      throw new HttpException(
-        'Failed to create data link',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    const components =
+      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+    return {
+      data: this.toComponentCollectionDto(components),
+      success: true,
+      message: 'Data link created successfully',
+    };
   }
 
   /**
@@ -177,7 +177,8 @@ export class DataLinkController extends BaseController {
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Source or destination module not found',
+        description:
+          'Project not found, or source or destination module not found',
       },
       {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -189,38 +190,24 @@ export class DataLinkController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() createDto: CreateDataLinkRequest,
   ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
-    try {
-      console.log(
-        'Creating data link (with-subsystems) for project:',
-        projectId,
-      );
+    console.log('Creating data link (with-subsystems) for project:', projectId);
 
-      const command = new CreateDataLinkCommand(
-        createDto.sourceNodeSystemId,
-        createDto.sourcePortSystemId,
-        createDto.destinationNodeSystemId,
-        createDto.destinationPortSystemId,
-        createDto.type ?? 'normal',
-        'client-id',
-      );
+    const command = new CreateDataLinkCommand(
+      createDto.sourceNodeSystemId,
+      createDto.sourcePortSystemId,
+      createDto.destinationNodeSystemId,
+      createDto.destinationPortSystemId,
+      createDto.type ?? 'normal',
+      'client-id',
+    );
 
-      const components =
-        await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-      return {
-        data: this.toComponentCollectionWithSubsystemsDto(components),
-        success: true,
-        message: 'Data link created successfully',
-      };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof Error && /not found/i.test(error.message)) {
-        throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-      }
-      throw new HttpException(
-        'Failed to create data link',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    const components =
+      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+    return {
+      data: this.toComponentCollectionWithSubsystemsDto(components),
+      success: true,
+      message: 'Data link created successfully',
+    };
   }
 
   /**
@@ -244,7 +231,10 @@ export class DataLinkController extends BaseController {
         description: 'Data link deleted successfully',
         dto: DataLinkDto,
       },
-      {status: HttpStatus.NOT_FOUND, description: 'Data link not found'},
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or data link not found',
+      },
       {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         description: 'Failed to delete data link',
@@ -255,44 +245,33 @@ export class DataLinkController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('dataLinkSystemId') dataLinkSystemId: string,
   ): Promise<ApiResult<DataLinkDto>> {
-    try {
-      console.log(
-        'Deleting data link:',
-        dataLinkSystemId,
-        'in project:',
-        projectId,
-      );
+    console.log(
+      'Deleting data link:',
+      dataLinkSystemId,
+      'in project:',
+      projectId,
+    );
 
-      const command = new DeleteDataLinkCommand(
-        Number.parseInt(dataLinkSystemId, 10),
-        'client-id',
-      );
+    const command = new DeleteDataLinkCommand(
+      Number.parseInt(dataLinkSystemId, 10),
+      'client-id',
+    );
 
-      const deleted = await this.commandBus.execute<DataLinkReadModel>(command);
-      return {
-        data: new DataLinkDto(
-          deleted.systemId.toString(),
-          deleted.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          deleted.sourceNodeSystemId,
-          deleted.sourcePortSystemId,
-          deleted.destinationNodeSystemId,
-          deleted.destinationPortSystemId,
-          false,
-        ),
-        success: true,
-        message: 'Data link deleted successfully',
-      };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof Error && /not found/i.test(error.message)) {
-        throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-      }
-      throw new HttpException(
-        'Failed to delete data link',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    const deleted = await this.commandBus.execute<DataLinkReadModel>(command);
+    return {
+      data: new DataLinkDto(
+        deleted.systemId.toString(),
+        deleted.systemId,
+        CONN_CTRL_TYPE.MODULE_MODULE,
+        deleted.sourceNodeSystemId,
+        deleted.sourcePortSystemId,
+        deleted.destinationNodeSystemId,
+        deleted.destinationPortSystemId,
+        false,
+      ),
+      success: true,
+      message: 'Data link deleted successfully',
+    };
   }
 
   private toComponentCollectionDto(

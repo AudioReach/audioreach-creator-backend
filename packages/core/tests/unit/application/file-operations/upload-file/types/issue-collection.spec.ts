@@ -296,12 +296,14 @@ describe('IssueCollector', () => {
       expect(formatted.warnings).toBeDefined();
       expect(formatted.errors).toHaveLength(1);
       expect(formatted.warnings).toHaveLength(1);
-      expect(formatted.errors![0]).toBe(
-        '[ERR_2004] KeyDefinition: Invalid data',
-      );
-      expect(formatted.warnings![0]).toBe(
-        '[ERR_1002] SpfModule: Missing field',
-      );
+      expect(formatted.errors![0]).toEqual({
+        code: 'ERR_2004',
+        message: 'KeyDefinition: Invalid data',
+      });
+      expect(formatted.warnings![0]).toEqual({
+        code: 'ERR_1002',
+        message: 'SpfModule: Missing field',
+      });
     });
 
     it('should return empty object when no issues', () => {

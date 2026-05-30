@@ -349,26 +349,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Successfully deleted project",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "object",
-                          "nullable": true
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "Successfully deleted project"
           },
           "404": {
             "description": "Project does not exist",
@@ -2185,7 +2166,7 @@
             "description": "Invalid filter parameter"
           },
           "404": {
-            "description": "No use case is found"
+            "description": "Project not found or no use cases found"
           }
         },
         "summary": "Get all usecases with optional filtering",
@@ -2233,6 +2214,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get modification summary)"
@@ -2299,7 +2283,7 @@
             "description": "Invalid filter parameter"
           },
           "404": {
-            "description": "No usecases found"
+            "description": "Project not found or no usecases found"
           }
         },
         "summary": "Get subsystem-filtered usecases",
@@ -2373,7 +2357,7 @@
             "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
           },
           "404": {
-            "description": "No data links found for the given component+port"
+            "description": "Project not found, or no data links found for the given component+port"
           }
         },
         "summary": "Get ACDB data links for a component+port combination",
@@ -2447,7 +2431,7 @@
             "description": "Missing or invalid componentSystemId / portSystemId, or subsystem component provided"
           },
           "404": {
-            "description": "No control links found for the given component+port"
+            "description": "Project not found, or no control links found for the given component+port"
           }
         },
         "summary": "Get ACDB control links for a component+port combination",
@@ -2499,7 +2483,7 @@
         },
         "responses": {
           "200": {
-            "description": "Components are returned successfully",
+            "description": "All components returned successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -2565,8 +2549,7 @@
                           "containerId": 601,
                           "maxInputPortsSupported": 2,
                           "maxOutputPortsSupported": 2,
-                          "maxControlPortsSupported": 1,
-                          "heapId": 1
+                          "maxControlPortsSupported": 1
                         },
                         {
                           "systemId": "1002",
@@ -2621,8 +2604,7 @@
                           "containerId": 601,
                           "maxInputPortsSupported": 1,
                           "maxOutputPortsSupported": 1,
-                          "maxControlPortsSupported": 2,
-                          "heapId": 1
+                          "maxControlPortsSupported": 2
                         }
                       ],
                       "dataLinks": [
@@ -2661,8 +2643,29 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success — some usecases could not be retrieved (see errors array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ComponentCollectionDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Usecase is not found for provided usecase id"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get components for usecase(s)"
@@ -2717,7 +2720,7 @@
         },
         "responses": {
           "200": {
-            "description": "Components with subsystem hierarchy returned successfully",
+            "description": "All components with subsystem hierarchy returned successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -2783,8 +2786,7 @@
                           "containerId": 601,
                           "maxInputPortsSupported": 2,
                           "maxOutputPortsSupported": 2,
-                          "maxControlPortsSupported": 1,
-                          "heapId": 1
+                          "maxControlPortsSupported": 1
                         },
                         {
                           "systemId": "1002",
@@ -2839,8 +2841,7 @@
                           "containerId": 601,
                           "maxInputPortsSupported": 1,
                           "maxOutputPortsSupported": 1,
-                          "maxControlPortsSupported": 2,
-                          "heapId": 1
+                          "maxControlPortsSupported": 2
                         }
                       ],
                       "dataLinks": [
@@ -2879,8 +2880,29 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success — some usecases could not be retrieved (see errors array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Usecase is not found for provided usecase id"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get components for usecase(s)"
@@ -2954,7 +2976,7 @@
             "description": "Invalid request data"
           },
           "404": {
-            "description": "Usecase not found"
+            "description": "Project or usecase not found"
           },
           "409": {
             "description": "Alias ID is already in use by another usecase"
@@ -3011,13 +3033,16 @@
         },
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "All usecases deleted successfully"
+          },
+          "207": {
+            "description": "Partial success — some usecases could not be deleted (see errors array)"
           },
           "404": {
-            "description": "Some usecase(s) cannot be found"
+            "description": "Project not found"
           },
           "422": {
-            "description": "Failed to delete some usecase(s))"
+            "description": "Failed to delete usecase(s)"
           }
         },
         "summary": "Delete usecases for provided usecase ids",
@@ -3099,7 +3124,7 @@
             "description": "Invalid request data (e.g., keySystemIds not equal to the union of all usecase keys)"
           },
           "404": {
-            "description": "All usecases not found"
+            "description": "Project not found, or all usecases not found"
           },
           "409": {
             "description": "Category name already exists"
@@ -3196,7 +3221,7 @@
             "description": "Invalid request data (e.g., keySystemIds not equal to the union of all usecase keys)"
           },
           "404": {
-            "description": "Category not found or some usecases not found"
+            "description": "Project not found, or category not found, or some usecases not found"
           },
           "409": {
             "description": "Category name already exists"
@@ -3256,7 +3281,7 @@
             }
           },
           "404": {
-            "description": "Category not found"
+            "description": "Project or category not found"
           },
           "500": {
             "description": "Failed to delete usecase category"
@@ -3523,7 +3548,31 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "All SPF modules found successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SpfModuleDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some SPF modules could not be retrieved (see errors array)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3547,7 +3596,7 @@
             }
           },
           "404": {
-            "description": "Some SPF modules are not found"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get SPF modules"
@@ -3650,7 +3699,7 @@
             "description": "Invalid input parameters"
           },
           "404": {
-            "description": "Module definition or processor not found"
+            "description": "Project not found, or module definition or processor not found"
           },
           "422": {
             "description": "Failed to create SPF module"
@@ -3734,7 +3783,7 @@
             "description": "Module license required to access calibration data"
           },
           "404": {
-            "description": "SPF module or CKV system ID not found"
+            "description": "Project, SPF module, or CKV system ID not found"
           },
           "422": {
             "description": "Failed to get calibration data"
@@ -3820,7 +3869,7 @@
             "description": "Module license required to update calibration data"
           },
           "404": {
-            "description": "SPF module or CKV system ID not found"
+            "description": "Project, SPF module, or CKV system ID not found"
           },
           "422": {
             "description": "Failed to update calibration data"
@@ -3914,7 +3963,7 @@
             "description": "Module license required to access tag data"
           },
           "404": {
-            "description": "SPF module, tag system ID, or TKV system ID not found"
+            "description": "Project, SPF module, tag system ID, or TKV system ID not found"
           },
           "422": {
             "description": "Failed to get tag data"
@@ -4010,7 +4059,7 @@
             "description": "Module license required to update tag data"
           },
           "404": {
-            "description": "SPF module, tag system ID, or TKV system ID not found"
+            "description": "Project, SPF module, tag system ID, or TKV system ID not found"
           },
           "422": {
             "description": "Failed to update tag data"
@@ -4062,6 +4111,9 @@
               }
             }
           },
+          "404": {
+            "description": "Project not found"
+          },
           "422": {
             "description": "Failed to get subgraphs"
           }
@@ -4100,7 +4152,31 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "All subgraphs found successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubgraphDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some subgraphs could not be retrieved (see errors array)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4124,7 +4200,7 @@
             }
           },
           "404": {
-            "description": "Some subgraphs are not found"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get subgraphs"
@@ -4183,7 +4259,7 @@
             }
           },
           "404": {
-            "description": "Subgraph is not found"
+            "description": "Project or subgraph not found"
           },
           "422": {
             "description": "Failed to get subgraph properties"
@@ -4357,7 +4433,7 @@
             }
           },
           "404": {
-            "description": "Subgraph is not found"
+            "description": "Project or subgraph not found"
           }
         },
         "summary": "Get all usecases for a given subgraph system id",
@@ -4394,7 +4470,31 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "All subsystems found successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubsystemDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some subsystems could not be retrieved (see errors array)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4418,7 +4518,7 @@
             }
           },
           "404": {
-            "description": "Some subsystems are not found"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get subsystems"
@@ -4491,7 +4591,7 @@
             }
           },
           "404": {
-            "description": "Subsystem cannot be found"
+            "description": "Project or subsystem not found"
           },
           "422": {
             "description": "Failed to get components in subsystem)"
@@ -4531,7 +4631,31 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "All containers found successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ContainerDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some containers could not be retrieved (see errors array)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4555,7 +4679,7 @@
             }
           },
           "404": {
-            "description": "Some container(s) are not found"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get container(s)"
@@ -4614,7 +4738,7 @@
             }
           },
           "404": {
-            "description": "Container is not found"
+            "description": "Project or container not found"
           },
           "422": {
             "description": "Failed to get container properties"
@@ -4654,7 +4778,31 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "All data-links found successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DataLinkDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some data-links could not be retrieved (see errors array)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4678,7 +4826,7 @@
             }
           },
           "404": {
-            "description": "Some data-link(s) are not found"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get data-link(s)"
@@ -4743,7 +4891,7 @@
             "description": "Invalid request data"
           },
           "404": {
-            "description": "Source or destination module not found"
+            "description": "Project not found, or source or destination module not found"
           },
           "500": {
             "description": "Failed to create data link"
@@ -4808,7 +4956,7 @@
             "description": "Invalid request data"
           },
           "404": {
-            "description": "Source or destination module not found"
+            "description": "Project not found, or source or destination module not found"
           },
           "500": {
             "description": "Failed to create data link"
@@ -4868,7 +5016,7 @@
             }
           },
           "404": {
-            "description": "Data link not found"
+            "description": "Project or data link not found"
           },
           "500": {
             "description": "Failed to delete data link"
@@ -4908,7 +5056,31 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "All control-links found successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlLinkDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some control-links could not be retrieved (see errors array)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4932,7 +5104,7 @@
             }
           },
           "404": {
-            "description": "Some control-link(s) are not found"
+            "description": "Project not found"
           },
           "422": {
             "description": "Failed to get control-link(s)"
@@ -4997,7 +5169,7 @@
             "description": "Invalid request data"
           },
           "404": {
-            "description": "Source or destination module not found"
+            "description": "Project not found, or source or destination module not found"
           },
           "500": {
             "description": "Failed to create control link"
@@ -5062,7 +5234,7 @@
             "description": "Invalid request data"
           },
           "404": {
-            "description": "Source or destination module not found"
+            "description": "Project not found, or source or destination module not found"
           },
           "500": {
             "description": "Failed to create control link"
@@ -5134,7 +5306,7 @@
             }
           },
           "404": {
-            "description": "control-link is not found"
+            "description": "Project or control link not found"
           },
           "422": {
             "description": "Failed to update control-link property"
@@ -5191,7 +5363,7 @@
             }
           },
           "404": {
-            "description": "Control link is not found"
+            "description": "Project or control link not found"
           },
           "422": {
             "description": "Failed to get control link properties"
@@ -5251,7 +5423,7 @@
             }
           },
           "404": {
-            "description": "Control link not found"
+            "description": "Project or control link not found"
           },
           "500": {
             "description": "Failed to delete control link"
@@ -5282,6 +5454,44 @@
       }
     },
     "schemas": {
+      "ApiErrorItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier of the item that failed (if applicable)"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code (e.g., DB_QUERY_FAILED, PARSE_ERROR)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error detail"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "ApiWarningItem": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Machine-readable warning code (e.g., DEPRECATED_FORMAT, PARTIAL_DATA)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable warning detail"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
       "ApiResult": {
         "type": "object",
         "properties": {
@@ -5291,13 +5501,13 @@
           "errors": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ApiErrorItem"
             }
           },
           "warnings": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ApiWarningItem"
             }
           },
           "success": {
@@ -7912,10 +8122,6 @@
           "maxControlPortsSupported": {
             "type": "number",
             "description": "Maximum number of control ports supported"
-          },
-          "heapId": {
-            "type": "number",
-            "description": "Heap ID"
           },
           "ckvs": {
             "description": "Calibration key-values configuration",

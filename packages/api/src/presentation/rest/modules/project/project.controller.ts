@@ -4,10 +4,12 @@
  */
 
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
@@ -16,7 +18,6 @@ import {
   UploadedFiles,
   //UseGuards,
   UseInterceptors,
-  BadRequestException,
   Inject,
   Res,
 } from '@nestjs/common';
@@ -45,16 +46,9 @@ import type {
   Logger,
   DownloadFileResult,
   ProjectFilePropertiesResult,
+  UploadFileResult,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
-
-interface UploadFileCommandResult {
-  projectId: string;
-  projectName: string;
-  projectDescription: string;
-  errors?: string[];
-  warnings?: string[];
-}
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -107,7 +101,9 @@ export class ProjectController {
     const normalizedTmpDir = path.normalize(tmpDir);
 
     if (!normalizedPath.startsWith(normalizedTmpDir)) {
-      throw new Error('Invalid file path: must be within temp directory');
+      throw new BadRequestException(
+        'Invalid file path: must be within temp directory',
+      );
     }
 
     await fsPromises.writeFile(validatedPath, data);
@@ -123,7 +119,9 @@ export class ProjectController {
     const normalizedTmpDir = path.normalize(tmpDir);
 
     if (!normalizedPath.startsWith(normalizedTmpDir)) {
-      throw new Error('Invalid file path: must be within temp directory');
+      throw new BadRequestException(
+        'Invalid file path: must be within temp directory',
+      );
     }
 
     await fsPromises.unlink(validatedPath);
@@ -239,89 +237,54 @@ export class ProjectController {
     const acdbPath = this.createSafeTempPath(acdb.originalname);
     const awspPath = this.createSafeTempPath(awsp.originalname);
 
-    let acdbRef: PathRef;
-    let awspRef: PathRef;
+    // Write Multer buffers to temp files
+    await this.safeWriteFile(acdbPath, acdb.buffer);
+    await this.safeWriteFile(awspPath, awsp.buffer);
 
-    try {
-      // Write Multer buffers to temp files
-      await this.safeWriteFile(acdbPath, acdb.buffer);
-      await this.safeWriteFile(awspPath, awsp.buffer);
+    const acdbRef: PathRef = {
+      kind: 'path',
+      name: acdb.originalname,
+      mimeType: acdb.mimetype,
+      uri: acdbPath,
+    };
+    const awspRef: PathRef = {
+      kind: 'path',
+      name: awsp.originalname,
+      mimeType: awsp.mimetype,
+      uri: awspPath,
+    };
 
-      acdbRef = {
-        kind: 'path',
-        name: acdb.originalname,
-        mimeType: acdb.mimetype,
-        uri: acdbPath,
-      };
-      awspRef = {
-        kind: 'path',
-        name: awsp.originalname,
-        mimeType: awsp.mimetype,
-        uri: awspPath,
-      };
-    } catch (error) {
-      // Log error and clean up any created files
-      this.logger.logError({
-        component: 'ProjectController',
-        action: 'uploadArcDbFiles',
-        msg: 'Failed to write temporary files',
-        timestamp: new Date(),
-        clientId,
-        tag: 'error',
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
+    // Dispatch command
+    const result = await this.commandBus.execute<UploadFileResult>(
+      new UploadFileCommand(clientId, acdbRef, awspRef),
+    );
 
-      await Promise.allSettled([
-        this.safeUnlink(acdbPath).catch(() => {}),
-        this.safeUnlink(awspPath).catch(() => {}),
-      ]);
-      throw new BadRequestException('Failed to process uploaded files');
-    }
+    // Cleanup temp files after successful processing
+    await Promise.allSettled([
+      this.safeUnlink(acdbPath),
+      this.safeUnlink(awspPath),
+    ]);
 
-    try {
-      // Dispatch command
-      const result = await this.commandBus.execute<UploadFileCommandResult>(
-        new UploadFileCommand(clientId, acdbRef, awspRef),
-      );
+    const projectdetails: ProjectInfoResponseDto = {
+      projectId: result.projectId,
+      name: result.projectName,
+      description: result.projectDescription,
+      projectType: ProjectType.Offline,
+      sessionMode: SessionMode.Designer,
+    };
 
-      // Cleanup on success
-      await Promise.allSettled([
-        this.safeUnlink(acdbPath),
-        this.safeUnlink(awspPath),
-      ]);
+    const hasErrors = result.errors && result.errors.length > 0;
 
-      const projectdetails: ProjectInfoResponseDto = {
-        projectId: result.projectId,
-        name: result.projectName,
-        description: result.projectDescription,
-        projectType: ProjectType.Offline,
-        sessionMode: SessionMode.Designer,
-      };
-
-      const hasErrors = result.errors && result.errors.length > 0;
-
-      const projectResponse: ApiResult<ProjectInfoResponseDto> = {
-        data: projectdetails,
-        success: !hasErrors,
-        message: hasErrors
-          ? `Project created with ${result.errors?.length} validation errors. Please review and fix the issues.`
-          : 'The file has been opened successfully',
-        errors: result.errors,
-      };
-      return projectResponse;
-    } catch (error) {
-      // Keep temp files for debugging; log absolute paths
-      this.logger.logError({
-        component: 'ProjectController',
-        action: 'uploadArcDbFiles',
-        msg: `Open offline files failed. Temp files preserved: ${acdbPath}, ${awspPath}`,
-        timestamp: new Date(),
-        clientId,
-        tag: 'error',
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
-      throw error;
-    }
+    const projectResponse: ApiResult<ProjectInfoResponseDto> = {
+      data: projectdetails,
+      success: !hasErrors,
+      message: hasErrors
+        ? `Project created with ${result.errors?.length} validation errors. Please review and fix the issues.`
+        : 'The file has been opened successfully',
+      errors: result.errors,
+      warnings: result.warnings,
+    };
+    return projectResponse;
   }
 
   @Get()
@@ -764,6 +727,7 @@ export class ProjectController {
   }
 
   @Delete('/:projectId')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete project',
     description: 'Delete the project based on project Id.',
@@ -772,19 +736,6 @@ export class ProjectController {
   @ApiResponse({
     description: 'Successfully deleted project',
     status: HttpStatus.NO_CONTENT,
-    schema: {
-      allOf: [
-        {$ref: getSchemaPath(ApiResult)},
-        {
-          properties: {
-            data: {
-              type: 'object',
-              nullable: true,
-            },
-          },
-        },
-      ],
-    },
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
@@ -803,13 +754,8 @@ export class ProjectController {
       ],
     },
   })
-  async deleteProject(
-    @Param('projectId') _projectId: string,
-  ): Promise<ApiResult<null>> {
+  async deleteProject(@Param('projectId') _projectId: string): Promise<void> {
     // Need a project Id to delete the project. It will take from header. Delete the project and clear the database for that Project Id
-
     await Promise.resolve();
-
-    return new ApiResult<null>();
   }
 }

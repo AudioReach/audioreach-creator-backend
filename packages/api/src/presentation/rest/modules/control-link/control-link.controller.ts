@@ -5,6 +5,7 @@
 
 import {
   Controller,
+  NotImplementedException,
   Post,
   Get,
   Patch,
@@ -12,8 +13,8 @@ import {
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
   HttpStatus,
-  HttpException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -26,6 +27,7 @@ import {
 } from './dto/control-link.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
@@ -44,6 +46,7 @@ import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 @ApiTags('control-links')
 @Controller('arc-api/v1/projects/:projectId/control-links')
 @UseGuards(AuthGuard('jwt'))
+@UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -64,10 +67,20 @@ export class ControlLinkController extends BaseController {
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of control-link system ids',
     responses: [
-      {status: HttpStatus.OK, description: 'Success', dto: [ControlLinkDto]},
+      {
+        status: HttpStatus.OK,
+        description: 'All control-links found successfully',
+        dto: [ControlLinkDto],
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some control-links could not be retrieved (see errors array)',
+        dto: [ControlLinkDto],
+      },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some control-link(s) are not found',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -85,9 +98,8 @@ export class ControlLinkController extends BaseController {
       projectId,
       JSON.stringify(controlLinkSystemIds),
     );
-    throw new HttpException(
-      'Control-links retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'queryControlLinks is not implemented yet',
     );
   }
 
@@ -111,7 +123,8 @@ export class ControlLinkController extends BaseController {
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Source or destination module not found',
+        description:
+          'Project not found, or source or destination module not found',
       },
       {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -123,40 +136,29 @@ export class ControlLinkController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() createDto: CreateControlLinkRequest,
   ): Promise<ApiResult<ComponentCollectionDto>> {
-    try {
-      console.log(
-        'Creating control link for project:',
-        projectId,
-        'with data:',
-        createDto,
-      );
+    console.log(
+      'Creating control link for project:',
+      projectId,
+      'with data:',
+      createDto,
+    );
 
-      const command = new CreateControlLinkCommand(
-        createDto.startComponentId,
-        createDto.startPortId,
-        createDto.endComponentId,
-        createDto.endPortId,
-        0,
-        'client-id',
-      );
+    const command = new CreateControlLinkCommand(
+      createDto.startComponentId,
+      createDto.startPortId,
+      createDto.endComponentId,
+      createDto.endPortId,
+      0,
+      'client-id',
+    );
 
-      const components =
-        await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-      return {
-        data: this.toComponentCollectionDto(components),
-        success: true,
-        message: 'Control link created successfully',
-      };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof Error && /not found/i.test(error.message)) {
-        throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-      }
-      throw new HttpException(
-        'Failed to create control link',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    const components =
+      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+    return {
+      data: this.toComponentCollectionDto(components),
+      success: true,
+      message: 'Control link created successfully',
+    };
   }
 
   /**
@@ -179,7 +181,8 @@ export class ControlLinkController extends BaseController {
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Source or destination module not found',
+        description:
+          'Project not found, or source or destination module not found',
       },
       {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -191,38 +194,27 @@ export class ControlLinkController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() createDto: CreateControlLinkRequest,
   ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
-    try {
-      console.log(
-        'Creating control link (with-subsystems) for project:',
-        projectId,
-      );
+    console.log(
+      'Creating control link (with-subsystems) for project:',
+      projectId,
+    );
 
-      const command = new CreateControlLinkCommand(
-        createDto.startComponentId,
-        createDto.startPortId,
-        createDto.endComponentId,
-        createDto.endPortId,
-        0,
-        'client-id',
-      );
+    const command = new CreateControlLinkCommand(
+      createDto.startComponentId,
+      createDto.startPortId,
+      createDto.endComponentId,
+      createDto.endPortId,
+      0,
+      'client-id',
+    );
 
-      const components =
-        await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-      return {
-        data: this.toComponentCollectionWithSubsystemsDto(components),
-        success: true,
-        message: 'Control link created successfully',
-      };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof Error && /not found/i.test(error.message)) {
-        throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-      }
-      throw new HttpException(
-        'Failed to create control link',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    const components =
+      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+    return {
+      data: this.toComponentCollectionWithSubsystemsDto(components),
+      success: true,
+      message: 'Control link created successfully',
+    };
   }
 
   /**
@@ -234,7 +226,10 @@ export class ControlLinkController extends BaseController {
     requestDto: ControlLinkPropertiesDto,
     responses: [
       {status: HttpStatus.OK, description: 'Success', dto: [ControlLinkDto]},
-      {status: HttpStatus.NOT_FOUND, description: 'control-link is not found'},
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or control link not found',
+      },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description: 'Failed to update control-link property',
@@ -251,9 +246,8 @@ export class ControlLinkController extends BaseController {
       properties,
     );
     await Promise.resolve();
-    throw new HttpException(
-      'Control link properties update not implemented',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'updateControlLinkProperties is not implemented yet',
     );
   }
 
@@ -275,7 +269,10 @@ export class ControlLinkController extends BaseController {
         description: 'Success',
         dto: ControlLinkPropertiesDto,
       },
-      {status: HttpStatus.NOT_FOUND, description: 'Control link is not found'},
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or control link not found',
+      },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description: 'Failed to get control link properties',
@@ -293,9 +290,8 @@ export class ControlLinkController extends BaseController {
       'for control link:',
       controlLinkSystemId,
     );
-    throw new HttpException(
-      'Control link properties retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getControlLinkProperties is not implemented yet',
     );
   }
 
@@ -320,7 +316,10 @@ export class ControlLinkController extends BaseController {
         description: 'Control link deleted successfully',
         dto: ControlLinkDto,
       },
-      {status: HttpStatus.NOT_FOUND, description: 'Control link not found'},
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or control link not found',
+      },
       {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         description: 'Failed to delete control link',
@@ -331,46 +330,35 @@ export class ControlLinkController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('controlLinkSystemId') controlLinkSystemId: string,
   ): Promise<ApiResult<ControlLinkDto>> {
-    try {
-      console.log(
-        'Deleting control link:',
-        controlLinkSystemId,
-        'in project:',
-        projectId,
-      );
+    console.log(
+      'Deleting control link:',
+      controlLinkSystemId,
+      'in project:',
+      projectId,
+    );
 
-      const command = new DeleteControlLinkCommand(
-        Number.parseInt(controlLinkSystemId, 10),
-        'client-id',
-      );
+    const command = new DeleteControlLinkCommand(
+      Number.parseInt(controlLinkSystemId, 10),
+      'client-id',
+    );
 
-      const deleted =
-        await this.commandBus.execute<ControlLinkReadModel>(command);
-      return {
-        data: new ControlLinkDto(
-          deleted.systemId.toString(),
-          deleted.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          deleted.peerNodeASystemId,
-          deleted.nodeAPortSystemId,
-          deleted.peerNodeBSystemId,
-          deleted.nodeBPortSystemId,
-          false,
-          undefined,
-        ),
-        success: true,
-        message: 'Control link deleted successfully',
-      };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof Error && /not found/i.test(error.message)) {
-        throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-      }
-      throw new HttpException(
-        'Failed to delete control link',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    const deleted =
+      await this.commandBus.execute<ControlLinkReadModel>(command);
+    return {
+      data: new ControlLinkDto(
+        deleted.systemId.toString(),
+        deleted.systemId,
+        CONN_CTRL_TYPE.MODULE_MODULE,
+        deleted.peerNodeASystemId,
+        deleted.nodeAPortSystemId,
+        deleted.peerNodeBSystemId,
+        deleted.nodeBPortSystemId,
+        false,
+        undefined,
+      ),
+      success: true,
+      message: 'Control link deleted successfully',
+    };
   }
 
   private toComponentCollectionDto(

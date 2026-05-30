@@ -6,10 +6,10 @@
 import {
   Controller,
   Get,
+  NotImplementedException,
   Param,
   Query,
   HttpStatus,
-  HttpException,
   UseGuards,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
@@ -131,9 +131,8 @@ export class DriverModuleController extends BaseController {
     console.log(
       `Getting driver modules for project ${projectId}, moduleId: ${moduleId}, includeTuningConfiguration: ${includeTuningConfiguration}`,
     );
-    throw new HttpException(
-      'Driver modules retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getDriverModules is not implemented yet',
     );
   }
 
@@ -212,9 +211,8 @@ export class DriverModuleController extends BaseController {
     console.log(
       `Getting driver module ${driverModuleSystemId} for project ${projectId}, includeTuningConfiguration: ${includeTuningConfiguration}`,
     );
-    throw new HttpException(
-      'Driver module retrieval by ID functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getDriverModuleById is not implemented yet',
     );
   }
 
@@ -291,9 +289,8 @@ export class DriverModuleController extends BaseController {
     console.log(
       `Getting cal data for module ${driverModuleSystemId}, CKV ${ckvSystemId} in project ${projectId}`,
     );
-    throw new HttpException(
-      'Calibration data retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getModuleCalData is not implemented yet',
     );
   }
 

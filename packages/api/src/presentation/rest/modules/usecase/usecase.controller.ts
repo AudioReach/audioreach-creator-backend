@@ -4,13 +4,15 @@
  */
 
 import {
+  BadRequestException,
   Controller,
   Get,
+  NotImplementedException,
   Post,
   Patch,
   //  UseGuards,
   HttpStatus,
-  HttpException,
+  UseInterceptors,
   Param,
   Body,
   Query,
@@ -46,6 +48,7 @@ import {
 } from '../../common/dto/control-port.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {
   QueryBus,
   GetAllUseCasesQuery,
@@ -68,6 +71,7 @@ import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 @ApiTags('usecases')
 @Controller('arc-api/v1/projects/:projectId/usecases')
 //@UseGuards(AuthGuard('jwt'))
+@UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -162,7 +166,7 @@ export class UseCaseController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'No use case is found',
+        description: 'Project not found or no use cases found',
       },
     ],
   })
@@ -170,46 +174,33 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Query('filter') filterExpression?: string,
   ): Promise<ApiResult<UsecaseDto[]>> {
-    try {
-      console.log('Getting usecases for project:', projectId);
+    console.log('Getting usecases for project:', projectId);
 
-      // TODO: Implement filter parsing and validation
-      // Filter expression will be parsed and applied in future implementation
-      if (filterExpression) {
-        console.log(
-          'Filter expression provided but not yet implemented:',
-          filterExpression,
-        );
-      }
-
-      // Execute query
-      const query = new GetAllUseCasesQuery(
-        Number.parseInt(projectId),
-        'client-id', // TODO: get actual clientId from JWT
-      );
-
-      const usecases = await this.queryBus.execute<UseCaseReadModel[]>(query);
-
-      // Transform to DTOs - convert UsecaseIdentifierDto to UsecaseDto
-      const transformedUsecases = this.transformToUsecaseDtos(usecases);
-
-      return {
-        data: transformedUsecases,
-        success: true,
-        message: 'Usecases retrieved successfully',
-      };
-    } catch (error) {
-      console.error('Error getting usecases:', error);
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        'Failed to retrieve usecases',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+    // TODO: Implement filter parsing and validation
+    // Filter expression will be parsed and applied in future implementation
+    if (filterExpression) {
+      console.log(
+        'Filter expression provided but not yet implemented:',
+        filterExpression,
       );
     }
+
+    // Execute query
+    const query = new GetAllUseCasesQuery(
+      Number.parseInt(projectId),
+      'client-id', // TODO: get actual clientId from JWT
+    );
+
+    const usecases = await this.queryBus.execute<UseCaseReadModel[]>(query);
+
+    // Transform to DTOs - convert UsecaseIdentifierDto to UsecaseDto
+    const transformedUsecases = this.transformToUsecaseDtos(usecases);
+
+    return {
+      data: transformedUsecases,
+      success: true,
+      message: 'Usecases retrieved successfully',
+    };
   }
 
   //#endregion
@@ -230,6 +221,10 @@ export class UseCaseController extends BaseController {
         dto: [UsecaseWithModificationSummary],
       },
       {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project not found',
+      },
+      {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description: 'Failed to get modification summary)',
       },
@@ -240,9 +235,8 @@ export class UseCaseController extends BaseController {
   ): Promise<ApiResult<UsecaseWithModificationSummary[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log('Getting usecase modification summary for project:', projectId);
-    throw new HttpException(
-      'This getUsecaseModificationSummary API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getUsecaseModificationSummary is not implemented yet',
     );
   }
 
@@ -311,7 +305,7 @@ export class UseCaseController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'No usecases found',
+        description: 'Project not found or no usecases found',
       },
     ],
   })
@@ -319,42 +313,25 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Query('filter') filterExpression?: string,
   ): Promise<ApiResult<SubsystemFilteredUsecasesDto[]>> {
-    try {
+    console.log('Getting subsystem-filtered usecases for project:', projectId);
+
+    // TODO: Implement filter parsing and validation
+    if (filterExpression) {
       console.log(
-        'Getting subsystem-filtered usecases for project:',
-        projectId,
-      );
-
-      // TODO: Implement filter parsing and validation
-      if (filterExpression) {
-        console.log(
-          'Filter expression provided but not yet implemented:',
-          filterExpression,
-        );
-      }
-
-      // TODO: Implement subsystem filtering logic
-      // 1. Query usecases with subsystem hierarchy
-      // 2. Group usecases by subsystem-filtered GKV
-      // 3. Create SubsystemFilteredUsecasesDto instances
-      // 4. Return organized hierarchy
-
-      throw new HttpException(
-        'This getSubsystemFilteredUsecases API endpoint is not implemented yet.',
-        HttpStatus.NOT_IMPLEMENTED,
-      );
-    } catch (error) {
-      console.error('Error getting subsystem-filtered usecases:', error);
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        'Failed to retrieve subsystem-filtered usecases',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        'Filter expression provided but not yet implemented:',
+        filterExpression,
       );
     }
+
+    // TODO: Implement subsystem filtering logic
+    // 1. Query usecases with subsystem hierarchy
+    // 2. Group usecases by subsystem-filtered GKV
+    // 3. Create SubsystemFilteredUsecasesDto instances
+    // 4. Return organized hierarchy
+
+    throw new NotImplementedException(
+      'getSubsystemFilteredUsecases is not implemented yet',
+    );
   }
 
   //#endregion
@@ -392,7 +369,8 @@ export class UseCaseController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'No data links found for the given component+port',
+        description:
+          'Project not found, or no data links found for the given component+port',
       },
     ],
   })
@@ -426,9 +404,8 @@ export class UseCaseController extends BaseController {
     );
 
     if (!componentSystemId || !portSystemId) {
-      throw new HttpException(
+      throw new BadRequestException(
         'componentSystemId and portSystemId are required',
-        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -436,18 +413,16 @@ export class UseCaseController extends BaseController {
     const parsedPortId = Number.parseInt(portSystemId, 10);
 
     if (Number.isNaN(parsedComponentId) || Number.isNaN(parsedPortId)) {
-      throw new HttpException(
+      throw new BadRequestException(
         'componentSystemId and portSystemId must be valid numbers',
-        HttpStatus.BAD_REQUEST,
       );
     }
 
     // TODO: Validate that the component is NOT a subsystem
     // If it is a subsystem, throw BAD_REQUEST error
 
-    throw new HttpException(
-      'This getDataLinksForComponentPort API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getDataLinksForComponentPort is not implemented yet',
     );
   }
 
@@ -486,7 +461,8 @@ export class UseCaseController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'No control links found for the given component+port',
+        description:
+          'Project not found, or no control links found for the given component+port',
       },
     ],
   })
@@ -520,9 +496,8 @@ export class UseCaseController extends BaseController {
     );
 
     if (!componentSystemId || !portSystemId) {
-      throw new HttpException(
+      throw new BadRequestException(
         'componentSystemId and portSystemId are required',
-        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -530,18 +505,16 @@ export class UseCaseController extends BaseController {
     const parsedPortId = Number.parseInt(portSystemId, 10);
 
     if (Number.isNaN(parsedComponentId) || Number.isNaN(parsedPortId)) {
-      throw new HttpException(
+      throw new BadRequestException(
         'componentSystemId and portSystemId must be valid numbers',
-        HttpStatus.BAD_REQUEST,
       );
     }
 
     // TODO: Validate that the component is NOT a subsystem
     // If it is a subsystem, throw BAD_REQUEST error
 
-    throw new HttpException(
-      'This getControlLinksForComponentPort API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
+    throw new NotImplementedException(
+      'getControlLinksForComponentPort is not implemented yet',
     );
   }
 
@@ -574,15 +547,21 @@ export class UseCaseController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Components are returned successfully',
+        description: 'All components returned successfully',
         dto: ComponentCollectionDto,
         example: {
           className: 'UsecaseComponentsExample',
         },
       },
       {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some usecases could not be retrieved (see errors array)',
+        dto: ComponentCollectionDto,
+      },
+      {
         status: HttpStatus.NOT_FOUND,
-        description: 'Usecase is not found for provided usecase id',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -594,64 +573,55 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<ComponentCollectionDto>> {
-    try {
-      console.log(
-        'Getting components for usecases in project:',
-        projectId,
-        'with system IDs:',
-        usecaseSystemIds,
-      );
+    console.log(
+      'Getting components for usecases in project:',
+      projectId,
+      'with system IDs:',
+      usecaseSystemIds,
+    );
 
-      // Validate input
-      if (
-        !usecaseSystemIds ||
-        !usecaseSystemIds.systemIds ||
-        usecaseSystemIds.systemIds.length === 0
-      ) {
-        throw new HttpException(
-          'systemIds array is required and cannot be empty',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      // Convert string systemIds to numbers
-      const systemIds = usecaseSystemIds.systemIds.map(id => {
-        const parsed = Number.parseInt(id, 10);
-        if (Number.isNaN(parsed)) {
-          throw new HttpException(
-            `Invalid use case system ID: ${id}`,
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        return parsed;
-      });
-
-      // Execute the query to get components
-      const query = new GetComponentsQuery(systemIds, 'client-id'); // TODO: get actual clientId from JWT
-      const components =
-        await this.queryBus.execute<UseCaseComponentsReadModel>(query);
-
-      // Transform components to ComponentCollectionDto (flat structure)
-      const componentCollection =
-        this.transformToComponentCollectionDto(components);
-
-      return {
-        data: componentCollection,
-        success: true,
-        message: 'Components retrieved successfully',
-      };
-    } catch (error) {
-      console.error('Error getting components:', error);
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        'Failed to retrieve components for usecase(s)',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+    // Validate input
+    if (
+      !usecaseSystemIds ||
+      !usecaseSystemIds.systemIds ||
+      usecaseSystemIds.systemIds.length === 0
+    ) {
+      throw new BadRequestException(
+        'systemIds array is required and cannot be empty',
       );
     }
+
+    // Convert string systemIds to numbers
+    const systemIds = usecaseSystemIds.systemIds.map(id => {
+      const parsed = Number.parseInt(id, 10);
+      if (Number.isNaN(parsed)) {
+        throw new BadRequestException(`Invalid use case system ID: ${id}`);
+      }
+      return parsed;
+    });
+
+    // Execute the query to get components
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+    const query = new GetComponentsQuery(
+      systemIds,
+      'client-id',
+      parsedProjectId,
+    ); // TODO: get actual clientId from JWT
+    const components =
+      await this.queryBus.execute<UseCaseComponentsReadModel>(query);
+
+    // Transform components to ComponentCollectionDto (flat structure)
+    const componentCollection =
+      this.transformToComponentCollectionDto(components);
+
+    return {
+      data: componentCollection,
+      success: true,
+      message: 'Components retrieved successfully',
+    };
   }
 
   //#endregion
@@ -687,15 +657,21 @@ export class UseCaseController extends BaseController {
       {
         status: HttpStatus.OK,
         description:
-          'Components with subsystem hierarchy returned successfully',
+          'All components with subsystem hierarchy returned successfully',
         dto: ComponentCollectionWithSubsystemsDto,
         example: {
           className: 'UsecaseComponentsExample',
         },
       },
       {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some usecases could not be retrieved (see errors array)',
+        dto: ComponentCollectionWithSubsystemsDto,
+      },
+      {
         status: HttpStatus.NOT_FOUND,
-        description: 'Usecase is not found for provided usecase id',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -707,54 +683,36 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
-    try {
-      console.log(
-        'Getting components with subsystem hierarchy for usecases in project:',
-        projectId,
-        'with system IDs:',
-        usecaseSystemIds,
-      );
+    console.log(
+      'Getting components with subsystem hierarchy for usecases in project:',
+      projectId,
+      'with system IDs:',
+      usecaseSystemIds,
+    );
 
-      // Validate input
-      if (
-        !usecaseSystemIds ||
-        !usecaseSystemIds.systemIds ||
-        usecaseSystemIds.systemIds.length === 0
-      ) {
-        throw new HttpException(
-          'systemIds array is required and cannot be empty',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      //TODO: Convert string systemIds to numbers
-
-      // TODO: Implement components with subsystem hierarchy logic
-      // 1. Execute query to get components for the specified usecases
-      // 2. Build subsystem hierarchy structure
-      // 3. Organize components within their respective subsystems
-      // 4. Populate ComponentCollectionDto.subsystems with the hierarchy
-      // 5. Return UsecaseComponentsDto with complete subsystem information
-
-      throw new HttpException(
-        'This queryUsecaseComponentsWithSubsystems API endpoint is not implemented yet.',
-        HttpStatus.NOT_IMPLEMENTED,
-      );
-    } catch (error) {
-      console.error(
-        'Error querying components with subsystem hierarchy:',
-        error,
-      );
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        'Failed to retrieve components with subsystem hierarchy for usecase(s)',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+    // Validate input
+    if (
+      !usecaseSystemIds ||
+      !usecaseSystemIds.systemIds ||
+      usecaseSystemIds.systemIds.length === 0
+    ) {
+      throw new BadRequestException(
+        'systemIds array is required and cannot be empty',
       );
     }
+
+    //TODO: Convert string systemIds to numbers
+
+    // TODO: Implement components with subsystem hierarchy logic
+    // 1. Execute query to get components for the specified usecases
+    // 2. Build subsystem hierarchy structure
+    // 3. Organize components within their respective subsystems
+    // 4. Populate ComponentCollectionDto.subsystems with the hierarchy
+    // 5. Return UsecaseComponentsDto with complete subsystem information
+
+    throw new NotImplementedException(
+      'queryUsecaseComponentsWithSubsystems is not implemented yet',
+    );
   }
 
   //#endregion
@@ -791,7 +749,7 @@ export class UseCaseController extends BaseController {
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Usecase not found',
+        description: 'Project or usecase not found',
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -827,10 +785,7 @@ export class UseCaseController extends BaseController {
       'with data:',
       updateUsecaseDto,
     );
-    throw new HttpException(
-      'This API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('updateUsecase is not implemented yet');
   }
 
   //#endregion
@@ -854,15 +809,20 @@ export class UseCaseController extends BaseController {
     responses: [
       {
         status: HttpStatus.OK,
-        description: 'Success',
+        description: 'All usecases deleted successfully',
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some usecases could not be deleted (see errors array)',
       },
       {
         status: HttpStatus.NOT_FOUND,
-        description: 'Some usecase(s) cannot be found',
+        description: 'Project not found',
       },
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to delete some usecase(s))',
+        description: 'Failed to delete usecase(s)',
       },
     ],
   })
@@ -877,10 +837,7 @@ export class UseCaseController extends BaseController {
       'with system IDs:',
       usecaseSystemIds,
     );
-    throw new HttpException(
-      'This API endpoint is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    throw new NotImplementedException('deleteUsecases is not implemented yet');
   }
 
   //#endregion

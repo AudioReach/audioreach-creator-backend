@@ -4,16 +4,18 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {ApiErrorItem} from './api-error-item.dto.js';
+import {ApiWarningItem} from './api-warning-item.dto.js';
 
 export class ApiResult<T> {
   @ApiProperty({required: false})
   data?: T;
 
-  @ApiProperty({type: [String], required: false})
-  errors?: string[];
+  @ApiProperty({type: [ApiErrorItem], required: false})
+  errors?: ApiErrorItem[];
 
-  @ApiProperty({type: [String], required: false})
-  warnings?: string[];
+  @ApiProperty({type: [ApiWarningItem], required: false})
+  warnings?: ApiWarningItem[];
 
   @ApiProperty()
   success!: boolean;

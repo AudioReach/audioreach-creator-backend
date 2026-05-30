@@ -8,6 +8,7 @@ import {
   Controller,
   Get,
   Delete,
+  NotImplementedException,
   Param,
   Query,
   HttpStatus,
@@ -70,9 +71,10 @@ export class KeyDefinitionController {
     @Param('projectId') _projectId: string,
     @Query('keyDefinitionId') _keyDefinitionId?: string,
   ): Promise<ApiResult<KeyDefinitionResponseDto[]>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<KeyDefinitionResponseDto[]>();
+    throw new NotImplementedException(
+      'getKeyDefinitions is not implemented yet',
+    );
   }
 
   @Get(':projectId/definitions/keys/:keySystemId')
@@ -112,9 +114,10 @@ export class KeyDefinitionController {
     @Param('projectId') _projectId: string,
     @Param('keySystemId') _keySystemId: string,
   ): Promise<ApiResult<KeyDefinitionResponseDto>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<KeyDefinitionResponseDto>();
+    throw new NotImplementedException(
+      'getKeyDefinition is not implemented yet',
+    );
   }
 
   @Delete(':projectId/definitions/keys/:keySystemId')
@@ -143,9 +146,10 @@ export class KeyDefinitionController {
     @Param('projectId') _projectId: string,
     @Param('keySystemId') _keySystemId: string,
   ): Promise<ApiResult<null>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<null>();
+    throw new NotImplementedException(
+      'deleteKeyDefinition is not implemented yet',
+    );
   }
 
   @Get(':projectId/definitions/tags')
@@ -187,9 +191,10 @@ export class KeyDefinitionController {
     @Param('projectId') _projectId: string,
     @Query('tagDefinitionId') _tagDefinitionId?: string,
   ): Promise<ApiResult<TagDefinitionResponseDto[]>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<TagDefinitionResponseDto[]>();
+    throw new NotImplementedException(
+      'getTagDefinitions is not implemented yet',
+    );
   }
 
   @Get(':projectId/definitions/tags/:tagSystemId')
@@ -229,9 +234,10 @@ export class KeyDefinitionController {
     @Param('projectId') _projectId: string,
     @Param('tagSystemId') _tagSystemId: string,
   ): Promise<ApiResult<TagDefinitionResponseDto>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<TagDefinitionResponseDto>();
+    throw new NotImplementedException(
+      'getTagDefinition is not implemented yet',
+    );
   }
 
   @Delete(':projectId/definitions/tags/:tagSystemId')
@@ -260,8 +266,9 @@ export class KeyDefinitionController {
     @Param('projectId') _projectId: string,
     @Param('tagSystemId') _tagSystemId: string,
   ): Promise<ApiResult<null>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<null>();
+    throw new NotImplementedException(
+      'deleteTagKeyDefinition is not implemented yet',
+    );
   }
 }

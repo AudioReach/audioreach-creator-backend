@@ -19,13 +19,17 @@ import {
   type FileOpenStatus,
 } from '../../../domain/entities/usecase-data/project/arc-db-file.js';
 import type {ValidationReport} from '../../../domain/validation/validation-report.js';
+import type {
+  ResultError,
+  ResultWarning,
+} from '../../../shared/types/api-result.js';
 
 export type UploadFileResult = {
   projectId: string;
   projectName: string;
   projectDescription: string;
-  errors?: string[];
-  warnings?: string[];
+  errors?: ResultError[];
+  warnings?: ResultWarning[];
   openStatus: FileOpenStatus;
   /**
    * Null for now — domain validation via fromEntities() will be added

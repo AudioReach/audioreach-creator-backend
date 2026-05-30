@@ -8,6 +8,7 @@ import {
   Delete,
   Get,
   HttpStatus,
+  NotImplementedException,
   Param,
   Query,
 } from '@nestjs/common';
@@ -75,9 +76,10 @@ export class PropertyDefinitionController {
     @Param('projectId') _projectId: string,
     @Query('propertyDefinitionId') _propertyDefinitionId?: string,
   ): Promise<ApiResult<SubgraphPropertyDefinitionSummaryResponseDto[]>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<SubgraphPropertyDefinitionSummaryResponseDto[]>();
+    throw new NotImplementedException(
+      'getSubgraphPropertyDefinitions is not implemented yet',
+    );
   }
 
   @Get(':projectId/definitions/subgraph/properties/:propertySystemId')
@@ -117,10 +119,10 @@ export class PropertyDefinitionController {
     @Param('projectId') _projectId: string,
     @Param('propertySystemId') _propertySystemId: string,
   ): Promise<ApiResult<SubgraphPropertyDefinitionDetailResponseDto>> {
-    // implement logic here
-
     await Promise.resolve();
-    return new ApiResult<SubgraphPropertyDefinitionDetailResponseDto>();
+    throw new NotImplementedException(
+      'getSubgraphPropertyDefinition is not implemented yet',
+    );
   }
 
   @Delete(':projectId/definitions/subgraph/properties/:propertySystemId')
@@ -150,9 +152,10 @@ export class PropertyDefinitionController {
     @Param('propertySystemId') _propertySystemId: string,
   ): Promise<ApiResult<null>> {
     // implement logic here
-
     await Promise.resolve();
-    return new ApiResult<null>();
+    throw new NotImplementedException(
+      'deleteSpfSubgraphPropertyDefinition is not implemented yet',
+    );
   }
 
   @Get(':projectId/definitions/container/properties')
@@ -197,9 +200,10 @@ export class PropertyDefinitionController {
     @Param('projectId') _projectId: string,
     @Query('propertyDefinitionId') _propertyDefinitionId?: string,
   ): Promise<ApiResult<ContainerPropertyDefinitionSummaryResponseDto[]>> {
-    // implement logic here
     await Promise.resolve();
-    return new ApiResult<ContainerPropertyDefinitionSummaryResponseDto[]>();
+    throw new NotImplementedException(
+      'getContainerPropertyDefinitions is not implemented yet',
+    );
   }
 
   @Get(':projectId/definitions/container/properties/:propertySystemId')
@@ -239,10 +243,10 @@ export class PropertyDefinitionController {
     @Param('projectId') _projectId: string,
     @Param('propertySystemId') _propertySystemId: string,
   ): Promise<ApiResult<ContainerPropertyDefinitionDetailResponseDto>> {
-    // implement logic here
-
     await Promise.resolve();
-    return new ApiResult<ContainerPropertyDefinitionDetailResponseDto>();
+    throw new NotImplementedException(
+      'getContainerPropertyDefinition is not implemented yet',
+    );
   }
 
   @Delete(':projectId/definitions/container/properties/:propertySystemId')
@@ -271,9 +275,9 @@ export class PropertyDefinitionController {
     @Param('projectId') _projectId: string,
     @Param('propertySystemId') _propertySystemId: string,
   ): Promise<ApiResult<null>> {
-    // implement logic here
-
     await Promise.resolve();
-    return new ApiResult<null>();
+    throw new NotImplementedException(
+      'deleteContainerPropertyDefinition is not implemented yet',
+    );
   }
 }

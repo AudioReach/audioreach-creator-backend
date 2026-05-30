@@ -27,6 +27,7 @@ export * from './shared/types/branded-ids.js';
 export * from './shared/types/operation-result.js';
 export * from './application/shared/Result/operation-result.js';
 export * from './shared/errors/error-codes.js';
+export * from './shared/types/api-result.js';
 
 // Shared Change Types
 export * from './application/shared/change-vocabulary.js';
@@ -186,3 +187,6 @@ export * from './application/validation/validation-orchestrator.js';
 
 // SPF Constants
 export * from './application/file-operations/shared/constants/spf-ids.js';
+
+// Domain exceptions
+export * from './shared/exceptions/index.js';
