@@ -7,13 +7,12 @@ import type {ModuleQueryService} from './module/module-query-service.js';
 import type {UseCaseQueryService} from './usecase/usecase-query-service.js';
 import type {ProjectQueryService} from './project/project-query-service.js';
 import type {ValidationQueryRepository} from '../repositories/validation/validation-query.repository.js';
-import type {BulkReadRepository} from '../repositories/bulk-read/bulk-read.repository.js';
+import type {BulkReadQueryService} from './bulk-read/bulk-read-query-service.js';
 
 export interface QueryServices {
   readonly modulesQueryService: ModuleQueryService;
   readonly useCaseQueryService: UseCaseQueryService;
   readonly projectQueryService: ProjectQueryService;
   readonly validationQueryService: ValidationQueryRepository;
-  /** Repository for reading all entities needed for file download. */
-  readonly bulkReadRepository: BulkReadRepository;
+  readonly bulkReadQueryService: BulkReadQueryService;
 }

@@ -13,6 +13,16 @@ export const HANDLER_KEYS = {
   BUILD_KEY_DEFINITIONS: 'buildKeyDefinitions', // For key definition building
   BUILD_SPF_MODULE_DEFINITIONS: 'buildSpfModuleDefinitions', // For SPF module definition building
   VALIDATE_CHUNK: 'validateChunk', // Future use
+
+  // Level 1: File serialization (download-file)
+  SERIALIZE_AWSP_FILE: 'SERIALIZE_AWSP_FILE',
+  SERIALIZE_ACDB_FILE: 'SERIALIZE_ACDB_FILE',
+
+  // Level 3: Chunk building (download-file)
+  BUILD_HEADER_CHUNK: 'BUILD_HEADER_CHUNK',
+  BUILD_USECASE_DATA_CHUNK: 'BUILD_USECASE_DATA_CHUNK',
+  BUILD_AUDIO_CAL_CHUNK: 'BUILD_AUDIO_CAL_CHUNK',
+  BUILD_VOICE_CAL_CHUNK: 'BUILD_VOICE_CAL_CHUNK',
 } as const;
 
 /**

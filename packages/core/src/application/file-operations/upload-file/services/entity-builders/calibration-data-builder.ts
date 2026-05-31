@@ -174,7 +174,7 @@ export class CalibrationDataBuilder {
    */
   private processCalDataObject(
     calDataObj: VoiceCalDataObject,
-    masterKeyIds: number[],
+    keyIds: number[],
     voiceCalChunk: VoiceCalibrationChunk,
     foreignKeyMapper: ForeignKeyMapper,
     parsedAcdb: ParsedAcdb,
@@ -230,11 +230,11 @@ export class CalibrationDataBuilder {
     // Resolve value system IDs from CKV LUT entries
     const valueSystemIds = this.resolveValueSystemIdsFromCKVLUT(
       ckvLutTbl,
-      masterKeyIds,
+      keyIds,
       foreignKeyMapper,
     );
 
-    if (masterKeyIds.length > 0 && valueSystemIds.length === 0) {
+    if (keyIds.length > 0 && valueSystemIds.length === 0) {
       this.logger?.logWarn({
         msg: 'Failed to resolve value system IDs for voice calibration',
         action: 'value_resolution_failed',
@@ -269,7 +269,6 @@ export class CalibrationDataBuilder {
    */
   private processVoiceCkvDataTable(
     ckvDataTbl: VoiceCkvDataTable,
-    masterKeyIds: number[],
     voiceCalChunk: VoiceCalibrationChunk,
     foreignKeyMapper: ForeignKeyMapper,
     parsedAcdb: ParsedAcdb,
@@ -295,12 +294,15 @@ export class CalibrationDataBuilder {
       return {keyVectorInputs, kvDataWithModules};
     }
 
+    // Extract key IDs from calibration key table
+    const keyIds = calKeyTbl.voiceKeyIds;
+
     // Process each calibration data object
     for (const calDataObj of ckvDataTbl.calDataObjects) {
       try {
         const result = this.processCalDataObject(
           calDataObj,
-          masterKeyIds,
+          keyIds,
           voiceCalChunk,
           foreignKeyMapper,
           parsedAcdb,
@@ -340,30 +342,11 @@ export class CalibrationDataBuilder {
     const keyVectorInputs: KeyVectorInput[] = [];
     const kvDataWithModules: KvDataWithModule[] = [];
 
-    // Get cached master key table
-    const masterKeyTbl = voiceCalChunk.getMasterKeyTable(
-      sgCalTbl.offsetVoiceMasterKeyTable,
-    );
-    if (!masterKeyTbl) {
-      this.logger?.logWarn({
-        msg: `Master key table not found for offset ${sgCalTbl.offsetVoiceMasterKeyTable}`,
-        action: 'missing_master_key_table',
-        component: 'CalibrationDataBuilder',
-        tag: 'calibration-building',
-        timestamp: new Date(),
-      });
-      return {keyVectorInputs, kvDataWithModules};
-    }
-
-    // Extract key IDs from master key table
-    const masterKeyIds = masterKeyTbl.keyInfos.map(info => info.voiceKeyId);
-
     // Process each CKV data table
     for (const ckvDataTbl of sgCalTbl.voiceCkvDataTables) {
       try {
         const result = this.processVoiceCkvDataTable(
           ckvDataTbl,
-          masterKeyIds,
           voiceCalChunk,
           foreignKeyMapper,
           parsedAcdb,
@@ -432,7 +415,7 @@ export class CalibrationDataBuilder {
    */
   private resolveValueSystemIdsFromCKVLUT(
     ckvLutTbl: VoiceCkvLookupTable,
-    masterKeyIds: number[],
+    keyIds: number[],
     foreignKeyMapper: ForeignKeyMapper,
   ): number[] {
     const valueSystemIds: number[] = [];
@@ -441,7 +424,7 @@ export class CalibrationDataBuilder {
     for (const ckvEntry of ckvLutTbl.voiceCkvLookupEntries) {
       // Resolve key-value pairs to value system IDs
       const entryValueSystemIds = this.resolveKeyValuePairs(
-        masterKeyIds,
+        keyIds,
         ckvEntry.voiceCalKeyValues,
         foreignKeyMapper,
       );
@@ -873,8 +856,30 @@ export class CalibrationDataBuilder {
     foreignKeyMapper: ForeignKeyMapper,
   ): KvDataWithModule[] {
     const kvDataWithModules: KvDataWithModule[] = [];
+    const payloadsByModule = this.groupPayloadsByModule(payloads);
 
-    // Group payloads by module instance
+    // Create KvData for each module
+    for (const [moduleInstanceId, modulePayloads] of payloadsByModule) {
+      const kvDataWithModule = this.createKvDataForModule(
+        moduleInstanceId,
+        modulePayloads,
+        keyVectorInput,
+        foreignKeyMapper,
+      );
+      if (kvDataWithModule) {
+        kvDataWithModules.push(kvDataWithModule);
+      }
+    }
+
+    return kvDataWithModules;
+  }
+
+  /**
+   * Group payloads by module instance ID
+   */
+  private groupPayloadsByModule(
+    payloads: ModuleParameterPayload[],
+  ): Map<number, ModuleParameterPayload[]> {
     const payloadsByModule = new Map<number, ModuleParameterPayload[]>();
     for (const payload of payloads) {
       // Skip VCPM configuration data
@@ -887,16 +892,71 @@ export class CalibrationDataBuilder {
       }
       payloadsByModule.get(payload.moduleInstanceId)!.push(payload);
     }
+    return payloadsByModule;
+  }
 
-    // Create KvData for each module
-    for (const [moduleInstanceId, modulePayloads] of payloadsByModule) {
-      const moduleSystemId = foreignKeyMapper.getSpfModuleSystemId(
-        asNaturalId(moduleInstanceId),
-      );
-      if (!moduleSystemId) {
+  /**
+   * Create KvData for a single module
+   */
+  private createKvDataForModule(
+    moduleInstanceId: number,
+    modulePayloads: ModuleParameterPayload[],
+    keyVectorInput: KeyVectorInput,
+    foreignKeyMapper: ForeignKeyMapper,
+  ): KvDataWithModule | null {
+    const moduleSystemId = foreignKeyMapper.getSpfModuleSystemId(
+      asNaturalId(moduleInstanceId),
+    );
+    if (!moduleSystemId) {
+      this.logger?.logWarn({
+        msg: `Failed to resolve module system ID for instance ${moduleInstanceId}`,
+        action: 'module_resolution_failed',
+        component: 'CalibrationDataBuilder',
+        tag: 'calibration-building',
+        timestamp: new Date(),
+      });
+      return null;
+    }
+
+    // Create KvData entity (systemId will be assigned later)
+    const kvData = new KvData({
+      systemId: asSystemId(0), // Will be assigned later
+      valueDefinitionSystemIds: keyVectorInput.valueSystemIds,
+      uiPersistence: null, // Empty for now
+    });
+
+    // Add parameter payloads as ModuleParameterData
+    this.addParameterPayloadsToKvData(
+      kvData,
+      modulePayloads,
+      moduleInstanceId,
+      moduleSystemId,
+      foreignKeyMapper,
+    );
+
+    return {kvData, moduleSystemId};
+  }
+
+  /**
+   * Add parameter payloads to KvData entity
+   */
+  private addParameterPayloadsToKvData(
+    kvData: KvData,
+    modulePayloads: ModuleParameterPayload[],
+    moduleInstanceId: number,
+    moduleSystemId: number,
+    foreignKeyMapper: ForeignKeyMapper,
+  ): void {
+    for (const payload of modulePayloads) {
+      const moduleDefinitionSystemId =
+        foreignKeyMapper.getModuleDefinitionSystemIdFromInstance(
+          asSystemId(moduleSystemId),
+        );
+
+      if (!moduleDefinitionSystemId) {
         this.logger?.logWarn({
-          msg: `Failed to resolve module system ID for instance ${moduleInstanceId}`,
-          action: 'module_resolution_failed',
+          msg: `Failed to resolve module definition system ID for instance ${moduleInstanceId} (systemId: ${moduleSystemId})`,
+          action: 'module_definition_resolution_failed',
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
           timestamp: new Date(),
@@ -904,36 +964,27 @@ export class CalibrationDataBuilder {
         continue;
       }
 
-      // Create KvData entity (systemId and keyVectorSystemId will be assigned later)
-      const kvData = new KvData({
-        systemId: 0, // Will be assigned later
-        valueDefinitionSystemIds: keyVectorInput.valueSystemIds,
-        uiPersistence: null, // Empty for now
-      });
+      const parameterSystemId = foreignKeyMapper.getParamDefinitionSystemId(
+        moduleDefinitionSystemId,
+        asNaturalId(payload.parameterId),
+      );
 
-      // Add parameter payloads as ModuleParameterData
-      for (const payload of modulePayloads) {
-        // TODO: Implement parameter resolution
-        const parameterSystemId = foreignKeyMapper.getParamDefinitionSystemId(
-          moduleSystemId,
-          asNaturalId(payload.parameterId),
-        );
-
-        if (parameterSystemId === undefined) {
-          //TODO: summarize and print error at the end.
-          continue;
-        }
-
-        const moduleParamData = new ModuleParameterData(
-          parameterSystemId,
-          payload.payload,
-        );
-        kvData.addParameterPayload(moduleParamData);
+      if (parameterSystemId === undefined) {
+        this.logger?.logWarn({
+          msg: `Failed to resolve parameter system ID for param ${payload.parameterId} in module definition ${moduleDefinitionSystemId}`,
+          action: 'parameter_resolution_failed',
+          component: 'CalibrationDataBuilder',
+          tag: 'calibration-building',
+          timestamp: new Date(),
+        });
+        continue;
       }
 
-      kvDataWithModules.push({kvData, moduleSystemId});
+      const moduleParamData = new ModuleParameterData(
+        parameterSystemId,
+        payload.payload,
+      );
+      kvData.addParameterPayload(moduleParamData);
     }
-
-    return kvDataWithModules;
   }
 }

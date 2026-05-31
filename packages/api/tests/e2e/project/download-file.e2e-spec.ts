@@ -134,8 +134,27 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     expect(downloadResponse.body.workspaceFile).toBeDefined();
 
     const acdbContent = downloadResponse.body.acdbFile;
-    downloadedAcdbPath = join(tempDir, `downloaded-${Date.now()}.acdb`);
+    const awspContent = downloadResponse.body.workspaceFile;
+    const timestamp = Date.now();
+
+    downloadedAcdbPath = join(tempDir, `downloaded-${timestamp}.acdb`);
     await fs.writeFile(downloadedAcdbPath, acdbContent);
+
+    // If debug mode, also copy both files to logs folder for debugging
+    if (process.env.USE_EXTERNAL_SERVER === 'true') {
+      const logsDir = join(__dirname, '../../../logs/e2e-downloads');
+      await fs.mkdir(logsDir, {recursive: true});
+
+      const debugAcdbPath = join(logsDir, `downloaded-${timestamp}.acdb`);
+      const debugAwspPath = join(logsDir, `downloaded-${timestamp}.awsp`);
+
+      await fs.writeFile(debugAcdbPath, acdbContent);
+      await fs.writeFile(debugAwspPath, awspContent);
+
+      console.log(`[Debug] Downloaded files copied to logs folder:`);
+      console.log(`  - ${debugAcdbPath}`);
+      console.log(`  - ${debugAwspPath}`);
+    }
 
     // Verify file was written
     const stats = await fs.stat(downloadedAcdbPath);

@@ -8,9 +8,9 @@ import {DownloadFileHandler} from '../../../../../src/application/file-operation
 import {DownloadFileQuery} from '../../../../../src/application/file-operations/download-file/download-file.query.js';
 import type {QueryServices} from '../../../../../src/application/services/query-services.js';
 import type {
-  BulkReadRepository,
+  BulkReadQueryService,
   DownloadEntities,
-} from '../../../../../src/application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+} from '../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import {createMockFileSystem} from '../../../../helpers/index.js';
 
 const makeEmptyEntities = (): DownloadEntities => ({
@@ -71,11 +71,11 @@ const makeMockQueryServices = (
         oemInfo: '',
       }),
   },
-  bulkReadRepository: {
+  bulkReadQueryService: {
     readAllEntitiesForFile: jest
       .fn<(fileSystemId: number) => Promise<DownloadEntities>>()
       .mockResolvedValue(makeEmptyEntities()),
-  } as BulkReadRepository,
+  } as BulkReadQueryService,
   ...overrides,
 });
 
@@ -107,7 +107,7 @@ describe('DownloadFileHandler', () => {
       ).toHaveBeenCalledWith(7);
     });
 
-    it('calls BulkReadRepository with the resolved fileSystemId', async () => {
+    it('calls BulkReadQueryService with the resolved fileSystemId', async () => {
       const queryServices = makeMockQueryServices();
       const mockFileSystem = createMockFileSystem();
       const handler = new DownloadFileHandler(queryServices, mockFileSystem);
@@ -116,7 +116,7 @@ describe('DownloadFileHandler', () => {
       await handler.handle(query);
 
       expect(
-        queryServices.bulkReadRepository.readAllEntitiesForFile,
+        queryServices.bulkReadQueryService.readAllEntitiesForFile,
       ).toHaveBeenCalledWith(99); // fileSystemId resolved from projectId 7
     });
 

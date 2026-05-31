@@ -6,9 +6,9 @@
 import {jest} from '@jest/globals';
 import {DownloadFileOrchestrator} from '../../../../../src/application/file-operations/download-file/services/download-file-orchestrator.js';
 import type {
-  BulkReadRepository,
+  BulkReadQueryService,
   DownloadEntities,
-} from '../../../../../src/application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+} from '../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import {createMockFileSystem} from '../../../../helpers/index.js';
 
 const makeEmptyEntities = (): DownloadEntities => ({
@@ -25,9 +25,9 @@ const makeEmptyEntities = (): DownloadEntities => ({
   },
 });
 
-const makeMockBulkReadRepository = (
+const makeMockBulkReadQueryService = (
   entities: DownloadEntities = makeEmptyEntities(),
-): BulkReadRepository => ({
+): BulkReadQueryService => ({
   readAllEntitiesForFile: jest
     .fn<(fileSystemId: number) => Promise<DownloadEntities>>()
     .mockResolvedValue(entities),
@@ -35,11 +35,11 @@ const makeMockBulkReadRepository = (
 
 describe('DownloadFileOrchestrator', () => {
   describe('orchestrate()', () => {
-    it('calls BulkReadRepository.readAllEntitiesForFile with the given fileSystemId', async () => {
-      const mockRepo = makeMockBulkReadRepository();
+    it('calls BulkReadQueryService.readAllEntitiesForFile with the given fileSystemId', async () => {
+      const mockService = makeMockBulkReadQueryService();
       const mockFileSystem = createMockFileSystem();
       const orchestrator = new DownloadFileOrchestrator(
-        mockRepo,
+        mockService,
         mockFileSystem,
       );
 
@@ -48,27 +48,27 @@ describe('DownloadFileOrchestrator', () => {
         awsp: 'test.awsp',
       });
 
-      expect(mockRepo.readAllEntitiesForFile).toHaveBeenCalledWith(42);
+      expect(mockService.readAllEntitiesForFile).toHaveBeenCalledWith(42);
     });
 
-    it('calls BulkReadRepository.readAllEntitiesForFile exactly once', async () => {
-      const mockRepo = makeMockBulkReadRepository();
+    it('calls BulkReadQueryService.readAllEntitiesForFile exactly once', async () => {
+      const mockService = makeMockBulkReadQueryService();
       const mockFileSystem = createMockFileSystem();
       const orchestrator = new DownloadFileOrchestrator(
-        mockRepo,
+        mockService,
         mockFileSystem,
       );
 
       await orchestrator.orchestrate(1, {acdb: 'a.acdb', awsp: 'a.awsp'});
 
-      expect(mockRepo.readAllEntitiesForFile).toHaveBeenCalledTimes(1);
+      expect(mockService.readAllEntitiesForFile).toHaveBeenCalledTimes(1);
     });
 
     it('returns ACDB and AWSP buffers', async () => {
-      const mockRepo = makeMockBulkReadRepository();
+      const mockService = makeMockBulkReadQueryService();
       const mockFileSystem = createMockFileSystem();
       const orchestrator = new DownloadFileOrchestrator(
-        mockRepo,
+        mockService,
         mockFileSystem,
       );
 

@@ -67,7 +67,7 @@ export class AudioCalibrationChunkParser extends BaseChunkParser<AudioCalibratio
     }
 
     // Cache and return
-    chunk.setCalKeyTable(offset, keyIds);
+    chunk.setCalKeyTableAt(offset, keyIds);
     return keyIds;
   }
 
@@ -114,7 +114,7 @@ export class AudioCalibrationChunkParser extends BaseChunkParser<AudioCalibratio
     const entry: CalDefinitionEntry = {calIdEntries};
 
     // Cache and return
-    chunk.setCalDefinitionEntry(offset, entry);
+    chunk.setCalDefinitionEntryAt(offset, entry);
     return entry;
   }
 
@@ -155,7 +155,7 @@ export class AudioCalibrationChunkParser extends BaseChunkParser<AudioCalibratio
     const entry: CalDataOffsetEntry = {calDataOffsets};
 
     // Cache and return
-    chunk.setCalDataOffsetEntry(offset, entry);
+    chunk.setCalDataOffsetEntryAt(offset, entry);
     return entry;
   }
 
@@ -230,7 +230,7 @@ export class AudioCalibrationChunkParser extends BaseChunkParser<AudioCalibratio
     };
 
     // Cache and return
-    chunk.setCkvLookupTable(offset, table);
+    chunk.setCkvLookupTableAt(offset, table);
     return table;
   }
 

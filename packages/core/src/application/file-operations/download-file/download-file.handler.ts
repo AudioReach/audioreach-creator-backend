@@ -4,6 +4,7 @@
  */
 
 import type {FileSystemPort} from '../../ports/file-system/file-system.port.js';
+import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {QueryHandler} from '../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../ports/persistence/query-services/query-services.js';
 import type {DownloadFileQuery} from './download-file.query.js';
@@ -25,6 +26,7 @@ export class DownloadFileHandler implements QueryHandler<
   constructor(
     private readonly queryServices: QueryServices,
     private readonly fileSystem: FileSystemPort,
+    private readonly workerPool?: WorkerPoolPort,
   ) {}
 
   async handle(query: DownloadFileQuery): Promise<DownloadFileResult> {
@@ -42,8 +44,9 @@ export class DownloadFileHandler implements QueryHandler<
 
     // 3. Orchestrate download
     const orchestrator = new DownloadFileOrchestrator(
-      this.queryServices.bulkReadRepository,
+      this.queryServices.bulkReadQueryService,
       this.fileSystem,
+      this.workerPool,
     );
 
     const result = await orchestrator.orchestrate(fileSystemId, fileNames);

@@ -5,7 +5,7 @@
 
 import {describe, it, expect, jest} from '@jest/globals';
 import {AwspFileSerializer} from '../../../../../../src/application/file-operations/download-file/services/awsp-file-serializer.js';
-import type {DownloadEntities} from '../../../../../../src/application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+import type {DownloadEntities} from '../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import type {FileSystemPort} from '../../../../../../src/application/ports/file-system/file-system.port.js';
 import {FILE_NAMES} from '../../../../../../src/application/file-operations/shared/constants/definition-block-names.js';
 

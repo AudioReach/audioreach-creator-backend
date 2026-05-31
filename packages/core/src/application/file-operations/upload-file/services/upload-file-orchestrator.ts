@@ -224,6 +224,7 @@ export class UploadFileOrchestrator {
     fileId: number,
   ): Promise<UploadOrchestratorResult> {
     this.issueCollector.clear();
+    this.foreignKeyMapper.clear();
     this.currentFileId = fileId;
     this.profiler?.start(PROFILER_OPERATIONS.FILE_ORCHESTRATION);
     this.logMemorySnapshot(

@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1781364357082 implements MigrationInterface {
-  name = 'InitialCreate1781364357082';
+export class InitialCreate1782050392771 implements MigrationInterface {
+  name = 'InitialCreate1782050392771';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -847,7 +847,7 @@ export class InitialCreate1781364357082 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "ix_module_tag_definition"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_module_tag_id_map" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "tag_definition_system_id" integer NOT NULL, CONSTRAINT "FK_d5eb0ce9bb12ca525ce109e34c5" FOREIGN KEY ("spf_module_system_id") REFERENCES "spf_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_module_tag_id_map" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "tag_definition_system_id" integer NOT NULL, CONSTRAINT "FK_d5eb0ce9bb12ca525ce109e34c5" FOREIGN KEY ("spf_module_system_id") REFERENCES "spf_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_8bc289af2ab39abd901f8e6e090" FOREIGN KEY ("tag_definition_system_id") REFERENCES "tag_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_module_tag_id_map"("system_id", "created_at", "updated_at", "version", "spf_module_system_id", "tag_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "spf_module_system_id", "tag_definition_system_id" FROM "module_tag_id_map"`,

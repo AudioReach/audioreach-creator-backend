@@ -87,6 +87,8 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     // Module instance to subgraph mappings
     addModuleInstanceSubgraphMapping: jest.fn(),
     getSubgraphSystemIdForModuleInstance: jest.fn(),
+    addModuleInstanceToDefinitionMapping: jest.fn(),
+    getModuleDefinitionSystemIdFromInstance: jest.fn(),
 
     // Module Port mappings
     addDataPortMapping: jest.fn(),

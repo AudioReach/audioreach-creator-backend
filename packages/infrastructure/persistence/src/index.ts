@@ -1,7 +1,7 @@
 // Export all persistence implementations
 export * from './persistence-typeorm-sqllite/index.js';
 export * from './persistence-typeorm-sqllite/repositories/bulk-import/typeorm-bulk-import.repository.js';
-export * from './persistence-typeorm-sqllite/repositories/bulk-read/typeorm-bulk-read.repository.js';
+export * from './persistence-typeorm-sqllite/queries/bulk-read/typeorm-bulk-read-query-service.js';
 export * from './persistence-typeorm-sqllite/repositories/validation/typeorm-validation-preferences.repository.js';
 export * from './persistence-typeorm-sqllite/repositories/validation/typeorm-validation-query.repository.js';
 export * from './persistence-typeorm-sqllite/repositories/project/typeorm-project.repository.js';
