@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DownloadEntities} from '../../../ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+import type {DownloadEntities} from '../../../ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import {
   FILE_NAMES,

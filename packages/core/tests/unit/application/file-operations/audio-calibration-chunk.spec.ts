@@ -56,7 +56,7 @@ describe('AudioCalibrationChunk', () => {
         const offset = 100;
         const keyIds = [1, 2, 3, 4];
 
-        chunk.setCalKeyTable(offset, keyIds);
+        chunk.setCalKeyTableAt(offset, keyIds);
         const retrieved = chunk.getCalKeyTable(offset);
 
         expect(retrieved).toEqual(keyIds);
@@ -68,8 +68,8 @@ describe('AudioCalibrationChunk', () => {
       });
 
       it('should handle multiple key tables', () => {
-        chunk.setCalKeyTable(100, [1, 2, 3]);
-        chunk.setCalKeyTable(200, [4, 5, 6]);
+        chunk.setCalKeyTableAt(100, [1, 2, 3]);
+        chunk.setCalKeyTableAt(200, [4, 5, 6]);
 
         expect(chunk.getCalKeyTable(100)).toEqual([1, 2, 3]);
         expect(chunk.getCalKeyTable(200)).toEqual([4, 5, 6]);
@@ -91,7 +91,7 @@ describe('AudioCalibrationChunk', () => {
           ],
         };
 
-        chunk.setCkvLookupTable(offset, table);
+        chunk.setCkvLookupTableAt(offset, table);
         const retrieved = chunk.getCkvLookupTable(offset);
 
         expect(retrieved).toEqual(table);
@@ -112,8 +112,8 @@ describe('AudioCalibrationChunk', () => {
           ckvLookupEntries: [],
         };
 
-        chunk.setCkvLookupTable(100, table1);
-        chunk.setCkvLookupTable(200, table2);
+        chunk.setCkvLookupTableAt(100, table1);
+        chunk.setCkvLookupTableAt(200, table2);
 
         expect(chunk.getCkvLookupTable(100)).toEqual(table1);
         expect(chunk.getCkvLookupTable(200)).toEqual(table2);
@@ -130,7 +130,7 @@ describe('AudioCalibrationChunk', () => {
           ],
         };
 
-        chunk.setCalDefinitionEntry(offset, entry);
+        chunk.setCalDefinitionEntryAt(offset, entry);
         const retrieved = chunk.getCalDefinitionEntry(offset);
 
         expect(retrieved).toEqual(entry);
@@ -149,8 +149,8 @@ describe('AudioCalibrationChunk', () => {
           calIdEntries: [{moduleInstanceId: 2, paramId: 20}],
         };
 
-        chunk.setCalDefinitionEntry(100, entry1);
-        chunk.setCalDefinitionEntry(200, entry2);
+        chunk.setCalDefinitionEntryAt(100, entry1);
+        chunk.setCalDefinitionEntryAt(200, entry2);
 
         expect(chunk.getCalDefinitionEntry(100)).toEqual(entry1);
         expect(chunk.getCalDefinitionEntry(200)).toEqual(entry2);
@@ -164,7 +164,7 @@ describe('AudioCalibrationChunk', () => {
           calDataOffsets: [1000, 2000, 3000],
         };
 
-        chunk.setCalDataOffsetEntry(offset, entry);
+        chunk.setCalDataOffsetEntryAt(offset, entry);
         const retrieved = chunk.getCalDataOffsetEntry(offset);
 
         expect(retrieved).toEqual(entry);
@@ -179,8 +179,8 @@ describe('AudioCalibrationChunk', () => {
         const entry1: CalDataOffsetEntry = {calDataOffsets: [1000]};
         const entry2: CalDataOffsetEntry = {calDataOffsets: [2000]};
 
-        chunk.setCalDataOffsetEntry(100, entry1);
-        chunk.setCalDataOffsetEntry(200, entry2);
+        chunk.setCalDataOffsetEntryAt(100, entry1);
+        chunk.setCalDataOffsetEntryAt(200, entry2);
 
         expect(chunk.getCalDataOffsetEntry(100)).toEqual(entry1);
         expect(chunk.getCalDataOffsetEntry(200)).toEqual(entry2);
@@ -255,7 +255,7 @@ describe('AudioCalibrationChunk', () => {
       chunk.subgraphLookupEntries.push(subgraphLookupEntry);
 
       // Cache key table
-      chunk.setCalKeyTable(100, [1, 2, 3]);
+      chunk.setCalKeyTableAt(100, [1, 2, 3]);
 
       // Cache CKV LUT table
       const ckvLookupTable: CkvLookupTable = {
@@ -269,13 +269,13 @@ describe('AudioCalibrationChunk', () => {
           },
         ],
       };
-      chunk.setCkvLookupTable(200, ckvLookupTable);
+      chunk.setCkvLookupTableAt(200, ckvLookupTable);
 
       // Cache DEF and DOT entries
-      chunk.setCalDefinitionEntry(300, {
+      chunk.setCalDefinitionEntryAt(300, {
         calIdEntries: [{moduleInstanceId: 1, paramId: 10}],
       });
-      chunk.setCalDataOffsetEntry(400, {calDataOffsets: [1000]});
+      chunk.setCalDataOffsetEntryAt(400, {calDataOffsets: [1000]});
 
       // Verify all data is accessible
       expect(chunk.getSubgraphCount()).toBe(1);

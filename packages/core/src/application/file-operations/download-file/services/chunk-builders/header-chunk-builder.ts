@@ -4,7 +4,7 @@
  */
 
 import {HeaderChunk} from '../../../shared/acdb-chunks/header-chunk.js';
-import type {ProjectHeaderMetadata} from '../../../../ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+import type {ProjectHeaderMetadata} from '../../../../ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 
 /**
  * Input for building a HeaderChunk.

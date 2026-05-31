@@ -10,15 +10,16 @@ import {DbTypeToBytesTransformer} from './helper/bytes-transformer.js';
 import type {SpfModuleRow} from './spf-module.schema.js';
 import type {SpfModuleParameterDefinitionRow} from '../../definitions/module/spf/spf-module-parameter-definition.schema.js';
 import type {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
+import type {TagDefinitionRow} from '../../definitions/tag-key-value/tag-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface ModuleTagIdMapRow extends EntityBaseRow {
   spfModuleSystemId: number;
   tagDefinitionSystemId: number;
 
-  module?: SpfModuleRow; // many-one
-  // To Do Add tag definition relation here
-  tkvs?: TkvRow[]; // one-many
+  module?: SpfModuleRow;
+  tagDefinition?: TagDefinitionRow;
+  tkvs?: TkvRow[];
 }
 
 export interface TkvRow extends EntityBaseRow {
@@ -61,6 +62,15 @@ export const ModuleTagIdMapSchema = new EntitySchema<ModuleTagIdMapRow>({
       target: 'SpfModule',
       joinColumn: {
         name: 'spf_module_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    tagDefinition: {
+      type: 'many-to-one',
+      target: 'TagDefinition',
+      joinColumn: {
+        name: 'tag_definition_system_id',
         referencedColumnName: 'systemId',
       },
       onDelete: 'CASCADE',

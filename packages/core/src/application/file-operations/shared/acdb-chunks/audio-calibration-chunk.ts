@@ -5,6 +5,7 @@
 
 import {PARSED_CHUNK_TYPES} from '../constants/chunk-types.js';
 import {BaseChunk} from './base-chunk.js';
+import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 
 /**
  * Calibration Definition Entry
@@ -107,24 +108,29 @@ export class AudioCalibrationChunk extends BaseChunk {
   subgraphLookupEntries: SubgraphLookupEntry[] = [];
 
   /**
-   * Offset-based caches for parsed sub-structures.
-   *
-   * These caches memoize parsing of binary sub-structures that are referenced
-   * multiple times by byte offset within the chunk. The caching strategy relies
-   * on the immutability of binary data - the same offset always produces the
-   * same parsed result.
-   *
-   * Benefits:
-   * - Avoids redundant parsing of the same binary data
-   * - Improves performance when multiple entries reference the same sub-structure
-   *
-   * Implementation note: The parser populates these caches during the initial
-   * parse pass, and subsequent lookups return cached results.
+   * Unified storage using Maps for fast O(1) lookup.
+   * Works for both upload (parsing) and download (building) directions.
    */
   private calKeyTableCache = new Map<number, number[]>();
+  private calKeyTableTotalLength: number = 0;
+
   private ckvLookupTableCache = new Map<number, CkvLookupTable>();
+  private ckvLookupTableTotalLength: number = 0;
+
   private definitionEntryCache = new Map<number, CalDefinitionEntry>();
+  private definitionEntryTotalLength: number = 0;
+
   private dataOffsetEntryCache = new Map<number, CalDataOffsetEntry>();
+  private dataOffsetEntryTotalLength: number = 0;
+
+  /**
+   * Reverse lookup maps for deduplication (content hash -> offset).
+   * Used during download to find existing entries with same content.
+   */
+  private calKeyTableHashMap = new Map<string, number>();
+  private ckvLookupTableHashMap = new Map<string, number>();
+  private definitionEntryHashMap = new Map<string, number>();
+  private dataOffsetEntryHashMap = new Map<string, number>();
 
   // Public accessor methods
   getCalKeyTable(offset: number): number[] | undefined {
@@ -143,21 +149,298 @@ export class AudioCalibrationChunk extends BaseChunk {
     return this.dataOffsetEntryCache.get(offset);
   }
 
-  // Internal methods for parser to populate caches
-  setCalKeyTable(offset: number, keyIds: number[]): void {
+  /**
+   * Store CalKeyTable at a specific offset (upload direction).
+   * Used when parsing binary data and storing at known offsets.
+   */
+  setCalKeyTableAt(offset: number, keyIds: number[]): void {
     this.calKeyTableCache.set(offset, keyIds);
   }
 
-  setCkvLookupTable(offset: number, table: CkvLookupTable): void {
+  /**
+   * Add CalKeyTable with deduplication (download direction).
+   * Checks for duplicates and returns existing or new offset.
+   */
+  addCalKeyTable(keyIds: number[]): number {
+    const hash = keyIds.join(',');
+
+    // Check if duplicate exists
+    const existingOffset = this.calKeyTableHashMap.get(hash);
+    if (existingOffset !== undefined) {
+      return existingOffset;
+    }
+
+    // New entry - calculate size and offset
+    const size =
+      BinaryUtils.SIZEOF_UINT32 + keyIds.length * BinaryUtils.SIZEOF_UINT32;
+    const offset = this.calKeyTableTotalLength;
+
+    this.calKeyTableCache.set(offset, keyIds);
+    this.calKeyTableHashMap.set(hash, offset);
+    this.calKeyTableTotalLength += size;
+
+    return offset;
+  }
+
+  /**
+   * Store CkvLookupTable at a specific offset (upload direction).
+   * Used when parsing binary data and storing at known offsets.
+   */
+  setCkvLookupTableAt(offset: number, table: CkvLookupTable): void {
     this.ckvLookupTableCache.set(offset, table);
   }
 
-  setCalDefinitionEntry(offset: number, entry: CalDefinitionEntry): void {
+  /**
+   * Add CkvLookupTable with deduplication (download direction).
+   * Checks for duplicates and returns existing or new offset.
+   */
+  addCkvLookupTable(table: CkvLookupTable): number {
+    const hash = this.hashCkvLookupTable(table);
+
+    const existingOffset = this.ckvLookupTableHashMap.get(hash);
+    if (existingOffset !== undefined) {
+      return existingOffset;
+    }
+
+    // Calculate size
+    let size = BinaryUtils.SIZEOF_UINT32 + BinaryUtils.SIZEOF_UINT32;
+    for (const entry of table.ckvLookupEntries) {
+      size +=
+        entry.calKeyValues.length * BinaryUtils.SIZEOF_UINT32 +
+        3 * BinaryUtils.SIZEOF_UINT32;
+    }
+
+    const offset = this.ckvLookupTableTotalLength;
+    this.ckvLookupTableCache.set(offset, table);
+    this.ckvLookupTableHashMap.set(hash, offset);
+    this.ckvLookupTableTotalLength += size;
+
+    return offset;
+  }
+
+  /**
+   * Store CalDefinitionEntry at a specific offset (upload direction).
+   * Used when parsing binary data and storing at known offsets.
+   */
+  setCalDefinitionEntryAt(offset: number, entry: CalDefinitionEntry): void {
     this.definitionEntryCache.set(offset, entry);
   }
 
-  setCalDataOffsetEntry(offset: number, entry: CalDataOffsetEntry): void {
+  /**
+   * Add CalDefinitionEntry with deduplication (download direction).
+   * Checks for duplicates and returns existing or new offset.
+   */
+  addCalDefinitionEntry(entry: CalDefinitionEntry): number {
+    const hash = entry.calIdEntries
+      .map(e => `${e.moduleInstanceId}:${e.paramId}`)
+      .join(',');
+
+    const existingOffset = this.definitionEntryHashMap.get(hash);
+    if (existingOffset !== undefined) {
+      return existingOffset;
+    }
+
+    const size =
+      BinaryUtils.SIZEOF_UINT32 +
+      entry.calIdEntries.length * 2 * BinaryUtils.SIZEOF_UINT32;
+    const offset = this.definitionEntryTotalLength;
+
+    this.definitionEntryCache.set(offset, entry);
+    this.definitionEntryHashMap.set(hash, offset);
+    this.definitionEntryTotalLength += size;
+
+    return offset;
+  }
+
+  /**
+   * Store CalDataOffsetEntry at a specific offset (upload direction).
+   * Used when parsing binary data and storing at known offsets.
+   */
+  setCalDataOffsetEntryAt(offset: number, entry: CalDataOffsetEntry): void {
     this.dataOffsetEntryCache.set(offset, entry);
+  }
+
+  /**
+   * Add CalDataOffsetEntry with deduplication (download direction).
+   * Checks for duplicates and returns existing or new offset.
+   */
+  addCalDataOffsetEntry(entry: CalDataOffsetEntry): number {
+    const hash = entry.calDataOffsets.join(',');
+
+    const existingOffset = this.dataOffsetEntryHashMap.get(hash);
+    if (existingOffset !== undefined) {
+      return existingOffset;
+    }
+
+    const size =
+      BinaryUtils.SIZEOF_UINT32 +
+      entry.calDataOffsets.length * BinaryUtils.SIZEOF_UINT32;
+    const offset = this.dataOffsetEntryTotalLength;
+
+    this.dataOffsetEntryCache.set(offset, entry);
+    this.dataOffsetEntryHashMap.set(hash, offset);
+    this.dataOffsetEntryTotalLength += size;
+
+    return offset;
+  }
+
+  /**
+   * Create hash string for CkvLookupTable for deduplication.
+   */
+  private hashCkvLookupTable(table: CkvLookupTable): string {
+    const parts: string[] = [table.numCalKeyValues.toString()];
+    for (const entry of table.ckvLookupEntries) {
+      parts.push(
+        entry.calKeyValues.join(':'),
+        entry.offsetCalDefinition.toString(),
+        entry.offsetCalDataOffset.toString(),
+        entry.offsetDOT2.toString(),
+      );
+    }
+    return parts.join('|');
+  }
+
+  /**
+   * Serialize all stored data to binary payloads (called during download/save).
+   */
+  serializeCalKeyTablePayloads(): Uint8Array[] {
+    const payloads: Uint8Array[] = [];
+    const sortedOffsets = [...this.calKeyTableCache.keys()].sort(
+      (a, b) => a - b,
+    );
+
+    for (const offset of sortedOffsets) {
+      const keyIds = this.calKeyTableCache.get(offset)!;
+      const buffer = new Uint8Array(
+        BinaryUtils.SIZEOF_UINT32 + keyIds.length * BinaryUtils.SIZEOF_UINT32,
+      );
+      const view = new DataView(buffer.buffer);
+      let bufferOffset = 0;
+
+      BinaryUtils.writeUint32(view, bufferOffset, keyIds.length);
+      bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+      for (const keyId of keyIds) {
+        BinaryUtils.writeUint32(view, bufferOffset, keyId);
+        bufferOffset += BinaryUtils.SIZEOF_UINT32;
+      }
+
+      payloads.push(buffer);
+    }
+
+    return payloads;
+  }
+
+  serializeCkvLutPayloads(): Uint8Array[] {
+    const payloads: Uint8Array[] = [];
+    const sortedOffsets = [...this.ckvLookupTableCache.keys()].sort(
+      (a, b) => a - b,
+    );
+
+    for (const offset of sortedOffsets) {
+      const table = this.ckvLookupTableCache.get(offset)!;
+      let size = BinaryUtils.SIZEOF_UINT32 + BinaryUtils.SIZEOF_UINT32;
+      for (const entry of table.ckvLookupEntries) {
+        size +=
+          entry.calKeyValues.length * BinaryUtils.SIZEOF_UINT32 +
+          3 * BinaryUtils.SIZEOF_UINT32;
+      }
+
+      const buffer = new Uint8Array(size);
+      const view = new DataView(buffer.buffer);
+      let bufferOffset = 0;
+
+      BinaryUtils.writeUint32(view, bufferOffset, table.numCalKeyValues);
+      bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+      BinaryUtils.writeUint32(
+        view,
+        bufferOffset,
+        table.ckvLookupEntries.length,
+      );
+      bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+      for (const entry of table.ckvLookupEntries) {
+        for (const value of entry.calKeyValues) {
+          BinaryUtils.writeUint32(view, bufferOffset, value);
+          bufferOffset += BinaryUtils.SIZEOF_UINT32;
+        }
+
+        BinaryUtils.writeUint32(view, bufferOffset, entry.offsetCalDefinition);
+        bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+        BinaryUtils.writeUint32(view, bufferOffset, entry.offsetCalDataOffset);
+        bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+        BinaryUtils.writeUint32(view, bufferOffset, entry.offsetDOT2);
+        bufferOffset += BinaryUtils.SIZEOF_UINT32;
+      }
+
+      payloads.push(buffer);
+    }
+
+    return payloads;
+  }
+
+  serializeCalDefPayloads(): Uint8Array[] {
+    const payloads: Uint8Array[] = [];
+    const sortedOffsets = [...this.definitionEntryCache.keys()].sort(
+      (a, b) => a - b,
+    );
+
+    for (const offset of sortedOffsets) {
+      const entry = this.definitionEntryCache.get(offset)!;
+      const buffer = new Uint8Array(
+        BinaryUtils.SIZEOF_UINT32 +
+          entry.calIdEntries.length * 2 * BinaryUtils.SIZEOF_UINT32,
+      );
+      const view = new DataView(buffer.buffer);
+      let bufferOffset = 0;
+
+      BinaryUtils.writeUint32(view, bufferOffset, entry.calIdEntries.length);
+      bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+      for (const idEntry of entry.calIdEntries) {
+        BinaryUtils.writeUint32(view, bufferOffset, idEntry.moduleInstanceId);
+        bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+        BinaryUtils.writeUint32(view, bufferOffset, idEntry.paramId);
+        bufferOffset += BinaryUtils.SIZEOF_UINT32;
+      }
+
+      payloads.push(buffer);
+    }
+
+    return payloads;
+  }
+
+  serializeCalDotPayloads(): Uint8Array[] {
+    const payloads: Uint8Array[] = [];
+    const sortedOffsets = [...this.dataOffsetEntryCache.keys()].sort(
+      (a, b) => a - b,
+    );
+
+    for (const offset of sortedOffsets) {
+      const entry = this.dataOffsetEntryCache.get(offset)!;
+      const buffer = new Uint8Array(
+        BinaryUtils.SIZEOF_UINT32 +
+          entry.calDataOffsets.length * BinaryUtils.SIZEOF_UINT32,
+      );
+      const view = new DataView(buffer.buffer);
+      let bufferOffset = 0;
+
+      BinaryUtils.writeUint32(view, bufferOffset, entry.calDataOffsets.length);
+      bufferOffset += BinaryUtils.SIZEOF_UINT32;
+
+      for (const dataOffset of entry.calDataOffsets) {
+        BinaryUtils.writeUint32(view, bufferOffset, dataOffset);
+        bufferOffset += BinaryUtils.SIZEOF_UINT32;
+      }
+
+      payloads.push(buffer);
+    }
+
+    return payloads;
   }
 
   /**

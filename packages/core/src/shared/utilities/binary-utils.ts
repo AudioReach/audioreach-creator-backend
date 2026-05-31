@@ -145,4 +145,53 @@ export class BinaryUtils {
   static toHexString(value: number, padWidth: number = 8): string {
     return '0x' + value.toString(16).toUpperCase().padStart(padWidth, '0');
   }
+
+  /**
+   * Write an array of UInt32 values to DataView (always little-endian).
+   * Useful for serializing arrays of IDs or offsets.
+   *
+   * @param view - DataView to write to
+   * @param offset - Byte offset to start writing
+   * @param values - Array of UInt32 values to write
+   * @returns Number of bytes written
+   */
+  static writeUint32Array(
+    view: DataView,
+    offset: number,
+    values: readonly number[],
+  ): number {
+    let currentOffset = offset;
+    for (const value of values) {
+      this.writeUint32(view, currentOffset, value);
+      currentOffset += this.SIZEOF_UINT32;
+    }
+    return values.length * this.SIZEOF_UINT32;
+  }
+
+  /**
+   * Calculate the size in bytes needed to store an array of UInt32 values.
+   *
+   * @param values - Array of UInt32 values
+   * @returns Size in bytes
+   */
+  static calculateUint32ArraySize(values: readonly number[]): number {
+    return values.length * this.SIZEOF_UINT32;
+  }
+
+  /**
+   * Concatenate multiple Uint8Arrays into a single array.
+   *
+   * @param arrays - Array of Uint8Arrays to concatenate
+   * @returns Single concatenated Uint8Array
+   */
+  static concatenate(arrays: Uint8Array[]): Uint8Array {
+    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const arr of arrays) {
+      result.set(arr, offset);
+      offset += arr.length;
+    }
+    return result;
+  }
 }

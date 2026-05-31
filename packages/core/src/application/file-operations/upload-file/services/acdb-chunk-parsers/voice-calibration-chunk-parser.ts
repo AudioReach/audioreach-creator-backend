@@ -79,7 +79,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
     const table: VoiceMasterKeyTable = {keyInfos};
 
     // Cache and return
-    chunk.setMasterKeyTable(offset, table);
+    chunk.setMasterKeyTableAt(offset, table);
     return table;
   }
 
@@ -120,7 +120,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
     const table: VoiceCalKeyTable = {voiceKeyIds};
 
     // Cache and return
-    chunk.setCalKeyTable(offset, table);
+    chunk.setCalKeyTableAt(offset, table);
     return table;
   }
 
@@ -177,7 +177,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
     };
 
     // Cache and return
-    chunk.setCkvLookupTable(offset, table);
+    chunk.setCkvLookupTableAt(offset, table);
     return table;
   }
 
@@ -227,7 +227,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
     const entry: VoiceCalDefinitionEntry = {moduleInstanceParamPairs};
 
     // Cache and return
-    chunk.setCalDefinitionEntry(offset, entry);
+    chunk.setCalDefinitionEntryAt(offset, entry);
     return entry;
   }
 
@@ -279,7 +279,7 @@ export class VoiceCalibrationChunkParser extends BaseChunkParser<VoiceCalibratio
 
     // Create and cache DOT entry
     const dotEntry: VoiceCalDataOffsetEntry = {offsetsInGlobalDataPool};
-    chunk.setCalDataOffsetEntry(offsetVoiceCalDefinitionTable, dotEntry); // Use DEF offset as key
+    chunk.setCalDataOffsetEntryAt(offsetVoiceCalDefinitionTable, dotEntry); // Use DEF offset as key
 
     const entry: VoiceCalDataObject = {
       offsetVoiceCkvLookupTable,

@@ -57,7 +57,7 @@ export class AcdbParser {
 
   constructor(logger?: Logger) {
     this.logger = logger;
-    this.subgraphDataParser = new SubgraphDataChunkParser(logger);
+    this.subgraphDataParser = new SubgraphDataChunkParser();
     this.voiceCalibrationParser = new VoiceCalibrationChunkParser(logger);
     this.audioCalibrationParser = new AudioCalibrationChunkParser(logger);
     this.tagDataParser = new TagDataChunkParser(logger);

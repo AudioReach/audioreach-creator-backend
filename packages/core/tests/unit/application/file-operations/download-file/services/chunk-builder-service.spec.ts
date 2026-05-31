@@ -5,7 +5,7 @@
 
 import {describe, it, expect} from '@jest/globals';
 import {ChunkBuilderService} from '../../../../../../src/application/file-operations/download-file/services/chunk-builder-service.js';
-import type {ProjectHeaderMetadata} from '../../../../../../src/application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+import type {ProjectHeaderMetadata} from '../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import {PARSED_CHUNK_TYPES} from '../../../../../../src/application/file-operations/shared/constants/chunk-types.js';
 
 describe('ChunkBuilderService', () => {

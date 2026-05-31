@@ -41,6 +41,7 @@ export class ForeignKeyMapper {
   private containerTypeMappings = new Map<NaturalId, SystemId>();
   private spfModuleMappings = new Map<NaturalId, SystemId>();
   private moduleInstanceSubgraphMappings = new Map<NaturalId, SystemId>();
+  private moduleInstanceToDefinitionMappings = new Map<SystemId, SystemId>();
   private moduleInputPortMappings = new Map<
     SystemId,
     Map<NaturalId, SystemId>
@@ -567,6 +568,33 @@ export class ForeignKeyMapper {
   }
 
   /**
+   * Add mapping from module instance system ID to module definition system ID
+   */
+  addModuleInstanceToDefinitionMapping(
+    moduleInstanceSystemId: SystemId,
+    moduleDefinitionSystemId: SystemId,
+  ): void {
+    if (this.moduleInstanceToDefinitionMappings.has(moduleInstanceSystemId)) {
+      throw new Error(
+        `Module instance ${moduleInstanceSystemId} already mapped to definition ${this.moduleInstanceToDefinitionMappings.get(moduleInstanceSystemId)}`,
+      );
+    }
+    this.moduleInstanceToDefinitionMappings.set(
+      moduleInstanceSystemId,
+      moduleDefinitionSystemId,
+    );
+  }
+
+  /**
+   * Get module definition system ID from module instance system ID
+   */
+  getModuleDefinitionSystemIdFromInstance(
+    moduleInstanceSystemId: SystemId,
+  ): SystemId | undefined {
+    return this.moduleInstanceToDefinitionMappings.get(moduleInstanceSystemId);
+  }
+
+  /**
    * Add a data port mapping for a module
    */
   addDataPortMapping(
@@ -783,6 +811,7 @@ export class ForeignKeyMapper {
     this.propertyDefinitionMap.clear();
     this.spfModuleMappings.clear();
     this.moduleInstanceSubgraphMappings.clear();
+    this.moduleInstanceToDefinitionMappings.clear();
     this.moduleInputPortMappings.clear();
     this.moduleOutputPortMappings.clear();
     this.moduleControlPortMappings.clear();
@@ -805,6 +834,7 @@ export class ForeignKeyMapper {
     processorDefinitionMappings: number;
     containerTypeMappings: number;
     spfModuleMappings: number;
+    moduleInstanceToDefinitionMappings: number;
     moduleInputPortMappings: number;
     moduleOutputPortMappings: number;
     moduleControlPortMappings: number;
@@ -830,6 +860,8 @@ export class ForeignKeyMapper {
       processorDefinitionMappings: this.processorDefinitionMappings.size,
       containerTypeMappings: this.containerTypeMappings.size,
       spfModuleMappings: this.spfModuleMappings.size,
+      moduleInstanceToDefinitionMappings:
+        this.moduleInstanceToDefinitionMappings.size,
       moduleInputPortMappings: this.moduleInputPortMappings.size,
       moduleOutputPortMappings: this.moduleOutputPortMappings.size,
       moduleControlPortMappings: this.moduleControlPortMappings.size,

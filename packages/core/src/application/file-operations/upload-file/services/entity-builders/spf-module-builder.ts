@@ -177,6 +177,12 @@ export class SpfModuleBuilder {
         asNaturalId(spfModule.instanceId),
         asSystemId(spfModule.systemId),
       );
+
+      // Store instance-to-definition mapping for parameter resolution
+      this.foreignKeyMapper.addModuleInstanceToDefinitionMapping(
+        asSystemId(spfModule.systemId),
+        asSystemId(spfModule.definitionSystemId),
+      );
     }
   }
 

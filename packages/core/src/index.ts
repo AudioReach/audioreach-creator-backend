@@ -62,7 +62,7 @@ export * from './application/file-operations/shared/utils/file-ref.js';
 export * from './application/file-operations/upload-file/models/parsed-awsp.js';
 
 // File Operations - Download File pipeline exports
-export * from './application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+export * from './application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 export * from './application/file-operations/download-file/download-file.query.js';
 export * from './application/file-operations/download-file/download-file.handler.js';
 export * from './application/project/project-file-properties.query.js';
@@ -163,3 +163,6 @@ export * from './application/validation/queries/validate-file.query.js';
 export * from './application/validation/commands/update-validation-preferences.command.js';
 export * from './application/validation/commands/acknowledge-data-loss.command.js';
 export * from './application/validation/validation-orchestrator.js';
+
+// SPF Constants
+export * from './application/file-operations/shared/constants/spf-ids.js';
