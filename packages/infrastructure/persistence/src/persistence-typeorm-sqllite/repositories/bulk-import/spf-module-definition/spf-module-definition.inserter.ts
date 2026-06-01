@@ -10,6 +10,7 @@ import type {
   SpfModuleDefinition,
 } from '@arc/core';
 import {okBulkInsert, BinaryUtils} from '@arc/core';
+import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
   type InsertRow,
@@ -72,7 +73,7 @@ interface StaticControlPortStepResult {
   portToGeneratedId: Map<StaticControlPortDefinition, number>;
 }
 
-export class SpfModuleDefinitionInserter {
+export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefinition> {
   constructor(
     private readonly manager: EntityManager,
     private readonly idGeneration: IdGenerationPort,

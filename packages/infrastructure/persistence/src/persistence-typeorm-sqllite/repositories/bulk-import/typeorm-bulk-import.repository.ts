@@ -11,8 +11,11 @@ import type {
   ContainerType,
   ControlLink,
   DataLink,
+  DriverModule,
+  DriverModuleDefinition,
   IdGenerationPort,
   KeyDefinition,
+  ModuleManagerData,
   Node,
   ProcessorDefinition,
   PropertyDefinition,
@@ -26,6 +29,8 @@ import type {
 } from '@arc/core';
 import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
 import {SpfModuleDefinitionInserter} from './spf-module-definition/spf-module-definition.inserter.js';
+import {DriverModuleInserter} from './driver-module/driver-module.inserter.js';
+import {DriverModuleDefinitionInserter} from './driver-module-definition/driver-module-definition.inserter.js';
 import {ContainerInserter} from './container/container.inserter.js';
 import {SubgraphInserter} from './subgraph/subgraph.inserter.js';
 import {SubsystemInserter} from './subsystem/subsystem.inserter.js';
@@ -39,6 +44,7 @@ import {ContainerPropertyDefinitionInserter} from './container-property-definiti
 import {DataLinkInserter} from './data-link/data-link.inserter.js';
 import {ControlLinkInserter} from './control-link/control-link.inserter.js';
 import {UseCaseInserter} from './use-case/use-case.inserter.js';
+import {ModuleManagerDataInserter} from './module-manager-data/module-manager-data.inserter.js';
 
 /**
  * TypeORM implementation of BulkImportRepository.
@@ -94,6 +100,20 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     ).insert([...items]);
   }
 
+  insertDriverModuleDefinitions(
+    items: readonly DriverModuleDefinition[],
+  ): Promise<BulkInsertResult> {
+    return new DriverModuleDefinitionInserter(this.manager).insert([...items]);
+  }
+
+  insertDriverModules(
+    items: readonly DriverModule[],
+  ): Promise<BulkInsertResult> {
+    return new DriverModuleInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
+  }
+
   insertKeyDefinitions(
     items: readonly KeyDefinition[],
   ): Promise<BulkInsertResult> {
@@ -143,5 +163,11 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     return new ContainerPropertyDefinitionInserter(this.manager).insert([
       ...items,
     ]);
+  }
+
+  insertModuleManagerData(
+    items: readonly ModuleManagerData[],
+  ): Promise<BulkInsertResult> {
+    return new ModuleManagerDataInserter(this.manager).insert(items);
   }
 }

@@ -342,7 +342,7 @@ export function getAllEntitySchemas(
 
     // Runtime Data Schemas
     DriverModuleSchema,
-    DkvSchema,
+    DkvSchema(blobConverter), // Factory with blob converter
     DkvParameterPayloadSchema(blobConverter), // Factory with blob converter
     DkvValuesSchema,
     ModuleManagerDataSchema,

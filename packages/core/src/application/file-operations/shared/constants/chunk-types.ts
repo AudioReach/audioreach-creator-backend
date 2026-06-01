@@ -40,6 +40,17 @@ export const ACDB_RAW_CHUNK_TYPES = {
   // Tagged module map chunks (binary - from file)
   TAGGED_MODULES_LUT: 'TMLU',
   TAGGED_MODULES_DEF: 'TMDE',
+
+  // Driver calibration chunks (binary - from file)
+  DRIVER_CALIBRATION_LUT: 'GCLU',
+  DRIVER_CALIBRATION_KEY_TABLE: 'GCKT',
+  DRIVER_CALIBRATION_DATA_TABLE: 'GCDT',
+  DRIVER_CALIBRATION_DATA_DEF: 'GCDE',
+  DRIVER_CALIBRATION_DATA_DOT: 'GCDO',
+
+  // Module manager and boot-up loading chunks (binary - from file)
+  MODULE_MANAGER: 'MODM',
+  BOOTUP_LOADING: 'BTUP',
 } as const;
 
 /**
@@ -71,6 +82,9 @@ export const PARSED_CHUNK_TYPES = {
   VOICE_CALIBRATION_DATA: 'VOICE_CALIBRATION_DATA',
   TAG_DATA: 'TAG_DATA',
   TAGGED_MODULE_MAP: 'TAGGED_MODULE_MAP',
+  DRIVER_CALIBRATION_DATA: 'DRIVER_CALIBRATION_DATA',
+  MODULE_MANAGER: 'MODULE_MANAGER',
+  BOOTUP_LOADING: 'BOOTUP_LOADING',
 } as const;
 
 /**

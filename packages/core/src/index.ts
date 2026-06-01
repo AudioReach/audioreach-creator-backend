@@ -87,6 +87,7 @@ export * from './application/file-operations/upload-file/services/chunk-metadata
 // ACDB entities and factories
 export * from './domain/entities/common/entities/header.entity.js';
 export * from './domain/entities/common/entities/kv-data.js';
+export * from './domain/entities/driver-module-data/dkv-data.js';
 export * from './domain/entities/common/value-objects/module-parameter-data.js';
 export * from './domain/entities/common/entities/ckv-collection.js';
 export * from './domain/entities/common/enums/port-io-type.js';
@@ -102,6 +103,7 @@ export * from './domain/entities/usecase-data/links/link-type.js';
 export * from './domain/entities/usecase-data/links/control-link.js';
 export * from './domain/entities/usecase-data/links/data-link.js';
 export * from './domain/entities/usecase-data/module/spf-module.js';
+export * from './domain/entities/driver-module-data/driver-module.js';
 export * from './domain/entities/usecase-data/module/entities/spf-module-tag-data.js';
 export * from './domain/entities/usecase-data/node/entities/data-port.js';
 export * from './domain/entities/usecase-data/node/entities/control-port.js';
@@ -111,9 +113,14 @@ export * from './domain/entities/usecase-data/project/project.js';
 export * from './domain/entities/usecase-data/project/arc-db-file.js';
 export * from './domain/entities/usecase-data/usecase/usecase.js';
 
+// Domain entities - module manager
+export * from './domain/entities/module-manager/module-manager-data.js';
+
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
 export * from './domain/entities/definitions/spf-module/spf-module-definition.js';
+export * from './domain/entities/definitions/driver-module/driver-module-definition.js';
+export * from './domain/entities/definitions/driver-module/driver-module-parameter-definition.js';
 export * from './domain/entities/definitions/key-value/key-definition.js';
 export * from './domain/entities/definitions/key-value/entities/value-definition.js';
 

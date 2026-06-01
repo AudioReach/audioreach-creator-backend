@@ -43,15 +43,11 @@ import {TagDataBuilder} from './tag-data-builder.js';
 import type {TagData} from '../../../../../domain/entities/usecase-data/module/entities/spf-module-tag-data.js';
 
 /**
- * Dynamic control port ID starts from this value
+ * Information about active control ports per module instance
+ * Collected from all control links in the ACDB file
  */
-const DYNAMIC_CONTROL_PORT_ID_START = 0x80_00_00_00;
-
-/**
- * Information about dynamic control ports usage per module
- */
-export interface DynamicControlPortInfo {
-  maxDynamicPortIdPerModule: Map<number, number>;
+export interface ActiveControlPortInfo {
+  activePortIdsPerModule: Map<number, Set<number>>;
 }
 
 /**
@@ -76,8 +72,9 @@ export class SpfModuleBuilder {
     modulePropertyConfigs: ModulePropertyConfig[] = [],
     spfModuleDefinitions: AwspSpfModuleDefinition[] = [],
     awspTagDefinitions: AwspTagDefinition[],
-    dynamicControlPortInfo?: DynamicControlPortInfo,
-    parsedAcdb?: ParsedAcdb,
+    containerProcessorMap: Map<number, number>,
+    activeControlPortInfo: ActiveControlPortInfo,
+    parsedAcdb: ParsedAcdb,
   ): Promise<BuildResult<SpfModule>> {
     // Input validation
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
@@ -108,7 +105,8 @@ export class SpfModuleBuilder {
       modulePropertyConfigs,
       moduleDisplayNames,
       spfModuleDefinitions,
-      dynamicControlPortInfo,
+      containerProcessorMap,
+      activeControlPortInfo,
     );
 
     // Step 2: Assign system IDs to all successfully built entities
@@ -427,7 +425,8 @@ export class SpfModuleBuilder {
     modulePropertyConfigs: ModulePropertyConfig[],
     moduleDisplayNames: Map<number, string>,
     spfModuleDefinitions: AwspSpfModuleDefinition[],
-    dynamicControlPortInfo?: DynamicControlPortInfo,
+    containerProcessorMap: Map<number, number>,
+    activeControlPortInfo: ActiveControlPortInfo,
   ): BuildResult<SpfModule> {
     const spfModules: SpfModule[] = [];
     const issues: EntityBuildIssue[] = [];
@@ -435,41 +434,20 @@ export class SpfModuleBuilder {
     let errorCount = 0;
 
     for (const moduleInfo of spfModuleInfos) {
-      for (const moduleInstance of moduleInfo.spfModules) {
-        try {
-          const modulePropertyConfig = modulePropertyConfigs.find(
-            config => config.spfModuleInstanceId === moduleInstance.instanceId,
-          );
-
-          // TODO: Get processorId from container property to match with definition's supportedProcessorIds
-          const moduleDefinition = spfModuleDefinitions.find(
-            def => def.id === moduleInstance.moduleId,
-          );
-
-          const spfModule = this.convertSpfModuleInstance(
-            moduleInstance,
-            moduleInfo,
-            fileSystemId,
-            portStrategy,
-            modulePropertyConfig,
-            moduleDisplayNames,
-            moduleDefinition,
-            dynamicControlPortInfo,
-          );
-          spfModules.push(spfModule);
-          successCount++;
-        } catch (error) {
-          errorCount++;
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error';
-          const issue = this.convertToEntityBuildIssue(
-            errorMessage,
-            moduleInstance.instanceId,
-          );
-          issues.push(issue);
-          this.logConversionError(moduleInstance.instanceId, error);
-        }
-      }
+      const result = this.processModuleInfo(
+        moduleInfo,
+        fileSystemId,
+        portStrategy,
+        modulePropertyConfigs,
+        moduleDisplayNames,
+        spfModuleDefinitions,
+        containerProcessorMap,
+        activeControlPortInfo,
+      );
+      spfModules.push(...result.modules);
+      issues.push(...result.issues);
+      successCount += result.successCount;
+      errorCount += result.errorCount;
     }
 
     return {
@@ -479,6 +457,80 @@ export class SpfModuleBuilder {
       errorCount,
       warningCount: 0,
     };
+  }
+
+  /**
+   * Process all module instances within a module info
+   */
+  private processModuleInfo(
+    moduleInfo: SpfModuleInfo,
+    fileSystemId: number,
+    portStrategy: ModulePortStrategy,
+    modulePropertyConfigs: ModulePropertyConfig[],
+    moduleDisplayNames: Map<number, string>,
+    spfModuleDefinitions: AwspSpfModuleDefinition[],
+    containerProcessorMap: Map<number, number>,
+    activeControlPortInfo: ActiveControlPortInfo,
+  ): {
+    modules: SpfModule[];
+    issues: EntityBuildIssue[];
+    successCount: number;
+    errorCount: number;
+  } {
+    const modules: SpfModule[] = [];
+    const issues: EntityBuildIssue[] = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const moduleInstance of moduleInfo.spfModules) {
+      try {
+        const modulePropertyConfig = modulePropertyConfigs.find(
+          config => config.spfModuleInstanceId === moduleInstance.instanceId,
+        );
+
+        const moduleDefinition = spfModuleDefinitions.find(
+          def => def.id === moduleInstance.moduleId,
+        );
+
+        if (!moduleDefinition) {
+          throw new Error(
+            `Module definition not found for ID: ${moduleInstance.moduleId}`,
+          );
+        }
+
+        if (!modulePropertyConfig) {
+          throw new Error(
+            `Module property config not found for instance ID: ${moduleInstance.instanceId}`,
+          );
+        }
+
+        const spfModule = this.convertSpfModuleInstance(
+          moduleInstance,
+          moduleInfo,
+          fileSystemId,
+          portStrategy,
+          containerProcessorMap,
+          moduleDefinition,
+          activeControlPortInfo,
+          modulePropertyConfig,
+          moduleDisplayNames,
+        );
+        modules.push(spfModule);
+        successCount++;
+      } catch (error) {
+        errorCount++;
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        const issue = this.convertToEntityBuildIssue(
+          errorMessage,
+          moduleInstance.instanceId,
+        );
+        issues.push(issue);
+        this.logConversionError(moduleInstance.instanceId, error);
+      }
+    }
+
+    return {modules, issues, successCount, errorCount};
   }
 
   private logConversionError(instanceId: number, error: unknown): void {
@@ -513,15 +565,26 @@ export class SpfModuleBuilder {
     moduleInfo: SpfModuleInfo,
     fileSystemId: number,
     portStrategy: ModulePortStrategy,
-    modulePropertyConfig?: ModulePropertyConfig,
+    containerProcessorMap: Map<number, number>,
+    moduleDefinition: AwspSpfModuleDefinition,
+    activeControlPortInfo: ActiveControlPortInfo,
+    modulePropertyConfig: ModulePropertyConfig,
     moduleDisplayNames?: Map<number, string>,
-    moduleDefinition?: AwspSpfModuleDefinition,
-    dynamicControlPortInfo?: DynamicControlPortInfo,
   ): SpfModule {
     // Get foreign key mappings
     const subgraphSystemId = this.getSubgraphSystemId(moduleInfo.subgraphId);
     const containerSystemId = this.getContainerSystemId(moduleInfo.containerId);
+
+    // Get processor ID from container-processor map
+    const processorId = containerProcessorMap?.get(moduleInfo.containerId);
+    if (processorId === undefined) {
+      throw new Error(
+        `No processor ID found for container ${moduleInfo.containerId}`,
+      );
+    }
+
     const definitionSystemId = this.getDefinitionSystemId(
+      processorId,
       moduleInstance.moduleId,
     );
 
@@ -538,11 +601,11 @@ export class SpfModuleBuilder {
       moduleDefinition,
     );
 
-    // Create control ports using module definition and dynamic port info
+    // Create control ports using module definition and active port info
     const controlPorts = this.createControlPortsFromProperties(
       moduleInstance.instanceId,
       moduleDefinition,
-      dynamicControlPortInfo,
+      activeControlPortInfo,
     );
 
     // Get display name from module definition, fallback to default alias
@@ -596,8 +659,9 @@ export class SpfModuleBuilder {
   /**
    * Get definition systemId from foreign key mapper
    */
-  private getDefinitionSystemId(moduleId: number): number {
+  private getDefinitionSystemId(procId: number, moduleId: number): number {
     const systemId = this.foreignKeyMapper.getModuleDefinitionSystemId?.(
+      asNaturalId(procId),
       asNaturalId(moduleId),
     );
     if (!systemId) {
@@ -746,80 +810,112 @@ export class SpfModuleBuilder {
 
   /**
    * Create control ports from module properties and definition.
-   * Static ports are created from the module definition.
-   * Dynamic ports are created based on actual usage in control links (dense creation from 0x80000000 to max).
+   * Creates the union of:
+   * 1. Static ports from module definition
+   * 2. Active ports from control links
+   * Deduplicates automatically using a Set to track created port IDs.
    */
   private createControlPortsFromProperties(
     instanceId: number,
     moduleDefinition?: AwspSpfModuleDefinition,
-    dynamicControlPortInfo?: DynamicControlPortInfo,
+    activeControlPortInfo?: ActiveControlPortInfo,
   ): ControlPort[] {
-    const controlPorts: ControlPort[] = [];
-
     if (!moduleDefinition?.controlPortsInfo) {
-      return controlPorts;
+      return [];
     }
 
     const controlPortsInfo = moduleDefinition.controlPortsInfo;
+    const createdPortIds = new Set<number>();
+    const controlPorts: ControlPort[] = [];
 
-    // 1. Create ALL STATIC control ports from definition
-    // These are added to every module instance
-    if (controlPortsInfo.staticPorts) {
-      for (const staticPort of controlPortsInfo.staticPorts) {
-        // Store intent IDs directly as data
-        const intentSystemIds = staticPort.supportedIntents.map(
-          intent => intent.id,
-        );
+    // STEP 1: Create static control ports from definition
+    this.addStaticControlPorts(controlPortsInfo, controlPorts, createdPortIds);
 
-        controlPorts.push(
-          new ControlPort({
-            systemId: 0,
-            portId: staticPort.id,
-            isStatic: true,
-            nodeSystemId: 0, // Will be set after module insertion
-            name: staticPort.name || `ControlPort_${staticPort.id}`,
-            intentSystemIds,
-          }),
-        );
-      }
-    }
-
-    // 2. Create DYNAMIC control ports (dense creation from 0x80000000 to max)
-    if (controlPortsInfo.dynamicIntents && dynamicControlPortInfo) {
-      const maxDynamicPortId =
-        dynamicControlPortInfo.maxDynamicPortIdPerModule.get(instanceId);
-
-      if (
-        maxDynamicPortId &&
-        maxDynamicPortId >= DYNAMIC_CONTROL_PORT_ID_START
-      ) {
-        // Calculate number of dynamic ports needed
-        const numDynamicPorts =
-          maxDynamicPortId - DYNAMIC_CONTROL_PORT_ID_START + 1;
-
-        // All dynamic ports support all dynamic intents
-        const dynamicIntentSystemIds = controlPortsInfo.dynamicIntents.map(
-          intent => intent.id,
-        );
-
-        // Create all ports from 0x80000000 to maxDynamicPortId (dense)
-        for (let i = 0; i < numDynamicPorts; i++) {
-          const portId = DYNAMIC_CONTROL_PORT_ID_START + i;
-
-          controlPorts.push(
-            new ControlPort({
-              systemId: 0,
-              portId: portId,
-              isStatic: false,
-              nodeSystemId: 0,
-              name: `DynamicControlPort_0x${portId.toString(16)}`, // Hex format
-              intentSystemIds: dynamicIntentSystemIds,
-            }),
-          );
-        }
-      }
-    }
+    // STEP 2: Add ports from active control links (union operation)
+    this.addActiveControlPorts(
+      instanceId,
+      controlPortsInfo,
+      activeControlPortInfo,
+      controlPorts,
+      createdPortIds,
+    );
 
     return controlPorts;
+  }
+
+  /**
+   * Add static control ports from module definition
+   */
+  private addStaticControlPorts(
+    controlPortsInfo: AwspSpfModuleDefinition['controlPortsInfo'],
+    controlPorts: ControlPort[],
+    createdPortIds: Set<number>,
+  ): void {
+    if (!controlPortsInfo?.staticPorts) {
+      return;
+    }
+
+    for (const staticPort of controlPortsInfo.staticPorts) {
+      const intentSystemIds = staticPort.supportedIntents.map(
+        intent => intent.id,
+      );
+
+      controlPorts.push(
+        new ControlPort({
+          systemId: 0,
+          portId: staticPort.id,
+          isStatic: true,
+          nodeSystemId: 0,
+          name: staticPort.name || `ControlPort_${staticPort.id}`,
+          intentSystemIds,
+        }),
+      );
+      createdPortIds.add(staticPort.id);
+    }
+  }
+
+  /**
+   * Add active control ports from control links
+   */
+  private addActiveControlPorts(
+    instanceId: number,
+    controlPortsInfo: AwspSpfModuleDefinition['controlPortsInfo'],
+    activeControlPortInfo: ActiveControlPortInfo | undefined,
+    controlPorts: ControlPort[],
+    createdPortIds: Set<number>,
+  ): void {
+    if (!activeControlPortInfo) {
+      return;
+    }
+
+    const activePortIds =
+      activeControlPortInfo.activePortIdsPerModule.get(instanceId);
+
+    if (!activePortIds || activePortIds.size === 0) {
+      return;
+    }
+
+    const dynamicIntentSystemIds = controlPortsInfo?.dynamicIntents
+      ? controlPortsInfo.dynamicIntents.map(intent => intent.id)
+      : [];
+
+    for (const portId of activePortIds) {
+      // Skip if already created from static ports (union deduplication)
+      if (createdPortIds.has(portId)) {
+        continue;
+      }
+
+      controlPorts.push(
+        new ControlPort({
+          systemId: 0,
+          portId: portId,
+          isStatic: false,
+          nodeSystemId: 0,
+          name: `ControlPort_0x${portId.toString(16)}`,
+          intentSystemIds: dynamicIntentSystemIds,
+        }),
+      );
+      createdPortIds.add(portId);
+    }
   }
 }

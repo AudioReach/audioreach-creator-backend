@@ -9,28 +9,39 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../entity-base.js';
 import type {BlobBytesConverter} from '../usecase-data/module/helper/blob-unit8array.converter.js';
 import {DbTypeToBytesTransformer} from '../usecase-data/module/helper/bytes-transformer.js';
 import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
+import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 
 export interface DriverModuleRow extends EntityBaseRow {
+  // FKs (scalar columns you will set directly on writes)
   definitionSystemId: number;
-  definition: DriverModuleDefinitionRow;
+
+  // persistence-only relations (optional)
+  definition?: DriverModuleDefinitionRow;
+
+  // scope to file
+  fileSystemId: number;
+  file?: ArcDbFileRow;
+
+  // one-to-many
+  dkvs?: DkvRow[];
 }
 
 export interface DkvRow extends EntityBaseRow {
-  driverModuleId: number;
+  driverModuleSystemId: number;
 
-  driverModule: DriverModuleRow;
-  payloadCollection: DkvParameterPayloadRow[];
-  values?: DkvValuesRow[]; // one-many — the key-value combination
+  driverModule?: DriverModuleRow; // many-one
+  payloadCollection: DkvParameterPayloadRow[]; // one-many
+  values?: DkvValuesRow[]; // one-many — the key-value combination that identifies this calibration bin
 }
 
 export interface DkvParameterPayloadRow extends EntityBaseRow {
   parameterSystemId: number;
-  payload: Uint8Array;
+  payload: Uint8Array | null;
 
   dkvSystemId: number; // FK
   dkv?: DkvRow; // relation
-  driverParameter?: DriverModuleParameterDefinitionRow;
+  driverParameter?: DriverModuleParameterDefinitionRow; // relation
 }
 
 export interface DkvValuesRow {
@@ -46,12 +57,14 @@ export const DriverModuleSchema = new EntitySchema<DriverModuleRow>({
   tableName: 'driver_modules',
   columns: {
     ...BaseColumnSchemaPart,
-    definitionSystemId: {
-      name: 'definition_system_id',
-      type: 'integer',
-    },
+
+    // scalar FK columns you will set directly
+    definitionSystemId: {name: 'definition_system_id', type: 'integer'},
+
+    fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
   relations: {
+    // bind relation to the FK column via joinColumn
     definition: {
       type: 'many-to-one',
       target: 'DriverModuleDefinition',
@@ -59,49 +72,64 @@ export const DriverModuleSchema = new EntitySchema<DriverModuleRow>({
         name: 'definition_system_id',
         referencedColumnName: 'systemId',
       },
-      onDelete: 'RESTRICT',
+      onDelete: 'RESTRICT', // prevent deletion of definition if modules exist
+    },
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+      onDelete: 'CASCADE', // delete file => delete modules
+    },
+    dkvs: {
+      type: 'one-to-many',
+      target: 'Dkv',
+      inverseSide: 'driverModule',
     },
   },
   indices: [
     {
-      name: 'idx_driver_modules_definition',
-      columns: ['definitionSystemId'],
+      name: 'ix_driver_modules_definition_file_system',
+      columns: ['definitionSystemId', 'fileSystemId'],
+    },
+    {
+      name: 'uq_driver_modules_definition_system_id_file_system_id',
+      columns: ['definitionSystemId', 'fileSystemId'],
+      unique: true,
     },
   ],
 });
 
-export const DkvSchema = new EntitySchema<DkvRow>({
-  name: 'Dkv',
-  tableName: 'dkv',
-  columns: {
-    ...BaseColumnSchemaPart,
-    driverModuleId: {
-      name: 'module_instance_id',
-      type: 'integer',
+export const DkvSchema = (_blobConverter: BlobBytesConverter) =>
+  new EntitySchema<DkvRow>({
+    name: 'Dkv',
+    tableName: 'dkv',
+    columns: {
+      ...BaseColumnSchemaPart,
+      driverModuleSystemId: {name: 'driver_module_system_id', type: 'integer'},
     },
-  },
-  relations: {
-    driverModule: {
-      type: 'many-to-one',
-      target: 'DriverModule',
-      joinColumn: {
-        name: 'module_instance_id',
-        referencedColumnName: 'systemId',
+    relations: {
+      driverModule: {
+        type: 'many-to-one',
+        target: 'DriverModule',
+        inverseSide: 'dkvs',
+        joinColumn: {
+          name: 'driver_module_system_id',
+          referencedColumnName: 'systemId',
+        },
+        onDelete: 'CASCADE',
       },
-      onDelete: 'CASCADE',
+      payloadCollection: {
+        type: 'one-to-many',
+        target: 'DkvParameterPayload',
+        inverseSide: 'dkv',
+      },
+      values: {
+        type: 'one-to-many',
+        target: 'DkvValues',
+        inverseSide: 'dkv',
+      },
     },
-    payloadCollection: {
-      type: 'one-to-many',
-      target: 'DkvParameterPayload',
-      inverseSide: 'dkv',
-    },
-    values: {
-      type: 'one-to-many',
-      target: 'DkvValues',
-      inverseSide: 'dkv',
-    },
-  },
-});
+  });
 
 export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
   new EntitySchema<DkvParameterPayloadRow>({
@@ -109,16 +137,11 @@ export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
     tableName: 'dkv_parameter_payload',
     columns: {
       ...BaseColumnSchemaPart,
-      parameterSystemId: {
-        name: 'parameter_system_id',
-        type: 'integer',
-      },
-      dkvSystemId: {
-        name: 'dkv_system_id',
-        type: 'integer',
-      },
+      parameterSystemId: {name: 'parameter_system_id', type: 'integer'},
+      dkvSystemId: {name: 'dkv_system_id', type: 'integer'},
       payload: {
         type: 'blob',
+        nullable: true,
         transformer: DbTypeToBytesTransformer(blobConverter),
       },
     },
@@ -126,10 +149,7 @@ export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
       dkv: {
         type: 'many-to-one',
         target: 'Dkv',
-        joinColumn: {
-          name: 'dkv_system_id',
-          referencedColumnName: 'systemId',
-        },
+        joinColumn: {name: 'dkv_system_id', referencedColumnName: 'systemId'},
         onDelete: 'CASCADE',
       },
       driverParameter: {
@@ -139,7 +159,7 @@ export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
           name: 'parameter_system_id',
           referencedColumnName: 'systemId',
         },
-        onDelete: 'CASCADE',
+        onDelete: 'RESTRICT',
       },
     },
     indices: [
@@ -155,7 +175,11 @@ export const DkvValuesSchema = new EntitySchema<DkvValuesRow>({
   name: 'DkvValues',
   tableName: 'dkv_values',
   columns: {
-    dkvSystemId: {name: 'dkv_system_id', type: 'integer', primary: true},
+    dkvSystemId: {
+      name: 'dkv_system_id',
+      type: 'integer',
+      primary: true,
+    },
     valueDefSystemId: {
       name: 'value_def_system_id',
       type: 'integer',
@@ -166,6 +190,7 @@ export const DkvValuesSchema = new EntitySchema<DkvValuesRow>({
     dkv: {
       type: 'many-to-one',
       target: 'Dkv',
+      inverseSide: 'values',
       joinColumn: {name: 'dkv_system_id', referencedColumnName: 'systemId'},
       onDelete: 'CASCADE',
     },

@@ -218,48 +218,96 @@ describe('ForeignKeyMapper', () => {
 
   describe('Module Definition Mappings', () => {
     it('should add single module definition mapping', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(100),
+        asSystemId(1),
+      );
 
-      expect(mapper.getModuleDefinitionSystemId(asNaturalId(100))).toBe(1);
+      expect(
+        mapper.getModuleDefinitionSystemId(asNaturalId(1), asNaturalId(100)),
+      ).toBe(1);
     });
 
     it('should retrieve module definition systemId by moduleId', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
-      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(100),
+        asSystemId(1),
+      );
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(200),
+        asSystemId(2),
+      );
 
-      expect(mapper.getModuleDefinitionSystemId(asNaturalId(100))).toBe(1);
-      expect(mapper.getModuleDefinitionSystemId(asNaturalId(200))).toBe(2);
+      expect(
+        mapper.getModuleDefinitionSystemId(asNaturalId(1), asNaturalId(100)),
+      ).toBe(1);
+      expect(
+        mapper.getModuleDefinitionSystemId(asNaturalId(1), asNaturalId(200)),
+      ).toBe(2);
     });
 
     it('should return undefined for non-existent moduleId', () => {
       expect(
-        mapper.getModuleDefinitionSystemId(asNaturalId(999)),
+        mapper.getModuleDefinitionSystemId(asNaturalId(1), asNaturalId(999)),
       ).toBeUndefined();
     });
 
     it('should handle multiple module definition mappings', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
-      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
-      mapper.addModuleDefinitionMapping(asNaturalId(300), asSystemId(3));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(100),
+        asSystemId(1),
+      );
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(200),
+        asSystemId(2),
+      );
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(300),
+        asSystemId(3),
+      );
 
-      expect(mapper.getModuleDefinitionSystemId(asNaturalId(100))).toBe(1);
-      expect(mapper.getModuleDefinitionSystemId(asNaturalId(200))).toBe(2);
-      expect(mapper.getModuleDefinitionSystemId(asNaturalId(300))).toBe(3);
+      expect(
+        mapper.getModuleDefinitionSystemId(asNaturalId(1), asNaturalId(100)),
+      ).toBe(1);
+      expect(
+        mapper.getModuleDefinitionSystemId(asNaturalId(1), asNaturalId(200)),
+      ).toBe(2);
+      expect(
+        mapper.getModuleDefinitionSystemId(asNaturalId(1), asNaturalId(300)),
+      ).toBe(3);
     });
 
     it('should throw error when adding duplicate module definition mapping', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(100),
+        asSystemId(1),
+      );
 
       expect(() => {
-        mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(999));
-      }).toThrow('Module definition 100 already mapped to systemId 1');
+        mapper.addModuleDefinitionMapping(
+          [asNaturalId(1)],
+          asNaturalId(100),
+          asSystemId(999),
+        );
+      }).toThrow('Module definition 100 already mapped for processor 1');
     });
   });
 
   describe('Parameter Definition Mappings', () => {
     beforeEach(() => {
       // Add parent module definition mapping first
-      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(100),
+        asSystemId(1),
+      );
     });
 
     it('should add single parameter definition mapping', () => {
@@ -313,7 +361,11 @@ describe('ForeignKeyMapper', () => {
     });
 
     it('should handle multiple module definitions with their own parameters', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(200),
+        asSystemId(2),
+      );
 
       mapper.addParamDefinitionMapping(
         asSystemId(1),
@@ -404,7 +456,11 @@ describe('ForeignKeyMapper', () => {
     });
 
     it('should handle parameters with same paramId across different modules', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(200),
+        asSystemId(2),
+      );
 
       mapper.addParamDefinitionMapping(
         asSystemId(1),
@@ -460,9 +516,21 @@ describe('ForeignKeyMapper', () => {
     });
 
     it('should return correct stats after adding module definition mappings', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
-      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
-      mapper.addModuleDefinitionMapping(asNaturalId(300), asSystemId(3));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(100),
+        asSystemId(1),
+      );
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(200),
+        asSystemId(2),
+      );
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(300),
+        asSystemId(3),
+      );
 
       const stats = mapper.getStats();
 
@@ -470,8 +538,16 @@ describe('ForeignKeyMapper', () => {
     });
 
     it('should return correct stats after adding parameter definition mappings', () => {
-      mapper.addModuleDefinitionMapping(asNaturalId(100), asSystemId(1));
-      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(100),
+        asSystemId(1),
+      );
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(200),
+        asSystemId(2),
+      );
 
       mapper.addParamDefinitionMapping(
         asSystemId(1),
@@ -501,7 +577,11 @@ describe('ForeignKeyMapper', () => {
         asNaturalId(10),
         asSystemId(101),
       );
-      mapper.addModuleDefinitionMapping(asNaturalId(200), asSystemId(2));
+      mapper.addModuleDefinitionMapping(
+        [asNaturalId(1)],
+        asNaturalId(200),
+        asSystemId(2),
+      );
       mapper.addParamDefinitionMapping(
         asSystemId(2),
         asNaturalId(20),

@@ -28,6 +28,7 @@ export interface SpfModuleDefinitionRow extends EntityBaseRow {
   stackSize: number;
   fileSystemId: number;
   metadata?: string;
+  isLoadedAtBootup: boolean;
 
   // Relations
   metaData?: ModuleDefinitionMetaDataRow;
@@ -91,6 +92,11 @@ export const SpfModuleDefinitionSchema =
         type: 'text',
         nullable: true,
         name: 'metadata',
+      },
+      isLoadedAtBootup: {
+        name: 'is_loaded_at_bootup',
+        type: 'boolean',
+        default: false,
       },
     },
     relations: {

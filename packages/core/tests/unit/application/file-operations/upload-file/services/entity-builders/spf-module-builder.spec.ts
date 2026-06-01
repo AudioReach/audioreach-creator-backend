@@ -35,6 +35,48 @@ describe('SpfModuleBuilder', () => {
   const TEST_FILE_SYSTEM_ID = 123;
   const TEST_PORT_STRATEGY = MODULE_PORT_STRATEGIES.INPUT_ODD_OUTPUT_EVEN;
 
+  // Helper function to create module property config
+  const createModulePropertyConfig = (
+    instanceId: number,
+  ): ModulePropertyConfig =>
+    ({
+      spfModuleInstanceId: instanceId,
+      getPortInfo: () => ({maxInputPorts: 1, maxOutputPorts: 1}),
+    }) as any;
+
+  // Default test data for required parameters
+  const defaultAwspTagDefinitions: any[] = [];
+  const defaultContainerProcessorMap = new Map<number, number>([
+    [2, 10],
+    [3, 10],
+  ]);
+  const defaultActiveControlPortInfo = {
+    activePortIdsPerModule: new Map<number, Set<number>>(),
+  };
+  const defaultParsedAcdb: any = {
+    getChunk: jest.fn().mockReturnValue(null),
+  };
+  const defaultSpfModuleDefinitions: any[] = [
+    {
+      id: 1001,
+      name: 'TestModule1',
+      fileSystemId: TEST_FILE_SYSTEM_ID,
+      systemId: 300,
+    },
+    {
+      id: 1002,
+      name: 'TestModule2',
+      fileSystemId: TEST_FILE_SYSTEM_ID,
+      systemId: 300,
+    },
+    {
+      id: 1003,
+      name: 'TestModule3',
+      fileSystemId: TEST_FILE_SYSTEM_ID,
+      systemId: 300,
+    },
+  ];
+
   beforeEach(() => {
     mockLogger = createMockLogger();
     mockIdGenerator = createMockIdGenerator();
@@ -88,10 +130,21 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [
+          createModulePropertyConfig(101),
+          createModulePropertyConfig(102),
+        ];
+
         const result = await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toHaveLength(2);
@@ -126,6 +179,12 @@ describe('SpfModuleBuilder', () => {
           [],
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toEqual([]);
@@ -159,10 +218,21 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [
+          createModulePropertyConfig(101),
+          createModulePropertyConfig(102),
+        ];
+
         const result = await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toHaveLength(2);
@@ -183,10 +253,18 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [createModulePropertyConfig(101)];
+
         const result = await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result).toHaveProperty('entities');
@@ -212,10 +290,18 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [createModulePropertyConfig(101)];
+
         await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
@@ -247,10 +333,21 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [
+          createModulePropertyConfig(101),
+          createModulePropertyConfig(102),
+        ];
+
         const result = await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
@@ -271,10 +368,27 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [createModulePropertyConfig(123)];
+
+        // Use module definition without name to test fallback naming convention
+        const moduleDefinitionsWithoutName = [
+          {
+            id: 1001,
+            fileSystemId: TEST_FILE_SYSTEM_ID,
+            systemId: 300,
+          },
+        ];
+
         const result = await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          moduleDefinitionsWithoutName,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities[0].alias).toBe('Module_123');
@@ -287,6 +401,12 @@ describe('SpfModuleBuilder', () => {
           null as any,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toEqual([]);
@@ -300,6 +420,12 @@ describe('SpfModuleBuilder', () => {
           undefined as any,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toEqual([]);
@@ -321,6 +447,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toHaveLength(0);
@@ -354,6 +486,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toHaveLength(0);
@@ -387,6 +525,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
@@ -427,10 +571,21 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [
+          createModulePropertyConfig(101),
+          createModulePropertyConfig(102),
+        ];
+
         const result = await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities).toHaveLength(1);
@@ -463,6 +618,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.issues[0].entityData).toBe('instanceId: 42');
@@ -492,6 +653,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.issues[0].code).toBe(ERROR_CODES.INVALID_ENTITY_DATA);
@@ -521,10 +688,18 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.errorCount).toBe(1);
-        expect(result.issues[0].message).toBe('Unknown error');
+        expect(result.issues[0].message).toContain(
+          'Module property config not found',
+        );
       });
     });
 
@@ -547,10 +722,21 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [
+          createModulePropertyConfig(101),
+          createModulePropertyConfig(102),
+        ];
+
         await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
@@ -588,6 +774,12 @@ describe('SpfModuleBuilder', () => {
             spfModuleInfos,
             TEST_FILE_SYSTEM_ID,
             TEST_PORT_STRATEGY,
+            [],
+            defaultSpfModuleDefinitions,
+            defaultAwspTagDefinitions,
+            defaultContainerProcessorMap,
+            defaultActiveControlPortInfo,
+            defaultParsedAcdb,
           ),
         ).resolves.not.toThrow();
       });
@@ -612,6 +804,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result).toMatchObject({
@@ -641,6 +839,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.warningCount).toBe(0);
@@ -660,10 +864,18 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [createModulePropertyConfig(101)];
+
         const result = await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(result.entities[0]).toBeInstanceOf(SpfModule);
@@ -693,10 +905,22 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [
+          createModulePropertyConfig(101),
+          createModulePropertyConfig(102),
+          createModulePropertyConfig(103),
+        ];
+
         await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         // Called for each module (3 times)
@@ -723,10 +947,21 @@ describe('SpfModuleBuilder', () => {
           },
         ];
 
+        const modulePropertyConfigs = [
+          createModulePropertyConfig(101),
+          createModulePropertyConfig(102),
+        ];
+
         await builder.buildSpfModules(
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          modulePropertyConfigs,
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         expect(mockForeignKeyMapper.addSpfModuleMapping).toHaveBeenCalledTimes(
@@ -756,6 +991,12 @@ describe('SpfModuleBuilder', () => {
           spfModuleInfos,
           TEST_FILE_SYSTEM_ID,
           TEST_PORT_STRATEGY,
+          [],
+          defaultSpfModuleDefinitions,
+          defaultAwspTagDefinitions,
+          defaultContainerProcessorMap,
+          defaultActiveControlPortInfo,
+          defaultParsedAcdb,
         );
 
         const systemIds = result.entities.map(e => e.systemId);

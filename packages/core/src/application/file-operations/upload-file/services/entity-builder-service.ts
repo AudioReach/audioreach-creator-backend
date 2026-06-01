@@ -6,10 +6,12 @@
 import type {KeyDefinition} from '../../../../domain/entities/definitions/key-value/key-definition.js';
 import type {TagDefinition} from '../../../../domain/entities/definitions/tag-key-value/tag-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
+import type {DriverModuleDefinition} from '../../../../domain/entities/definitions/driver-module/driver-module-definition.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
 import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
+import type {DriverModule} from '../../../../domain/entities/driver-module-data/driver-module.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import {ProcessorDefinition} from '../../../../domain/entities/definitions/processor/processor-definition.js';
@@ -25,10 +27,15 @@ import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.
 import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js';
 import {TagDefinitionBuilder} from './entity-builders/tag-definition-builder.js';
 import {SpfModuleDefinitionBuilder} from './entity-builders/spf-module-definition-builder.js';
+import {DriverModuleDefinitionBuilder} from './entity-builders/driver-module-definition-builder.js';
 import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
 import {SubgraphBuilder} from './entity-builders/subgraph-builder.js';
-import {ContainerBuilder} from './entity-builders/container-builder.js';
+import {
+  ContainerBuilder,
+  type ContainerBuildResult,
+} from './entity-builders/container-builder.js';
 import {SpfModuleBuilder} from './entity-builders/spf-module-builder.js';
+import {DriverModuleBuilder} from './entity-builders/driver-module-builder.js';
 import {DataLinkBuilder} from './entity-builders/data-link-builder.js';
 import {ControlLinkBuilder} from './entity-builders/control-link-builder.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
@@ -36,6 +43,7 @@ import {asNaturalId, asSystemId} from '../../../../shared/types/branded-ids.js';
 import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
+import type {DriverCalibrationChunk} from '../../shared/acdb-chunks/driver-calibration-chunk.js';
 import type {
   DataLink as DataLinkProperty,
   ControlLink as ControlLinkProperty,
@@ -43,7 +51,15 @@ import type {
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ForeignKeyMapper} from './foreign-key-mapper.js';
-import type {DynamicControlPortInfo} from './entity-builders/spf-module-builder.js';
+import type {BootUpLoadingChunk} from './acdb-chunk-parsers/bootup-loading-chunk-parser.js';
+import type {ModuleManagerChunk} from './acdb-chunk-parsers/module-manager-chunk-parser.js';
+import type {ActiveControlPortInfo} from './entity-builders/spf-module-builder.js';
+import {
+  ModuleManagerData,
+  type ModuleTypeValue,
+  type InterfaceTypeValue,
+  type InterfaceVersionValue,
+} from '../../../../domain/entities/module-manager/module-manager-data.js';
 import type {
   NaturalId,
   SystemId,
@@ -97,11 +113,14 @@ export class EntityBuilderService {
   private keyDefinitionBuilder: KeyDefinitionBuilder;
   private tagDefinitionBuilder: TagDefinitionBuilder;
   private spfModuleDefinitionBuilder: SpfModuleDefinitionBuilder;
+  private driverModuleDefinitionBuilder: DriverModuleDefinitionBuilder;
   private subgraphBuilder: SubgraphBuilder;
   private containerBuilder: ContainerBuilder;
   private spfModuleBuilder: SpfModuleBuilder;
+  private driverModuleBuilder: DriverModuleBuilder;
   private dataLinkBuilder: DataLinkBuilder;
   private controlLinkBuilder: ControlLinkBuilder;
+  private containerProcessorMap: Map<number, number> = new Map();
 
   constructor(
     private readonly idGenerator: IdGenerationPort,
@@ -126,6 +145,11 @@ export class EntityBuilderService {
       this.workerPool,
       this.logger,
     );
+    this.driverModuleDefinitionBuilder = new DriverModuleDefinitionBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
+      this.logger,
+    );
     this.subgraphBuilder = new SubgraphBuilder(
       this.idGenerator,
       this.foreignKeyMapper,
@@ -137,6 +161,11 @@ export class EntityBuilderService {
       this.logger,
     );
     this.spfModuleBuilder = new SpfModuleBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
+      this.logger,
+    );
+    this.driverModuleBuilder = new DriverModuleBuilder(
       this.idGenerator,
       this.foreignKeyMapper,
       this.logger,
@@ -254,11 +283,12 @@ export class EntityBuilderService {
       };
     }
 
-    // Build domain containers with system IDs assigned
-    const result = await this.containerBuilder.buildContainers(
-      containers,
-      fileSystemId,
-    );
+    // Build domain containers with system IDs assigned and extract processor mappings
+    const result: ContainerBuildResult =
+      await this.containerBuilder.buildContainers(containers, fileSystemId);
+
+    // Store the container-to-processor map for later use in module building
+    this.containerProcessorMap = result.containerProcessorMap;
 
     this.logger?.logInfo({
       msg: `Successfully built ${result.entities.length} containers from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
@@ -272,21 +302,20 @@ export class EntityBuilderService {
   }
 
   /**
-   * Analyze control links to determine dynamic control port usage per module
+   * Analyze control links to collect all active control port IDs per module
    */
-  private analyzeDynamicControlPorts(
+  private analyzeActiveControlPorts(
     parsedAcdb: ParsedAcdb,
-  ): DynamicControlPortInfo {
+  ): ActiveControlPortInfo {
     const allControlLinks = this.collectAllControlLinks(parsedAcdb);
-    const maxDynamicPortIdPerModule =
-      this.analyzeControlLinkPorts(allControlLinks);
+    const activePortIdsPerModule = this.collectActivePortIds(allControlLinks);
 
-    this.logDynamicPortAnalysisResults(
+    this.logActivePortAnalysisResults(
       allControlLinks.length,
-      maxDynamicPortIdPerModule.size,
+      activePortIdsPerModule.size,
     );
 
-    return {maxDynamicPortIdPerModule};
+    return {activePortIdsPerModule};
   }
 
   /**
@@ -347,61 +376,54 @@ export class EntityBuilderService {
   }
 
   /**
-   * Analyze control links to find max dynamic port ID per module
+   * Collect all active control port IDs from control links
+   * No filtering - collects all port IDs regardless of static/dynamic classification
    */
-  private analyzeControlLinkPorts(
+  private collectActivePortIds(
     links: ControlLinkProperty[],
-  ): Map<number, number> {
-    const DYNAMIC_CONTROL_PORT_ID_START = 0x80_00_00_00;
-    const maxDynamicPortIdPerModule = new Map<number, number>();
+  ): Map<number, Set<number>> {
+    const activePortIdsPerModule = new Map<number, Set<number>>();
 
     for (const link of links) {
-      this.updateMaxPortIdIfDynamic(
+      this.addActivePort(
         link.peer1InstanceId,
         link.peer1PortId,
-        maxDynamicPortIdPerModule,
-        DYNAMIC_CONTROL_PORT_ID_START,
+        activePortIdsPerModule,
       );
-      this.updateMaxPortIdIfDynamic(
+      this.addActivePort(
         link.peer2InstanceId,
         link.peer2PortId,
-        maxDynamicPortIdPerModule,
-        DYNAMIC_CONTROL_PORT_ID_START,
+        activePortIdsPerModule,
       );
     }
 
-    return maxDynamicPortIdPerModule;
+    return activePortIdsPerModule;
   }
 
   /**
-   * Update max port ID for a module instance if the port is dynamic
+   * Add a port ID to the active ports set for a module instance
    */
-  private updateMaxPortIdIfDynamic(
+  private addActivePort(
     instanceId: number,
     portId: number,
-    maxPortIdMap: Map<number, number>,
-    dynamicPortThreshold: number,
+    portIdsMap: Map<number, Set<number>>,
   ): void {
-    if (portId < dynamicPortThreshold) {
-      return;
+    if (!portIdsMap.has(instanceId)) {
+      portIdsMap.set(instanceId, new Set<number>());
     }
-
-    const currentMax = maxPortIdMap.get(instanceId) || 0;
-    if (portId > currentMax) {
-      maxPortIdMap.set(instanceId, portId);
-    }
+    portIdsMap.get(instanceId)!.add(portId);
   }
 
   /**
-   * Log the results of dynamic port analysis
+   * Log the results of active port analysis
    */
-  private logDynamicPortAnalysisResults(
+  private logActivePortAnalysisResults(
     totalLinks: number,
-    modulesWithDynamicPorts: number,
+    modulesWithActivePorts: number,
   ): void {
     this.logger?.logInfo({
-      msg: `Analyzed ${totalLinks} control links, found ${modulesWithDynamicPorts} modules with dynamic control ports`,
-      action: 'dynamic_control_ports_analyzed',
+      msg: `Analyzed ${totalLinks} control links, found ${modulesWithActivePorts} modules with active control ports`,
+      action: 'active_control_ports_analyzed',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
       timestamp: new Date(),
@@ -471,8 +493,8 @@ export class EntityBuilderService {
 
     const portStrategy = configuration.portStrategy;
 
-    // Analyze control links to determine dynamic control port usage
-    const dynamicControlPortInfo = this.analyzeDynamicControlPorts(parsedAcdb);
+    // Analyze control links to collect active control port IDs
+    const activeControlPortInfo = this.analyzeActiveControlPorts(parsedAcdb);
 
     // Build domain SPF modules with module properties, definitions, calibration data, and system IDs assigned
     const result = await this.spfModuleBuilder.buildSpfModules(
@@ -482,7 +504,8 @@ export class EntityBuilderService {
       modulePropertyConfigs,
       spfModuleDefinitions,
       awspTagDefinitions, // Pass AWSP tag definitions for tag data value resolution
-      dynamicControlPortInfo,
+      this.containerProcessorMap, // Pass container-to-processor map
+      activeControlPortInfo,
       parsedAcdb, // Pass parsedAcdb for calibration data attachment
     );
 
@@ -934,12 +957,38 @@ export class EntityBuilderService {
   }
 
   /**
+   * Extract boot-up module IDs from BTUP chunk
+   */
+  private extractBootUpModuleIds(parsedAcdb: ParsedAcdb): Set<number> {
+    const bootUpChunk = parsedAcdb.getChunk<BootUpLoadingChunk>(
+      PARSED_CHUNK_TYPES.BOOTUP_LOADING,
+    );
+
+    if (!bootUpChunk) {
+      return new Set<number>();
+    }
+
+    const bootUpModuleIds = new Set<number>();
+
+    // Collect all module IDs from all processors
+    for (const moduleIds of bootUpChunk.bootUpModules.values()) {
+      for (const moduleId of moduleIds) {
+        bootUpModuleIds.add(moduleId);
+      }
+    }
+
+    return bootUpModuleIds;
+  }
+
+  /**
    * Build SPF module definitions from AWSP data with system IDs assigned
    * @param parsedAwsp - Parsed AWSP data
+   * @param parsedAcdb - Parsed ACDB data (for boot-up flag)
    * @param fileSystemId - File system ID for the module definitions
    */
   async buildSpfModuleDefinitions(
     parsedAwsp: ParsedAwsp,
+    parsedAcdb: ParsedAcdb,
     fileSystemId: number,
   ): Promise<BuildResult<SpfModuleDefinition>> {
     // Extract SPF module definitions from AWSP
@@ -955,10 +1004,14 @@ export class EntityBuilderService {
       };
     }
 
+    // Extract boot-up module IDs
+    const bootUpModuleIds = this.extractBootUpModuleIds(parsedAcdb);
+
     // Build domain SPF module definitions with system IDs assigned
     const result = await this.spfModuleDefinitionBuilder.buildModuleDefinitions(
       awspModuleDefinitions,
       fileSystemId,
+      bootUpModuleIds,
     );
 
     this.logger?.logInfo({
@@ -970,6 +1023,193 @@ export class EntityBuilderService {
     });
 
     return result;
+  }
+
+  /**
+   * Build driver module definitions from AWSP data with system IDs assigned
+   * @param parsedAwsp - Parsed AWSP data
+   * @param fileSystemId - File system ID for the module definitions
+   */
+  async buildDriverModuleDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<BuildResult<DriverModuleDefinition>> {
+    // Extract driver module definitions from AWSP
+    const awspModuleDefinitions = parsedAwsp.getDriverModuleDefinitions();
+
+    if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    // Build domain driver module definitions with system IDs assigned
+    const result =
+      await this.driverModuleDefinitionBuilder.buildDriverModuleDefinitions(
+        awspModuleDefinitions,
+        fileSystemId,
+      );
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${result.successCount} driver module definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      action: 'awsp_driver_module_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
+
+    return result;
+  }
+
+  /**
+   * Build driver modules from ACDB data with system IDs assigned
+   * @param parsedAcdb - Parsed ACDB data
+   * @param fileSystemId - File system ID for the modules
+   */
+  async buildDriverModules(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<BuildResult<DriverModule>> {
+    // Extract driver module definition IDs from driver calibration chunk
+    const driverCalChunk = parsedAcdb.getChunk<DriverCalibrationChunk>(
+      PARSED_CHUNK_TYPES.DRIVER_CALIBRATION_DATA,
+    );
+
+    if (!driverCalChunk) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    // Extract module definition IDs from the chunk
+    const moduleDefinitionIds: number[] =
+      driverCalChunk.moduleLookupEntries.map(entry => entry.moduleDefinitionId);
+
+    if (moduleDefinitionIds.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    // Build domain driver modules with system IDs assigned and calibration data attached
+    const result = await this.driverModuleBuilder.buildDriverModules(
+      moduleDefinitionIds,
+      fileSystemId,
+      parsedAcdb,
+    );
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${result.successCount} driver modules from ACDB with system IDs assigned, ${result.errorCount} failures`,
+      action: 'acdb_driver_modules_complete',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
+
+    return result;
+  }
+
+  /**
+   * Build module manager data from ACDB data with system IDs assigned
+   * @param parsedAcdb - Parsed ACDB data
+   * @param fileSystemId - File system ID for the module manager data
+   * @returns Promise resolving to array of ModuleManagerData entities
+   */
+  async buildModuleManagerData(
+    parsedAcdb: ParsedAcdb,
+    fileSystemId: number,
+  ): Promise<ModuleManagerData[]> {
+    // Extract module manager chunk
+    const mmgrChunk = parsedAcdb.getChunk<ModuleManagerChunk>(
+      PARSED_CHUNK_TYPES.MODULE_MANAGER,
+    );
+
+    if (!mmgrChunk || mmgrChunk.registrations.size === 0) {
+      return [];
+    }
+
+    const entities: ModuleManagerData[] = [];
+
+    // Build domain module manager data with system IDs and foreign key resolution
+    // Iterate through all processors and their module registrations
+    for (const [processorId, moduleMap] of mmgrChunk.registrations) {
+      // Resolve processor definition system ID
+      const processorSystemId =
+        this.foreignKeyMapper.getProcessorDefinitionSystemId(
+          asNaturalId(processorId),
+        );
+
+      if (processorSystemId === undefined) {
+        this.logger?.logWarn({
+          msg: `Processor definition ID ${processorId} not found in foreign key mapper for module manager entry`,
+          action: 'processor_mapping_not_found_mmgr',
+          component: 'EntityBuilderService',
+          tag: 'acdb-processing',
+          timestamp: new Date(),
+        });
+        continue; // Skip this processor if not found
+      }
+
+      // Iterate through all module registrations for this processor
+      for (const [moduleId, registration] of moduleMap) {
+        // Resolve module definition system ID
+        const moduleDefinitionSystemId =
+          this.foreignKeyMapper.getModuleDefinitionSystemId(
+            asNaturalId(processorId),
+            asNaturalId(moduleId),
+          );
+
+        if (moduleDefinitionSystemId === undefined) {
+          this.logger?.logWarn({
+            msg: `Module definition ID ${moduleId} not found in foreign key mapper for module manager entry`,
+            action: 'module_definition_mapping_not_found_mmgr',
+            component: 'EntityBuilderService',
+            tag: 'acdb-processing',
+            timestamp: new Date(),
+          });
+          continue; // Skip this module if not found
+        }
+
+        const systemId = await this.idGenerator.getNextId(fileSystemId);
+
+        const moduleManagerData = new ModuleManagerData({
+          systemId,
+          processorDefinitionSystemId: processorSystemId,
+          moduleDefinitionSystemId,
+          moduleType: registration.capi.moduleType as ModuleTypeValue,
+          interfaceType: registration.interfaceType as InterfaceTypeValue,
+          interfaceVersion:
+            registration.interfaceVersion as InterfaceVersionValue,
+          fileName: registration.capi.fileName,
+          tag: registration.capi.tag,
+          fileSystemId,
+        });
+
+        entities.push(moduleManagerData);
+      }
+    }
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${entities.length} module manager data entries from ACDB with system IDs assigned`,
+      action: 'acdb_module_manager_data_complete',
+      component: 'EntityBuilderService',
+      tag: 'acdb-processing',
+      timestamp: new Date(),
+    });
+
+    return entities;
   }
 
   /**

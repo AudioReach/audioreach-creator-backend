@@ -364,6 +364,12 @@ export class UploadFileOrchestrator {
       // Phase 1d: Build and Insert SPF Module Definitions (depends on 1b, 1c)
       await this.buildAndInsertSpfModuleDefinitions(bulkRepo);
 
+      // Phase 1d1: Build and Insert Module Manager Data (depends on 1b, 1d)
+      await this.buildAndInsertModuleManagerData(bulkRepo);
+
+      // Phase 1d2: Build and Insert Driver Module Definitions (no dependencies)
+      await this.buildAndInsertDriverModuleDefinitions(bulkRepo);
+
       // Phase 1e: Build and Insert Subgraph Property Definitions (no dependencies)
       await this.buildAndInsertSubgraphPropertyDefinitions(bulkRepo);
 
@@ -378,6 +384,9 @@ export class UploadFileOrchestrator {
 
       // Phase 4: Build and Insert SPF Modules with Calibration Data
       await this.buildAndInsertSpfModules(bulkRepo);
+
+      // Phase 4b: Build and Insert Driver Modules with DKV Calibration Data
+      await this.buildAndInsertDriverModules(bulkRepo);
 
       // Phase 5: Build and Insert Data Links (depend on modules)
       await this.buildAndInsertDataLinks(bulkRepo);
@@ -680,9 +689,10 @@ export class UploadFileOrchestrator {
       return;
     }
 
-    // Build SPF module definitions with system IDs assigned
+    // Build SPF module definitions with system IDs assigned (includes boot-up flag from ACDB)
     const result = await this.builderService.buildSpfModuleDefinitions(
       this.parsedAwsp!,
+      this.parsedAcdb!,
       this.currentFileId,
     );
 
@@ -711,6 +721,106 @@ export class UploadFileOrchestrator {
         this.logger?.logError({
           msg: `Failed to insert some SPF module definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
           action: 'spf_module_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 1d1: Build and Insert Module Manager Data
+   */
+  private async buildAndInsertModuleManagerData(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Build module manager data with system IDs assigned
+    const moduleManagerData = await this.builderService.buildModuleManagerData(
+      this.parsedAcdb!,
+      this.currentFileId,
+    );
+
+    if (moduleManagerData.length > 0) {
+      // Insert module manager data
+      const insertResult =
+        await bulkRepo.insertModuleManagerData(moduleManagerData);
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'ModuleManagerData');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${moduleManagerData.length} module manager data entries`,
+          action: 'module_manager_data_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some module manager data: ${insertResult.errors.length} insertion failures out of ${moduleManagerData.length} entities`,
+          action: 'module_manager_data_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 1d2: Build and Insert Driver Module Definitions
+   */
+  private async buildAndInsertDriverModuleDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Get count of driver module definitions
+    const awspModuleDefinitions =
+      this.parsedAwsp!.getDriverModuleDefinitions() || [];
+
+    if (awspModuleDefinitions.length === 0) {
+      return;
+    }
+
+    // Build driver module definitions with system IDs assigned
+    const result = await this.builderService.buildDriverModuleDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert driver module definitions
+      const insertResult = await bulkRepo.insertDriverModuleDefinitions(
+        result.entities,
+      );
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'DriverModuleDefinition');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} driver module definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'driver_module_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some driver module definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'driver_module_definitions_insertion_failed',
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
           timestamp: new Date(),
@@ -963,6 +1073,52 @@ export class UploadFileOrchestrator {
         this.logger?.logError({
           msg: `Failed to insert some SPF modules: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
           action: 'spf_modules_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 4b: Build and Insert Driver Modules with DKV Calibration Data
+   */
+  private async buildAndInsertDriverModules(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    // Build driver modules with system IDs assigned and calibration data attached
+    const result = await this.builderService.buildDriverModules(
+      this.parsedAcdb!,
+      this.currentFileId,
+    );
+
+    // Collect build issues
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      // Insert driver modules (with DKV data already attached)
+      const insertResult = await bulkRepo.insertDriverModules(result.entities);
+
+      // Collect insertion errors from the insert result
+      this.collectInsertionErrors(insertResult, 'DriverModule');
+
+      // Log based on actual insertion result
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} driver modules with DKV calibration data (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'driver_modules_with_calibration_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some driver modules: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'driver_modules_insertion_failed',
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
           timestamp: new Date(),

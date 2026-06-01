@@ -138,6 +138,32 @@ export class ChunkMetadataRegistry {
       parsedDependencies: [],
       description: 'Tagged module map - associates tags with modules',
     },
+    {
+      parserType: PARSED_CHUNK_TYPES.DRIVER_CALIBRATION_DATA,
+      rawDependencies: [
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_LUT,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_KEY_TABLE,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_DATA_TABLE,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_DATA_DEF,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_DATA_DOT,
+      ],
+      parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
+      description:
+        'Driver module calibration data with module-key-data information',
+    },
+    {
+      parserType: PARSED_CHUNK_TYPES.MODULE_MANAGER,
+      rawDependencies: [ACDB_RAW_CHUNK_TYPES.MODULE_MANAGER],
+      parsedDependencies: [],
+      description:
+        'Module manager registration data with interface and file information',
+    },
+    {
+      parserType: PARSED_CHUNK_TYPES.BOOTUP_LOADING,
+      rawDependencies: [ACDB_RAW_CHUNK_TYPES.BOOTUP_LOADING],
+      parsedDependencies: [],
+      description: 'Boot-up loading module IDs per processor',
+    },
   ];
 
   /**
