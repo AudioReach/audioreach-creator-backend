@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1779953333972 implements MigrationInterface {
-  name = 'InitialCreate1779953333972';
+export class InitialCreate1781364357082 implements MigrationInterface {
+  name = 'InitialCreate1781364357082';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -31,7 +31,7 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `CREATE TABLE "driver_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "default_data" blob NOT NULL, "driver_module_definition_system_id" integer)`,
+      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "driver_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_driver_module_def_id" ON "driver_module_parameter_definitions" ("driver_module_definition_system_id") `,
@@ -73,7 +73,7 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `CREATE TABLE "module_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_category_type" varchar(255), "property_structure" text NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
+      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "spf_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "param_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "pid_type" varchar(100) NOT NULL, "is_persistent" boolean NOT NULL, "elements_structure" text, "is_read_only" boolean NOT NULL, "tool_policies" text, "spf_module_definition_system_id" integer)`,
@@ -127,16 +127,19 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `CREATE INDEX "idx_vcpm_module_attributes_vcpm_module_def_id" ON "vcpm_module_attributes" ("vcpm_module_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "driver_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "definition_system_id" integer NOT NULL)`,
+      `CREATE TABLE "driver_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_driver_modules_definition" ON "driver_modules" ("definition_system_id") `,
+      `CREATE INDEX "ix_driver_modules_definition_file_system" ON "driver_modules" ("definition_system_id", "file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_instance_id" integer NOT NULL)`,
+      `CREATE UNIQUE INDEX "uq_driver_modules_definition_system_id_file_system_id" ON "driver_modules" ("definition_system_id", "file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob NOT NULL)`,
+      `CREATE TABLE "dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "driver_module_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_dkv_parameter_payload" ON "dkv_parameter_payload" ("dkv_system_id", "parameter_system_id") `,
@@ -145,7 +148,10 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `CREATE TABLE "dkv_values" ("dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("dkv_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "module_manager_data" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_type" integer NOT NULL, "interface_type" integer NOT NULL, "interface_version" integer NOT NULL, "file_name" varchar(255) NOT NULL, "tag" varchar(100) NOT NULL)`,
+      `CREATE TABLE "module_manager_data" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_system_id" integer NOT NULL, "module_definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "module_type" integer NOT NULL, "interface_type" integer NOT NULL, "interface_version" integer NOT NULL, "file_name" varchar(255) NOT NULL, "tag" varchar(100) NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_module_manager_data_processor_module" ON "module_manager_data" ("processor_definition_system_id", "module_definition_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "files" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "description" text NOT NULL, "metadata" text NOT NULL, "file_name" varchar(250) NOT NULL, "isTarget" integer NOT NULL, "last_reserved_id" integer NOT NULL DEFAULT (0), "open_status" varchar(30) NOT NULL DEFAULT ('LOADING'), "data_loss_issues" text, "header_version" integer NOT NULL DEFAULT (0), "acdb_version_major" integer NOT NULL DEFAULT (0), "acdb_version_minor" integer NOT NULL DEFAULT (0), "acdb_version_revision" integer NOT NULL DEFAULT (0), "acdb_version_cpl_info" integer NOT NULL DEFAULT (0), "codec_infos" text NOT NULL DEFAULT ('[]'), "modified_date" integer NOT NULL DEFAULT (0), "oem_info" text NOT NULL DEFAULT (''), "project_system_id" integer NOT NULL)`,
@@ -421,10 +427,10 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `DROP INDEX "idx_module_param_defs_driver_module_def_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "default_data" blob NOT NULL, "driver_module_definition_system_id" integer, CONSTRAINT "FK_7bd56233a099d7f9cc447b54ee5" FOREIGN KEY ("driver_module_definition_system_id") REFERENCES "driver_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "driver_module_definition_system_id" integer, CONSTRAINT "FK_7bd56233a099d7f9cc447b54ee5" FOREIGN KEY ("driver_module_definition_system_id") REFERENCES "driver_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_driver_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "default_data", "driver_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "default_data", "driver_module_definition_system_id" FROM "driver_module_parameter_definitions"`,
+      `INSERT INTO "temporary_driver_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "driver_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "driver_module_definition_system_id" FROM "driver_module_parameter_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "driver_module_parameter_definitions"`);
     await queryRunner.query(
@@ -516,10 +522,10 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `ALTER TABLE "temporary_module_parameter_attributes" RENAME TO "module_parameter_attributes"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"), CONSTRAINT "FK_e5a9714fba21e5202c09bcfb7e4" FOREIGN KEY ("module_definition_system_id") REFERENCES "module_definition_meta_data" ("system_id") ON DELETE NO ACTION ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"), CONSTRAINT "FK_e5a9714fba21e5202c09bcfb7e4" FOREIGN KEY ("module_definition_system_id") REFERENCES "module_definition_meta_data" ("system_id") ON DELETE NO ACTION ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_spf_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "module_definition_system_id" FROM "spf_module_definitions"`,
+      `INSERT INTO "temporary_spf_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "module_definition_system_id" FROM "spf_module_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "spf_module_definitions"`);
     await queryRunner.query(
@@ -637,31 +643,39 @@ export class InitialCreate1779953333972 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_vcpm_module_attributes_vcpm_module_def_id" ON "vcpm_module_attributes" ("vcpm_module_definition_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_driver_modules_definition"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_driver_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "definition_system_id" integer NOT NULL, CONSTRAINT "FK_7bb93d599ab6ec0f630341ee7b2" FOREIGN KEY ("definition_system_id") REFERENCES "driver_module_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
+      `DROP INDEX "ix_driver_modules_definition_file_system"`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_driver_modules"("system_id", "created_at", "updated_at", "version", "definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "definition_system_id" FROM "driver_modules"`,
+      `DROP INDEX "uq_driver_modules_definition_system_id_file_system_id"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_driver_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_7bb93d599ab6ec0f630341ee7b2" FOREIGN KEY ("definition_system_id") REFERENCES "driver_module_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_17be618ad63aaa3eba8fa69c9d4" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_driver_modules"("system_id", "created_at", "updated_at", "version", "definition_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "definition_system_id", "file_system_id" FROM "driver_modules"`,
     );
     await queryRunner.query(`DROP TABLE "driver_modules"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_driver_modules" RENAME TO "driver_modules"`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_driver_modules_definition" ON "driver_modules" ("definition_system_id") `,
+      `CREATE INDEX "ix_driver_modules_definition_file_system" ON "driver_modules" ("definition_system_id", "file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_instance_id" integer NOT NULL, CONSTRAINT "FK_89334497ac9817330277e0e9a94" FOREIGN KEY ("module_instance_id") REFERENCES "driver_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE UNIQUE INDEX "uq_driver_modules_definition_system_id_file_system_id" ON "driver_modules" ("definition_system_id", "file_system_id") `,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_dkv"("system_id", "created_at", "updated_at", "version", "module_instance_id") SELECT "system_id", "created_at", "updated_at", "version", "module_instance_id" FROM "dkv"`,
+      `CREATE TABLE "temporary_dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "driver_module_system_id" integer NOT NULL, CONSTRAINT "FK_543f55c03493f970b195144effc" FOREIGN KEY ("driver_module_system_id") REFERENCES "driver_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_dkv"("system_id", "created_at", "updated_at", "version", "driver_module_system_id") SELECT "system_id", "created_at", "updated_at", "version", "driver_module_system_id" FROM "dkv"`,
     );
     await queryRunner.query(`DROP TABLE "dkv"`);
     await queryRunner.query(`ALTER TABLE "temporary_dkv" RENAME TO "dkv"`);
     await queryRunner.query(`DROP INDEX "uk_dkv_parameter_payload"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob NOT NULL, CONSTRAINT "FK_237ae09fc03ebfae2588d3264c0" FOREIGN KEY ("dkv_system_id") REFERENCES "dkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_30bdf237a3670f9d9d23fe5c9f2" FOREIGN KEY ("parameter_system_id") REFERENCES "driver_module_parameter_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob, CONSTRAINT "FK_237ae09fc03ebfae2588d3264c0" FOREIGN KEY ("dkv_system_id") REFERENCES "dkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_30bdf237a3670f9d9d23fe5c9f2" FOREIGN KEY ("parameter_system_id") REFERENCES "driver_module_parameter_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_dkv_parameter_payload"("system_id", "created_at", "updated_at", "version", "parameter_system_id", "dkv_system_id", "payload") SELECT "system_id", "created_at", "updated_at", "version", "parameter_system_id", "dkv_system_id", "payload" FROM "dkv_parameter_payload"`,
@@ -682,6 +696,22 @@ export class InitialCreate1779953333972 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "dkv_values"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_dkv_values" RENAME TO "dkv_values"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "uq_module_manager_data_processor_module"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_module_manager_data" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_system_id" integer NOT NULL, "module_definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "module_type" integer NOT NULL, "interface_type" integer NOT NULL, "interface_version" integer NOT NULL, "file_name" varchar(255) NOT NULL, "tag" varchar(100) NOT NULL, CONSTRAINT "FK_16d3552d3f1810b0d9dc0529424" FOREIGN KEY ("processor_definition_system_id") REFERENCES "processor_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_23079924ee5fc577f8dc41a3f40" FOREIGN KEY ("module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_156ab77b7fb89e4e5a421beb01e" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_module_manager_data"("system_id", "created_at", "updated_at", "version", "processor_definition_system_id", "module_definition_system_id", "file_system_id", "module_type", "interface_type", "interface_version", "file_name", "tag") SELECT "system_id", "created_at", "updated_at", "version", "processor_definition_system_id", "module_definition_system_id", "file_system_id", "module_type", "interface_type", "interface_version", "file_name", "tag" FROM "module_manager_data"`,
+    );
+    await queryRunner.query(`DROP TABLE "module_manager_data"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_module_manager_data" RENAME TO "module_manager_data"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_module_manager_data_processor_module" ON "module_manager_data" ("processor_definition_system_id", "module_definition_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "uk_files_project_filename"`);
     await queryRunner.query(
@@ -1697,6 +1727,22 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_files_project_filename" ON "files" ("project_system_id", "file_name") `,
     );
     await queryRunner.query(
+      `DROP INDEX "uq_module_manager_data_processor_module"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "module_manager_data" RENAME TO "temporary_module_manager_data"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "module_manager_data" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_system_id" integer NOT NULL, "module_definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, "module_type" integer NOT NULL, "interface_type" integer NOT NULL, "interface_version" integer NOT NULL, "file_name" varchar(255) NOT NULL, "tag" varchar(100) NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "module_manager_data"("system_id", "created_at", "updated_at", "version", "processor_definition_system_id", "module_definition_system_id", "file_system_id", "module_type", "interface_type", "interface_version", "file_name", "tag") SELECT "system_id", "created_at", "updated_at", "version", "processor_definition_system_id", "module_definition_system_id", "file_system_id", "module_type", "interface_type", "interface_version", "file_name", "tag" FROM "temporary_module_manager_data"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_module_manager_data"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_module_manager_data_processor_module" ON "module_manager_data" ("processor_definition_system_id", "module_definition_system_id") `,
+    );
+    await queryRunner.query(
       `ALTER TABLE "dkv_values" RENAME TO "temporary_dkv_values"`,
     );
     await queryRunner.query(
@@ -1711,7 +1757,7 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `ALTER TABLE "dkv_parameter_payload" RENAME TO "temporary_dkv_parameter_payload"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob NOT NULL)`,
+      `CREATE TABLE "dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob)`,
     );
     await queryRunner.query(
       `INSERT INTO "dkv_parameter_payload"("system_id", "created_at", "updated_at", "version", "parameter_system_id", "dkv_system_id", "payload") SELECT "system_id", "created_at", "updated_at", "version", "parameter_system_id", "dkv_system_id", "payload" FROM "temporary_dkv_parameter_payload"`,
@@ -1722,25 +1768,33 @@ export class InitialCreate1779953333972 implements MigrationInterface {
     );
     await queryRunner.query(`ALTER TABLE "dkv" RENAME TO "temporary_dkv"`);
     await queryRunner.query(
-      `CREATE TABLE "dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_instance_id" integer NOT NULL)`,
+      `CREATE TABLE "dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "driver_module_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "dkv"("system_id", "created_at", "updated_at", "version", "module_instance_id") SELECT "system_id", "created_at", "updated_at", "version", "module_instance_id" FROM "temporary_dkv"`,
+      `INSERT INTO "dkv"("system_id", "created_at", "updated_at", "version", "driver_module_system_id") SELECT "system_id", "created_at", "updated_at", "version", "driver_module_system_id" FROM "temporary_dkv"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_dkv"`);
-    await queryRunner.query(`DROP INDEX "idx_driver_modules_definition"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_driver_modules_definition_system_id_file_system_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "ix_driver_modules_definition_file_system"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "driver_modules" RENAME TO "temporary_driver_modules"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "driver_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "definition_system_id" integer NOT NULL)`,
+      `CREATE TABLE "driver_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "driver_modules"("system_id", "created_at", "updated_at", "version", "definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "definition_system_id" FROM "temporary_driver_modules"`,
+      `INSERT INTO "driver_modules"("system_id", "created_at", "updated_at", "version", "definition_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "definition_system_id", "file_system_id" FROM "temporary_driver_modules"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_driver_modules"`);
     await queryRunner.query(
-      `CREATE INDEX "idx_driver_modules_definition" ON "driver_modules" ("definition_system_id") `,
+      `CREATE UNIQUE INDEX "uq_driver_modules_definition_system_id_file_system_id" ON "driver_modules" ("definition_system_id", "file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "ix_driver_modules_definition_file_system" ON "driver_modules" ("definition_system_id", "file_system_id") `,
     );
     await queryRunner.query(
       `DROP INDEX "idx_vcpm_module_attributes_vcpm_module_def_id"`,
@@ -1866,10 +1920,10 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `ALTER TABLE "spf_module_definitions" RENAME TO "temporary_spf_module_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
+      `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
     );
     await queryRunner.query(
-      `INSERT INTO "spf_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "module_definition_system_id" FROM "temporary_spf_module_definitions"`,
+      `INSERT INTO "spf_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "module_definition_system_id" FROM "temporary_spf_module_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_spf_module_definitions"`);
     await queryRunner.query(
@@ -1967,10 +2021,10 @@ export class InitialCreate1779953333972 implements MigrationInterface {
       `ALTER TABLE "driver_module_parameter_definitions" RENAME TO "temporary_driver_module_parameter_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "default_data" blob NOT NULL, "driver_module_definition_system_id" integer)`,
+      `CREATE TABLE "driver_module_parameter_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "param_structure" text NOT NULL, "driver_module_definition_system_id" integer)`,
     );
     await queryRunner.query(
-      `INSERT INTO "driver_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "default_data", "driver_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "default_data", "driver_module_definition_system_id" FROM "temporary_driver_module_parameter_definitions"`,
+      `INSERT INTO "driver_module_parameter_definitions"("system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "driver_module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "parameter_id", "name", "description", "max_size", "param_structure", "driver_module_definition_system_id" FROM "temporary_driver_module_parameter_definitions"`,
     );
     await queryRunner.query(
       `DROP TABLE "temporary_driver_module_parameter_definitions"`,
@@ -2098,12 +2152,20 @@ export class InitialCreate1779953333972 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "projects"`);
     await queryRunner.query(`DROP INDEX "uk_files_project_filename"`);
     await queryRunner.query(`DROP TABLE "files"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_module_manager_data_processor_module"`,
+    );
     await queryRunner.query(`DROP TABLE "module_manager_data"`);
     await queryRunner.query(`DROP TABLE "dkv_values"`);
     await queryRunner.query(`DROP INDEX "uk_dkv_parameter_payload"`);
     await queryRunner.query(`DROP TABLE "dkv_parameter_payload"`);
     await queryRunner.query(`DROP TABLE "dkv"`);
-    await queryRunner.query(`DROP INDEX "idx_driver_modules_definition"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_driver_modules_definition_system_id_file_system_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "ix_driver_modules_definition_file_system"`,
+    );
     await queryRunner.query(`DROP TABLE "driver_modules"`);
     await queryRunner.query(
       `DROP INDEX "idx_vcpm_module_attributes_vcpm_module_def_id"`,

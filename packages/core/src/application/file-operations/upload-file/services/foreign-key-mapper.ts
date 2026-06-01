@@ -22,11 +22,20 @@ export class ForeignKeyMapper {
   >();
   private subgraphMappings = new Map<NaturalId, SystemId>();
   private containerMappings = new Map<NaturalId, SystemId>();
-  private moduleDefinitionMappings = new Map<NaturalId, SystemId>();
+  private moduleDefinitionMappings = new Map<
+    NaturalId,
+    Map<NaturalId, SystemId>
+  >();
   private paramDefinitionMappingsByModuleId = new Map<
     SystemId,
     Map<NaturalId, SystemId>
   >();
+  private driverModuleDefinitionMappings = new Map<NaturalId, SystemId>();
+  private driverParamDefinitionMappingsByModuleId = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
+  private driverModuleMappings = new Map<NaturalId, SystemId>();
   private processorDefinitionMappings = new Map<NaturalId, SystemId>();
   private propertyDefinitionMap = new Map<NaturalId, SystemId>();
   private containerTypeMappings = new Map<NaturalId, SystemId>();
@@ -329,22 +338,65 @@ export class ForeignKeyMapper {
   }
 
   /**
-   * Add a single module definition mapping
+   * Add a module definition mapping for multiple processors at once.
+   * The same systemId is used for all processors in the list.
+   * This handles both scenarios:
+   * - Shared definitions: Pass multiple processorIds with same systemId
+   * - Processor-specific: Pass single processorId with unique systemId
    */
-  addModuleDefinitionMapping(moduleId: NaturalId, systemId: SystemId): void {
-    if (this.moduleDefinitionMappings.has(moduleId)) {
-      throw new Error(
-        `Module definition ${moduleId} already mapped to systemId ${this.moduleDefinitionMappings.get(moduleId)}`,
-      );
+  addModuleDefinitionMapping(
+    processorIds: NaturalId[],
+    moduleDefId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    for (const processorId of processorIds) {
+      if (!this.moduleDefinitionMappings.has(processorId)) {
+        this.moduleDefinitionMappings.set(processorId, new Map());
+      }
+
+      const processorMap = this.moduleDefinitionMappings.get(processorId)!;
+
+      if (processorMap.has(moduleDefId)) {
+        throw new Error(
+          `Module definition ${moduleDefId} already mapped for processor ${processorId}`,
+        );
+      }
+
+      processorMap.set(moduleDefId, systemId);
     }
-    this.moduleDefinitionMappings.set(moduleId, systemId);
   }
 
   /**
-   * Get systemId for a given moduleId (definition)
+   * Get systemId for a module definition within a processor context
    */
-  getModuleDefinitionSystemId(moduleId: NaturalId): SystemId | undefined {
-    return this.moduleDefinitionMappings.get(moduleId);
+  getModuleDefinitionSystemId(
+    processorId: NaturalId,
+    moduleDefId: NaturalId,
+  ): SystemId | undefined {
+    const processorMap = this.moduleDefinitionMappings.get(processorId);
+    return processorMap?.get(moduleDefId);
+  }
+
+  /**
+   * Get all module definitions for a specific processor
+   */
+  getModuleDefinitionsForProcessor(
+    processorId: NaturalId,
+  ): Map<NaturalId, SystemId> | undefined {
+    const processorMap = this.moduleDefinitionMappings.get(processorId);
+    return processorMap ? new Map(processorMap) : undefined;
+  }
+
+  /**
+   * Check if a module definition exists for a processor
+   */
+  hasModuleDefinitionMapping(
+    processorId: NaturalId,
+    moduleDefId: NaturalId,
+  ): boolean {
+    return (
+      this.moduleDefinitionMappings.get(processorId)?.has(moduleDefId) ?? false
+    );
   }
 
   /**
@@ -390,6 +442,96 @@ export class ForeignKeyMapper {
     const moduleParams =
       this.paramDefinitionMappingsByModuleId.get(moduleDefinitionId);
     return moduleParams ? [...moduleParams.values()] : [];
+  }
+
+  /**
+   * Add a single driver module definition mapping
+   */
+  addDriverModuleDefinitionMapping(
+    moduleDefinitionId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (this.driverModuleDefinitionMappings.has(moduleDefinitionId)) {
+      throw new Error(
+        `Driver module definition ${moduleDefinitionId} already mapped to systemId ${this.driverModuleDefinitionMappings.get(moduleDefinitionId)}`,
+      );
+    }
+    this.driverModuleDefinitionMappings.set(moduleDefinitionId, systemId);
+  }
+
+  /**
+   * Get systemId for a given driver module definition ID
+   */
+  getDriverModuleDefinitionSystemId(
+    moduleDefinitionId: NaturalId,
+  ): SystemId | undefined {
+    return this.driverModuleDefinitionMappings.get(moduleDefinitionId);
+  }
+
+  /**
+   * Add param definition mapping for a driver module
+   */
+  addDriverParamDefinitionMapping(
+    driverModuleDefinitionId: SystemId,
+    paramId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (
+      !this.driverParamDefinitionMappingsByModuleId.has(
+        driverModuleDefinitionId,
+      )
+    ) {
+      this.driverParamDefinitionMappingsByModuleId.set(
+        driverModuleDefinitionId,
+        new Map(),
+      );
+    }
+
+    const moduleParams = this.driverParamDefinitionMappingsByModuleId.get(
+      driverModuleDefinitionId,
+    )!;
+
+    if (moduleParams.has(paramId)) {
+      throw new Error(
+        `Driver param ${paramId} already mapped for module ${driverModuleDefinitionId}`,
+      );
+    }
+
+    moduleParams.set(paramId, systemId);
+  }
+
+  /**
+   * Get driver param definition systemId
+   */
+  getDriverParamDefinitionSystemId(
+    driverModuleDefinitionId: SystemId,
+    paramId: NaturalId,
+  ): SystemId | undefined {
+    return this.driverParamDefinitionMappingsByModuleId
+      .get(driverModuleDefinitionId)
+      ?.get(paramId);
+  }
+
+  /**
+   * Add a single driver module mapping
+   */
+  addDriverModuleMapping(
+    moduleDefinitionId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (this.driverModuleMappings.has(moduleDefinitionId)) {
+      throw new Error(
+        `Driver module ${moduleDefinitionId} already mapped to systemId ${this.driverModuleMappings.get(moduleDefinitionId)}`,
+      );
+    }
+    this.driverModuleMappings.set(moduleDefinitionId, systemId);
+  }
+
+  /**
+   * Get systemId for a given driver module (by moduleDefinitionId)
+   */
+  getDriverModuleSystemId(moduleDefinitionId: NaturalId): SystemId | undefined {
+    return this.driverModuleMappings.get(moduleDefinitionId);
   }
 
   /**
@@ -670,13 +812,19 @@ export class ForeignKeyMapper {
     controlLinkMappings: number;
     tagDefinitionMappings: number;
   } {
+    // Count total module definitions across all processors
+    let totalModuleDefinitions = 0;
+    for (const processorMap of this.moduleDefinitionMappings.values()) {
+      totalModuleDefinitions += processorMap.size;
+    }
+
     return {
       keyMappings: this.keyDefinitionMappings.size,
       valueMappings: this.valueDefinitionMappings.size,
       subgraphMappings: this.subgraphMappings.size,
       containerMappings: this.containerMappings.size,
       propertyDefinitionMappings: this.propertyDefinitionMap.size,
-      moduleDefinitionMappings: this.moduleDefinitionMappings.size,
+      moduleDefinitionMappings: totalModuleDefinitions,
       paramDefinitionMappingsByModuleId:
         this.paramDefinitionMappingsByModuleId.size,
       processorDefinitionMappings: this.processorDefinitionMappings.size,

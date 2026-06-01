@@ -502,7 +502,9 @@ describe('ContainerBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'Successfully built 2 containers with system IDs assigned, 0 failed',
+            msg: expect.stringContaining(
+              'Successfully built 2 containers with system IDs assigned, 0 failed',
+            ),
             action: 'container_building_complete',
             component: 'ContainerBuilder',
             tag: 'container-building',

@@ -41,6 +41,8 @@ export interface SpfModuleDefinitionBuildInput {
   moduleDefinitions: AwspSpfModuleDefinition[];
   /** Human-readable name for error messages */
   taskName: string;
+  /** Set of module IDs that should be loaded at boot-up */
+  bootUpModuleIds?: number[];
 }
 
 /**
@@ -61,6 +63,10 @@ interface TransformResult {
   entity: SpfModuleDefinition | null;
   /** Array of error messages encountered during transformation */
   errors: string[];
+  /** Natural processor IDs from AWSP (to be mapped to system IDs later) */
+  processorNaturalIds?: number[];
+  /** Natural container type IDs from AWSP (to be mapped to system IDs later) */
+  containerTypeNaturalIds?: number[];
 }
 
 /**
@@ -101,11 +107,13 @@ export class SpfModuleDefinitionBuilder {
    * Build domain SpfModuleDefinition entities from AWSP SpfModuleDefinitions with system IDs assigned
    * @param awspModuleDefinitions - Array of AWSP SPF module definitions to transform
    * @param fileSystemId - The file system ID to associate with the module definitions
+   * @param bootUpModuleIds - Set of module IDs that are loaded at boot-up (optional)
    * @returns Promise resolving to BuildResult with entities and issues
    */
   async buildModuleDefinitions(
     awspModuleDefinitions: AwspSpfModuleDefinition[],
     fileSystemId: number,
+    bootUpModuleIds?: Set<number>,
   ): Promise<BuildResult<SpfModuleDefinition>> {
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
       return {
@@ -131,10 +139,10 @@ export class SpfModuleDefinitionBuilder {
     const useParallel = this.shouldUseParallel(awspModuleDefinitions);
 
     try {
-      // Step 1: Build entities (systemId = 0)
+      // Step 1: Build entities (systemId = 0) with boot-up flags
       result = await (useParallel
-        ? this.buildParallel(awspModuleDefinitions)
-        : this.buildSequential(awspModuleDefinitions));
+        ? this.buildParallel(awspModuleDefinitions, bootUpModuleIds)
+        : this.buildSequential(awspModuleDefinitions, bootUpModuleIds));
 
       // Step 2: Assign system IDs to all successfully built entities
       if (result.entities.length > 0) {
@@ -183,20 +191,29 @@ export class SpfModuleDefinitionBuilder {
       // Assign system ID to module definition
       moduleDef.systemId = await this.idGenerator.getNextId(fileSystemId);
 
-      // Store module definition mapping immediately
+      // IMPORTANT: Extract natural processor IDs BEFORE mapping them to system IDs
+      // At this point, processorSystemIds contains natural IDs from AWSP
+      const processorNaturalIds = [...moduleDef.processorSystemIds].map(id =>
+        asNaturalId(id),
+      );
+
+      // Transform processor definition natural IDs to system IDs
+      // This mutates moduleDef.processorSystemIds to contain system IDs
+      this.mapProcessorSystemIds(moduleDef);
+
+      // Transform container type natural IDs to system IDs
+      this.mapContainerTypeSystemIds(moduleDef);
+
+      // Store module definition mapping using the natural processor IDs we extracted earlier
+      // This ensures the foreign key mapper is keyed by natural IDs, not system IDs
       this.foreignKeyMapper.addModuleDefinitionMapping(
+        processorNaturalIds,
         asNaturalId(moduleDef.moduleDefinitionId),
         asSystemId(moduleDef.systemId),
       );
 
       // Assign system IDs to parameter definitions and store mappings
       await this.assignParameterSystemIds(moduleDef, fileSystemId);
-
-      // Transform processor definition natural IDs to systemIds
-      this.mapProcessorSystemIds(moduleDef);
-
-      // Transform container type natural IDs to systemIds
-      this.mapContainerTypeSystemIds(moduleDef);
     }
   }
 
@@ -224,13 +241,13 @@ export class SpfModuleDefinitionBuilder {
    */
   private mapProcessorSystemIds(moduleDef: SpfModuleDefinition): void {
     const processorSystemIds: number[] = [];
-    for (const processorNaturalId of moduleDef.processorSystemIds) {
+    for (const processorSystemId of moduleDef.processorSystemIds) {
       const systemId = this.foreignKeyMapper.getProcessorDefinitionSystemId(
-        asNaturalId(processorNaturalId),
+        asNaturalId(processorSystemId),
       );
       if (systemId === undefined) {
         this.logger?.logWarn({
-          msg: `Processor definition ID ${processorNaturalId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
+          msg: `Processor definition ID ${processorSystemId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
           action: 'processor_mapping_not_found',
           component: 'SpfModuleDefinitionBuilder',
           tag: 'spf-module-definitions',
@@ -293,6 +310,7 @@ export class SpfModuleDefinitionBuilder {
    */
   private async buildParallel(
     moduleDefinitions: AwspSpfModuleDefinition[],
+    bootUpModuleIds?: Set<number>,
   ): Promise<BuildResult<SpfModuleDefinition>> {
     if (!this.workerPool) {
       throw new Error('Worker pool not available for parallel processing');
@@ -311,6 +329,11 @@ export class SpfModuleDefinitionBuilder {
     const task1Definitions = moduleDefinitions.slice(0, midpoint);
     const task2Definitions = moduleDefinitions.slice(midpoint);
 
+    // Convert Set to Array for worker serialization
+    const bootUpModuleIdsArray = bootUpModuleIds
+      ? [...bootUpModuleIds]
+      : undefined;
+
     const tasks: WorkerTask<SpfModuleDefinitionBuildInput>[] = [];
 
     // Task 1: First half
@@ -320,6 +343,7 @@ export class SpfModuleDefinitionBuilder {
         input: {
           moduleDefinitions: task1Definitions,
           taskName: `SPF module definitions batch 1 (${task1Definitions.length} items)`,
+          bootUpModuleIds: bootUpModuleIdsArray,
         },
       });
     }
@@ -331,6 +355,7 @@ export class SpfModuleDefinitionBuilder {
         input: {
           moduleDefinitions: task2Definitions,
           taskName: `SPF module definitions batch 2 (${task2Definitions.length} items)`,
+          bootUpModuleIds: bootUpModuleIdsArray,
         },
       });
     }
@@ -403,6 +428,7 @@ export class SpfModuleDefinitionBuilder {
    */
   private buildSequential(
     moduleDefinitions: AwspSpfModuleDefinition[],
+    bootUpModuleIds?: Set<number>,
   ): BuildResult<SpfModuleDefinition> {
     this.logger?.logDebug({
       msg: `Building ${moduleDefinitions.length} SPF module definitions sequentially`,
@@ -416,8 +442,11 @@ export class SpfModuleDefinitionBuilder {
     const issues: EntityBuildIssue[] = [];
 
     for (const awspModuleDef of moduleDefinitions) {
-      const result =
-        SpfModuleDefinitionBuilder.transformModuleDefinition(awspModuleDef);
+      const isBootUpModule = bootUpModuleIds?.has(awspModuleDef.id) ?? false;
+      const result = SpfModuleDefinitionBuilder.transformModuleDefinition(
+        awspModuleDef,
+        isBootUpModule,
+      );
 
       if (result.entity) {
         // Successfully transformed
@@ -611,9 +640,11 @@ export class SpfModuleDefinitionBuilder {
    * Collects all errors instead of throwing on first error
    *
    * @param awsp - AWSP module definition to transform
+   * @param isLoadedAtBootup - Whether this module is loaded at boot-up
    */
   static transformModuleDefinition(
     awsp: AwspSpfModuleDefinition,
+    isLoadedAtBootup = false,
   ): TransformResult {
     const errors: string[] = [];
 
@@ -650,6 +681,8 @@ export class SpfModuleDefinitionBuilder {
     }
 
     // Create domain SPF module definition
+    // Note: processorSystemIds and containerTypesSystemIds initially contain NATURAL IDs from AWSP
+    // They will be mapped to system IDs in assignSystemIds()
     const entity = new SpfModuleDefinition({
       systemId: 0, // Placeholder - will be assigned during build process
       moduleDefinitionId: awsp.id,
@@ -662,8 +695,9 @@ export class SpfModuleDefinitionBuilder {
       stackSize: 0 /* ToDo Fill correct value from aswp*/,
       staticControlPorts,
       dynamicIntents,
-      processorSystemIds: awsp.supportedProcessorIds || [],
-      containerTypesSystemIds: awsp.supportedContainerTypes || [],
+      processorSystemIds: awsp.supportedProcessorIds || [], // Natural IDs from AWSP
+      containerTypesSystemIds: awsp.supportedContainerTypes || [], // Natural IDs from AWSP
+      isLoadedAtBootup,
     });
 
     return {
@@ -791,9 +825,17 @@ export class SpfModuleDefinitionBuilder {
     const errors: Array<{moduleId: number; moduleName: string; error: string}> =
       [];
 
+    // Convert array back to Set for efficient lookup
+    const bootUpModuleIds = input.bootUpModuleIds
+      ? new Set(input.bootUpModuleIds)
+      : undefined;
+
     for (const awspModuleDef of input.moduleDefinitions) {
-      const result =
-        SpfModuleDefinitionBuilder.transformModuleDefinition(awspModuleDef);
+      const isBootUpModule = bootUpModuleIds?.has(awspModuleDef.id) ?? false;
+      const result = SpfModuleDefinitionBuilder.transformModuleDefinition(
+        awspModuleDef,
+        isBootUpModule,
+      );
 
       if (result.entity) {
         // Successfully transformed

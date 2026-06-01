@@ -72,6 +72,18 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     addSpfModuleMapping: jest.fn(),
     getSpfModuleSystemId: jest.fn(),
 
+    // Driver Module Definition mappings
+    addDriverModuleDefinitionMapping: jest.fn(),
+    getDriverModuleDefinitionSystemId: jest.fn(),
+
+    // Driver Parameter Definition mappings
+    addDriverParamDefinitionMapping: jest.fn(),
+    getDriverParamDefinitionSystemId: jest.fn(),
+
+    // Driver Module mappings
+    addDriverModuleMapping: jest.fn(),
+    getDriverModuleSystemId: jest.fn(),
+
     // Module instance to subgraph mappings
     addModuleInstanceSubgraphMapping: jest.fn(),
     getSubgraphSystemIdForModuleInstance: jest.fn(),

@@ -377,7 +377,11 @@ describe('UploadFileOrchestrator', () => {
 
         expect(
           mockBuilderService.buildSpfModuleDefinitions,
-        ).toHaveBeenCalledWith((orchestrator as any).parsedAwsp, 1);
+        ).toHaveBeenCalledWith(
+          (orchestrator as any).parsedAwsp,
+          (orchestrator as any).parsedAcdb,
+          1,
+        );
         expect(mockBulkRepo.insertSpfModuleDefinitions).toHaveBeenCalledWith([
           mockModuleDef,
         ]);

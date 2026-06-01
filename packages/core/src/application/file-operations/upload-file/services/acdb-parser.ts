@@ -20,10 +20,20 @@ import {VoiceCalibrationChunkParser} from './acdb-chunk-parsers/voice-calibratio
 import {AudioCalibrationChunkParser} from './acdb-chunk-parsers/audio-calibration-chunk-parser.js';
 import {TagDataChunkParser} from './acdb-chunk-parsers/tag-data-chunk-parser.js';
 import {TaggedModuleMapChunkParser} from './acdb-chunk-parsers/tagged-module-map-chunk-parser.js';
+import {DriverCalibrationChunkParser} from './acdb-chunk-parsers/driver-calibration-chunk-parser.js';
+import {
+  BootUpLoadingChunkParser,
+  type BootUpLoadingChunk,
+} from './acdb-chunk-parsers/bootup-loading-chunk-parser.js';
+import {
+  ModuleManagerChunkParser,
+  type ModuleManagerChunk,
+} from './acdb-chunk-parsers/module-manager-chunk-parser.js';
 import {VoiceCalibrationChunk} from '../../shared/acdb-chunks/voice-calibration-chunk.js';
 import {AudioCalibrationChunk} from '../../shared/acdb-chunks/audio-calibration-chunk.js';
 import {TagDataChunk} from '../../shared/acdb-chunks/tag-data-chunk.js';
 import {TaggedModuleMapChunk} from '../../shared/acdb-chunks/tagged-module-map-chunk.js';
+import {DriverCalibrationChunk} from '../../shared/acdb-chunks/driver-calibration-chunk.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 
 /**
@@ -40,6 +50,9 @@ export class AcdbParser {
   private readonly audioCalibrationParser: AudioCalibrationChunkParser;
   private readonly tagDataParser: TagDataChunkParser;
   private readonly taggedModuleMapParser: TaggedModuleMapChunkParser;
+  private readonly driverCalibrationParser: DriverCalibrationChunkParser;
+  private readonly bootUpLoadingParser: BootUpLoadingChunkParser;
+  private readonly moduleManagerParser: ModuleManagerChunkParser;
   private readonly logger?: Logger;
 
   constructor(logger?: Logger) {
@@ -49,6 +62,9 @@ export class AcdbParser {
     this.audioCalibrationParser = new AudioCalibrationChunkParser(logger);
     this.tagDataParser = new TagDataChunkParser(logger);
     this.taggedModuleMapParser = new TaggedModuleMapChunkParser(logger);
+    this.driverCalibrationParser = new DriverCalibrationChunkParser(logger);
+    this.bootUpLoadingParser = new BootUpLoadingChunkParser();
+    this.moduleManagerParser = new ModuleManagerChunkParser();
   }
 
   /**
@@ -75,6 +91,12 @@ export class AcdbParser {
         return this.parseTagDataChunk(context);
       case PARSED_CHUNK_TYPES.TAGGED_MODULE_MAP:
         return this.parseTaggedModuleMapChunk(context);
+      case PARSED_CHUNK_TYPES.DRIVER_CALIBRATION_DATA:
+        return this.parseDriverCalibrationChunk(context);
+      case PARSED_CHUNK_TYPES.BOOTUP_LOADING:
+        return this.parseBootUpLoadingChunk(context);
+      case PARSED_CHUNK_TYPES.MODULE_MANAGER:
+        return this.parseModuleManagerChunk(context);
       default:
         // Log warning for unknown parser types but don't crash
         if (this.logger) {
@@ -163,5 +185,32 @@ export class AcdbParser {
     context: ChunkParseContext,
   ): TaggedModuleMapChunk {
     return this.taggedModuleMapParser.parse(context);
+  }
+
+  /**
+   * Parse DRIVER_CALIBRATION_LUT chunk using DriverCalibrationChunkParser
+   */
+  private parseDriverCalibrationChunk(
+    context: ChunkParseContext,
+  ): DriverCalibrationChunk {
+    return this.driverCalibrationParser.parse(context);
+  }
+
+  /**
+   * Parse BOOTUP_LOADING chunk using BootUpLoadingChunkParser
+   */
+  private parseBootUpLoadingChunk(
+    context: ChunkParseContext,
+  ): BootUpLoadingChunk {
+    return this.bootUpLoadingParser.parse(context);
+  }
+
+  /**
+   * Parse MODULE_MANAGER chunk using ModuleManagerChunkParser
+   */
+  private parseModuleManagerChunk(
+    context: ChunkParseContext,
+  ): ModuleManagerChunk {
+    return this.moduleManagerParser.parse(context);
   }
 }

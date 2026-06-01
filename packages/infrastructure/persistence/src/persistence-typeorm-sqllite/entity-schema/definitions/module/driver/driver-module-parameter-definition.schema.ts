@@ -15,9 +15,7 @@ export interface DriverModuleParameterDefinitionRow extends EntityBaseRow {
   name?: string;
   description?: string;
   maxSize: number;
-  //toolPolicy: ToolPolicy[];
   paramStructure: string; // JSON
-  defaultData: Uint8Array;
 
   // Foreign key relation
   driverModuleDefinitionSystemId: number;
@@ -54,10 +52,6 @@ export const DriverModuleParameterDefinitionSchema =
       paramStructure: {
         type: 'text',
         name: 'param_structure',
-      },
-      defaultData: {
-        type: 'blob',
-        name: 'default_data',
       },
       driverModuleDefinitionSystemId: {
         type: 'integer',

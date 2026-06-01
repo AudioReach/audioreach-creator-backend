@@ -18,6 +18,15 @@ import type {
 } from '../../types/issue-collection.js';
 import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
+import {CONTAINER_PROP_ID_PROC_DOMAIN} from '../../../shared/constants/spf-ids.js';
+
+/**
+ * Result of container building including processor ID mapping
+ */
+export interface ContainerBuildResult extends BuildResult<Container> {
+  /** Map of containerId to processorId extracted from container properties */
+  containerProcessorMap: Map<number, number>;
+}
 
 /**
  * Builder for converting ContainerProperty data to Container domain entities.
@@ -37,7 +46,7 @@ export class ContainerBuilder {
   async buildContainers(
     containerProperties: AcdbContainerProperties[],
     fileSystemId: number,
-  ): Promise<BuildResult<Container>> {
+  ): Promise<ContainerBuildResult> {
     // Input validation
     if (!containerProperties || containerProperties.length === 0) {
       return {
@@ -46,10 +55,11 @@ export class ContainerBuilder {
         successCount: 0,
         errorCount: 0,
         warningCount: 0,
+        containerProcessorMap: new Map(),
       };
     }
 
-    // Step 1: Build entities (systemId = 0)
+    // Step 1: Build entities (systemId = 0) and extract processor IDs
     const result = this.buildSequential(containerProperties);
 
     // Step 2: Assign system IDs to all successfully built entities
@@ -58,7 +68,7 @@ export class ContainerBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} containers with system IDs assigned, ${result.errorCount} failed`,
+      msg: `Successfully built ${result.successCount} containers with system IDs assigned, ${result.errorCount} failed, extracted ${result.containerProcessorMap.size} processor mappings`,
       action: 'container_building_complete',
       component: 'ContainerBuilder',
       tag: 'container-building',
@@ -98,13 +108,15 @@ export class ContainerBuilder {
   /**
    * Build containers sequentially in the main thread
    * Creates objects with systemId = 0 and fileSystemId = 0 (to be assigned later)
+   * Also extracts processor IDs from container properties
    */
   private buildSequential(
     acdbContainerPropertyData: AcdbContainerProperties[],
-  ): BuildResult<Container> {
+  ): ContainerBuildResult {
     // Direct conversion logic
     const containers: Container[] = [];
     const issues: EntityBuildIssue[] = [];
+    const containerProcessorMap = new Map<number, number>();
     let successCount = 0;
     let errorCount = 0;
 
@@ -112,6 +124,13 @@ export class ContainerBuilder {
       try {
         const container = this.convertAcdbContainer(acdbContainer);
         containers.push(container);
+
+        // Extract processor ID from container properties
+        const processorId = this.extractProcessorId(acdbContainer);
+        if (processorId !== null) {
+          containerProcessorMap.set(acdbContainer.containerId, processorId);
+        }
+
         successCount++;
       } catch (error) {
         errorCount++;
@@ -139,6 +158,7 @@ export class ContainerBuilder {
       successCount,
       errorCount,
       warningCount: 0,
+      containerProcessorMap,
     };
   }
 
@@ -184,6 +204,30 @@ export class ContainerBuilder {
     }
 
     return container;
+  }
+
+  /**
+   * Extract processor ID from container properties
+   * Returns null if processor domain property is not found
+   */
+  private extractProcessorId(
+    acdbContainer: AcdbContainerProperties,
+  ): number | null {
+    const procDomainData = acdbContainer.properties.get(
+      CONTAINER_PROP_ID_PROC_DOMAIN,
+    );
+
+    if (!procDomainData || procDomainData.length < 4) {
+      return null;
+    }
+
+    // Read uint32 from property data (little-endian)
+    const view = new DataView(
+      procDomainData.buffer,
+      procDomainData.byteOffset,
+      procDomainData.byteLength,
+    );
+    return view.getUint32(0, true);
   }
 
   private convertToEntityBuildIssue(

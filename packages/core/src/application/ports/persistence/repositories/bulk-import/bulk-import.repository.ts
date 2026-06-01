@@ -20,6 +20,9 @@ import type {
   TagDefinition,
   SubgraphPropertyDefinition,
   PropertyDefinition,
+  DriverModule,
+  DriverModuleDefinition,
+  ModuleManagerData,
 } from '@arc/core';
 
 /**
@@ -95,6 +98,26 @@ export interface BulkImportRepository {
   ): Promise<BulkInsertResult>;
 
   /**
+   * Inserts driver module definition rows in bulk, including parameters.
+   *
+   * @param items - Driver module definitions with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertDriverModuleDefinitions(
+    items: readonly DriverModuleDefinition[],
+  ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts driver module instances in bulk, including DKV calibration data.
+   *
+   * @param items - Driver modules with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertDriverModules(
+    items: readonly DriverModule[],
+  ): Promise<BulkInsertResult>;
+
+  /**
    * Inserts key definition rows in bulk, including value definitions.
    *
    * @param items - Key definitions with pre-assigned systemIds
@@ -162,5 +185,15 @@ export interface BulkImportRepository {
    */
   insertContainerPropertyDefinitions(
     items: readonly PropertyDefinition[],
+  ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts module manager data rows in bulk.
+   *
+   * @param items - Module manager data with pre-assigned systemIds
+   * @returns Promise resolving to the bulk insert result indicating success and any failed entities
+   */
+  insertModuleManagerData(
+    items: readonly ModuleManagerData[],
   ): Promise<BulkInsertResult>;
 }

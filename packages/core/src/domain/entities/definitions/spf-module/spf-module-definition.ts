@@ -22,6 +22,7 @@ export interface SpfModuleDefinitionInit extends ModuleDefinitionInit {
   processorSystemIds: number[];
   containerTypesSystemIds: number[];
   metaData?: string;
+  isLoadedAtBootup?: boolean;
 }
 
 export class SpfModuleDefinition extends ModuleDefinition {
@@ -33,6 +34,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
   readonly dynamicIntents: DynamicIntentDefinition[] = [];
   readonly processorSystemIds: Set<number> = new Set<number>();
   readonly containerTypesSystemIds: Set<number> = new Set<number>();
+  readonly isLoadedAtBootup: boolean;
 
   private readonly dynamicIntentIds = new Set<string>();
   private readonly staticPortIds = new Set<string>();
@@ -55,6 +57,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
     for (const id of initParam.containerTypesSystemIds) {
       this.AddContainerType(id);
     }
+    this.isLoadedAtBootup = initParam.isLoadedAtBootup ?? false;
   }
 
   private AddDynamicIntentDefinition(

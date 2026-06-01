@@ -13,20 +13,53 @@ import {
   InterfaceVersionTransformer,
 } from './types.js';
 import {EntitySchema} from 'typeorm';
+import type {ProcessorDefinitionRow} from '../definitions/common/processor-definition.schema.js';
+import type {SpfModuleDefinitionRow} from '../definitions/module/spf/spf-module-definition.schema.js';
+import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 
 export interface ModuleManagerDataRow extends EntityBaseRow {
-  moduleType: ModuleTypeValue; // 2|3|4|5|6|7
-  interfaceType: InterfaceTypeValue; // 2
+  // Foreign Keys
+  processorDefinitionSystemId: number;
+  moduleDefinitionSystemId: number;
+  fileSystemId: number;
+
+  // CAPI Registration Data
+  moduleType: ModuleTypeValue;
+  interfaceType: InterfaceTypeValue;
   interfaceVersion: InterfaceVersionValue;
   fileName: string;
   tag: string;
+
+  // Relations (optional, for TypeORM)
+  processorDefinition?: ProcessorDefinitionRow;
+  moduleDefinition?: SpfModuleDefinitionRow;
+  file?: ArcDbFileRow;
 }
 
 export const ModuleManagerDataSchema = new EntitySchema<ModuleManagerDataRow>({
   name: 'ModuleManagerData',
   tableName: 'module_manager_data',
+  indices: [
+    {
+      name: 'uq_module_manager_data_processor_module',
+      columns: ['processorDefinitionSystemId', 'moduleDefinitionSystemId'],
+      unique: true,
+    },
+  ],
   columns: {
     ...BaseColumnSchemaPart,
+    processorDefinitionSystemId: {
+      name: 'processor_definition_system_id',
+      type: 'integer',
+    },
+    moduleDefinitionSystemId: {
+      name: 'module_definition_system_id',
+      type: 'integer',
+    },
+    fileSystemId: {
+      name: 'file_system_id',
+      type: 'integer',
+    },
     moduleType: {
       name: 'module_type',
       type: 'integer',
@@ -51,6 +84,35 @@ export const ModuleManagerDataSchema = new EntitySchema<ModuleManagerDataRow>({
       name: 'tag',
       type: 'varchar',
       length: 100,
+    },
+  },
+  relations: {
+    processorDefinition: {
+      type: 'many-to-one',
+      target: 'ProcessorDefinition',
+      joinColumn: {
+        name: 'processor_definition_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    moduleDefinition: {
+      type: 'many-to-one',
+      target: 'SpfModuleDefinition',
+      joinColumn: {
+        name: 'module_definition_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {
+        name: 'file_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
     },
   },
 });
