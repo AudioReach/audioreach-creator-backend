@@ -51,3 +51,9 @@ coverage/
 
 #Turbo
 .turbo/
+
+# AI tool files (created by scripts/setup-dev-links.js after clone)
+# Actual content lives in .ai/ — these are generated overlays
+.agents/skills
+.claude/skills
+AGENTS.md
