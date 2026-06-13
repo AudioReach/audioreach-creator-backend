@@ -39,7 +39,6 @@ export const SpfModuleDTOExample = {
     spfModule.maxInputPortsSupported = 5;
     spfModule.maxOutputPortsSupported = 3;
     spfModule.maxControlPortsSupported = 2;
-    spfModule.heapId = 101;
     spfModule.parentId = 202;
 
     // Set inherited properties

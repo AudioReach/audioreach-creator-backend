@@ -4,9 +4,9 @@
  */
 
 /**
- * Key-Value pair read model for use case queries
+ * Key-Value pair read model — shared by usecase GKV, CKV, and TKV paths.
  */
-export interface KeyVectorReadModel {
+export interface KeyValuePairReadModel {
   readonly key: KeyReadModel;
   readonly value: ValueReadModel;
 }

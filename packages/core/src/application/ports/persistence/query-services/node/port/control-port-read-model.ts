@@ -3,10 +3,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {IntentReadModel} from './intent-read-model.js';
+import type {ReadModelBase} from '../../../../../shared/read-model-base.js';
 
-export interface ControlPortReadModel {
+export interface IntentReadModel {
   readonly systemId: number;
+  readonly intentId: number;
+  readonly name: string;
+}
+
+export interface ControlPortReadModel extends ReadModelBase {
   readonly portId: number;
   readonly name: string;
   readonly isStatic: boolean;

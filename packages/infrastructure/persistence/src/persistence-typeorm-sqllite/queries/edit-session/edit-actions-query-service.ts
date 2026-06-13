@@ -7,12 +7,12 @@ import type {ChangeOperation, ChangeStatus} from '@arc/core';
 import {
   ENTITY_NAMES,
   type EntityName,
-} from 'persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+} from '../../entity-schema/entity-table-names.js';
 import {
   SESSION_STATUS,
   type EditActionRow,
   type ProjectSessionRow,
-} from 'persistence-typeorm-sqllite/entity-schema/index.js';
+} from '../../entity-schema/index.js';
 import type {DataSource, SelectQueryBuilder} from 'typeorm';
 
 export interface EditActionsQueryOptions {

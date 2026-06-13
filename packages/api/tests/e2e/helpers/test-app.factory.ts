@@ -7,6 +7,7 @@ import {INestApplication, ValidationPipe} from '@nestjs/common';
 import {Test, TestingModule} from '@nestjs/testing';
 import {AppModule} from '../../../src/app.module.js';
 import {MockJwtStrategy} from './auth.helper.js';
+import {JwtStrategy} from '../../../src/presentation/rest/modules/authentication/jwt.strategy.js';
 import {DataSource} from 'typeorm';
 import {NodeWorkerPoolSingleton} from '@arc/fs';
 import {DataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/data-source-provider.js';
@@ -101,7 +102,7 @@ export async function createTestApp(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
-    .overrideProvider('JwtStrategy')
+    .overrideProvider(JwtStrategy)
     .useClass(MockJwtStrategy)
     .overrideProvider(DataSourceProvider)
     .useClass(TestDataSourceProvider)
@@ -135,7 +136,7 @@ export async function createTestAppWithInMemoryDb(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
-    .overrideProvider('JwtStrategy')
+    .overrideProvider(JwtStrategy)
     .useClass(MockJwtStrategy)
     .compile();
 

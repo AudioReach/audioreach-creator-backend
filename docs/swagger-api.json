@@ -3639,8 +3639,7 @@
                       "containerId": 789,
                       "maxInputPortsSupported": 5,
                       "maxOutputPortsSupported": 3,
-                      "maxControlPortsSupported": 2,
-                      "heapId": 101
+                      "maxControlPortsSupported": 2
                     }
                   }
                 }
@@ -7971,8 +7970,7 @@
           "containerId",
           "maxInputPortsSupported",
           "maxOutputPortsSupported",
-          "maxControlPortsSupported",
-          "heapId"
+          "maxControlPortsSupported"
         ]
       },
       "DataLinkDto": {

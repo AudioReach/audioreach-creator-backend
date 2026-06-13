@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {EntityBaseRow} from 'persistence-typeorm-sqllite/entity-schema/entity-base.js';
+import type {EntityBaseRow} from '../../entity-schema/entity-base.js';
 import {
   EntityManager,
   type EntityTarget,

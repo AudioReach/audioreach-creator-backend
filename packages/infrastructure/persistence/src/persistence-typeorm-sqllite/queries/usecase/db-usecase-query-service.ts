@@ -5,7 +5,7 @@
 
 import type {
   UseCaseQueryService,
-  KeyVectorReadModel,
+  KeyValuePairReadModel,
   ModuleReadModel,
   DataLinkReadModel,
   ControlLinkReadModel,
@@ -173,7 +173,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   }
 
   private mapToReadModel(useCaseRow: UseCaseRow): UseCaseReadModel {
-    const gkv: KeyVectorReadModel[] = [];
+    const gkv: KeyValuePairReadModel[] = [];
 
     if (useCaseRow.gkvEntries) {
       for (const entry of useCaseRow.gkvEntries) {

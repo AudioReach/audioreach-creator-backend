@@ -4,7 +4,7 @@
  */
 
 import type {
-  KeyVectorReadModel,
+  KeyValuePairReadModel,
   ModuleReadModel,
   DataLinkReadModel,
   ControlLinkReadModel,
@@ -23,7 +23,7 @@ import type {
  * Mappers for converting database rows to read models for use case queries
  */
 export const UseCaseQueryMappers = {
-  mapValueToKeyVector(value: ValueDefinitionRow): KeyVectorReadModel {
+  mapValueToKeyVector(value: ValueDefinitionRow): KeyValuePairReadModel {
     return {
       key: {
         systemId: value.keys.systemId,
@@ -49,6 +49,7 @@ export const UseCaseQueryMappers = {
         name: port.name || '',
         portIoType: port.portIoType,
         isStatic: port.isStatic,
+        totalLinksAtPort: 0,
       })) || [];
 
     // Map control ports with intents
@@ -67,6 +68,7 @@ export const UseCaseQueryMappers = {
           name: port.name || '',
           isStatic: port.isStatic,
           allocatedIntents,
+          totalLinksAtPort: 0,
         };
       }) || [];
 
