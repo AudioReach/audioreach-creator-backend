@@ -59,5 +59,5 @@ export abstract class BaseDto {
     description: 'Change information for this resource',
     type: ChangeInfoDto,
   })
-  changeInfo!: ChangeInfoDto;
+  changeInfo!: ChangeInfoDto | undefined;
 }

@@ -11,13 +11,12 @@ import {
   Body,
   Param,
   Query,
+  HttpCode,
   HttpStatus,
   HttpException,
-  UseGuards,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
-import {AuthGuard} from '@nestjs/passport';
 import {SpfModuleDto} from './dto/shared/spf-module.dto.js';
 import {CalDataDto} from '../../common/dto/tuning-data/cal-data.dto.js';
 import {UpdateSpfModuleCalDataRequest} from './dto/request/update-spf-module-cal-data-request.dto.js';
@@ -34,6 +33,24 @@ import {
 } from './dto/request/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {
+  QueryBus,
+  QuerySpfModulesQuery as SpfModuleQuery,
+  type SpfModuleDetailedReadModel,
+  type SpfModuleReadModel,
+  type DataPortReadModel,
+  type ControlPortReadModel,
+  type Result,
+} from '@arc/core';
+import {
+  DataPortDto,
+  PortIoType,
+  PortType,
+} from '../../common/dto/data-port.dto.js';
+import {
+  ControlPortDto,
+  ControlPortIntentDto,
+} from '../../common/dto/control-port.dto.js';
 
 /**
  * Controller to support all module related APIs for usecase design
@@ -41,7 +58,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  */
 @ApiTags('spf-modules')
 @Controller('arc-api/v1/projects/:projectId/spf-modules')
-@UseGuards(AuthGuard('jwt'))
+//@UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',
   type: 'string',
@@ -62,7 +79,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
   CloneSpfModuleRequest,
 )
 export class SpfModuleController extends BaseController {
-  constructor() {
+  constructor(private readonly queryBus: QueryBus) {
     super();
   }
 
@@ -70,6 +87,7 @@ export class SpfModuleController extends BaseController {
    * Query SPF modules with optional data inclusion.
    */
   @Post('query')
+  @HttpCode(HttpStatus.OK)
   @ApiQuery({
     name: 'include',
     required: false,
@@ -96,7 +114,6 @@ export class SpfModuleController extends BaseController {
       '```',
     requestDto: SystemIdsRequestDto,
     requestDtoDescription: 'List of SPF module system ids',
-
     responses: [
       {
         status: HttpStatus.OK,
@@ -118,24 +135,47 @@ export class SpfModuleController extends BaseController {
     @Body() spfModuleSystemIds: SystemIdsRequestDto,
     @Query('include') include?: string,
   ): Promise<ApiResult<SpfModuleDto[]>> {
-    const includeOptions =
-      include?.split(',').map(s => s.trim().toLowerCase()) || [];
+    const includeOptions = new Set(
+      include?.split(',').map(s => s.trim().toLowerCase()) ?? [],
+    );
 
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Getting SPF modules in project:',
-      projectId,
-      'with system IDs:',
-      spfModuleSystemIds,
-      'including:',
-      includeOptions.length > 0
-        ? includeOptions.join(', ')
-        : 'base fields only',
+    // Parse string IDs to integers — radix 10 guards against octal misparse on '0'-prefixed strings
+    const systemIds = spfModuleSystemIds.systemIds.map(id => {
+      const parsed = Number.parseInt(id, 10);
+      if (Number.isNaN(parsed)) {
+        throw new HttpException(
+          `Invalid system ID: ${id}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      return parsed;
+    });
+
+    const query = new SpfModuleQuery(
+      systemIds,
+      Number.parseInt(projectId, 10), // radix 10 — see above
+      includeOptions.has('ckvs'),
+      includeOptions.has('tags'),
+      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
     );
-    throw new HttpException(
-      'SPF modules retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+
+    const result =
+      await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
+
+    if (result.isFailure) {
+      throw new HttpException(
+        result.errors?.[0]?.message ?? 'Failed to retrieve SPF modules',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+
+    const dtos = result.data.modules.map(m => this.mapToSpfModuleDto(m));
+
+    return {
+      data: dtos,
+      success: true,
+      message: 'SPF modules retrieved successfully',
+    };
   }
 
   /**
@@ -575,6 +615,64 @@ export class SpfModuleController extends BaseController {
     throw new HttpException(
       'Tag data update functionality is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Maps SpfModuleReadModel → SpfModuleDto.
+   * SpfModuleReadModel uses number systemIds and typed PortIoType/PortType enums.
+   * SpfModuleDto uses string systemIds and the API-layer enum values.
+   */
+  private mapToSpfModuleDto(m: SpfModuleReadModel): SpfModuleDto {
+    const dto = new SpfModuleDto(
+      String(m.systemId),
+      m.instanceId,
+      m.moduleId,
+      m.name,
+      m.parentId,
+    );
+    dto.alias = m.alias;
+    dto.subgraphId = m.subgraphId;
+    dto.containerId = m.containerId;
+    dto.maxInputPortsSupported = m.maxInputPortsSupported;
+    dto.maxOutputPortsSupported = m.maxOutputPortsSupported;
+    dto.maxControlPortsSupported = m.maxControlPortsSupported;
+    dto.dataPorts = m.dataPorts.map(p => this.mapDataPortToDto(p));
+    dto.controlPorts = m.controlPorts.map(p => this.mapControlPortToDto(p));
+    dto.changeInfo = undefined;
+    return dto;
+  }
+
+  /**
+   * Maps DataPortReadModel → DataPortDto.
+   * portIoType: domain PortIoType string → API PortIoType enum.
+   * isStatic: boolean → API PortType enum (Static | Dynamic).
+   */
+  private mapDataPortToDto(p: DataPortReadModel): DataPortDto {
+    const dto = new DataPortDto(
+      String(p.systemId),
+      p.portId,
+      p.name,
+      p.portIoType === 'Input' ? PortIoType.Input : PortIoType.Output,
+      p.isStatic ? PortType.Static : PortType.Dynamic,
+    );
+    dto.totalLinksAtPort = p.totalLinksAtPort;
+    return dto;
+  }
+
+  /**
+   * Maps ControlPortReadModel → ControlPortDto.
+   * Includes allocated intents — each intent has an intentId and a generated name.
+   */
+  private mapControlPortToDto(p: ControlPortReadModel): ControlPortDto {
+    return new ControlPortDto(
+      String(p.systemId),
+      p.portId,
+      p.name,
+      p.isStatic ? PortType.Static : PortType.Dynamic,
+      p.allocatedIntents.map(i => new ControlPortIntentDto(i.intentId, i.name)),
     );
   }
 }

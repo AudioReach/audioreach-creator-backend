@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {IntentReadModel} from './intent-read-model.js';
+import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
 
-export interface ControlPortReadModel {
+export interface DataPortReadModel {
   readonly systemId: number;
   readonly portId: number;
   readonly name: string;
+  readonly portIoType: PortIoType;
   readonly isStatic: boolean;
-  readonly allocatedIntents: IntentReadModel[];
   readonly totalLinksAtPort: number;
 }

@@ -9,4 +9,5 @@ export interface DataPortReadModel {
   readonly name: string;
   readonly portIoType: string;
   readonly isStatic: boolean;
+  readonly totalLinksAtPort: number;
 }

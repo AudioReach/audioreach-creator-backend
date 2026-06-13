@@ -51,7 +51,7 @@ import {
   GetAllUseCasesQuery,
   GetComponentsQuery,
   UseCaseReadModel,
-  type KeyVectorReadModel,
+  type KeyValuePairReadModel,
   UseCaseComponentsReadModel,
 } from '@arc/core';
 import {
@@ -895,7 +895,7 @@ export class UseCaseController extends BaseController {
    */
   private transformToUsecaseDtos(usecases: UseCaseReadModel[]): UsecaseDto[] {
     return usecases.map(usecase => {
-      // Transform KeyVectorReadModel[] to KeyValueInfo[]
+      // Transform KeyValuePairReadModel[] to KeyValueInfo[]
       const keyValueCollection = this.transformKeyVectors(usecase.gkv);
 
       // Create KeyValuePairsInfo from the key-value collection
@@ -917,10 +917,10 @@ export class UseCaseController extends BaseController {
   }
 
   /**
-   * Transform KeyVectorReadModel[] to KeyValueInfo[]
+   * Transform KeyValuePairReadModel[] to KeyValueInfo[]
    */
   private transformKeyVectors(
-    keyVectors: KeyVectorReadModel[],
+    keyVectors: KeyValuePairReadModel[],
   ): KeyValueInfo[] {
     return keyVectors.map(
       kv =>
