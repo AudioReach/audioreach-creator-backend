@@ -27,6 +27,7 @@ export * from './shared/types/operation-result.js';
 
 // Shared Change Types
 export * from './application/shared/change-vocabulary.js';
+export * from './application/shared/read-model-base.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';
@@ -35,6 +36,24 @@ export * from './application/ports/persistence/query-services/module/query-model
 export * from './application/ports/persistence/query-services/usecase/usecase-query-service.js';
 export * from './application/ports/persistence/query-services/usecase/query-models/index.js';
 export * from './application/ports/persistence/query-services/project/project-query-service.js';
+
+// SPF module query services and read models
+export * from './application/ports/persistence/query-services/spf-module/spf-module-query-service.js';
+export * from './application/ports/persistence/query-services/spf-module/spf-module-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/port/data-port-query-service.js';
+export * from './application/ports/persistence/query-services/spf-module/port/data-port-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/port/control-port-query-service.js';
+export * from './application/ports/persistence/query-services/spf-module/port/control-port-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/tuning/spf-tuning-config-service.js';
+export * from './application/ports/persistence/query-services/spf-module-definition/spf-module-definition-query-service.js';
+export * from './application/ports/persistence/query-services/spf-module-definition/parameter-definition/parameter-definition-query-service.js';
+export * from './application/ports/persistence/query-services/spf-module-definition/parameter-definition/parameter-definition-read-model.js';
+
+// SPF module query handlers
+export * from './application/usecase-designer/spf-module/query/query-spf-modules.query.js';
+export * from './application/usecase-designer/spf-module/query/query-spf-modules.handler.js';
 
 // Use case designer
 export * from './application/usecase-designer/index.js';

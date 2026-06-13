@@ -10,12 +10,17 @@ import type {
   ProjectQueryService,
   ValidationQueryRepository,
   BulkReadRepository,
+  SpfModuleQueryService,
+  SpfModuleDefinitionQueryService,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
 import {DbUseCaseQueryService} from './usecase/index.js';
 import {DbProjectQueryService} from './db-project-query-service.js';
 import {TypeOrmValidationQueryRepository} from '../repositories/validation/typeorm-validation-query.repository.js';
 import {TypeOrmBulkReadRepository} from '../repositories/bulk-read/typeorm-bulk-read.repository.js';
+import {EditActionsQueryService} from './edit-session/edit-actions-query-service.js';
+import {DbSpfModuleQueryService} from './spf-module/db-spf-module-query-service.js';
+import {DbSpfModuleDefinitionQueryService} from './spf-module-definition/db-spf-module-definition-query-service.js';
 
 // Database implementation of ModuleQueryService
 class DbModuleQueryService implements ModuleQueryService {
@@ -28,8 +33,12 @@ export class DbQueryServices implements QueryServices {
   readonly projectQueryService: ProjectQueryService;
   readonly validationQueryService: ValidationQueryRepository;
   readonly bulkReadRepository: BulkReadRepository;
+  readonly spfModuleQueryService: SpfModuleQueryService;
+  readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
 
   constructor(dataSource: DataSource) {
+    const editActionsQueryService = new EditActionsQueryService(dataSource);
+
     this.modulesQueryService = new DbModuleQueryService();
     this.useCaseQueryService = new DbUseCaseQueryService(dataSource);
     this.projectQueryService = new DbProjectQueryService(dataSource);
@@ -37,5 +46,16 @@ export class DbQueryServices implements QueryServices {
       dataSource,
     );
     this.bulkReadRepository = new TypeOrmBulkReadRepository(dataSource);
+
+    // SPF module services — shared EditActionsQueryService instance
+    this.spfModuleQueryService = new DbSpfModuleQueryService(
+      dataSource,
+      editActionsQueryService,
+    );
+    this.spfModuleDefinitionQueryService =
+      new DbSpfModuleDefinitionQueryService(
+        dataSource,
+        editActionsQueryService,
+      );
   }
 }

@@ -3497,6 +3497,15 @@
               "example": "12345",
               "type": "string"
             }
+          },
+          {
+            "name": "includeTuningConfig",
+            "required": false,
+            "in": "query",
+            "description": "When true, includes CKV and TKV tuning catalogue (parameter names only) in each module response.",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "requestBody": {
@@ -3627,8 +3636,7 @@
                       "containerId": 789,
                       "maxInputPortsSupported": 5,
                       "maxOutputPortsSupported": 3,
-                      "maxControlPortsSupported": 2,
-                      "heapId": 101
+                      "maxControlPortsSupported": 2
                     }
                   }
                 }
@@ -7675,10 +7683,6 @@
           "maxControlPortsSupported": {
             "type": "number",
             "description": "Maximum number of control ports supported"
-          },
-          "heapId": {
-            "type": "number",
-            "description": "Heap ID"
           }
         },
         "required": [
@@ -7695,8 +7699,7 @@
           "containerId",
           "maxInputPortsSupported",
           "maxOutputPortsSupported",
-          "maxControlPortsSupported",
-          "heapId"
+          "maxControlPortsSupported"
         ]
       },
       "DataLinkDto": {

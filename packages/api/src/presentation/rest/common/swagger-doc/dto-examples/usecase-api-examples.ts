@@ -187,7 +187,6 @@ export const UsecaseComponentsExample = {
     spfModule1.maxInputPortsSupported = 2;
     spfModule1.maxOutputPortsSupported = 2;
     spfModule1.maxControlPortsSupported = 1;
-    spfModule1.heapId = 1;
 
     const spfModule2 = new SpfModuleDto(
       '1002',
@@ -201,7 +200,6 @@ export const UsecaseComponentsExample = {
     spfModule2.maxInputPortsSupported = 1;
     spfModule2.maxOutputPortsSupported = 1;
     spfModule2.maxControlPortsSupported = 2;
-    spfModule2.heapId = 1;
 
     // Add data ports to modules
     const inputPort1 = new DataPortDto(
@@ -380,7 +378,6 @@ export const UsecaseWithComponentsExample = {
     eqModule.maxInputPortsSupported = 1;
     eqModule.maxOutputPortsSupported = 1;
     eqModule.maxControlPortsSupported = 2;
-    eqModule.heapId = 1;
 
     // Add data ports to EQ module
     const eqInputPort = new DataPortDto(

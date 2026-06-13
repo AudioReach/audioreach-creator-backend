@@ -44,9 +44,6 @@ export class SpfModuleDto extends BaseConnectableComponentDto {
   @ApiProperty({description: 'Maximum number of control ports supported'})
   maxControlPortsSupported!: number;
 
-  @ApiProperty({description: 'Heap ID'})
-  heapId!: number;
-
   constructor(
     systemId: string,
     id: number,
