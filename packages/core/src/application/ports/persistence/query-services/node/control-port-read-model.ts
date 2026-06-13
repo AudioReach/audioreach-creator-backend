@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {IntentReadModel} from './intent-read-model.js';
+export interface IntentReadModel {
+  readonly systemId: number;
+  readonly intentId: number;
+  readonly name: string;
+}
 
 export interface ControlPortReadModel {
   readonly systemId: number;

@@ -45,9 +45,6 @@ export class SpfModuleDto extends BaseConnectableComponentDto {
   @ApiProperty({description: 'Maximum number of control ports supported'})
   maxControlPortsSupported!: number;
 
-  @ApiProperty({description: 'Heap ID'})
-  heapId!: number;
-
   @ApiProperty({
     description: 'Calibration key-values configuration',
     type: [CkvDto],
