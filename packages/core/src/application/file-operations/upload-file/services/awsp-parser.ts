@@ -19,12 +19,14 @@ import {
   ProcessorDefinitionSchema,
   AwspSpfModuleDefinitionSchema,
   AwspDriverModuleDefinitionSchema,
+  AwspVcpmModuleDefinitionSchema,
   AwspKeyDefinition,
   AwspTagDefinition,
   SpfPropertyDefinition,
   DriverPropertyDefinition,
   AwspSpfModuleDefinition,
   DriverModuleDefinition,
+  AwspVcpmModuleDefinition,
   ProcessorDefinition,
   ContainerType,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
@@ -113,6 +115,9 @@ export class AwspParser {
       [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]: z.array(
         AwspDriverModuleDefinitionSchema,
       ),
+      [DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS]: z.array(
+        AwspVcpmModuleDefinitionSchema,
+      ),
       [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: z.array(
         ProcessorDefinitionSchema,
       ),
@@ -149,6 +154,8 @@ export class AwspParser {
           AwspSpfModuleDefinition,
         [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]:
           DriverModuleDefinition,
+        [DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS]:
+          AwspVcpmModuleDefinition,
         [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: ProcessorDefinition,
         [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]: ContainerType,
       };
@@ -247,6 +254,7 @@ export class AwspParser {
       DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS,
       DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS,
       DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES,
+      DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS,
     ];
 
     for (const blockName of otherBlockNames) {
@@ -312,6 +320,7 @@ export class AwspParser {
       DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS,
       DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS,
       DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES,
+      DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS,
     ];
 
     for (const blockName of allBlockNames) {

@@ -108,6 +108,14 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     // Utility methods
     clear: jest.fn(),
     getStats: jest.fn(),
+
+    // VCPM Module Definition mappings
+    addVcpmModuleDefinitionMapping: jest.fn(),
+    getVcpmModuleDefinitionSystemId: jest.fn(),
+
+    // VCPM Parameter Definition mappings
+    addVcpmParamDefinitionMapping: jest.fn(),
+    getVcpmParamDefinitionSystemId: jest.fn(),
   } as unknown as jest.Mocked<ForeignKeyMapper>;
 }
 

@@ -371,6 +371,9 @@ export class UploadFileOrchestrator {
       // Phase 1d2: Build and Insert Driver Module Definitions (no dependencies)
       await this.buildAndInsertDriverModuleDefinitions(bulkRepo);
 
+      // Phase 1d3: Build and Insert VCPM Module Definitions (no dependencies)
+      await this.buildAndInsertVcpmModuleDefinitions(bulkRepo);
+
       // Phase 1e: Build and Insert Subgraph Property Definitions (no dependencies)
       await this.buildAndInsertSubgraphPropertyDefinitions(bulkRepo);
 
@@ -822,6 +825,56 @@ export class UploadFileOrchestrator {
         this.logger?.logError({
           msg: `Failed to insert some driver module definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
           action: 'driver_module_definitions_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 1d3: Build and Insert VCPM Module Definitions
+   */
+  private async buildAndInsertVcpmModuleDefinitions(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    const awspVcpmModuleDefinitions =
+      this.parsedAwsp!.getVcpmModuleDefinitions() || [];
+
+    if (awspVcpmModuleDefinitions.length === 0) {
+      return;
+    }
+
+    const result = await this.builderService.buildVcpmModuleDefinitions(
+      this.parsedAwsp!,
+      this.currentFileId,
+    );
+
+    this.issueCollector.addIssues(result.issues);
+
+    if (result.entities.length > 0) {
+      const insertResult = await bulkRepo.insertVcpmModuleDefinitions(
+        result.entities,
+      );
+
+      this.collectInsertionErrors(insertResult, 'VcpmModuleDefinition');
+
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${result.entities.length} VCPM module definitions (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'vcpm_module_definitions_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some VCPM module definitions: ${insertResult.errors.length} insertion failures out of ${result.entities.length} entities (build: ${result.errorCount} errors, ${result.warningCount} warnings)`,
+          action: 'vcpm_module_definitions_insertion_failed',
           component: 'UploadFileOrchestrator',
           tag: 'database-persistence',
           timestamp: new Date(),

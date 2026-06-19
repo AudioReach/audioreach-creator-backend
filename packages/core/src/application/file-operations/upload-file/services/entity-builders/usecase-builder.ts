@@ -8,6 +8,7 @@ import {
   type SubgraphPair,
 } from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
+import type {GkvAliasChunk} from '../../../shared/acdb-chunks/gkv-alias-chunk.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
@@ -23,6 +24,7 @@ export class UsecaseBuilder {
   async buildUsecases(
     usecaseEntries: UsecaseEntry[],
     fileSystemId: number,
+    gkvAliasChunk?: GkvAliasChunk,
   ): Promise<UseCase[]> {
     if (!usecaseEntries || usecaseEntries.length === 0) {
       return [];
@@ -38,6 +40,7 @@ export class UsecaseBuilder {
           usecaseEntry,
           i,
           fileSystemId,
+          gkvAliasChunk,
         );
         usecases.push(usecase);
         successCount++;
@@ -68,6 +71,7 @@ export class UsecaseBuilder {
     entry: UsecaseEntry,
     index: number,
     fileSystemId: number,
+    gkvAliasChunk?: GkvAliasChunk,
   ): Promise<UseCase> {
     const keyVector = this.convertToKeyVector(entry, index);
     const systemId = await this.idGenerator.getNextId(fileSystemId);
@@ -114,15 +118,17 @@ export class UsecaseBuilder {
       }
     }
 
+    const aliasEntry = gkvAliasChunk?.getAlias(entry.keyValuePairList);
+
     return new UseCase({
       systemId,
       fileSystemId,
       keyVector,
       subgraphSystemIds,
       subgraphPairs,
-      alias: undefined, // TODO: Fille metadata from workspace
-      aliasId: undefined,
-      categories: undefined,
+      alias: aliasEntry?.usecaseName,
+      aliasId: aliasEntry?.usecaseId,
+      categories: undefined, //TODO:
     });
   }
 
