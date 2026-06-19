@@ -15,6 +15,7 @@ export const DEFINITION_BLOCK_NAMES = {
   DRIVER_PROPERTY_DEFINITIONS: 'driverPropertyDefinitions',
   SPF_MODULE_DEFINITIONS: 'spfModuleDefinitions',
   DRIVER_MODULE_DEFINITIONS: 'driverModuleDefinitions',
+  VCPM_MODULE_DEFINITIONS: 'vcpmModuleDefinitions',
   SUPPORTED_PROCESSORS: 'supportedProcessors',
   SUPPORTED_CONTAINER_TYPES: 'supportedContainerTypes',
 } as const;

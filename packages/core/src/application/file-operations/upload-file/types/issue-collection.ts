@@ -28,6 +28,7 @@ export const ENTITY_TYPES = {
   VALUE_DEFINITION: 'ValueDefinition',
   SPF_MODULE_DEFINITION: 'SpfModuleDefinition',
   DRIVER_MODULE_DEFINITION: 'DriverModuleDefinition',
+  VCPM_MODULE_DEFINITION: 'VcpmModuleDefinition',
   SUBGRAPH: 'Subgraph',
   CONTAINER: 'Container',
   SPF_MODULE: 'SpfModule',

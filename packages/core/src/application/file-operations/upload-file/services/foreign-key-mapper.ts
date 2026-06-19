@@ -35,6 +35,11 @@ export class ForeignKeyMapper {
     SystemId,
     Map<NaturalId, SystemId>
   >();
+  private vcpmModuleDefinitionMappings = new Map<NaturalId, SystemId>();
+  private vcpmParamDefinitionMappingsByModuleId = new Map<
+    SystemId,
+    Map<NaturalId, SystemId>
+  >();
   private driverModuleMappings = new Map<NaturalId, SystemId>();
   private processorDefinitionMappings = new Map<NaturalId, SystemId>();
   private propertyDefinitionMap = new Map<NaturalId, SystemId>();
@@ -510,6 +515,72 @@ export class ForeignKeyMapper {
   ): SystemId | undefined {
     return this.driverParamDefinitionMappingsByModuleId
       .get(driverModuleDefinitionId)
+      ?.get(paramId);
+  }
+
+  /**
+   * Add a VCPM module definition mapping
+   */
+  addVcpmModuleDefinitionMapping(
+    moduleDefinitionId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (this.vcpmModuleDefinitionMappings.has(moduleDefinitionId)) {
+      throw new Error(
+        `VCPM module definition ${moduleDefinitionId} already mapped to systemId ${this.vcpmModuleDefinitionMappings.get(moduleDefinitionId)}`,
+      );
+    }
+    this.vcpmModuleDefinitionMappings.set(moduleDefinitionId, systemId);
+  }
+
+  /**
+   * Get systemId for a given VCPM module definition ID
+   */
+  getVcpmModuleDefinitionSystemId(
+    moduleDefinitionId: NaturalId,
+  ): SystemId | undefined {
+    return this.vcpmModuleDefinitionMappings.get(moduleDefinitionId);
+  }
+
+  /**
+   * Add param definition mapping for a VCPM module
+   */
+  addVcpmParamDefinitionMapping(
+    vcpmModuleDefinitionId: SystemId,
+    paramId: NaturalId,
+    systemId: SystemId,
+  ): void {
+    if (
+      !this.vcpmParamDefinitionMappingsByModuleId.has(vcpmModuleDefinitionId)
+    ) {
+      this.vcpmParamDefinitionMappingsByModuleId.set(
+        vcpmModuleDefinitionId,
+        new Map(),
+      );
+    }
+
+    const moduleParams = this.vcpmParamDefinitionMappingsByModuleId.get(
+      vcpmModuleDefinitionId,
+    )!;
+
+    if (moduleParams.has(paramId)) {
+      throw new Error(
+        `VCPM param ${paramId} already mapped for module ${vcpmModuleDefinitionId}`,
+      );
+    }
+
+    moduleParams.set(paramId, systemId);
+  }
+
+  /**
+   * Get VCPM param definition systemId
+   */
+  getVcpmParamDefinitionSystemId(
+    vcpmModuleDefinitionId: SystemId,
+    paramId: NaturalId,
+  ): SystemId | undefined {
+    return this.vcpmParamDefinitionMappingsByModuleId
+      .get(vcpmModuleDefinitionId)
       ?.get(paramId);
   }
 

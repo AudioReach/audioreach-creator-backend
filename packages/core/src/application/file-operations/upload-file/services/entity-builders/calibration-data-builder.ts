@@ -12,29 +12,22 @@ import {ModuleParameterData} from '../../../../../domain/entities/common/value-o
 import {
   asSystemId,
   asNaturalId,
+  type SystemId,
 } from '../../../../../shared/types/branded-ids.js';
 import type {KeyVectorInput} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import {PARSED_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
+import {SPF_VCPM_MODULE_ID} from '../../../shared/constants/spf-ids.js';
 import type {
   VoiceCalibrationChunk,
   VoiceSubgraphCalTable,
   VoiceCkvDataTable,
   VoiceCalDataObject,
   VoiceCkvLookupTable,
-  VoiceCalDefinitionEntry,
-  VoiceCalDataOffsetEntry,
 } from '../../../shared/acdb-chunks/voice-calibration-chunk.js';
-import type {
-  AudioCalibrationChunk,
-  CalDefinitionEntry,
-  CalDataOffsetEntry,
-} from '../../../shared/acdb-chunks/audio-calibration-chunk.js';
+import type {AudioCalibrationChunk} from '../../../shared/acdb-chunks/audio-calibration-chunk.js';
 import type {DatapoolChunk} from '../../../shared/acdb-chunks/datapool-chunk.js';
-
-/**
- * VCPM Configuration instance ID - should be skipped during calibration processing
- */
-const VCPM_CFG_INSTANCE_ID = 0x00_00_00_01;
+import {VcpmInstance} from '../../../../../domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
+import type {Subgraph} from '../../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 
 /**
  * Intermediate structure for module-parameter-payload extraction
@@ -53,9 +46,15 @@ interface KvDataWithModule {
   moduleSystemId: number;
 }
 
+/** Normalised shape for DEF+DOT data — shared across voice and audio extract paths */
+interface CalDefAndOffset {
+  pairs: Array<{moduleInstanceId: number; paramId: number}>;
+  offsets: number[];
+}
+
 /**
  * Builder for creating calibration data (KvData) entities from parsed ACDB chunks.
- * Handles both voice and audio calibration data processing.
+ * Handles voice SPF calibration, voice VCPM calibration, and audio calibration.
  * Uses ForeignKeyMapper for KeyVector deduplication.
  */
 export class CalibrationDataBuilder {
@@ -64,8 +63,12 @@ export class CalibrationDataBuilder {
     private readonly logger?: Logger,
   ) {}
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // SPF Calibration path (voice + audio → KvData grouped by SPF module)
+  // ────────────────────────────────────────────────────────────────────────────
+
   /**
-   * Main API: Build calibration data with KeyVector deduplication.
+   * Build calibration data with KeyVector deduplication.
    * Returns KvData entities grouped by module systemId, ready for attachment to SpfModules.
    */
   async buildCalibrationDataByModule(
@@ -247,10 +250,11 @@ export class CalibrationDataBuilder {
 
     const keyVectorInput: KeyVectorInput = {valueSystemIds};
 
-    // Extract module-parameter-payloads
-    const moduleParamPayloads = this.extractModuleParameterPayloadsVoice(
-      defEntry,
-      dotEntry,
+    const moduleParamPayloads = this.extractModuleParameterPayloads(
+      {
+        pairs: defEntry.moduleInstanceParamPairs,
+        offsets: dotEntry.offsetsInGlobalDataPool,
+      },
       parsedAcdb,
     );
 
@@ -430,27 +434,26 @@ export class CalibrationDataBuilder {
       );
       valueSystemIds.push(...entryValueSystemIds);
     }
-
     return valueSystemIds;
   }
 
   /**
-   * Extract module-parameter-payloads from voice calibration DEF and DOT entries
+   * Extract module-parameter-payloads from a normalised DEF+DOT pair.
+   * Shared by the voice-SPF and audio-SPF paths.
+   * Skips VCPM_CFG_INSTANCE_ID entries (no-op for audio — that ID never appears).
    */
-  private extractModuleParameterPayloadsVoice(
-    defEntry: VoiceCalDefinitionEntry,
-    dotEntry: VoiceCalDataOffsetEntry,
+  private extractModuleParameterPayloads(
+    defAndOffset: CalDefAndOffset,
     parsedAcdb: ParsedAcdb,
   ): ModuleParameterPayload[] {
     const payloads: ModuleParameterPayload[] = [];
 
-    // Get datapool chunk
     const datapoolChunk = parsedAcdb.getChunk<DatapoolChunk>(
       PARSED_CHUNK_TYPES.DATAPOOL,
     );
     if (!datapoolChunk) {
       this.logger?.logWarn({
-        msg: 'Datapool chunk not found for voice calibration',
+        msg: 'Datapool chunk not found for calibration',
         action: 'missing_datapool_chunk',
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -459,13 +462,9 @@ export class CalibrationDataBuilder {
       return payloads;
     }
 
-    // Validate counts match
-    if (
-      defEntry.moduleInstanceParamPairs.length !==
-      dotEntry.offsetsInGlobalDataPool.length
-    ) {
+    if (defAndOffset.pairs.length !== defAndOffset.offsets.length) {
       this.logger?.logWarn({
-        msg: `Voice DEF and DOT entry count mismatch: ${defEntry.moduleInstanceParamPairs.length} vs ${dotEntry.offsetsInGlobalDataPool.length}`,
+        msg: `DEF and DOT entry count mismatch: ${defAndOffset.pairs.length} vs ${defAndOffset.offsets.length}`,
         action: 'count_mismatch',
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
@@ -474,93 +473,27 @@ export class CalibrationDataBuilder {
       return payloads;
     }
 
-    // Extract payloads
-    for (let i = 0; i < defEntry.moduleInstanceParamPairs.length; i++) {
-      const {moduleInstanceId, paramId} = defEntry.moduleInstanceParamPairs[i];
-      const dataOffset = dotEntry.offsetsInGlobalDataPool[i];
+    for (let i = 0; i < defAndOffset.pairs.length; i++) {
+      const {moduleInstanceId, paramId} = defAndOffset.pairs[i];
+      const dataOffset = defAndOffset.offsets[i];
 
-      // Skip VCPM configuration data
-      if (moduleInstanceId === VCPM_CFG_INSTANCE_ID) {
+      if (moduleInstanceId === SPF_VCPM_MODULE_ID) {
         continue;
       }
 
-      // Extract payload from datapool
       const payload = this.extractPayloadFromDatapool(
         datapoolChunk,
         dataOffset,
       );
-
       if (payload) {
-        payloads.push({
-          moduleInstanceId: moduleInstanceId,
-          parameterId: paramId,
-          payload: payload,
-        });
+        payloads.push({moduleInstanceId, parameterId: paramId, payload});
       }
     }
 
     return payloads;
   }
 
-  /**
-   * Extract module-parameter-payloads from DEF and DOT entries
-   */
-  private extractModuleParameterPayloads(
-    defEntry: CalDefinitionEntry,
-    dotEntry: CalDataOffsetEntry,
-    parsedAcdb: ParsedAcdb,
-  ): ModuleParameterPayload[] {
-    const payloads: ModuleParameterPayload[] = [];
-
-    // Get datapool chunk
-    const datapoolChunk = parsedAcdb.getChunk<DatapoolChunk>(
-      PARSED_CHUNK_TYPES.DATAPOOL,
-    );
-    if (!datapoolChunk) {
-      this.logger?.logWarn({
-        msg: 'Datapool chunk not found for audio calibration',
-        action: 'missing_datapool_chunk',
-        component: 'CalibrationDataBuilder',
-        tag: 'calibration-building',
-        timestamp: new Date(),
-      });
-      return payloads;
-    }
-
-    // Validate counts match
-    if (defEntry.calIdEntries.length !== dotEntry.calDataOffsets.length) {
-      this.logger?.logWarn({
-        msg: `DEF and DOT entry count mismatch: ${defEntry.calIdEntries.length} vs ${dotEntry.calDataOffsets.length}`,
-        action: 'count_mismatch',
-        component: 'CalibrationDataBuilder',
-        tag: 'calibration-building',
-        timestamp: new Date(),
-      });
-      return payloads;
-    }
-
-    // Extract payloads
-    for (let i = 0; i < defEntry.calIdEntries.length; i++) {
-      const {moduleInstanceId, paramId} = defEntry.calIdEntries[i];
-      const dataOffset = dotEntry.calDataOffsets[i];
-
-      // Extract payload from datapool
-      const payload = this.extractPayloadFromDatapool(
-        datapoolChunk,
-        dataOffset,
-      );
-
-      if (payload) {
-        payloads.push({
-          moduleInstanceId: moduleInstanceId,
-          parameterId: paramId,
-          payload: payload,
-        });
-      }
-    }
-
-    return payloads;
-  }
+  // ─── audio SPF traversal ────────────────────────────────────────────────────
 
   /**
    * Process audio calibration data (CALIBRATION_SUBGRAPH_LUT chunk)
@@ -729,10 +662,11 @@ export class CalibrationDataBuilder {
         continue;
       }
 
-      // Extract module-parameter-payloads
       const moduleParamPayloads = this.extractModuleParameterPayloads(
-        defEntry,
-        dotEntry,
+        {
+          pairs: defEntry.calIdEntries,
+          offsets: dotEntry.calDataOffsets,
+        },
         parsedAcdb,
       );
 
@@ -748,9 +682,315 @@ export class CalibrationDataBuilder {
     return {keyVectorInputs, kvDataWithModules};
   }
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // VCPM Calibration path (voice → VcpmInstance attached to Subgraph)
+  // ────────────────────────────────────────────────────────────────────────────
+
   /**
-   * Extract payload from datapool at specified offset
+   * Builds VcpmInstance entities from the VCPM_CALDATA chunk and attaches them
+   * to the matching Subgraph entities by subgraphId.
    */
+  async attachVcpmDataToSubgraphs(
+    parsedAcdb: ParsedAcdb,
+    foreignKeyMapper: ForeignKeyMapper,
+    subgraphs: Subgraph[],
+    fileSystemId: number,
+  ): Promise<void> {
+    const voiceCalChunk = parsedAcdb.getChunk<VoiceCalibrationChunk>(
+      PARSED_CHUNK_TYPES.VOICE_CALIBRATION_DATA,
+    );
+
+    if (!voiceCalChunk || voiceCalChunk.subgraphCalTables.length === 0) {
+      return;
+    }
+
+    const datapoolChunk = parsedAcdb.getChunk<DatapoolChunk>(
+      PARSED_CHUNK_TYPES.DATAPOOL,
+    );
+
+    if (!datapoolChunk) {
+      this.logger?.logWarn({
+        msg: 'Datapool chunk not found — skipping VCPM data attachment',
+        action: 'vcpm_missing_datapool',
+        component: 'CalibrationDataBuilder',
+        tag: 'vcpm-building',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    const vcpmDefinitionSystemId =
+      foreignKeyMapper.getVcpmModuleDefinitionSystemId(
+        asNaturalId(voiceCalChunk.voiceModuleInstanceId),
+      );
+
+    if (vcpmDefinitionSystemId === undefined) {
+      this.logger?.logWarn({
+        msg: `VCPM module definition not found for voiceModuleInstanceId=${voiceCalChunk.voiceModuleInstanceId} — skipping VCPM data attachment`,
+        action: 'vcpm_definition_not_found',
+        component: 'CalibrationDataBuilder',
+        tag: 'vcpm-building',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    const subgraphByNaturalId = new Map(subgraphs.map(s => [s.subgraphId, s]));
+
+    for (const sgCalTbl of voiceCalChunk.subgraphCalTables) {
+      const subgraph = subgraphByNaturalId.get(sgCalTbl.subgraphId);
+      if (!subgraph) {
+        this.logger?.logWarn({
+          msg: `Subgraph not found for subgraphId=${sgCalTbl.subgraphId} — skipping VCPM data for this subgraph`,
+          action: 'vcpm_subgraph_not_found',
+          component: 'CalibrationDataBuilder',
+          tag: 'vcpm-building',
+          timestamp: new Date(),
+        });
+        continue;
+      }
+
+      try {
+        const vcpmInstance = await this.buildVcpmInstance(
+          sgCalTbl,
+          subgraph.systemId,
+          vcpmDefinitionSystemId,
+          voiceCalChunk,
+          datapoolChunk,
+          foreignKeyMapper,
+          fileSystemId,
+        );
+        subgraph.setVcpmDataInstance(vcpmInstance);
+      } catch (error) {
+        this.logger?.logWarn({
+          msg: `Failed to build VCPM instance for subgraphId=${sgCalTbl.subgraphId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          action: 'vcpm_instance_build_failed',
+          component: 'CalibrationDataBuilder',
+          tag: 'vcpm-building',
+          timestamp: new Date(),
+        });
+      }
+    }
+
+    this.logger?.logInfo({
+      msg: `Attached VCPM data to ${subgraphs.filter(s => s.vcpmDataInstance !== null).length} subgraphs`,
+      action: 'vcpm_data_attached',
+      component: 'CalibrationDataBuilder',
+      tag: 'vcpm-building',
+      timestamp: new Date(),
+    });
+  }
+
+  private async buildVcpmInstance(
+    sgCalTbl: VoiceSubgraphCalTable,
+    subgraphSystemId: number,
+    vcpmDefinitionSystemId: number,
+    voiceCalChunk: VoiceCalibrationChunk,
+    datapoolChunk: DatapoolChunk,
+    foreignKeyMapper: ForeignKeyMapper,
+    fileSystemId: number,
+  ): Promise<VcpmInstance> {
+    const instanceSystemId = await this.idGenerator.getNextId(fileSystemId);
+
+    const vcpmInstance = new VcpmInstance({
+      systemId: instanceSystemId,
+      subgraphSystemId,
+      vcpmDefinitionId: vcpmDefinitionSystemId,
+    });
+
+    const masterKeyTbl = voiceCalChunk.getMasterKeyTable(
+      sgCalTbl.offsetVoiceMasterKeyTable,
+    );
+    const masterKeyIds = masterKeyTbl?.keyInfos.map(k => k.voiceKeyId) ?? [];
+
+    for (const ckvDataTbl of sgCalTbl.voiceCkvDataTables) {
+      await this.processVcpmCkvDataTable(
+        ckvDataTbl,
+        masterKeyIds,
+        voiceCalChunk,
+        datapoolChunk,
+        vcpmInstance,
+        vcpmDefinitionSystemId,
+        foreignKeyMapper,
+        fileSystemId,
+      );
+    }
+
+    return vcpmInstance;
+  }
+
+  private async processVcpmCkvDataTable(
+    ckvDataTbl: VoiceCkvDataTable,
+    masterKeyIds: number[],
+    voiceCalChunk: VoiceCalibrationChunk,
+    datapoolChunk: DatapoolChunk,
+    vcpmInstance: VcpmInstance,
+    vcpmDefinitionSystemId: number,
+    foreignKeyMapper: ForeignKeyMapper,
+    fileSystemId: number,
+  ): Promise<void> {
+    const calKeyTbl = voiceCalChunk.getCalKeyTable(
+      ckvDataTbl.offsetVoiceCalKeyTable,
+    );
+    if (!calKeyTbl) {
+      return;
+    }
+
+    for (const calDataObj of ckvDataTbl.calDataObjects) {
+      try {
+        await this.processVcpmCalDataObject(
+          calDataObj,
+          masterKeyIds,
+          voiceCalChunk,
+          datapoolChunk,
+          vcpmInstance,
+          vcpmDefinitionSystemId,
+          foreignKeyMapper,
+          fileSystemId,
+        );
+      } catch (error) {
+        this.logger?.logWarn({
+          msg: `Failed to process VCPM cal data object: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          action: 'vcpm_cal_data_obj_failed',
+          component: 'CalibrationDataBuilder',
+          tag: 'vcpm-building',
+          timestamp: new Date(),
+        });
+      }
+    }
+  }
+
+  private async processVcpmCalDataObject(
+    calDataObj: VoiceCalDataObject,
+    masterKeyIds: number[],
+    voiceCalChunk: VoiceCalibrationChunk,
+    datapoolChunk: DatapoolChunk,
+    vcpmInstance: VcpmInstance,
+    vcpmDefinitionSystemId: number,
+    foreignKeyMapper: ForeignKeyMapper,
+    fileSystemId: number,
+  ): Promise<void> {
+    const ckvLutTbl = voiceCalChunk.getCkvLookupTable(
+      calDataObj.offsetVoiceCkvLookupTable,
+    );
+    const defEntry = voiceCalChunk.getCalDefinitionEntry(
+      calDataObj.offsetVoiceCalDefinitionTable,
+    );
+    const dotEntry = voiceCalChunk.getCalDataOffsetEntry(
+      calDataObj.offsetVoiceCalDefinitionTable,
+    );
+
+    if (!ckvLutTbl || !defEntry || !dotEntry) {
+      return;
+    }
+
+    if (
+      defEntry.moduleInstanceParamPairs.length !==
+      dotEntry.offsetsInGlobalDataPool.length
+    ) {
+      return;
+    }
+
+    // Resolve parameter payloads once — shared by all CKV entries for this CalDataObj
+    const paramPayloads = this.resolveVcpmParamPayloads(
+      defEntry,
+      dotEntry,
+      datapoolChunk,
+      vcpmDefinitionSystemId,
+      foreignKeyMapper,
+    );
+
+    if (paramPayloads.length === 0) return;
+
+    // One KvData per CKV LUT entry (each entry has its own key-value combination)
+    for (const ckvEntry of ckvLutTbl.voiceCkvLookupEntries) {
+      const valueDefinitionSystemIds: number[] = [];
+      for (
+        let i = 0;
+        i < Math.min(masterKeyIds.length, ckvEntry.voiceCalKeyValues.length);
+        i++
+      ) {
+        const valueSystemId = foreignKeyMapper.getValueSystemId(
+          asNaturalId(masterKeyIds[i]),
+          asNaturalId(ckvEntry.voiceCalKeyValues[i]),
+        );
+        if (valueSystemId !== undefined) {
+          valueDefinitionSystemIds.push(valueSystemId);
+        }
+      }
+
+      const kvDataSystemId = await this.idGenerator.getNextId(fileSystemId);
+      const kvData = new KvData({
+        systemId: kvDataSystemId,
+        valueDefinitionSystemIds,
+        uiPersistence: null,
+      });
+
+      for (const {paramSystemId, payload} of paramPayloads) {
+        kvData.addParameterPayload(
+          new ModuleParameterData(paramSystemId, payload),
+        );
+      }
+
+      vcpmInstance.addCkv(kvData);
+    }
+  }
+
+  private resolveVcpmParamPayloads(
+    defEntry: {
+      moduleInstanceParamPairs: Array<{
+        moduleInstanceId: number;
+        paramId: number;
+      }>;
+    },
+    dotEntry: {offsetsInGlobalDataPool: number[]},
+    datapoolChunk: DatapoolChunk,
+    vcpmDefinitionSystemId: number,
+    foreignKeyMapper: ForeignKeyMapper,
+  ): Array<{paramSystemId: SystemId; payload: Uint8Array}> {
+    const results: Array<{paramSystemId: SystemId; payload: Uint8Array}> = [];
+
+    for (const [
+      i,
+      {moduleInstanceId, paramId},
+    ] of defEntry.moduleInstanceParamPairs.entries()) {
+      const dataOffset = dotEntry.offsetsInGlobalDataPool[i];
+
+      if (moduleInstanceId !== SPF_VCPM_MODULE_ID) {
+        continue;
+      }
+
+      const paramSystemId = foreignKeyMapper.getVcpmParamDefinitionSystemId(
+        asSystemId(vcpmDefinitionSystemId),
+        asNaturalId(paramId),
+      );
+
+      if (paramSystemId === undefined) {
+        this.logger?.logWarn({
+          msg: `VCPM param definition not found for paramId=${paramId}`,
+          action: 'vcpm_param_not_found',
+          component: 'CalibrationDataBuilder',
+          tag: 'vcpm-building',
+          timestamp: new Date(),
+        });
+        continue;
+      }
+
+      const payload = datapoolChunk.getDataAtOffset(dataOffset);
+      if (!payload) {
+        continue;
+      }
+
+      results.push({paramSystemId, payload});
+    }
+
+    return results;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Shared helpers
+  // ────────────────────────────────────────────────────────────────────────────
+
   private extractPayloadFromDatapool(
     datapoolChunk: DatapoolChunk,
     dataOffset: number,
@@ -766,7 +1006,6 @@ export class CalibrationDataBuilder {
       });
       return null;
     }
-
     return data;
   }
 
@@ -795,7 +1034,6 @@ export class CalibrationDataBuilder {
     foreignKeyMapper: ForeignKeyMapper,
   ): number[] {
     const valueSystemIds: number[] = [];
-
     for (const keyId of keyIds) {
       const keySystemId = foreignKeyMapper.getKeySystemId(asNaturalId(keyId));
       if (!keySystemId) {
@@ -882,8 +1120,8 @@ export class CalibrationDataBuilder {
   ): Map<number, ModuleParameterPayload[]> {
     const payloadsByModule = new Map<number, ModuleParameterPayload[]>();
     for (const payload of payloads) {
-      // Skip VCPM configuration data
-      if (payload.moduleInstanceId === VCPM_CFG_INSTANCE_ID) {
+      // Skip APM config and VCPM module housekeeping entries
+      if (payload.moduleInstanceId === SPF_VCPM_MODULE_ID) {
         continue;
       }
 

@@ -29,6 +29,8 @@ import {
   ModuleManagerChunkParser,
   type ModuleManagerChunk,
 } from './acdb-chunk-parsers/module-manager-chunk-parser.js';
+import {GkvAliasChunkParser} from './acdb-chunk-parsers/gkv-alias-chunk-parser.js';
+import type {GkvAliasChunk} from '../../shared/acdb-chunks/gkv-alias-chunk.js';
 import {VoiceCalibrationChunk} from '../../shared/acdb-chunks/voice-calibration-chunk.js';
 import {AudioCalibrationChunk} from '../../shared/acdb-chunks/audio-calibration-chunk.js';
 import {TagDataChunk} from '../../shared/acdb-chunks/tag-data-chunk.js';
@@ -53,6 +55,7 @@ export class AcdbParser {
   private readonly driverCalibrationParser: DriverCalibrationChunkParser;
   private readonly bootUpLoadingParser: BootUpLoadingChunkParser;
   private readonly moduleManagerParser: ModuleManagerChunkParser;
+  private readonly gkvAliasParser = new GkvAliasChunkParser();
   private readonly logger?: Logger;
 
   constructor(logger?: Logger) {
@@ -97,6 +100,8 @@ export class AcdbParser {
         return this.parseBootUpLoadingChunk(context);
       case PARSED_CHUNK_TYPES.MODULE_MANAGER:
         return this.parseModuleManagerChunk(context);
+      case PARSED_CHUNK_TYPES.GKV_ALIAS_DATA:
+        return this.parseGkvAliasChunk(context);
       default:
         // Log warning for unknown parser types but don't crash
         if (this.logger) {
@@ -212,5 +217,12 @@ export class AcdbParser {
     context: ChunkParseContext,
   ): ModuleManagerChunk {
     return this.moduleManagerParser.parse(context);
+  }
+
+  /**
+   * Parse GALS chunk using GkvAliasChunkParser
+   */
+  private parseGkvAliasChunk(context: ChunkParseContext): GkvAliasChunk {
+    return this.gkvAliasParser.parse(context);
   }
 }

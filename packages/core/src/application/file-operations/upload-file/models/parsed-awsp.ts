@@ -12,6 +12,7 @@ import type {
   DriverModuleDefinition,
   ProcessorDefinition,
   ContainerType,
+  AwspVcpmModuleDefinition,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
 import type {ConfigurationData} from '../../shared/awsp-serializers/v1/configuration/index.js';
 import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-names.js';
@@ -26,6 +27,7 @@ export type DefinitionCollection =
   | DriverPropertyDefinition[]
   | AwspSpfModuleDefinition[]
   | DriverModuleDefinition[]
+  | AwspVcpmModuleDefinition[]
   | ProcessorDefinition[]
   | ContainerType[];
 
@@ -163,6 +165,15 @@ export class ParsedAwsp {
   getDriverModuleDefinitions(): DriverModuleDefinition[] | undefined {
     return this.getDefinitions<DriverModuleDefinition[]>(
       DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS,
+    );
+  }
+
+  /**
+   * Get VCPM module definitions
+   */
+  getVcpmModuleDefinitions(): AwspVcpmModuleDefinition[] | undefined {
+    return this.getDefinitions<AwspVcpmModuleDefinition[]>(
+      DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS,
     );
   }
 

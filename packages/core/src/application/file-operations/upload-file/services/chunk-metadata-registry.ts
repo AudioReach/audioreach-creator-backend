@@ -92,7 +92,7 @@ export class ChunkMetadataRegistry {
       ],
       // NOTE: DATAPOOL is listed as a parsed dependency to enforce ordering in the orchestrator,
       // even though the parser itself only uses rawChunks. The parsed DATAPOOL chunk is actually
-      // consumed later by CalibrationDataBuilder.extractModuleParameterPayloadsVoice().
+      // consumed later by CalibrationDataBuilder.extractModuleParameterPayloads().
       // This dependency ensures DATAPOOL is parsed before voice calibration parsing begins.
       parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
       description:
@@ -163,6 +163,12 @@ export class ChunkMetadataRegistry {
       rawDependencies: [ACDB_RAW_CHUNK_TYPES.BOOTUP_LOADING],
       parsedDependencies: [],
       description: 'Boot-up loading module IDs per processor',
+    },
+    {
+      parserType: PARSED_CHUNK_TYPES.GKV_ALIAS_DATA,
+      rawDependencies: [ACDB_RAW_CHUNK_TYPES.GKV_ALIAS],
+      parsedDependencies: [PARSED_CHUNK_TYPES.DATAPOOL],
+      description: 'GKV alias data mapping key-vector to usecase ID and name',
     },
   ];
 

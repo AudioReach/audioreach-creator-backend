@@ -14,6 +14,9 @@ export {SpfPropertyDefinition} from './property-definition/spf-property-definiti
 // Module Definitions - Driver
 export {DriverModuleDefinition} from './module-definition/driver/driver-module-definition.js';
 
+// Module Definitions - VCPM
+export {AwspVcpmModuleDefinition} from './module-definition/vcpm/vcpm-module-definition.js';
+
 // Module Definitions - SPF
 export {AwspSpfModuleDefinition} from './module-definition/spf/spf-module-definition.js';
 export {AwspControlPortsInfo} from './module-definition/spf/control-ports-info.js';
@@ -54,3 +57,4 @@ export {ProcessorDefinitionSchema} from './processor-definition/processor-defini
 export {BaseElementSchema} from './common/base-element.schema.js';
 export {AwspSpfModuleDefinitionSchema} from './module-definition/spf/spf-module-definition.schema.js';
 export {AwspDriverModuleDefinitionSchema} from './module-definition/driver/driver-module-definition.schema.js';
+export {AwspVcpmModuleDefinitionSchema} from './module-definition/vcpm/vcpm-module-definition.schema.js';

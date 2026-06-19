@@ -7,6 +7,7 @@ import type {KeyDefinition} from '../../../../domain/entities/definitions/key-va
 import type {TagDefinition} from '../../../../domain/entities/definitions/tag-key-value/tag-definition.js';
 import type {SpfModuleDefinition} from '../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 import type {DriverModuleDefinition} from '../../../../domain/entities/definitions/driver-module/driver-module-definition.js';
+import {VcpmModuleDefinition} from '../../../../domain/entities/definitions/vcpm-module/vcpm-module-definition.js';
 import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import type {Container} from '../../../../domain/entities/usecase-data/container/container.js';
@@ -28,6 +29,8 @@ import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js'
 import {TagDefinitionBuilder} from './entity-builders/tag-definition-builder.js';
 import {SpfModuleDefinitionBuilder} from './entity-builders/spf-module-definition-builder.js';
 import {DriverModuleDefinitionBuilder} from './entity-builders/driver-module-definition-builder.js';
+import {VcpmModuleDefinitionBuilder} from './entity-builders/vcpm-module-definition-builder.js';
+import {CalibrationDataBuilder} from './entity-builders/calibration-data-builder.js';
 import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
 import {SubgraphBuilder} from './entity-builders/subgraph-builder.js';
 import {
@@ -44,6 +47,7 @@ import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk
 import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
 import type {DriverCalibrationChunk} from '../../shared/acdb-chunks/driver-calibration-chunk.js';
+import type {GkvAliasChunk} from '../../shared/acdb-chunks/gkv-alias-chunk.js';
 import type {
   DataLink as DataLinkProperty,
   ControlLink as ControlLinkProperty,
@@ -114,6 +118,7 @@ export class EntityBuilderService {
   private tagDefinitionBuilder: TagDefinitionBuilder;
   private spfModuleDefinitionBuilder: SpfModuleDefinitionBuilder;
   private driverModuleDefinitionBuilder: DriverModuleDefinitionBuilder;
+  private vcpmModuleDefinitionBuilder: VcpmModuleDefinitionBuilder;
   private subgraphBuilder: SubgraphBuilder;
   private containerBuilder: ContainerBuilder;
   private spfModuleBuilder: SpfModuleBuilder;
@@ -146,6 +151,11 @@ export class EntityBuilderService {
       this.logger,
     );
     this.driverModuleDefinitionBuilder = new DriverModuleDefinitionBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
+      this.logger,
+    );
+    this.vcpmModuleDefinitionBuilder = new VcpmModuleDefinitionBuilder(
       this.idGenerator,
       this.foreignKeyMapper,
       this.logger,
@@ -229,6 +239,20 @@ export class EntityBuilderService {
       subgraphs,
       fileSystemId,
     );
+
+    // Attach VCPM data to subgraphs that have voice calibration entries
+    if (result.entities.length > 0) {
+      const calibrationDataBuilder = new CalibrationDataBuilder(
+        this.idGenerator,
+        this.logger,
+      );
+      await calibrationDataBuilder.attachVcpmDataToSubgraphs(
+        parsedAcdb,
+        this.foreignKeyMapper,
+        result.entities,
+        fileSystemId,
+      );
+    }
 
     this.logger?.logInfo({
       msg: `Successfully built ${result.entities.length} subgraphs from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
@@ -680,9 +704,13 @@ export class EntityBuilderService {
     );
 
     // Build domain usecases with system IDs assigned
+    const gkvAliasChunk = parsedAcdb.getChunk<GkvAliasChunk>(
+      PARSED_CHUNK_TYPES.GKV_ALIAS_DATA,
+    );
     const usecases = await usecaseBuilder.buildUsecases(
       usecaseChunk.usecases,
       fileSystemId,
+      gkvAliasChunk,
     );
 
     this.logger?.logInfo({
@@ -1057,6 +1085,44 @@ export class EntityBuilderService {
     this.logger?.logInfo({
       msg: `Successfully built ${result.successCount} driver module definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
       action: 'awsp_driver_module_definitions_complete',
+      component: 'EntityBuilderService',
+      tag: 'awsp-processing',
+      timestamp: new Date(),
+    });
+
+    return result;
+  }
+
+  /**
+   * Build VCPM module definitions from AWSP data with system IDs assigned
+   * @param parsedAwsp - Parsed AWSP data
+   * @param fileSystemId - File system ID for the module definitions
+   */
+  async buildVcpmModuleDefinitions(
+    parsedAwsp: ParsedAwsp,
+    fileSystemId: number,
+  ): Promise<BuildResult<VcpmModuleDefinition>> {
+    const awspModuleDefinitions = parsedAwsp.getVcpmModuleDefinitions();
+
+    if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
+      return {
+        entities: [],
+        issues: [],
+        successCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      };
+    }
+
+    const result =
+      await this.vcpmModuleDefinitionBuilder.buildVcpmModuleDefinitions(
+        awspModuleDefinitions,
+        fileSystemId,
+      );
+
+    this.logger?.logInfo({
+      msg: `Successfully built ${result.successCount} VCPM module definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      action: 'awsp_vcpm_module_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
       timestamp: new Date(),

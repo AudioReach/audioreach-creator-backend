@@ -54,6 +54,9 @@ export const ACDB_RAW_CHUNK_TYPES = {
   // Module manager and boot-up loading chunks (binary - from file)
   MODULE_MANAGER: 'MODM',
   BOOTUP_LOADING: 'BTUP',
+
+  // GKV alias chunk (binary - from file)
+  GKV_ALIAS: 'GALS',
 } as const;
 
 /**
@@ -89,6 +92,7 @@ export const PARSED_CHUNK_TYPES = {
   DRIVER_CALIBRATION_DATA: 'DRIVER_CALIBRATION_DATA',
   MODULE_MANAGER: 'MODULE_MANAGER',
   BOOTUP_LOADING: 'BOOTUP_LOADING',
+  GKV_ALIAS_DATA: 'GKV_ALIAS_DATA',
 } as const;
 
 /**
