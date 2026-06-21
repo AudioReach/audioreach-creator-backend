@@ -5,7 +5,7 @@
 
 import {EndPointLink} from '../../utils/index.js';
 import {SpfModuleDto} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
-import {CreateSpfModuleRequest} from '../../../modules/spf-module/dto/request/spf-module-request.dto.js';
+import {CreateSpfModuleRequestDto} from '../../../modules/spf-module/dto/request/spf-module-request.dto.js';
 
 /**
  * Example provider for CreateSpfModuleRequestExample
@@ -14,7 +14,7 @@ export const CreateSpfModuleRequestExample = {
   /**
    * Returns an example CreateSpfModuleRequest object
    */
-  getExample(): CreateSpfModuleRequest {
+  getExample(): CreateSpfModuleRequestDto {
     return {
       moduleSystemId: 135_266_313,
       procSystemId: 2,

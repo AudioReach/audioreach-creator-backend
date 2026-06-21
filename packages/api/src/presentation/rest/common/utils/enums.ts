@@ -13,31 +13,6 @@ export const PROPERTY_TYPE = {
 
 export type PROPERTY_TYPE = (typeof PROPERTY_TYPE)[keyof typeof PROPERTY_TYPE];
 
-export const SubgraphScenarioType = {
-  /**
-   * For subgraphs configured to run in audio scenarios
-   */
-  Audio: 'Audio',
-  /**
-   * For subgraphs configured to run in voice scenarios
-   */
-  Voice: 'Voice',
-} as const;
-
-export type SubgraphScenarioType =
-  (typeof SubgraphScenarioType)[keyof typeof SubgraphScenarioType];
-
-export const SubgraphDeviceType = {
-  Stream: 'Stream',
-  Device: 'Device',
-  Stream_Device: 'Stream_Device',
-  Stream_PP: 'Stream_PP',
-  Device_PP: 'Device_PP',
-} as const;
-
-export type SubgraphDeviceType =
-  (typeof SubgraphDeviceType)[keyof typeof SubgraphDeviceType];
-
 export const SharedType = {
   None: 'None',
   Exported: 'Exported',

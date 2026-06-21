@@ -8,6 +8,8 @@ import {
   Post,
   Get,
   Put,
+  Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -21,8 +23,8 @@ import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {SpfModuleDto} from './dto/shared/spf-module.dto.js';
 import {CalDataDto} from '../../common/dto/tuning-data/cal-data.dto.js';
-import {UpdateSpfModuleCalDataRequest} from './dto/request/update-spf-module-cal-data-request.dto.js';
-import {UpdateSpfModuleTagDataRequest} from './dto/request/update-spf-module-tag-data-request.dto.js';
+import {UpdateSpfModuleCalDataRequestDto} from './dto/request/update-spf-module-cal-data-request.dto.js';
+import {UpdateSpfModuleTagDataRequestDto} from './dto/request/update-spf-module-tag-data-request.dto.js';
 import {TagDataDto} from '../../common/dto/tuning-data/tag-data.dto.js';
 import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
@@ -30,9 +32,20 @@ import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/el
 import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
-  CreateSpfModuleRequest,
-  CloneSpfModuleRequest,
+  CreateSpfModuleRequestDto,
+  CloneSpfModuleRequestDto,
+  CreateCkvsRequestDto,
+  DeleteCkvsRequestDto,
+  CreateTagsRequestDto,
+  DeleteTagsRequestDto,
+  CreateTkvsRequestDto,
+  DeleteTkvsRequestDto,
+  CreateCkvParametersRequestDto,
+  DeleteCkvParametersRequestDto,
+  CreateTkvParametersRequestDto,
+  RemoveTkvParametersRequestDto,
 } from './dto/request/spf-module-request.dto.js';
+import {PatchSpfModuleRequestDto} from './dto/request/patch-spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {
@@ -79,8 +92,16 @@ import {DISPLAY_TYPE} from '../../common/dto/element-data/elements/config-elemen
 import {KeyValueDto, KeyDto, ValueDto} from '../../common/dto/key-value.dto.js';
 import {CkvDto, TkvDto, TagInfoDto} from './dto/shared/tuning-config.dto.js';
 import {KeyValueInfo, KeyInfo, ValueInfo} from '../../common/dto/kv.dto.js';
-
 type ElementDtoUnion = ConfigElementDto | ElementTemplateArrayDto | StructDto;
+import {
+  AddCkvsResponseDto,
+  CkvParameterRemovalResponseDto,
+  CkvParametersResponseDto,
+  RemoveSpfModuleResponseDto,
+  TkvParameterItem,
+  TkvParameterRemovalResponseDto,
+  TkvParametersResponseDto,
+} from './dto/response/spf-module-response.dto.js';
 
 /**
  * Controller to support all module related APIs for usecase design
@@ -98,15 +119,36 @@ type ElementDtoUnion = ConfigElementDto | ElementTemplateArrayDto | StructDto;
 @ApiExtraModels(
   SpfModuleDto,
   CalDataDto,
-  UpdateSpfModuleCalDataRequest,
+  UpdateSpfModuleCalDataRequestDto,
   TagDataDto,
-  UpdateSpfModuleTagDataRequest,
+  UpdateSpfModuleTagDataRequestDto,
   ParameterDetailDto,
   ConfigElementDto,
   ElementTemplateArrayDto,
   StructDto,
-  CreateSpfModuleRequest,
-  CloneSpfModuleRequest,
+  CreateSpfModuleRequestDto,
+  CloneSpfModuleRequestDto,
+  CreateCkvsRequestDto,
+  DeleteCkvsRequestDto,
+  CreateTagsRequestDto,
+  DeleteTagsRequestDto,
+  CreateTkvsRequestDto,
+  DeleteTkvsRequestDto,
+  CreateCkvParametersRequestDto,
+  DeleteCkvParametersRequestDto,
+  CreateTkvParametersRequestDto,
+  RemoveTkvParametersRequestDto,
+  PatchSpfModuleRequestDto,
+  CkvDto,
+  TagInfoDto,
+  TkvDto,
+  CkvParametersResponseDto,
+  TkvParametersResponseDto,
+  CkvParameterRemovalResponseDto,
+  TkvParameterRemovalResponseDto,
+  TkvParameterItem,
+  AddCkvsResponseDto,
+  RemoveSpfModuleResponseDto,
 )
 export class SpfModuleController extends BaseController {
   constructor(private readonly queryBus: QueryBus) {
@@ -225,7 +267,7 @@ export class SpfModuleController extends BaseController {
       '- `tagData`: Tag data array with TKVs (if not provided, creates default tag data)\n\n' +
       '**Auto-Creation Logic:**\n' +
       'When subgraphId or containerId are not provided, the system automatically creates them with default configurations.',
-    requestDto: CreateSpfModuleRequest,
+    requestDto: CreateSpfModuleRequestDto,
     requestDtoExample: {
       className: 'CreateSpfModuleRequestExample',
     },
@@ -255,7 +297,7 @@ export class SpfModuleController extends BaseController {
   })
   async addSpfModule(
     @Param('projectId') projectId: string,
-    @Body() request: CreateSpfModuleRequest,
+    @Body() request: CreateSpfModuleRequestDto,
   ): Promise<ApiResult<SpfModuleDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
@@ -398,7 +440,7 @@ export class SpfModuleController extends BaseController {
       'Returns the updated calibration data in the same format as the GET endpoint.\n\n' +
       '**Batch Updates:**\n' +
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.',
-    requestDto: UpdateSpfModuleCalDataRequest,
+    requestDto: UpdateSpfModuleCalDataRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -427,7 +469,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
-    @Body() updateRequest: UpdateSpfModuleCalDataRequest,
+    @Body() updateRequest: UpdateSpfModuleCalDataRequestDto,
   ): Promise<ApiResult<CalDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
@@ -593,7 +635,7 @@ export class SpfModuleController extends BaseController {
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.\n\n' +
       '**Tag-Specific Updates:**\n' +
       'Updates are scoped to the specific tag context identified by tagSystemId and tkvSystemId.',
-    requestDto: UpdateSpfModuleTagDataRequest,
+    requestDto: UpdateSpfModuleTagDataRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -624,7 +666,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
-    @Body() updateRequest: UpdateSpfModuleTagDataRequest,
+    @Body() updateRequest: UpdateSpfModuleTagDataRequestDto,
   ): Promise<ApiResult<TagDataDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
@@ -673,7 +715,6 @@ export class SpfModuleController extends BaseController {
     dto.maxControlPortsSupported = m.maxControlPortsSupported;
     dto.dataPorts = m.dataPorts.map(p => this.mapDataPortToDto(p));
     dto.controlPorts = m.controlPorts.map(p => this.mapControlPortToDto(p));
-    dto.changeInfo = undefined;
 
     if (ckvsResult?.kind === RESULT_KIND.Ok)
       dto.ckvs = ckvsResult.data.map(c => this.mapCkvToDto(c));
@@ -760,7 +801,6 @@ export class SpfModuleController extends BaseController {
   private transformToCalDataDto(model: CkvCalibrationReadModel): CalDataDto {
     const dto = new CalDataDto();
     dto.systemId = model.ckv.systemId.toString();
-    dto.changeInfo = undefined;
     dto.Ckv = model.ckv.keyValuePairs.map(kv => {
       const kvDto = new KeyValueDto();
       const keyDto = new KeyDto();
@@ -784,7 +824,6 @@ export class SpfModuleController extends BaseController {
   ): ParameterDetailDto {
     const dto = new ParameterDetailDto();
     dto.systemId = p.systemId.toString();
-    dto.changeInfo = undefined;
     dto.parameterId = p.parameterId.toString();
     dto.name = p.name;
     dto.description = p.description;
@@ -955,5 +994,740 @@ export class SpfModuleController extends BaseController {
     dto.template = [this.transformSchema(schema.template)];
     dto.value = [];
     return dto;
+  }
+
+  /**
+   * Partially update SPF module properties.
+   */
+  @Patch('/:spfModuleSystemId')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Partially update SPF module properties',
+    description:
+      'Partially updates an SPF module. Only provided fields are updated; absent fields remain unchanged.\n\n' +
+      '**Patchable Fields:**\n' +
+      '- `alias`: Module alias (max 255 characters)\n' +
+      '- `containerId`: Container ID. If the ID does not exist, a new container is created with defaults copied from the current container\n' +
+      '- `maxInputPortsSupported`: Maximum input ports (validated against module definition)\n' +
+      '- `maxOutputPortsSupported`: Maximum output ports (validated against module definition)\n' +
+      '- `maxControlPortsSupported`: Maximum control ports (validated against module definition)\n\n' +
+      '**Example Usage:**\n' +
+      '```\n' +
+      'PATCH /arc-api/v1/projects/proj123/spf-modules/12345\n' +
+      '{ "alias": "my-module" }\n' +
+      '```',
+    requestDto: PatchSpfModuleRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'SPF module updated successfully',
+        dto: SpfModuleDto,
+      },
+      {
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — some fields were updated but others failed (see issues array)',
+        dto: SpfModuleDto,
+      },
+      {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'No fields provided or invalid request data',
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description:
+          'Business rule violation (e.g., max ports exceeds module definition limit)',
+      },
+    ],
+  })
+  async patchSpfModule(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: PatchSpfModuleRequestDto,
+  ): Promise<ApiResult<SpfModuleDto>> {
+    if (!Object.values(request).some(v => v !== undefined)) {
+      throw new BadRequestException(
+        'At least one field must be provided to patch',
+      );
+    }
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Patching SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException('patchSpfModule is not implemented yet');
+  }
+
+  /**
+   * Add one or more CKVs to an SPF module.
+   * Creates calibration bins with default parameter payloads for all parameters supporting CALIBRATION.
+   * Returns the created CKVs and any CKVs implicitly removed as a side effect (e.g. zero placeholder).
+   */
+  @Post('/:spfModuleSystemId/ckvs')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Add CKVs to an SPF module',
+    requestDto: CreateCkvsRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'CKVs added successfully',
+        dto: AddCkvsResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to add CKVs',
+      },
+    ],
+  })
+  async addCkvs(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: CreateCkvsRequestDto,
+  ): Promise<ApiResult<AddCkvsResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Adding CKVs to SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Add CKVs functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Remove one or more CKVs from an SPF module.
+   * Returns the removed CKVs for undo/redo support.
+   */
+  @Delete('/:spfModuleSystemId/ckvs')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Remove CKVs from an SPF module',
+    requestDto: DeleteCkvsRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'CKVs removed successfully',
+        dto: [CkvDto],
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to remove CKVs',
+      },
+    ],
+  })
+  async removeCkvs(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: DeleteCkvsRequestDto,
+  ): Promise<ApiResult<CkvDto[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Removing CKVs from SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Remove CKVs functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Add (associate) one or more tags to an SPF module.
+   * Creates module_tag_id_map entries linking the module to existing tag definitions.
+   */
+  @Post('/:spfModuleSystemId/tags')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Add tags to an SPF module',
+    requestDto: CreateTagsRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Tags added successfully',
+        dto: [TagInfoDto],
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to add tags',
+      },
+    ],
+  })
+  async addTags(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: CreateTagsRequestDto,
+  ): Promise<ApiResult<TagInfoDto[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Adding tags to SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Add tags functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Remove (disassociate) one or more tags from an SPF module.
+   * Returns the removed tags for undo/redo support.
+   */
+  @Delete('/:spfModuleSystemId/tags')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Remove tags from an SPF module',
+    requestDto: DeleteTagsRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Tags removed successfully',
+        dto: [TagInfoDto],
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to remove tags',
+      },
+    ],
+  })
+  async removeTags(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: DeleteTagsRequestDto,
+  ): Promise<ApiResult<TagInfoDto[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Removing tags from SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Remove tags functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Add one or more TKVs to a specific tag.
+   * Creates tag bins with parameter payloads.
+   */
+  @Post('/:spfModuleSystemId/tags/:tagSystemId/tkvs')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiParam({
+    name: 'tagSystemId',
+    required: true,
+    type: String,
+    description: 'Tag system ID (module_tag_id_map system ID)',
+    example: '201',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Add TKVs to a tag on an SPF module',
+    requestDto: CreateTkvsRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'TKVs added successfully',
+        dto: [TkvDto],
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project, SPF module, or tag not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to add TKVs',
+      },
+    ],
+  })
+  async addTkvs(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Param('tagSystemId') tagSystemId: string,
+    @Body() request: CreateTkvsRequestDto,
+  ): Promise<ApiResult<TkvDto[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Adding TKVs to tag:',
+      tagSystemId,
+      'in SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Add TKVs functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Remove one or more TKVs from a tag.
+   * Returns the removed TKVs for undo/redo support.
+   */
+  @Delete('/:spfModuleSystemId/tags/:tagSystemId/tkvs')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiParam({
+    name: 'tagSystemId',
+    required: true,
+    type: String,
+    description: 'Tag system ID (module_tag_id_map system ID)',
+    example: '201',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Remove TKVs from a tag on an SPF module',
+    requestDto: DeleteTkvsRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'TKVs removed successfully',
+        dto: [TkvDto],
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project, SPF module, or tag not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to remove TKVs',
+      },
+    ],
+  })
+  async removeTkvs(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Param('tagSystemId') tagSystemId: string,
+    @Body() request: DeleteTkvsRequestDto,
+  ): Promise<ApiResult<TkvDto[]>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Removing TKVs from tag:',
+      tagSystemId,
+      'in SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Remove TKVs functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Get list of parameters that support CALIBRATION for this module.
+   */
+  @Get('/:spfModuleSystemId/ckv-parameters')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get parameters that support calibration for an SPF module',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'CKV parameters retrieved successfully',
+        dto: CkvParametersResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get CKV parameters',
+      },
+    ],
+  })
+  async getCkvParameters(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+  ): Promise<ApiResult<CkvParametersResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Getting CKV parameters for SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+    );
+    throw new NotImplementedException(
+      'Get CKV parameters functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Add parameter(s) to ALL CKVs in the module.
+   * Creates parameter payloads for all existing CKVs.
+   */
+  @Post('/:spfModuleSystemId/ckv-parameters')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Add parameters to all CKVs in an SPF module',
+    requestDto: CreateCkvParametersRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'CKV parameters added successfully',
+        dto: CkvParametersResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to add CKV parameters',
+      },
+    ],
+  })
+  async addCkvParameters(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: CreateCkvParametersRequestDto,
+  ): Promise<ApiResult<CkvParametersResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Adding CKV parameters to SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Add CKV parameters functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Remove parameter(s) from ALL CKVs in the module.
+   * Returns information about removed parameters and affected CKVs for undo/redo support.
+   */
+  @Delete('/:spfModuleSystemId/ckv-parameters')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Remove parameters from all CKVs in an SPF module',
+    requestDto: DeleteCkvParametersRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'CKV parameters removed successfully',
+        dto: CkvParameterRemovalResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to remove CKV parameters',
+      },
+    ],
+  })
+  async removeCkvParameters(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: DeleteCkvParametersRequestDto,
+  ): Promise<ApiResult<CkvParameterRemovalResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Removing CKV parameters from SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Remove CKV parameters functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Get parameters per TKV (dictionary format).
+   * Returns a mapping of TKV system IDs to their supported parameter lists.
+   */
+  @Get('/:spfModuleSystemId/tkv-parameters')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get parameters per TKV for an SPF module',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'TKV parameters retrieved successfully',
+        dto: TkvParametersResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to get TKV parameters',
+      },
+    ],
+  })
+  async getTkvParameters(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+  ): Promise<ApiResult<TkvParametersResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Getting TKV parameters for SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+    );
+    throw new NotImplementedException(
+      'Get TKV parameters functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Add parameter(s) to specific TKV(s).
+   * Creates parameter payloads for the specified TKVs.
+   */
+  @Post('/:spfModuleSystemId/tkv-parameters')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Add parameters to specific TKVs in an SPF module',
+    requestDto: CreateTkvParametersRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'TKV parameters added successfully',
+        dto: TkvParametersResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to add TKV parameters',
+      },
+    ],
+  })
+  async addTkvParameters(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: CreateTkvParametersRequestDto,
+  ): Promise<ApiResult<TkvParametersResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Adding TKV parameters to SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Add TKV parameters functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Remove parameter(s) from specific TKV(s).
+   * Returns information about removed parameters per TKV for undo/redo support.
+   */
+  @Delete('/:spfModuleSystemId/tkv-parameters')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Remove parameters from specific TKVs in an SPF module',
+    requestDto: RemoveTkvParametersRequestDto,
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'TKV parameters removed successfully',
+        dto: TkvParameterRemovalResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to remove TKV parameters',
+      },
+    ],
+  })
+  async removeTkvParameters(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Body() request: RemoveTkvParametersRequestDto,
+  ): Promise<ApiResult<TkvParameterRemovalResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Removing TKV parameters from SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+      'with request:',
+      request,
+    );
+    throw new NotImplementedException(
+      'Remove TKV parameters functionality is not implemented yet.',
+    );
+  }
+
+  /**
+   * Delete an SPF module.
+   * Returns the deleted module system ID and any container or subgraph that was
+   * cascade-deleted because this was the last module in its container.
+   */
+  @Delete('/:spfModuleSystemId')
+  @ApiParam({
+    name: 'spfModuleSystemId',
+    required: true,
+    type: String,
+    description: 'System id of an SPF module',
+    example: '12345',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Delete an SPF module',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'SPF module deleted successfully',
+        dto: RemoveSpfModuleResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or SPF module not found',
+      },
+      {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Failed to delete SPF module',
+      },
+    ],
+  })
+  async deleteSpfModule(
+    @Param('projectId') projectId: string,
+    @Param('spfModuleSystemId') spfModuleSystemId: string,
+  ): Promise<ApiResult<RemoveSpfModuleResponseDto>> {
+    await Promise.resolve(); // Placeholder to satisfy linter
+    console.log(
+      'Deleting SPF module:',
+      spfModuleSystemId,
+      'in project:',
+      projectId,
+    );
+    throw new NotImplementedException(
+      'Delete SPF module functionality is not implemented yet.',
+    );
   }
 }
