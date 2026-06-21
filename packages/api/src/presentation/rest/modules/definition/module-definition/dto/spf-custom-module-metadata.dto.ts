@@ -4,7 +4,6 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ChangeInfoDto} from '../../../../common/dto/base.dto.js';
 import {NameValueDto} from '../../../../common/dto/name-value.dto.js';
 
 /**
@@ -22,12 +21,6 @@ export class SpfCustomModuleInterfaceDto {
  * DTO for custom SPF module metadata (instance-specific values).
  */
 export class SpfCustomModuleMetadataDto {
-  @ApiProperty({
-    description: 'Change information for this resource',
-    type: ChangeInfoDto,
-  })
-  changeInfo!: ChangeInfoDto;
-
   @ApiProperty({description: 'Module type', type: NameValueDto})
   type!: NameValueDto;
 

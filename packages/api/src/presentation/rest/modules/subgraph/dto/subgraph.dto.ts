@@ -7,11 +7,7 @@ import {ApiProperty} from '@nestjs/swagger';
 import {IsNotEmpty, IsOptional, IsNumber} from 'class-validator';
 import {BaseComponentDto, PropertyDto} from '../../../common/dto/index.js';
 import {KeyValuePairsInfo} from '../../../common/dto/kv.dto.js';
-import {
-  SubgraphScenarioType,
-  SubgraphDeviceType,
-  SharedType,
-} from '../../../common/utils/index.js';
+import {SharedType} from '../../../common/utils/index.js';
 
 /**
  * DTO for subgraph properties
@@ -30,20 +26,6 @@ export class SubgraphPropertiesDto {
 
 export class SubgraphDto extends BaseComponentDto<number> {
   @ApiProperty({
-    description: 'Subgraph scenario type',
-    enum: SubgraphScenarioType,
-    default: SubgraphScenarioType.Audio,
-  })
-  scenarioType: SubgraphScenarioType = SubgraphScenarioType.Audio;
-
-  @ApiProperty({
-    description: 'Subgraph device type',
-    enum: SubgraphDeviceType,
-    default: SubgraphDeviceType.Stream,
-  })
-  deviceType: SubgraphDeviceType = SubgraphDeviceType.Stream;
-
-  @ApiProperty({
     description: 'Subgraph shared type',
     enum: SharedType,
     default: SharedType.None,
@@ -56,8 +38,8 @@ export class SubgraphDto extends BaseComponentDto<number> {
   })
   SGKV: KeyValuePairsInfo[] = [];
 
-  constructor(sysemId: string, id: number) {
-    super(sysemId, id);
+  constructor(systemId: string, id: number) {
+    super(systemId, id);
   }
 }
 

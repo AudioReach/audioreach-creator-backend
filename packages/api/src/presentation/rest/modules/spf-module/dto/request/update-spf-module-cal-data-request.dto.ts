@@ -9,7 +9,7 @@ import {ParameterDetailDto} from '../../../../common/dto/parameter.dto.js';
 /**
  * Request DTO for updating SPF module calibration data - supports multiple parameters
  */
-export class UpdateSpfModuleCalDataRequest {
+export class UpdateSpfModuleCalDataRequestDto {
   @ApiProperty({
     description: 'Array of calibration data updates for multiple parameters',
     type: [ParameterDetailDto],

@@ -150,7 +150,6 @@ export class ContainerController extends BaseController {
   private mapToContainerDto(c: ContainerReadModel): ContainerDto {
     const dto = new ContainerDto(String(c.systemId), c.containerId);
     dto.name = c.type;
-    dto.changeInfo = undefined;
     return dto;
   }
 }

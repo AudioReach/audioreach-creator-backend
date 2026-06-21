@@ -4302,15 +4302,15 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: CreateSpfModuleRequest",
+          "description": "Request body parameter type: CreateSpfModuleRequestDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateSpfModuleRequest"
+                "$ref": "#/components/schemas/CreateSpfModuleRequestDto"
               },
               "examples": {
                 "default": {
-                  "summary": "Example CreateSpfModuleRequest",
+                  "summary": "Example CreateSpfModuleRequestDto",
                   "value": {
                     "moduleSystemId": 135266313,
                     "procSystemId": 2,
@@ -4507,11 +4507,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdateSpfModuleCalDataRequest",
+          "description": "Request body parameter type: UpdateSpfModuleCalDataRequestDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateSpfModuleCalDataRequest"
+                "$ref": "#/components/schemas/UpdateSpfModuleCalDataRequestDto"
               }
             }
           }
@@ -4697,11 +4697,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdateSpfModuleTagDataRequest",
+          "description": "Request body parameter type: UpdateSpfModuleTagDataRequestDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateSpfModuleTagDataRequest"
+                "$ref": "#/components/schemas/UpdateSpfModuleTagDataRequestDto"
               }
             }
           }
@@ -4742,6 +4742,1011 @@
           }
         },
         "summary": "Update tag data for an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}": {
+      "patch": {
+        "description": "Partially updates an SPF module. Only provided fields are updated; absent fields remain unchanged.\n\n**Patchable Fields:**\n- `alias`: Module alias (max 255 characters)\n- `containerId`: Container ID. If the ID does not exist, a new container is created with defaults copied from the current container\n- `maxInputPortsSupported`: Maximum input ports (validated against module definition)\n- `maxOutputPortsSupported`: Maximum output ports (validated against module definition)\n- `maxControlPortsSupported`: Maximum control ports (validated against module definition)\n\n**Example Usage:**\n```\nPATCH /arc-api/v1/projects/proj123/spf-modules/12345\n{ \"alias\": \"my-module\" }\n```",
+        "operationId": "SpfModuleController_patchSpfModule",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: PatchSpfModuleRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSpfModuleRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SPF module updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SpfModuleDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some fields were updated but others failed (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SpfModuleDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No fields provided or invalid request data"
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Business rule violation (e.g., max ports exceeds module definition limit)"
+          }
+        },
+        "summary": "Partially update SPF module properties",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "delete": {
+        "operationId": "SpfModuleController_deleteSpfModule",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SPF module deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RemoveSpfModuleResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to delete SPF module"
+          }
+        },
+        "summary": "Delete an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/ckvs": {
+      "post": {
+        "operationId": "SpfModuleController_addCkvs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateCkvsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCkvsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CKVs added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AddCkvsResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to add CKVs"
+          }
+        },
+        "summary": "Add CKVs to an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "delete": {
+        "operationId": "SpfModuleController_removeCkvs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: DeleteCkvsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteCkvsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CKVs removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CkvDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to remove CKVs"
+          }
+        },
+        "summary": "Remove CKVs from an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/tags": {
+      "post": {
+        "operationId": "SpfModuleController_addTags",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateTagsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTagsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tags added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TagInfoDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to add tags"
+          }
+        },
+        "summary": "Add tags to an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "delete": {
+        "operationId": "SpfModuleController_removeTags",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: DeleteTagsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteTagsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tags removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TagInfoDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to remove tags"
+          }
+        },
+        "summary": "Remove tags from an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/tags/{tagSystemId}/tkvs": {
+      "post": {
+        "operationId": "SpfModuleController_addTkvs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSystemId",
+            "required": true,
+            "in": "path",
+            "description": "Tag system ID (module_tag_id_map system ID)",
+            "schema": {
+              "example": "201",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateTkvsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTkvsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TKVs added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TkvDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project, SPF module, or tag not found"
+          },
+          "422": {
+            "description": "Failed to add TKVs"
+          }
+        },
+        "summary": "Add TKVs to a tag on an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "delete": {
+        "operationId": "SpfModuleController_removeTkvs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSystemId",
+            "required": true,
+            "in": "path",
+            "description": "Tag system ID (module_tag_id_map system ID)",
+            "schema": {
+              "example": "201",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: DeleteTkvsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteTkvsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TKVs removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TkvDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project, SPF module, or tag not found"
+          },
+          "422": {
+            "description": "Failed to remove TKVs"
+          }
+        },
+        "summary": "Remove TKVs from a tag on an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/ckv-parameters": {
+      "get": {
+        "operationId": "SpfModuleController_getCkvParameters",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CKV parameters retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CkvParametersResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to get CKV parameters"
+          }
+        },
+        "summary": "Get parameters that support calibration for an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "post": {
+        "operationId": "SpfModuleController_addCkvParameters",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateCkvParametersRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCkvParametersRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CKV parameters added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CkvParametersResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to add CKV parameters"
+          }
+        },
+        "summary": "Add parameters to all CKVs in an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "delete": {
+        "operationId": "SpfModuleController_removeCkvParameters",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: DeleteCkvParametersRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteCkvParametersRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CKV parameters removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CkvParameterRemovalResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to remove CKV parameters"
+          }
+        },
+        "summary": "Remove parameters from all CKVs in an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/spf-modules/{spfModuleSystemId}/tkv-parameters": {
+      "get": {
+        "operationId": "SpfModuleController_getTkvParameters",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TKV parameters retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TkvParametersResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to get TKV parameters"
+          }
+        },
+        "summary": "Get parameters per TKV for an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "post": {
+        "operationId": "SpfModuleController_addTkvParameters",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateTkvParametersRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTkvParametersRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TKV parameters added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TkvParametersResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to add TKV parameters"
+          }
+        },
+        "summary": "Add parameters to specific TKVs in an SPF module",
+        "tags": [
+          "spf-modules"
+        ]
+      },
+      "delete": {
+        "operationId": "SpfModuleController_removeTkvParameters",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "spfModuleSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of an SPF module",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: RemoveTkvParametersRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveTkvParametersRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TKV parameters removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TkvParameterRemovalResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or SPF module not found"
+          },
+          "422": {
+            "description": "Failed to remove TKV parameters"
+          }
+        },
+        "summary": "Remove parameters from specific TKVs in an SPF module",
         "tags": [
           "spf-modules"
         ]
@@ -6662,36 +7667,6 @@
           "oemInfo"
         ]
       },
-      "ChangeInfoDto": {
-        "type": "object",
-        "properties": {
-          "changeType": {
-            "type": "string",
-            "description": "Type of change operation applied to this resource",
-            "enum": [
-              "NONE",
-              "CREATE",
-              "UPDATE",
-              "DELETE"
-            ]
-          },
-          "changeId": {
-            "type": "string",
-            "description": "Identifier of the change set this resource belongs to. Present only when changeType is not None."
-          },
-          "changeStatus": {
-            "type": "string",
-            "description": "Change status of this resource. Present only when changeType is not None.",
-            "enum": [
-              "STAGED",
-              "UNSTAGED"
-            ]
-          }
-        },
-        "required": [
-          "changeType"
-        ]
-      },
       "KeyInfo": {
         "type": "object",
         "properties": {
@@ -6786,14 +7761,6 @@
       "UsecaseIdentifierDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System identifier of the usecase"
@@ -6835,7 +7802,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "keyValueCollection",
           "usecaseType"
@@ -8074,19 +9040,7 @@
       },
       "DeleteSpfCustomModuleMetadataResponseDto": {
         "type": "object",
-        "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "changeInfo"
-        ]
+        "properties": {}
       },
       "DataTypeDto": {
         "type": "object",
@@ -8181,14 +9135,6 @@
       "SpfCustomModuleMetadataResponseDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "type": {
             "description": "Module type",
             "allOf": [
@@ -8215,7 +9161,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "type",
           "interface",
           "fileName",
@@ -8225,14 +9170,6 @@
       "SpfCustomModuleMetadataDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "type": {
             "description": "Module type",
             "allOf": [
@@ -8259,7 +9196,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "type",
           "interface",
           "fileName",
@@ -8872,14 +9808,6 @@
       "UsecaseDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System identifier of the usecase"
@@ -8921,7 +9849,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "keyValueCollection",
           "usecaseType"
@@ -8969,14 +9896,6 @@
       "BaseComponentDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -8998,7 +9917,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
@@ -9064,14 +9982,6 @@
       "DataPortDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -9113,7 +10023,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
@@ -9143,14 +10052,6 @@
       "ControlPortDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -9191,7 +10092,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
@@ -9369,14 +10269,6 @@
       "SpfModuleDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -9465,7 +10357,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
@@ -9484,14 +10375,6 @@
       "DataLinkDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -9547,7 +10430,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
@@ -9563,14 +10445,6 @@
       "ControlLinkDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -9626,7 +10500,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
@@ -9642,14 +10515,6 @@
       "SubsystemDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -9704,7 +10569,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
@@ -9935,14 +10799,6 @@
       "UsecaseCategorySummaryDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the usecase category"
@@ -9953,7 +10809,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "name"
         ]
@@ -9961,14 +10816,6 @@
       "UsecaseResponseDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the usecase"
@@ -10007,7 +10854,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "gkv",
           "aliasInfo",
@@ -10035,14 +10881,6 @@
       "UsecaseSummaryDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the usecase"
@@ -10065,7 +10903,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "gkv",
           "aliasInfo"
@@ -10074,14 +10911,6 @@
       "UsecaseCategoryResponseDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the usecase category"
@@ -10099,7 +10928,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "name",
           "usecases"
@@ -10108,14 +10936,6 @@
       "DeleteUsecaseCategoryResponseDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the usecase category"
@@ -10126,7 +10946,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "name"
         ]
@@ -10184,14 +11003,6 @@
       "KeyValuePairsDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the key-value pair collection"
@@ -10205,7 +11016,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "keyValuePairs"
         ]
@@ -10213,14 +11023,6 @@
       "ParameterSummaryDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique identifier for the system containing this parameter"
@@ -10235,7 +11037,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "parameterId",
           "name"
@@ -10268,14 +11069,6 @@
       "DriverModuleResponseDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the module instance"
@@ -10307,7 +11100,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "moduleDefinitionId",
           "name"
@@ -10316,14 +11108,6 @@
       "ParameterDetailDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique identifier for the system containing this parameter"
@@ -10388,7 +11172,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "parameterId",
           "name",
@@ -10398,14 +11181,6 @@
       "DriverModuleCalDataResponseDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the ckv"
@@ -10426,7 +11201,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "Ckv",
           "parameters"
@@ -10757,14 +11531,6 @@
       "CalDataDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the ckv"
@@ -10785,13 +11551,12 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "Ckv",
           "parameters"
         ]
       },
-      "UpdateSpfModuleCalDataRequest": {
+      "UpdateSpfModuleCalDataRequestDto": {
         "type": "object",
         "properties": {
           "data": {
@@ -10809,14 +11574,6 @@
       "TagDataDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "Unique system identifier for the tkv"
@@ -10837,13 +11594,12 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "Tkv",
           "parameters"
         ]
       },
-      "UpdateSpfModuleTagDataRequest": {
+      "UpdateSpfModuleTagDataRequestDto": {
         "type": "object",
         "properties": {
           "data": {
@@ -10858,7 +11614,7 @@
           "data"
         ]
       },
-      "CreateSpfModuleRequest": {
+      "CreateSpfModuleRequestDto": {
         "type": "object",
         "properties": {
           "moduleSystemId": {
@@ -10887,7 +11643,7 @@
           "procSystemId"
         ]
       },
-      "CloneSpfModuleRequest": {
+      "CloneSpfModuleRequestDto": {
         "type": "object",
         "properties": {
           "referenceModuleSystemId": {
@@ -10909,6 +11665,379 @@
         },
         "required": [
           "referenceModuleSystemId"
+        ]
+      },
+      "CreateCkvRequestItem": {
+        "type": "object",
+        "properties": {
+          "valueSystemIds": {
+            "description": "Array of value system IDs that identify this calibration bin (key-value pairs)",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "valueSystemIds"
+        ]
+      },
+      "CreateCkvsRequestDto": {
+        "type": "object",
+        "properties": {
+          "ckvs": {
+            "description": "Array of CKV creation items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateCkvRequestItem"
+            }
+          }
+        },
+        "required": [
+          "ckvs"
+        ]
+      },
+      "DeleteCkvsRequestDto": {
+        "type": "object",
+        "properties": {
+          "ckvSystemIds": {
+            "description": "Array of CKV system IDs to remove",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ckvSystemIds"
+        ]
+      },
+      "CreateTagsRequestDto": {
+        "type": "object",
+        "properties": {
+          "tagDefinitionSystemIds": {
+            "description": "Array of tag definition system IDs to associate with module",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "tagDefinitionSystemIds"
+        ]
+      },
+      "DeleteTagsRequestDto": {
+        "type": "object",
+        "properties": {
+          "tagSystemIds": {
+            "description": "Array of tag system IDs (module_tag_id_map system IDs) to remove",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "tagSystemIds"
+        ]
+      },
+      "CreateTkvRequestItem": {
+        "type": "object",
+        "properties": {
+          "valueSystemIds": {
+            "description": "Array of value system IDs that identify this tag bin (key-value pairs)",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "parameterSystemIds": {
+            "description": "Array of parameter system IDs for this TKV.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "valueSystemIds",
+          "parameterSystemIds"
+        ]
+      },
+      "CreateTkvsRequestDto": {
+        "type": "object",
+        "properties": {
+          "tkvs": {
+            "description": "Array of TKV creation items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateTkvRequestItem"
+            }
+          }
+        },
+        "required": [
+          "tkvs"
+        ]
+      },
+      "DeleteTkvsRequestDto": {
+        "type": "object",
+        "properties": {
+          "tkvSystemIds": {
+            "description": "Array of TKV system IDs to remove",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "tkvSystemIds"
+        ]
+      },
+      "CreateCkvParametersRequestDto": {
+        "type": "object",
+        "properties": {
+          "parameterSystemIds": {
+            "description": "Array of parameter system IDs to add to all CKVs in the module",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "parameterSystemIds"
+        ]
+      },
+      "DeleteCkvParametersRequestDto": {
+        "type": "object",
+        "properties": {
+          "parameterSystemIds": {
+            "description": "Array of parameter system IDs to remove from all CKVs in the module",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "parameterSystemIds"
+        ]
+      },
+      "TkvParameterItem": {
+        "type": "object",
+        "properties": {
+          "tkvSystemId": {
+            "type": "string",
+            "description": "TKV system ID"
+          },
+          "parameters": {
+            "description": "Parameters supported by this TKV",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamInfo"
+            }
+          }
+        },
+        "required": [
+          "tkvSystemId",
+          "parameters"
+        ]
+      },
+      "CreateTkvParametersRequestDto": {
+        "type": "object",
+        "properties": {
+          "updates": {
+            "description": "Array of TKV parameter updates",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TkvParameterItem"
+            }
+          }
+        },
+        "required": [
+          "updates"
+        ]
+      },
+      "RemoveTkvParametersRequestDto": {
+        "type": "object",
+        "properties": {
+          "updates": {
+            "description": "Array of TKV parameter updates",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TkvParameterItem"
+            }
+          }
+        },
+        "required": [
+          "updates"
+        ]
+      },
+      "PatchSpfModuleRequestDto": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string",
+            "description": "Module alias. Max 255 characters.",
+            "maxLength": 255
+          },
+          "containerId": {
+            "type": "number",
+            "description": "Container ID. If the ID does not exist, a new container will be created with default properties copied from the current container."
+          },
+          "maxInputPortsSupported": {
+            "type": "number",
+            "description": "Maximum number of input ports supported. Validated against module definition limits."
+          },
+          "maxOutputPortsSupported": {
+            "type": "number",
+            "description": "Maximum number of output ports supported. Validated against module definition limits."
+          },
+          "maxControlPortsSupported": {
+            "type": "number",
+            "description": "Maximum number of control ports supported. Validated against module definition limits."
+          }
+        }
+      },
+      "CkvParametersResponseDto": {
+        "type": "object",
+        "properties": {
+          "parameters": {
+            "description": "Array of parameters that support CALIBRATION for this module",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParamInfo"
+            }
+          }
+        },
+        "required": [
+          "parameters"
+        ]
+      },
+      "TkvParametersResponseDto": {
+        "type": "object",
+        "properties": {
+          "tkvParameters": {
+            "description": "List of TKV system IDs with their supported parameter lists",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TkvParameterItem"
+            }
+          }
+        },
+        "required": [
+          "tkvParameters"
+        ]
+      },
+      "CkvParameterRemovalResponseDto": {
+        "type": "object",
+        "properties": {
+          "removedParameterSystemIds": {
+            "description": "Array of parameter system IDs that were removed",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "removedCkvSystemIds": {
+            "description": "Array of CKV system IDs that were deleted because their last parameter was removed. Empty array if no CKVs were deleted.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "affectedCkvSystemIds": {
+            "description": "Array of CKV system IDs that still exist but had the parameter stripped from them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "removedParameterSystemIds",
+          "removedCkvSystemIds",
+          "affectedCkvSystemIds"
+        ]
+      },
+      "TkvParameterRemovalItem": {
+        "type": "object",
+        "properties": {
+          "tkvSystemId": {
+            "type": "string",
+            "description": "TKV system ID that was updated"
+          },
+          "removedParameterSystemIds": {
+            "description": "Array of parameter system IDs that were removed from this TKV",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "tkvSystemId",
+          "removedParameterSystemIds"
+        ]
+      },
+      "TkvParameterRemovalResponseDto": {
+        "type": "object",
+        "properties": {
+          "updates": {
+            "description": "Array of TKV parameter removal results",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TkvParameterRemovalItem"
+            }
+          }
+        },
+        "required": [
+          "updates"
+        ]
+      },
+      "AddCkvsResponseDto": {
+        "type": "object",
+        "properties": {
+          "addedCkvs": {
+            "description": "Array of CKVs that were created",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CkvDto"
+            }
+          },
+          "removedCkvSystemIds": {
+            "description": "Array of CKV system IDs that were implicitly removed as a side effect (e.g. zero placeholder CKV). Empty array if no CKVs were removed.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "addedCkvs",
+          "removedCkvSystemIds"
+        ]
+      },
+      "RemoveSpfModuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "removedModuleSystemId": {
+            "type": "string",
+            "description": "System ID of the deleted SPF module"
+          },
+          "removedContainerSystemId": {
+            "type": "string",
+            "description": "System ID of the container that was cascade-deleted because this was its last module. Absent if the container still exists."
+          },
+          "removedSubgraphSystemId": {
+            "type": "string",
+            "description": "System ID of the subgraph that was cascade-deleted because this was its last module. Absent if the subgraph still exists."
+          }
+        },
+        "required": [
+          "removedModuleSystemId"
         ]
       },
       "KeyValuePairsInfo": {
@@ -10934,14 +12063,6 @@
       "SubgraphDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -10960,27 +12081,6 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
-          },
-          "scenarioType": {
-            "type": "string",
-            "description": "Subgraph scenario type",
-            "enum": [
-              "Audio",
-              "Voice"
-            ],
-            "default": "Audio"
-          },
-          "deviceType": {
-            "type": "string",
-            "description": "Subgraph device type",
-            "enum": [
-              "Stream",
-              "Device",
-              "Stream_Device",
-              "Stream_PP",
-              "Device_PP"
-            ],
-            "default": "Stream"
           },
           "subGraphSharedType": {
             "type": "string",
@@ -11001,13 +12101,10 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
           "relatedEndPointLinks",
-          "scenarioType",
-          "deviceType",
           "subGraphSharedType",
           "SGKV"
         ]
@@ -11034,14 +12131,6 @@
       "ContainerDto": {
         "type": "object",
         "properties": {
-          "changeInfo": {
-            "description": "Change information for this resource",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeInfoDto"
-              }
-            ]
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
@@ -11063,7 +12152,6 @@
           }
         },
         "required": [
-          "changeInfo",
           "systemId",
           "id",
           "name",
