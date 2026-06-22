@@ -37,6 +37,9 @@ export * from './application/ports/persistence/query-services/usecase/usecase-qu
 export * from './application/ports/persistence/query-services/usecase/query-models/index.js';
 export * from './application/ports/persistence/query-services/project/project-query-service.js';
 
+// Container query services and read models
+export * from './application/ports/persistence/query-services/container/container-query-service.js';
+
 // SPF module query services and read models
 export * from './application/ports/persistence/query-services/spf-module/spf-module-query-service.js';
 export * from './application/ports/persistence/query-services/spf-module/spf-module-read-model.js';
@@ -53,6 +56,10 @@ export * from './application/ports/persistence/query-services/spf-module-definit
 // SPF module query handlers
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.query.js';
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.handler.js';
+
+// Container use-case handlers
+export * from './application/usecase-designer/container/query/query-containers.query.js';
+export * from './application/usecase-designer/container/query/query-containers.handler.js';
 
 // Use case designer
 export * from './application/usecase-designer/index.js';

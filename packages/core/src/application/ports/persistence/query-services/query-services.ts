@@ -9,6 +9,7 @@ import type {ProjectQueryService} from './project/project-query-service.js';
 import type {ValidationQueryRepository} from '../repositories/validation/validation-query.repository.js';
 import type {BulkReadRepository} from '../repositories/bulk-read/bulk-read.repository.js';
 import type {SpfModuleQueryService} from './spf-module/spf-module-query-service.js';
+import type {ContainerQueryService} from './container/container-query-service.js';
 import type {SpfModuleDefinitionQueryService} from './spf-module-definition/spf-module-definition-query-service.js';
 
 export interface QueryServices {
@@ -20,4 +21,5 @@ export interface QueryServices {
   readonly bulkReadRepository: BulkReadRepository;
   readonly spfModuleQueryService: SpfModuleQueryService;
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
+  readonly containerQueryService: ContainerQueryService;
 }

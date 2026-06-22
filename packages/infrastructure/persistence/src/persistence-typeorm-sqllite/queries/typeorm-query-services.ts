@@ -12,6 +12,7 @@ import type {
   BulkReadRepository,
   SpfModuleQueryService,
   SpfModuleDefinitionQueryService,
+  ContainerQueryService,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
 import {DbUseCaseQueryService} from './usecase/index.js';
@@ -21,6 +22,7 @@ import {TypeOrmBulkReadRepository} from '../repositories/bulk-read/typeorm-bulk-
 import {EditActionsQueryService} from './edit-session/edit-actions-query-service.js';
 import {DbSpfModuleQueryService} from './spf-module/db-spf-module-query-service.js';
 import {DbSpfModuleDefinitionQueryService} from './spf-module-definition/db-spf-module-definition-query-service.js';
+import {DbContainerQueryService} from './container/db-container-query-service.js';
 
 // Database implementation of ModuleQueryService
 class DbModuleQueryService implements ModuleQueryService {
@@ -35,6 +37,7 @@ export class DbQueryServices implements QueryServices {
   readonly bulkReadRepository: BulkReadRepository;
   readonly spfModuleQueryService: SpfModuleQueryService;
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
+  readonly containerQueryService: ContainerQueryService;
 
   constructor(dataSource: DataSource) {
     const editActionsQueryService = new EditActionsQueryService(dataSource);
@@ -58,6 +61,11 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
       this.spfModuleDefinitionQueryService,
+    );
+
+    this.containerQueryService = new DbContainerQueryService(
+      dataSource,
+      editActionsQueryService,
     );
   }
 }

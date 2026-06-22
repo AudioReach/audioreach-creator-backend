@@ -12,6 +12,7 @@ import {
   UseGuards,
   HttpStatus,
   HttpException,
+  HttpCode,
 } from '@nestjs/common';
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -20,10 +21,14 @@ import {ContainerDto, ContainerPropertiesDto} from './dto/container.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {
+  QueryBus,
+  QueryContainersQuery,
+  type ContainerReadModel,
+} from '@arc/core';
 
 /**
- * Controller to support all container related APIs for usecase design.
- * Provides container related APIs for usecase design.
+ * Controller for container query APIs.
  */
 @ApiTags('containers')
 @Controller('arc-api/v1/projects/:projectId/containers')
@@ -35,57 +40,81 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
   example: '12345',
 })
 export class ContainerController extends BaseController {
-  constructor() {
+  constructor(private readonly queryBus: QueryBus) {
     super();
   }
 
-  /**
-   * Query containers.
-   */
   @Post('query')
+  @HttpCode(HttpStatus.OK)
   @ApiDocumentationWithExample({
     summary: 'Query containers for provided systemIds',
     requestDto: SystemIdsRequestDto,
-
+    requestDtoDescription: 'List of container system IDs',
     responses: [
+      {status: HttpStatus.OK, description: 'Success', dto: [ContainerDto]},
       {
-        status: HttpStatus.OK,
-        description: 'Success',
-        dto: [ContainerDto],
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid or empty systemIds',
       },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Some container(s) are not found',
-      },
+      {status: HttpStatus.NOT_FOUND, description: 'Project not found'},
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get container(s)',
+        description: 'Failed to retrieve containers',
       },
     ],
   })
   async queryContainers(
     @Param('projectId') projectId: string,
-    @Body() request: SystemIdsRequestDto,
+    @Body() body: SystemIdsRequestDto,
   ): Promise<ApiResult<ContainerDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting containers in project ${projectId}: ${JSON.stringify(request)}`,
-    );
-    throw new HttpException(
-      'Containers retrieval functionality is not implemented yet.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    try {
+      if (!body?.systemIds?.length) {
+        throw new HttpException(
+          'systemIds array is required and cannot be empty',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const systemIds = body.systemIds.map(id => {
+        const parsed = Number.parseInt(id, 10);
+        if (Number.isNaN(parsed)) {
+          throw new HttpException(
+            `Invalid container system ID: ${id}`,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return parsed;
+      });
+
+      const query = new QueryContainersQuery(
+        systemIds,
+        Number(projectId),
+        'client-id',
+      );
+
+      const containers =
+        await this.queryBus.execute<ContainerReadModel[]>(query);
+
+      return {
+        data: containers.map(c => this.mapToContainerDto(c)),
+        success: true,
+        message: 'Containers retrieved successfully',
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        'Failed to retrieve containers',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
   }
 
-  /**
-   * Get all property data for a container.
-   */
   @Get('/:containerSystemId/properties')
   @ApiParam({
     name: 'containerSystemId',
     required: true,
     type: String,
-    description: 'System id of a container',
+    description: 'System ID of the container',
   })
   @ApiDocumentationWithExample({
     summary: 'Get all property data for a container',
@@ -96,26 +125,30 @@ export class ContainerController extends BaseController {
         dto: ContainerPropertiesDto,
       },
       {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Container is not found',
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid containerSystemId',
       },
+      {status: HttpStatus.NOT_FOUND, description: 'Container not found'},
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get container properties',
+        description: 'Failed to retrieve properties',
       },
     ],
   })
   async getContainerProperties(
-    @Param('projectId') projectId: string,
-    @Param('containerSystemId') containerSystemId: string,
+    @Param('projectId') _projectId: string,
+    @Param('containerSystemId') _containerSystemId: string,
   ): Promise<ApiResult<ContainerPropertiesDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting properties in project ${projectId} for container ${containerSystemId}`,
-    );
+    await Promise.resolve();
     throw new HttpException(
-      'Container properties retrieval functionality is not implemented yet.',
+      'Container properties retrieval is not implemented yet.',
       HttpStatus.NOT_IMPLEMENTED,
     );
+  }
+
+  // ── Private mappers ────────────────────────────────────────────────────────
+
+  private mapToContainerDto(c: ContainerReadModel): ContainerDto {
+    return new ContainerDto(String(c.systemId), c.containerId, c.type);
   }
 }

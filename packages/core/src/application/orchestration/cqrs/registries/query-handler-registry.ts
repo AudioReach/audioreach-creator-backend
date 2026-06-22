@@ -10,6 +10,8 @@ import {GetModuleCompactHandler} from '../../../usecase-designer/spf-module/get/
 import {GetModuleCompactQuery} from '../../../usecase-designer/spf-module/get/get-module-compact.query.js';
 import {QuerySpfModulesHandler} from '../../../usecase-designer/spf-module/query/query-spf-modules.handler.js';
 import {QuerySpfModulesQuery} from '../../../usecase-designer/spf-module/query/query-spf-modules.query.js';
+import {QueryContainersHandler} from '../../../usecase-designer/container/query/query-containers.handler.js';
+import {QueryContainersQuery} from '../../../usecase-designer/container/query/query-containers.query.js';
 import {GetAllUseCasesHandler} from '../../../usecase-designer/usecase/get-all/get-all-usecases.handler.js';
 import {GetAllUseCasesQuery} from '../../../usecase-designer/usecase/get-all/get-all-usecases.query.js';
 import {GetComponentsHandler} from '../../../usecase-designer/usecase/get-components/get-components.handler.js';
@@ -73,6 +75,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(QuerySpfModulesQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new QuerySpfModulesHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(QueryContainersQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new QueryContainersHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetAllUseCasesQuery, {
