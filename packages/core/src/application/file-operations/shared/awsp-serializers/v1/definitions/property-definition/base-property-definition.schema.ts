@@ -5,12 +5,13 @@
 
 import {z} from 'zod';
 import {BaseElementSchema} from '../common/base-element.schema.js';
+import {PositiveHexIdSchema} from '../common/hex-id.schema.js';
 
 /**
  * Zod schema for BasePropertyDefinition
  */
 export const BasePropertyDefinitionSchema = z.object({
-  id: z.number().int().positive(),
+  id: PositiveHexIdSchema,
   name: z.string().min(1),
   description: z.string().optional(),
   maxSize: z.number().int().nonnegative().optional(),

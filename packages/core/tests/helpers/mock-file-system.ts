@@ -30,7 +30,11 @@ export function createMockFileSystem(): jest.Mocked<FileSystemPort> {
     basename: jest.fn(),
     deleteDirectory: jest.fn(),
     unzip: jest.fn(),
-    zipToBuffer: jest.fn(),
+    zipToBuffer: jest
+      .fn<() => Promise<Uint8Array>>()
+      .mockResolvedValue(
+        new Uint8Array([0x50, 0x4b, 0x05, 0x06, ...new Array(18).fill(0)]),
+      ),
   };
 }
 

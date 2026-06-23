@@ -176,7 +176,7 @@ describe('TagDataBuilder', () => {
 
       const awspTagDefinition = {
         id: TAG_ID,
-        supportedKeys: [{id: VALUE_KEY_ID}],
+        keys: [{id: VALUE_KEY_ID}],
       };
 
       let idCounter = 1000;

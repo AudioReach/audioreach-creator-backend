@@ -5,6 +5,7 @@
 
 import {z} from 'zod';
 import {BaseElementSchema} from '../../common/base-element.schema.js';
+import {HexIdSchema} from '../../common/hex-id.schema.js';
 
 /**
  * Schema for tool policy values
@@ -30,11 +31,25 @@ const AwspDefinitionElementSchema = BaseElementSchema;
 /**
  * Schema for AWSP parameter definition.
  * Validates parameter metadata including ID, name, tool policies, and elements.
+ * toolPolicies accepts both the object form [{value: 'Calibration'}] used in
+ * JSON workspace files and the plain string form ['Calibration'] used in
+ * class serialization / round-trip.
  */
 export const AwspParamDefinitionSchema = z.object({
-  id: z.number(),
+  id: HexIdSchema,
   name: z.string(),
-  toolPolicies: z.array(AwspToolPolicySchema),
+  toolPolicies: z
+    .preprocess(
+      arr =>
+        Array.isArray(arr)
+          ? arr.map(item =>
+              typeof item === 'string' ? item : (item as {value: string}).value,
+            )
+          : arr,
+      z.array(AwspToolPolicySchema),
+    )
+    .optional()
+    .default([]),
   pidType: AwspPidTypeSchema,
   elements: z.array(AwspDefinitionElementSchema).optional(),
   description: z.string().optional(),

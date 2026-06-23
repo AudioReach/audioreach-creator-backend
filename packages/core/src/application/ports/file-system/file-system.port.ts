@@ -26,6 +26,9 @@ export interface FileSystemPort {
 
   unzip(zipFilePath: string, outputDir: string): Promise<void>;
 
+  /** Unzip a ZIP buffer (in memory) into a directory. */
+  unzipBuffer(data: Uint8Array, outputDir: string): Promise<void>;
+
   /**
    * Create a ZIP archive from files and return as buffer.
    * @param files - Map of filename to file content (string or Uint8Array)

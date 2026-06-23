@@ -5,15 +5,16 @@
 
 import {z} from 'zod';
 import {BasePropertyDefinitionSchema} from './base-property-definition.schema.js';
+import {PositiveHexIdSchema} from '../common/hex-id.schema.js';
 
 /**
  * Zod schema for SpfPropertyDefinition
  * Extends BasePropertyDefinition with SPF-specific fields
  */
 export const SpfPropertyDefinitionSchema = BasePropertyDefinitionSchema.extend({
-  categoryId: z.number().int().positive(),
+  categoryId: PositiveHexIdSchema,
   categoryName: z.string().min(1),
-  apmModuleInstanceId: z.number().int().positive(),
+  apmModuleInstanceId: PositiveHexIdSchema,
   isVoice: z.boolean().optional(),
 });
 

@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {AwspParser} from './awsp-parser.js';
+import {AwspParser, AwspUnsupportedVersionError} from './awsp-parser.js';
+import {z} from 'zod';
 import {
   FILE_NAMES,
   FILE_EXTENSIONS,
@@ -180,6 +181,14 @@ export class AwspFileOrchestrator {
         timestamp: new Date(),
       });
 
+      if (error instanceof AwspUnsupportedVersionError) {
+        throw error;
+      }
+      if (error instanceof z.ZodError) {
+        throw new Error(
+          `Failed to parse ${FILE_EXTENSIONS.AWSP} file: configuration.json: ${AwspParser.formatZodError(error)}`,
+        );
+      }
       if (error instanceof Error) {
         throw new Error(
           `Failed to parse ${FILE_EXTENSIONS.AWSP} file: ${error.message}`,
@@ -209,7 +218,8 @@ export class AwspFileOrchestrator {
   }
 
   /**
-   * Unzip .awsp file to a folder in the same directory
+   * Unzip .awsp file to a folder in the same directory.
+   * Reads the binary envelope (magic + header + ZIP payload) before extracting.
    * @param awspFilePath - Path to the .awsp file
    * @returns Promise resolving to the path of the unzipped folder
    */
@@ -221,19 +231,32 @@ export class AwspFileOrchestrator {
         throw new Error(`File not found: ${awspFilePath}`);
       }
 
-      // Get the directory and filename without extension
+      // Read the entire .awsp file
+      const fileRef: PathRef = {
+        kind: 'path',
+        name: awspFilePath,
+        uri: awspFilePath,
+        mimeType: 'application/octet-stream',
+      };
+      const fileBytes = await this.fs.readAll(fileRef);
+
+      // Parse binary envelope to extract the ZIP payload
+      const {zipData} = this.definitionParser.parseEnvelope(fileBytes);
+
+      // Determine output folder path
       const fileDir = this.fs.dirname(awspFilePath);
       const fileName = this.fs.basename(awspFilePath, FILE_EXTENSIONS.AWSP);
-
-      // Create folder name (e.g., if file is "project.awsp", folder will be "project_unzipped")
       const unzippedFolderName = `${fileName}_unzipped`;
       const unzippedFolderPath = this.fs.joinPath(fileDir, unzippedFolderName);
 
-      // Use platform-specific unzip implementation
-      await this.fs.unzip(awspFilePath, unzippedFolderPath);
+      // Extract ZIP payload into the output folder
+      await this.fs.unzipBuffer(zipData, unzippedFolderPath);
 
       return unzippedFolderPath;
     } catch (error) {
+      if (error instanceof AwspUnsupportedVersionError) {
+        throw error;
+      }
       if (error instanceof Error) {
         throw new Error(
           `Failed to unzip ${FILE_EXTENSIONS.AWSP} file: ${error.message}`,

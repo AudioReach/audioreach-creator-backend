@@ -20,9 +20,9 @@ describe('AwspParser', () => {
               name: 'test-module',
               description: 'Test module',
               moduleId: 0x12345,
-              supportedProcessorIds: [1, 2],
-              supportedContainerTypes: [1],
-              paramDefinitions: [],
+              processors: [1, 2],
+              containerTypes: [1],
+              parameters: [],
             },
           ],
         },
@@ -42,7 +42,7 @@ describe('AwspParser', () => {
       // Verify data is correct
       expect(spfModules?.[0]?.id).toBe(1);
       expect(spfModules?.[0]?.name).toBe('test-module');
-      expect(spfModules?.[0]?.supportedProcessorIds).toEqual([1, 2]);
+      expect(spfModules?.[0]?.processors).toEqual([1, 2]);
     });
 
     it('should return class instances for key definitions', () => {

@@ -5,12 +5,10 @@
 
 import {describe, it, expect} from '@jest/globals';
 import {
-  Metadata,
-  BufferSize,
   ProcessorConfig,
-  RtcConfiguration,
+  RtcConfig,
   AlsaGroup,
-  AlsaLibConfiguration,
+  AlsaLibConfig,
   ConfigurationData,
   Configuration,
 } from '../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/configuration/configuration.js';
@@ -20,21 +18,19 @@ describe('Configuration Classes - Nested Object Hydration', () => {
     const testData = {
       name: 'ADSP',
       id: 2,
-      bufferSize: {
-        pidSize: 8192,
-        rtcSize: 2097152,
-        isEnabled: true,
-      },
+      pidSize: 8192,
+      rtcSize: 2097152,
+      isEnabled: true,
     };
 
-    it('should create proper class instances for nested objects', () => {
+    it('should create proper class instances', () => {
       const instance = ProcessorConfig.fromJSON(testData);
 
       expect(instance).toBeInstanceOf(ProcessorConfig);
       expect(typeof instance.toJSON).toBe('function');
-
-      expect(instance.bufferSize).toBeInstanceOf(BufferSize);
-      expect(typeof instance.bufferSize.toJSON).toBe('function');
+      expect(instance.pidSize).toBe(8192);
+      expect(instance.rtcSize).toBe(2097152);
+      expect(instance.isEnabled).toBe(true);
     });
 
     it('should support round-trip serialization', () => {
@@ -42,126 +38,94 @@ describe('Configuration Classes - Nested Object Hydration', () => {
       const serialized = instance.toJSON();
       const deserialized = ProcessorConfig.fromJSON(serialized);
 
+      expect(deserialized).toBeInstanceOf(ProcessorConfig);
       expect(deserialized.name).toBe(instance.name);
-      expect(deserialized.bufferSize).toBeInstanceOf(BufferSize);
-      expect(typeof deserialized.bufferSize.toJSON).toBe('function');
+      expect(deserialized.id).toBe(instance.id);
     });
   });
 
-  describe('RtcConfiguration', () => {
+  describe('RtcConfig', () => {
     const testData = {
       processors: [
-        {
-          name: 'ADSP',
-          id: 2,
-          bufferSize: {
-            pidSize: 8192,
-            rtcSize: 2097152,
-            isEnabled: true,
-          },
-        },
+        {name: 'ADSP', id: 2, pidSize: 8192, rtcSize: 2097152, isEnabled: true},
         {
           name: 'CDSP',
           id: 3,
-          bufferSize: {
-            pidSize: 4096,
-            rtcSize: 1048576,
-            isEnabled: false,
-          },
+          pidSize: 4096,
+          rtcSize: 1048576,
+          isEnabled: false,
         },
       ],
     };
 
     it('should create proper class instances for nested objects', () => {
-      const instance = RtcConfiguration.fromJSON(testData);
+      const instance = RtcConfig.fromJSON(testData);
 
-      expect(instance).toBeInstanceOf(RtcConfiguration);
+      expect(instance).toBeInstanceOf(RtcConfig);
       expect(typeof instance.toJSON).toBe('function');
-
       expect(Array.isArray(instance.processors)).toBe(true);
       expect(instance.processors).toHaveLength(2);
       expect(instance.processors[0]).toBeInstanceOf(ProcessorConfig);
-      expect(typeof instance.processors[0].toJSON).toBe('function');
-      expect(instance.processors[0].bufferSize).toBeInstanceOf(BufferSize);
     });
 
     it('should support round-trip serialization', () => {
-      const instance = RtcConfiguration.fromJSON(testData);
+      const instance = RtcConfig.fromJSON(testData);
       const serialized = instance.toJSON();
-      const deserialized = RtcConfiguration.fromJSON(serialized);
+      const deserialized = RtcConfig.fromJSON(serialized);
 
       expect(deserialized.processors[0]).toBeInstanceOf(ProcessorConfig);
-      expect(deserialized.processors[0].bufferSize).toBeInstanceOf(BufferSize);
     });
   });
 
-  describe('AlsaLibConfiguration', () => {
+  describe('AlsaLibConfig', () => {
     const testData = {
       includeTlvHeader: true,
-      fileType: 'Bin',
+      fileType: 'BIN',
       groups: [
-        {
-          id: 1,
-          name: 'Group 1',
-          propertyIds: [1, 4],
-        },
-        {
-          id: 2,
-          name: 'Group 2',
-          propertyIds: [2, 5, 8],
-        },
+        {id: 1, name: 'Group 1', properties: [{id: 1}, {id: 4}]},
+        {id: 2, name: 'Group 2', properties: [{id: 2}, {id: 5}, {id: 8}]},
       ],
     };
 
     it('should create proper class instances for nested objects', () => {
-      const instance = AlsaLibConfiguration.fromJSON(testData);
+      const instance = AlsaLibConfig.fromJSON(testData);
 
-      expect(instance).toBeInstanceOf(AlsaLibConfiguration);
+      expect(instance).toBeInstanceOf(AlsaLibConfig);
       expect(typeof instance.toJSON).toBe('function');
-
       expect(Array.isArray(instance.groups)).toBe(true);
       expect(instance.groups).toHaveLength(2);
       expect(instance.groups[0]).toBeInstanceOf(AlsaGroup);
-      expect(typeof instance.groups[0].toJSON).toBe('function');
+      expect(instance.groups[0].properties).toEqual([{id: 1}, {id: 4}]);
     });
 
     it('should support round-trip serialization', () => {
-      const instance = AlsaLibConfiguration.fromJSON(testData);
+      const instance = AlsaLibConfig.fromJSON(testData);
       const serialized = instance.toJSON();
-      const deserialized = AlsaLibConfiguration.fromJSON(serialized);
+      const deserialized = AlsaLibConfig.fromJSON(serialized);
 
       expect(deserialized.groups[0]).toBeInstanceOf(AlsaGroup);
-      expect(typeof deserialized.groups[0].toJSON).toBe('function');
     });
   });
 
   describe('ConfigurationData', () => {
     const testData = {
-      portStrategy: 'INPUT_ODD_OUTPUT_EVEN',
-      defaultProcessorDomain: 'ADSP',
-      rtcConfiguration: {
+      portStrategy: 'INPUT_EVEN_OUTPUT_ODD',
+      defaultProcessorDomain: 2,
+      rtc: {
         processors: [
           {
             name: 'ADSP',
             id: 2,
-            bufferSize: {
-              pidSize: 8192,
-              rtcSize: 2097152,
-              isEnabled: true,
-            },
+            pidSize: 8192,
+            rtcSize: 2097152,
+            isEnabled: true,
           },
         ],
       },
-      alsaLibConfiguration: {
+      alsaLib: {
         includeTlvHeader: true,
-        fileType: 'Bin',
-        groups: [
-          {
-            id: 1,
-            name: 'Group 1',
-            propertyIds: [1, 4],
-          },
-        ],
+        fileType: 'BIN',
+        groups: [{id: 1, name: 'Group 1', properties: [{id: 1}, {id: 4}]}],
       },
     };
 
@@ -170,18 +134,10 @@ describe('Configuration Classes - Nested Object Hydration', () => {
 
       expect(instance).toBeInstanceOf(ConfigurationData);
       expect(typeof instance.toJSON).toBe('function');
-
-      expect(instance.rtcConfiguration).toBeInstanceOf(RtcConfiguration);
-      expect(typeof instance.rtcConfiguration.toJSON).toBe('function');
-      expect(instance.rtcConfiguration.processors[0]).toBeInstanceOf(
-        ProcessorConfig,
-      );
-
-      expect(instance.alsaLibConfiguration).toBeInstanceOf(
-        AlsaLibConfiguration,
-      );
-      expect(typeof instance.alsaLibConfiguration.toJSON).toBe('function');
-      expect(instance.alsaLibConfiguration.groups[0]).toBeInstanceOf(AlsaGroup);
+      expect(instance.rtc).toBeInstanceOf(RtcConfig);
+      expect(instance.rtc.processors[0]).toBeInstanceOf(ProcessorConfig);
+      expect(instance.alsaLib).toBeInstanceOf(AlsaLibConfig);
+      expect(instance.alsaLib.groups[0]).toBeInstanceOf(AlsaGroup);
     });
 
     it('should support round-trip serialization', () => {
@@ -189,47 +145,30 @@ describe('Configuration Classes - Nested Object Hydration', () => {
       const serialized = instance.toJSON();
       const deserialized = ConfigurationData.fromJSON(serialized);
 
-      expect(deserialized.rtcConfiguration).toBeInstanceOf(RtcConfiguration);
-      expect(deserialized.alsaLibConfiguration).toBeInstanceOf(
-        AlsaLibConfiguration,
-      );
+      expect(deserialized.rtc).toBeInstanceOf(RtcConfig);
+      expect(deserialized.alsaLib).toBeInstanceOf(AlsaLibConfig);
     });
   });
 
   describe('Configuration', () => {
     const testData = {
-      $version: 1,
-      $metadata: {
-        lastModified: '2026-02-03T04:06:17Z',
-        generator: 'QwspConverter-1.0.0',
+      portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
+      defaultProcessorDomain: {id: '0x2'},
+      rtc: {
+        processors: [
+          {
+            name: 'ADSP',
+            id: '0x2',
+            pidSize: 8192,
+            rtcSize: 2097152,
+            isEnabled: true,
+          },
+        ],
       },
-      configuration: {
-        portStrategy: 'INPUT_ODD_OUTPUT_EVEN',
-        defaultProcessorDomain: 'ADSP',
-        rtcConfiguration: {
-          processors: [
-            {
-              name: 'ADSP',
-              id: 2,
-              bufferSize: {
-                pidSize: 8192,
-                rtcSize: 2097152,
-                isEnabled: true,
-              },
-            },
-          ],
-        },
-        alsaLibConfiguration: {
-          includeTlvHeader: true,
-          fileType: 'Bin',
-          groups: [
-            {
-              id: 1,
-              name: 'Group 1',
-              propertyIds: [1, 4],
-            },
-          ],
-        },
+      alsaLib: {
+        includeTlvHeader: true,
+        fileType: 'BIN',
+        groups: [{id: 1, name: 'Group 1', properties: [{id: 1}, {id: 4}]}],
       },
     };
 
@@ -238,30 +177,21 @@ describe('Configuration Classes - Nested Object Hydration', () => {
 
       expect(instance).toBeInstanceOf(Configuration);
       expect(typeof instance.toJSON).toBe('function');
-
-      expect(instance.metadata).toBeInstanceOf(Metadata);
-      expect(typeof instance.metadata.toJSON).toBe('function');
-
       expect(instance.configuration).toBeInstanceOf(ConfigurationData);
-      expect(typeof instance.configuration.toJSON).toBe('function');
-      expect(instance.configuration.rtcConfiguration).toBeInstanceOf(
-        RtcConfiguration,
-      );
-      expect(instance.configuration.alsaLibConfiguration).toBeInstanceOf(
-        AlsaLibConfiguration,
-      );
+      expect(instance.configuration.rtc).toBeInstanceOf(RtcConfig);
+      expect(instance.configuration.alsaLib).toBeInstanceOf(AlsaLibConfig);
     });
 
-    it('should support round-trip serialization', () => {
+    it('should support round-trip serialization via ConfigurationData', () => {
       const instance = Configuration.fromJSON(testData);
       const serialized = instance.toJSON();
-      const deserialized = Configuration.fromJSON(serialized);
-
-      expect(deserialized.metadata).toBeInstanceOf(Metadata);
-      expect(deserialized.configuration).toBeInstanceOf(ConfigurationData);
-      expect(deserialized.configuration.rtcConfiguration).toBeInstanceOf(
-        RtcConfiguration,
+      // toJSON() emits normalized shape; ConfigurationData.fromJSON accepts it for round-trip
+      const deserialized = ConfigurationData.fromJSON(
+        (serialized as {configuration: unknown}).configuration,
       );
+
+      expect(deserialized).toBeInstanceOf(ConfigurationData);
+      expect(deserialized.rtc).toBeInstanceOf(RtcConfig);
     });
   });
 });

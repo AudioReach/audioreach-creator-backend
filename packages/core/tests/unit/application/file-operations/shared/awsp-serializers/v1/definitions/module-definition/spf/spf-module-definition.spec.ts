@@ -13,9 +13,9 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
   const testDataWithAllOptionals = {
     id: 1,
     name: 'TestModule',
-    supportedProcessorIds: [1, 2, 3],
-    supportedContainerTypes: [1, 2],
-    inputPortsInfo: {
+    processors: [1, 2, 3],
+    containerTypes: [1, 2],
+    inputPort: {
       maxPortCount: 2,
       ports: [
         {
@@ -28,7 +28,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
         },
       ],
     },
-    outputPortsInfo: {
+    outputPort: {
       maxPortCount: 1,
       ports: [
         {
@@ -37,7 +37,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
         },
       ],
     },
-    controlPortsInfo: {
+    controlPort: {
       staticPorts: [
         {
           id: 10,
@@ -82,20 +82,20 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       expect(typeof instance.toJSON).toBe('function');
 
       // Verify inputPortsInfo
-      expect(instance.inputPortsInfo).toBeInstanceOf(AwspDataPortsInfo);
-      expect(typeof instance.inputPortsInfo!.toJSON).toBe('function');
-      expect(instance.inputPortsInfo!.ports).toHaveLength(2);
+      expect(instance.inputPort).toBeInstanceOf(AwspDataPortsInfo);
+      expect(typeof instance.inputPort!.toJSON).toBe('function');
+      expect(instance.inputPort!.ports).toHaveLength(2);
 
       // Verify outputPortsInfo
-      expect(instance.outputPortsInfo).toBeInstanceOf(AwspDataPortsInfo);
-      expect(typeof instance.outputPortsInfo!.toJSON).toBe('function');
-      expect(instance.outputPortsInfo!.ports).toHaveLength(1);
+      expect(instance.outputPort).toBeInstanceOf(AwspDataPortsInfo);
+      expect(typeof instance.outputPort!.toJSON).toBe('function');
+      expect(instance.outputPort!.ports).toHaveLength(1);
 
       // Verify controlPortsInfo
-      expect(instance.controlPortsInfo).toBeInstanceOf(AwspControlPortsInfo);
-      expect(typeof instance.controlPortsInfo!.toJSON).toBe('function');
-      expect(instance.controlPortsInfo!.staticPorts).toHaveLength(1);
-      expect(instance.controlPortsInfo!.dynamicIntents).toHaveLength(1);
+      expect(instance.controlPort).toBeInstanceOf(AwspControlPortsInfo);
+      expect(typeof instance.controlPort!.toJSON).toBe('function');
+      expect(instance.controlPort!.staticPorts).toHaveLength(1);
+      expect(instance.controlPort!.dynamicIntents).toHaveLength(1);
 
       // Verify customModuleInfo
       expect(instance.customModuleInfo).toBeInstanceOf(AwspCustomModuleInfo);
@@ -114,14 +114,12 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       expect(deserialized.name).toBe(instance.name);
 
       // Verify nested objects are still class instances
-      expect(deserialized.inputPortsInfo).toBeInstanceOf(AwspDataPortsInfo);
-      expect(typeof deserialized.inputPortsInfo!.toJSON).toBe('function');
-      expect(deserialized.outputPortsInfo).toBeInstanceOf(AwspDataPortsInfo);
-      expect(typeof deserialized.outputPortsInfo!.toJSON).toBe('function');
-      expect(deserialized.controlPortsInfo).toBeInstanceOf(
-        AwspControlPortsInfo,
-      );
-      expect(typeof deserialized.controlPortsInfo!.toJSON).toBe('function');
+      expect(deserialized.inputPort).toBeInstanceOf(AwspDataPortsInfo);
+      expect(typeof deserialized.inputPort!.toJSON).toBe('function');
+      expect(deserialized.outputPort).toBeInstanceOf(AwspDataPortsInfo);
+      expect(typeof deserialized.outputPort!.toJSON).toBe('function');
+      expect(deserialized.controlPort).toBeInstanceOf(AwspControlPortsInfo);
+      expect(typeof deserialized.controlPort!.toJSON).toBe('function');
       expect(deserialized.customModuleInfo).toBeInstanceOf(
         AwspCustomModuleInfo,
       );
@@ -132,16 +130,16 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       const dataWithoutOptionals = {
         id: 1,
         name: 'MinimalModule',
-        supportedProcessorIds: [1],
-        supportedContainerTypes: [1],
+        processors: [1],
+        containerTypes: [1],
       };
 
       const instance = AwspSpfModuleDefinition.fromJSON(dataWithoutOptionals);
 
       expect(instance).toBeInstanceOf(AwspSpfModuleDefinition);
-      expect(instance.inputPortsInfo).toBeUndefined();
-      expect(instance.outputPortsInfo).toBeUndefined();
-      expect(instance.controlPortsInfo).toBeUndefined();
+      expect(instance.inputPort).toBeUndefined();
+      expect(instance.outputPort).toBeUndefined();
+      expect(instance.controlPort).toBeUndefined();
       expect(instance.customModuleInfo).toBeUndefined();
     });
 
@@ -149,9 +147,9 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       const dataWithSomeOptionals = {
         id: 1,
         name: 'PartialModule',
-        supportedProcessorIds: [1],
-        supportedContainerTypes: [1],
-        inputPortsInfo: {
+        processors: [1],
+        containerTypes: [1],
+        inputPort: {
           maxPortCount: 1,
           ports: [
             {
@@ -160,7 +158,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
             },
           ],
         },
-        controlPortsInfo: {
+        controlPort: {
           dynamicIntents: [
             {
               id: 200,
@@ -174,11 +172,11 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       const instance = AwspSpfModuleDefinition.fromJSON(dataWithSomeOptionals);
 
       expect(instance).toBeInstanceOf(AwspSpfModuleDefinition);
-      expect(instance.inputPortsInfo).toBeInstanceOf(AwspDataPortsInfo);
-      expect(typeof instance.inputPortsInfo!.toJSON).toBe('function');
-      expect(instance.outputPortsInfo).toBeUndefined();
-      expect(instance.controlPortsInfo).toBeInstanceOf(AwspControlPortsInfo);
-      expect(typeof instance.controlPortsInfo!.toJSON).toBe('function');
+      expect(instance.inputPort).toBeInstanceOf(AwspDataPortsInfo);
+      expect(typeof instance.inputPort!.toJSON).toBe('function');
+      expect(instance.outputPort).toBeUndefined();
+      expect(instance.controlPort).toBeInstanceOf(AwspControlPortsInfo);
+      expect(typeof instance.controlPort!.toJSON).toBe('function');
       expect(instance.customModuleInfo).toBeUndefined();
     });
   });

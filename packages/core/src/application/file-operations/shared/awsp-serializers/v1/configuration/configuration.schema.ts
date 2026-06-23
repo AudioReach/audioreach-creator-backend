@@ -4,100 +4,77 @@
  */
 
 import {z} from 'zod';
-import {
-  MODULE_PORT_STRATEGIES,
-  PROCESSOR_DOMAINS,
-  ALSA_FILE_TYPES,
-} from './types.js';
+import {MODULE_PORT_STRATEGIES, ALSA_FILE_TYPES} from './types.js';
+import {HexIdSchema} from '../definitions/common/hex-id.schema.js';
 
-/**
- * Schema for metadata information about the configuration file.
- */
-export const MetadataSchema = z.object({
-  lastModified: z.string(),
-  generator: z.string(),
-});
+// Field-level coercion schemas for wire-format wrapper objects
+const PortStrategySchema = z
+  .object({
+    strategy: z.enum([
+      MODULE_PORT_STRATEGIES.INPUT_EVEN_OUTPUT_ODD,
+      MODULE_PORT_STRATEGIES.SEQUENTIAL,
+    ] as [string, ...string[]]),
+  })
+  .transform(o => o.strategy);
 
-/**
- * Schema for buffer size configuration.
- */
-export const BufferSizeSchema = z.object({
+const ProcessorDomainIdSchema = z
+  .object({id: HexIdSchema})
+  .transform(o => o.id);
+
+// ─── Schemas (property names match wire format) ───────────────────────────────
+
+export const ProcessorConfigSchema = z.object({
+  name: z.string(),
+  id: HexIdSchema,
   pidSize: z.number(),
   rtcSize: z.number(),
   isEnabled: z.boolean(),
 });
 
-/**
- * Schema for processor configuration.
- */
-export const ProcessorConfigSchema = z.object({
-  name: z.string(),
-  id: z.number(),
-  bufferSize: BufferSizeSchema,
-});
-
-/**
- * Schema for RTC configuration.
- */
-export const RtcConfigurationSchema = z.object({
+export const RtcConfigSchema = z.object({
   processors: z.array(ProcessorConfigSchema),
 });
 
-/**
- * Schema for ALSA group.
- */
 export const AlsaGroupSchema = z.object({
   id: z.number(),
   name: z.string(),
-  propertyIds: z.array(z.number()),
+  properties: z.array(z.object({id: z.number()})),
 });
 
-/**
- * Schema for ALSA library configuration.
- */
-export const AlsaLibConfigurationSchema = z.object({
+export const AlsaLibConfigSchema = z.object({
   includeTlvHeader: z.boolean(),
-  fileType: z.enum([ALSA_FILE_TYPES.BIN, ALSA_FILE_TYPES.TEXT] as [
-    string,
-    ...string[],
-  ]),
+  fileType: z.preprocess(
+    val => (typeof val === 'string' ? val.toUpperCase() : val),
+    z.enum([ALSA_FILE_TYPES.BIN, ALSA_FILE_TYPES.TEXT] as [
+      string,
+      ...string[],
+    ]),
+  ),
   groups: z.array(AlsaGroupSchema),
 });
 
-/**
- * Schema for configuration data.
- */
-export const ConfigurationDataSchema = z.object({
-  portStrategy: z.enum([
-    MODULE_PORT_STRATEGIES.INPUT_ODD_OUTPUT_EVEN,
-    MODULE_PORT_STRATEGIES.SEQUENTIAL,
-  ] as [string, ...string[]]),
-  defaultProcessorDomain: z.enum([
-    PROCESSOR_DOMAINS.UNKNOWN,
-    PROCESSOR_DOMAINS.ADSP,
-    PROCESSOR_DOMAINS.MDSP,
-    PROCESSOR_DOMAINS.CDSP,
-    PROCESSOR_DOMAINS.SDSP,
-  ] as [string, ...string[]]),
-  rtcConfiguration: RtcConfigurationSchema,
-  alsaLibConfiguration: AlsaLibConfigurationSchema,
+// Parses wire format; field-level coercions only, no structural transform
+export const ConfigurationSchema = z.object({
+  portStrategy: PortStrategySchema,
+  defaultProcessorDomain: ProcessorDomainIdSchema,
+  rtc: RtcConfigSchema,
+  alsaLib: AlsaLibConfigSchema,
 });
 
-/**
- * Root configuration schema.
- */
-export const ConfigurationSchema = z.object({
-  $version: z.number(), //TODO: remove $
-  $metadata: MetadataSchema, //TODO: remove $
-  configuration: ConfigurationDataSchema,
+// Validates the normalized shape (output of ConfigurationSchema or class roundtrips)
+export const ConfigurationDataSchema = z.object({
+  portStrategy: z.enum([
+    MODULE_PORT_STRATEGIES.INPUT_EVEN_OUTPUT_ODD,
+    MODULE_PORT_STRATEGIES.SEQUENTIAL,
+  ] as [string, ...string[]]),
+  defaultProcessorDomain: z.number().int().nonnegative(),
+  rtc: RtcConfigSchema,
+  alsaLib: AlsaLibConfigSchema,
 });
 
 // Export inferred types
-export type Metadata = z.infer<typeof MetadataSchema>;
-export type BufferSize = z.infer<typeof BufferSizeSchema>;
 export type ProcessorConfig = z.infer<typeof ProcessorConfigSchema>;
-export type RtcConfiguration = z.infer<typeof RtcConfigurationSchema>;
+export type RtcConfig = z.infer<typeof RtcConfigSchema>;
 export type AlsaGroup = z.infer<typeof AlsaGroupSchema>;
-export type AlsaLibConfiguration = z.infer<typeof AlsaLibConfigurationSchema>;
+export type AlsaLibConfig = z.infer<typeof AlsaLibConfigSchema>;
 export type ConfigurationData = z.infer<typeof ConfigurationDataSchema>;
-export type Configuration = z.infer<typeof ConfigurationSchema>;

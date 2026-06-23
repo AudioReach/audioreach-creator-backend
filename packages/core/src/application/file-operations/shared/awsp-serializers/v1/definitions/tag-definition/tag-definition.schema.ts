@@ -5,19 +5,17 @@
 
 import {z} from 'zod';
 import {TagKeyDefinitionSchema} from './tag-key-definition.schema.js';
+import {PositiveHexIdSchema} from '../common/hex-id.schema.js';
 
-/**
- * Zod schema for TagDefinition
- * Includes nested TagKeyDefinition array
- */
 export const TagDefinitionSchema = z.object({
-  id: z.number().int().positive(),
+  id: PositiveHexIdSchema,
   name: z.string().min(1),
   description: z.string().optional(),
-  supportedKeys: z.array(TagKeyDefinitionSchema).optional(),
+  keys: z.array(TagKeyDefinitionSchema).optional(), // was: supportedKeys
   isVoice: z.boolean().optional(),
   enumName: z.string().optional(),
-  enumValue: z.string().optional(),
+  enumMember: z.string().optional(), // was: enumValue
+  isSPFTagKey: z.boolean().optional(),
 });
 
 export type TagDefinition = z.infer<typeof TagDefinitionSchema>;

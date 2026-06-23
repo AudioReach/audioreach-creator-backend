@@ -26,11 +26,15 @@ export class DriverModuleDefinition extends BaseModuleDefinition {
 
     return this.hydrateInstance(new DriverModuleDefinition(), validated, [
       {
-        field: 'paramDefinitions',
+        field: 'parameters',
         hydrator: AwspParamDefinition,
         isArray: true,
       },
     ]);
+  }
+
+  static fromParsed(data: unknown): DriverModuleDefinition {
+    return Object.assign(new DriverModuleDefinition(), data);
   }
 
   /**

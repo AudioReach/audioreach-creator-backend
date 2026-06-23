@@ -4,12 +4,13 @@
  */
 
 import {z} from 'zod';
+import {HexIdSchema} from '../../common/hex-id.schema.js';
 
 /**
  * Schema for port definition.
  */
 export const AwspPortSchema = z.object({
-  id: z.number(),
+  id: HexIdSchema,
   name: z.string().optional(),
 });
 

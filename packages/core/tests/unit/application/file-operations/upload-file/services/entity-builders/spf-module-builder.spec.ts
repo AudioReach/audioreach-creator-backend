@@ -32,7 +32,7 @@ describe('SpfModuleBuilder', () => {
   let mockIdGenerator: jest.Mocked<IdGenerationPort>;
   let mockForeignKeyMapper: jest.Mocked<ForeignKeyMapper>;
   const TEST_FILE_SYSTEM_ID = 123;
-  const TEST_PORT_STRATEGY = MODULE_PORT_STRATEGIES.INPUT_ODD_OUTPUT_EVEN;
+  const TEST_PORT_STRATEGY = MODULE_PORT_STRATEGIES.INPUT_EVEN_OUTPUT_ODD;
 
   // Helper function to create module property config
   const createModulePropertyConfig = (

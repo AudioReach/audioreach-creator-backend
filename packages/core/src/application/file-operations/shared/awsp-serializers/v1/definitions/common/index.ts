@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+export * from './hex-id.schema.js';
 export * from './base-definition.js';
 export * from './base-element.js';
 export * from './base-array-element.js';

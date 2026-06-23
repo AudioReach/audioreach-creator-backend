@@ -44,7 +44,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Driver Module 1',
             displayName: 'Driver Module 1 Display',
             description: 'Test driver module',
-            paramDefinitions: [],
+            parameters: [],
           },
         ] as any;
 
@@ -73,7 +73,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Driver Module',
             displayName: '',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
         ] as any;
 
@@ -92,7 +92,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Driver Module',
             displayName: 'Driver Module',
             description: '',
-            paramDefinitions: [
+            parameters: [
               {
                 id: 1,
                 name: 'Param 1',
@@ -135,7 +135,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Driver Module',
             displayName: 'Driver Module',
             description: '',
-            paramDefinitions: [
+            parameters: [
               {
                 id: 1,
                 name: 'Param 1',
@@ -162,14 +162,14 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Module 1',
             displayName: 'Module 1',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
           {
             id: 200,
             name: 'Module 2',
             displayName: 'Module 2',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
         ] as any;
 
@@ -191,7 +191,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Module',
             displayName: 'Module',
             description: '',
-            paramDefinitions: [
+            parameters: [
               {
                 id: 1,
                 name: 'Param',
@@ -256,7 +256,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Module',
             displayName: 'Module',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
         ] as any;
 
@@ -276,7 +276,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Module',
             displayName: 'Module',
             description: '',
-            paramDefinitions: [
+            parameters: [
               {
                 id: 1,
                 name: 'Param',
@@ -305,7 +305,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Module',
             displayName: 'Module',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
         ] as any;
 
@@ -332,7 +332,7 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Module',
             displayName: 'Module',
             description: '',
-            paramDefinitions: [
+            parameters: [
               {
                 id: 1,
                 name: 'Param',
@@ -368,21 +368,21 @@ describe('DriverModuleDefinitionBuilder', () => {
             name: 'Module 1',
             displayName: 'Module 1',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
           {
             id: 200,
             name: 'Module 2',
             displayName: 'Module 2',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
           {
             id: 300,
             name: 'Module 3',
             displayName: 'Module 3',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
           },
         ] as any;
 

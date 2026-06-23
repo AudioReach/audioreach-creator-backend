@@ -11,7 +11,7 @@ describe('DriverModuleDefinition', () => {
   const testData = {
     id: 1,
     name: 'TestDriverModule',
-    paramDefinitions: [
+    parameters: [
       {
         id: 1,
         name: 'Param1',
@@ -37,20 +37,20 @@ describe('DriverModuleDefinition', () => {
       expect(instance.stubbed).toBe(true);
     });
 
-    it('should hydrate paramDefinitions array', () => {
+    it('should hydrate parameters array', () => {
       const instance = DriverModuleDefinition.fromJSON(testData);
 
-      expect(Array.isArray(instance.paramDefinitions)).toBe(true);
-      expect(instance.paramDefinitions).toHaveLength(1);
-      expect(instance.paramDefinitions[0]).toBeInstanceOf(AwspParamDefinition);
-      expect(typeof instance.paramDefinitions[0].toJSON).toBe('function');
+      expect(Array.isArray(instance.parameters)).toBe(true);
+      expect(instance.parameters).toHaveLength(1);
+      expect(instance.parameters[0]).toBeInstanceOf(AwspParamDefinition);
+      expect(typeof instance.parameters[0].toJSON).toBe('function');
     });
 
     it('should handle optional fields', () => {
       const minimalData = {
         id: 1,
         name: 'TestDriverModule',
-        paramDefinitions: [],
+        parameters: [],
       };
 
       const instance = DriverModuleDefinition.fromJSON(minimalData);
@@ -72,7 +72,7 @@ describe('DriverModuleDefinition', () => {
       expect(json.name).toBe('TestDriverModule');
       expect(json.displayName).toBe('Test Driver Module');
       expect(json.stubbed).toBe(true);
-      expect(Array.isArray(json.paramDefinitions)).toBe(true);
+      expect(Array.isArray(json.parameters)).toBe(true);
     });
   });
 
@@ -87,12 +87,8 @@ describe('DriverModuleDefinition', () => {
       expect(deserialized.displayName).toBe(instance.displayName);
       expect(deserialized.description).toBe(instance.description);
       expect(deserialized.stubbed).toBe(instance.stubbed);
-      expect(deserialized.paramDefinitions).toHaveLength(
-        instance.paramDefinitions.length,
-      );
-      expect(deserialized.paramDefinitions[0]).toBeInstanceOf(
-        AwspParamDefinition,
-      );
+      expect(deserialized.parameters).toHaveLength(instance.parameters.length);
+      expect(deserialized.parameters[0]).toBeInstanceOf(AwspParamDefinition);
     });
   });
 });

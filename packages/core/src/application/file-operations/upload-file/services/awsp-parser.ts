@@ -10,6 +10,14 @@ import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {WorkerTask} from '../../../ports/worker/worker-types.js';
 import type {JsonObject} from '../../../../shared/types/json-types.js';
 import {type DefinitionCollection} from '../models/parsed-awsp.js';
+import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
+import {type AwspFileHeader} from '../../shared/awsp-serializers/headers/index.js';
+import {
+  type WorkspaceFileVersion,
+  type AwspVersionKey,
+  awspVersionKey,
+} from '../../shared/awsp-serializers/version.js';
+import {parseHeader_V9_0} from '../../shared/awsp-serializers/headers/v9.0.js';
 import {
   KeyDefinitionSchema,
   TagDefinitionSchema,
@@ -30,6 +38,52 @@ import {
   ProcessorDefinition,
   ContainerType,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
+
+const AWSP_MAGIC = 'AWSP';
+
+export class AwspUnsupportedVersionError extends Error {
+  constructor(public readonly version: WorkspaceFileVersion) {
+    const supported = Object.keys(HEADER_PARSERS).join(', ');
+    super(
+      `Unsupported AWSP file version ${version.major}.${version.minor}. Supported: ${supported}`,
+    );
+    this.name = 'AwspUnsupportedVersionError';
+  }
+}
+
+type VersionHeaderParser = (rawHeader: unknown) => AwspFileHeader;
+
+const HEADER_PARSERS: Partial<Record<AwspVersionKey, VersionHeaderParser>> = {
+  '9.0': parseHeader_V9_0,
+};
+
+function parseAwspHeader(rawHeader: unknown): AwspFileHeader {
+  const version = probeVersion(rawHeader);
+  const key = awspVersionKey(version);
+  const parser = HEADER_PARSERS[key];
+  if (!parser) {
+    throw new AwspUnsupportedVersionError(version);
+  }
+  return parser(rawHeader);
+}
+
+function probeVersion(raw: unknown): WorkspaceFileVersion {
+  if (
+    typeof raw !== 'object' ||
+    raw === null ||
+    !('version' in raw) ||
+    typeof (raw as Record<string, unknown>).version !== 'object'
+  ) {
+    throw new Error('AWSP header JSON is missing the required "version" field');
+  }
+  const v = (raw as {version: Record<string, unknown>}).version;
+  if (typeof v.major !== 'number' || typeof v.minor !== 'number') {
+    throw new Error(
+      'AWSP header "version" must have numeric "major" and "minor" fields',
+    );
+  }
+  return {major: v.major, minor: v.minor};
+}
 
 /**
  * Input structure for definition parsing tasks
@@ -78,11 +132,9 @@ export class AwspParser {
           results[blockName] = hydrated;
         } catch (error) {
           if (error instanceof z.ZodError) {
-            // Format Zod validation errors
-            const errorMessages = error.issues
-              .map(e => `${e.path.join('.')}: ${e.message}`)
-              .join(', ');
-            throw new Error(`Failed to parse ${blockName}: ${errorMessages}`);
+            throw new Error(
+              `Failed to parse ${blockName} (${blockData.length} items): ${AwspParser.formatZodError(error)}`,
+            );
           }
           if (error instanceof Error) {
             throw new Error(`Failed to parse ${blockName}: ${error.message}`);
@@ -93,6 +145,56 @@ export class AwspParser {
     }
 
     return results;
+  }
+
+  /**
+   * Groups Zod issues by (field path + message) and emits one line per distinct
+   * problem, showing how many items are affected and the actual value from the
+   * first occurrence.  Prevents 70+ identical repetitions in the log.
+   *
+   * Example output:
+   *   [x72] [n].id: expected number, received string — first at index 0, got "0x00000001"
+   *   [x1]  [3].name: Required
+   */
+  static formatZodError(error: z.ZodError): string {
+    const groups = new Map<
+      string,
+      {count: number; firstIndex: number; received: unknown}
+    >();
+
+    for (const issue of error.issues) {
+      const path = issue.path;
+      // The first segment of the path is the array index when validating z.array(...)
+      const index = typeof path[0] === 'number' ? path[0] : -1;
+      const fieldPath =
+        index >= 0
+          ? `[n].${path.slice(1).join('.')}`
+          : path.join('.') || '(root)';
+      const key = `${fieldPath}|${issue.message}`;
+
+      const existing = groups.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        const received =
+          'received' in issue
+            ? (issue as {received: unknown}).received
+            : undefined;
+        groups.set(key, {count: 1, firstIndex: index, received});
+      }
+    }
+
+    return [...groups.entries()]
+      .map(([key, {count, firstIndex, received}]) => {
+        const [fieldPath, message] = key.split('|');
+        const countTag = `[x${count}]`.padEnd(6);
+        const location =
+          firstIndex >= 0 ? ` — first at index ${firstIndex}` : '';
+        const receivedTag =
+          received === undefined ? '' : `, got ${JSON.stringify(received)}`;
+        return `${countTag} ${fieldPath}: ${message}${location}${receivedTag}`;
+      })
+      .join('; ');
   }
 
   /**
@@ -142,32 +244,103 @@ export class AwspParser {
     blockName: string,
     data: unknown[],
   ): DefinitionCollection {
-    const hydratorMap: Record<string, {fromJSON: (data: unknown) => unknown}> =
+    const hydratorMap: Record<
+      string,
       {
-        [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: AwspKeyDefinition,
-        [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: AwspTagDefinition,
-        [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]:
-          SpfPropertyDefinition,
-        [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
-          DriverPropertyDefinition,
-        [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]:
-          AwspSpfModuleDefinition,
-        [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]:
-          DriverModuleDefinition,
-        [DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS]:
-          AwspVcpmModuleDefinition,
-        [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: ProcessorDefinition,
-        [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]: ContainerType,
-      };
+        fromParsed?: (data: unknown) => unknown;
+        fromJSON: (data: unknown) => unknown;
+      }
+    > = {
+      [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: AwspKeyDefinition,
+      [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: AwspTagDefinition,
+      [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: SpfPropertyDefinition,
+      [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
+        DriverPropertyDefinition,
+      [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: AwspSpfModuleDefinition,
+      [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]:
+        DriverModuleDefinition,
+      [DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS]:
+        AwspVcpmModuleDefinition,
+      [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: ProcessorDefinition,
+      [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]: ContainerType,
+    };
 
     const Hydrator = hydratorMap[blockName];
     if (!Hydrator) {
       throw new Error(`No hydrator found for definition block: ${blockName}`);
     }
 
+    // Use fromParsed when available — data is already Zod-validated,
+    // so re-parsing via fromJSON would apply preprocess coercions a second time.
+    const hydrate = Hydrator.fromParsed ?? Hydrator.fromJSON;
     return data.map((item: unknown) =>
-      Hydrator.fromJSON(item),
+      hydrate.call(Hydrator, item),
     ) as DefinitionCollection;
+  }
+
+  /**
+   * Parse the AWSP binary envelope from raw file bytes.
+   *
+   * Binary layout:
+   *   [4]  Magic bytes "AWSP"
+   *   [4]  Header length (uint32 little-endian)
+   *   [N]  Header JSON (UTF-8) — version-probed and dispatched via HEADER_PARSERS
+   *   [4]  Raw data length (uint32 little-endian)
+   *   [M]  ZIP bytes (the payload passed to unzipBuffer)
+   *
+   * Throws AwspUnsupportedVersionError if the header version has no registered parser.
+   */
+  parseEnvelope(data: Uint8Array): {
+    header: AwspFileHeader;
+    zipData: Uint8Array;
+  } {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    let offset = 0;
+
+    if (data.byteLength < BinaryUtils.SIZEOF_UINT32) {
+      throw new Error('AWSP file too small to contain magic bytes');
+    }
+    const magic = new TextDecoder('ascii').decode(data.subarray(0, 4));
+    if (magic !== AWSP_MAGIC) {
+      throw new Error(
+        `Invalid AWSP magic bytes: expected "${AWSP_MAGIC}", got "${magic}"`,
+      );
+    }
+    offset += BinaryUtils.SIZEOF_UINT32;
+
+    if (data.byteLength < offset + BinaryUtils.SIZEOF_UINT32) {
+      throw new Error('AWSP file truncated: missing header length field');
+    }
+    const headerLength = BinaryUtils.readUint32(view, offset);
+    offset += BinaryUtils.SIZEOF_UINT32;
+
+    if (data.byteLength < offset + headerLength) {
+      throw new Error(
+        `AWSP file truncated: header length ${headerLength} exceeds file size`,
+      );
+    }
+    const headerJson = new TextDecoder('utf8').decode(
+      data.subarray(offset, offset + headerLength),
+    );
+    offset += headerLength;
+
+    const rawHeader: unknown = JSON.parse(headerJson);
+
+    if (data.byteLength < offset + BinaryUtils.SIZEOF_UINT32) {
+      throw new Error('AWSP file truncated: missing raw data length field');
+    }
+    const rawLength = BinaryUtils.readUint32(view, offset);
+    offset += BinaryUtils.SIZEOF_UINT32;
+
+    if (data.byteLength < offset + rawLength) {
+      throw new Error(
+        `AWSP file truncated: raw data length ${rawLength} exceeds file size`,
+      );
+    }
+    const zipData = data.subarray(offset, offset + rawLength);
+
+    const header = parseAwspHeader(rawHeader);
+    return {header, zipData};
   }
 
   /**

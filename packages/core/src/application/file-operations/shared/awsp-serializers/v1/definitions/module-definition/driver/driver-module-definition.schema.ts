@@ -4,16 +4,19 @@
  */
 
 import {z} from 'zod';
-import {BaseModuleDefinitionSchema} from '../common/base-module-definition.schema.js';
+import {AwspParamDefinitionSchema} from '../common/param-definition.schema.js';
+import {HexIdSchema, PositiveHexIdSchema} from '../../common/hex-id.schema.js';
 
-/**
- * Schema for Driver module definition.
- * Extends BaseModuleDefinition with driver-specific properties.
- */
-export const AwspDriverModuleDefinitionSchema =
-  BaseModuleDefinitionSchema.extend({
-    stubbed: z.boolean().optional(),
-  });
+export const AwspDriverModuleDefinitionSchema = z.object({
+  id: PositiveHexIdSchema,
+  name: z.string(),
+  parameters: z.array(AwspParamDefinitionSchema).optional(),
+  displayName: z.string().optional(),
+  description: z.string().optional(),
+  replacedBy: HexIdSchema.optional(),
+  deprecated: z.boolean().optional(),
+  stubbed: z.boolean().optional(),
+});
 
 export type AwspDriverModuleDefinition = z.infer<
   typeof AwspDriverModuleDefinitionSchema
