@@ -141,11 +141,11 @@ export class DriverModuleDefinitionBuilder {
     fileSystemId: number,
     issues: EntityBuildIssue[],
   ): Promise<void> {
-    if (!awspDef.paramDefinitions || awspDef.paramDefinitions.length === 0) {
+    if (!awspDef.parameters || awspDef.parameters.length === 0) {
       return;
     }
 
-    for (const awspParam of awspDef.paramDefinitions) {
+    for (const awspParam of awspDef.parameters) {
       try {
         const paramSystemId = await this.idGenerator.getNextId(fileSystemId);
 

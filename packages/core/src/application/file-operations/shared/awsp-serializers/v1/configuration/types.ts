@@ -8,13 +8,11 @@
  * Defines how port IDs are assigned to input and output ports.
  */
 export const MODULE_PORT_STRATEGIES = {
-  //TODO: Fix this. OUTPUT_ODD_INPUT_EVEN is correct.
-  //update conversion and here accordingly
   /**
-   * Input ports use odd IDs (1, 3, 5, 7...)
-   * Output ports use even IDs (2, 4, 6, 8...)
+   * Input ports use even IDs (2, 4, 6, 8...)
+   * Output ports use odd IDs (1, 3, 5, 7...)
    */
-  INPUT_ODD_OUTPUT_EVEN: 'INPUT_ODD_OUTPUT_EVEN',
+  INPUT_EVEN_OUTPUT_ODD: 'INPUT_EVEN_OUTPUT_ODD',
 
   /**
    * Both input and output ports use sequential IDs starting from 1
@@ -74,12 +72,12 @@ export const ALSA_FILE_TYPES = {
   /**
    * Binary file format
    */
-  BIN: 'Bin',
+  BIN: 'BIN',
 
   /**
    * Text file format
    */
-  TEXT: 'Text',
+  TEXT: 'TEXT',
 } as const;
 
 /**

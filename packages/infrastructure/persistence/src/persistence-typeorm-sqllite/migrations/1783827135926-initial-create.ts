@@ -169,7 +169,7 @@ export class InitialCreate1783827135926 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_projects_name" ON "projects" ("name") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_ODD_OUTPUT_EVEN','SEQUENTIAL') ) NOT NULL, "extra_config" text)`,
+      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "extra_config" text)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_configuration_file" ON "configuration" ("file_system_id") `,
@@ -782,7 +782,7 @@ export class InitialCreate1783827135926 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "uk_configuration_file"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_ODD_OUTPUT_EVEN','SEQUENTIAL') ) NOT NULL, "extra_config" text, CONSTRAINT "FK_be312e55b8b1321dc1ca9ac1367" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "extra_config" text, CONSTRAINT "FK_be312e55b8b1321dc1ca9ac1367" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_configuration"("system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config" FROM "configuration"`,
@@ -1968,7 +1968,7 @@ export class InitialCreate1783827135926 implements MigrationInterface {
       `ALTER TABLE "configuration" RENAME TO "temporary_configuration"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_ODD_OUTPUT_EVEN','SEQUENTIAL') ) NOT NULL, "extra_config" text)`,
+      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "extra_config" text)`,
     );
     await queryRunner.query(
       `INSERT INTO "configuration"("system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config" FROM "temporary_configuration"`,

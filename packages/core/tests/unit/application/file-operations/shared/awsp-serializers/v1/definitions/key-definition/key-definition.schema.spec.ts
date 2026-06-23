@@ -32,13 +32,13 @@ describe('KeyDefinitionSchema', () => {
         description: 'Test key description',
         isVoice: true,
         isDynamic: false,
-        specialty: 'SPECIAL_KEY',
-        enumValue: 'KEY_ENUM_1',
+        specialty: 'SampleRate',
+        enumMember: 'KEY_ENUM_1',
         enumName: 'KeyEnum',
         isGraphKey: true,
-        graphKeyEnumValue: 'GRAPH_KEY_1',
+        graphKeyEnumMember: 'GRAPH_KEY_1',
         isCalKey: false,
-        calKeyEnumValue: 'CAL_KEY_1',
+        calKeyEnumMember: 'CAL_KEY_1',
       };
 
       const result = KeyDefinitionSchema.parse(input);

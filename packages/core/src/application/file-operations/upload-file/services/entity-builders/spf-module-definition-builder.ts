@@ -531,9 +531,9 @@ export class SpfModuleDefinitionBuilder {
     const parameters: ParamDefinition[] = [];
     const errors: string[] = [];
 
-    if (awsp.paramDefinitions && Array.isArray(awsp.paramDefinitions)) {
+    if (awsp.parameters && Array.isArray(awsp.parameters)) {
       let tempSysId = 0; // Temporary systemId for parameters, to be assigned properly later
-      for (const awspParam of awsp.paramDefinitions) {
+      for (const awspParam of awsp.parameters) {
         try {
           const param = this.transformParamDefinition(awspParam, tempSysId);
           parameters.push(param);
@@ -674,8 +674,8 @@ export class SpfModuleDefinitionBuilder {
     // Note: processorSystemId initially holds the NATURAL ID from AWSP;
     // it is mapped to a system ID in assignSystemIds()
     const procIds =
-      awsp.supportedProcessorIds && awsp.supportedProcessorIds.length > 0
-        ? awsp.supportedProcessorIds
+      awsp.processors && awsp.processors.length > 0
+        ? awsp.processors
         : [UNKNOWN_PROCESSOR_NATURAL_ID]; // TODO: treat as upload failure once real validation is in place
 
     const entities: SpfModuleDefinition[] = procIds.map(
@@ -693,7 +693,7 @@ export class SpfModuleDefinitionBuilder {
           staticControlPorts,
           dynamicIntents,
           processorSystemId: procId, // Natural ID — will be mapped to system ID in assignSystemIds()
-          containerTypesSystemIds: awsp.supportedContainerTypes || [],
+          containerTypesSystemIds: awsp.containerTypes || [],
           isLoadedAtBootup,
         }),
     );
@@ -706,8 +706,8 @@ export class SpfModuleDefinitionBuilder {
   ): DataPortGroupDefinition {
     const staticPortDefinitions: DataPortDefinition[] = [];
 
-    if (awsp.inputPortsInfo?.ports) {
-      for (const awspPort of awsp.inputPortsInfo.ports) {
+    if (awsp.inputPort?.ports) {
+      for (const awspPort of awsp.inputPort.ports) {
         try {
           const dataPort = new DataPortDefinition({
             dataPortId: awspPort.id,
@@ -723,7 +723,7 @@ export class SpfModuleDefinitionBuilder {
     }
 
     return new DataPortGroupDefinition({
-      maxAllowedPortCount: awsp.inputPortsInfo?.maxPortCount || 0,
+      maxAllowedPortCount: awsp.inputPort?.maxPortCount || 0,
       portIoType: PORT_IO_TYPE.Input,
       staticPortDefinitions,
     });
@@ -734,8 +734,8 @@ export class SpfModuleDefinitionBuilder {
   ): DataPortGroupDefinition {
     const staticPortDefinitions: DataPortDefinition[] = [];
 
-    if (awsp.outputPortsInfo?.ports) {
-      for (const awspPort of awsp.outputPortsInfo.ports) {
+    if (awsp.outputPort?.ports) {
+      for (const awspPort of awsp.outputPort.ports) {
         try {
           const dataPort = new DataPortDefinition({
             dataPortId: awspPort.id,
@@ -751,7 +751,7 @@ export class SpfModuleDefinitionBuilder {
     }
 
     return new DataPortGroupDefinition({
-      maxAllowedPortCount: awsp.outputPortsInfo?.maxPortCount || 0,
+      maxAllowedPortCount: awsp.outputPort?.maxPortCount || 0,
       portIoType: PORT_IO_TYPE.Output,
       staticPortDefinitions,
     });
@@ -762,11 +762,11 @@ export class SpfModuleDefinitionBuilder {
   ): StaticControlPortDefinition[] {
     const staticControlPorts: StaticControlPortDefinition[] = [];
 
-    if (!awsp.controlPortsInfo?.staticPorts) {
+    if (!awsp.controlPort?.staticPorts) {
       return staticControlPorts;
     }
 
-    for (const awspPort of awsp.controlPortsInfo.staticPorts) {
+    for (const awspPort of awsp.controlPort.staticPorts) {
       try {
         const staticPort = new StaticControlPortDefinition({
           portId: awspPort.id,
@@ -786,12 +786,12 @@ export class SpfModuleDefinitionBuilder {
   private static buildDynamicIntents(
     awsp: AwspSpfModuleDefinition,
   ): DynamicIntentDefinition[] {
-    if (!awsp.controlPortsInfo?.dynamicIntents) {
+    if (!awsp.controlPort?.dynamicIntents) {
       return [];
     }
 
     const dynamicIntents: DynamicIntentDefinition[] = [];
-    for (const awspIntent of awsp.controlPortsInfo.dynamicIntents) {
+    for (const awspIntent of awsp.controlPort.dynamicIntents) {
       try {
         dynamicIntents.push(
           new DynamicIntentDefinition({
@@ -840,13 +840,11 @@ export class SpfModuleDefinitionBuilder {
         const diagnosticInfo = {
           moduleId: awspModuleDef.id,
           moduleName: awspModuleDef.name,
-          supportedProcessorsCount:
-            awspModuleDef.supportedProcessorIds?.length || 0,
-          supportedContainersCount:
-            awspModuleDef.supportedContainerTypes?.length || 0,
-          hasInputPorts: !!awspModuleDef.inputPortsInfo,
-          hasOutputPorts: !!awspModuleDef.outputPortsInfo,
-          hasControlPorts: !!awspModuleDef.controlPortsInfo,
+          supportedProcessorsCount: awspModuleDef.processors?.length || 0,
+          supportedContainersCount: awspModuleDef.containerTypes?.length || 0,
+          hasInputPorts: !!awspModuleDef.inputPort,
+          hasOutputPorts: !!awspModuleDef.outputPort,
+          hasControlPorts: !!awspModuleDef.controlPort,
           errorCount: result.errors.length,
         };
 

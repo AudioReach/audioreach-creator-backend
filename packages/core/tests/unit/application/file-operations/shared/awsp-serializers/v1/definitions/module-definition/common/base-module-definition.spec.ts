@@ -11,7 +11,7 @@ describe('BaseModuleDefinition', () => {
   const testData = {
     id: 1,
     name: 'TestModule',
-    paramDefinitions: [
+    parameters: [
       {
         id: 1,
         name: 'Param1',
@@ -22,8 +22,8 @@ describe('BaseModuleDefinition', () => {
     ],
     displayName: 'Test Module',
     description: 'Test description',
-    supportedProcessorIds: [1, 2],
-    supportedContainerTypes: [1],
+    processors: [1, 2],
+    containerTypes: [1],
   };
 
   describe('fromJSON', () => {
@@ -38,22 +38,22 @@ describe('BaseModuleDefinition', () => {
       expect(instance.description).toBe('Test description');
     });
 
-    it('should hydrate paramDefinitions array', () => {
+    it('should hydrate parameters array', () => {
       const instance = AwspSpfModuleDefinition.fromJSON(testData);
 
-      expect(Array.isArray(instance.paramDefinitions)).toBe(true);
-      expect(instance.paramDefinitions).toHaveLength(1);
-      expect(instance.paramDefinitions[0]).toBeInstanceOf(AwspParamDefinition);
-      expect(typeof instance.paramDefinitions[0].toJSON).toBe('function');
+      expect(Array.isArray(instance.parameters)).toBe(true);
+      expect(instance.parameters).toHaveLength(1);
+      expect(instance.parameters[0]).toBeInstanceOf(AwspParamDefinition);
+      expect(typeof instance.parameters[0].toJSON).toBe('function');
     });
 
     it('should handle optional base fields', () => {
       const minimalData = {
         id: 1,
         name: 'TestModule',
-        paramDefinitions: [],
-        supportedProcessorIds: [],
-        supportedContainerTypes: [],
+        parameters: [],
+        processors: [],
+        containerTypes: [],
       };
 
       const instance = AwspSpfModuleDefinition.fromJSON(minimalData);
@@ -76,7 +76,7 @@ describe('BaseModuleDefinition', () => {
       expect(json.name).toBe('TestModule');
       expect(json.displayName).toBe('Test Module');
       expect(json.description).toBe('Test description');
-      expect(Array.isArray(json.paramDefinitions)).toBe(true);
+      expect(Array.isArray(json.parameters)).toBe(true);
     });
   });
 
@@ -90,12 +90,8 @@ describe('BaseModuleDefinition', () => {
       expect(deserialized.name).toBe(instance.name);
       expect(deserialized.displayName).toBe(instance.displayName);
       expect(deserialized.description).toBe(instance.description);
-      expect(deserialized.paramDefinitions).toHaveLength(
-        instance.paramDefinitions.length,
-      );
-      expect(deserialized.paramDefinitions[0]).toBeInstanceOf(
-        AwspParamDefinition,
-      );
+      expect(deserialized.parameters).toHaveLength(instance.parameters.length);
+      expect(deserialized.parameters[0]).toBeInstanceOf(AwspParamDefinition);
     });
   });
 });

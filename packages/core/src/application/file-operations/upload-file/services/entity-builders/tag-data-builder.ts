@@ -239,7 +239,7 @@ export class TagDataBuilder {
 
   /**
    * Resolve tag key values to value system IDs using tag definition.
-   * Matches tagKeyValues[i] with supportedKeys[i] by position.
+   * Matches tagKeyValues[i] with keys[i] by position.
    *
    * @param tagKeyValues - Array of value natural IDs from ACDB tag data
    * @param tagId - Natural tag ID to find the AWSP tag definition
@@ -253,7 +253,7 @@ export class TagDataBuilder {
     foreignKeyMapper: ForeignKeyMapper,
     tagDefinition: AwspTagDefinition,
   ): number[] {
-    if (!tagDefinition || !tagDefinition.supportedKeys) {
+    if (!tagDefinition || !tagDefinition.keys) {
       this.logger?.logWarn({
         msg: `Tag definition not found or has no supported keys for tagId ${tagId}`,
         action: 'tag_definition_not_found',
@@ -266,9 +266,9 @@ export class TagDataBuilder {
 
     const valueSystemIds: number[] = [];
 
-    // Match tagKeyValues[i] with supportedKeys[i] by position
+    // Match tagKeyValues[i] with keys[i] by position
     for (const [i, valueNaturalId] of tagKeyValues.entries()) {
-      const supportedKey = tagDefinition.supportedKeys[i];
+      const supportedKey = tagDefinition.keys[i];
 
       if (!supportedKey) {
         this.logger?.logWarn({
@@ -456,7 +456,7 @@ export class TagDataBuilder {
       def => def.id === tagIndexEntry.tagId,
     );
 
-    if (!tagDefinition || !tagDefinition.supportedKeys) {
+    if (!tagDefinition || !tagDefinition.keys) {
       this.logger?.logWarn({
         msg: `Tag definition not found or has no supported keys for tagId ${tagIndexEntry.tagId}`,
         action: 'tag_definition_not_found',

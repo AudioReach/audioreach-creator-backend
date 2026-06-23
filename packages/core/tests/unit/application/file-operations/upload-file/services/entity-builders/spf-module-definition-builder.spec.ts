@@ -92,12 +92,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Test Module',
           displayName: 'Test Module Display',
           description: 'Test Description',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [1, 2],
-          supportedContainerTypes: [10, 20],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [1, 2],
+          containerTypes: [10, 20],
         };
 
         const result = await builderWithoutWorker.buildModuleDefinitions(
@@ -127,12 +127,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module 1',
           displayName: 'Module 1',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const awspModule2: AwspSpfModuleDefinition = {
@@ -140,12 +140,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module 2',
           displayName: 'Module 2',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const mockModule1 = new SpfModuleDefinition({
@@ -234,24 +234,24 @@ describe('SpfModuleDefinitionBuilder', () => {
             name: 'Module 1',
             displayName: 'Module 1',
             description: '',
-            paramDefinitions: [],
-            inputPortsInfo: {maxPortCount: 1, ports: []},
-            outputPortsInfo: {maxPortCount: 1, ports: []},
-            controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-            supportedProcessorIds: [],
-            supportedContainerTypes: [],
+            parameters: [],
+            inputPort: {maxPortCount: 1, ports: []},
+            outputPort: {maxPortCount: 1, ports: []},
+            controlPort: {staticPorts: [], dynamicIntents: []},
+            processors: [],
+            containerTypes: [],
           },
           {
             id: 200,
             name: 'Module 2',
             displayName: 'Module 2',
             description: '',
-            paramDefinitions: [],
-            inputPortsInfo: {maxPortCount: 1, ports: []},
-            outputPortsInfo: {maxPortCount: 1, ports: []},
-            controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-            supportedProcessorIds: [],
-            supportedContainerTypes: [],
+            parameters: [],
+            inputPort: {maxPortCount: 1, ports: []},
+            outputPort: {maxPortCount: 1, ports: []},
+            controlPort: {staticPorts: [], dynamicIntents: []},
+            processors: [],
+            containerTypes: [],
           },
         ];
 
@@ -279,12 +279,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Test Module',
           displayName: 'Test Module',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result = await builderWithoutWorker.buildModuleDefinitions(
@@ -337,12 +337,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module No Params',
           displayName: 'Module No Params',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result = await builderWithoutWorker.buildModuleDefinitions(
@@ -367,7 +367,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module With Params',
           displayName: 'Module With Params',
           description: '',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param 1',
@@ -387,11 +387,11 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result = await builderWithoutWorker.buildModuleDefinitions(
@@ -424,21 +424,21 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module With Ports',
           displayName: 'Module With Ports',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {
+          parameters: [],
+          inputPort: {
             maxPortCount: 2,
             ports: [
               {id: 1, name: 'Input Port 1'},
               {id: 2, name: 'Input Port 2'},
             ],
           },
-          outputPortsInfo: {
+          outputPort: {
             maxPortCount: 1,
             ports: [{id: 3, name: 'Output Port 1'}],
           },
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result = await builderWithoutWorker.buildModuleDefinitions(
@@ -468,10 +468,10 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module With Control Ports',
           displayName: 'Module With Control Ports',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {
             staticPorts: [
               {id: 1, name: 'Static Port 1', supportedIntents: []},
               {id: 2, name: 'Static Port 2', supportedIntents: []},
@@ -481,8 +481,8 @@ describe('SpfModuleDefinitionBuilder', () => {
               {id: 20, name: 'Intent 2', maxports: 10},
             ],
           },
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          processors: [],
+          containerTypes: [],
         };
 
         const result = await builderWithoutWorker.buildModuleDefinitions(
@@ -507,7 +507,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Complete Module',
           displayName: 'Complete Module Display',
           description: 'Complete Description',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param 1',
@@ -518,14 +518,14 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 2, ports: [{id: 1, name: 'In 1'}]},
-          outputPortsInfo: {maxPortCount: 2, ports: [{id: 2, name: 'Out 1'}]},
-          controlPortsInfo: {
+          inputPort: {maxPortCount: 2, ports: [{id: 1, name: 'In 1'}]},
+          outputPort: {maxPortCount: 2, ports: [{id: 2, name: 'Out 1'}]},
+          controlPort: {
             staticPorts: [{id: 3, name: 'Static 1', supportedIntents: []}],
             dynamicIntents: [{id: 10, name: 'Intent 1', maxports: 5}],
           },
-          supportedProcessorIds: [1, 2, 3],
-          supportedContainerTypes: [10, 20, 30],
+          processors: [1, 2, 3],
+          containerTypes: [10, 20, 30],
         };
 
         const result = await builderWithoutWorker.buildModuleDefinitions(
@@ -602,12 +602,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Test Module 1',
           displayName: 'Test Module 1',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const awspModule2: AwspSpfModuleDefinition = {
@@ -615,12 +615,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Test Module 2',
           displayName: 'Test Module 2',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         // Pass 2 modules to trigger parallel mode (requires length > 1)
@@ -645,12 +645,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Test Module',
           displayName: 'Test Module',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         await expect(
@@ -671,12 +671,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Test Module',
           displayName: 'Test Module Display',
           description: 'Test Description',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [1, 2],
-          supportedContainerTypes: [10, 20],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [1, 2],
+          containerTypes: [10, 20],
         };
 
         const result =
@@ -704,7 +704,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param 1',
@@ -715,11 +715,11 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -749,18 +749,18 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {
+          parameters: [],
+          inputPort: {
             maxPortCount: 2,
             ports: [{id: 1, name: 'Input 1'}],
           },
-          outputPortsInfo: {
+          outputPort: {
             maxPortCount: 3,
             ports: [{id: 2, name: 'Output 1'}],
           },
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -789,18 +789,18 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {
             staticPorts: [
               {id: 1, name: 'Static 1', supportedIntents: []},
               {id: 2, name: 'Static 2', supportedIntents: []},
             ],
             dynamicIntents: [],
           },
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -825,18 +825,18 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {
             staticPorts: [],
             dynamicIntents: [
               {id: 10, name: 'Intent 1', maxports: 5},
               {id: 20, name: 'Intent 2', maxports: 10},
             ],
           },
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -861,12 +861,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 0, ports: []},
-          outputPortsInfo: {maxPortCount: 0, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 0, ports: []},
+          outputPort: {maxPortCount: 0, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -890,12 +890,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -912,7 +912,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param',
@@ -923,11 +923,11 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -945,12 +945,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module Name',
           displayName: 'Module Display Name',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result1 =
@@ -964,12 +964,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module Name Only',
           displayName: '',
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result2 =
@@ -989,7 +989,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param',
@@ -1000,11 +1000,11 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -1020,7 +1020,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param',
@@ -1031,11 +1031,11 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -1053,7 +1053,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param',
@@ -1064,11 +1064,11 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -1088,7 +1088,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: 'Module',
           displayName: 'Module',
           description: '',
-          paramDefinitions: [
+          parameters: [
             {
               id: 1,
               name: 'Param',
@@ -1099,11 +1099,11 @@ describe('SpfModuleDefinitionBuilder', () => {
               elements: [],
             },
           ],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         };
 
         const result =
@@ -1141,12 +1141,12 @@ describe('SpfModuleDefinitionBuilder', () => {
         name: 'Module',
         displayName: 'Module',
         description: '',
-        paramDefinitions: [],
-        inputPortsInfo: {maxPortCount: 1, ports: []},
-        outputPortsInfo: {maxPortCount: 1, ports: []},
-        controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-        supportedProcessorIds: [],
-        supportedContainerTypes: [],
+        parameters: [],
+        inputPort: {maxPortCount: 1, ports: []},
+        outputPort: {maxPortCount: 1, ports: []},
+        controlPort: {staticPorts: [], dynamicIntents: []},
+        processors: [],
+        containerTypes: [],
       };
 
       await builderWithoutWorker.buildModuleDefinitions(
@@ -1169,12 +1169,12 @@ describe('SpfModuleDefinitionBuilder', () => {
         name: 'Module',
         displayName: 'Module',
         description: '',
-        paramDefinitions: [],
-        inputPortsInfo: {maxPortCount: 1, ports: []},
-        outputPortsInfo: {maxPortCount: 1, ports: []},
-        controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-        supportedProcessorIds: [],
-        supportedContainerTypes: [],
+        parameters: [],
+        inputPort: {maxPortCount: 1, ports: []},
+        outputPort: {maxPortCount: 1, ports: []},
+        controlPort: {staticPorts: [], dynamicIntents: []},
+        processors: [],
+        containerTypes: [],
       };
 
       await builder.buildModuleDefinitions([awspModule], TEST_FILE_SYSTEM_ID);
@@ -1194,12 +1194,12 @@ describe('SpfModuleDefinitionBuilder', () => {
         name: 'Module',
         displayName: 'Module',
         description: '',
-        paramDefinitions: [],
-        inputPortsInfo: {maxPortCount: 1, ports: []},
-        outputPortsInfo: {maxPortCount: 1, ports: []},
-        controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-        supportedProcessorIds: [],
-        supportedContainerTypes: [],
+        parameters: [],
+        inputPort: {maxPortCount: 1, ports: []},
+        outputPort: {maxPortCount: 1, ports: []},
+        controlPort: {staticPorts: [], dynamicIntents: []},
+        processors: [],
+        containerTypes: [],
       };
 
       await builder.buildModuleDefinitions([awspModule], TEST_FILE_SYSTEM_ID);
@@ -1223,12 +1223,12 @@ describe('SpfModuleDefinitionBuilder', () => {
         name: 'Module 1',
         displayName: 'Module 1',
         description: '',
-        paramDefinitions: [],
-        inputPortsInfo: {maxPortCount: 1, ports: []},
-        outputPortsInfo: {maxPortCount: 1, ports: []},
-        controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-        supportedProcessorIds: [],
-        supportedContainerTypes: [],
+        parameters: [],
+        inputPort: {maxPortCount: 1, ports: []},
+        outputPort: {maxPortCount: 1, ports: []},
+        controlPort: {staticPorts: [], dynamicIntents: []},
+        processors: [],
+        containerTypes: [],
       };
 
       const awspModule2: AwspSpfModuleDefinition = {
@@ -1236,12 +1236,12 @@ describe('SpfModuleDefinitionBuilder', () => {
         name: 'Module 2',
         displayName: 'Module 2',
         description: '',
-        paramDefinitions: [],
-        inputPortsInfo: {maxPortCount: 1, ports: []},
-        outputPortsInfo: {maxPortCount: 1, ports: []},
-        controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-        supportedProcessorIds: [],
-        supportedContainerTypes: [],
+        parameters: [],
+        inputPort: {maxPortCount: 1, ports: []},
+        outputPort: {maxPortCount: 1, ports: []},
+        controlPort: {staticPorts: [], dynamicIntents: []},
+        processors: [],
+        containerTypes: [],
       };
 
       await builder.buildModuleDefinitions(
@@ -1271,12 +1271,12 @@ describe('SpfModuleDefinitionBuilder', () => {
           name: `Module ${i}`,
           displayName: `Module ${i}`,
           description: '',
-          paramDefinitions: [],
-          inputPortsInfo: {maxPortCount: 1, ports: []},
-          outputPortsInfo: {maxPortCount: 1, ports: []},
-          controlPortsInfo: {staticPorts: [], dynamicIntents: []},
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
+          parameters: [],
+          inputPort: {maxPortCount: 1, ports: []},
+          outputPort: {maxPortCount: 1, ports: []},
+          controlPort: {staticPorts: [], dynamicIntents: []},
+          processors: [],
+          containerTypes: [],
         });
       }
 

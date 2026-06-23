@@ -5,18 +5,19 @@
 
 import {z} from 'zod';
 import {AwspParamDefinitionSchema} from './param-definition.schema.js';
+import {HexIdSchema, PositiveHexIdSchema} from '../../common/hex-id.schema.js';
 
 /**
  * Schema for base module definition.
  * Contains common properties shared between SPF and Driver module definitions.
  */
 export const BaseModuleDefinitionSchema = z.object({
-  id: z.number(),
+  id: PositiveHexIdSchema,
   name: z.string(),
   paramDefinitions: z.array(AwspParamDefinitionSchema).optional(),
   displayName: z.string().optional(),
   description: z.string().optional(),
-  replacedBy: z.number().optional(),
+  replacedBy: HexIdSchema.optional(),
   deprecated: z.boolean().optional(),
 });
 

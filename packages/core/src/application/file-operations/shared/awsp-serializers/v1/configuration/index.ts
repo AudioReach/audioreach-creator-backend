@@ -6,12 +6,10 @@
 export {
   Configuration,
   ConfigurationData,
-  Metadata,
-  BufferSize,
   ProcessorConfig,
-  RtcConfiguration,
+  RtcConfig,
   AlsaGroup,
-  AlsaLibConfiguration,
+  AlsaLibConfig,
 } from './configuration.js';
 
 export {

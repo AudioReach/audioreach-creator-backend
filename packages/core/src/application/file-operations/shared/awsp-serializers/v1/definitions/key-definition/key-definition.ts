@@ -34,8 +34,8 @@ export class AwspKeyDefinition extends BaseDefinition {
   /** Special key type classification */
   specialty?: SpecialKey;
 
-  /** Optional enumeration value associated with the key definition */
-  enumValue?: string;
+  /** Optional enumeration member associated with the key definition */
+  enumMember?: string;
 
   /** Optional enumeration name associated with the key definition */
   enumName?: string;
@@ -43,14 +43,14 @@ export class AwspKeyDefinition extends BaseDefinition {
   /** Optional flag indicating if this is a graph key */
   isGraphKey?: boolean;
 
-  /** Optional graph key enumeration value */
-  graphKeyEnumValue?: string;
+  /** Optional graph key enumeration member */
+  graphKeyEnumMember?: string;
 
   /** Optional flag indicating if this is a calibration key */
   isCalKey?: boolean;
 
-  /** Optional calibration key enumeration value */
-  calKeyEnumValue?: string;
+  /** Optional calibration key enumeration member */
+  calKeyEnumMember?: string;
 
   /**
    * Parse JSON data into AwspKeyDefinition instance
@@ -63,6 +63,10 @@ export class AwspKeyDefinition extends BaseDefinition {
     return this.hydrateInstance(new AwspKeyDefinition(), validated, [
       {field: 'values', hydrator: AwspValueDefinition, isArray: true},
     ]);
+  }
+
+  static fromParsed(data: unknown): AwspKeyDefinition {
+    return Object.assign(new AwspKeyDefinition(), data);
   }
 
   /**
@@ -78,12 +82,12 @@ export class AwspKeyDefinition extends BaseDefinition {
       isVoice: this.isVoice,
       isDynamic: this.isDynamic,
       specialty: this.specialty,
-      enumValue: this.enumValue,
+      enumMember: this.enumMember,
       enumName: this.enumName,
       isGraphKey: this.isGraphKey,
-      graphKeyEnumValue: this.graphKeyEnumValue,
+      graphKeyEnumMember: this.graphKeyEnumMember,
       isCalKey: this.isCalKey,
-      calKeyEnumValue: this.calKeyEnumValue,
+      calKeyEnumMember: this.calKeyEnumMember,
     };
   }
 }

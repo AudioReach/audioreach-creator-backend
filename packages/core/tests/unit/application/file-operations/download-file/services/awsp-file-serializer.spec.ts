@@ -78,9 +78,14 @@ describe('AwspFileSerializer', () => {
       const serializer = new AwspFileSerializer(mockFileSystem);
       const result = await serializer.serialize(entities);
 
-      expect(result).toBe(mockZipBuffer);
-      expect(result[0]).toBe(0x50); // 'P'
-      expect(result[1]).toBe(0x4b); // 'K'
+      expect(result).toBeInstanceOf(Uint8Array);
+      // Result is an AWSP binary envelope (starts with 'AWSP' magic)
+      expect(result[0]).toBe(0x41); // 'A'
+      expect(result[1]).toBe(0x57); // 'W'
+      expect(result[2]).toBe(0x53); // 'S'
+      expect(result[3]).toBe(0x50); // 'P'
+      // The ZIP data is embedded inside the envelope
+      expect(result.length).toBeGreaterThan(mockZipBuffer.length);
     });
 
     it('should throw error if ZIP creation fails', async () => {

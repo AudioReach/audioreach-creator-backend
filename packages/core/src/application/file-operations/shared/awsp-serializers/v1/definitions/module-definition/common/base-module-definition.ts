@@ -18,7 +18,7 @@ export abstract class BaseModuleDefinition extends BaseDefinition {
   name!: string;
 
   /** List of parameter definitions (optional) */
-  paramDefinitions?: AwspParamDefinition[];
+  parameters?: AwspParamDefinition[];
 
   /** Display name (optional) */
   displayName?: string;
@@ -40,7 +40,7 @@ export abstract class BaseModuleDefinition extends BaseDefinition {
     return {
       id: this.id,
       name: this.name,
-      paramDefinitions: this.serializeField(this.paramDefinitions),
+      parameters: this.serializeField(this.parameters),
       displayName: this.displayName,
       description: this.description,
       replacedBy: this.replacedBy,

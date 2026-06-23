@@ -4,12 +4,13 @@
  */
 
 import {z} from 'zod';
+import {HexIdSchema} from '../common/hex-id.schema.js';
 
 /**
  * Zod schema for ValueDefinition
  */
 export const ValueDefinitionSchema = z.object({
-  id: z.number().int(),
+  id: HexIdSchema,
   name: z.string().min(1),
   description: z.string().optional(),
   enumValue: z.string().optional(),

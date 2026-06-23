@@ -27,32 +27,32 @@ describe('TagDefinitionSchema', () => {
         id: 1,
         name: 'Tag1',
         description: 'Test tag description',
-        supportedKeys: [
+        keys: [
           {id: 1, name: 'Key1', enumValue: 'ENUM1'},
           {id: 2, name: 'Key2'},
         ],
         isVoice: true,
         enumName: 'TAG_ENUM',
-        enumValue: 'TAG_VALUE_1',
+        enumMember: 'TAG_VALUE_1',
       };
 
       const result = TagDefinitionSchema.parse(input);
 
       expect(result).toEqual(input);
-      expect(result.supportedKeys).toHaveLength(2);
-      expect(result.supportedKeys?.[0].name).toBe('Key1');
+      expect(result.keys).toHaveLength(2);
+      expect(result.keys?.[0].name).toBe('Key1');
     });
 
     it('should parse tag definition with empty supportedKeys array', () => {
       const input = {
         id: 1,
         name: 'Tag1',
-        supportedKeys: [],
+        keys: [],
       };
 
       const result = TagDefinitionSchema.parse(input);
 
-      expect(result.supportedKeys).toEqual([]);
+      expect(result.keys).toEqual([]);
     });
 
     it('should parse tag definition without optional fields', () => {
@@ -66,7 +66,7 @@ describe('TagDefinitionSchema', () => {
       expect(result.id).toBe(999);
       expect(result.name).toBe('TestTag');
       expect(result.description).toBeUndefined();
-      expect(result.supportedKeys).toBeUndefined();
+      expect(result.keys).toBeUndefined();
       expect(result.isVoice).toBeUndefined();
     });
   });
@@ -137,7 +137,7 @@ describe('TagDefinitionSchema', () => {
       const input = {
         id: 1,
         name: 'Tag1',
-        supportedKeys: [{id: 'invalid', name: 'Key1'}],
+        keys: [{id: 'invalid', name: 'Key1'}],
       };
 
       expect(() => TagDefinitionSchema.parse(input)).toThrow();

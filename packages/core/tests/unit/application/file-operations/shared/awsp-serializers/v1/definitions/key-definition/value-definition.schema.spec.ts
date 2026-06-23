@@ -8,6 +8,17 @@ import {ValueDefinitionSchema} from '../../../../../../../../../src/application/
 
 describe('ValueDefinitionSchema', () => {
   describe('valid data', () => {
+    it('should parse value definition with id of zero (0x00000000)', () => {
+      const input = {
+        id: '0x00000000',
+        name: 'Disabled',
+      };
+
+      const result = ValueDefinitionSchema.parse(input);
+
+      expect(result).toEqual({id: 0, name: 'Disabled'});
+    });
+
     it('should parse valid value definition with all required fields', () => {
       const input = {
         id: 1,

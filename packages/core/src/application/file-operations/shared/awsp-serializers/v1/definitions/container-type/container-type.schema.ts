@@ -4,12 +4,13 @@
  */
 
 import {z} from 'zod';
+import {PositiveHexIdSchema} from '../common/hex-id.schema.js';
 
 /**
  * Zod schema for ContainerType definition
  */
 export const ContainerTypeSchema = z.object({
-  id: z.number().int().positive(),
+  id: PositiveHexIdSchema,
   name: z.string().min(1),
 });
 

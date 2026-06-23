@@ -691,7 +691,7 @@ export class SpfModuleBuilder {
     portStrategy: ModulePortStrategy,
   ): number {
     switch (portStrategy) {
-      case MODULE_PORT_STRATEGIES.INPUT_ODD_OUTPUT_EVEN:
+      case MODULE_PORT_STRATEGIES.INPUT_EVEN_OUTPUT_ODD:
         // Input ports: 2, 4, 6, 8... (even numbers)
         // Output ports: 1, 3, 5, 7... (odd numbers)
         return isInput ? baseIndex * 2 + 2 : baseIndex * 2 + 1;
@@ -701,7 +701,7 @@ export class SpfModuleBuilder {
         return baseIndex + 1;
 
       default:
-        // Default to INPUT_ODD_OUTPUT_EVEN if unknown strategy
+        // Default to INPUT_EVEN_OUTPUT_ODD if unknown strategy
         return isInput ? baseIndex * 2 + 2 : baseIndex * 2 + 1;
     }
   }
@@ -786,8 +786,8 @@ export class SpfModuleBuilder {
     }
 
     // Get static ports from module definition
-    const staticInputPorts = moduleDefinition?.inputPortsInfo?.ports ?? [];
-    const staticOutputPorts = moduleDefinition?.outputPortsInfo?.ports ?? [];
+    const staticInputPorts = moduleDefinition?.inputPort?.ports ?? [];
+    const staticOutputPorts = moduleDefinition?.outputPort?.ports ?? [];
 
     // Calculate dynamic port counts
     const dynamicInputPortCount =
@@ -826,21 +826,21 @@ export class SpfModuleBuilder {
     moduleDefinition?: AwspSpfModuleDefinition,
     activeControlPortInfo?: ActiveControlPortInfo,
   ): ControlPort[] {
-    if (!moduleDefinition?.controlPortsInfo) {
+    if (!moduleDefinition?.controlPort) {
       return [];
     }
 
-    const controlPortsInfo = moduleDefinition.controlPortsInfo;
+    const controlPort = moduleDefinition.controlPort;
     const createdPortIds = new Set<number>();
     const controlPorts: ControlPort[] = [];
 
     // STEP 1: Create static control ports from definition
-    this.addStaticControlPorts(controlPortsInfo, controlPorts, createdPortIds);
+    this.addStaticControlPorts(controlPort, controlPorts, createdPortIds);
 
     // STEP 2: Add ports from active control links (union operation)
     this.addActiveControlPorts(
       instanceId,
-      controlPortsInfo,
+      controlPort,
       activeControlPortInfo,
       controlPorts,
       createdPortIds,
@@ -853,18 +853,17 @@ export class SpfModuleBuilder {
    * Add static control ports from module definition
    */
   private addStaticControlPorts(
-    controlPortsInfo: AwspSpfModuleDefinition['controlPortsInfo'],
+    controlPort: AwspSpfModuleDefinition['controlPort'],
     controlPorts: ControlPort[],
     createdPortIds: Set<number>,
   ): void {
-    if (!controlPortsInfo?.staticPorts) {
+    if (!controlPort?.staticPorts) {
       return;
     }
 
-    for (const staticPort of controlPortsInfo.staticPorts) {
-      const intentSystemIds = staticPort.supportedIntents.map(
-        intent => intent.id,
-      );
+    for (const staticPort of controlPort.staticPorts) {
+      const intentSystemIds =
+        staticPort.supportedIntents?.map(intent => intent.id) ?? [];
 
       controlPorts.push(
         new ControlPort({
@@ -885,7 +884,7 @@ export class SpfModuleBuilder {
    */
   private addActiveControlPorts(
     instanceId: number,
-    controlPortsInfo: AwspSpfModuleDefinition['controlPortsInfo'],
+    controlPort: AwspSpfModuleDefinition['controlPort'],
     activeControlPortInfo: ActiveControlPortInfo | undefined,
     controlPorts: ControlPort[],
     createdPortIds: Set<number>,
@@ -901,8 +900,8 @@ export class SpfModuleBuilder {
       return;
     }
 
-    const dynamicIntentSystemIds = controlPortsInfo?.dynamicIntents
-      ? controlPortsInfo.dynamicIntents.map(intent => intent.id)
+    const dynamicIntentSystemIds = controlPort?.dynamicIntents
+      ? controlPort.dynamicIntents.map(intent => intent.id)
       : [];
 
     for (const portId of activePortIds) {

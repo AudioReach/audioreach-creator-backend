@@ -4,12 +4,13 @@
  */
 
 import {z} from 'zod';
+import {HexIdSchema} from '../../common/hex-id.schema.js';
 
 /**
  * Schema for intent definition.
  */
 export const AwspIntentSchema = z.object({
-  id: z.number(),
+  id: HexIdSchema,
   name: z.string().optional(),
   maxports: z.number().optional(),
 });

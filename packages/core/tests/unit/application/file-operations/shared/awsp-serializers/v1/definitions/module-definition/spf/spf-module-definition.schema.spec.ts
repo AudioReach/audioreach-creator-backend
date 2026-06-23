@@ -11,35 +11,35 @@ describe('AwspSpfModuleDefinitionSchema', () => {
     const validData = {
       id: 1,
       name: 'test_spf_module',
-      paramDefinitions: [],
-      supportedProcessorIds: [2],
-      supportedContainerTypes: [1],
+      parameters: [],
+      processors: [2],
+      containerTypes: [1],
     };
     const result = AwspSpfModuleDefinitionSchema.parse(validData);
     expect(result.id).toBe(1);
     expect(result.name).toBe('test_spf_module');
-    expect(result.supportedProcessorIds).toEqual([2]);
-    expect(result.supportedContainerTypes).toEqual([1]);
+    expect(result.processors).toEqual([2]);
+    expect(result.containerTypes).toEqual([1]);
   });
 
   it('should parse with all optional fields', () => {
     const fullData = {
       id: 1,
       name: 'test_spf_module',
-      paramDefinitions: [],
-      supportedProcessorIds: [2],
-      supportedContainerTypes: [1],
+      parameters: [],
+      processors: [2],
+      containerTypes: [1],
       displayName: 'Test SPF Module',
       description: 'A test SPF module',
-      inputPortsInfo: {
+      inputPort: {
         maxPortCount: 2,
         ports: [{id: 1, name: 'input1'}],
       },
-      outputPortsInfo: {
+      outputPort: {
         maxPortCount: 2,
         ports: [{id: 2, name: 'output1'}],
       },
-      controlPortsInfo: {
+      controlPort: {
         staticPorts: [],
         dynamicIntents: [],
       },
@@ -74,9 +74,9 @@ describe('AwspSpfModuleDefinitionSchema', () => {
     const invalidData = {
       id: 1,
       name: 'test_spf_module',
-      paramDefinitions: [],
-      supportedProcessorIds: 'invalid',
-      supportedContainerTypes: [1],
+      parameters: [],
+      processors: 'invalid',
+      containerTypes: [1],
     };
     expect(() => AwspSpfModuleDefinitionSchema.parse(invalidData)).toThrow();
   });

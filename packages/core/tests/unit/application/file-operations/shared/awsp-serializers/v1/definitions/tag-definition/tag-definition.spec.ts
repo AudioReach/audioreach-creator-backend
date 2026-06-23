@@ -12,7 +12,7 @@ describe('TagDefinition', () => {
     id: 1,
     name: 'TestTag',
     description: 'Test description',
-    supportedKeys: [
+    keys: [
       {
         id: 1,
         name: 'TestKey',
@@ -28,7 +28,7 @@ describe('TagDefinition', () => {
     ],
     isVoice: true,
     enumName: 'TEST_ENUM',
-    enumValue: '0x1',
+    enumMember: '0x1',
   };
 
   describe('fromJSON', () => {
@@ -40,12 +40,12 @@ describe('TagDefinition', () => {
       expect(typeof instance.toJSON).toBe('function');
 
       // Verify nested array contains class instances
-      expect(Array.isArray(instance.supportedKeys)).toBe(true);
-      expect(instance.supportedKeys).toHaveLength(2);
-      expect(instance.supportedKeys![0]).toBeInstanceOf(AwspTagKeyDefinition);
-      expect(typeof instance.supportedKeys![0].toJSON).toBe('function');
-      expect(instance.supportedKeys![1]).toBeInstanceOf(AwspTagKeyDefinition);
-      expect(typeof instance.supportedKeys![1].toJSON).toBe('function');
+      expect(Array.isArray(instance.keys)).toBe(true);
+      expect(instance.keys).toHaveLength(2);
+      expect(instance.keys![0]).toBeInstanceOf(AwspTagKeyDefinition);
+      expect(typeof instance.keys![0].toJSON).toBe('function');
+      expect(instance.keys![1]).toBeInstanceOf(AwspTagKeyDefinition);
+      expect(typeof instance.keys![1].toJSON).toBe('function');
     });
 
     it('should parse valid JSON data', () => {
@@ -85,7 +85,7 @@ describe('TagDefinition', () => {
       const withoutOpt = AwspTagDefinition.fromJSON(dataWithoutOptional);
 
       expect(withoutOpt).toBeInstanceOf(AwspTagDefinition);
-      expect(withoutOpt.supportedKeys).toBeUndefined();
+      expect(withoutOpt.keys).toBeUndefined();
       expect(withoutOpt.description).toBeUndefined();
     });
 
@@ -135,15 +135,11 @@ describe('TagDefinition', () => {
       // Verify structure matches
       expect(deserialized.id).toBe(instance.id);
       expect(deserialized.name).toBe(instance.name);
-      expect(deserialized.supportedKeys).toHaveLength(
-        instance.supportedKeys!.length,
-      );
+      expect(deserialized.keys).toHaveLength(instance.keys!.length);
 
       // Verify nested objects are still class instances
-      expect(deserialized.supportedKeys![0]).toBeInstanceOf(
-        AwspTagKeyDefinition,
-      );
-      expect(typeof deserialized.supportedKeys![0].toJSON).toBe('function');
+      expect(deserialized.keys![0]).toBeInstanceOf(AwspTagKeyDefinition);
+      expect(typeof deserialized.keys![0].toJSON).toBe('function');
     });
 
     it('should preserve data through parse and serialize', () => {
@@ -153,7 +149,7 @@ describe('TagDefinition', () => {
         description: 'Test',
         isVoice: true,
         enumName: 'TEST_ENUM',
-        enumValue: 'TEST_VALUE',
+        enumMember: 'TEST_VALUE',
       };
 
       const tag = AwspTagDefinition.fromJSON(original);

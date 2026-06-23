@@ -21,19 +21,19 @@ import {AwspParamDefinition} from '../common/param-definition.js';
  */
 export class AwspSpfModuleDefinition extends BaseModuleDefinition {
   /** List of supported processor IDs (required) */
-  supportedProcessorIds!: number[];
+  processors!: number[];
 
   /** Dictionary of supported container types (required) */
-  supportedContainerTypes!: number[];
+  containerTypes!: number[];
 
   /** Input port information (optional) */
-  inputPortsInfo?: AwspDataPortsInfo;
+  inputPort?: AwspDataPortsInfo;
 
   /** Output ports information (optional) */
-  outputPortsInfo?: AwspDataPortsInfo;
+  outputPort?: AwspDataPortsInfo;
 
   /** Control ports information (optional) */
-  controlPortsInfo?: AwspControlPortsInfo;
+  controlPort?: AwspControlPortsInfo;
 
   /** Stack size (optional) */
   stackSize?: number;
@@ -88,20 +88,20 @@ export class AwspSpfModuleDefinition extends BaseModuleDefinition {
 
     return this.hydrateInstance(new AwspSpfModuleDefinition(), validated, [
       {
-        field: 'paramDefinitions',
+        field: 'parameters',
         hydrator: AwspParamDefinition,
         isArray: true,
       },
       {
-        field: 'inputPortsInfo',
+        field: 'inputPort',
         hydrator: AwspDataPortsInfo,
       },
       {
-        field: 'outputPortsInfo',
+        field: 'outputPort',
         hydrator: AwspDataPortsInfo,
       },
       {
-        field: 'controlPortsInfo',
+        field: 'controlPort',
         hydrator: AwspControlPortsInfo,
       },
       {
@@ -112,17 +112,25 @@ export class AwspSpfModuleDefinition extends BaseModuleDefinition {
   }
 
   /**
+   * Build an instance from already-parsed (Zod-validated) data.
+   * Used by AwspParser.hydrateDefinitions to avoid re-parsing data.
+   */
+  static fromParsed(data: unknown): AwspSpfModuleDefinition {
+    return Object.assign(new AwspSpfModuleDefinition(), data);
+  }
+
+  /**
    * Serialize AwspSpfModuleDefinition to JSON
    * @returns Plain object suitable for JSON serialization
    */
   toJSON(): Record<string, unknown> {
     return {
       ...this.serializeBaseModuleFields(),
-      supportedProcessorIds: this.supportedProcessorIds,
-      supportedContainerTypes: this.supportedContainerTypes,
-      inputPortsInfo: this.serializeField(this.inputPortsInfo),
-      outputPortsInfo: this.serializeField(this.outputPortsInfo),
-      controlPortsInfo: this.serializeField(this.controlPortsInfo),
+      processors: this.processors,
+      containerTypes: this.containerTypes,
+      inputPort: this.serializeField(this.inputPort),
+      outputPort: this.serializeField(this.outputPort),
+      controlPort: this.serializeField(this.controlPort),
       stackSize: this.stackSize,
       vocoderModuleType: this.vocoderModuleType,
       directionType: this.directionType,

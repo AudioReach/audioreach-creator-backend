@@ -5,119 +5,135 @@
 
 import {describe, it, expect} from '@jest/globals';
 import {
-  MetadataSchema,
-  BufferSizeSchema,
   ProcessorConfigSchema,
-  RtcConfigurationSchema,
+  RtcConfigSchema,
   AlsaGroupSchema,
-  AlsaLibConfigurationSchema,
+  AlsaLibConfigSchema,
   ConfigurationDataSchema,
   ConfigurationSchema,
 } from '../../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/configuration/configuration.schema.js';
 
-describe('Configuration Schemas', () => {
-  describe('MetadataSchema', () => {
-    it('should parse valid metadata', () => {
-      const validData = {
-        lastModified: '2026-02-03T04:06:17Z',
-        generator: 'QwspConverter-1.0.0',
-      };
-      const result = MetadataSchema.parse(validData);
-      expect(result).toEqual(validData);
-    });
-
-    it('should reject invalid metadata', () => {
-      const invalidData = {
-        lastModified: 123,
-        generator: 'QwspConverter-1.0.0',
-      };
-      expect(() => MetadataSchema.parse(invalidData)).toThrow();
-    });
-  });
-
-  describe('BufferSizeSchema', () => {
-    it('should parse valid buffer size', () => {
-      const validData = {
+const VALID_CONFIGURATION = {
+  portStrategy: {strategy: 'SEQUENTIAL'},
+  defaultProcessorDomain: {id: '0x2'},
+  rtc: {
+    processors: [
+      {
+        name: 'ADSP',
+        id: '0x2',
         pidSize: 8192,
         rtcSize: 2097152,
         isEnabled: true,
-      };
-      const result = BufferSizeSchema.parse(validData);
-      expect(result).toEqual(validData);
-    });
+      },
+    ],
+  },
+  alsaLib: {
+    includeTlvHeader: true,
+    fileType: 'BIN',
+    groups: [
+      {
+        id: 1,
+        name: 'Group 1',
+        properties: [{id: 1}, {id: 4}],
+      },
+    ],
+  },
+};
 
-    it('should reject invalid buffer size', () => {
-      const invalidData = {
-        pidSize: '8192',
+describe('Configuration Schemas', () => {
+  describe('ProcessorConfigSchema', () => {
+    it('should parse a processor with a hex id string', () => {
+      const result = ProcessorConfigSchema.parse({
+        name: 'ADSP',
+        id: '0x2',
+        pidSize: 8192,
         rtcSize: 2097152,
         isEnabled: true,
-      };
-      expect(() => BufferSizeSchema.parse(invalidData)).toThrow();
+      });
+      expect(result.id).toBe(2);
+    });
+
+    it('should reject a processor missing required fields', () => {
+      expect(() =>
+        ProcessorConfigSchema.parse({name: 'ADSP', id: '0x2'}),
+      ).toThrow();
+    });
+  });
+
+  describe('RtcConfigSchema', () => {
+    it('should parse a list of processors', () => {
+      const result = RtcConfigSchema.parse({
+        processors: [
+          {
+            name: 'ADSP',
+            id: '0x2',
+            pidSize: 8192,
+            rtcSize: 2097152,
+            isEnabled: false,
+          },
+        ],
+      });
+      expect(result.processors).toHaveLength(1);
+    });
+  });
+
+  describe('AlsaGroupSchema', () => {
+    it('should parse a group with properties array', () => {
+      const result = AlsaGroupSchema.parse({
+        id: 1,
+        name: 'Group 1',
+        properties: [{id: 1}, {id: 4}],
+      });
+      expect(result.properties).toHaveLength(2);
+    });
+  });
+
+  describe('AlsaLibConfigSchema', () => {
+    it('should normalise fileType to uppercase', () => {
+      const result = AlsaLibConfigSchema.parse({
+        includeTlvHeader: false,
+        fileType: 'bin',
+        groups: [],
+      });
+      expect(result.fileType).toBe('BIN');
+    });
+
+    it('should reject an unknown fileType', () => {
+      expect(() =>
+        AlsaLibConfigSchema.parse({
+          includeTlvHeader: false,
+          fileType: 'XML',
+          groups: [],
+        }),
+      ).toThrow();
     });
   });
 
   describe('ConfigurationSchema', () => {
-    it('should parse complete valid configuration', () => {
-      const validData = {
-        $version: 1,
-        $metadata: {
-          lastModified: '2026-02-03T04:06:17Z',
-          generator: 'QwspConverter-1.0.0',
-        },
-        configuration: {
-          portStrategy: 'SEQUENTIAL',
-          defaultProcessorDomain: 'ADSP',
-          rtcConfiguration: {
-            processors: [
-              {
-                name: 'ADSP',
-                id: 2,
-                bufferSize: {
-                  pidSize: 8192,
-                  rtcSize: 2097152,
-                  isEnabled: true,
-                },
-              },
-            ],
-          },
-          alsaLibConfiguration: {
-            includeTlvHeader: true,
-            fileType: 'Bin',
-            groups: [
-              {
-                id: 1,
-                name: 'Group 1',
-                propertyIds: [1, 4],
-              },
-            ],
-          },
-        },
-      };
-      const result = ConfigurationSchema.parse(validData);
-      expect(result.$version).toBe(1);
-      expect(result.$metadata.generator).toBe('QwspConverter-1.0.0');
-      expect(result.configuration.portStrategy).toBe('SEQUENTIAL');
+    it('should parse a valid configuration and unwrap wrapper objects', () => {
+      const result = ConfigurationSchema.parse(VALID_CONFIGURATION);
+      expect(result.portStrategy).toBe('SEQUENTIAL');
+      expect(result.defaultProcessorDomain).toBe(2);
+      expect(result.rtc.processors[0].pidSize).toBe(8192);
+      expect(result.alsaLib.groups[0].properties).toEqual([{id: 1}, {id: 4}]);
     });
 
-    it('should reject configuration with invalid enum values', () => {
-      const invalidData = {
-        version: 1,
-        metadata: {
-          lastModified: '2026-02-03T04:06:17Z',
-          generator: 'QwspConverter-1.0.0',
-        },
-        configuration: {
-          portStrategy: 'INVALID_STRATEGY',
-          defaultProcessorDomain: 'ADSP',
-          rtcConfiguration: {processors: []},
-          alsaLibConfiguration: {
-            includeTlvHeader: true,
-            fileType: 'Bin',
-            groups: [],
-          },
-        },
-      };
-      expect(() => ConfigurationSchema.parse(invalidData)).toThrow();
+    it('should reject an invalid portStrategy enum value', () => {
+      const bad = {...VALID_CONFIGURATION, portStrategy: {strategy: 'UNKNOWN'}};
+      expect(() => ConfigurationSchema.parse(bad)).toThrow();
+    });
+
+    it('should reject missing rtc processors field', () => {
+      const {rtc: _rtc, ...rest} = VALID_CONFIGURATION;
+      expect(() => ConfigurationSchema.parse(rest)).toThrow();
+    });
+  });
+
+  describe('ConfigurationDataSchema (normalised output shape)', () => {
+    it('should accept the output of ConfigurationSchema', () => {
+      const parsed = ConfigurationSchema.parse(VALID_CONFIGURATION);
+      const result = ConfigurationDataSchema.parse(parsed);
+      expect(result.portStrategy).toBe('SEQUENTIAL');
     });
   });
 });

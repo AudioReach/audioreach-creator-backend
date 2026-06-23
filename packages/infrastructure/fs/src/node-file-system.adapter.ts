@@ -106,7 +106,18 @@ export class NodeFileSystemAdapter implements FileSystemPort {
   async unzip(zipFilePath: string, destinationPath: string): Promise<void> {
     // Create AdmZip instance from file path
     const zip = new AdmZip(zipFilePath);
+    await this.extractZip(zip, destinationPath);
+  }
 
+  async unzipBuffer(data: Uint8Array, destinationPath: string): Promise<void> {
+    const zip = new AdmZip(Buffer.from(data));
+    await this.extractZip(zip, destinationPath);
+  }
+
+  private async extractZip(
+    zip: AdmZip,
+    destinationPath: string,
+  ): Promise<void> {
     // Create destination folder if it doesn't exist
     await this.mkdir(destinationPath);
 

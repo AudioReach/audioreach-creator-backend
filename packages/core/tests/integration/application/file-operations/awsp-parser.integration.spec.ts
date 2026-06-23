@@ -110,8 +110,8 @@ describe('AWSP Parser Integration Tests', () => {
         expect(typeof module.name).toBe('string');
         //expect(module.supportedProcessorIds).toBeDefined(); //TODO: Re-enable once supportedProcessorIds is consistently present in test files
         //expect(Array.isArray(module.supportedProcessorIds)).toBe(true); //TODO: Re-enable once supportedProcessorIds is consistently present in test files
-        expect(module.supportedContainerTypes).toBeDefined();
-        expect(Array.isArray(module.supportedContainerTypes)).toBe(true);
+        expect(module.containerTypes).toBeDefined();
+        expect(Array.isArray(module.containerTypes)).toBe(true);
       }
     });
 
@@ -121,7 +121,7 @@ describe('AWSP Parser Integration Tests', () => {
 
       expect(config).toBeDefined();
       expect(config.portStrategy).toBeDefined();
-      expect(['INPUT_ODD_OUTPUT_EVEN', 'SEQUENTIAL']).toContain(
+      expect(['INPUT_EVEN_OUTPUT_ODD', 'SEQUENTIAL']).toContain(
         config.portStrategy,
       );
       expect(config.defaultProcessorDomain).toBeDefined();

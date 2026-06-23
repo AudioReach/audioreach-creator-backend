@@ -4,15 +4,17 @@
  */
 
 import {z} from 'zod';
-import {AwspPortSchema} from './port.schema.js';
+import {HexIdSchema} from '../../common/hex-id.schema.js';
 import {AwspIntentSchema} from './intent.schema.js';
 
 /**
  * Schema for static control port definition.
- * Extends port with supported intents.
+ * Extends port with supported intents (optional — absent in some JSON variants).
  */
-export const AwspStaticControlPortSchema = AwspPortSchema.extend({
-  supportedIntents: z.array(AwspIntentSchema),
+export const AwspStaticControlPortSchema = z.object({
+  id: HexIdSchema,
+  name: z.string().optional(),
+  supportedIntents: z.array(AwspIntentSchema).optional(),
 });
 
 export type AwspStaticControlPort = z.infer<typeof AwspStaticControlPortSchema>;

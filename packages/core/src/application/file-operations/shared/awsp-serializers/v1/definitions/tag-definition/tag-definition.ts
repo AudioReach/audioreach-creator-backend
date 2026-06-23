@@ -21,8 +21,8 @@ export class AwspTagDefinition extends BaseDefinition {
   /** Description of the tag definition (optional) */
   description?: string;
 
-  /** Collection of supported key definitions for this tag (optional) */
-  supportedKeys?: AwspTagKeyDefinition[];
+  /** Collection of key definitions for this tag (optional) */
+  keys?: AwspTagKeyDefinition[];
 
   /** Indicates whether this tag is voice-related (optional) */
   isVoice?: boolean;
@@ -30,8 +30,8 @@ export class AwspTagDefinition extends BaseDefinition {
   /** Enumeration name associated with the tag definition (optional) */
   enumName?: string;
 
-  /** Enumeration value associated with the tag definition (optional) */
-  enumValue?: string;
+  /** Enumeration member associated with the tag definition (optional) */
+  enumMember?: string;
 
   /**
    * Parse JSON data into TagDefinition instance
@@ -44,16 +44,20 @@ export class AwspTagDefinition extends BaseDefinition {
     return this.hydrateInstance(
       new AwspTagDefinition(),
       validated,
-      validated.supportedKeys
+      validated.keys
         ? [
             {
-              field: 'supportedKeys',
+              field: 'keys',
               hydrator: AwspTagKeyDefinition,
               isArray: true,
             },
           ]
         : [],
     );
+  }
+
+  static fromParsed(data: unknown): AwspTagDefinition {
+    return Object.assign(new AwspTagDefinition(), data);
   }
 
   /**
@@ -65,10 +69,10 @@ export class AwspTagDefinition extends BaseDefinition {
       id: this.id,
       name: this.name,
       description: this.description,
-      supportedKeys: this.serializeField(this.supportedKeys),
+      keys: this.serializeField(this.keys),
       isVoice: this.isVoice,
       enumName: this.enumName,
-      enumValue: this.enumValue,
+      enumMember: this.enumMember,
     };
   }
 }

@@ -408,8 +408,8 @@ export class KeyDefinitionBuilder {
       fileSystemId: 0, // Placeholder - will be assigned during build process
       name: awsp.name,
       description: awsp.description,
-      isCalibrationKey: awsp.isCalKey ?? false,
-      isGraphKey: awsp.isGraphKey ?? false,
+      isCalibrationKey: awsp.isCalKey ?? true, //TODO: fix workspace file
+      isGraphKey: awsp.isGraphKey ?? true, //TODO: fix workspace file
       isVoice: awsp.isVoice ?? false,
       isDynamic: awsp.isDynamic ?? false,
       values: domainValues,
@@ -424,9 +424,9 @@ export class KeyDefinitionBuilder {
 
       cHeaderAttributes: {
         keyEnumName: awsp.enumName,
-        keyEnumValue: awsp.enumValue,
-        calibrationEnumValue: awsp.calKeyEnumValue,
-        graphEnumValue: awsp.graphKeyEnumValue,
+        keyEnumValue: awsp.enumMember,
+        calibrationEnumValue: awsp.calKeyEnumMember,
+        graphEnumValue: awsp.graphKeyEnumMember,
       },
     });
 

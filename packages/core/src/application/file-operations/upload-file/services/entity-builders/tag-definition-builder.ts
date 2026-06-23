@@ -39,10 +39,10 @@ export class TagDefinitionBuilder {
       // Generate system ID
       const systemId = await this.idGenerator.getNextId(fileSystemId);
 
-      // Map supportedKeys to keysAllowed (TagDefKeyDefLink[])
+      // Map keys to keysAllowed (TagDefKeyDefLink[])
       const keysAllowed: TagDefKeyDefLink[] = [];
-      if (awspTagDef.supportedKeys) {
-        for (const supportedKey of awspTagDef.supportedKeys) {
+      if (awspTagDef.keys) {
+        for (const supportedKey of awspTagDef.keys) {
           // Resolve key definition system ID from natural ID
           const keySystemId = this.foreignKeyMapper.getKeySystemId(
             asNaturalId(supportedKey.id),
@@ -77,7 +77,7 @@ export class TagDefinitionBuilder {
         keysAllowed,
         isVoice: awspTagDef.isVoice ?? false,
         cHeaderEnumName: awspTagDef.enumName,
-        cHeaderEnumValue: awspTagDef.enumValue,
+        cHeaderEnumValue: awspTagDef.enumMember,
         fileSystemId,
       });
 

@@ -9,15 +9,15 @@
  * that contain arrays of different definition types.
  */
 export const DEFINITION_BLOCK_NAMES = {
-  KEY_DEFINITIONS: 'keyDefinitions',
-  TAG_DEFINITIONS: 'tagDefinitions',
-  SPF_PROPERTY_DEFINITIONS: 'spfPropertyDefinitions',
-  DRIVER_PROPERTY_DEFINITIONS: 'driverPropertyDefinitions',
-  SPF_MODULE_DEFINITIONS: 'spfModuleDefinitions',
-  DRIVER_MODULE_DEFINITIONS: 'driverModuleDefinitions',
+  KEY_DEFINITIONS: 'keys',
+  TAG_DEFINITIONS: 'tags',
+  SPF_PROPERTY_DEFINITIONS: 'spfProperties',
+  DRIVER_PROPERTY_DEFINITIONS: 'driverProperties',
+  SPF_MODULE_DEFINITIONS: 'spfModules',
+  DRIVER_MODULE_DEFINITIONS: 'driverModules',
   VCPM_MODULE_DEFINITIONS: 'vcpmModuleDefinitions',
-  SUPPORTED_PROCESSORS: 'supportedProcessors',
-  SUPPORTED_CONTAINER_TYPES: 'supportedContainerTypes',
+  SUPPORTED_PROCESSORS: 'processors',
+  SUPPORTED_CONTAINER_TYPES: 'containerTypes',
 } as const;
 
 /**
