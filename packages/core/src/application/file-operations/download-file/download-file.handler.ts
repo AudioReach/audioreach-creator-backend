@@ -8,6 +8,8 @@ import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {QueryHandler} from '../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../ports/persistence/query-services/query-services.js';
 import type {DownloadFileQuery} from './download-file.query.js';
+import type {Logger} from '../../../shared/types/logger.interface.js';
+import type {ProfilerPort} from '../../ports/profiling/profiler.port.js';
 import {DownloadFileOrchestrator} from './services/download-file-orchestrator.js';
 
 export type DownloadFileResult = {
@@ -27,6 +29,8 @@ export class DownloadFileHandler implements QueryHandler<
     private readonly queryServices: QueryServices,
     private readonly fileSystem: FileSystemPort,
     private readonly workerPool?: WorkerPoolPort,
+    private readonly logger?: Logger,
+    private readonly profiler?: ProfilerPort,
   ) {}
 
   async handle(query: DownloadFileQuery): Promise<DownloadFileResult> {
@@ -47,6 +51,8 @@ export class DownloadFileHandler implements QueryHandler<
       this.queryServices.bulkReadQueryService,
       this.fileSystem,
       this.workerPool,
+      this.logger,
+      this.profiler,
     );
 
     const result = await orchestrator.orchestrate(fileSystemId, fileNames);

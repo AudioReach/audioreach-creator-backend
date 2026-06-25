@@ -20,6 +20,7 @@ export * from './application/ports/persistence/repositories/bulk-import/bulk-imp
 export * from './application/ports/persistence/repositories/project/project.repository.js';
 export * from './shared/utilities/uuid.js';
 export * from './shared/utilities/binary-utils.js';
+export * from './shared/utilities/array-utils.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
 export * from './shared/types/branded-ids.js';

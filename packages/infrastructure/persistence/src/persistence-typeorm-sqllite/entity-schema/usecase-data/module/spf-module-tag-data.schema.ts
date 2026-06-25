@@ -128,6 +128,12 @@ export const TkvSchema = (blobConverter: BlobBytesConverter) =>
         inverseSide: 'tkv',
       },
     },
+    indices: [
+      {
+        name: 'idx_tkv_module_tag_id_map_system_id',
+        columns: ['moduleTagIdMapSystemId'],
+      },
+    ],
   });
 
 export const TkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
@@ -165,6 +171,10 @@ export const TkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
         name: 'ix_tkv_parameter',
         columns: ['tkvSystemId', 'parameterSystemId'],
         unique: true,
+      },
+      {
+        name: 'idx_tkv_parameter_payload_tkv_system_id',
+        columns: ['tkvSystemId'],
       },
     ],
   });

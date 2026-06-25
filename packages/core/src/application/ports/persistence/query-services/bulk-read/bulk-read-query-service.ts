@@ -198,6 +198,70 @@ export interface CalibrationDataDownloadModel {
 }
 
 /**
+ * Global per-file map of tagId → sorted keyIds. Source: TagDefinition records.
+ * Used to build the MTKL (MOD_TAG_KEYIDS_TABLE) chunk.
+ */
+export interface TagKeysDownloadModel {
+  tagId: number;
+  keyIds: number[]; // sorted ASC
+}
+
+/**
+ * Per-(subgraphId, tagId) TKV data with module/parameter payloads.
+ * Used to build MTKT, MTLU, MTDE, MTDO chunks.
+ */
+export interface TagDataDownloadModel {
+  subgraphId: number;
+  tagId: number;
+  numTagKeyValues: number; // count of key slots → written as MTLU header field
+  tkvs: Array<{
+    tagKeyValues: number[]; // VALUE IDs sorted by keyId ASC → written into MTLU vector
+    modules: Array<{
+      moduleInstanceId: number;
+      parameters: Array<{parameterId: number; payload: Uint8Array}>;
+    }>;
+  }>;
+}
+
+/**
+ * Per-(subgraphId, tagId) module instances (non-voice, filtered in app layer).
+ * Used to build TMLU, TMDE chunks.
+ */
+export interface TaggedModuleDownloadModel {
+  subgraphId: number;
+  tagId: number;
+  isVoice: boolean; // app layer filters isVoice=true before building chunks
+  moduleInstances: Array<{moduleId: number; instanceId: number}>; // sorted by [moduleId ASC, instanceId ASC]
+}
+
+/**
+ * Per-(moduleDefinitionId, keyIds) group of driver calibration CKV data.
+ * Used to build GCLU, GCKT, GCDT, GCDE, GCDO chunks.
+ *
+ * Sorting contract (must be upheld by the query layer):
+ *   outer: moduleDefinitionId ASC
+ *   middle: keyIds lexicographic ASC
+ *   inner: valueIds lexicographic ASC
+ *   params: parameterId ASC
+ */
+export interface DriverCalibrationDownloadModel {
+  /** Natural module definition ID (MID) */
+  moduleDefinitionId: number;
+  /** Sorted key IDs for this group — written to GCKT */
+  keyIds: number[];
+  /** CKV combinations for this (MID, keySet) group */
+  ckvs: Array<{
+    /** VALUE IDs parallel to keyIds, sorted by keyId ASC — written to GCDT */
+    valueIds: number[];
+    /** Parameter payloads sorted by parameterId ASC — written to GCDE/GCDO */
+    parameters: Array<{
+      parameterId: number;
+      payload: Uint8Array;
+    }>;
+  }>;
+}
+
+/**
  * All domain entities needed to reconstruct .acdb and .awsp files for a given file.
  */
 export interface DownloadEntities {
@@ -206,7 +270,10 @@ export interface DownloadEntities {
   subgraphData?: SubgraphDownloadModel[];
   containerData?: ContainerDownloadModel[];
   calibrationData?: CalibrationDataDownloadModel[];
-  // TODO: Add tagData when implementing tag data
+  tagKeys?: TagKeysDownloadModel[];
+  tagData?: TagDataDownloadModel[];
+  taggedModules?: TaggedModuleDownloadModel[];
+  driverCalibrationData?: DriverCalibrationDownloadModel[];
 }
 
 /**
@@ -268,4 +335,13 @@ export interface BulkReadQueryService {
   readCalibrationData(
     fileSystemId: number,
   ): Promise<CalibrationDataDownloadModel[]>;
+
+  readTagKeys(fileSystemId: number): Promise<TagKeysDownloadModel[]>;
+  readTagData(fileSystemId: number): Promise<TagDataDownloadModel[]>;
+  readTaggedModuleData(
+    fileSystemId: number,
+  ): Promise<TaggedModuleDownloadModel[]>;
+  readDriverCalibrationData(
+    fileSystemId: number,
+  ): Promise<DriverCalibrationDownloadModel[]>;
 }

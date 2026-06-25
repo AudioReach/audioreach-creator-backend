@@ -38,7 +38,7 @@ Implement audio calibration data download functionality that mirrors the existin
 
 - ✅ **Mirror Usecase Data Pattern**: Follow exact same architecture as usecase data download
 - ✅ **Chunk Format Compliance**: Match ACDB binary format specification exactly
-- ✅ **C# Implementation Parity**: Align with reference C# implementation logic
+- ✅ **Binary Format Compliance**: Match ACDB binary format specification exactly
 - ✅ **Performance Optimized**: Parallel chunk building, optimized SQL queries
 - ✅ **Sorted Output**: All data sorted at every level (subgraph, keys, values, modules)
 - ✅ **Production Ready**: Error handling, logging, type safety
@@ -713,10 +713,9 @@ CREATE INDEX IF NOT EXISTS idx_ckv_values_ckv
 This design provides a complete, production-ready solution for audio calibration data download that:
 
 1. ✅ **Mirrors usecase data pattern exactly** - Same architecture, same flow
-2. ✅ **Matches C# implementation** - Sorting, offset tracking, global persistent IIDs
-3. ✅ **Complies with ACDB format** - All 5 calibration chunks correctly formatted
-4. ✅ **Optimized for performance** - 1.75x speedup with parallel chunk building
-5. ✅ **Production ready** - Error handling, logging, type safety, testing strategy
-6. ✅ **Maintainable** - Follows existing patterns, well-documented
+2. ✅ **Complies with ACDB format** - All 5 calibration chunks correctly formatted
+3. ✅ **Optimized for performance** - 1.75x speedup with parallel chunk building
+4. ✅ **Production ready** - Error handling, logging, type safety, testing strategy
+5. ✅ **Maintainable** - Follows existing patterns, well-documented
 
 **Next Steps**: Create implementation plan using writing-plans skill.

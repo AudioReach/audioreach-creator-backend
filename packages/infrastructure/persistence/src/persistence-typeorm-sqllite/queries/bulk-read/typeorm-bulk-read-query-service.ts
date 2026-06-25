@@ -11,7 +11,13 @@ import type {
   SubgraphDownloadModel,
   ContainerDownloadModel,
   CalibrationDataDownloadModel,
+  TagKeysDownloadModel,
+  TagDataDownloadModel,
+  TaggedModuleDownloadModel,
+  DriverCalibrationDownloadModel,
+  Logger,
 } from '@arc/core';
+import {compareNumberArrays} from '@arc/core';
 import type {DataSource, SelectQueryBuilder, ObjectLiteral} from 'typeorm';
 import {DbFileQuery} from '../db-file-query.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -28,7 +34,18 @@ import type {SubgraphPropertyDataRow} from '../../entity-schema/usecase-data/sub
 import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
 import type {DataLinkRow} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {ControlLinkRow} from '../../entity-schema/usecase-data/Links/control-link.js';
-import type {ModuleTagIdMapRow} from '../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
+import type {
+  ModuleTagIdMapRow,
+  TkvRow,
+  TkvValuesRow,
+  TkvParameterPayloadRow,
+} from '../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
+import type {TagDefinitionRow} from '../../entity-schema/definitions/tag-key-value/tag-definition.schema.js';
+import type {
+  DkvRow,
+  DkvParameterPayloadRow,
+  DkvValuesRow,
+} from '../../entity-schema/driver-module-data/driver-module.js';
 
 /**
  * TypeORM implementation of BulkReadQueryService.
@@ -42,7 +59,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
    */
   private readonly SQLITE_MAX_VARIABLES = 999;
 
-  constructor(private readonly dataSource: DataSource) {
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly logger?: Logger,
+  ) {
     if (!this.dataSource) {
       throw new Error('DataSource is required');
     }
@@ -51,18 +71,43 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   async readAllEntitiesForFile(
     fileSystemId: number,
   ): Promise<DownloadEntities> {
+    const timed = <T>(name: string, promise: Promise<T>): Promise<T> => {
+      const t0 = performance.now();
+      return promise.then(result => {
+        this.logger?.logInfo({
+          msg: `db:${name} ${(performance.now() - t0).toFixed(1)}ms`,
+          action: 'download-db-performance',
+          component: 'TypeOrmBulkReadQueryService',
+          tag: 'download-file',
+          timestamp: new Date(),
+        });
+        return result;
+      });
+    };
+
     const [
       headerMetadata,
       usecaseData,
       subgraphData,
       containerData,
       calibrationData,
+      tagKeys,
+      tagData,
+      taggedModules,
+      driverCalibrationData,
     ] = await Promise.all([
-      this.readFileProperties(fileSystemId),
-      this.readUsecaseData(fileSystemId),
-      this.readSubgraphData(fileSystemId),
-      this.readContainerData(fileSystemId),
-      this.readCalibrationData(fileSystemId),
+      timed('readFileProperties', this.readFileProperties(fileSystemId)),
+      timed('readUsecaseData', this.readUsecaseData(fileSystemId)),
+      timed('readSubgraphData', this.readSubgraphData(fileSystemId)),
+      timed('readContainerData', this.readContainerData(fileSystemId)),
+      timed('readCalibrationData', this.readCalibrationData(fileSystemId)),
+      timed('readTagKeys', this.readTagKeys(fileSystemId)),
+      timed('readTagData', this.readTagData(fileSystemId)),
+      timed('readTaggedModuleData', this.readTaggedModuleData(fileSystemId)),
+      timed(
+        'readDriverCalibrationData',
+        this.readDriverCalibrationData(fileSystemId),
+      ),
     ]);
 
     return {
@@ -71,6 +116,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       subgraphData,
       containerData,
       calibrationData,
+      tagKeys,
+      tagData,
+      taggedModules,
+      driverCalibrationData,
     };
   }
 
@@ -535,23 +584,26 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
   // ─── Calibration ─────────────────────────────────────────────────────────
 
-  /**
-   * Read all calibration data (audio + voice) with no scenario filtering.
-   * Application layer uses isVoiceSubgraph(subgraph.properties) to split.
-   */
   async readCalibrationData(
     fileSystemId: number,
   ): Promise<CalibrationDataDownloadModel[]> {
     const ckvEntries = await this.fetchAllCkvEntries(fileSystemId);
+    if (ckvEntries.length === 0) return [];
+
+    const ckvIds = ckvEntries.map(e => e.systemId);
+    const [valRows, paramRows] = await Promise.all([
+      this.fetchCkvValues(ckvIds),
+      this.fetchParametersForCkvs(ckvIds),
+    ]);
+
+    const valMap = new Map<number, CkvValuesRow[]>();
+    for (const v of valRows) {
+      if (!valMap.has(v.ckvSystemId)) valMap.set(v.ckvSystemId, []);
+      valMap.get(v.ckvSystemId)!.push(v);
+    }
+    for (const ckv of ckvEntries) ckv.values = valMap.get(ckv.systemId) ?? [];
 
     const sortedEntries = this.sortCkvEntries(ckvEntries);
-
-    const ckvSystemIds = sortedEntries.map(e => e.systemId);
-    const paramRows =
-      ckvSystemIds.length > 0
-        ? await this.fetchParametersForCkvs(ckvSystemIds)
-        : [];
-
     return this.buildCalibrationModels(sortedEntries, paramRows);
   }
 
@@ -561,13 +613,21 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .createQueryBuilder('ckv')
       .leftJoinAndSelect('ckv.module', 'sm')
       .leftJoinAndSelect('sm.subgraph', 'sg')
-      .leftJoinAndSelect('ckv.values', 'cv')
-      .leftJoinAndSelect('cv.valueDef', 'vd')
-      .leftJoinAndSelect('vd.keys', 'k')
       .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
       .orderBy('sg.subgraphId', 'ASC')
       .addOrderBy('sm.instanceId', 'ASC')
       .getMany() as Promise<CkvRow[]>;
+  }
+
+  private fetchCkvValues(ckvIds: number[]): Promise<CkvValuesRow[]> {
+    return this.queryInChunks(ckvIds, ids =>
+      this.dataSource
+        .getRepository(ENTITY_NAMES.CkvValues)
+        .createQueryBuilder('cv')
+        .leftJoinAndSelect('cv.valueDef', 'vd')
+        .leftJoinAndSelect('vd.keys', 'k')
+        .where('cv.ckvSystemId IN (:...ids)', {ids}),
+    ) as Promise<CkvValuesRow[]>;
   }
 
   private fetchParametersForCkvs(
@@ -606,38 +666,38 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     return results.flat();
   }
 
-  /**
-   * Sort hydrated CkvRow entries by subgraphId → keyIds → valueIds → moduleInstanceId.
-   * Operates on number arrays — no comma-separated string parsing needed.
-   */
   private sortCkvEntries(entries: CkvRow[]): CkvRow[] {
-    return entries.sort((a, b) => {
-      const sgA = a.module?.subgraph?.subgraphId ?? 0;
-      const sgB = b.module?.subgraph?.subgraphId ?? 0;
+    // Pre-sort each entry's values once — doing this inside the comparator
+    // would sort the same array O(N log N) times instead of once per entry.
+    const prepared = entries.map(e => ({
+      entry: e,
+      vals: [...(e.values ?? [])].sort(
+        (x, y) =>
+          (x.valueDef?.keys?.keyId ?? 0) - (y.valueDef?.keys?.keyId ?? 0),
+      ),
+    }));
+
+    prepared.sort((a, b) => {
+      const sgA = a.entry.module?.subgraph?.subgraphId ?? 0;
+      const sgB = b.entry.module?.subgraph?.subgraphId ?? 0;
       if (sgA !== sgB) return sgA - sgB;
 
-      const aVals = this.toSortedCkvValues(a);
-      const bVals = this.toSortedCkvValues(b);
-      const maxLen = Math.max(aVals.length, bVals.length);
-
-      for (let i = 0; i < maxLen; i++) {
-        const ak = aVals[i]?.valueDef?.keys?.keyId ?? -1;
-        const bk = bVals[i]?.valueDef?.keys?.keyId ?? -1;
-        if (ak !== bk) return ak - bk;
-      }
-      for (let i = 0; i < maxLen; i++) {
-        const av = aVals[i]?.valueDef?.valueId ?? -1;
-        const bv = bVals[i]?.valueDef?.valueId ?? -1;
-        if (av !== bv) return av - bv;
-      }
-      return (a.module?.instanceId ?? 0) - (b.module?.instanceId ?? 0);
+      const keyDiff = compareNumberArrays(
+        a.vals.map(v => v.valueDef?.keys?.keyId ?? 0),
+        b.vals.map(v => v.valueDef?.keys?.keyId ?? 0),
+      );
+      if (keyDiff !== 0) return keyDiff;
+      const valDiff = compareNumberArrays(
+        a.vals.map(v => v.valueDef?.valueId ?? 0),
+        b.vals.map(v => v.valueDef?.valueId ?? 0),
+      );
+      if (valDiff !== 0) return valDiff;
+      return (
+        (a.entry.module?.instanceId ?? 0) - (b.entry.module?.instanceId ?? 0)
+      );
     });
-  }
 
-  private toSortedCkvValues(ckv: CkvRow): CkvValuesRow[] {
-    return [...(ckv.values ?? [])].sort(
-      (x, y) => (x.valueDef?.keys?.keyId ?? 0) - (y.valueDef?.keys?.keyId ?? 0),
-    );
+    return prepared.map(p => p.entry);
   }
 
   private buildCalibrationModels(
@@ -667,12 +727,12 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     for (const ckv of sortedEntries) {
       const subgraphId = ckv.module!.subgraph!.subgraphId;
 
-      const sortedVals = [...(ckv.values ?? [])].sort(
+      const vals = [...(ckv.values ?? [])].sort(
         (x, y) =>
           (x.valueDef?.keys?.keyId ?? 0) - (y.valueDef?.keys?.keyId ?? 0),
       );
-      const keyIds = sortedVals.map(v => v.valueDef!.keys.keyId);
-      const valueIds = sortedVals.map(v => v.valueDef!.valueId);
+      const keyIds = vals.map((v: CkvValuesRow) => v.valueDef!.keys.keyId);
+      const valueIds = vals.map((v: CkvValuesRow) => v.valueDef!.valueId);
 
       if (!currentSg || currentSg.subgraphId !== subgraphId) {
         currentSg = {subgraphId, masterKeys: [], keyValueCombinations: []};
@@ -682,7 +742,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       }
 
       const mkMap = masterKeyTracker.get(subgraphId)!;
-      for (const val of sortedVals) {
+      for (const val of vals) {
         const keyId = val.valueDef!.keys.keyId;
         if (!mkMap.has(keyId)) {
           mkMap.set(keyId, val.valueDef!.keys.isDynamic ?? false);
@@ -691,8 +751,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
       if (
         !currentKvCombo ||
-        currentKvCombo.keyIds.join(',') !== keyIds.join(',') ||
-        currentKvCombo.valueIds.join(',') !== valueIds.join(',')
+        compareNumberArrays(currentKvCombo.keyIds, keyIds) !== 0 ||
+        compareNumberArrays(currentKvCombo.valueIds, valueIds) !== 0
       ) {
         currentKvCombo = {keyIds, valueIds, modules: []};
         currentSg.keyValueCombinations.push(currentKvCombo);
@@ -709,6 +769,339 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       sg.masterKeys = [...mkMap.entries()]
         .sort(([a], [b]) => a - b)
         .map(([keyId, isDynamic]) => ({keyId, isDynamic}));
+    }
+
+    return result;
+  }
+
+  // ─── Tag Keys ─────────────────────────────────────────────────────────────
+
+  async readTagKeys(fileSystemId: number): Promise<TagKeysDownloadModel[]> {
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.TagDefinition)
+      .createQueryBuilder('td')
+      .leftJoinAndSelect('td.keys', 'link')
+      .leftJoinAndSelect('link.keyDefinition', 'kd')
+      .where('td.fileSystemId = :fileSystemId', {fileSystemId})
+      .orderBy('td.tagId', 'ASC')
+      .addOrderBy('kd.keyId', 'ASC')
+      .getMany()) as TagDefinitionRow[];
+
+    return rows
+      .filter(td => (td.keys ?? []).length > 0)
+      .map(td => ({
+        tagId: td.tagId,
+        keyIds: (td.keys ?? [])
+          .filter(link => link.keyDefinition != null)
+          .map(link => link.keyDefinition!.keyId),
+      }));
+  }
+
+  // ─── Tagged Modules ───────────────────────────────────────────────────────
+
+  async readTaggedModuleData(
+    fileSystemId: number,
+  ): Promise<TaggedModuleDownloadModel[]> {
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.ModuleTagIdMap)
+      .createQueryBuilder('mtim')
+      .leftJoinAndSelect('mtim.module', 'sm')
+      .leftJoinAndSelect('sm.subgraph', 'sg')
+      .leftJoinAndSelect('sm.definition', 'def')
+      .leftJoinAndSelect('mtim.tagDefinition', 'td')
+      .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
+      .orderBy('sg.subgraphId', 'ASC')
+      .addOrderBy('td.tagId', 'ASC')
+      .addOrderBy('def.moduleDefinitionId', 'ASC')
+      .addOrderBy('sm.instanceId', 'ASC')
+      .getMany()) as ModuleTagIdMapRow[];
+
+    const result: TaggedModuleDownloadModel[] = [];
+    let current: TaggedModuleDownloadModel | null = null;
+
+    for (const row of rows) {
+      const subgraphId = row.module!.subgraph!.subgraphId;
+      const tagId = row.tagDefinition!.tagId;
+      const isVoice = row.tagDefinition!.isVoice;
+
+      if (
+        !current ||
+        current.subgraphId !== subgraphId ||
+        current.tagId !== tagId
+      ) {
+        current = {subgraphId, tagId, isVoice, moduleInstances: []};
+        result.push(current);
+      }
+
+      current.moduleInstances.push({
+        moduleId: row.module!.definition!.moduleDefinitionId,
+        instanceId: row.module!.instanceId,
+      });
+    }
+
+    return result;
+  }
+
+  // ─── Tag Data ─────────────────────────────────────────────────────────────
+
+  async readTagData(fileSystemId: number): Promise<TagDataDownloadModel[]> {
+    const baseRows = await this.fetchModuleTagIdMapRows(fileSystemId);
+    if (baseRows.length === 0) return [];
+
+    const mapIds = baseRows.map(r => r.systemId);
+    const tkvRows = await this.fetchTkvsByMapIds(mapIds);
+
+    const tkvMap = new Map<number, TkvRow[]>();
+    for (const tkv of tkvRows) {
+      if (!tkvMap.has(tkv.moduleTagIdMapSystemId))
+        tkvMap.set(tkv.moduleTagIdMapSystemId, []);
+      tkvMap.get(tkv.moduleTagIdMapSystemId)!.push(tkv);
+    }
+    for (const row of baseRows) row.tkvs = tkvMap.get(row.systemId) ?? [];
+
+    const tkvIds = tkvRows.map(t => t.systemId);
+    const [tkvValRows, paramRows] = await Promise.all([
+      this.fetchTkvValues(tkvIds),
+      tkvIds.length > 0
+        ? this.fetchTkvParameterPayloads(tkvIds)
+        : Promise.resolve([]),
+    ]);
+
+    const tkvValMap = new Map<number, TkvValuesRow[]>();
+    for (const v of tkvValRows) {
+      if (!tkvValMap.has(v.tkvSystemId)) tkvValMap.set(v.tkvSystemId, []);
+      tkvValMap.get(v.tkvSystemId)!.push(v);
+    }
+    for (const tkv of tkvRows) tkv.values = tkvValMap.get(tkv.systemId) ?? [];
+
+    return this.buildTagDataModels(baseRows, paramRows);
+  }
+
+  private async fetchModuleTagIdMapRows(
+    fileSystemId: number,
+  ): Promise<ModuleTagIdMapRow[]> {
+    return this.dataSource
+      .getRepository(ENTITY_NAMES.ModuleTagIdMap)
+      .createQueryBuilder('mtim')
+      .leftJoinAndSelect('mtim.module', 'sm')
+      .leftJoinAndSelect('sm.subgraph', 'sg')
+      .leftJoinAndSelect('mtim.tagDefinition', 'td')
+      .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
+      .orderBy('sg.subgraphId', 'ASC')
+      .addOrderBy('td.tagId', 'ASC')
+      .getMany() as Promise<ModuleTagIdMapRow[]>;
+  }
+
+  private fetchTkvsByMapIds(mapIds: number[]): Promise<TkvRow[]> {
+    return this.queryInChunks(mapIds, ids =>
+      this.dataSource
+        .getRepository(ENTITY_NAMES.Tkv)
+        .createQueryBuilder('tkv')
+        .where('tkv.moduleTagIdMapSystemId IN (:...ids)', {ids}),
+    ) as Promise<TkvRow[]>;
+  }
+
+  private fetchTkvValues(tkvIds: number[]): Promise<TkvValuesRow[]> {
+    return this.queryInChunks(tkvIds, ids =>
+      this.dataSource
+        .getRepository(ENTITY_NAMES.TkvValues)
+        .createQueryBuilder('tv')
+        .leftJoinAndSelect('tv.valueDef', 'vd')
+        .leftJoinAndSelect('vd.keys', 'k')
+        .where('tv.tkvSystemId IN (:...ids)', {ids}),
+    ) as Promise<TkvValuesRow[]>;
+  }
+
+  private fetchTkvParameterPayloads(
+    tkvSystemIds: number[],
+  ): Promise<TkvParameterPayloadRow[]> {
+    return this.queryInChunks(tkvSystemIds, ids =>
+      this.dataSource
+        .getRepository(ENTITY_NAMES.TkvParameterPayload)
+        .createQueryBuilder('tpp')
+        .leftJoinAndSelect('tpp.spfParameter', 'param')
+        .where('tpp.tkvSystemId IN (:...ids)', {ids})
+        .orderBy('tpp.tkvSystemId', 'ASC')
+        .addOrderBy('param.paramId', 'ASC'),
+    ) as Promise<TkvParameterPayloadRow[]>;
+  }
+
+  private buildTagDataModels(
+    rows: ModuleTagIdMapRow[],
+    paramRows: TkvParameterPayloadRow[],
+  ): TagDataDownloadModel[] {
+    const paramMap = new Map<
+      number,
+      Array<{parameterId: number; payload: Uint8Array}>
+    >();
+    for (const row of paramRows) {
+      if (!paramMap.has(row.tkvSystemId)) paramMap.set(row.tkvSystemId, []);
+      paramMap.get(row.tkvSystemId)!.push({
+        parameterId: row.spfParameter!.paramId,
+        payload: row.payload!,
+      });
+    }
+
+    const result: TagDataDownloadModel[] = [];
+    let current: TagDataDownloadModel | null = null;
+
+    for (const row of rows) {
+      const subgraphId = row.module!.subgraph!.subgraphId;
+      const tagId = row.tagDefinition!.tagId;
+
+      if (
+        !current ||
+        current.subgraphId !== subgraphId ||
+        current.tagId !== tagId
+      ) {
+        const firstTkv = (row.tkvs ?? [])[0];
+        const numTagKeyValues = (firstTkv?.values ?? []).length;
+        current = {subgraphId, tagId, numTagKeyValues, tkvs: []};
+        result.push(current);
+      }
+
+      for (const tkv of row.tkvs ?? []) {
+        const vals = [...(tkv.values ?? [])].sort(
+          (a, b) =>
+            (a.valueDef?.keys?.keyId ?? 0) - (b.valueDef?.keys?.keyId ?? 0),
+        );
+        const tagKeyValues = vals.map(v => v.valueDef!.valueId);
+
+        current.tkvs.push({
+          tagKeyValues,
+          modules: [
+            {
+              moduleInstanceId: row.module!.instanceId,
+              parameters: paramMap.get(tkv.systemId) ?? [],
+            },
+          ],
+        });
+      }
+    }
+
+    return result.filter((m: TagDataDownloadModel) => m.tkvs.length > 0);
+  }
+
+  // ─── Driver Calibration ───────────────────────────────────────────────────
+
+  async readDriverCalibrationData(
+    fileSystemId: number,
+  ): Promise<DriverCalibrationDownloadModel[]> {
+    const dkvEntries = await this.fetchAllDkvEntries(fileSystemId);
+    if (dkvEntries.length === 0) return [];
+
+    const dkvIds = dkvEntries.map(e => e.systemId);
+    const [valRows, paramRows] = await Promise.all([
+      this.fetchDkvValues(dkvIds),
+      this.fetchParametersForDkvs(dkvIds),
+    ]);
+
+    const valMap = new Map<number, DkvValuesRow[]>();
+    for (const v of valRows) {
+      if (!valMap.has(v.dkvSystemId)) valMap.set(v.dkvSystemId, []);
+      valMap.get(v.dkvSystemId)!.push(v);
+    }
+    for (const dkv of dkvEntries) dkv.values = valMap.get(dkv.systemId) ?? [];
+
+    return this.buildDriverCalibrationModels(dkvEntries, paramRows);
+  }
+
+  private async fetchAllDkvEntries(fileSystemId: number): Promise<DkvRow[]> {
+    return this.dataSource
+      .getRepository(ENTITY_NAMES.Dkv)
+      .createQueryBuilder('dkv')
+      .leftJoinAndSelect('dkv.driverModule', 'dm')
+      .leftJoinAndSelect('dm.definition', 'dmd')
+      .where('dm.fileSystemId = :fileSystemId', {fileSystemId})
+      .orderBy('dmd.moduleDefinitionId', 'ASC')
+      .addOrderBy('dkv.systemId', 'ASC')
+      .getMany() as Promise<DkvRow[]>;
+  }
+
+  private fetchDkvValues(dkvIds: number[]): Promise<DkvValuesRow[]> {
+    return this.queryInChunks(dkvIds, ids =>
+      this.dataSource
+        .getRepository(ENTITY_NAMES.DkvValues)
+        .createQueryBuilder('dv')
+        .leftJoinAndSelect('dv.valueDef', 'vd')
+        .leftJoinAndSelect('vd.keys', 'k')
+        .where('dv.dkvSystemId IN (:...ids)', {ids}),
+    ) as Promise<DkvValuesRow[]>;
+  }
+
+  private fetchParametersForDkvs(
+    dkvSystemIds: number[],
+  ): Promise<DkvParameterPayloadRow[]> {
+    return this.queryInChunks(dkvSystemIds, ids =>
+      this.dataSource
+        .getRepository(ENTITY_NAMES.DkvParameterPayload)
+        .createQueryBuilder('dpp')
+        .leftJoinAndSelect('dpp.driverParameter', 'dmpd')
+        .where('dpp.dkvSystemId IN (:...ids)', {ids})
+        .orderBy('dpp.dkvSystemId', 'ASC')
+        .addOrderBy('dmpd.parameterId', 'ASC'),
+    ) as Promise<DkvParameterPayloadRow[]>;
+  }
+
+  private buildDriverCalibrationModels(
+    dkvEntries: DkvRow[],
+    paramRows: DkvParameterPayloadRow[],
+  ): DriverCalibrationDownloadModel[] {
+    // Build param map: dkvSystemId → sorted parameters
+    const paramMap = new Map<
+      number,
+      Array<{parameterId: number; payload: Uint8Array}>
+    >();
+    for (const row of paramRows) {
+      if (!paramMap.has(row.dkvSystemId)) paramMap.set(row.dkvSystemId, []);
+      if (row.payload) {
+        paramMap.get(row.dkvSystemId)!.push({
+          parameterId: row.driverParameter!.parameterId,
+          payload: row.payload,
+        });
+      }
+    }
+
+    // Group by (moduleDefinitionId, keyIds-signature)
+    const groupMap = new Map<string, DriverCalibrationDownloadModel>();
+    const groupOrder: string[] = [];
+
+    for (const dkv of dkvEntries) {
+      const moduleDefinitionId =
+        dkv.driverModule?.definition?.moduleDefinitionId ?? 0;
+
+      const vals = [...(dkv.values ?? [])].sort(
+        (a, b) =>
+          (a.valueDef?.keys?.keyId ?? 0) - (b.valueDef?.keys?.keyId ?? 0),
+      );
+      const keyIds = vals.map(v => v.valueDef!.keys.keyId);
+      const valueIds = vals.map(v => v.valueDef!.valueId);
+
+      const groupKey = `${moduleDefinitionId}:${keyIds.join(',')}`;
+
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {moduleDefinitionId, keyIds, ckvs: []});
+        groupOrder.push(groupKey);
+      }
+
+      const parameters = paramMap.get(dkv.systemId) ?? [];
+      if (parameters.length > 0) {
+        groupMap.get(groupKey)!.ckvs.push({valueIds, parameters});
+      }
+    }
+
+    // Sort groups: moduleDefinitionId ASC, then keyIds lex ASC
+    const result = groupOrder.map(k => groupMap.get(k)!);
+    result.sort((a, b) => {
+      if (a.moduleDefinitionId !== b.moduleDefinitionId) {
+        return a.moduleDefinitionId - b.moduleDefinitionId;
+      }
+      return compareNumberArrays(a.keyIds, b.keyIds);
+    });
+
+    // Sort CKVs within each group: valueIds lex ASC
+    for (const group of result) {
+      group.ckvs.sort((a, b) => compareNumberArrays(a.valueIds, b.valueIds));
     }
 
     return result;

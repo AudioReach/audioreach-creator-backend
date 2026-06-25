@@ -9,6 +9,12 @@ import type {
 } from '../../../ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
+import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
+import {
+  PROFILER_OPERATIONS,
+  MEMORY_SNAPSHOTS,
+} from '../../../../shared/profiling/profiler-types.js';
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
 import {AcdbFileSerializer} from './acdb-file-serializer.js';
 import {AwspFileSerializer} from './awsp-file-serializer.js';
@@ -33,15 +39,17 @@ export class DownloadFileOrchestrator {
     private readonly bulkReadQueryService: BulkReadQueryService,
     private readonly fileSystem: FileSystemPort,
     private readonly workerPool?: WorkerPoolPort,
+    private readonly logger?: Logger,
+    private readonly profiler?: ProfilerPort,
   ) {}
 
   /**
-   * Determine if workers should be used for parallel processing.
+   * Level-1 file parallelization (SERIALIZE_AWSP_FILE / SERIALIZE_ACDB_FILE)
+   * is not yet enabled — those handlers are not registered in NodeRegistry.
+   * The workerPool is still used by AcdbFileSerializer for Level-2 chunk parallelism.
    */
   private shouldUseWorkers(): boolean {
-    return (
-      this.workerPool !== undefined && this.workerPool.isThreadingSupported()
-    );
+    return false;
   }
 
   /**
@@ -63,7 +71,11 @@ export class DownloadFileOrchestrator {
   private async serializeFilesSequential(
     entities: DownloadEntities,
   ): Promise<DownloadResult> {
-    const acdbSerializer = new AcdbFileSerializer(this.workerPool);
+    const acdbSerializer = new AcdbFileSerializer(
+      undefined,
+      this.logger,
+      this.profiler,
+    );
     const awspSerializer = new AwspFileSerializer(this.fileSystem);
 
     const acdbBuffer = await acdbSerializer.serialize(entities);
@@ -107,11 +119,57 @@ export class DownloadFileOrchestrator {
     fileSystemId: number,
     _fileNames: {acdb: string; awsp: string},
   ): Promise<DownloadResult> {
+    this.profiler?.start(PROFILER_OPERATIONS.FILE_ORCHESTRATION);
+    this.profiler?.snapshot(MEMORY_SNAPSHOTS.BEFORE_PARSING);
+
     // Step 1: Read all entities from DB
+    this.profiler?.start(PROFILER_OPERATIONS.DATABASE_TRANSACTION);
     const entities =
       await this.bulkReadQueryService.readAllEntitiesForFile(fileSystemId);
+    const readMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.DATABASE_TRANSACTION,
+    );
+    if (readMetrics) {
+      this.logger?.logInfo({
+        msg: `readAllEntitiesForFile completed in ${readMetrics.duration.toFixed(1)}ms`,
+        action: 'download-read-performance',
+        component: 'DownloadFileOrchestrator',
+        tag: 'download-file',
+        timestamp: new Date(),
+      });
+    }
+
+    this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_PARSING);
 
     // Step 2: Serialize to files (parallel or sequential)
-    return this.serializeFiles(entities);
+    this.profiler?.start(PROFILER_OPERATIONS.CHUNK_PARSING);
+    const result = await this.serializeFiles(entities);
+    const serializeMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.CHUNK_PARSING,
+    );
+    if (serializeMetrics) {
+      this.logger?.logInfo({
+        msg: `serialize completed in ${serializeMetrics.duration.toFixed(1)}ms`,
+        action: 'download-serialize-performance',
+        component: 'DownloadFileOrchestrator',
+        tag: 'download-file',
+        timestamp: new Date(),
+      });
+    }
+
+    const totalMetrics = this.profiler?.end(
+      PROFILER_OPERATIONS.FILE_ORCHESTRATION,
+    );
+    if (totalMetrics) {
+      this.logger?.logInfo({
+        msg: `download-file total: ${totalMetrics.duration.toFixed(1)}ms`,
+        action: 'download-total-performance',
+        component: 'DownloadFileOrchestrator',
+        tag: 'download-file',
+        timestamp: new Date(),
+      });
+    }
+
+    return result;
   }
 }

@@ -74,6 +74,12 @@ export const CkvSchema = (blobConverter: BlobBytesConverter) =>
         inverseSide: 'ckv',
       },
     },
+    indices: [
+      {
+        name: 'idx_ckv_module_system_id',
+        columns: ['spfModuleSystemId'],
+      },
+    ],
   });
 
 export const CkvParameterPayloadRowSchema = (
@@ -113,6 +119,10 @@ export const CkvParameterPayloadRowSchema = (
         name: 'ix_ckv_parameter',
         columns: ['ckvSystemId', 'parameterSystemId'],
         unique: true,
+      },
+      {
+        name: 'idx_ckv_parameter_payload_ckv_system_id',
+        columns: ['ckvSystemId'],
       },
     ],
   });

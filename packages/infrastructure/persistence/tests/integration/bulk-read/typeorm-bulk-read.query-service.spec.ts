@@ -234,6 +234,27 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     expect(result).toEqual([]);
   });
 
+  describe('readTagKeys', () => {
+    it('returns empty array when no tag definitions exist', async () => {
+      const result = await repository.readTagKeys(testFileSystemId);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('readTagData', () => {
+    it('returns empty array when no module tag data exists', async () => {
+      const result = await repository.readTagData(testFileSystemId);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('readTaggedModuleData', () => {
+    it('returns empty array when no module tag map entries exist', async () => {
+      const result = await repository.readTaggedModuleData(testFileSystemId);
+      expect(result).toEqual([]);
+    });
+  });
+
   it('should handle usecases with subgraph pairs', async () => {
     // Create key and value
     const key1 = await keyRepository.save({

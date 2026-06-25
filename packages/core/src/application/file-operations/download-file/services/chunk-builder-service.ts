@@ -10,14 +10,28 @@ import {
   VoiceCalibrationChunkBuilder,
   type VoiceCalibrationChunkBuildResult,
 } from './chunk-builders/voice-calibration-chunk-builder.js';
+import {TagKeysChunkBuilder} from './chunk-builders/tag-keys-chunk-builder.js';
+import {TagDataChunkBuilder} from './chunk-builders/tag-data-chunk-builder.js';
+import {TaggedModuleMapChunkBuilder} from './chunk-builders/tagged-module-map-chunk-builder.js';
+import {
+  DriverCalibrationChunkBuilder,
+  type DriverCalibrationChunkBuildResult,
+} from './chunk-builders/driver-calibration-chunk-builder.js';
 import type {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
 import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {AudioCalibrationChunk} from '../../shared/acdb-chunks/audio-calibration-chunk.js';
+import type {TagKeysChunk} from '../../shared/acdb-chunks/tag-keys-chunk.js';
+import type {TagDataChunk} from '../../shared/acdb-chunks/tag-data-chunk.js';
+import type {TaggedModuleMapChunk} from '../../shared/acdb-chunks/tagged-module-map-chunk.js';
 import type {DatapoolChunk} from '../../shared/acdb-chunks/datapool-chunk.js';
 import type {
   ProjectHeaderMetadata,
   UsecaseDataDownloadModel,
   CalibrationDataDownloadModel,
+  TagKeysDownloadModel,
+  TagDataDownloadModel,
+  TaggedModuleDownloadModel,
+  DriverCalibrationDownloadModel,
 } from '../../../ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 
 /**
@@ -31,9 +45,6 @@ import type {
 export class ChunkBuilderService {
   /**
    * Build HeaderChunk from project header metadata.
-   *
-   * @param headerMetadata - Header metadata from database
-   * @returns Populated HeaderChunk ready for serialization
    */
   buildHeaderChunk(headerMetadata: ProjectHeaderMetadata): HeaderChunk {
     return HeaderChunkBuilder.buildChunk({headerMetadata});
@@ -41,9 +52,6 @@ export class ChunkBuilderService {
 
   /**
    * Build UsecaseDataChunk from usecase data entities.
-   *
-   * @param usecaseData - Usecase data from database with natural IDs
-   * @returns Populated UsecaseDataChunk ready for serialization
    */
   buildUsecaseDataChunk(
     usecaseData: UsecaseDataDownloadModel[],
@@ -53,9 +61,6 @@ export class ChunkBuilderService {
 
   /**
    * Build AudioCalibrationChunk from audio calibration data entities.
-   *
-   * @param audioCalibrationData - Audio calibration data from database with natural IDs
-   * @returns Populated AudioCalibrationChunk ready for serialization (chunk only, metadata discarded)
    */
   buildAudioCalibrationChunk(
     audioCalibrationData: CalibrationDataDownloadModel[],
@@ -69,9 +74,6 @@ export class ChunkBuilderService {
 
   /**
    * Build VoiceCalibrationChunk from voice calibration data entities.
-   *
-   * @param voiceCalibrationData - Voice calibration data from database with natural IDs
-   * @returns Populated VoiceCalibrationChunk ready for serialization and metadata for DOT entry creation
    */
   buildVoiceCalibrationChunk(
     voiceCalibrationData: CalibrationDataDownloadModel[],
@@ -79,6 +81,36 @@ export class ChunkBuilderService {
   ): VoiceCalibrationChunkBuildResult {
     return VoiceCalibrationChunkBuilder.buildChunk({
       voiceCalibrationData,
+      datapool,
+    });
+  }
+
+  buildTagKeysChunk(
+    tagKeys: TagKeysDownloadModel[],
+    datapool: DatapoolChunk,
+  ): TagKeysChunk {
+    return TagKeysChunkBuilder.buildChunk({tagKeys, datapool}).chunk;
+  }
+
+  buildTagDataChunk(
+    tagData: TagDataDownloadModel[],
+    datapool: DatapoolChunk,
+  ): TagDataChunk {
+    return TagDataChunkBuilder.buildChunk({tagData, datapool}).chunk;
+  }
+
+  buildTaggedModuleMapChunk(
+    taggedModules: TaggedModuleDownloadModel[],
+  ): TaggedModuleMapChunk {
+    return TaggedModuleMapChunkBuilder.buildChunk({taggedModules}).chunk;
+  }
+
+  buildDriverCalibrationChunks(
+    data: DriverCalibrationDownloadModel[],
+    datapool: DatapoolChunk,
+  ): DriverCalibrationChunkBuildResult {
+    return DriverCalibrationChunkBuilder.buildChunk({
+      driverCalibrationData: data,
       datapool,
     });
   }

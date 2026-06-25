@@ -313,22 +313,91 @@ export class VoiceCalibrationChunkSerializer {
   }
 
   private serializeVcpmMasterKey(chunk: VoiceCalibrationChunk): Uint8Array {
-    const payloads = chunk.serializeMasterKeyTablePayloads();
+    const payloads = chunk.getMasterKeyTableEntries().map(({table}) => {
+      const buf = new Uint8Array(
+        BinaryUtils.SIZEOF_UINT32 +
+          table.keyInfos.length * 2 * BinaryUtils.SIZEOF_UINT32,
+      );
+      const view = new DataView(buf.buffer);
+      BinaryUtils.writeUint32(view, 0, table.keyInfos.length);
+      let pos = BinaryUtils.SIZEOF_UINT32;
+      for (const keyInfo of table.keyInfos) {
+        BinaryUtils.writeUint32(view, pos, keyInfo.voiceKeyId);
+        pos += BinaryUtils.SIZEOF_UINT32;
+        BinaryUtils.writeUint32(view, pos, keyInfo.isDynamic ? 1 : 0);
+        pos += BinaryUtils.SIZEOF_UINT32;
+      }
+      return buf;
+    });
     return BinaryUtils.concatenate(payloads);
   }
 
   private serializeVcpmCalKeyTable(chunk: VoiceCalibrationChunk): Uint8Array {
-    const payloads = chunk.serializeCalKeyTablePayloads();
+    const payloads = chunk.getCalKeyTableEntries().map(({table}) => {
+      const buf = new Uint8Array(
+        BinaryUtils.SIZEOF_UINT32 +
+          table.voiceKeyIds.length * BinaryUtils.SIZEOF_UINT32,
+      );
+      const view = new DataView(buf.buffer);
+      BinaryUtils.writeUint32(view, 0, table.voiceKeyIds.length);
+      let pos = BinaryUtils.SIZEOF_UINT32;
+      for (const keyId of table.voiceKeyIds) {
+        BinaryUtils.writeUint32(view, pos, keyId);
+        pos += BinaryUtils.SIZEOF_UINT32;
+      }
+      return buf;
+    });
     return BinaryUtils.concatenate(payloads);
   }
 
   private serializeVcpmCalDataLut(chunk: VoiceCalibrationChunk): Uint8Array {
-    const payloads = chunk.serializeCkvLutPayloads();
+    const payloads = chunk.getCkvLookupTableEntries().map(({table}) => {
+      let size =
+        BinaryUtils.SIZEOF_UINT32 + // numVoiceCalKeyValues
+        BinaryUtils.SIZEOF_UINT32; // numEntries
+      for (const entry of table.voiceCkvLookupEntries) {
+        size += entry.voiceCalKeyValues.length * BinaryUtils.SIZEOF_UINT32;
+      }
+
+      const buf = new Uint8Array(size);
+      const view = new DataView(buf.buffer);
+      let pos = 0;
+
+      BinaryUtils.writeUint32(view, pos, table.numVoiceCalKeyValues);
+      pos += BinaryUtils.SIZEOF_UINT32;
+
+      BinaryUtils.writeUint32(view, pos, table.voiceCkvLookupEntries.length);
+      pos += BinaryUtils.SIZEOF_UINT32;
+
+      for (const entry of table.voiceCkvLookupEntries) {
+        for (const value of entry.voiceCalKeyValues) {
+          BinaryUtils.writeUint32(view, pos, value);
+          pos += BinaryUtils.SIZEOF_UINT32;
+        }
+      }
+
+      return buf;
+    });
     return BinaryUtils.concatenate(payloads);
   }
 
   private serializeVcpmCalDataDef(chunk: VoiceCalibrationChunk): Uint8Array {
-    const payloads = chunk.serializeCalDefPayloads();
+    const payloads = chunk.getCalDefinitionEntries().map(({entry}) => {
+      const buf = new Uint8Array(
+        BinaryUtils.SIZEOF_UINT32 +
+          entry.moduleInstanceParamPairs.length * 2 * BinaryUtils.SIZEOF_UINT32,
+      );
+      const view = new DataView(buf.buffer);
+      BinaryUtils.writeUint32(view, 0, entry.moduleInstanceParamPairs.length);
+      let pos = BinaryUtils.SIZEOF_UINT32;
+      for (const pair of entry.moduleInstanceParamPairs) {
+        BinaryUtils.writeUint32(view, pos, pair.moduleInstanceId);
+        pos += BinaryUtils.SIZEOF_UINT32;
+        BinaryUtils.writeUint32(view, pos, pair.paramId);
+        pos += BinaryUtils.SIZEOF_UINT32;
+      }
+      return buf;
+    });
     return BinaryUtils.concatenate(payloads);
   }
 }
