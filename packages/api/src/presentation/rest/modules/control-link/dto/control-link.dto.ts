@@ -4,8 +4,9 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {BaseComponentDto, BaseValueElement} from '../../../common/dto/index.js';
+import {BaseComponentDto} from '../../../common/dto/index.js';
 import {CONN_CTRL_TYPE} from '../../../common/utils/enums.js';
+import type {ConfigElementDto} from '../../../common/dto/element-data/elements/config-element/config-element.dto.js';
 
 /**
  * DTO for control port intents
@@ -51,9 +52,9 @@ export class ControlLinkHeapIdDto {
   readonly propId: number = 0x08_00_13_6f; //heapId property id.
   readonly propName: string = 'Heap Property';
 
-  heapId: BaseValueElement;
+  heapId: ConfigElementDto;
 
-  constructor(id: BaseValueElement) {
+  constructor(id: ConfigElementDto) {
     this.heapId = id;
   }
 }
