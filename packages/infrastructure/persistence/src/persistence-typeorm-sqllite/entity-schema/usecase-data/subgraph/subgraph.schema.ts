@@ -8,6 +8,7 @@ import type {EntityBaseRow} from '../../entity-base.js';
 import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import type {SpfModuleRow} from '../module/spf-module.schema.js';
 import type {VcpmInstanceRow} from './subgraph-vcpm-data.js';
+import type {SgkvRow} from './subgraph-sgkv-data.js';
 import {EntitySchema} from 'typeorm';
 
 export interface SubgraphRow extends EntityBaseRow {
@@ -20,6 +21,7 @@ export interface SubgraphRow extends EntityBaseRow {
   // inverse relation for convenience (reads/cascade)
   modules?: SpfModuleRow[];
   vcpmInstances?: VcpmInstanceRow[];
+  sgkvs?: SgkvRow[];
 
   // scope to file
   fileSystemId: number;
@@ -46,6 +48,11 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
     vcpmInstances: {
       type: 'one-to-many',
       target: 'VcpmInstance',
+      inverseSide: 'subgraph',
+    },
+    sgkvs: {
+      type: 'one-to-many',
+      target: 'Sgkv',
       inverseSide: 'subgraph',
     },
     file: {

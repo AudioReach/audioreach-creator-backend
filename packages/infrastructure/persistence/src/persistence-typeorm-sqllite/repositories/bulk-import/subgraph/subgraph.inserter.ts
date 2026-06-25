@@ -9,8 +9,9 @@ import type {
   BulkInsertResult,
   KvData,
   IdGenerationPort,
+  Sgkv,
 } from '@arc/core';
-import {okBulkInsert} from '@arc/core';
+import {okBulkInsert, BinaryUtils} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
   BatchInserter,
@@ -34,6 +35,12 @@ import {
   type VcpmCkvValuesRow,
   type VcpmParameterPayloadRow,
 } from '../../../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
+import {
+  SgkvSchema,
+  SgkvValuesSchema,
+  type SgkvRow,
+  type SgkvValuesRow,
+} from '../../../entity-schema/usecase-data/subgraph/subgraph-sgkv-data.js';
 
 export class SubgraphInserter implements BulkInserter<Subgraph> {
   constructor(
@@ -67,12 +74,22 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       vcpmCkvStep.failedEntityIds,
     );
 
+    const sgkvStep = await this.insertSgkvs(activeSubgraphs);
+    // skip-set contains SGKV-level systemIds; subgraphs with one failed SGKV
+    // can still have their other SGKVs' values inserted
+    const sgkvValStep = await this.insertSgkvValues(
+      activeSubgraphs,
+      sgkvStep.failedEntityIds,
+    );
+
     const allRawFailures: RawFailure[] = [
       ...subgraphStep.rawFailures,
       ...propertyDataStep.rawFailures,
       ...vcpmInstanceStep.rawFailures,
       ...vcpmCkvStep.rawFailures,
       ...vcpmParamStep.rawFailures,
+      ...sgkvStep.rawFailures,
+      ...sgkvValStep.rawFailures,
     ];
 
     return groupRawFailures(
@@ -405,5 +422,110 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       rawFailures,
       failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
     };
+  }
+
+  // ─── Sgkv ─────────────────────────────────────────────────────────────────────
+
+  private async insertSgkvs(subgraphs: Subgraph[]): Promise<StepResult> {
+    const sgkvEntries = subgraphs.flatMap(s =>
+      s.sgkvs.map(sgkv => ({sgkv, subgraph: s})),
+    );
+
+    if (sgkvEntries.length === 0) return emptyStepResult();
+
+    const contextBySystemId = new Map<
+      number,
+      {readonly sgkv: Sgkv; readonly subgraph: Subgraph}
+    >(
+      sgkvEntries.map(e => [
+        e.sgkv.systemId,
+        {sgkv: e.sgkv, subgraph: e.subgraph},
+      ]),
+    );
+
+    const rows: InsertRow<SgkvRow>[] = sgkvEntries.map(e => ({
+      systemId: e.sgkv.systemId,
+      subgraphSystemId: e.subgraph.systemId,
+    }));
+
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      SgkvSchema,
+      rows,
+    );
+
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
+      const ctx = contextBySystemId.get(error.systemId)!;
+      const failedRow = rows.find(r => r.systemId === error.systemId);
+      return {
+        systemId: ctx.subgraph.systemId,
+        entityLabel: 'Sgkv',
+        failedRowJson: `(subgraphId=${BinaryUtils.toHexString(ctx.subgraph.subgraphId)}) Row: ${JSON.stringify(failedRow)}`,
+        dbError: error.message,
+      };
+    });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
+  }
+
+  private async insertSgkvValues(
+    subgraphs: Subgraph[],
+    failedSgkvIds: Set<number>,
+  ): Promise<StepResult> {
+    const sgkvEntries = subgraphs.flatMap(s =>
+      s.sgkvs
+        .filter(sgkv => !failedSgkvIds.has(sgkv.systemId))
+        .map(sgkv => ({sgkv, subgraph: s})),
+    );
+
+    const allValueRows: SgkvValuesRow[] = sgkvEntries.flatMap(e =>
+      e.sgkv.valueDefinitionSystemIds.map(valueId => ({
+        sgkvSystemId: e.sgkv.systemId,
+        valueDefSystemId: valueId,
+      })),
+    );
+
+    if (allValueRows.length === 0) return emptyStepResult();
+
+    try {
+      await this.manager.insert(SgkvValuesSchema, allValueRows);
+      return emptyStepResult();
+    } catch {
+      return this.insertSgkvValuesWithFallback(sgkvEntries);
+    }
+  }
+
+  private async insertSgkvValuesWithFallback(
+    sgkvEntries: {sgkv: Sgkv; subgraph: Subgraph}[],
+  ): Promise<StepResult> {
+    const rawFailures: RawFailure[] = [];
+    const failedEntityIds = new Set<number>();
+
+    for (const entry of sgkvEntries) {
+      if (entry.sgkv.valueDefinitionSystemIds.length === 0) continue;
+
+      const valueRows: SgkvValuesRow[] =
+        entry.sgkv.valueDefinitionSystemIds.map(valueId => ({
+          sgkvSystemId: entry.sgkv.systemId,
+          valueDefSystemId: valueId,
+        }));
+      try {
+        await this.manager.insert(SgkvValuesSchema, valueRows);
+      } catch (error) {
+        await this.manager.delete('Sgkv', {systemId: entry.sgkv.systemId});
+        failedEntityIds.add(entry.sgkv.systemId);
+        rawFailures.push({
+          systemId: entry.subgraph.systemId,
+          entityLabel: 'SgkvValues',
+          failedRowJson: `(subgraphId=${BinaryUtils.toHexString(entry.subgraph.subgraphId)}, sgkvSystemId=${BinaryUtils.toHexString(entry.sgkv.systemId)}) Row: ${JSON.stringify(valueRows)}`,
+          dbError: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return {rawFailures, failedEntityIds};
   }
 }

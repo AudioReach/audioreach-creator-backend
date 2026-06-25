@@ -71,6 +71,10 @@ import {
   VcpmCkvValuesSchema,
 } from './usecase-data/subgraph/subgraph-vcpm-data.js';
 import {SubgraphSchema} from './usecase-data/subgraph/subgraph.schema.js';
+import {
+  SgkvSchema,
+  SgkvValuesSchema,
+} from './usecase-data/subgraph/subgraph-sgkv-data.js';
 import {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
 import {
   UseCaseSchema,
@@ -249,6 +253,14 @@ export {
 } from './usecase-data/subgraph/subgraph-vcpm-data.js';
 export type {SubgraphRow} from './usecase-data/subgraph/subgraph.schema.js';
 export {SubgraphSchema} from './usecase-data/subgraph/subgraph.schema.js';
+export type {
+  SgkvRow,
+  SgkvValuesRow,
+} from './usecase-data/subgraph/subgraph-sgkv-data.js';
+export {
+  SgkvSchema,
+  SgkvValuesSchema,
+} from './usecase-data/subgraph/subgraph-sgkv-data.js';
 
 // Use Case Data - Subsystem
 export type {SubsystemRow} from './usecase-data/subsystem/subsystem.js';
@@ -371,6 +383,8 @@ export function getAllEntitySchemas(
     VcpmParameterPayloadSchema(blobConverter), // Factory with blob converter
     VcpmCkvValuesSchema,
     SubgraphSchema,
+    SgkvSchema,
+    SgkvValuesSchema,
     SubsystemSchema,
     UseCaseSchema,
     UseCaseCategorySchema,
