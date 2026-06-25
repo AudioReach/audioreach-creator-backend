@@ -7784,33 +7784,6 @@
           "tagName"
         ]
       },
-      "BaseValueElement": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Name property (e.g. \"enable\")"
-          },
-          "type": {
-            "type": "string",
-            "description": "Type property (e.g. \"uint32\", \"int16\", etc.)"
-          },
-          "value": {
-            "type": "string",
-            "description": "Value property (real value, e.g. 1, 2, 3, etc.)"
-          },
-          "valueLabel": {
-            "type": "string",
-            "description": "ValueLabel property (e.g. \"Enable\", etc.)"
-          }
-        },
-        "required": [
-          "name",
-          "type",
-          "value",
-          "valueLabel"
-        ]
-      },
       "PropertyDto": {
         "type": "object",
         "properties": {
@@ -7830,11 +7803,21 @@
             "type": "boolean",
             "description": "Has definition or not"
           },
-          "propertyValues": {
-            "description": "Property values",
+          "elements": {
             "type": "array",
+            "description": "Array of calibration elements for this property.\n\nThis array can contain three different types of calibration elements:\n\n**1. ConfigElement (Simple Parameters):**\n   - Single configuration values (volume, gain, frequency)\n   - Rendered as UI controls like sliders, text boxes, dropdowns\n\n**2. ElementTemplateArray (Parameter Arrays):**\n   - Arrays of configuration values of the same type\n   - Contains template defining the structure of each array item\n\n**3. Struct (Grouped Parameters):**\n   - Complex structured data grouping related parameters\n   - Contains nested elements of any calibration type",
             "items": {
-              "$ref": "#/components/schemas/BaseValueElement"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ElementTemplateArrayDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StructDto"
+                }
+              ]
             }
           },
           "definitionLink": {
@@ -7851,7 +7834,7 @@
           "propertyId",
           "propertyName",
           "hasDefinition",
-          "propertyValues"
+          "elements"
         ]
       },
       "SpfModuleDto": {

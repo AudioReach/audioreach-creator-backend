@@ -13,11 +13,14 @@ import {
   HttpStatus,
   HttpException,
 } from '@nestjs/common';
-import {ApiTags, ApiParam} from '@nestjs/swagger';
+import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {ContainerDto, ContainerPropertiesDto} from './dto/container.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
+import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
+import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
+import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 
@@ -28,6 +31,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 @ApiTags('containers')
 @Controller('arc-api/v1/projects/:projectId/containers')
 @UseGuards(AuthGuard('jwt'))
+@ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
 @ApiParam({
   name: 'projectId',
   type: 'string',
