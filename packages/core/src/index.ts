@@ -135,6 +135,7 @@ export * from './domain/entities/usecase-data/node/entities/data-port.js';
 export * from './domain/entities/usecase-data/node/entities/control-port.js';
 export * from './domain/entities/usecase-data/container/container.js';
 export * from './domain/entities/usecase-data/subgraph/subgraph.js';
+export * from './domain/entities/usecase-data/subgraph/entities/sgkv.js';
 export * from './domain/entities/usecase-data/project/project.js';
 export * from './domain/entities/usecase-data/project/arc-db-file.js';
 export * from './domain/entities/usecase-data/usecase/usecase.js';

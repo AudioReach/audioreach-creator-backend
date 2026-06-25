@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1782050392771 implements MigrationInterface {
-  name = 'InitialCreate1782050392771';
+export class InitialCreate1782405830512 implements MigrationInterface {
+  name = 'InitialCreate1782405830512';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -302,6 +302,12 @@ export class InitialCreate1782050392771 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_subgraphs_subgraph_id_file_system_id" ON "subgraphs" ("subgraph_id", "file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "sgkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subgraph_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL)`,
@@ -1054,6 +1060,24 @@ export class InitialCreate1782050392771 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uq_subgraphs_subgraph_id_file_system_id" ON "subgraphs" ("subgraph_id", "file_system_id") `,
     );
     await queryRunner.query(
+      `CREATE TABLE "temporary_sgkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_40269c6b3fb4a573f133150f608" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_sgkv"("system_id", "created_at", "updated_at", "version", "subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "subgraph_system_id" FROM "sgkv"`,
+    );
+    await queryRunner.query(`DROP TABLE "sgkv"`);
+    await queryRunner.query(`ALTER TABLE "temporary_sgkv" RENAME TO "sgkv"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_f291cdb5d2c8fad59f7ee8e3233" FOREIGN KEY ("sgkv_system_id") REFERENCES "sgkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1f7e53f1188c6a460743930ec67" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_sgkv_values"("sgkv_system_id", "value_def_system_id") SELECT "sgkv_system_id", "value_def_system_id" FROM "sgkv_values"`,
+    );
+    await queryRunner.query(`DROP TABLE "sgkv_values"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_sgkv_values" RENAME TO "sgkv_values"`,
+    );
+    await queryRunner.query(
       `CREATE TABLE "temporary_subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, CONSTRAINT "FK_84d896fd64dc0971dd15a904809" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
@@ -1384,6 +1408,24 @@ export class InitialCreate1782050392771 implements MigrationInterface {
       `INSERT INTO "subsystems"("system_id", "created_at", "updated_at", "version", "name") SELECT "system_id", "created_at", "updated_at", "version", "name" FROM "temporary_subsystems"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_subsystems"`);
+    await queryRunner.query(
+      `ALTER TABLE "sgkv_values" RENAME TO "temporary_sgkv_values"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "sgkv_values"("sgkv_system_id", "value_def_system_id") SELECT "sgkv_system_id", "value_def_system_id" FROM "temporary_sgkv_values"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_sgkv_values"`);
+    await queryRunner.query(`ALTER TABLE "sgkv" RENAME TO "temporary_sgkv"`);
+    await queryRunner.query(
+      `CREATE TABLE "sgkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "subgraph_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "sgkv"("system_id", "created_at", "updated_at", "version", "subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "subgraph_system_id" FROM "temporary_sgkv"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_sgkv"`);
     await queryRunner.query(
       `DROP INDEX "uq_subgraphs_subgraph_id_file_system_id"`,
     );
@@ -2090,6 +2132,8 @@ export class InitialCreate1782050392771 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
     await queryRunner.query(`DROP TABLE "use_cases"`);
     await queryRunner.query(`DROP TABLE "subsystems"`);
+    await queryRunner.query(`DROP TABLE "sgkv_values"`);
+    await queryRunner.query(`DROP TABLE "sgkv"`);
     await queryRunner.query(
       `DROP INDEX "uq_subgraphs_subgraph_id_file_system_id"`,
     );

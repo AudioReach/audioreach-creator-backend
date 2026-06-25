@@ -148,19 +148,9 @@ export class SubgraphBuilder {
   private convertAcdbSubgraphPropertyData(
     subgraphPropertyData: AcdbSubgraphProperties,
   ): Subgraph {
-    // Create Subgraph entity
-    const subgraph = new Subgraph({
-      systemId: 0, // Placeholder - will be assigned before insertion
-      subgraphId: subgraphPropertyData.subgraphId, // Use the subgraphId from the property
-      name: `Subgraph_${subgraphPropertyData.subgraphId}`, //TODO: init from workspace file.
-      isExported: false, // Default value, could be derived from properties
-      fileSystemId: 0, // Placeholder - will be assigned before insertion
-      // vcpmDataInstance will be handled separately if needed
-    });
-
-    // Add properties to the subgraph
+    // Build property list, skipping any with unresolved definition IDs
+    const properties: SubgraphPropertyData[] = [];
     for (const [propertyId, propertyData] of subgraphPropertyData.properties) {
-      // Resolve property ID to system ID using foreign key mapper
       const propertySystemId =
         this.foreignKeyMapper.getSubgraphPropertyDefinitionSystemId(
           asNaturalId(propertyId),
@@ -174,18 +164,20 @@ export class SubgraphBuilder {
           tag: 'subgraph-building',
           timestamp: new Date(),
         });
-        // Skip this property if definition not found
         continue;
       }
 
-      const propertyDataObj = new SubgraphPropertyData(
-        propertySystemId,
-        propertyData,
-      );
-      subgraph.addProperty(propertyDataObj);
+      properties.push(new SubgraphPropertyData(propertySystemId, propertyData));
     }
 
-    return subgraph;
+    return new Subgraph({
+      systemId: 0, // Placeholder - will be assigned before insertion
+      subgraphId: subgraphPropertyData.subgraphId,
+      name: `Subgraph_${subgraphPropertyData.subgraphId}`, //TODO: init from workspace file.
+      isExported: false,
+      fileSystemId: 0, // Placeholder - will be assigned before insertion
+      properties,
+    });
   }
 
   private convertToEntityBuildIssue(
