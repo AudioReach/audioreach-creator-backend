@@ -6,6 +6,7 @@
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {TagDefinitionRow} from './tag-definition.schema.js';
+import type {KeyDefinitionRow} from '../key-value/key-definition.schema.js';
 
 export interface TagKeyDefLinkRow extends EntityBaseRow {
   tagDefinitionSystemId: number;
@@ -14,6 +15,7 @@ export interface TagKeyDefLinkRow extends EntityBaseRow {
 
   // Relations
   tagDefinition: TagDefinitionRow;
+  keyDefinition?: KeyDefinitionRow;
 }
 
 export const TagKeyDefLinkSchema = new EntitySchema<TagKeyDefLinkRow>({
@@ -41,6 +43,15 @@ export const TagKeyDefLinkSchema = new EntitySchema<TagKeyDefLinkRow>({
       target: 'TagDefinition',
       joinColumn: {
         name: 'tag_definition_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
+    },
+    keyDefinition: {
+      type: 'many-to-one',
+      target: 'KeyDefinition',
+      joinColumn: {
+        name: 'key_reference_system_id',
         referencedColumnName: 'systemId',
       },
       onDelete: 'CASCADE',

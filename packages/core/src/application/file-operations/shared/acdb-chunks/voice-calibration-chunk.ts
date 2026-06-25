@@ -358,6 +358,41 @@ export class VoiceCalibrationChunk extends BaseChunk {
     return offset;
   }
 
+  // ── Read accessors for serializer (sorted by offset) ────────────────────
+
+  getMasterKeyTableEntries(): Array<{
+    offset: number;
+    table: VoiceMasterKeyTable;
+  }> {
+    return [...this.masterKeyTableCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, table]) => ({offset, table}));
+  }
+
+  getCalKeyTableEntries(): Array<{offset: number; table: VoiceCalKeyTable}> {
+    return [...this.calKeyTableCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, table]) => ({offset, table}));
+  }
+
+  getCkvLookupTableEntries(): Array<{
+    offset: number;
+    table: VoiceCkvLookupTable;
+  }> {
+    return [...this.ckvLookupTableCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, table]) => ({offset, table}));
+  }
+
+  getCalDefinitionEntries(): Array<{
+    offset: number;
+    entry: VoiceCalDefinitionEntry;
+  }> {
+    return [...this.calDefinitionEntryCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, entry]) => ({offset, entry}));
+  }
+
   /**
    * Create hash string for VoiceCkvLookupTable for deduplication.
    */
@@ -367,155 +402,6 @@ export class VoiceCalibrationChunk extends BaseChunk {
       parts.push(entry.voiceCalKeyValues.join(':'));
     }
     return parts.join('|');
-  }
-
-  /**
-   * Serialize all master key tables to binary payloads.
-   */
-  serializeMasterKeyTablePayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.masterKeyTableCache.keys()].sort(
-      (a, b) => a - b,
-    );
-
-    for (const offset of sortedOffsets) {
-      const table = this.masterKeyTableCache.get(offset)!;
-      const buffer = new Uint8Array(
-        BinaryUtils.SIZEOF_UINT32 +
-          table.keyInfos.length * 2 * BinaryUtils.SIZEOF_UINT32,
-      );
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(view, bufferOffset, table.keyInfos.length);
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const keyInfo of table.keyInfos) {
-        BinaryUtils.writeUint32(view, bufferOffset, keyInfo.voiceKeyId);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-        BinaryUtils.writeUint32(view, bufferOffset, keyInfo.isDynamic ? 1 : 0);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
-  }
-
-  /**
-   * Serialize all cal key tables to binary payloads.
-   */
-  serializeCalKeyTablePayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.calKeyTableCache.keys()].sort(
-      (a, b) => a - b,
-    );
-
-    for (const offset of sortedOffsets) {
-      const table = this.calKeyTableCache.get(offset)!;
-      const buffer = new Uint8Array(
-        BinaryUtils.SIZEOF_UINT32 +
-          table.voiceKeyIds.length * BinaryUtils.SIZEOF_UINT32,
-      );
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(view, bufferOffset, table.voiceKeyIds.length);
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const keyId of table.voiceKeyIds) {
-        BinaryUtils.writeUint32(view, bufferOffset, keyId);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
-  }
-
-  /**
-   * Serialize all CKV LUT tables to binary payloads.
-   */
-  serializeCkvLutPayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.ckvLookupTableCache.keys()].sort(
-      (a, b) => a - b,
-    );
-
-    for (const offset of sortedOffsets) {
-      const table = this.ckvLookupTableCache.get(offset)!;
-      let size = BinaryUtils.SIZEOF_UINT32 + BinaryUtils.SIZEOF_UINT32;
-      for (const entry of table.voiceCkvLookupEntries) {
-        size += entry.voiceCalKeyValues.length * BinaryUtils.SIZEOF_UINT32;
-      }
-
-      const buffer = new Uint8Array(size);
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(view, bufferOffset, table.numVoiceCalKeyValues);
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      BinaryUtils.writeUint32(
-        view,
-        bufferOffset,
-        table.voiceCkvLookupEntries.length,
-      );
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const entry of table.voiceCkvLookupEntries) {
-        for (const value of entry.voiceCalKeyValues) {
-          BinaryUtils.writeUint32(view, bufferOffset, value);
-          bufferOffset += BinaryUtils.SIZEOF_UINT32;
-        }
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
-  }
-
-  /**
-   * Serialize all cal definition entries to binary payloads.
-   */
-  serializeCalDefPayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.calDefinitionEntryCache.keys()].sort(
-      (a, b) => a - b,
-    );
-
-    for (const offset of sortedOffsets) {
-      const entry = this.calDefinitionEntryCache.get(offset)!;
-      const buffer = new Uint8Array(
-        BinaryUtils.SIZEOF_UINT32 +
-          entry.moduleInstanceParamPairs.length * 2 * BinaryUtils.SIZEOF_UINT32,
-      );
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(
-        view,
-        bufferOffset,
-        entry.moduleInstanceParamPairs.length,
-      );
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const pair of entry.moduleInstanceParamPairs) {
-        BinaryUtils.writeUint32(view, bufferOffset, pair.moduleInstanceId);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-        BinaryUtils.writeUint32(view, bufferOffset, pair.paramId);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
   }
 
   /**

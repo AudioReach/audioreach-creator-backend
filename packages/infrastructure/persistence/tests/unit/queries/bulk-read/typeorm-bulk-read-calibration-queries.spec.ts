@@ -17,6 +17,12 @@ function makeMockQb(rows: unknown[]): SelectQueryBuilder<any> {
   } as unknown as SelectQueryBuilder<any>;
 }
 
+function makeRepo(qb: SelectQueryBuilder<any>): Repository<any> {
+  return {
+    createQueryBuilder: jest.fn().mockReturnValue(qb),
+  } as unknown as Repository<any>;
+}
+
 describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
   let repository: TypeOrmBulkReadQueryService;
   let mockDataSource: jest.Mocked<DataSource>;
@@ -30,10 +36,10 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
   });
 
   it('should return empty array when no CKV entries exist', async () => {
-    const ckvQb = makeMockQb([]);
-    (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce({
-      createQueryBuilder: jest.fn().mockReturnValue(ckvQb),
-    } as unknown as Repository<any>);
+    // Only 1 call — base query returns empty, returns early
+    (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce(
+      makeRepo(makeMockQb([])),
+    );
 
     const result = await repository.readCalibrationData(1);
 
@@ -41,6 +47,7 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
   });
 
   it('should return unified calibration data with master keys', async () => {
+    // Query 1: CKV base rows (no values — fetched separately)
     const ckvRows = [
       {
         systemId: 1,
@@ -48,23 +55,22 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
           instanceId: 300,
           subgraph: {subgraphId: 100},
         },
-        values: [
-          {
-            valueDef: {
-              keys: {keyId: 1, isDynamic: false},
-              valueId: 10,
-            },
-          },
-          {
-            valueDef: {
-              keys: {keyId: 2, isDynamic: true},
-              valueId: 20,
-            },
-          },
-        ],
       },
     ];
 
+    // Query 2: CkvValues rows (Promise.all[0])
+    const valRows = [
+      {
+        ckvSystemId: 1,
+        valueDef: {keys: {keyId: 1, isDynamic: false}, valueId: 10},
+      },
+      {
+        ckvSystemId: 1,
+        valueDef: {keys: {keyId: 2, isDynamic: true}, valueId: 20},
+      },
+    ];
+
+    // Query 3: CkvParameterPayload rows (Promise.all[1])
     const paramRows = [
       {
         ckvSystemId: 1,
@@ -73,16 +79,10 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
       },
     ];
 
-    const ckvQb = makeMockQb(ckvRows);
-    const paramQb = makeMockQb(paramRows);
-
     (mockDataSource.getRepository as jest.Mock)
-      .mockReturnValueOnce({
-        createQueryBuilder: jest.fn().mockReturnValue(ckvQb),
-      } as unknown as Repository<any>)
-      .mockReturnValueOnce({
-        createQueryBuilder: jest.fn().mockReturnValue(paramQb),
-      } as unknown as Repository<any>);
+      .mockReturnValueOnce(makeRepo(makeMockQb(ckvRows)))
+      .mockReturnValueOnce(makeRepo(makeMockQb(valRows)))
+      .mockReturnValueOnce(makeRepo(makeMockQb(paramRows)));
 
     const result = await repository.readCalibrationData(1);
 
@@ -110,59 +110,72 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
     ).toBe('SharedPersistent');
   });
 
+  it('should return calibration data for multiple subgraphs', async () => {
+    const ckvRows = [
+      {systemId: 1, module: {instanceId: 10, subgraph: {subgraphId: 1}}},
+      {systemId: 2, module: {instanceId: 20, subgraph: {subgraphId: 2}}},
+    ];
+
+    const valRows = [
+      {
+        ckvSystemId: 1,
+        valueDef: {keys: {keyId: 1, isDynamic: false}, valueId: 10},
+      },
+      {
+        ckvSystemId: 2,
+        valueDef: {keys: {keyId: 2, isDynamic: true}, valueId: 20},
+      },
+    ];
+
+    (mockDataSource.getRepository as jest.Mock)
+      .mockReturnValueOnce(makeRepo(makeMockQb(ckvRows)))
+      .mockReturnValueOnce(makeRepo(makeMockQb(valRows)))
+      .mockReturnValueOnce(makeRepo(makeMockQb([])));
+
+    const result = await repository.readCalibrationData(1);
+
+    expect(result).toHaveLength(2);
+    expect(result.map(r => r.subgraphId)).toEqual([1, 2]);
+  });
+
   describe('SQLite variable limit chunking', () => {
-    it('should execute a single parameter query for <= 999 CKV IDs', async () => {
+    it('should execute 1 values chunk + 1 param chunk for <= 999 CKV IDs', async () => {
       const ckvCount = 500;
       const ckvRows = Array.from({length: ckvCount}, (_, i) => ({
         systemId: i + 1,
         module: {instanceId: i + 1, subgraph: {subgraphId: 1}},
-        values: [],
       }));
 
-      const paramQb = makeMockQb([]);
-      const ckvQb = makeMockQb(ckvRows);
-
       (mockDataSource.getRepository as jest.Mock)
-        .mockReturnValueOnce({
-          createQueryBuilder: jest.fn().mockReturnValue(ckvQb),
-        } as unknown as Repository<any>)
-        .mockReturnValue({
-          createQueryBuilder: jest.fn().mockReturnValue(paramQb),
-        } as unknown as Repository<any>);
+        .mockReturnValueOnce(makeRepo(makeMockQb(ckvRows)))
+        .mockReturnValue(makeRepo(makeMockQb([])));
 
       await repository.readCalibrationData(1);
 
-      // queryInChunks calls getRepository once per chunk; 500 IDs = 1 chunk
-      const paramCallCount =
+      // 1 base + 1 values chunk + 1 params chunk = 3 total
+      const extraCallCount =
         (mockDataSource.getRepository as jest.Mock).mock.calls.length - 1;
-      expect(paramCallCount).toBe(1);
+      expect(extraCallCount).toBe(2);
     });
 
-    it('should chunk parameter queries when CKV IDs exceed 999', async () => {
+    it('should chunk values and parameter queries when CKV IDs exceed 999', async () => {
       const ckvCount = 1500;
       const ckvRows = Array.from({length: ckvCount}, (_, i) => ({
         systemId: i + 1,
         module: {instanceId: i + 1, subgraph: {subgraphId: 1}},
-        values: [],
       }));
 
-      const ckvQb = makeMockQb(ckvRows);
-      const paramQb = makeMockQb([]);
-
       (mockDataSource.getRepository as jest.Mock)
-        .mockReturnValueOnce({
-          createQueryBuilder: jest.fn().mockReturnValue(ckvQb),
-        } as unknown as Repository<any>)
-        .mockReturnValue({
-          createQueryBuilder: jest.fn().mockReturnValue(paramQb),
-        } as unknown as Repository<any>);
+        .mockReturnValueOnce(makeRepo(makeMockQb(ckvRows)))
+        .mockReturnValue(makeRepo(makeMockQb([])));
 
       await repository.readCalibrationData(1);
 
-      // 1500 IDs → 2 chunks (999 + 501), each hits getRepository once
-      const paramCallCount =
+      // 1500 IDs → 2 chunks each for values and params (999 + 501)
+      // 1 base + 2 value chunks + 2 param chunks = 5 total
+      const extraCallCount =
         (mockDataSource.getRepository as jest.Mock).mock.calls.length - 1;
-      expect(paramCallCount).toBe(2);
+      expect(extraCallCount).toBe(4);
     });
   });
 });

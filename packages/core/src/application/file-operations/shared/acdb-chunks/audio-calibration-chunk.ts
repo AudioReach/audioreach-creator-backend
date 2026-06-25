@@ -300,147 +300,36 @@ export class AudioCalibrationChunk extends BaseChunk {
     return parts.join('|');
   }
 
-  /**
-   * Serialize all stored data to binary payloads (called during download/save).
-   */
-  serializeCalKeyTablePayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.calKeyTableCache.keys()].sort(
-      (a, b) => a - b,
-    );
+  // ── Read accessors for serializer (sorted by offset) ────────────────────
 
-    for (const offset of sortedOffsets) {
-      const keyIds = this.calKeyTableCache.get(offset)!;
-      const buffer = new Uint8Array(
-        BinaryUtils.SIZEOF_UINT32 + keyIds.length * BinaryUtils.SIZEOF_UINT32,
-      );
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(view, bufferOffset, keyIds.length);
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const keyId of keyIds) {
-        BinaryUtils.writeUint32(view, bufferOffset, keyId);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
+  getCalKeyTableEntries(): Array<{offset: number; keyIds: number[]}> {
+    return [...this.calKeyTableCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, keyIds]) => ({offset, keyIds}));
   }
 
-  serializeCkvLutPayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.ckvLookupTableCache.keys()].sort(
-      (a, b) => a - b,
-    );
-
-    for (const offset of sortedOffsets) {
-      const table = this.ckvLookupTableCache.get(offset)!;
-      let size = BinaryUtils.SIZEOF_UINT32 + BinaryUtils.SIZEOF_UINT32;
-      for (const entry of table.ckvLookupEntries) {
-        size +=
-          entry.calKeyValues.length * BinaryUtils.SIZEOF_UINT32 +
-          3 * BinaryUtils.SIZEOF_UINT32;
-      }
-
-      const buffer = new Uint8Array(size);
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(view, bufferOffset, table.numCalKeyValues);
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      BinaryUtils.writeUint32(
-        view,
-        bufferOffset,
-        table.ckvLookupEntries.length,
-      );
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const entry of table.ckvLookupEntries) {
-        for (const value of entry.calKeyValues) {
-          BinaryUtils.writeUint32(view, bufferOffset, value);
-          bufferOffset += BinaryUtils.SIZEOF_UINT32;
-        }
-
-        BinaryUtils.writeUint32(view, bufferOffset, entry.offsetCalDefinition);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-        BinaryUtils.writeUint32(view, bufferOffset, entry.offsetCalDataOffset);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-        BinaryUtils.writeUint32(view, bufferOffset, entry.offsetDOT2);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
+  getCkvLookupTableEntries(): Array<{offset: number; table: CkvLookupTable}> {
+    return [...this.ckvLookupTableCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, table]) => ({offset, table}));
   }
 
-  serializeCalDefPayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.definitionEntryCache.keys()].sort(
-      (a, b) => a - b,
-    );
-
-    for (const offset of sortedOffsets) {
-      const entry = this.definitionEntryCache.get(offset)!;
-      const buffer = new Uint8Array(
-        BinaryUtils.SIZEOF_UINT32 +
-          entry.calIdEntries.length * 2 * BinaryUtils.SIZEOF_UINT32,
-      );
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(view, bufferOffset, entry.calIdEntries.length);
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const idEntry of entry.calIdEntries) {
-        BinaryUtils.writeUint32(view, bufferOffset, idEntry.moduleInstanceId);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-        BinaryUtils.writeUint32(view, bufferOffset, idEntry.paramId);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
+  getCalDefinitionEntries(): Array<{
+    offset: number;
+    entry: CalDefinitionEntry;
+  }> {
+    return [...this.definitionEntryCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, entry]) => ({offset, entry}));
   }
 
-  serializeCalDotPayloads(): Uint8Array[] {
-    const payloads: Uint8Array[] = [];
-    const sortedOffsets = [...this.dataOffsetEntryCache.keys()].sort(
-      (a, b) => a - b,
-    );
-
-    for (const offset of sortedOffsets) {
-      const entry = this.dataOffsetEntryCache.get(offset)!;
-      const buffer = new Uint8Array(
-        BinaryUtils.SIZEOF_UINT32 +
-          entry.calDataOffsets.length * BinaryUtils.SIZEOF_UINT32,
-      );
-      const view = new DataView(buffer.buffer);
-      let bufferOffset = 0;
-
-      BinaryUtils.writeUint32(view, bufferOffset, entry.calDataOffsets.length);
-      bufferOffset += BinaryUtils.SIZEOF_UINT32;
-
-      for (const dataOffset of entry.calDataOffsets) {
-        BinaryUtils.writeUint32(view, bufferOffset, dataOffset);
-        bufferOffset += BinaryUtils.SIZEOF_UINT32;
-      }
-
-      payloads.push(buffer);
-    }
-
-    return payloads;
+  getCalDataOffsetEntries(): Array<{
+    offset: number;
+    entry: CalDataOffsetEntry;
+  }> {
+    return [...this.dataOffsetEntryCache.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([offset, entry]) => ({offset, entry}));
   }
 
   /**

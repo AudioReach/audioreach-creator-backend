@@ -8,14 +8,28 @@ import type {
   UsecaseDataDownloadModel,
   CalibrationDataDownloadModel,
   SubgraphDownloadModel,
+  TagKeysDownloadModel,
+  TagDataDownloadModel,
+  TaggedModuleDownloadModel,
+  DriverCalibrationDownloadModel,
 } from '../../../ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
+import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
+import {
+  PROFILER_OPERATIONS,
+  type PerformanceMetrics,
+} from '../../../../shared/profiling/profiler-types.js';
 import {isVoiceSubgraph} from '../../shared/utils/subgraph-utils.js';
 import {ChunkBuilderService} from './chunk-builder-service.js';
 import {HeaderChunkSerializer} from './chunk-serializers/header-chunk-serializer.js';
 import {UsecaseDataChunkSerializer} from './chunk-serializers/usecase-data-chunk-serializer.js';
 import {AudioCalibrationChunkSerializer} from './chunk-serializers/audio-calibration-chunk-serializer.js';
 import {VoiceCalibrationChunkSerializer} from './chunk-serializers/voice-calibration-chunk-serializer.js';
+import {DriverCalibrationChunkSerializer} from './chunk-serializers/driver-calibration-chunk-serializer.js';
+import {TagDataChunkSerializer} from './chunk-serializers/tag-data-chunk-serializer.js';
+import {TagKeysChunkSerializer} from './chunk-serializers/tag-keys-chunk-serializer.js';
+import {TaggedModuleMapChunkSerializer} from './chunk-serializers/tagged-module-map-chunk-serializer.js';
 import {DatapoolChunk} from '../../shared/acdb-chunks/datapool-chunk.js';
 import {DatapoolChunkSerializer} from './chunk-serializers/datapool-chunk-serializer.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
@@ -38,8 +52,28 @@ import {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 export class AcdbFileSerializer {
   private readonly chunkBuilder: ChunkBuilderService;
 
-  constructor(private readonly workerPool?: WorkerPoolPort) {
+  constructor(
+    private readonly workerPool?: WorkerPoolPort,
+    private readonly logger?: Logger,
+    private readonly profiler?: ProfilerPort,
+  ) {
     this.chunkBuilder = new ChunkBuilderService();
+  }
+
+  private logSerializeStepMetrics(
+    metrics: PerformanceMetrics | undefined,
+  ): void {
+    if (!metrics) return;
+    const memoryDelta =
+      metrics.endMemory.heapUsed - metrics.startMemory.heapUsed;
+    const memoryDeltaMB = (memoryDelta / 1024 / 1024).toFixed(2);
+    this.logger?.logInfo({
+      msg: `Performance: ${metrics.operation} completed in ${metrics.duration.toFixed(2)}ms (memory delta: ${memoryDeltaMB}MB)`,
+      timestamp: new Date(),
+      action: 'performance-monitoring',
+      component: 'AcdbFileSerializer',
+      tag: 'profiling-metrics',
+    });
   }
 
   /**
@@ -216,16 +250,83 @@ export class AcdbFileSerializer {
       const chunkList: Array<{id: string; data: Uint8Array}> = [];
       const datapool = new DatapoolChunk();
 
+      this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_HEADER);
       this.serializeHeaderChunk(entities, chunkList);
+      this.logSerializeStepMetrics(
+        this.profiler?.end(PROFILER_OPERATIONS.ACDB_SERIALIZE_HEADER),
+      );
+
+      this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_USECASE);
       await this.serializeUsecaseChunks(entities, chunkList, datapool);
+      this.logSerializeStepMetrics(
+        this.profiler?.end(PROFILER_OPERATIONS.ACDB_SERIALIZE_USECASE),
+      );
 
       const {audio, voice} = this.splitCalibrationData(
         entities.calibrationData ?? [],
         entities.subgraphData ?? [],
       );
+
+      this.profiler?.start(
+        PROFILER_OPERATIONS.ACDB_SERIALIZE_AUDIO_CALIBRATION,
+      );
       this.serializeAudioCalibrationChunks(audio, chunkList, datapool);
+      this.logSerializeStepMetrics(
+        this.profiler?.end(
+          PROFILER_OPERATIONS.ACDB_SERIALIZE_AUDIO_CALIBRATION,
+        ),
+      );
+
+      this.profiler?.start(
+        PROFILER_OPERATIONS.ACDB_SERIALIZE_VOICE_CALIBRATION,
+      );
       this.serializeVoiceCalibrationChunks(voice, chunkList, datapool);
+      this.logSerializeStepMetrics(
+        this.profiler?.end(
+          PROFILER_OPERATIONS.ACDB_SERIALIZE_VOICE_CALIBRATION,
+        ),
+      );
+
+      this.profiler?.start(
+        PROFILER_OPERATIONS.ACDB_SERIALIZE_DRIVER_CALIBRATION,
+      );
+      this.serializeDriverCalibrationChunks(
+        entities.driverCalibrationData ?? [],
+        chunkList,
+        datapool,
+      );
+      this.logSerializeStepMetrics(
+        this.profiler?.end(
+          PROFILER_OPERATIONS.ACDB_SERIALIZE_DRIVER_CALIBRATION,
+        ),
+      );
+
+      this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_TAG_KEYS);
+      this.serializeTagKeysChunks(entities.tagKeys ?? [], chunkList, datapool);
+      this.logSerializeStepMetrics(
+        this.profiler?.end(PROFILER_OPERATIONS.ACDB_SERIALIZE_TAG_KEYS),
+      );
+
+      this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_TAG_DATA);
+      this.serializeTagDataChunks(entities.tagData ?? [], chunkList, datapool);
+      this.logSerializeStepMetrics(
+        this.profiler?.end(PROFILER_OPERATIONS.ACDB_SERIALIZE_TAG_DATA),
+      );
+
+      this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_TAGGED_MODULES);
+      this.serializeTaggedModuleMapChunks(
+        entities.taggedModules ?? [],
+        chunkList,
+      );
+      this.logSerializeStepMetrics(
+        this.profiler?.end(PROFILER_OPERATIONS.ACDB_SERIALIZE_TAGGED_MODULES),
+      );
+
+      this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_DATAPOOL);
       this.serializeDatapoolChunk(chunkList, datapool);
+      this.logSerializeStepMetrics(
+        this.profiler?.end(PROFILER_OPERATIONS.ACDB_SERIALIZE_DATAPOOL),
+      );
 
       return this.assembleAcdbFile(chunkList);
     } catch (error) {
@@ -417,6 +518,127 @@ export class AcdbFileSerializer {
     const datapoolSerializer = new DatapoolChunkSerializer();
     const datapoolBinary = datapoolSerializer.serialize(datapool);
     this.addChunk(chunkList, ACDB_RAW_CHUNK_TYPES.DATAPOOL, datapoolBinary);
+  }
+
+  private serializeDriverCalibrationChunks(
+    data: DriverCalibrationDownloadModel[],
+    chunkList: Array<{id: string; data: Uint8Array}>,
+    datapool: DatapoolChunk,
+  ): void {
+    if (data.length === 0) return;
+    const buildResult = this.chunkBuilder.buildDriverCalibrationChunks(
+      data,
+      datapool,
+    );
+    const serializer = new DriverCalibrationChunkSerializer();
+    const result = serializer.serialize(buildResult.chunk);
+    if (result.gclu.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_LUT,
+        result.gclu,
+      );
+    }
+    if (result.gckt.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_KEY_TABLE,
+        result.gckt,
+      );
+    }
+    if (result.gcdt.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_DATA_TABLE,
+        result.gcdt,
+      );
+    }
+    if (result.gcde.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_DATA_DEF,
+        result.gcde,
+      );
+    }
+    if (result.gcdo.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.DRIVER_CALIBRATION_DATA_DOT,
+        result.gcdo,
+      );
+    }
+  }
+
+  private serializeTagKeysChunks(
+    tagKeys: TagKeysDownloadModel[],
+    chunkList: Array<{id: string; data: Uint8Array}>,
+    datapool: DatapoolChunk,
+  ): void {
+    if (tagKeys.length === 0) return;
+    const chunk = this.chunkBuilder.buildTagKeysChunk(tagKeys, datapool);
+    const mtkl = new TagKeysChunkSerializer().serialize(chunk);
+    if (mtkl.length > 0) {
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_KEYIDS_TABLE,
+        mtkl,
+      );
+    }
+  }
+
+  private serializeTagDataChunks(
+    tagData: TagDataDownloadModel[],
+    chunkList: Array<{id: string; data: Uint8Array}>,
+    datapool: DatapoolChunk,
+  ): void {
+    if (tagData.length === 0) return;
+    const chunk = this.chunkBuilder.buildTagDataChunk(tagData, datapool);
+    const result = new TagDataChunkSerializer().serialize(chunk);
+    if (result.mtkt.length > 0)
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_KEY_TABLE,
+        result.mtkt,
+      );
+    if (result.mtlu.length > 0)
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_DATA_LUT,
+        result.mtlu,
+      );
+    if (result.mtde.length > 0)
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_DATA_DEF,
+        result.mtde,
+      );
+    if (result.mtdo.length > 0)
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.MODULE_TAG_DATA_DOT,
+        result.mtdo,
+      );
+  }
+
+  private serializeTaggedModuleMapChunks(
+    taggedModules: TaggedModuleDownloadModel[],
+    chunkList: Array<{id: string; data: Uint8Array}>,
+  ): void {
+    if (taggedModules.length === 0) return;
+    const chunk = this.chunkBuilder.buildTaggedModuleMapChunk(taggedModules);
+    const result = new TaggedModuleMapChunkSerializer().serialize(chunk);
+    if (result.tmlu.length > 0)
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.TAGGED_MODULES_LUT,
+        result.tmlu,
+      );
+    if (result.tmde.length > 0)
+      this.addChunk(
+        chunkList,
+        ACDB_RAW_CHUNK_TYPES.TAGGED_MODULES_DEF,
+        result.tmde,
+      );
   }
 
   /**

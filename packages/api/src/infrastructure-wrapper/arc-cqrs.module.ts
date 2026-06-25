@@ -62,8 +62,9 @@ import {ConsoleLoggerService} from './logger/index.js';
     },
     {
       provide: 'QUERY_SERVICES',
-      useFactory: (dataSource: DataSource) => new DbQueryServices(dataSource),
-      inject: ['DATA_SOURCE'],
+      useFactory: (dataSource: DataSource, logger: Logger) =>
+        new DbQueryServices(dataSource, logger),
+      inject: ['DATA_SOURCE', 'LOGGER'],
     },
     {
       provide: 'UNIT_OF_WORK_FACTORY',
@@ -118,11 +119,25 @@ import {ConsoleLoggerService} from './logger/index.js';
         queryServices: QueryServices,
         registry: QueryHandlerRegistry,
         fileSystem: FileSystemPort,
-      ) => new QueryBus(queryServices, registry, fileSystem),
+        workerPool: WorkerPoolPort,
+        logger: Logger,
+        profiler: ProfilerPort,
+      ) =>
+        new QueryBus(
+          queryServices,
+          registry,
+          fileSystem,
+          workerPool,
+          logger,
+          profiler,
+        ),
       inject: [
         'QUERY_SERVICES',
         'QUERY_HANDLER_REGISTRY',
         'NODE_FILE_SYSTEM_ADAPTER',
+        'WORKER_POOL',
+        'LOGGER',
+        'PROFILER',
       ],
       scope: Scope.REQUEST,
     },

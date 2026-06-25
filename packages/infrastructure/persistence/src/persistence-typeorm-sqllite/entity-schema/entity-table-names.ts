@@ -21,6 +21,8 @@ export const ENTITY_NAMES = {
   ContainerProperty: 'ContainerProperty',
   KeyDefinition: 'KeyDefinition',
   ValueDefinition: 'ValueDefinition',
+  TagDefinition: 'TagDefinition',
+  TagKeyDefLink: 'TagKeyDefLink',
   DriverModuleDefinition: 'DriverModuleDefinition',
   DriverModuleParameterDefinition: 'DriverModuleParameterDefinition',
   DataPortGroup: 'DataPortGroup',
@@ -48,7 +50,6 @@ export const ENTITY_NAMES = {
   TkvParameterPayload: 'TkvParameterPayload',
   TkvValues: 'TkvValues',
   ModuleTagIdMap: 'ModuleTagIdMap',
-
   // ── Node / Port data ──────────────────────────────────────────────────────
   Node: 'Node',
   DataPort: 'DataPort',

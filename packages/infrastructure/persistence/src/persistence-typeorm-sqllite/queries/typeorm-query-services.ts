@@ -12,6 +12,7 @@ import type {
   BulkReadQueryService,
   SpfModuleQueryService,
   SpfModuleDefinitionQueryService,
+  Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
 import {DbUseCaseQueryService} from './usecase/index.js';
@@ -36,7 +37,7 @@ export class DbQueryServices implements QueryServices {
   readonly spfModuleQueryService: SpfModuleQueryService;
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
 
-  constructor(dataSource: DataSource) {
+  constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(dataSource);
 
     this.modulesQueryService = new DbModuleQueryService();
@@ -45,7 +46,10 @@ export class DbQueryServices implements QueryServices {
     this.validationQueryService = new TypeOrmValidationQueryRepository(
       dataSource,
     );
-    this.bulkReadQueryService = new TypeOrmBulkReadQueryService(dataSource);
+    this.bulkReadQueryService = new TypeOrmBulkReadQueryService(
+      dataSource,
+      logger,
+    );
 
     // SPF module services — shared EditActionsQueryService instance
     // Definition service created first — injected into module service

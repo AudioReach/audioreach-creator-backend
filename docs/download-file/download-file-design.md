@@ -162,7 +162,7 @@ The download file system converts database entities back into binary ACDB and AW
 - Application-level sorting provides correct numeric array comparison
 - Database sorts by numKeys for initial grouping
 - Minimal performance impact (~1-2ms for 1000s of usecases)
-- Ensures consistent output matching C# implementation
+- Ensures consistent, correct sort order required by the ACDB binary format
 
 ### 3. Parallel Phase 1
 
@@ -195,8 +195,6 @@ The download file system converts database entities back into binary ACDB and AW
 
 ### GKV_TABLE Chunk
 
-Matches C# WriteGkvChunk implementation:
-
 ```
 GKVKeyTblChunkPayload = NumKeyTbls KeyTbl+
 KeyTbl = NumGKeys NumGKeyEntries KeyEntry+
@@ -213,8 +211,6 @@ Structure:
 ```
 
 ### GKV_LUT Chunk
-
-Matches C# WriteGkvChunk implementation:
 
 ```
 GKVLUTChunkPayload = GKVLUT+
@@ -233,7 +229,7 @@ For each unique key:
 
 ### Data Structure
 
-The usecase data uses a 3-level grouped structure matching C# implementation:
+The usecase data uses a 3-level grouped structure:
 
 **Level 1: numKeys Groups**
 - Groups usecases by the number of key-value pairs

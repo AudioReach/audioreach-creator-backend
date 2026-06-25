@@ -129,6 +129,12 @@ export const DkvSchema = (_blobConverter: BlobBytesConverter) =>
         inverseSide: 'dkv',
       },
     },
+    indices: [
+      {
+        name: 'idx_dkv_driver_module_system_id',
+        columns: ['driverModuleSystemId'],
+      },
+    ],
   });
 
 export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
@@ -167,6 +173,10 @@ export const DkvParameterPayloadSchema = (blobConverter: BlobBytesConverter) =>
         name: 'uk_dkv_parameter_payload',
         columns: ['dkvSystemId', 'parameterSystemId'],
         unique: true,
+      },
+      {
+        name: 'idx_dkv_parameter_payload_dkv_system_id',
+        columns: ['dkvSystemId'],
       },
     ],
   });

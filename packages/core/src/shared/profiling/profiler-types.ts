@@ -45,6 +45,17 @@ export const PROFILER_OPERATIONS = {
   // Worker operations
   WORKER_TASK: 'worker_task',
   PARALLEL_EXECUTION: 'parallel_execution',
+
+  // Download file serialization steps
+  ACDB_SERIALIZE_HEADER: 'acdb_serialize_header',
+  ACDB_SERIALIZE_USECASE: 'acdb_serialize_usecase',
+  ACDB_SERIALIZE_AUDIO_CALIBRATION: 'acdb_serialize_audio_calibration',
+  ACDB_SERIALIZE_VOICE_CALIBRATION: 'acdb_serialize_voice_calibration',
+  ACDB_SERIALIZE_DRIVER_CALIBRATION: 'acdb_serialize_driver_calibration',
+  ACDB_SERIALIZE_TAG_KEYS: 'acdb_serialize_tag_keys',
+  ACDB_SERIALIZE_TAG_DATA: 'acdb_serialize_tag_data',
+  ACDB_SERIALIZE_TAGGED_MODULES: 'acdb_serialize_tagged_modules',
+  ACDB_SERIALIZE_DATAPOOL: 'acdb_serialize_datapool',
 } as const;
 
 /**

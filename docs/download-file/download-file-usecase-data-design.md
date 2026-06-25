@@ -24,6 +24,8 @@ SPDX-License-Identifier: BSD-3-Clause
 9. [Implementation Plan](#9-implementation-plan)
 10. [Future Extensions](#10-future-extensions)
 
+
+
 ---
 
 ## 1) Overview
@@ -39,31 +41,13 @@ Implement a generalized parallel download framework for recreating ACDB raw chun
 - ✅ **Sorted Output**: LUT chunks must be sorted (numKeys → Keys → Values)
 - ✅ **Natural IDs**: Use natural IDs (keyId, valueId, etc.) not system IDs
 - ✅ **Mirror Pattern**: Reuse parsed chunk classes from upload
-- ✅ **React Native Compatible**: Automatic fallback to sequential
 - ✅ **Extensible**: Easy to add new chunk types (audio calibration, etc.)
 
-### 1.3 C# Reference
+### 1.3 Approach
 
-From the provided C# code, the key pattern is:
+Database entities are queried with pre-sorted natural IDs (keyId, valueId, subgraphId). The `UsecaseDataChunkBuilder` converts these into a parsed chunk structure with offsets initialized to 0. The `UsecaseDataChunkSerializer` then assigns datapool offsets sequentially and serializes the chunk to binary GKV_TABLE and GKV_LUT chunks. The sorted structure mirrors the 3-level grouping (numKeys → unique keys → unique values) required by the ACDB binary format.
 
-```csharp
-// 1. Sort data structures
-SortedDictionary<uint, SortedDictionary<Keys, SortedList<Values, Graph>>> graphKVList;
 
-// 2. Write GKV chunks
-WriteGkvChunk(graphKVList, subgraphList, ref dataOffsetData,
-              out gkvTableFile, out gkvLutFile);
-
-// 3. Sequential datapool assignment
-foreach (Graph graph in valueList.Values) {
-    uint subgraphListOffset = dataOffsetData.Add(subgraphListData);
-    uint subgraphPropDataOffset = dataOffsetData.Add(subgraphPropData);
-}
-```
-
----
-
-## 2) Architecture
 
 ### 2.1 High-Level Flow
 
@@ -693,7 +677,6 @@ This design provides:
 ✅ **Sequential Safety**: Datapool assignment remains sequential
 ✅ **Mirror Pattern**: Reuses parsed chunk classes from upload
 ✅ **DB-Level Sorting**: Efficient sorting via SQL ORDER BY
-✅ **React Native Compatible**: Automatic fallback to sequential
 ✅ **Extensible**: Clear TODO markers for future work
 ✅ **Performance**: 4-6x speedup with full implementation
 

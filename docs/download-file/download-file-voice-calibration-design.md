@@ -38,7 +38,7 @@ Implement voice calibration data download functionality that mirrors the existin
 
 - ✅ **Mirror Audio Calibration Pattern**: Follow exact same architecture as audio calibration download
 - ✅ **Chunk Format Compliance**: Match ACDB binary format specification exactly
-- ✅ **C# Implementation Parity**: Align with reference C# implementation logic
+- ✅ **Binary Format Compliance**: Match ACDB binary format specification exactly
 - ✅ **Performance Optimized**: Parallel chunk building, optimized SQL queries
 - ✅ **Sorted Output**: All data sorted at every level (subgraph, keys, values, modules)
 - ✅ **Production Ready**: Error handling, logging, type safety
@@ -932,10 +932,9 @@ CREATE INDEX IF NOT EXISTS idx_arc_keys_is_voice
 This design provides a complete, production-ready solution for voice calibration data download that:
 
 1. ✅ **Mirrors audio calibration pattern exactly** - Same architecture, same flow
-2. ✅ **Matches C# implementation** - Sorting, offset tracking, master key tables
-3. ✅ **Complies with ACDB format** - All 5 voice calibration chunks correctly formatted
-4. ✅ **Optimized for performance** - 2x speedup with parallel chunk building
-5. ✅ **Production ready** - Error handling, logging, type safety, testing strategy
-6. ✅ **Maintainable** - Follows existing patterns, well-documented
+2. ✅ **Complies with ACDB format** - All 5 voice calibration chunks correctly formatted
+3. ✅ **Optimized for performance** - 2x speedup with parallel chunk building
+4. ✅ **Production ready** - Error handling, logging, type safety, testing strategy
+5. ✅ **Maintainable** - Follows existing patterns, well-documented
 
 **Next Steps**: Use writing-plans skill to create detailed implementation plan.

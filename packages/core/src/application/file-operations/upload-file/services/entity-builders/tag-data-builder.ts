@@ -88,7 +88,7 @@ export class TagDataBuilder {
     // Process each tag index entry
     for (const tagIndexEntry of tagDataChunk.tagIndexEntries) {
       try {
-        const result = await this.processTagDataForSubgraph(
+        const result = await this.processTagDataForOneEntry(
           tagIndexEntry,
           tagDataChunk,
           foreignKeyMapper,
@@ -129,7 +129,7 @@ export class TagDataBuilder {
   /**
    * Process tag data for a single subgraph-tag combination
    */
-  private async processTagDataForSubgraph(
+  private async processTagDataForOneEntry(
     tagIndexEntry: TagIndexEntry,
     tagDataChunk: TagDataChunk,
     foreignKeyMapper: ForeignKeyMapper,
@@ -305,13 +305,12 @@ export class TagDataBuilder {
   }
 
   /**
-   * Process tag data for a single module-parameter pair.
-   * Creates KvData with resolved values and payload, attaches to TagData.
+   * Process tag data for all parameter entries belonging to one module instance.
+   * Creates a single KvData (shared key vector) and attaches one parameterPayload per entry.
    */
   private async processModuleTagData(
     moduleInstanceId: number,
-    paramId: number,
-    dataOffset: number,
+    entries: Array<{paramId: number; dataOffset: number}>,
     valueSystemIds: number[],
     tagDefinitionSystemId: number,
     foreignKeyMapper: ForeignKeyMapper,
@@ -350,57 +349,64 @@ export class TagDataBuilder {
       return;
     }
 
-    // 3. Resolve parameter system ID
-    const parameterSystemId = foreignKeyMapper.getParamDefinitionSystemId(
-      moduleDefinitionSystemId,
-      asNaturalId(paramId),
-    );
-    if (parameterSystemId === undefined) {
-      this.logger?.logWarn({
-        msg: `Parameter system ID not found for module ${moduleInstanceId}, param ${paramId}`,
-        action: 'parameter_resolution_failed',
-        component: 'TagDataBuilder',
-        tag: 'tag-data-building',
-        timestamp: new Date(),
-      });
-      return;
-    }
-
-    // 4. Extract payload from datapool
-    const payloadData = datapoolChunk.getDataAtOffset(dataOffset);
-    if (!payloadData) {
-      this.logger?.logWarn({
-        msg: `No data found at datapool offset ${dataOffset}`,
-        action: 'datapool_offset_not_found',
-        component: 'TagDataBuilder',
-        tag: 'tag-data-building',
-        timestamp: new Date(),
-      });
-      return;
-    }
-
-    // 5. Generate system ID for KvData
+    // 3. Generate system ID for KvData (one per module+keyVector combination)
     const kvDataSystemId = asSystemId(
       await this.idGenerator.getNextId(fileSystemId),
     );
 
-    // 6. Create KvData with resolved values
+    // 4. Create KvData with resolved values
     const kvData = new KvData({
       systemId: kvDataSystemId,
       valueDefinitionSystemIds: valueSystemIds,
       uiPersistence: null,
     });
 
-    // 7. Create ModuleParameterData with payload
-    const moduleParamData = new ModuleParameterData(
-      parameterSystemId,
-      payloadData,
-    );
+    // 5. Attach one parameterPayload per (paramId, dataOffset) entry
+    for (const {paramId, dataOffset} of entries) {
+      const parameterSystemId = foreignKeyMapper.getParamDefinitionSystemId(
+        moduleDefinitionSystemId,
+        asNaturalId(paramId),
+      );
+      if (parameterSystemId === undefined) {
+        this.logger?.logWarn({
+          msg: `Parameter system ID not found for module ${moduleInstanceId}, param ${paramId}`,
+          action: 'parameter_resolution_failed',
+          component: 'TagDataBuilder',
+          tag: 'tag-data-building',
+          timestamp: new Date(),
+        });
+        continue;
+      }
 
-    // 8. Add parameter payload to KvData
-    kvData.addParameterPayload(moduleParamData);
+      const payloadData = datapoolChunk.getDataAtOffset(dataOffset);
+      if (!payloadData) {
+        this.logger?.logWarn({
+          msg: `No data found at datapool offset ${dataOffset}`,
+          action: 'datapool_offset_not_found',
+          component: 'TagDataBuilder',
+          tag: 'tag-data-building',
+          timestamp: new Date(),
+        });
+        continue;
+      }
 
-    // 9. Get or create TagData for this module-tag combination
+      kvData.addParameterPayload(
+        new ModuleParameterData(parameterSystemId, payloadData),
+      );
+    }
+
+    if (kvData.parameterPayloads.length === 0) {
+      this.logger?.logWarn({
+        msg: `No valid parameter payloads for module instance ${moduleInstanceId}`,
+        action: 'no_valid_payloads',
+        component: 'TagDataBuilder',
+        tag: 'tag-data-building',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    // 6. Get or create TagData for this module-tag combination
     const tagData = await this.getOrCreateTagData(
       moduleSystemId,
       tagDefinitionSystemId,
@@ -408,7 +414,7 @@ export class TagDataBuilder {
       tagDataByModule,
     );
 
-    // 10. Add KvData to TagData
+    // 7. Add KvData to TagData
     tagData.addTkv(kvData);
   }
 
@@ -469,23 +475,42 @@ export class TagDataBuilder {
       tagDefinition,
     );
 
-    // Process each (iId, pId) pair independently
+    // Group (paramId, dataOffset) pairs by module so each module gets one KvData
+    const entriesByModule = new Map<
+      number,
+      Array<{paramId: number; dataOffset: number}>
+    >();
     for (let i = 0; i < tagDataDefEntry.taggedIdEntries.length; i++) {
       const {moduleInstanceId, paramId} = tagDataDefEntry.taggedIdEntries[i];
       const dataOffset = tagDataDotEntry.taggedDataOffsets[i];
+      if (!entriesByModule.has(moduleInstanceId)) {
+        entriesByModule.set(moduleInstanceId, []);
+      }
+      entriesByModule.get(moduleInstanceId)!.push({paramId, dataOffset});
+    }
 
-      await this.processModuleTagData(
-        moduleInstanceId,
-        paramId,
-        dataOffset,
-        valueSystemIds,
-        tagDefinitionSystemId,
-        foreignKeyMapper,
-        fileSystemId,
-        datapoolChunk,
-        tagDataByModule,
-        instanceToDefinitionMap,
-      );
+    for (const [moduleInstanceId, entries] of entriesByModule) {
+      try {
+        await this.processModuleTagData(
+          moduleInstanceId,
+          entries,
+          valueSystemIds,
+          tagDefinitionSystemId,
+          foreignKeyMapper,
+          fileSystemId,
+          datapoolChunk,
+          tagDataByModule,
+          instanceToDefinitionMap,
+        );
+      } catch (error) {
+        this.logger?.logError({
+          msg: `Failed to process tag data for module instance ${moduleInstanceId}, tagId ${tagIndexEntry.tagId}, valueSystemIds [${valueSystemIds.join(', ')}], tagKeyValues [${tagKeyVectorEntry.tagKeyValues.join(', ')}]: ${error instanceof Error ? error.message : String(error)}`,
+          action: 'process_module_tag_data_failed',
+          component: 'TagDataBuilder',
+          tag: 'tag-data-building',
+          timestamp: new Date(),
+        });
+      }
     }
   }
 
