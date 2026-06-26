@@ -5,10 +5,6 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-<<<<<<< HEAD:packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782657131731-initial-create.ts
-export class InitialCreate1782657131731 implements MigrationInterface {
-  name = 'InitialCreate1782657131731';
-=======
 <<<<<<<< HEAD:packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782405830512-initial-create.ts
 export class InitialCreate1782405830512 implements MigrationInterface {
   name = 'InitialCreate1782405830512';
@@ -16,7 +12,6 @@ export class InitialCreate1782405830512 implements MigrationInterface {
 export class InitialCreate1782408828342 implements MigrationInterface {
   name = 'InitialCreate1782408828342';
 >>>>>>>> f090c75 (refactor: support i/p-o/p and o/p-i/p ports for subsystems):packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782408828342-initial-create.ts
->>>>>>> 70034c5 (refactor: support i/p-o/p and o/p-i/p ports for subsystems):packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782405830512-initial-create.ts
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -149,16 +144,10 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `CREATE TABLE "dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "driver_module_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_dkv_driver_module_system_id" ON "dkv" ("driver_module_system_id") `,
-    );
-    await queryRunner.query(
       `CREATE TABLE "dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_dkv_parameter_payload" ON "dkv_parameter_payload" ("dkv_system_id", "parameter_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_dkv_parameter_payload_dkv_system_id" ON "dkv_parameter_payload" ("dkv_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "dkv_values" ("dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("dkv_system_id", "value_def_system_id"))`,
@@ -221,16 +210,10 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `CREATE TABLE "ckv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "ui_persistence" blob)`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_ckv_module_system_id" ON "ckv" ("spf_module_system_id") `,
-    );
-    await queryRunner.query(
       `CREATE TABLE "ckv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "ckv_system_id" integer NOT NULL, "payload" blob NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "ix_ckv_parameter" ON "ckv_parameter_payload" ("ckv_system_id", "parameter_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_ckv_parameter_payload_ckv_system_id" ON "ckv_parameter_payload" ("ckv_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "ckv_values" ("ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("ckv_system_id", "value_def_system_id"))`,
@@ -251,16 +234,10 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `CREATE TABLE "tkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_tag_id_map_system_id" integer NOT NULL, "ui_persistence" blob)`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_tkv_module_tag_id_map_system_id" ON "tkv" ("module_tag_id_map_system_id") `,
-    );
-    await queryRunner.query(
       `CREATE TABLE "tkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "tkv_system_id" integer NOT NULL, "payload" blob NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "ix_tkv_parameter" ON "tkv_parameter_payload" ("tkv_system_id", "parameter_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_tkv_parameter_payload_tkv_system_id" ON "tkv_parameter_payload" ("tkv_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "tkv_values" ("tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("tkv_system_id", "value_def_system_id"))`,
@@ -649,7 +626,7 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "idx_tag_key_def_links_tag_def_id"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_tag_key_def_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "tag_definition_system_id" integer NOT NULL, "key_reference_system_id" integer NOT NULL, "tag_enum_value" text, CONSTRAINT "FK_4bca74114e360dc36ca8ad15db8" FOREIGN KEY ("tag_definition_system_id") REFERENCES "tag_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_60813445afa924ee80475ede198" FOREIGN KEY ("key_reference_system_id") REFERENCES "arc_keys" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_tag_key_def_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "tag_definition_system_id" integer NOT NULL, "key_reference_system_id" integer NOT NULL, "tag_enum_value" text, CONSTRAINT "FK_4bca74114e360dc36ca8ad15db8" FOREIGN KEY ("tag_definition_system_id") REFERENCES "tag_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_tag_key_def_links"("system_id", "created_at", "updated_at", "version", "tag_definition_system_id", "key_reference_system_id", "tag_enum_value") SELECT "system_id", "created_at", "updated_at", "version", "tag_definition_system_id", "key_reference_system_id", "tag_enum_value" FROM "tag_key_def_links"`,
@@ -699,7 +676,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_driver_modules_definition_system_id_file_system_id" ON "driver_modules" ("definition_system_id", "file_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_dkv_driver_module_system_id"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "driver_module_system_id" integer NOT NULL, CONSTRAINT "FK_543f55c03493f970b195144effc" FOREIGN KEY ("driver_module_system_id") REFERENCES "driver_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
@@ -708,13 +684,7 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "dkv"`);
     await queryRunner.query(`ALTER TABLE "temporary_dkv" RENAME TO "dkv"`);
-    await queryRunner.query(
-      `CREATE INDEX "idx_dkv_driver_module_system_id" ON "dkv" ("driver_module_system_id") `,
-    );
     await queryRunner.query(`DROP INDEX "uk_dkv_parameter_payload"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_dkv_parameter_payload_dkv_system_id"`,
-    );
     await queryRunner.query(
       `CREATE TABLE "temporary_dkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "dkv_system_id" integer NOT NULL, "payload" blob, CONSTRAINT "FK_237ae09fc03ebfae2588d3264c0" FOREIGN KEY ("dkv_system_id") REFERENCES "dkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_30bdf237a3670f9d9d23fe5c9f2" FOREIGN KEY ("parameter_system_id") REFERENCES "driver_module_parameter_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION)`,
     );
@@ -727,9 +697,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_dkv_parameter_payload" ON "dkv_parameter_payload" ("dkv_system_id", "parameter_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_dkv_parameter_payload_dkv_system_id" ON "dkv_parameter_payload" ("dkv_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_dkv_values" ("dkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_d57bafa80990849c5ccc48c2301" FOREIGN KEY ("dkv_system_id") REFERENCES "dkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1a5cedb797e44c753b295134f3e" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("dkv_system_id", "value_def_system_id"))`,
@@ -843,7 +810,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_data_links_dst_sg" ON "data_links" ("dest_subgraph_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_ckv_module_system_id"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_ckv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "ui_persistence" blob, CONSTRAINT "FK_54454123d07e1f81369d5e16604" FOREIGN KEY ("spf_module_system_id") REFERENCES "spf_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
@@ -852,13 +818,7 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "ckv"`);
     await queryRunner.query(`ALTER TABLE "temporary_ckv" RENAME TO "ckv"`);
-    await queryRunner.query(
-      `CREATE INDEX "idx_ckv_module_system_id" ON "ckv" ("spf_module_system_id") `,
-    );
     await queryRunner.query(`DROP INDEX "ix_ckv_parameter"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_ckv_parameter_payload_ckv_system_id"`,
-    );
     await queryRunner.query(
       `CREATE TABLE "temporary_ckv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "ckv_system_id" integer NOT NULL, "payload" blob NOT NULL, CONSTRAINT "FK_e073280524fccebf5a394bb1a41" FOREIGN KEY ("ckv_system_id") REFERENCES "ckv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_93f75c6014fa77a2535a83a76b9" FOREIGN KEY ("parameter_system_id") REFERENCES "spf_module_parameter_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
@@ -871,9 +831,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "ix_ckv_parameter" ON "ckv_parameter_payload" ("ckv_system_id", "parameter_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_ckv_parameter_payload_ckv_system_id" ON "ckv_parameter_payload" ("ckv_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_ckv_values" ("ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_99016afdc94daeada620e143123" FOREIGN KEY ("ckv_system_id") REFERENCES "ckv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bee185843bdbad64dd7467888c9" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("ckv_system_id", "value_def_system_id"))`,
@@ -913,7 +870,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "ix_module_tag_definition" ON "module_tag_id_map" ("spf_module_system_id", "tag_definition_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_tkv_module_tag_id_map_system_id"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_tkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_tag_id_map_system_id" integer NOT NULL, "ui_persistence" blob, CONSTRAINT "FK_c9e68f3cebaef023b81d68965c0" FOREIGN KEY ("module_tag_id_map_system_id") REFERENCES "module_tag_id_map" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
@@ -922,13 +878,7 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "tkv"`);
     await queryRunner.query(`ALTER TABLE "temporary_tkv" RENAME TO "tkv"`);
-    await queryRunner.query(
-      `CREATE INDEX "idx_tkv_module_tag_id_map_system_id" ON "tkv" ("module_tag_id_map_system_id") `,
-    );
     await queryRunner.query(`DROP INDEX "ix_tkv_parameter"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_tkv_parameter_payload_tkv_system_id"`,
-    );
     await queryRunner.query(
       `CREATE TABLE "temporary_tkv_parameter_payload" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "parameter_system_id" integer NOT NULL, "tkv_system_id" integer NOT NULL, "payload" blob NOT NULL, CONSTRAINT "FK_d64a873462d104c7ad93e4fd394" FOREIGN KEY ("tkv_system_id") REFERENCES "tkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_d86fc696f63de7b8e2137786b7e" FOREIGN KEY ("parameter_system_id") REFERENCES "spf_module_parameter_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
@@ -941,9 +891,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "ix_tkv_parameter" ON "tkv_parameter_payload" ("tkv_system_id", "parameter_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_tkv_parameter_payload_tkv_system_id" ON "tkv_parameter_payload" ("tkv_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_tkv_values" ("tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, CONSTRAINT "FK_aff49dcb6c3d7cbbc233cf73d9e" FOREIGN KEY ("tkv_system_id") REFERENCES "tkv" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1ab8517d5880b24522a6b710bfc" FOREIGN KEY ("value_def_system_id") REFERENCES "arc_values" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, PRIMARY KEY ("tkv_system_id", "value_def_system_id"))`,
@@ -1656,9 +1603,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `INSERT INTO "tkv_values"("tkv_system_id", "value_def_system_id") SELECT "tkv_system_id", "value_def_system_id" FROM "temporary_tkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_tkv_values"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_tkv_parameter_payload_tkv_system_id"`,
-    );
     await queryRunner.query(`DROP INDEX "ix_tkv_parameter"`);
     await queryRunner.query(
       `ALTER TABLE "tkv_parameter_payload" RENAME TO "temporary_tkv_parameter_payload"`,
@@ -1671,12 +1615,8 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "temporary_tkv_parameter_payload"`);
     await queryRunner.query(
-      `CREATE INDEX "idx_tkv_parameter_payload_tkv_system_id" ON "tkv_parameter_payload" ("tkv_system_id") `,
-    );
-    await queryRunner.query(
       `CREATE UNIQUE INDEX "ix_tkv_parameter" ON "tkv_parameter_payload" ("tkv_system_id", "parameter_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_tkv_module_tag_id_map_system_id"`);
     await queryRunner.query(`ALTER TABLE "tkv" RENAME TO "temporary_tkv"`);
     await queryRunner.query(
       `CREATE TABLE "tkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_tag_id_map_system_id" integer NOT NULL, "ui_persistence" blob)`,
@@ -1685,9 +1625,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `INSERT INTO "tkv"("system_id", "created_at", "updated_at", "version", "module_tag_id_map_system_id", "ui_persistence") SELECT "system_id", "created_at", "updated_at", "version", "module_tag_id_map_system_id", "ui_persistence" FROM "temporary_tkv"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_tkv"`);
-    await queryRunner.query(
-      `CREATE INDEX "idx_tkv_module_tag_id_map_system_id" ON "tkv" ("module_tag_id_map_system_id") `,
-    );
     await queryRunner.query(`DROP INDEX "ix_module_tag_definition"`);
     await queryRunner.query(
       `ALTER TABLE "module_tag_id_map" RENAME TO "temporary_module_tag_id_map"`,
@@ -1728,9 +1665,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `INSERT INTO "ckv_values"("ckv_system_id", "value_def_system_id") SELECT "ckv_system_id", "value_def_system_id" FROM "temporary_ckv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_ckv_values"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_ckv_parameter_payload_ckv_system_id"`,
-    );
     await queryRunner.query(`DROP INDEX "ix_ckv_parameter"`);
     await queryRunner.query(
       `ALTER TABLE "ckv_parameter_payload" RENAME TO "temporary_ckv_parameter_payload"`,
@@ -1743,12 +1677,8 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "temporary_ckv_parameter_payload"`);
     await queryRunner.query(
-      `CREATE INDEX "idx_ckv_parameter_payload_ckv_system_id" ON "ckv_parameter_payload" ("ckv_system_id") `,
-    );
-    await queryRunner.query(
       `CREATE UNIQUE INDEX "ix_ckv_parameter" ON "ckv_parameter_payload" ("ckv_system_id", "parameter_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_ckv_module_system_id"`);
     await queryRunner.query(`ALTER TABLE "ckv" RENAME TO "temporary_ckv"`);
     await queryRunner.query(
       `CREATE TABLE "ckv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "ui_persistence" blob)`,
@@ -1757,9 +1687,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `INSERT INTO "ckv"("system_id", "created_at", "updated_at", "version", "spf_module_system_id", "ui_persistence") SELECT "system_id", "created_at", "updated_at", "version", "spf_module_system_id", "ui_persistence" FROM "temporary_ckv"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_ckv"`);
-    await queryRunner.query(
-      `CREATE INDEX "idx_ckv_module_system_id" ON "ckv" ("spf_module_system_id") `,
-    );
     await queryRunner.query(`DROP INDEX "idx_data_links_dst_sg"`);
     await queryRunner.query(`DROP INDEX "idx_data_links_src_sg_scope"`);
     await queryRunner.query(`DROP INDEX "uk_data_link_ports"`);
@@ -1872,9 +1799,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `INSERT INTO "dkv_values"("dkv_system_id", "value_def_system_id") SELECT "dkv_system_id", "value_def_system_id" FROM "temporary_dkv_values"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_dkv_values"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_dkv_parameter_payload_dkv_system_id"`,
-    );
     await queryRunner.query(`DROP INDEX "uk_dkv_parameter_payload"`);
     await queryRunner.query(
       `ALTER TABLE "dkv_parameter_payload" RENAME TO "temporary_dkv_parameter_payload"`,
@@ -1887,12 +1811,8 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "temporary_dkv_parameter_payload"`);
     await queryRunner.query(
-      `CREATE INDEX "idx_dkv_parameter_payload_dkv_system_id" ON "dkv_parameter_payload" ("dkv_system_id") `,
-    );
-    await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_dkv_parameter_payload" ON "dkv_parameter_payload" ("dkv_system_id", "parameter_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_dkv_driver_module_system_id"`);
     await queryRunner.query(`ALTER TABLE "dkv" RENAME TO "temporary_dkv"`);
     await queryRunner.query(
       `CREATE TABLE "dkv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "driver_module_system_id" integer NOT NULL)`,
@@ -1901,9 +1821,6 @@ export class InitialCreate1782408828342 implements MigrationInterface {
       `INSERT INTO "dkv"("system_id", "created_at", "updated_at", "version", "driver_module_system_id") SELECT "system_id", "created_at", "updated_at", "version", "driver_module_system_id" FROM "temporary_dkv"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_dkv"`);
-    await queryRunner.query(
-      `CREATE INDEX "idx_dkv_driver_module_system_id" ON "dkv" ("driver_module_system_id") `,
-    );
     await queryRunner.query(
       `DROP INDEX "uq_driver_modules_definition_system_id_file_system_id"`,
     );
@@ -2255,24 +2172,16 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "ix_spf_modules_subgraph_file_system"`);
     await queryRunner.query(`DROP TABLE "spf_modules"`);
     await queryRunner.query(`DROP TABLE "tkv_values"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_tkv_parameter_payload_tkv_system_id"`,
-    );
     await queryRunner.query(`DROP INDEX "ix_tkv_parameter"`);
     await queryRunner.query(`DROP TABLE "tkv_parameter_payload"`);
-    await queryRunner.query(`DROP INDEX "idx_tkv_module_tag_id_map_system_id"`);
     await queryRunner.query(`DROP TABLE "tkv"`);
     await queryRunner.query(`DROP INDEX "ix_module_tag_definition"`);
     await queryRunner.query(`DROP TABLE "module_tag_id_map"`);
     await queryRunner.query(`DROP INDEX "uk_spf_module_properties_data"`);
     await queryRunner.query(`DROP TABLE "spf_module_properties_data"`);
     await queryRunner.query(`DROP TABLE "ckv_values"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_ckv_parameter_payload_ckv_system_id"`,
-    );
     await queryRunner.query(`DROP INDEX "ix_ckv_parameter"`);
     await queryRunner.query(`DROP TABLE "ckv_parameter_payload"`);
-    await queryRunner.query(`DROP INDEX "idx_ckv_module_system_id"`);
     await queryRunner.query(`DROP TABLE "ckv"`);
     await queryRunner.query(`DROP INDEX "idx_data_links_dst_sg"`);
     await queryRunner.query(`DROP INDEX "idx_data_links_src_sg_scope"`);
@@ -2297,12 +2206,8 @@ export class InitialCreate1782408828342 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "module_manager_data"`);
     await queryRunner.query(`DROP TABLE "dkv_values"`);
-    await queryRunner.query(
-      `DROP INDEX "idx_dkv_parameter_payload_dkv_system_id"`,
-    );
     await queryRunner.query(`DROP INDEX "uk_dkv_parameter_payload"`);
     await queryRunner.query(`DROP TABLE "dkv_parameter_payload"`);
-    await queryRunner.query(`DROP INDEX "idx_dkv_driver_module_system_id"`);
     await queryRunner.query(`DROP TABLE "dkv"`);
     await queryRunner.query(
       `DROP INDEX "uq_driver_modules_definition_system_id_file_system_id"`,

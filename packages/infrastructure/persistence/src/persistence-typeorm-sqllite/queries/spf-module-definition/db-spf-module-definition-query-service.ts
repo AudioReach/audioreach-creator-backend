@@ -15,7 +15,7 @@ import type {
   DefinitionSpec,
   ParameterDefinitionReadModel,
 } from '@arc/core';
-import {Result, ERROR_CODES} from '@arc/core';
+import {Result, ERROR_CODES, PORT_IO_TYPE} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
@@ -209,10 +209,10 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
 
     return {
       maxInputPortsSupported: portGroups
-        .filter(g => g.portIoType === 'Input')
+        .filter(g => g.portIoType === PORT_IO_TYPE.Input)
         .reduce((s, g) => s + g.maxAllowedPortCount, 0),
       maxOutputPortsSupported: portGroups
-        .filter(g => g.portIoType === 'Output')
+        .filter(g => g.portIoType === PORT_IO_TYPE.Output)
         .reduce((s, g) => s + g.maxAllowedPortCount, 0),
       maxControlPortsSupported: staticPorts.length,
     };

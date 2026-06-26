@@ -10,7 +10,7 @@ import {
 import {EntitySchema} from 'typeorm';
 import type {DataPortDefinitionRow} from './data-port-definition.schema.js';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
-import {PortIoType} from './port-io-type-definition.schema.js';
+import {type PortIoType, PORT_IO_TYPE} from '@arc/core';
 
 export interface DataPortGroupRow extends EntityBaseRow {
   maxAllowedPortCount: number;
@@ -37,9 +37,9 @@ export const DataPortGroupSchema = new EntitySchema<DataPortGroupRow>({
       name: 'max_allowed_port_count',
     },
     portIoType: {
-      type: 'varchar',
-      enum: PortIoType,
       name: 'port_io_type',
+      type: 'simple-enum',
+      enum: Object.values(PORT_IO_TYPE),
     },
     moduleDefinitionSystemId: {
       type: 'integer',

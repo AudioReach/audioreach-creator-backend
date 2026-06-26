@@ -22,6 +22,7 @@ import type {ParamType} from '../../../../../domain/entities/definitions/common/
 import {PARAM_TYPE} from '../../../../../domain/entities/definitions/common/types/param-type.js';
 import type {ToolPolicy} from '../../../../../domain/entities/definitions/common/types/tool-policy-type.js';
 import {TOOL_POLICY} from '../../../../../domain/entities/definitions/common/types/tool-policy-type.js';
+import {PORT_IO_TYPE} from '../../../../../domain/entities/common/enums/port-io-type.js';
 import {DataPortGroupDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
 import {DataPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 import {StaticControlPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
@@ -573,7 +574,7 @@ export class SpfModuleDefinitionBuilder {
       // Create empty group as fallback
       const portGroup = new DataPortGroupDefinition({
         maxAllowedPortCount: 0,
-        portIoType: 'Input',
+        portIoType: PORT_IO_TYPE.Input,
         staticPortDefinitions: [],
       });
       return {portGroup, error: errorMessage};
@@ -595,7 +596,7 @@ export class SpfModuleDefinitionBuilder {
       // Create empty group as fallback
       const portGroup = new DataPortGroupDefinition({
         maxAllowedPortCount: 0,
-        portIoType: 'Output',
+        portIoType: PORT_IO_TYPE.Output,
         staticPortDefinitions: [],
       });
       return {portGroup, error: errorMessage};
@@ -729,7 +730,7 @@ export class SpfModuleDefinitionBuilder {
 
     return new DataPortGroupDefinition({
       maxAllowedPortCount: awsp.inputPortsInfo?.maxPortCount || 0,
-      portIoType: 'Input',
+      portIoType: PORT_IO_TYPE.Input,
       staticPortDefinitions,
     });
   }
@@ -757,7 +758,7 @@ export class SpfModuleDefinitionBuilder {
 
     return new DataPortGroupDefinition({
       maxAllowedPortCount: awsp.outputPortsInfo?.maxPortCount || 0,
-      portIoType: 'Output',
+      portIoType: PORT_IO_TYPE.Output,
       staticPortDefinitions,
     });
   }
