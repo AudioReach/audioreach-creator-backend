@@ -3,14 +3,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  BulkReadQueryService,
-  DownloadEntities,
-  ProjectHeaderMetadata,
-  UsecaseDataDownloadModel,
-  SubgraphDownloadModel,
-  ContainerDownloadModel,
-  CalibrationDataDownloadModel,
+import {
+  type BulkReadQueryService,
+  type DownloadEntities,
+  type ProjectHeaderMetadata,
+  type UsecaseDataDownloadModel,
+  type SubgraphDownloadModel,
+  type ContainerDownloadModel,
+  type CalibrationDataDownloadModel,
+  PORT_IO_TYPE,
 } from '@arc/core';
 import type {DataSource, SelectQueryBuilder, ObjectLiteral} from 'typeorm';
 import {DbFileQuery} from '../db-file-query.js';
@@ -391,9 +392,12 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         instanceId: sm.instanceId,
         moduleId: sm.definition!.moduleDefinitionId,
         containerId: sm.container!.containerId,
-        maxInputPorts: dataPorts.filter(dp => dp.portIoType === 'Input').length,
-        maxOutputPorts: dataPorts.filter(dp => dp.portIoType === 'Output')
-          .length,
+        maxInputPorts: dataPorts.filter(
+          dp => dp.portIoType === PORT_IO_TYPE.Input,
+        ).length,
+        maxOutputPorts: dataPorts.filter(
+          dp => dp.portIoType === PORT_IO_TYPE.Output,
+        ).length,
         properties: (sm.spfModulePropertiesData ?? []).map(d => ({
           propertyId: d.propertyDefinition.propertyId,
           payload: d.payload,

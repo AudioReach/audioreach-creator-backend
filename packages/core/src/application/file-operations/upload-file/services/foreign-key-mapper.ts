@@ -3,6 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {
+  PORT_IO_TYPE,
+  type PortIoType,
+} from '../../../../domain/entities/common/enums/port-io-type.js';
 import type {
   NaturalId,
   SystemId,
@@ -601,9 +605,9 @@ export class ForeignKeyMapper {
     moduleSystemId: SystemId,
     portNaturalId: NaturalId,
     portSystemId: SystemId,
-    portIoType: 'Input' | 'Output',
+    portIoType: PortIoType,
   ): void {
-    if (portIoType === 'Input') {
+    if (portIoType === PORT_IO_TYPE.Input) {
       if (!this.moduleInputPortMappings.has(moduleSystemId)) {
         this.moduleInputPortMappings.set(moduleSystemId, new Map());
       }

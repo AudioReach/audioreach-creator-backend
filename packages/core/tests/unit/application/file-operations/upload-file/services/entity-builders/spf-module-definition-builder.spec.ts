@@ -9,6 +9,7 @@ import {SpfModuleDefinition} from '../../../../../../../src/domain/entities/defi
 import {ParamDefinition} from '../../../../../../../src/domain/entities/definitions/common/entities/param-definition.js';
 import {PARAM_TYPE} from '../../../../../../../src/domain/entities/definitions/common/types/param-type.js';
 import {TOOL_POLICY} from '../../../../../../../src/domain/entities/definitions/common/types/tool-policy-type.js';
+import {PORT_IO_TYPE} from '../../../../../../../src/domain/entities/common/enums/port-io-type.js';
 import type {AwspSpfModuleDefinition} from '../../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
 import type {WorkerPoolPort} from '../../../../../../../src/application/ports/worker/worker-pool.port.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -445,8 +446,8 @@ describe('SpfModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities[0].dataPortGroups).toHaveLength(2);
-        expect(result.entities[0].dataPortGroups[0].portIoType).toBe('Input');
-        expect(result.entities[0].dataPortGroups[1].portIoType).toBe('Output');
+        expect(result.entities[0].dataPortGroups[0].portIoType).toBe(PORT_IO_TYPE.Input);
+        expect(result.entities[0].dataPortGroups[1].portIoType).toBe(PORT_IO_TYPE.Output);
       });
 
       it('should handle modules with control ports', async () => {
@@ -754,13 +755,13 @@ describe('SpfModuleDefinitionBuilder', () => {
         expect(result.entity!.dataPortGroups).toHaveLength(2);
 
         const inputGroup = result.entity!.dataPortGroups[0];
-        expect(inputGroup.portIoType).toBe('Input');
+        expect(inputGroup.portIoType).toBe(PORT_IO_TYPE.Input);
         expect(inputGroup.maxAllowedPortCount).toBe(2);
         expect(inputGroup.staticPortDefinitions).toHaveLength(1);
         expect(inputGroup.staticPortDefinitions[0].dataPortId).toBe(1);
 
         const outputGroup = result.entity!.dataPortGroups[1];
-        expect(outputGroup.portIoType).toBe('Output');
+        expect(outputGroup.portIoType).toBe(PORT_IO_TYPE.Output);
         expect(outputGroup.maxAllowedPortCount).toBe(3);
         expect(outputGroup.staticPortDefinitions).toHaveLength(1);
         expect(outputGroup.staticPortDefinitions[0].dataPortId).toBe(2);
