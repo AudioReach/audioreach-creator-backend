@@ -4,7 +4,7 @@
  */
 
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
-import {PortIoType} from '../../definitions/module/spf/port-io-type-definition.schema.js';
+import {type PortIoType, PORT_IO_TYPE} from '@arc/core';
 import {EntitySchema} from 'typeorm';
 import type {NodeRow} from './node.schema.js';
 
@@ -38,7 +38,7 @@ export const DataPortSchema = new EntitySchema<DataPortRow>({
     },
     portIoType: {
       type: 'simple-enum',
-      enum: Object.values(PortIoType),
+      enum: Object.values(PORT_IO_TYPE),
       name: 'port_io_type',
     },
     isStatic: {

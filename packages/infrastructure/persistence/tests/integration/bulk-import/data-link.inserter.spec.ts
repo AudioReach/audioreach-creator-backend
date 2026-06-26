@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {DataLink, LINK_TYPE} from '@arc/core';
+import {DataLink, LINK_TYPE, PORT_IO_TYPE} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -70,7 +70,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('DataPort', {
     systemId: SRC_PORT_ID,
     dataPortId: 1,
-    portIoType: 'Output',
+    portIoType: PORT_IO_TYPE.Output,
     isStatic: 1,
     nodeSystemId: NODE_A_ID,
     version: 1,
@@ -79,7 +79,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('DataPort', {
     systemId: DST_PORT_ID,
     dataPortId: 2,
-    portIoType: 'Input',
+    portIoType: PORT_IO_TYPE.Input,
     isStatic: 1,
     nodeSystemId: NODE_B_ID,
     version: 1,
@@ -165,7 +165,7 @@ describe('DataLinkInserter', () => {
     await manager.insert('DataPort', {
       systemId: 302,
       dataPortId: 3,
-      portIoType: 'Output',
+      portIoType: PORT_IO_TYPE.Output,
       isStatic: 1,
       nodeSystemId: 202,
       version: 1,
@@ -173,7 +173,7 @@ describe('DataLinkInserter', () => {
     await manager.insert('DataPort', {
       systemId: 303,
       dataPortId: 4,
-      portIoType: 'Input',
+      portIoType: PORT_IO_TYPE.Input,
       isStatic: 1,
       nodeSystemId: 203,
       version: 1,
@@ -247,7 +247,7 @@ describe('DataLinkInserter', () => {
     await manager.insert('DataPort', {
       systemId: 304,
       dataPortId: 5,
-      portIoType: 'Output',
+      portIoType: PORT_IO_TYPE.Output,
       isStatic: 1,
       nodeSystemId: 204,
       version: 1,
@@ -255,7 +255,7 @@ describe('DataLinkInserter', () => {
     await manager.insert('DataPort', {
       systemId: 305,
       dataPortId: 6,
-      portIoType: 'Input',
+      portIoType: PORT_IO_TYPE.Input,
       isStatic: 1,
       nodeSystemId: 205,
       version: 1,
