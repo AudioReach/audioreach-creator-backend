@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {DataLink, LINK_TYPE, PORT_IO_TYPE} from '@arc/core';
+import {DataLink, SubsystemDataLink, LINK_TYPE, PORT_IO_TYPE} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -21,6 +21,11 @@ const NODE_A_ID = 200;
 const NODE_B_ID = 201;
 const SRC_PORT_ID = 300;
 const DST_PORT_ID = 301;
+
+// Subsystem node and its boundary ports (used in SLS tests)
+const SUBSYSTEM_NODE_ID = 210;
+const SLS_OUTPUT_INPUT_PORT_ID = 310;
+const SLS_INPUT_OUTPUT_PORT_ID = 311;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,24 +89,70 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     nodeSystemId: NODE_B_ID,
     version: 1,
   });
+
+  await manager.insert('Node', {
+    systemId: SUBSYSTEM_NODE_ID,
+    type: 'subsystem',
+    fileSystemId: FILE_ID,
+    version: 1,
+  });
+
+  await manager.insert('DataPort', {
+    systemId: SLS_OUTPUT_INPUT_PORT_ID,
+    dataPortId: 1,
+    portIoType: PORT_IO_TYPE.OutputInput,
+    isStatic: 0,
+    nodeSystemId: SUBSYSTEM_NODE_ID,
+    version: 1,
+  });
+
+  await manager.insert('DataPort', {
+    systemId: SLS_INPUT_OUTPUT_PORT_ID,
+    dataPortId: 2,
+    portIoType: PORT_IO_TYPE.InputOutput,
+    isStatic: 0,
+    nodeSystemId: SUBSYSTEM_NODE_ID,
+    version: 1,
+  });
 }
 
 function buildDataLink(
   systemId: number,
   srcPortSystemId = SRC_PORT_ID,
   dstPortSystemId = DST_PORT_ID,
+  subsystemDataLinks?: SubsystemDataLink[],
 ): DataLink {
-  return new DataLink(
+  return new DataLink({
     systemId,
-    NODE_A_ID,
-    NODE_B_ID,
-    srcPortSystemId,
-    dstPortSystemId,
-    LINK_TYPE.IntraSubgraph,
-    SUBGRAPH_ID,
-    SUBGRAPH_ID,
-    FILE_ID,
-  );
+    sourceNodeSystemId: NODE_A_ID,
+    destinationNodeSystemId: NODE_B_ID,
+    sourcePortSystemId: srcPortSystemId,
+    destinationPortSystemId: dstPortSystemId,
+    linkType: LINK_TYPE.IntraSubgraph,
+    sourceSubgraphSystemId: SUBGRAPH_ID,
+    destSubgraphSystemId: SUBGRAPH_ID,
+    fileSystemId: FILE_ID,
+    subsystemDataLinks,
+  });
+}
+
+function buildSls(
+  systemId: number,
+  srcNodeId: number,
+  dstNodeId: number,
+  srcPortId: number,
+  dstPortId: number,
+  dataLinkSystemId: number,
+): SubsystemDataLink {
+  return new SubsystemDataLink({
+    systemId,
+    sourceNodeSystemId: srcNodeId,
+    destinationNodeSystemId: dstNodeId,
+    sourcePortSystemId: srcPortId,
+    destinationPortSystemId: dstPortId,
+    dataLinkSystemId,
+    fileSystemId: FILE_ID,
+  });
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -179,28 +230,28 @@ describe('DataLinkInserter', () => {
       version: 1,
     });
 
-    const link1 = new DataLink(
-      1001,
-      NODE_A_ID,
-      NODE_B_ID,
-      SRC_PORT_ID,
-      DST_PORT_ID,
-      LINK_TYPE.IntraSubgraph,
-      SUBGRAPH_ID,
-      SUBGRAPH_ID,
-      FILE_ID,
-    );
-    const link2 = new DataLink(
-      1002,
-      202,
-      203,
-      302,
-      303,
-      LINK_TYPE.InterUsecase,
-      SUBGRAPH_ID,
-      SUBGRAPH_ID,
-      FILE_ID,
-    );
+    const link1 = new DataLink({
+      systemId: 1001,
+      sourceNodeSystemId: NODE_A_ID,
+      destinationNodeSystemId: NODE_B_ID,
+      sourcePortSystemId: SRC_PORT_ID,
+      destinationPortSystemId: DST_PORT_ID,
+      linkType: LINK_TYPE.IntraSubgraph,
+      sourceSubgraphSystemId: SUBGRAPH_ID,
+      destSubgraphSystemId: SUBGRAPH_ID,
+      fileSystemId: FILE_ID,
+    });
+    const link2 = new DataLink({
+      systemId: 1002,
+      sourceNodeSystemId: 202,
+      destinationNodeSystemId: 203,
+      sourcePortSystemId: 302,
+      destinationPortSystemId: 303,
+      linkType: LINK_TYPE.InterUsecase,
+      sourceSubgraphSystemId: SUBGRAPH_ID,
+      destSubgraphSystemId: SUBGRAPH_ID,
+      fileSystemId: FILE_ID,
+    });
 
     const result = await inserter.insert([link1, link2]);
 
@@ -261,17 +312,17 @@ describe('DataLinkInserter', () => {
       version: 1,
     });
 
-    const good = new DataLink(
-      1004,
-      204,
-      205,
-      304,
-      305,
-      LINK_TYPE.IntraSubgraph,
-      SUBGRAPH_ID,
-      SUBGRAPH_ID,
-      FILE_ID,
-    );
+    const good = new DataLink({
+      systemId: 1004,
+      sourceNodeSystemId: 204,
+      destinationNodeSystemId: 205,
+      sourcePortSystemId: 304,
+      destinationPortSystemId: 305,
+      linkType: LINK_TYPE.IntraSubgraph,
+      sourceSubgraphSystemId: SUBGRAPH_ID,
+      destSubgraphSystemId: SUBGRAPH_ID,
+      fileSystemId: FILE_ID,
+    });
     const bad = buildDataLink(1005, 9999, DST_PORT_ID);
 
     const result = await inserter.insert([good, bad]);
@@ -289,5 +340,61 @@ describe('DataLinkInserter', () => {
       `SELECT * FROM data_links WHERE system_id = 1005`,
     );
     expect(badRow).toHaveLength(0);
+  });
+
+  it('inserts SLS children when parent DataLink succeeds', async () => {
+    const link = buildDataLink(1006, SRC_PORT_ID, DST_PORT_ID, [
+      buildSls(
+        2001,
+        NODE_A_ID,
+        SUBSYSTEM_NODE_ID,
+        SRC_PORT_ID,
+        SLS_OUTPUT_INPUT_PORT_ID,
+        1006,
+      ),
+      buildSls(
+        2002,
+        SUBSYSTEM_NODE_ID,
+        NODE_B_ID,
+        SLS_INPUT_OUTPUT_PORT_ID,
+        DST_PORT_ID,
+        1006,
+      ),
+    ]);
+
+    const result = await inserter.insert([link]);
+
+    expect(result.ok).toBe(true);
+
+    const slsRows = await dataSource.query(
+      `SELECT system_id, data_link_system_id FROM subsystem_data_links ORDER BY system_id`,
+    );
+    expect(slsRows).toHaveLength(2);
+    expect(slsRows[0].system_id).toBe(2001);
+    expect(slsRows[0].data_link_system_id).toBe(1006);
+    expect(slsRows[1].system_id).toBe(2002);
+    expect(slsRows[1].data_link_system_id).toBe(1006);
+  });
+
+  it('skips SLS children when parent DataLink fails', async () => {
+    const link = buildDataLink(1007, 9999, DST_PORT_ID, [
+      buildSls(
+        2003,
+        NODE_A_ID,
+        SUBSYSTEM_NODE_ID,
+        SRC_PORT_ID,
+        SLS_OUTPUT_INPUT_PORT_ID,
+        1007,
+      ),
+    ]);
+
+    const result = await inserter.insert([link]);
+
+    expect(result.ok).toBe(false);
+
+    const slsRows = await dataSource.query(
+      `SELECT * FROM subsystem_data_links WHERE system_id = 2003`,
+    );
+    expect(slsRows).toHaveLength(0);
   });
 });

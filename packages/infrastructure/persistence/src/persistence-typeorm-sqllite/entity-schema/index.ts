@@ -87,7 +87,9 @@ import {EditActionSchema} from './edit-session/edit-action.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
 import {ProjectSessionSchema} from './edit-session/project-session.schema.js';
 import {SessionCommitSchema} from './edit-session/session-commit.schema.js';
+import {ConfigurationSchema} from './project-data/configuration.schema.js';
 import {ValidationPreferencesSchema} from './validation/validation-preferences.schema.js';
+import {SubsystemDataLinkSchema} from './usecase-data/Links/subsystem-data-link.schema.js';
 
 // ===== DEFINITION SCHEMAS =====
 // Common
@@ -181,6 +183,8 @@ export type {ArcDbFileRow} from './project-data/arc-db-file.schema.js';
 export {ArcDbFileSchema} from './project-data/arc-db-file.schema.js';
 export type {ProjectRow} from './project-data/project.schema.js';
 export {ProjectSchema} from './project-data/project.schema.js';
+export type {ConfigurationRow} from './project-data/configuration.schema.js';
+export {ConfigurationSchema} from './project-data/configuration.schema.js';
 
 // Use Case Data - Container
 export type {ContainerPropertyDataRow} from './usecase-data/container/container-property-data.js';
@@ -193,6 +197,8 @@ export type {ControlLinkRow} from './usecase-data/Links/control-link.js';
 export {ControlLinkSchema} from './usecase-data/Links/control-link.js';
 export type {DataLinkRow} from './usecase-data/Links/data-link.js';
 export {DataLinkSchema} from './usecase-data/Links/data-link.js';
+export type {SubsystemDataLinkRow} from './usecase-data/Links/subsystem-data-link.schema.js';
+export {SubsystemDataLinkSchema} from './usecase-data/Links/subsystem-data-link.schema.js';
 
 // Use Case Data - Module
 export type {
@@ -360,10 +366,12 @@ export function getAllEntitySchemas(
     ModuleManagerDataSchema,
     ArcDbFileSchema,
     ProjectSchema,
+    ConfigurationSchema,
     ContainerPropertyDataSchema(blobConverter), // Factory with blob converter
     ContainerSchema,
     ControlLinkSchema,
     DataLinkSchema,
+    SubsystemDataLinkSchema,
     CkvSchema(blobConverter), // Factory with blob converter
     CkvParameterPayloadRowSchema(blobConverter), // Factory with blob converter
     CkvValuesSchema,

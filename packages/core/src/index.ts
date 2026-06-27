@@ -130,6 +130,7 @@ export * from './domain/entities/usecase-data/node/node.js';
 export * from './domain/entities/usecase-data/links/link-type.js';
 export * from './domain/entities/usecase-data/links/control-link.js';
 export * from './domain/entities/usecase-data/links/data-link.js';
+export * from './domain/entities/usecase-data/links/subsystem-data-link.js';
 export * from './domain/entities/usecase-data/module/spf-module.js';
 export * from './domain/entities/driver-module-data/driver-module.js';
 export * from './domain/entities/usecase-data/module/entities/spf-module-tag-data.js';
@@ -190,3 +191,7 @@ export * from './application/file-operations/shared/constants/spf-ids.js';
 
 // Domain exceptions
 export * from './shared/exceptions/index.js';
+
+// TODO: These items should be moved to shared
+// AWSP serializer v1 - configuration types (MODULE_PORT_STRATEGIES, PROCESSOR_DOMAINS, etc.)
+export * from './application/file-operations/shared/awsp-serializers/v1/configuration/index.js';
