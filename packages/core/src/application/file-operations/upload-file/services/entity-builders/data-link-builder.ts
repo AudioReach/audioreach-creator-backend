@@ -253,18 +253,18 @@ export class DataLinkBuilder {
           ? false // TODO: read isEc from workspace file once parser support is added
           : undefined;
 
-      return new DataLink(
-        0, // systemId - Will be generated during insertion
+      return new DataLink({
+        systemId: 0, // Will be generated during insertion
         sourceNodeSystemId,
         destinationNodeSystemId,
         sourcePortSystemId,
         destinationPortSystemId,
         linkType,
-        sourceSgId,
-        destSgId,
+        sourceSubgraphSystemId: sourceSgId,
+        destSubgraphSystemId: destSgId,
         fileSystemId,
         isEc,
-      );
+      });
     } catch (error) {
       this.logger?.logWarn({
         msg: `Unexpected error converting data link (${property.sourceInstanceId}:${property.sourcePortId}->${property.destinationInstanceId}:${property.destinationPortId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
