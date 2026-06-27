@@ -4,7 +4,7 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {BulkInsertResult, DataLink} from '@arc/core';
+import type {BulkInsertResult, DataLink, SubsystemDataLink} from '@arc/core';
 import {okBulkInsert, BinaryUtils} from '@arc/core';
 import {
   BatchInserter,
@@ -16,7 +16,11 @@ import type {StepResult} from '../common/step-result.js';
 import {
   DataLinkSchema,
   type DataLinkRow,
-} from '../../../entity-schema/usecase-data/Links/data-link.js';
+} from '../../../entity-schema/usecase-data/links/data-link.js';
+import {
+  SubsystemDataLinkSchema,
+  type SubsystemDataLinkRow,
+} from '../../../entity-schema/usecase-data/links/subsystem-data-link.schema.js';
 
 export class DataLinkInserter {
   constructor(private readonly manager: EntityManager) {}
@@ -25,10 +29,17 @@ export class DataLinkInserter {
     if (items.length === 0) return okBulkInsert();
 
     const bySystemId = new Map(items.map(i => [i.systemId, i]));
-    const step = await this.insertDataLinks(items);
+
+    const rootStep = await this.insertDataLinks(items);
+
+    const activeItems = items.filter(
+      i => !rootStep.failedEntityIds.has(i.systemId),
+    );
+
+    const slsStep = await this.insertSubsystemDataLinks(activeItems);
 
     return groupRawFailures(
-      step.rawFailures,
+      [...rootStep.rawFailures, ...slsStep.rawFailures],
       bySystemId,
       item =>
         `DataLink (sourcePort=${BinaryUtils.toHexString(item.sourcePortSystemId)}, destPort=${BinaryUtils.toHexString(item.destinationPortSystemId)})`,
@@ -62,6 +73,51 @@ export class DataLinkInserter {
         systemId: item.systemId,
         entityLabel: 'DataLink',
         failedRowJson: `(sourcePort=${BinaryUtils.toHexString(item.sourcePortSystemId)}, destPort=${BinaryUtils.toHexString(item.destinationPortSystemId)}) Row: ${JSON.stringify(row)}`,
+        dbError: error.message,
+      };
+    });
+
+    return {
+      rawFailures,
+      failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
+    };
+  }
+
+  private async insertSubsystemDataLinks(
+    items: DataLink[],
+  ): Promise<StepResult> {
+    const contextBySystemId = new Map<number, SubsystemDataLink>();
+
+    const rows: InsertRow<SubsystemDataLinkRow>[] = items.flatMap(parent =>
+      parent.subsystemDataLinks.map(sls => {
+        contextBySystemId.set(sls.systemId, sls);
+        return {
+          systemId: sls.systemId,
+          sourceNodeSystemId: sls.sourceNodeSystemId,
+          destinationNodeSystemId: sls.destinationNodeSystemId,
+          sourcePortSystemId: sls.sourcePortSystemId,
+          destinationPortSystemId: sls.destinationPortSystemId,
+          dataLinkSystemId: sls.dataLinkSystemId,
+          fileSystemId: sls.fileSystemId,
+        };
+      }),
+    );
+
+    if (rows.length === 0) return {rawFailures: [], failedEntityIds: new Set()};
+
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      SubsystemDataLinkSchema,
+      rows,
+    );
+
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
+      const sls = contextBySystemId.get(error.systemId)!;
+      const row = rows.find(r => r.systemId === error.systemId)!;
+      return {
+        systemId: sls.dataLinkSystemId,
+        entityLabel: 'SubsystemDataLink',
+        failedRowJson: `(sourcePort=${BinaryUtils.toHexString(sls.sourcePortSystemId)}, destPort=${BinaryUtils.toHexString(sls.destinationPortSystemId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });

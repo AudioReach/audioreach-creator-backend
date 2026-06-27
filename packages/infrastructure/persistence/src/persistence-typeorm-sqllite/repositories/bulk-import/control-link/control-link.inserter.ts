@@ -16,7 +16,7 @@ import type {StepResult} from '../common/step-result.js';
 import {
   ControlLinkSchema,
   type ControlLinkRow,
-} from '../../../entity-schema/usecase-data/Links/control-link.js';
+} from '../../../entity-schema/usecase-data/links/control-link.js';
 
 export class ControlLinkInserter {
   constructor(private readonly manager: EntityManager) {}

@@ -446,8 +446,12 @@ describe('SpfModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities[0].dataPortGroups).toHaveLength(2);
-        expect(result.entities[0].dataPortGroups[0].portIoType).toBe(PORT_IO_TYPE.Input);
-        expect(result.entities[0].dataPortGroups[1].portIoType).toBe(PORT_IO_TYPE.Output);
+        expect(result.entities[0].dataPortGroups[0].portIoType).toBe(
+          PORT_IO_TYPE.Input,
+        );
+        expect(result.entities[0].dataPortGroups[1].portIoType).toBe(
+          PORT_IO_TYPE.Output,
+        );
       });
 
       it('should handle modules with control ports', async () => {

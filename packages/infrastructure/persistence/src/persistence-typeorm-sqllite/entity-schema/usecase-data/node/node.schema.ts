@@ -9,7 +9,7 @@ import {BaseColumnSchemaPart} from '../../entity-base.js';
 import type {EntityBaseRow} from '../../entity-base.js';
 import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import type {ControlPortRow} from './control-port.js';
-import type {DataLinkRow} from '../Links/data-link.js';
+import type {DataLinkRow} from '../links/data-link.js';
 import type {UseCaseRow} from '../use-case.js';
 import type {SpfModuleRow} from '../module/spf-module.schema.js';
 import type {SubsystemRow} from '../subsystem/subsystem.js';

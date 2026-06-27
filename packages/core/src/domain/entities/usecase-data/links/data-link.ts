@@ -3,45 +3,77 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {SameNodeException} from './exceptions.js';
 import type {LinkType} from './link-type.js';
+import type {SubsystemDataLink} from './subsystem-data-link.js';
+import {assertNonNull, invariant} from '../../../../shared/assertions/index.js';
+import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
+
+export interface DataLinkInit {
+  systemId: number;
+  sourceNodeSystemId: number;
+  destinationNodeSystemId: number;
+  sourcePortSystemId: number;
+  destinationPortSystemId: number;
+  linkType: LinkType;
+  sourceSubgraphSystemId: number;
+  destSubgraphSystemId: number;
+  fileSystemId: number;
+  isEc?: boolean;
+  subsystemDataLinks?: SubsystemDataLink[];
+}
 
 export class DataLink {
-  public systemId: number;
-  public sourceNodeSystemId: number;
-  public destinationNodeSystemId: number;
-  public sourcePortSystemId: number;
-  public destinationPortSystemId: number;
-  public linkType: LinkType;
-  public sourceSubgraphSystemId: number;
-  public destSubgraphSystemId: number;
-  public isEc?: boolean;
-  public fileSystemId: number;
+  systemId: number;
+  readonly sourceNodeSystemId: number;
+  readonly destinationNodeSystemId: number;
+  readonly sourcePortSystemId: number;
+  readonly destinationPortSystemId: number;
+  readonly linkType: LinkType;
+  readonly sourceSubgraphSystemId: number;
+  readonly destSubgraphSystemId: number;
+  readonly isEc?: boolean;
+  readonly fileSystemId: number;
+  readonly subsystemDataLinks: SubsystemDataLink[] = [];
 
-  constructor(
-    systemId: number,
-    sourceNodeSystemId: number,
-    destinationNodeSystemId: number,
-    sourcePortSystemId: number,
-    destinationPortSystemId: number,
-    linkType: LinkType,
-    sourceSubgraphSystemId: number,
-    destSubgraphSystemId: number,
-    fileSystemId: number,
-    isEc?: boolean,
-  ) {
-    this.systemId = systemId;
-    this.sourceNodeSystemId = sourceNodeSystemId;
-    this.destinationNodeSystemId = destinationNodeSystemId;
-    this.sourcePortSystemId = sourcePortSystemId;
-    this.destinationPortSystemId = destinationPortSystemId;
-    this.linkType = linkType;
-    this.sourceSubgraphSystemId = sourceSubgraphSystemId;
-    this.destSubgraphSystemId = destSubgraphSystemId;
-    this.fileSystemId = fileSystemId;
-    this.isEc = isEc;
-    if (this.sourceNodeSystemId == this.destinationNodeSystemId) {
-      throw new SameNodeException(sourceNodeSystemId);
+  private readonly slsSystemIds = new Set<number>();
+  private readonly slsPortPairs = new Set<string>();
+
+  constructor(initParam: DataLinkInit) {
+    this.systemId = initParam.systemId;
+    this.sourceNodeSystemId = initParam.sourceNodeSystemId;
+    this.destinationNodeSystemId = initParam.destinationNodeSystemId;
+    this.sourcePortSystemId = initParam.sourcePortSystemId;
+    this.destinationPortSystemId = initParam.destinationPortSystemId;
+    this.linkType = initParam.linkType;
+    this.sourceSubgraphSystemId = initParam.sourceSubgraphSystemId;
+    this.destSubgraphSystemId = initParam.destSubgraphSystemId;
+    this.fileSystemId = initParam.fileSystemId;
+    this.isEc = initParam.isEc;
+    invariant(
+      initParam.sourceNodeSystemId !== initParam.destinationNodeSystemId,
+      `DataLink cannot connect a node to itself: ${BinaryUtils.toHexString(initParam.sourceNodeSystemId)}`,
+    );
+    for (const sls of initParam.subsystemDataLinks ?? []) {
+      this.addSubsystemDataLink(sls);
     }
+  }
+
+  private addSubsystemDataLink(sls: SubsystemDataLink): void {
+    assertNonNull(
+      sls,
+      `subsystemDataLink is null for DataLink: ${BinaryUtils.toHexString(this.systemId)}`,
+    );
+    invariant(
+      !this.slsSystemIds.has(sls.systemId),
+      `SubsystemDataLink systemId ${sls.systemId} is duplicated in DataLink: ${BinaryUtils.toHexString(this.systemId)}`,
+    );
+    const portPairKey = `${sls.sourcePortSystemId}:${sls.destinationPortSystemId}`;
+    invariant(
+      !this.slsPortPairs.has(portPairKey),
+      `SubsystemDataLink port pair (${BinaryUtils.toHexString(sls.sourcePortSystemId)}, ${BinaryUtils.toHexString(sls.destinationPortSystemId)}) already exists in DataLink: ${BinaryUtils.toHexString(this.systemId)}`,
+    );
+    this.slsSystemIds.add(sls.systemId);
+    this.slsPortPairs.add(portPairKey);
+    this.subsystemDataLinks.push(sls);
   }
 }

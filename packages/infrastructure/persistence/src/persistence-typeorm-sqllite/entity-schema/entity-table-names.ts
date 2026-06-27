@@ -58,6 +58,7 @@ export const ENTITY_NAMES = {
   // ── Link data ─────────────────────────────────────────────────────────────
   DataLink: 'DataLink',
   ControlLink: 'ControlLink',
+  SubsystemDataLink: 'SubsystemDataLink',
 
   // ── Subgraph data ─────────────────────────────────────────────────────────
   Subgraph: 'Subgraph',
@@ -89,6 +90,7 @@ export const ENTITY_NAMES = {
   ArcDbFile: 'ArcDbFile',
   Project: 'Project',
   ModuleManagerData: 'ModuleManagerData',
+  Configuration: 'Configuration',
 
   // ── Edit session ──────────────────────────────────────────────────────────
   EditAction: 'EditAction',

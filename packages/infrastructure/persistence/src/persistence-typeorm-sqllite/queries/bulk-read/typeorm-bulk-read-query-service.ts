@@ -27,8 +27,8 @@ import type {ContainerRow} from '../../entity-schema/usecase-data/container/cont
 import type {SubgraphRow} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {SubgraphPropertyDataRow} from '../../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
 import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
-import type {DataLinkRow} from '../../entity-schema/usecase-data/Links/data-link.js';
-import type {ControlLinkRow} from '../../entity-schema/usecase-data/Links/control-link.js';
+import type {DataLinkRow} from '../../entity-schema/usecase-data/links/data-link.js';
+import type {ControlLinkRow} from '../../entity-schema/usecase-data/links/control-link.js';
 import type {ModuleTagIdMapRow} from '../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
 
 /**
