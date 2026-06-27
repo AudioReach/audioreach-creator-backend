@@ -16,7 +16,7 @@ Load plan, review critically, execute all tasks, report when complete.
 
 ### Step 1: Load and Review Plan
 
-1. **Find the plan file.** Look in `docs/plans/` for the most recent `.md` file (files are date-prefixed, e.g., `2026-04-17-feature-name.md`). If no plan file is found, or if multiple candidates exist, ask: *"Please provide the path to the implementation plan file."* Do not proceed without a confirmed plan file.
+1. **Find the plan file.** Plans live at `docs/<feature>/plans/<YYYY-MM-DD>-<feature-name>.md`. Glob `docs/*/plans/*.md`, exclude any file whose name ends in `-handoff.md` (those are inputs to writing-plans, not plans), and pick the most recent by date prefix. If no plan file is found, or if multiple candidates exist with similar dates and you cannot determine which the user intends, ask: *"Please provide the path to the implementation plan file."* Do not proceed without a confirmed plan file.
 2. Read the plan file in full.
 3. Review critically - identify any questions or concerns about the plan before starting.
 4. If concerns: Raise them with your human partner before starting.
@@ -96,5 +96,5 @@ This skill is the third step in the ARC development workflow:
 3. **executing-plans** (this skill) → Executes the plan task by task
 4. **commit** → Used within each task to draft and confirm commit messages
 
-The plan file is produced by the writing-plans skill and saved to `docs/plans/`.
+The plan file is produced by the writing-plans skill and saved to `docs/<feature>/plans/`.
 When a plan step says "use the commit skill", invoke the `commit` skill to draft the message and wait for user confirmation before executing.

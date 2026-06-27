@@ -11,8 +11,23 @@ Write comprehensive implementation plans assuming the engineer has zero context 
 
 Assume they are a skilled developer, but know almost nothing about the toolset or problem domain. Assume they don't know good test design very well.
 
-**Save plans to:** `docs/plans/<YYYY-MM-DD>-<feature-name>.md`
-- (User preferences for plan location override this default)
+**Save plans to:** `docs/<feature>/plans/<YYYY-MM-DD>-<feature-name>.md`
+- `<feature>` is the feature folder under `docs/`. If the spec is at `docs/<feature>/design/...`, use the same `<feature>` for the plan. If the spec location doesn't follow this convention, ask the user which feature folder to use before writing.
+- (User preferences for plan location override this default.)
+
+## Choose a path
+
+This skill has two paths. Decide which applies, then follow exactly one path end-to-end.
+
+**Path A — Standard plan.** The caller hands you a spec or requirements document directly and you can read the codebase to inform the plan. Continue with the sections below.
+
+**Path B — Large-spec phased generation.** The caller provides a **handoff file** (e.g. `Handoff file: docs/<feature>/plans/…-plan-handoff.md`). The handoff file is produced by the brainstorming skill and partitions a large LLD into chapters for parallel subagent generation. Go to `references/large-spec-phased-generation.md` and follow it. **Do not execute Path A** — Path A would force the main session to read package.json, the spec, and codebase files, which is exactly what Path B avoids to preserve context.
+
+**Output contract for both paths:** `references/plan-format.md` defines the plan header, task structure, no-placeholder rules, code completeness levels, skeleton format for complex handlers, and execution handoff. Read it before writing tasks.
+
+---
+
+The sections below are Path A only.
 
 ## Scope Check
 
@@ -38,100 +53,17 @@ Before defining tasks, map out which files will be created or modified and what 
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 
-## Bite-Sized Task Granularity
+## Write the Tasks
 
-**Each step is one action (2-5 minutes):**
-- "Write the failing test" — step
-- "Run it to make sure it fails" — step
-- "Implement the minimal code to make the test pass" — step
-- "Run the tests and make sure they pass" — step
-- "Commit" — step
+Write each task using the format defined in `references/plan-format.md`. That file owns:
+- The required plan document header
+- Task Structure (Files / 5 numbered steps / commit)
+- Bite-Sized Task Granularity (2-5 minutes per step)
+- Code Completeness by Task Type (full code vs. skeleton)
+- Skeleton Format for complex handlers and tests
+- No Placeholders rules
 
-## Plan Document Header
-
-**Every plan MUST start with this header:**
-
-```markdown
-# [Feature Name] Implementation Plan
-
-> **For agentic workers:** Use the executing-plans skill to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
-**Goal:** [One sentence describing what this builds]
-
-**Architecture:** [2-3 sentences about approach]
-
-**Tech Stack:** [Key technologies/libraries]
-
----
-```
-
-## Task Structure
-
-````markdown
-### Task N: [Component Name]
-
-**Package:** `[package name — identified from project structure]`
-
-**Files:**
-- Create: `[exact path to new file]`
-- Modify: `[exact path to existing file]:[line range if relevant]`
-- Test: `[exact path to test file]`
-
-- [ ] **Step 1: Write the failing test**
-
-```typescript
-describe('MyClass', () => {
-  it('should return the expected value given valid input', () => {
-    const result = myFunction(input);
-    expect(result).toBe(expected);
-  });
-});
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `[project test command] -- --testPathPattern="[test file path]"`
-Expected: FAIL with "[specific error message]"
-
-- [ ] **Step 3: Write minimal implementation**
-
-```typescript
-export function myFunction(input: InputType): OutputType {
-  return expected;
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `[project test command] -- --testPathPattern="[test file path]"`
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-  Use the `commit` skill to draft the commit message. Show the proposed message
-  and the exact commands to the user and **wait for explicit confirmation** before
-  running anything:
-
-  ```bash
-  git add [files changed]
-  git commit -m "feat([scope]): [summary]" \
-             -m "[Body explaining the motivation.]" \
-             -m "Signed-off-by: [Name] <[email]>"
-  ```
-
-  **STOP — do not run `git commit` until the user explicitly approves the message.**
-  Only execute after confirmation.
-````
-
-## No Placeholders
-
-Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
-- "TBD", "TODO", "implement later", "fill in details"
-- "Add appropriate error handling" / "add validation" / "handle edge cases"
-- "Write tests for the above" (without actual test code)
-- "Similar to Task N" (repeat the code — the engineer may be reading tasks out of order)
-- Steps that describe what to do without showing how (code blocks required for code steps)
-- References to types, functions, or methods not defined in any task
+Open `plan-format.md` and follow it directly when authoring tasks — do not paraphrase the rules from memory.
 
 ## Self-Review
 
@@ -139,34 +71,12 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **1. Spec coverage:** Skim each section/requirement in the spec. Can you point to a task that implements it? List any gaps.
 
-**2. Placeholder scan:** Search your plan for red flags — any of the patterns from the "No Placeholders" section above. Fix them.
+**2. Placeholder scan:** Search your plan for red flags — any of the patterns from the "No Placeholders" section of `plan-format.md`. Fix them.
 
 **3. Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
 
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 
-## Remember
-- Exact file paths always
-- Complete code in every step — if a step changes code, show the code
-- Exact commands with expected output
-- DRY, YAGNI, TDD, frequent commits
-
 ## Execution Handoff
 
-After saving the plan, offer the user an execution choice:
-
-> **"Plan complete and saved to `docs/plans/<filename>.md`.**
->
-> **How would you like to proceed?**
->
-> **1. Inline Execution** — Execute tasks in this session using the executing-plans skill, with checkpoints for review at each commit.
->
-> **2. Separate Session** — Start a fresh session and load the executing-plans skill to implement the plan. Recommended for large plans or when you want a clean context window.
->
-> **3. Manual Execution** — Review the plan yourself and implement manually without agent assistance."
-
-Use `ask_followup_question` to present these options. Wait for the user's selection before taking any action.
-
-- If **1**: invoke the executing-plans skill immediately in this session.
-- If **2**: confirm the plan is saved and close out this session cleanly.
-- If **3**: confirm the plan is saved and offer to answer any questions about it.
+After saving the plan, present the three-option execution handoff defined in `plan-format.md`. Use `ask_followup_question` and wait for the user's selection before taking any action.

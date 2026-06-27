@@ -24,15 +24,31 @@ Every feature goes through both phases. A config change, a single-function utili
 You MUST create a task for each item and complete them in order:
 
 1. **Explore project context** — check files, docs, recent commits
-2. **Requirements phase** — gather, write, and freeze requirements before any design (see below)
-3. **Offer visual companion** (if design phase will involve visual questions) — own message, not combined with anything else
-4. **Propose 2-3 design approaches** — with trade-offs and recommendation
-5. **Present design** — in sections scaled to complexity, get user approval after each section
-6. **Write design doc** — `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
-7. **Requirements-design alignment check** — verify all requirements are addressed, no contradictions introduced
-8. **Spec self-review** — placeholders, consistency, architecture compliance, scope, ambiguity
-9. **User reviews written spec** — ask for approval before proceeding
-10. **Transition to implementation** — use the writing-plans skill
+2. **Confirm feature folder** — ask the user which folder under `docs/` to use (e.g. `virtual-links` → `docs/virtual-links/`). Existing folders are preferred; only create a new one when no existing folder fits. Store this as `<feature>` and use it for every artifact path in this session.
+3. **Requirements phase** — gather, write, and freeze requirements before any design (see below)
+4. **Offer visual companion** (if design phase will involve visual questions) — own message, not combined with anything else
+5. **Propose 2-3 design approaches** — with trade-offs and recommendation
+6. **Present design** — in sections scaled to complexity, get user approval after each section
+7. **Write design doc** — `docs/<feature>/design/YYYY-MM-DD-<topic>-design.md`
+8. **Requirements-design alignment check** — verify all requirements are addressed, no contradictions introduced
+9. **Spec self-review** — placeholders, consistency, architecture compliance, scope, ambiguity
+10. **User reviews written spec** — ask for approval before proceeding
+11. **Transition to implementation** — invoke writing-plans skill (see below for large-spec path)
+
+## Folder Convention
+
+All artifacts produced in this session live under `docs/<feature>/`:
+
+```
+docs/<feature>/
+├── requirements/    YYYY-MM-DD-<topic>-requirements.md
+├── design/          YYYY-MM-DD-<topic>-design.md
+└── plans/           YYYY-MM-DD-<topic>-plan-handoff.md
+                    YYYY-MM-DD-<topic>.md (final plan, written by writing-plans)
+                    chapters/  (large-spec scaffolding, deleted after assembly)
+```
+
+Existing examples: `docs/virtual-links/`, `docs/download-file/`, `docs/upload-file/`, `docs/modification-framework/`.
 
 ## Process Flow
 
@@ -52,7 +68,12 @@ digraph brainstorming {
     "Alignment check\n(reqs ↔ design)" [shape=box];
     "Spec self-review\n(fix inline)" [shape=box];
     "User reviews spec?" [shape=diamond];
-    "Invoke writing-plans skill" [shape=doublecircle];
+    "Large spec?\n(5+ chapters, 400+ lines)" [shape=diamond];
+    "Ask user to confirm\nhandoff file approach" [shape=box];
+    "User confirms?" [shape=diamond];
+    "Write handoff file" [shape=box];
+    "Invoke writing-plans\n(with handoff file)" [shape=doublecircle];
+    "Invoke writing-plans\n(direct spec path)" [shape=doublecircle];
 
     "Explore project context" -> "Requirements: gather + freeze";
     "Requirements: gather + freeze" -> "Requirements approved?";
@@ -72,7 +93,13 @@ digraph brainstorming {
     "Alignment check\n(reqs ↔ design)" -> "Spec self-review\n(fix inline)";
     "Spec self-review\n(fix inline)" -> "User reviews spec?";
     "User reviews spec?" -> "Write design doc" [label="changes requested"];
-    "User reviews spec?" -> "Invoke writing-plans skill" [label="approved"];
+    "User reviews spec?" -> "Large spec?\n(5+ chapters, 400+ lines)" [label="approved"];
+    "Large spec?\n(5+ chapters, 400+ lines)" -> "Invoke writing-plans\n(direct spec path)" [label="no"];
+    "Large spec?\n(5+ chapters, 400+ lines)" -> "Ask user to confirm\nhandoff file approach" [label="yes"];
+    "Ask user to confirm\nhandoff file approach" -> "User confirms?";
+    "User confirms?" -> "Write handoff file" [label="yes"];
+    "User confirms?" -> "Invoke writing-plans\n(direct spec path)" [label="no"];
+    "Write handoff file" -> "Invoke writing-plans\n(with handoff file)";
 }
 ```
 
@@ -90,7 +117,7 @@ Read the requirements guide for the full question set and document structure:
 **Ask one question at a time.** After each answer, decide whether to follow up on that topic or move to the next gap. Never batch questions.
 
 **Sizing decision** — decide before writing:
-- Substantial feature (multiple entities, state machines, 6+ FRs, cross-cutting concerns) → **separate file**: `docs/superpowers/specs/YYYY-MM-DD-<topic>-requirements.md`
+- Substantial feature (multiple entities, state machines, 6+ FRs, cross-cutting concerns) → **separate file**: `docs/<feature>/requirements/YYYY-MM-DD-<topic>-requirements.md`
 - Small feature (handful of simple requirements, self-contained) → **inline section** in the design doc (requirements section at the top)
 
 **Freeze gate** — once you have enough to write complete requirements, write them, then present them conversationally:
@@ -165,9 +192,9 @@ Don't silently absorb requirement changes into the design. Keeping requirements 
 
 **Documentation:**
 
-- Write the validated design (spec) to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
+- Write the validated design (spec) to `docs/<feature>/design/YYYY-MM-DD-<topic>-design.md`
   - If requirements are inline: include the requirements section at the top of this file
-  - If requirements are a separate file: open with a link: `Requirements: [YYYY-MM-DD-<topic>-requirements.md]`
+  - If requirements are a separate file: open with a link: `Requirements: [../requirements/YYYY-MM-DD-<topic>-requirements.md]`
   - (User preferences for spec location override this default)
 - Use elements-of-style:writing-clearly-and-concisely skill if available
 - Commit the design document — use the `commit` skill
@@ -211,8 +238,81 @@ The brainstorming phase is complete when:
 
 **Implementation:**
 
-- Use the writing-plans skill to create a detailed implementation plan
+Decide which path to use based on the size of the spec you just wrote:
+
+**Small spec** (fewer than 5 implementation chapters OR spec under ~400 lines):
+- Invoke writing-plans directly: `"Use the writing-plans skill on <spec path>."`
+- No handoff file needed.
+
+**Large spec** (5 or more implementation chapters AND spec over ~400 lines):
+- Before writing anything, tell the user:
+  > "This spec has [N] implementation chapters and is large enough that writing-plans would timeout if run directly. I recommend writing a plan handoff file first so the plan generation is split across subagents. Shall I proceed that way?"
+- Wait for explicit confirmation.
+- If confirmed: write the handoff file, then invoke writing-plans with the handoff path.
+- If declined: invoke writing-plans directly with the spec path and let the user decide how to handle any timeout.
 - Do NOT use any other skill.
+
+---
+
+## Step 10: Writing the Plan Handoff File
+
+After the user approves the spec, partition the design into implementation chapters and write a handoff file. Writing-plans reads this file as its sole input — it never reads the full spec. This keeps the plan generation fast and reliable regardless of spec size.
+
+**When to partition:** Only for large specs (5 or more implementation chapters AND spec over ~400 lines). For small specs, skip this section entirely — writing-plans is invoked directly with the spec path.
+
+**How to partition the design into chapters:**
+
+A chapter is a set of files that can be built, tested, and committed independently. Use these rules:
+- One chapter per architectural layer that has new files: domain entities, persistence schemas, domain services, port interfaces, command handlers, commit orchestration
+- One chapter per test layer: unit, integration, e2e
+- Merge two adjacent chapters if either has fewer than 3 tasks
+- If a chapter has more than ~8 tasks, split it into two — complex handlers with multiple branches count as 2–3 tasks each, so a chapter with 3 branching handlers is already near the limit
+
+**Batch grouping rules (dependency order):**
+- Entities & persistence → can be parallel (no cross-dependency)
+- Domain services → can be parallel with persistence (services are pure, no DB imports)
+- Port interfaces → depends on entity types from batch above; run after entities
+- Command handlers → depends on ports and services; run after ports
+- Tests → run after handlers (need the interfaces to compile)
+
+**Handoff file format:**
+
+Save to: `docs/<feature>/plans/YYYY-MM-DD-<topic>-plan-handoff.md`
+
+```markdown
+# Plan Handoff: <Feature Name>
+
+**Spec:** `<relative path to design doc>`
+**Plan output:** `docs/<feature>/plans/YYYY-MM-DD-<topic>.md`
+**Scope note:** <e.g. "Sections 1–10 only. Section 11 is a separate plan run.">
+
+## Batches
+
+### Batch 1 (parallel)
+- **<Chapter name>** | Sections <X.Y–X.Z> | Start task 1
+- **<Chapter name>** | Sections <X.Y–X.Z> | Start task <N>
+
+### Batch 2 (parallel, after batch 1)
+- **<Chapter name>** | Sections <X.Y–X.Z> | Start task <N>
+
+### Batch 3 (sequential, after batch 2)
+- **<Chapter name>** | Sections <X.Y–X.Z> | Start task <N>
+
+### Batch 4 (parallel, after batch 3)
+- **<Chapter name>** | Sections <X.Y–X.Z> | Start task <N>
+```
+
+**Task start number estimation** (rough — writing-plans adjusts as needed):
+- Each new file: ~2–3 tasks
+- Each handler with 2–3 branches: ~4–6 tasks
+- Migration: ~2 tasks
+- Each test layer: ~6–12 tasks depending on case count
+
+**Invoking writing-plans after the handoff file is written:**
+
+> "Use the writing-plans skill. Handoff file: `docs/<feature>/plans/YYYY-MM-DD-<topic>-plan-handoff.md`"
+
+That single line is the entire invocation. Writing-plans reads its reference file, then the handoff file, then fires agents.
 
 ---
 
