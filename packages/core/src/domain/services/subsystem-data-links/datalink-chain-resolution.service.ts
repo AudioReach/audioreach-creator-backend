@@ -9,7 +9,7 @@ import {NodeType} from '../../entities/usecase-data/node/node.js';
 // Public interfaces
 // ---------------------------------------------------------------------------
 
-export interface ResolutionInput {
+export interface SubsystemDatalinkResolutionInput {
   /** All SLS where dataLinkSystemId = null (committed + overlay merged by caller). */
   unresolvedSubsystemLinks: {
     systemId: number;
@@ -23,7 +23,7 @@ export interface ResolutionInput {
   nodeTypeMap: Map<number, NodeType>;
 }
 
-export interface ResolutionResult {
+export interface SubsystemDatalinkResolutionResult {
   completeChains: {
     /** Ordered SLS system_ids — used for SLS UPDATE edit actions. */
     ssLinkSystemIds: number[];
@@ -64,21 +64,12 @@ interface TraversedLink {
   dstPortId: number;
 }
 
-type PathResult =
-  | {
-      kind: 'complete';
-      ssLinkSystemIds: number[];
-      sourceModuleSystemId: number;
-      destModuleSystemId: number;
-      sourcePortId: number;
-      destPortId: number;
-    }
-  | {
-      kind: 'incomplete';
-      ssLinkSystemIds: number[];
-      startModuleSystemId: number;
-      lastReachableNodeId: number;
-    };
+interface TraverseCtx {
+  adjacency: Map<number, LinkEdge[]>;
+  nodeTypeMap: Map<number, NodeType>;
+  completeChains: SubsystemDatalinkResolutionResult['completeChains'];
+  incompleteChains: SubsystemDatalinkResolutionResult['incompleteChains'];
+}
 
 // ---------------------------------------------------------------------------
 // Internal traversal helper (not exported — private to this module)
@@ -86,27 +77,22 @@ type PathResult =
 
 function traverse(
   currentNode: number,
-  adjacency: Map<number, LinkEdge[]>,
-  nodeTypeMap: Map<number, NodeType>,
   accumulated: TraversedLink[],
   visited: Set<number>,
   firstSrcPortId: number | null,
   startModuleSystemId: number,
-): PathResult[] {
-  const outgoing = adjacency.get(currentNode);
+  ctx: TraverseCtx,
+): void {
+  const outgoing = ctx.adjacency.get(currentNode);
 
   if (!outgoing || outgoing.length === 0) {
-    return [
-      {
-        kind: 'incomplete',
-        ssLinkSystemIds: accumulated.map(l => l.ssLinkId),
-        startModuleSystemId,
-        lastReachableNodeId: currentNode,
-      },
-    ];
+    ctx.incompleteChains.push({
+      ssLinkSystemIds: accumulated.map(l => l.ssLinkId),
+      startModuleSystemId,
+      lastReachableNodeId: currentNode,
+    });
+    return;
   }
-
-  const results: PathResult[] = [];
 
   for (const edge of outgoing) {
     const {ssLinkId, destNodeId, srcPortId, dstPortId} = edge;
@@ -114,8 +100,7 @@ function traverse(
     const newAccumulated = [...accumulated, {ssLinkId, srcPortId, dstPortId}];
 
     if (visited.has(destNodeId)) {
-      results.push({
-        kind: 'incomplete',
+      ctx.incompleteChains.push({
         ssLinkSystemIds: newAccumulated.map(l => l.ssLinkId),
         startModuleSystemId,
         lastReachableNodeId: destNodeId,
@@ -124,11 +109,10 @@ function traverse(
     }
 
     if (
-      nodeTypeMap.get(destNodeId) === NodeType.Module &&
+      ctx.nodeTypeMap.get(destNodeId) === NodeType.Module &&
       destNodeId !== startModuleSystemId
     ) {
-      results.push({
-        kind: 'complete',
+      ctx.completeChains.push({
         ssLinkSystemIds: newAccumulated.map(l => l.ssLinkId),
         sourceModuleSystemId: startModuleSystemId,
         destModuleSystemId: destNodeId,
@@ -138,20 +122,15 @@ function traverse(
       continue;
     }
 
-    results.push(
-      ...traverse(
-        destNodeId,
-        adjacency,
-        nodeTypeMap,
-        newAccumulated,
-        new Set([...visited, currentNode]),
-        resolvedFirstSrcPort,
-        startModuleSystemId,
-      ),
+    traverse(
+      destNodeId,
+      newAccumulated,
+      new Set([...visited, currentNode]),
+      resolvedFirstSrcPort,
+      startModuleSystemId,
+      ctx,
     );
   }
-
-  return results;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,7 +152,9 @@ export const ChainResolutionService = {
    *    Terminate incomplete on dead end or cycle.
    * 4. Carry first/last port IDs through the traversal to populate DataLink fields.
    */
-  resolve(input: ResolutionInput): ResolutionResult {
+  resolve(
+    input: SubsystemDatalinkResolutionInput,
+  ): SubsystemDatalinkResolutionResult {
     const {unresolvedSubsystemLinks, nodeTypeMap} = input;
 
     if (unresolvedSubsystemLinks.length === 0) {
@@ -203,27 +184,20 @@ export const ChainResolutionService = {
       }
     }
 
-    const completeChains: ResolutionResult['completeChains'] = [];
-    const incompleteChains: ResolutionResult['incompleteChains'] = [];
+    const ctx: TraverseCtx = {
+      adjacency,
+      nodeTypeMap,
+      completeChains: [],
+      incompleteChains: [],
+    };
 
     for (const startNode of startNodes) {
-      for (const path of traverse(
-        startNode,
-        adjacency,
-        nodeTypeMap,
-        [],
-        new Set(),
-        null,
-        startNode,
-      )) {
-        if (path.kind === 'complete') {
-          completeChains.push(path);
-        } else {
-          incompleteChains.push(path);
-        }
-      }
+      traverse(startNode, [], new Set(), null, startNode, ctx);
     }
 
-    return {completeChains, incompleteChains};
+    return {
+      completeChains: ctx.completeChains,
+      incompleteChains: ctx.incompleteChains,
+    };
   },
 } as const;

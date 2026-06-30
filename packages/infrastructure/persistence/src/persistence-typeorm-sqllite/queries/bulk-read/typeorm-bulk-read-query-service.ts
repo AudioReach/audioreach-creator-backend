@@ -3,22 +3,21 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {
-  type BulkReadQueryService,
-  type DownloadEntities,
-  type ProjectHeaderMetadata,
-  type UsecaseDataDownloadModel,
-  type SubgraphDownloadModel,
-  type ContainerDownloadModel,
-  type CalibrationDataDownloadModel,
-  PORT_IO_TYPE,
+import type {
+  BulkReadQueryService,
+  DownloadEntities,
+  ProjectHeaderMetadata,
+  UsecaseDataDownloadModel,
+  SubgraphDownloadModel,
+  ContainerDownloadModel,
+  CalibrationDataDownloadModel,
   TagKeysDownloadModel,
   TagDataDownloadModel,
   TaggedModuleDownloadModel,
   DriverCalibrationDownloadModel,
   Logger,
 } from '@arc/core';
-import {compareNumberArrays} from '@arc/core';
+import {compareNumberArrays, PORT_IO_TYPE} from '@arc/core';
 import type {DataSource, SelectQueryBuilder, ObjectLiteral} from 'typeorm';
 import {DbFileQuery} from '../db-file-query.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';

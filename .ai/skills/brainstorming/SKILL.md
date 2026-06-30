@@ -29,7 +29,7 @@ You MUST create a task for each item and complete them in order:
 4. **Offer visual companion** (if design phase will involve visual questions) — own message, not combined with anything else
 5. **Propose 2-3 design approaches** — with trade-offs and recommendation
 6. **Present design** — in sections scaled to complexity, get user approval after each section
-7. **Write design doc** — `docs/<feature>/design/YYYY-MM-DD-<topic>-design.md`
+7. **Write design doc** — `docs/<feature>/design/<topic>-design.md`
 8. **Requirements-design alignment check** — verify all requirements are addressed, no contradictions introduced
 9. **Spec self-review** — placeholders, consistency, architecture compliance, scope, ambiguity
 10. **User reviews written spec** — ask for approval before proceeding
@@ -41,10 +41,10 @@ All artifacts produced in this session live under `docs/<feature>/`:
 
 ```
 docs/<feature>/
-├── requirements/    YYYY-MM-DD-<topic>-requirements.md
-├── design/          YYYY-MM-DD-<topic>-design.md
-└── plans/           YYYY-MM-DD-<topic>-plan-handoff.md
-                    YYYY-MM-DD-<topic>.md (final plan, written by writing-plans)
+├── requirements/    <topic>-requirements.md
+├── design/          <topic>-design.md
+└── plans/           <topic>-plan-handoff.md
+                    <topic>.md (final plan, written by writing-plans)
                     chapters/  (large-spec scaffolding, deleted after assembly)
 ```
 
@@ -117,7 +117,7 @@ Read the requirements guide for the full question set and document structure:
 **Ask one question at a time.** After each answer, decide whether to follow up on that topic or move to the next gap. Never batch questions.
 
 **Sizing decision** — decide before writing:
-- Substantial feature (multiple entities, state machines, 6+ FRs, cross-cutting concerns) → **separate file**: `docs/<feature>/requirements/YYYY-MM-DD-<topic>-requirements.md`
+- Substantial feature (multiple entities, state machines, 6+ FRs, cross-cutting concerns) → **separate file**: `docs/<feature>/requirements/<topic>-requirements.md`
 - Small feature (handful of simple requirements, self-contained) → **inline section** in the design doc (requirements section at the top)
 
 **Freeze gate** — once you have enough to write complete requirements, write them, then present them conversationally:
@@ -192,9 +192,9 @@ Don't silently absorb requirement changes into the design. Keeping requirements 
 
 **Documentation:**
 
-- Write the validated design (spec) to `docs/<feature>/design/YYYY-MM-DD-<topic>-design.md`
+- Write the validated design (spec) to `docs/<feature>/design/<topic>-design.md`
   - If requirements are inline: include the requirements section at the top of this file
-  - If requirements are a separate file: open with a link: `Requirements: [../requirements/YYYY-MM-DD-<topic>-requirements.md]`
+  - If requirements are a separate file: open with a link: `Requirements: [../requirements/<topic>-requirements.md]`
   - (User preferences for spec location override this default)
 - Use elements-of-style:writing-clearly-and-concisely skill if available
 - Commit the design document — use the `commit` skill
@@ -277,13 +277,13 @@ A chapter is a set of files that can be built, tested, and committed independent
 
 **Handoff file format:**
 
-Save to: `docs/<feature>/plans/YYYY-MM-DD-<topic>-plan-handoff.md`
+Save to: `docs/<feature>/plans/<topic>-plan-handoff.md`
 
 ```markdown
 # Plan Handoff: <Feature Name>
 
 **Spec:** `<relative path to design doc>`
-**Plan output:** `docs/<feature>/plans/YYYY-MM-DD-<topic>.md`
+**Plan output:** `docs/<feature>/plans/<topic>.md`
 **Scope note:** <e.g. "Sections 1–10 only. Section 11 is a separate plan run.">
 
 ## Batches
@@ -310,7 +310,7 @@ Save to: `docs/<feature>/plans/YYYY-MM-DD-<topic>-plan-handoff.md`
 
 **Invoking writing-plans after the handoff file is written:**
 
-> "Use the writing-plans skill. Handoff file: `docs/<feature>/plans/YYYY-MM-DD-<topic>-plan-handoff.md`"
+> "Use the writing-plans skill. Handoff file: `docs/<feature>/plans/<topic>-plan-handoff.md`"
 
 That single line is the entire invocation. Writing-plans reads its reference file, then the handoff file, then fires agents.
 

@@ -16,7 +16,7 @@ Load plan, review critically, execute all tasks, report when complete.
 
 ### Step 1: Load and Review Plan
 
-1. **Find the plan file.** Plans live at `docs/<feature>/plans/<YYYY-MM-DD>-<feature-name>.md`. Glob `docs/*/plans/*.md`, exclude any file whose name ends in `-handoff.md` (those are inputs to writing-plans, not plans), and pick the most recent by date prefix. If no plan file is found, or if multiple candidates exist with similar dates and you cannot determine which the user intends, ask: *"Please provide the path to the implementation plan file."* Do not proceed without a confirmed plan file.
+1. **Find the plan file.** Plans live at `docs/<feature>/plans/<feature-name>.md`. Glob `docs/*/plans/*.md`, exclude any file whose name ends in `-handoff.md` (those are inputs to writing-plans, not plans), and pick the most recent by modification time. If no plan file is found, or if multiple candidates exist and you cannot determine which the user intends, ask: *"Please provide the path to the implementation plan file."* Do not proceed without a confirmed plan file.
 2. Read the plan file in full.
 3. Review critically - identify any questions or concerns about the plan before starting.
 4. If concerns: Raise them with your human partner before starting.

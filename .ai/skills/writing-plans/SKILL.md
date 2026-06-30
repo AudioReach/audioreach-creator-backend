@@ -11,7 +11,7 @@ Write comprehensive implementation plans assuming the engineer has zero context 
 
 Assume they are a skilled developer, but know almost nothing about the toolset or problem domain. Assume they don't know good test design very well.
 
-**Save plans to:** `docs/<feature>/plans/<YYYY-MM-DD>-<feature-name>.md`
+**Save plans to:** `docs/<feature>/plans/<feature-name>.md`
 - `<feature>` is the feature folder under `docs/`. If the spec is at `docs/<feature>/design/...`, use the same `<feature>` for the plan. If the spec location doesn't follow this convention, ask the user which feature folder to use before writing.
 - (User preferences for plan location override this default.)
 

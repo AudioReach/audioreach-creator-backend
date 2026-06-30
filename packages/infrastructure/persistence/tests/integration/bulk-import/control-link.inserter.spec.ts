@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {ControlLink, LINK_TYPE} from '@arc/core';
+import {ControlLink, SubsystemControlLink, LINK_TYPE} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -21,6 +21,11 @@ const NODE_A_ID = 200;
 const NODE_B_ID = 201;
 const PORT_A_ID = 300;
 const PORT_B_ID = 301;
+
+// Subsystem node and its boundary control ports (used in SCL tests)
+const SUBSYSTEM_NODE_ID = 210;
+const SCL_PORT_A_ID = 310;
+const SCL_PORT_B_ID = 311;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,10 +64,15 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     fileSystemId: FILE_ID,
     version: 1,
   });
-
   await manager.insert('Node', {
     systemId: NODE_B_ID,
     type: 'module',
+    fileSystemId: FILE_ID,
+    version: 1,
+  });
+  await manager.insert('Node', {
+    systemId: SUBSYSTEM_NODE_ID,
+    type: 'subsystem',
     fileSystemId: FILE_ID,
     version: 1,
   });
@@ -74,12 +84,25 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     nodeSystemId: NODE_A_ID,
     version: 1,
   });
-
   await manager.insert('ControlPort', {
     systemId: PORT_B_ID,
     portId: 2,
     isStatic: 1,
     nodeSystemId: NODE_B_ID,
+    version: 1,
+  });
+  await manager.insert('ControlPort', {
+    systemId: SCL_PORT_A_ID,
+    portId: 1,
+    isStatic: 0,
+    nodeSystemId: SUBSYSTEM_NODE_ID,
+    version: 1,
+  });
+  await manager.insert('ControlPort', {
+    systemId: SCL_PORT_B_ID,
+    portId: 2,
+    isStatic: 0,
+    nodeSystemId: SUBSYSTEM_NODE_ID,
     version: 1,
   });
 }
@@ -88,6 +111,7 @@ function buildControlLink(
   systemId: number,
   portASystemId = PORT_A_ID,
   portBSystemId = PORT_B_ID,
+  subsystemControlLinks: SubsystemControlLink[] = [],
 ): ControlLink {
   return new ControlLink(
     systemId,
@@ -100,6 +124,27 @@ function buildControlLink(
     LINK_TYPE.IntraSubgraph,
     SUBGRAPH_ID,
     SUBGRAPH_ID,
+    subsystemControlLinks,
+  );
+}
+
+function buildScl(
+  systemId: number,
+  peerNodeASystemId: number,
+  peerNodeBSystemId: number,
+  nodeAPortSystemId: number,
+  nodeBPortSystemId: number,
+  controlLinkSystemId: number,
+): SubsystemControlLink {
+  return new SubsystemControlLink(
+    systemId,
+    peerNodeASystemId,
+    peerNodeBSystemId,
+    nodeAPortSystemId,
+    nodeBPortSystemId,
+    controlLinkSystemId,
+    FILE_ID,
+    1,
   );
 }
 
@@ -289,5 +334,62 @@ describe('ControlLinkInserter', () => {
       `SELECT * FROM control_links WHERE system_id = 1005`,
     );
     expect(badRow).toHaveLength(0);
+  });
+
+  it('inserts SubsystemControlLink children when parent ControlLink succeeds', async () => {
+    // Chain: M1(NODE_A) ↔ S(SUBSYSTEM) ↔ M2(NODE_B)
+    const link = buildControlLink(1006, PORT_A_ID, PORT_B_ID, [
+      buildScl(
+        2001,
+        NODE_A_ID,
+        SUBSYSTEM_NODE_ID,
+        PORT_A_ID,
+        SCL_PORT_A_ID,
+        1006,
+      ),
+      buildScl(
+        2002,
+        SUBSYSTEM_NODE_ID,
+        NODE_B_ID,
+        SCL_PORT_B_ID,
+        PORT_B_ID,
+        1006,
+      ),
+    ]);
+
+    const result = await inserter.insert([link]);
+
+    expect(result.ok).toBe(true);
+
+    const sclRows = await dataSource.query(
+      `SELECT system_id, control_link_system_id FROM subsystem_control_links ORDER BY system_id`,
+    );
+    expect(sclRows).toHaveLength(2);
+    expect(sclRows[0].system_id).toBe(2001);
+    expect(sclRows[0].control_link_system_id).toBe(1006);
+    expect(sclRows[1].system_id).toBe(2002);
+    expect(sclRows[1].control_link_system_id).toBe(1006);
+  });
+
+  it('skips SubsystemControlLink children when parent ControlLink fails', async () => {
+    const link = buildControlLink(1007, 9999, PORT_B_ID, [
+      buildScl(
+        2003,
+        NODE_A_ID,
+        SUBSYSTEM_NODE_ID,
+        PORT_A_ID,
+        SCL_PORT_A_ID,
+        1007,
+      ),
+    ]);
+
+    const result = await inserter.insert([link]);
+
+    expect(result.ok).toBe(false);
+
+    const sclRows = await dataSource.query(
+      `SELECT * FROM subsystem_control_links WHERE system_id = 2003`,
+    );
+    expect(sclRows).toHaveLength(0);
   });
 });

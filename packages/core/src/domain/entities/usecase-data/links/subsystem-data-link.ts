@@ -12,7 +12,7 @@ export interface SubsystemDataLinkInit {
   destinationNodeSystemId: number;
   sourcePortSystemId: number;
   destinationPortSystemId: number;
-  dataLinkSystemId: number;
+  dataLinkSystemId: number | null;
   fileSystemId: number;
 }
 
@@ -22,7 +22,7 @@ export class SubsystemDataLink {
   readonly destinationNodeSystemId: number;
   readonly sourcePortSystemId: number;
   readonly destinationPortSystemId: number;
-  readonly dataLinkSystemId: number;
+  readonly dataLinkSystemId: number | null;
   readonly fileSystemId: number;
 
   constructor(initParam: SubsystemDataLinkInit) {
