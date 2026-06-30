@@ -97,7 +97,7 @@ export class DataLinkInserter {
           destinationNodeSystemId: sls.destinationNodeSystemId,
           sourcePortSystemId: sls.sourcePortSystemId,
           destinationPortSystemId: sls.destinationPortSystemId,
-          dataLinkSystemId: sls.dataLinkSystemId,
+          dataLinkSystemId: sls.dataLinkSystemId!,
           fileSystemId: sls.fileSystemId,
         };
       }),
@@ -115,7 +115,7 @@ export class DataLinkInserter {
       const sls = contextBySystemId.get(error.systemId)!;
       const row = rows.find(r => r.systemId === error.systemId)!;
       return {
-        systemId: sls.dataLinkSystemId,
+        systemId: sls.dataLinkSystemId!,
         entityLabel: 'SubsystemDataLink',
         failedRowJson: `(sourcePort=${BinaryUtils.toHexString(sls.sourcePortSystemId)}, destPort=${BinaryUtils.toHexString(sls.destinationPortSystemId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,

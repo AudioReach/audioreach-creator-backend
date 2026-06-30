@@ -72,7 +72,7 @@ Merge adjacent chapters if either has fewer than 3 tasks.
 
 ## Step 5 — Assemble
 
-Once all batches complete, concatenate chapter files. Do not read their content into the session — use a shell command. Substitute `<plan-output-path>` with the `Plan output` field from the handoff file (e.g. `docs/virtual-links/plans/2026-06-17-virtual-links-data-links.md`) and `<chapters-dir>` with its sibling `chapters/` directory (e.g. `docs/virtual-links/plans/chapters/`). The header template comes from `plan-format.md`; copy it verbatim and fill in the bracketed fields from the handoff file:
+Once all batches complete, concatenate chapter files. Do not read their content into the session — use a shell command. Substitute `<plan-output-path>` with the `Plan output` field from the handoff file (e.g. `docs/virtual-links/plans/virtual-links-data-links.md`) and `<chapters-dir>` with its sibling `chapters/` directory (e.g. `docs/virtual-links/plans/chapters/`). The header template comes from `plan-format.md`; copy it verbatim and fill in the bracketed fields from the handoff file:
 
 ```bash
 # Write the plan header (template from references/plan-format.md)

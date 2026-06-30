@@ -59,6 +59,7 @@ export const ENTITY_NAMES = {
   // ── Link data ─────────────────────────────────────────────────────────────
   DataLink: 'DataLink',
   ControlLink: 'ControlLink',
+  SubsystemControlLink: 'SubsystemControlLink',
   SubsystemDataLink: 'SubsystemDataLink',
 
   // ── Subgraph data ─────────────────────────────────────────────────────────

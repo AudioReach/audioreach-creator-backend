@@ -6,9 +6,9 @@
 import {describe, it, expect} from '@jest/globals';
 import {
   ChainResolutionService,
-  type ResolutionInput,
-  type ResolutionResult,
-} from '../../../../../src/domain/services/subsystem-links/chain-resolution.service.js';
+  type SubsystemDatalinkResolutionInput as ResolutionInput,
+  type SubsystemDatalinkResolutionResult as ResolutionResult,
+} from '../../../../../src/domain/services/subsystem-data-links/datalink-chain-resolution.service.js';
 import {NodeType} from '../../../../../src/domain/entities/usecase-data/node/node.js';
 
 // ---------------------------------------------------------------------------

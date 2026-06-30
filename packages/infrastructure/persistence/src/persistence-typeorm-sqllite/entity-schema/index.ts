@@ -44,6 +44,7 @@ import {ContainerPropertyDataSchema} from './usecase-data/container/container-pr
 import {ContainerSchema} from './usecase-data/container/container.schema.js';
 import {ControlLinkSchema} from './usecase-data/Links/control-link.js';
 import {DataLinkSchema} from './usecase-data/Links/data-link.js';
+import {SubsystemControlLinkSchema} from './usecase-data/Links/subsystem-control-link.schema.js';
 import {
   CkvSchema,
   CkvParameterPayloadRowSchema,
@@ -197,6 +198,8 @@ export type {ControlLinkRow} from './usecase-data/Links/control-link.js';
 export {ControlLinkSchema} from './usecase-data/Links/control-link.js';
 export type {DataLinkRow} from './usecase-data/Links/data-link.js';
 export {DataLinkSchema} from './usecase-data/Links/data-link.js';
+export type {SubsystemControlLinkRow} from './usecase-data/Links/subsystem-control-link.schema.js';
+export {SubsystemControlLinkSchema} from './usecase-data/Links/subsystem-control-link.schema.js';
 export type {SubsystemDataLinkRow} from './usecase-data/Links/subsystem-data-link.schema.js';
 export {SubsystemDataLinkSchema} from './usecase-data/Links/subsystem-data-link.schema.js';
 
@@ -371,6 +374,7 @@ export function getAllEntitySchemas(
     ContainerSchema,
     ControlLinkSchema,
     DataLinkSchema,
+    SubsystemControlLinkSchema,
     SubsystemDataLinkSchema,
     CkvSchema(blobConverter), // Factory with blob converter
     CkvParameterPayloadRowSchema(blobConverter), // Factory with blob converter

@@ -4,23 +4,8 @@
  */
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-<<<<<<<< HEAD:packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782657131731-initial-create.ts
-<<<<<<< HEAD:packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782657131731-initial-create.ts
-export class InitialCreate1782657131731 implements MigrationInterface {
-  name = 'InitialCreate1782657131731';
-=======
-<<<<<<<< HEAD:packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782405830512-initial-create.ts
-export class InitialCreate1782405830512 implements MigrationInterface {
-  name = 'InitialCreate1782405830512';
-========
-export class InitialCreate1782408828342 implements MigrationInterface {
-  name = 'InitialCreate1782408828342';
->>>>>>>> f090c75 (refactor: support i/p-o/p and o/p-i/p ports for subsystems):packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782408828342-initial-create.ts
->>>>>>> 70034c5 (refactor: support i/p-o/p and o/p-i/p ports for subsystems):packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782405830512-initial-create.ts
-========
-export class InitialCreate1782661700264 implements MigrationInterface {
-  name = 'InitialCreate1782661700264';
->>>>>>>> 4ee1102 (feat: add support for subsystem links and bulk-insertion):packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782661700264-initial-create.ts
+export class InitialCreate1782814108796 implements MigrationInterface {
+  name = 'InitialCreate1782814108796';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -204,10 +189,10 @@ export class InitialCreate1782661700264 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uq_containers_container_id_file_system_id" ON "containers" ("container_id", "file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL)`,
+      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "ck_control_link_port_canonical_order" CHECK ("nodeA_port_system_id" < "nodeB_port_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `,
+      `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("nodeA_port_system_id", "nodeB_port_system_id") `,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_control_links_src_sg_scope" ON "control_links" ("source_subgraph_system_id", "link_type") `,
@@ -226,6 +211,21 @@ export class InitialCreate1782661700264 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_data_links_dst_sg" ON "data_links" ("dest_subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "subsystem_control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "control_link_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_file" ON "subsystem_control_links" ("file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_control_link" ON "subsystem_control_links" ("control_link_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_nodeA_port_file" ON "subsystem_control_links" ("nodeA_port_system_id", "file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_nodeB_port_file" ON "subsystem_control_links" ("nodeB_port_system_id", "file_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "subsystem_data_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "source_node_system_id" integer NOT NULL, "destination_node_system_id" integer NOT NULL, "source_port_system_id" integer NOT NULL, "destination_port_system_id" integer NOT NULL, "data_link_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
@@ -842,7 +842,7 @@ export class InitialCreate1782661700264 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_control_links_src_sg_scope"`);
     await queryRunner.query(`DROP INDEX "idx_control_links_dst_sg"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_6990d878f1170b958d2b5b84abc" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bc6af2a635beb595adbc823353f" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c4d63ebdc45c6656eae61597da" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_23e7e524f43b619b95126e0beae" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_94b068792b7eebd8af177381b5a" FOREIGN KEY ("source_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_44d7c0e83b3d27b4c6702361141" FOREIGN KEY ("dest_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_905a5bdeac2241c40d8f9317333" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "ck_control_link_port_canonical_order" CHECK ("nodeA_port_system_id" < "nodeB_port_system_id"), CONSTRAINT "FK_6990d878f1170b958d2b5b84abc" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_bc6af2a635beb595adbc823353f" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_7c4d63ebdc45c6656eae61597da" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_23e7e524f43b619b95126e0beae" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_94b068792b7eebd8af177381b5a" FOREIGN KEY ("source_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_44d7c0e83b3d27b4c6702361141" FOREIGN KEY ("dest_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_905a5bdeac2241c40d8f9317333" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "control_links"`,
@@ -852,7 +852,7 @@ export class InitialCreate1782661700264 implements MigrationInterface {
       `ALTER TABLE "temporary_control_links" RENAME TO "control_links"`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `,
+      `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("nodeA_port_system_id", "nodeB_port_system_id") `,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_control_links_src_sg_scope" ON "control_links" ("source_subgraph_system_id", "link_type") `,
@@ -882,9 +882,32 @@ export class InitialCreate1782661700264 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_data_links_dst_sg" ON "data_links" ("dest_subgraph_system_id") `,
     );
-<<<<<<<< HEAD:packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782657131731-initial-create.ts
-    await queryRunner.query(`DROP INDEX "idx_ckv_module_system_id"`);
-========
+    await queryRunner.query(`DROP INDEX "idx_scl_file"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_control_link"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_nodeA_port_file"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_nodeB_port_file"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_subsystem_control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "control_link_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_aeaa2b3d03a237f6676b72920f5" FOREIGN KEY ("peer_nodeA_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_95125720bd52486834d45dc22c6" FOREIGN KEY ("peer_nodeB_system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_de1a9365cc65eae52b21d3f3dd1" FOREIGN KEY ("nodeA_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_b2630b4f2c4ddc7e615cfa3ba0c" FOREIGN KEY ("nodeB_port_system_id") REFERENCES "control_ports" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_548b86ced7bbf7002b8259e255b" FOREIGN KEY ("control_link_system_id") REFERENCES "control_links" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_86b0323aff802aeb729ce991f7b" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_subsystem_control_links"("system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "control_link_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "control_link_system_id", "file_system_id" FROM "subsystem_control_links"`,
+    );
+    await queryRunner.query(`DROP TABLE "subsystem_control_links"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_subsystem_control_links" RENAME TO "subsystem_control_links"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_file" ON "subsystem_control_links" ("file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_control_link" ON "subsystem_control_links" ("control_link_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_nodeA_port_file" ON "subsystem_control_links" ("nodeA_port_system_id", "file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_nodeB_port_file" ON "subsystem_control_links" ("nodeB_port_system_id", "file_system_id") `,
+    );
     await queryRunner.query(`DROP INDEX "idx_sls_file"`);
     await queryRunner.query(`DROP INDEX "idx_sls_data_link"`);
     await queryRunner.query(`DROP INDEX "idx_sls_src_port_file"`);
@@ -911,7 +934,7 @@ export class InitialCreate1782661700264 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_sls_dst_port_file" ON "subsystem_data_links" ("destination_port_system_id", "file_system_id") `,
     );
->>>>>>>> 4ee1102 (feat: add support for subsystem links and bulk-insertion):packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782661700264-initial-create.ts
+    await queryRunner.query(`DROP INDEX "idx_ckv_module_system_id"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_ckv" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "spf_module_system_id" integer NOT NULL, "ui_persistence" blob, CONSTRAINT "FK_54454123d07e1f81369d5e16604" FOREIGN KEY ("spf_module_system_id") REFERENCES "spf_modules" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
@@ -1825,10 +1848,9 @@ export class InitialCreate1782661700264 implements MigrationInterface {
       `INSERT INTO "ckv"("system_id", "created_at", "updated_at", "version", "spf_module_system_id", "ui_persistence") SELECT "system_id", "created_at", "updated_at", "version", "spf_module_system_id", "ui_persistence" FROM "temporary_ckv"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_ckv"`);
-<<<<<<<< HEAD:packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782657131731-initial-create.ts
     await queryRunner.query(
       `CREATE INDEX "idx_ckv_module_system_id" ON "ckv" ("spf_module_system_id") `,
-========
+    );
     await queryRunner.query(`DROP INDEX "idx_sls_dst_port_file"`);
     await queryRunner.query(`DROP INDEX "idx_sls_src_port_file"`);
     await queryRunner.query(`DROP INDEX "idx_sls_data_link"`);
@@ -1854,7 +1876,32 @@ export class InitialCreate1782661700264 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_sls_file" ON "subsystem_data_links" ("file_system_id") `,
->>>>>>>> 4ee1102 (feat: add support for subsystem links and bulk-insertion):packages/infrastructure/persistence/src/persistence-typeorm-sqllite/migrations/1782661700264-initial-create.ts
+    );
+    await queryRunner.query(`DROP INDEX "idx_scl_nodeB_port_file"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_nodeA_port_file"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_control_link"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_file"`);
+    await queryRunner.query(
+      `ALTER TABLE "subsystem_control_links" RENAME TO "temporary_subsystem_control_links"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "subsystem_control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "control_link_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "subsystem_control_links"("system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "control_link_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "control_link_system_id", "file_system_id" FROM "temporary_subsystem_control_links"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_subsystem_control_links"`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_nodeB_port_file" ON "subsystem_control_links" ("nodeB_port_system_id", "file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_nodeA_port_file" ON "subsystem_control_links" ("nodeA_port_system_id", "file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_control_link" ON "subsystem_control_links" ("control_link_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_scl_file" ON "subsystem_control_links" ("file_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "idx_data_links_dst_sg"`);
     await queryRunner.query(`DROP INDEX "idx_data_links_src_sg_scope"`);
@@ -1885,7 +1932,7 @@ export class InitialCreate1782661700264 implements MigrationInterface {
       `ALTER TABLE "control_links" RENAME TO "temporary_control_links"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL)`,
+      `CREATE TABLE "control_links" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "peer_nodeA_system_id" integer NOT NULL, "peer_nodeB_system_id" integer NOT NULL, "nodeA_port_system_id" integer NOT NULL, "nodeB_port_system_id" integer NOT NULL, "heap_id" integer NOT NULL, "link_type" varchar CHECK( "link_type" IN ('INTRA_SUBGRAPH','INTRA_USECASE','INTER_USECASE') ) NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "ck_control_link_port_canonical_order" CHECK ("nodeA_port_system_id" < "nodeB_port_system_id"))`,
     );
     await queryRunner.query(
       `INSERT INTO "control_links"("system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id", "heap_id", "link_type", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "temporary_control_links"`,
@@ -1898,7 +1945,7 @@ export class InitialCreate1782661700264 implements MigrationInterface {
       `CREATE INDEX "idx_control_links_src_sg_scope" ON "control_links" ("source_subgraph_system_id", "link_type") `,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("peer_nodeA_system_id", "peer_nodeB_system_id", "nodeA_port_system_id", "nodeB_port_system_id") `,
+      `CREATE UNIQUE INDEX "uk_control_link_unique" ON "control_links" ("nodeA_port_system_id", "nodeB_port_system_id") `,
     );
     await queryRunner.query(
       `DROP INDEX "uq_containers_container_id_file_system_id"`,
@@ -2389,6 +2436,11 @@ export class InitialCreate1782661700264 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_sls_data_link"`);
     await queryRunner.query(`DROP INDEX "idx_sls_file"`);
     await queryRunner.query(`DROP TABLE "subsystem_data_links"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_nodeB_port_file"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_nodeA_port_file"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_control_link"`);
+    await queryRunner.query(`DROP INDEX "idx_scl_file"`);
+    await queryRunner.query(`DROP TABLE "subsystem_control_links"`);
     await queryRunner.query(`DROP INDEX "idx_data_links_dst_sg"`);
     await queryRunner.query(`DROP INDEX "idx_data_links_src_sg_scope"`);
     await queryRunner.query(`DROP INDEX "uk_data_link_ports"`);

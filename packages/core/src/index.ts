@@ -130,6 +130,7 @@ export * from './domain/entities/usecase-data/node/node.js';
 export * from './domain/entities/usecase-data/links/link-type.js';
 export * from './domain/entities/usecase-data/links/control-link.js';
 export * from './domain/entities/usecase-data/links/data-link.js';
+export * from './domain/entities/usecase-data/links/subsystem-control-link.js';
 export * from './domain/entities/usecase-data/links/subsystem-data-link.js';
 export * from './domain/entities/usecase-data/module/spf-module.js';
 export * from './domain/entities/driver-module-data/driver-module.js';

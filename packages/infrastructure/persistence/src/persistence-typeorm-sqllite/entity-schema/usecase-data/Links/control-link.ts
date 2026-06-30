@@ -148,12 +148,7 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
   indices: [
     {
       name: 'uk_control_link_unique',
-      columns: [
-        'peerNodeASystemId',
-        'peerNodeBSystemId',
-        'nodeAPortSystemId',
-        'nodeBPortSystemId',
-      ],
+      columns: ['nodeAPortSystemId', 'nodeBPortSystemId'],
       unique: true,
     },
     {
@@ -163,6 +158,12 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
     {
       name: 'idx_control_links_dst_sg',
       columns: ['destSubgraphSystemId'],
+    },
+  ],
+  checks: [
+    {
+      name: 'ck_control_link_port_canonical_order',
+      expression: '"nodeA_port_system_id" < "nodeB_port_system_id"',
     },
   ],
 });
