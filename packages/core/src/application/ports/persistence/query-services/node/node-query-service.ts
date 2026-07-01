@@ -18,12 +18,10 @@ export interface NodeQueryService {
   getDataPorts(
     nodeSystemId: number,
     fileSystemId: number,
-    applyOverlay: true,
   ): Promise<Result<DataPortReadModel[]>>;
 
   getControlPorts(
     nodeSystemId: number,
     fileSystemId: number,
-    applyOverlay: true,
   ): Promise<Result<ControlPortReadModel[]>>;
 }

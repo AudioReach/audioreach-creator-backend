@@ -14,7 +14,7 @@ import {BaseQuery} from '../../../shared/base-query.js';
  * includeCkvs:  when true, include CKV tuning catalogue (key-value selectors + param names)
  * includeTags:  when true, include tag/TKV tuning catalogue (key-value selectors + param names)
  */
-export class QuerySpfModulesQuery extends BaseQuery {
+export class SpfModulesQuery extends BaseQuery {
   constructor(
     public readonly systemIds: number[],
     public readonly projectId: number,

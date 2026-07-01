@@ -11,23 +11,23 @@ import type {Result} from '../../../../shared/Result/operation-result.js';
 export interface SpfModuleQueryService {
   /**
    * Returns a single SPF module with ports and definition capabilities.
-   * Result.fail if the module does not exist or DB error occurs.
+   * Overlay always applied.
+   * Result.fail(ENTITY_NOT_FOUND) if the module does not exist; also fails on DB error.
    */
   findOne(
     spfModuleSystemId: number,
     fileSystemId: number,
-    applyOverlay: true,
-  ): Promise<Result<SpfModuleReadModel | null>>;
+  ): Promise<Result<SpfModuleReadModel>>;
 
   /**
    * Returns SPF modules for the given system IDs.
+   * Overlay always applied.
    * Unknown IDs are silently omitted — partial result.
    * Empty input returns Result.ok([]) without hitting the DB.
    */
   findMany(
     systemIds: number[],
     fileSystemId: number,
-    applyOverlay: true,
   ): Promise<Result<SpfModuleReadModel[]>>;
 
   // Sub-services — reusable directly by handlers that need only ports for a specific node

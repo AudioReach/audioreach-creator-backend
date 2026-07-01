@@ -6,27 +6,33 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {SpfModuleReadModel} from '../../../ports/persistence/query-services/spf-module/spf-module-read-model.js';
-import type {SpfModuleTuningConfigReadModel} from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
-import type {QuerySpfModulesQuery as SpfModuleQuery} from './query-spf-modules.query.js';
+import type {
+  CkvReadModel,
+  TagReadModel,
+} from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
+import type {SpfModulesQuery as SpfModuleQuery} from './query-spf-modules.query.js';
 import {Result} from '../../../shared/Result/operation-result.js';
 
 export interface SpfModuleDetailedReadModel {
   modules: SpfModuleReadModel[];
-  tuningConfigMap?: Map<number, SpfModuleTuningConfigReadModel>; // present only when includeCkvs or includeTags=true
+  // Present when includeCkvs/includeTags=true — one entry per requested module,
+  // regardless of outcome. Result.ok([]) means the module genuinely has none;
+  // Result.fail(...) means loading that module's data errored. Callers must
+  // check isSuccess/isFailure per entry rather than inferring from absence.
+  ckvsByModule?: Map<number, Result<CkvReadModel[]>>;
+  tagsByModule?: Map<number, Result<TagReadModel[]>>;
 }
 
 /**
- * Handles QuerySpfModulesQuery.
+ * Handles SpfModulesQuery.
  *
  * Step 1: Resolve projectId → fileSystemId via ProjectQueryService
  * Step 2: Load SPF modules via SpfModuleQueryService.findMany()
- * Step 3: If includeCkvs or includeTags, load tuning catalogue in parallel
- *         via SpfTuningConfigService for each module
+ * Step 3: Load CKVs and tags in parallel across all modules — one call per module per concern
  *
- * Unknown systemIds are silently omitted (partial result).
- * Returns Result<SpfModuleDetailedReadModel>:
- *   - errors:   fatal failures (project not found, DB down)
- *   - warnings: partial failures (individual port or tuning config loads)
+ * Unknown systemIds are silently omitted — partial result.
+ * Per-module CKV/tag failures are captured as Result.fail entries in
+ * ckvsByModule/tagsByModule — every requested module gets an entry either way.
  */
 export class SpfModuleQueryHandler implements QueryHandler<
   SpfModuleQuery,
@@ -48,7 +54,6 @@ export class SpfModuleQueryHandler implements QueryHandler<
       await this.queryServices.spfModuleQueryService.findMany(
         query.systemIds,
         fileSystemId,
-        true,
       );
 
     if (modulesResult.isFailure) {
@@ -58,50 +63,60 @@ export class SpfModuleQueryHandler implements QueryHandler<
     }
 
     const modules = modulesResult.data;
-    const warnings = [...(modulesResult.warnings ?? [])];
 
-    const needsTuning =
-      (query.includeCkvs || query.includeTags) && modules.length > 0;
-    if (!needsTuning) {
-      return Result.ok({modules}, warnings);
+    if (modules.length === 0 || (!query.includeCkvs && !query.includeTags)) {
+      return Result.ok({modules});
     }
 
-    // Step 3 — load tuning catalogue for all modules in parallel
-    // Tuning failures become warnings — modules are still returned
-    const tuningResults = await Promise.all(
+    // Step 3 — load CKVs and tags in parallel across all modules
+    // Independent collections — each loads and fails independently per module
+    const [ckvsByModule, tagsByModule] = await Promise.all([
+      query.includeCkvs
+        ? this.loadCkvsForModules(modules, fileSystemId)
+        : undefined,
+      query.includeTags
+        ? this.loadTagsForModules(modules, fileSystemId)
+        : undefined,
+    ]);
+
+    return Result.ok({modules, ckvsByModule, tagsByModule});
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────────────
+
+  private async loadCkvsForModules(
+    modules: SpfModuleReadModel[],
+    fileSystemId: number,
+  ): Promise<Map<number, Result<CkvReadModel[]>>> {
+    const entries = await Promise.all(
       modules.map(async m => {
-        const tuningResult =
-          await this.queryServices.spfModuleQueryService.spfTuningConfigService.getModuleTuningConfig(
+        const result =
+          await this.queryServices.spfTuningConfigService.getModuleCkvs(
             m.systemId,
             fileSystemId,
-            query.includeCkvs,
-            query.includeTags,
-            true,
+            {summary: true},
           );
-        if (tuningResult.isFailure) {
-          warnings.push({
-            message: `Tuning config failed for module ${m.systemId}: ${tuningResult.errors?.[0]?.message}`,
-          });
-          return null;
-        }
-        warnings.push(...(tuningResult.warnings ?? []));
-        return {moduleSystemId: m.systemId, tuningConfig: tuningResult.data};
+        return [m.systemId, result] as [number, Result<CkvReadModel[]>];
       }),
     );
+    return new Map(entries);
+  }
 
-    const tuningConfigMap = new Map(
-      tuningResults
-        .filter(
-          (
-            r,
-          ): r is {
-            moduleSystemId: number;
-            tuningConfig: SpfModuleTuningConfigReadModel;
-          } => r !== null,
-        )
-        .map(r => [r.moduleSystemId, r.tuningConfig]),
+  private async loadTagsForModules(
+    modules: SpfModuleReadModel[],
+    fileSystemId: number,
+  ): Promise<Map<number, Result<TagReadModel[]>>> {
+    const entries = await Promise.all(
+      modules.map(async m => {
+        const result =
+          await this.queryServices.spfTuningConfigService.getModuleTags(
+            m.systemId,
+            fileSystemId,
+            {summary: true},
+          );
+        return [m.systemId, result] as [number, Result<TagReadModel[]>];
+      }),
     );
-
-    return Result.ok({modules, tuningConfigMap}, warnings);
+    return new Map(entries);
   }
 }

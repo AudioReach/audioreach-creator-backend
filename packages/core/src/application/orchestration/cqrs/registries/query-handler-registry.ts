@@ -13,7 +13,7 @@ import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
 import {GetModuleCompactHandler} from '../../../usecase-designer/spf-module/get/get-module-compact.handler.js';
 import {GetModuleCompactQuery} from '../../../usecase-designer/spf-module/get/get-module-compact.query.js';
 import {SpfModuleQueryHandler} from '../../../usecase-designer/spf-module/query/query-spf-modules.handler.js';
-import {QuerySpfModulesQuery} from '../../../usecase-designer/spf-module/query/query-spf-modules.query.js';
+import {SpfModulesQuery} from '../../../usecase-designer/spf-module/query/query-spf-modules.query.js';
 import {GetAllUseCasesHandler} from '../../../usecase-designer/usecase/get-all/get-all-usecases.handler.js';
 import {GetAllUseCasesQuery} from '../../../usecase-designer/usecase/get-all/get-all-usecases.query.js';
 import {GetComponentsHandler} from '../../../usecase-designer/usecase/get-components/get-components.handler.js';
@@ -76,7 +76,7 @@ export class QueryHandlerRegistry {
         new GetModuleCompactHandler(handlerDependencies.queryServices),
     });
 
-    this.queryHandlerFactories.set(QuerySpfModulesQuery, {
+    this.queryHandlerFactories.set(SpfModulesQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new SpfModuleQueryHandler(deps.queryServices),
     });

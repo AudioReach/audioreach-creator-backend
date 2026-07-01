@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DefinitionSpec} from './definition-attribute.js';
 import type {SpfModuleDefinitionReadModel} from './spf-module-definition-read-model.js';
+import type {ParameterDefinitionReadModel} from './parameter-definition/parameter-definition-read-model.js';
+import type {ConfigurationIncludes} from '../configuration-includes.js';
 import type {Result} from '../../../../shared/Result/operation-result.js';
 
 export interface SpfModuleDefinitionQueryService {
@@ -18,16 +19,31 @@ export interface SpfModuleDefinitionQueryService {
 
   /**
    * Returns definition data for the given definition system ID.
-   * Result.fail if the definition is not found or DB error occurs.
+   * Overlay always applied.
    *
-   * Identity (name, moduleId) is always loaded.
-   * Pass includes to load additional child tables — each applies the
-   * three-tier edit session overlay independently.
+   * summary (default) → identity + port capacity counts
+   * fullDetails       → summary + port groups, control ports, dynamic intents, parameters
+   *
+   * Result.fail if not found or DB error occurs.
    */
   getDefinition(
     defSystemId: number,
     fileSystemId: number,
-    includes: DefinitionSpec,
-    applyOverlay: true,
+    includes: ConfigurationIncludes,
   ): Promise<Result<SpfModuleDefinitionReadModel>>;
+
+  /**
+   * Returns one parameter definition by its systemId.
+   * Overlay always applied.
+   *
+   * summary     → systemId, paramId, name, description, pidType
+   * fullDetails → all fields
+   *
+   * Result.fail if not found or DB error occurs.
+   */
+  getParameterDefinition(
+    parameterDefinitionSystemId: number,
+    fileSystemId: number,
+    includes: ConfigurationIncludes,
+  ): Promise<Result<ParameterDefinitionReadModel>>;
 }

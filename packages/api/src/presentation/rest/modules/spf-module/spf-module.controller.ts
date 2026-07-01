@@ -39,12 +39,15 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {
   QueryBus,
-  QuerySpfModulesQuery as SpfModuleQuery,
+  SpfModulesQuery as SpfModuleQuery,
   type SpfModuleDetailedReadModel,
   type SpfModuleReadModel,
   type DataPortReadModel,
   type ControlPortReadModel,
   type Result,
+  type CkvReadModel,
+  type TkvReadModel,
+  type TagReadModel,
 } from '@arc/core';
 import {
   DataPortDto,
@@ -55,6 +58,8 @@ import {
   ControlPortDto,
   ControlPortIntentDto,
 } from '../../common/dto/control-port.dto.js';
+import {CkvDto, TkvDto, TagInfoDto} from './dto/shared/tuning-config.dto.js';
+import {KeyValueInfo, KeyInfo, ValueInfo} from '../../common/dto/kv.dto.js';
 
 /**
  * Controller to support all module related APIs for usecase design
@@ -176,7 +181,14 @@ export class SpfModuleController extends BaseController {
       );
     }
 
-    const dtos = result.data.modules.map(m => this.mapToSpfModuleDto(m));
+    const {modules, ckvsByModule, tagsByModule} = result.data;
+    const dtos = modules.map(m =>
+      this.mapToSpfModuleDto(
+        m,
+        ckvsByModule?.get(m.systemId),
+        tagsByModule?.get(m.systemId),
+      ),
+    );
 
     return {
       data: dtos,
@@ -623,8 +635,16 @@ export class SpfModuleController extends BaseController {
    * Maps SpfModuleReadModel → SpfModuleDto.
    * SpfModuleReadModel uses number systemIds and typed PortIoType/PortType enums.
    * SpfModuleDto uses string systemIds and the API-layer enum values.
+   *
+   * ckvsResult/tagsResult are per-module Results — undefined when not requested,
+   * Result.fail(...) when that module's load errored (dto field left unset),
+   * Result.ok([]) when the module genuinely has none.
    */
-  private mapToSpfModuleDto(m: SpfModuleReadModel): SpfModuleDto {
+  private mapToSpfModuleDto(
+    m: SpfModuleReadModel,
+    ckvsResult?: Result<CkvReadModel[]>,
+    tagsResult?: Result<TagReadModel[]>,
+  ): SpfModuleDto {
     const dto = new SpfModuleDto(
       String(m.systemId),
       m.instanceId,
@@ -641,7 +661,56 @@ export class SpfModuleController extends BaseController {
     dto.dataPorts = m.dataPorts.map(p => this.mapDataPortToDto(p));
     dto.controlPorts = m.controlPorts.map(p => this.mapControlPortToDto(p));
     dto.changeInfo = undefined;
+
+    if (ckvsResult?.isSuccess)
+      dto.ckvs = ckvsResult.data.map(c => this.mapCkvToDto(c));
+    if (tagsResult?.isSuccess)
+      dto.tags = tagsResult.data.map(t => this.mapTagToDto(t));
+
     return dto;
+  }
+
+  private mapCkvToDto(c: CkvReadModel): CkvDto {
+    const keyValueCollection = (c.keyValuePairs ?? [])
+      .filter(kv => kv?.key && kv?.value)
+      .map(
+        kv =>
+          new KeyValueInfo(
+            new KeyInfo(kv.key.keyId, kv.key.name, String(kv.key.systemId)),
+            new ValueInfo(
+              kv.value.valueId,
+              kv.value.name,
+              String(kv.value.systemId),
+            ),
+          ),
+      );
+    return new CkvDto(String(c.systemId), keyValueCollection, []);
+  }
+
+  private mapTkvToDto(t: TkvReadModel): TkvDto {
+    const keyValueCollection = (t.keyValuePairs ?? [])
+      .filter(kv => kv?.key && kv?.value)
+      .map(
+        kv =>
+          new KeyValueInfo(
+            new KeyInfo(kv.key.keyId, kv.key.name, String(kv.key.systemId)),
+            new ValueInfo(
+              kv.value.valueId,
+              kv.value.name,
+              String(kv.value.systemId),
+            ),
+          ),
+      );
+    return new TkvDto(String(t.systemId), keyValueCollection, []);
+  }
+
+  private mapTagToDto(t: TagReadModel): TagInfoDto {
+    return new TagInfoDto(
+      t.systemId,
+      t.tagId,
+      t.tagName,
+      t.tkvs.map(tkv => this.mapTkvToDto(tkv)),
+    );
   }
 
   /**
