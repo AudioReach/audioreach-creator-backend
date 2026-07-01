@@ -3,34 +3,42 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {SpfModuleTuningConfigReadModel} from './tuning-config-read-model.js';
+import type {
+  CkvReadModel,
+  TagReadModel,
+  CkvParamReadModel,
+} from './tuning-config-read-model.js';
+import type {ConfigurationIncludes} from '../../configuration-includes.js';
 import type {Result} from '../../../../../shared/Result/operation-result.js';
 
 /**
- * Aggregate query service for SPF module tuning configuration.
+ * Category service for SPF module tuning data.
  *
- * Owns all reads needed to build the tuning catalogue view:
- *   - CKV bins with key-value selectors and parameter names (when includeCkvs=true)
- *   - Tag groups with their TKV bins and parameter names (when includeTags=true)
+ * Owns CKV and TKV row loading and their session overlay.
+ * Delegates key-value pair resolution to KeyValueDefQueryService.
  *
- * Binary payload loading (cal-data, tag-data) is NOT part of this service.
- * includeProperties belongs to a separate properties query service (future).
+ * ConfigurationIncludes controls both QueryBuilder joins and mapping depth:
+ *   summary     → key-value pairs that identify the bin; tags include TKV bins
+ *   fullDetails → summary + params + payload per bin
+ *
+ * Overlay always applied.
  */
 export interface SpfTuningConfigService {
-  /**
-   * Returns tuning catalogue data for a module.
-   * Only the requested sections are loaded — unset sections return null.
-   * Result.fail on DB error; warnings carry per-row overlay failures.
-   *
-   * includeCkvs:   load all CKV bins with key-value selectors and param names
-   * includeTags:   load all tag groups with their TKV bins and param names
-   * applyOverlay:  true → reflect staged CKV/TKV changes from active edit session
-   */
-  getModuleTuningConfig(
+  getModuleCkvs(
     spfModuleSystemId: number,
     fileSystemId: number,
-    includeCkvs: boolean,
-    includeTags: boolean,
-    applyOverlay: true,
-  ): Promise<Result<SpfModuleTuningConfigReadModel>>;
+    includes: ConfigurationIncludes,
+  ): Promise<Result<CkvReadModel[]>>;
+
+  getModuleCkvParams(
+    ckvSystemId: number,
+    fileSystemId: number,
+    includes: ConfigurationIncludes,
+  ): Promise<Result<CkvParamReadModel[]>>;
+
+  getModuleTags(
+    spfModuleSystemId: number,
+    fileSystemId: number,
+    includes: ConfigurationIncludes,
+  ): Promise<Result<TagReadModel[]>>;
 }

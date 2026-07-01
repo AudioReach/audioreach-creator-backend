@@ -12,6 +12,8 @@ import type {
   BulkReadQueryService,
   SpfModuleQueryService,
   SpfModuleDefinitionQueryService,
+  KeyValueDefQueryService,
+  SpfTuningConfigService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -22,6 +24,8 @@ import {TypeOrmBulkReadQueryService} from './bulk-read/typeorm-bulk-read-query-s
 import {EditActionsQueryService} from './edit-session/edit-actions-query-service.js';
 import {DbSpfModuleQueryService} from './spf-module/db-spf-module-query-service.js';
 import {DbSpfModuleDefinitionQueryService} from './spf-module-definition/db-spf-module-definition-query-service.js';
+import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-service.js';
+import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
 
 // Database implementation of ModuleQueryService
 class DbModuleQueryService implements ModuleQueryService {
@@ -36,6 +40,8 @@ export class DbQueryServices implements QueryServices {
   readonly bulkReadQueryService: BulkReadQueryService;
   readonly spfModuleQueryService: SpfModuleQueryService;
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
+  readonly keyValueDefQueryService: KeyValueDefQueryService;
+  readonly spfTuningConfigService: SpfTuningConfigService;
 
   constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(dataSource);
@@ -51,17 +57,34 @@ export class DbQueryServices implements QueryServices {
       logger,
     );
 
-    // SPF module services — shared EditActionsQueryService instance
-    // Definition service created first — injected into module service
+    // Key-value category service — owns arc_values + arc_keys
+    // Instantiated before spfTuningConfigService, which delegates to it
+    this.keyValueDefQueryService = new DbKeyValueDefQueryService(
+      dataSource,
+      editActionsQueryService,
+    );
+
     this.spfModuleDefinitionQueryService =
       new DbSpfModuleDefinitionQueryService(
         dataSource,
         editActionsQueryService,
       );
+
+    // Tuning config service — owns CKV/TKV rows, delegates key-value to KeyValueDefQueryService.
+    // Instantiated once here and passed into spfModuleQueryService — previously
+    // DbSpfModuleQueryService constructed its own separate instance internally,
+    // creating two divergent DbSpfTuningConfigService objects.
+    this.spfTuningConfigService = new DbSpfTuningConfigService(
+      dataSource,
+      editActionsQueryService,
+      this.keyValueDefQueryService,
+    );
+
     this.spfModuleQueryService = new DbSpfModuleQueryService(
       dataSource,
       editActionsQueryService,
       this.spfModuleDefinitionQueryService,
+      this.spfTuningConfigService,
     );
   }
 }

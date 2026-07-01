@@ -3,61 +3,67 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {KeyValuePairReadModel} from '../../usecase/query-models/key-vector-read-model.js';
+import type {
+  KeyReadModel,
+  ValueReadModel,
+} from '../../key-value/key-value-definition-read-model.js';
 
 /**
- * Parameter identity only — no binary payload.
- * Used by tuning-config (name + description visible in the catalogue view).
+ * Result for one CKV bin — systemId + key-value pairs that identify the bin.
+ * Key-value pairs resolved via KeyValueDefQueryService (KeyReadModel + ValueReadModel).
  */
-export interface ParamSummaryReadModel {
+export interface CkvReadModel {
   readonly systemId: number;
-  readonly parameterId: number;
-  readonly name: string;
-  readonly description?: string;
+  readonly keyValuePairs: ReadonlyArray<{
+    readonly key: KeyReadModel;
+    readonly value: ValueReadModel;
+  }>;
 }
 
 /**
- * One CKV bin for tuning catalogue — key-value selector + param names.
- * Does NOT load uiPersistence or binary payloads.
+ * Result for one TKV bin — mirrors CkvReadModel plus its parent tag reference.
  */
-export interface CkvTuningReadModel {
-  readonly systemId: number;
-  readonly keyValuePairs: KeyValuePairReadModel[];
-  readonly parameters: ParamSummaryReadModel[];
-}
-
-/**
- * One TKV bin for tuning catalogue — mirrors CkvTuningReadModel exactly.
- * moduleTagIdMapSystemId links back to the parent tag group.
- */
-export interface TkvTuningReadModel {
+export interface TkvReadModel {
   readonly systemId: number;
   readonly moduleTagIdMapSystemId: number;
-  readonly keyValuePairs: KeyValuePairReadModel[];
-  readonly parameters: ParamSummaryReadModel[];
+  readonly keyValuePairs: ReadonlyArray<{
+    readonly key: KeyReadModel;
+    readonly value: ValueReadModel;
+  }>;
 }
 
 /**
- * One tag group with its TKV bins.
- * tagId + tagName come from tag_definitions table.
+ * Result for one tag group with its TKV bins.
+ * summary     → tagId + tagName + tkvs with key-value pairs
+ * fullDetails → summary + params + payload per TKV
  */
-export interface TagTuningReadModel {
+export interface TagReadModel {
   readonly systemId: number;
   readonly tagDefinitionSystemId: number;
   readonly tagId: number;
   readonly tagName: string;
-  readonly tkvs: TkvTuningReadModel[];
+  readonly tkvs: TkvReadModel[];
 }
 
 /**
- * Final assembled tuning config for one SPF module.
- * Returned by SpfTuningConfigService.getModuleTuningConfig().
- *
- * ckvs/tags are null when the corresponding flag was false — distinguishing
- * "not requested" from "requested but empty".
+ * One parameter with its definition and optional binary payload.
+ * systemId   — ckv_parameter_payload / tkv_parameter_payload row
+ * definition — spf_module_parameter_definitions row (overlay applied)
+ * payload    — binary cal data — present only when fullDetails=true
  */
-export interface SpfModuleTuningConfigReadModel {
-  readonly moduleSystemId: number;
-  readonly ckvs: CkvTuningReadModel[] | null;
-  readonly tags: TagTuningReadModel[] | null;
+export interface CkvParamReadModel {
+  readonly systemId: number;
+  readonly definition: {
+    readonly systemId: number;
+    readonly parameterId: number;
+    readonly name?: string;
+    readonly description?: string;
+    readonly pidType: string;
+    readonly elementsStructure?: string;
+    readonly isPersistent?: boolean;
+    readonly isReadOnly?: boolean;
+    readonly maxSize?: number;
+    readonly toolPolicies?: string;
+  };
+  readonly payload?: Uint8Array;
 }

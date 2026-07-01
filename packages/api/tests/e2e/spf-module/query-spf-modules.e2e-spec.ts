@@ -284,4 +284,112 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     expect(afterResponse.body.data[0].alias).toBe(newAlias);
     expect(afterResponse.body.data[0].alias).not.toBe(originalAlias);
   });
+
+  it('should return ckvs for modules when include=ckvs is set', async () => {
+    if (!projectId || !moduleSystemIds.length) {
+      console.warn('No projectId or moduleSystemIds — skipping');
+      return;
+    }
+
+    const response = await request(httpServer)
+      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query?include=ckvs`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({systemIds: moduleSystemIds})
+      .timeout(30000)
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data)).toBe(true);
+
+    // tags must be absent when only ckvs requested
+    for (const module of response.body.data) {
+      expect(module.tags).toBeUndefined();
+
+      // ckvs is present (array, possibly empty if module has no CKV data)
+      expect(Array.isArray(module.ckvs)).toBe(true);
+
+      for (const ckv of module.ckvs) {
+        // CKV shape: systemId, keyValueCollection, supportedParameters
+        expect(typeof ckv.systemId).toBe('string');
+        expect(Array.isArray(ckv.keyValueCollection)).toBe(true);
+        expect(Array.isArray(ckv.supportedParameters)).toBe(true);
+
+        for (const kv of ckv.keyValueCollection) {
+          expect(typeof kv.key.keyId).toBe('number');
+          expect(typeof kv.key.keyLabel).toBe('string');
+          expect(typeof kv.value.valueId).toBe('number');
+          expect(typeof kv.value.valueLabel).toBe('string');
+        }
+
+        for (const param of ckv.supportedParameters) {
+          expect(typeof param.paramId).toBe('number');
+          expect(typeof param.paramSystemId).toBe('string');
+          expect(typeof param.name).toBe('string');
+        }
+      }
+    }
+  });
+
+  it('should return tags for modules when include=tags is set', async () => {
+    if (!projectId || !moduleSystemIds.length) {
+      console.warn('No projectId or moduleSystemIds — skipping');
+      return;
+    }
+
+    const response = await request(httpServer)
+      .post(`/arc-api/v1/projects/${projectId}/spf-modules/query?include=tags`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({systemIds: moduleSystemIds})
+      .timeout(30000)
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data)).toBe(true);
+
+    // ckvs must be absent when only tags requested
+    for (const module of response.body.data) {
+      expect(module.ckvs).toBeUndefined();
+
+      // tags is present (array, possibly empty if module has no tag data)
+      expect(Array.isArray(module.tags)).toBe(true);
+
+      for (const tag of module.tags) {
+        expect(typeof tag.systemId).toBe('number');
+        expect(typeof tag.tagId).toBe('number');
+        expect(typeof tag.tagName).toBe('string');
+        expect(Array.isArray(tag.tkvs)).toBe(true);
+
+        for (const tkv of tag.tkvs) {
+          expect(typeof tkv.systemId).toBe('string');
+          expect(Array.isArray(tkv.keyValueCollection)).toBe(true);
+          expect(Array.isArray(tkv.supportedParameters)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('should return both ckvs and tags when include=ckvs,tags is set', async () => {
+    if (!projectId || !moduleSystemIds.length) {
+      console.warn('No projectId or moduleSystemIds — skipping');
+      return;
+    }
+
+    const response = await request(httpServer)
+      .post(
+        `/arc-api/v1/projects/${projectId}/spf-modules/query?include=ckvs,tags`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({systemIds: moduleSystemIds})
+      .timeout(30000)
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data)).toBe(true);
+
+    // both ckvs and tags must be present arrays
+    for (const module of response.body.data) {
+      expect(Array.isArray(module.ckvs)).toBe(true);
+      expect(Array.isArray(module.tags)).toBe(true);
+    }
+  });
 }, 400000);

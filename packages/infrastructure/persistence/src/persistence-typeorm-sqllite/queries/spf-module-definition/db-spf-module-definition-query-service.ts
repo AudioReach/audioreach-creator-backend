@@ -12,39 +12,37 @@ import type {
   ControlPortDefinitionReadModel,
   StaticIntentDefinitionReadModel,
   DynamicIntentDefinitionReadModel,
-  DefinitionSpec,
   ParameterDefinitionReadModel,
+  ConfigurationIncludes,
 } from '@arc/core';
 import {Result, ERROR_CODES, PORT_IO_TYPE} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
+import {applyTableOverlay} from '../edit-session/overlay-utils.js';
 import type {SpfModuleDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
-import type {DataPortGroupRow} from '../../entity-schema/definitions/module/spf/data-group-definition.schema.js';
-import type {StaticControlPortDefinitionRow} from '../../entity-schema/definitions/module/spf/static-control-port-definition.schema.js';
-import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
-import {DbParameterDefinitionQueryService} from '../definition/db-parameter-definition-query-service.js';
+import type {SpfModuleParameterDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
 import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
 
 /**
  * Database implementation of SpfModuleDefinitionQueryService.
  *
- * getDefinition() uses DefinitionIncludes to load only the requested chunks.
- * Each chunk applies the three-tier edit session overlay independently.
- * Definitions can be modified when a new module version is imported during a session.
+ * getDefinition() always loads summary (port capacity counts) by default.
+ * fullDetails=true loads ports, intents, and parameters on top of summary.
+ *
+ * Overlay always applied — one getEditActionsByAggregateId call per aggregate,
+ * applyTableOverlay filters per table from the single result.
+ * Same pattern as applyParamDefOverlay / applyKeyDefOverlay across all services.
+ *
+ * Parameter definition loading merged here — internal concern of this service.
  */
 export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQueryService {
-  private readonly paramDefSvc: DbParameterDefinitionQueryService;
-
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
-  ) {
-    this.paramDefSvc = new DbParameterDefinitionQueryService(
-      dataSource,
-      editActionsSvc,
-    );
-  }
+  ) {}
+
+  // ── Public methods ───────────────────────────────────────────────────────
 
   async getModuleDefinitionSystemId(
     spfModuleSystemId: number,
@@ -57,11 +55,12 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         .where('m.systemId = :systemId', {systemId: spfModuleSystemId})
         .getOne()) as SpfModuleRow | null;
 
-      if (!module)
+      if (!module) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `SpfModule not found for systemId=${spfModuleSystemId} — cannot resolve definition system ID`,
         });
+      }
       return Result.ok(module.definitionSystemId);
     } catch (error) {
       return Result.fail({
@@ -77,27 +76,24 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   async getDefinition(
     defSystemId: number,
     fileSystemId: number,
-    includes: DefinitionSpec,
-    applyOverlay = true,
+    includes: ConfigurationIncludes,
   ): Promise<Result<SpfModuleDefinitionReadModel>> {
     try {
-      // ── Step 1: build query — join only the requested chunk tables ────────────
+      // Step 1 — QueryBuilder
+      // summary is always loaded — port groups + static ports needed for capacity counts
       let qb = this.dataSource
         .getRepository(ENTITY_NAMES.SpfModuleDefinition)
         .createQueryBuilder('def')
-        .where('def.systemId = :id', {id: defSystemId});
+        .where('def.systemId = :id', {id: defSystemId})
+        .leftJoinAndSelect('def.dataPortGroups', 'portGroup')
+        .leftJoinAndSelect('def.staticPorts', 'staticPort');
 
-      if (includes.includeFullDetails) {
+      // fullDetails adds port definitions, intents, dynamic intents on top of summary
+      if (includes.fullDetails) {
         qb = qb
-          .leftJoinAndSelect('def.dataPortGroups', 'portGroup')
           .leftJoinAndSelect('portGroup.ports', 'portDef')
-          .leftJoinAndSelect('def.staticPorts', 'staticPort')
           .leftJoinAndSelect('staticPort.staticIntents', 'staticIntent')
           .leftJoinAndSelect('def.dynamicIntents', 'dynamicIntent');
-      } else if (includes.includeSummary) {
-        qb = qb
-          .leftJoinAndSelect('def.dataPortGroups', 'portGroup')
-          .leftJoinAndSelect('def.staticPorts', 'staticPort');
       }
 
       const defRow = (await qb.getOne()) as SpfModuleDefinitionRow | null;
@@ -108,44 +104,24 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         });
       }
 
-      // ── Step 2: load all edit_actions for this definition aggregate ───────────
-      const draftMap = await this.loadDefinitionDraftMap(
-        defSystemId,
-        fileSystemId,
-        applyOverlay,
-      );
-
-      // ── Step 3: overlay on definition root row ────────────────────────────────
-      const defAction = draftMap.get(
-        `${defRow.systemId}:${ENTITY_NAMES.SpfModuleDefinition}`,
-      );
-      const defDelta =
-        defAction?.operation === 'UPDATE'
-          ? (JSON.parse(
-              defAction.payload as string,
-            ) as Partial<SpfModuleDefinitionRow>)
-          : {};
-
-      // ── Step 4: summary — port capacity counts ────────────────────────────────
-      const {
-        maxInputPortsSupported,
-        maxOutputPortsSupported,
-        maxControlPortsSupported,
-      } = this.computeSummaryCounts(defRow, draftMap, includes);
-
-      // ── Step 5: full details — ports, intents, parameters ────────────────────
-      const {
-        dataPortGroups,
-        staticControlPorts,
-        dynamicIntents,
-        parameterDefinitions,
-      } = includes.includeFullDetails
-        ? await this.assembleFullDetails(
+      // Step 2 — Overlay: one session lookup, one aggregate actions call
+      // applyDefinitionOverlay applies applyTableOverlay per table from the single result
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      const overlaidRow = session
+        ? await this.applyDefinitionOverlay(
             defRow,
-            draftMap,
-            fileSystemId,
             defSystemId,
+            session,
+            includes,
           )
+        : defRow;
+
+      // Step 3 — summary counts always computed (summary is always loaded)
+      const counts = this.computeSummaryCounts(overlaidRow);
+
+      // Step 4 — full details built on top of overlaid row
+      const details = includes.fullDetails
+        ? this.assembleFullDetails(overlaidRow)
         : {
             dataPortGroups: null,
             staticControlPorts: null,
@@ -153,17 +129,17 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
             parameterDefinitions: null,
           };
 
-      // ── Step 6: assemble ──────────────────────────────────────────────────────
+      // Step 5 — parameter definitions loaded separately (own aggregate)
+      const parameterDefinitions = includes.fullDetails
+        ? await this.queryParameterDefinitions(fileSystemId, defSystemId)
+        : null;
+
       return Result.ok({
-        systemId: defRow.systemId,
-        name: defDelta.name ?? defRow.name ?? '',
-        moduleId: defRow.moduleDefinitionId,
-        maxInputPortsSupported,
-        maxOutputPortsSupported,
-        maxControlPortsSupported,
-        dataPortGroups,
-        staticControlPorts,
-        dynamicIntents,
+        systemId: overlaidRow.systemId,
+        name: overlaidRow.name ?? '',
+        moduleId: overlaidRow.moduleDefinitionId,
+        ...counts,
+        ...details,
         parameterDefinitions,
       });
     } catch (error) {
@@ -175,37 +151,182 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     }
   }
 
-  private computeSummaryCounts(
-    defRow: SpfModuleDefinitionRow,
-    draftMap: Map<string, EditActionRow>,
-    includes: DefinitionSpec,
-  ): {
-    maxInputPortsSupported: number | null;
-    maxOutputPortsSupported: number | null;
-    maxControlPortsSupported: number | null;
-  } {
-    if (!includes.includeSummary && !includes.includeFullDetails)
-      return {
-        maxInputPortsSupported: null,
-        maxOutputPortsSupported: null,
-        maxControlPortsSupported: null,
+  async getParameterDefinition(
+    parameterDefinitionSystemId: number,
+    fileSystemId: number,
+    includes: ConfigurationIncludes,
+  ): Promise<Result<ParameterDefinitionReadModel>> {
+    try {
+      // Step 1 — QueryBuilder
+      const row = (await this.dataSource
+        .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
+        .createQueryBuilder('param')
+        .where('param.systemId = :id', {id: parameterDefinitionSystemId})
+        .getOne()) as SpfModuleParameterDefinitionRow | null;
+
+      // Step 2 — Overlay
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      const overlaid = session
+        ? await this.applyParamDefOverlay(
+            row,
+            parameterDefinitionSystemId,
+            session,
+          )
+        : row;
+
+      if (!overlaid) {
+        return Result.fail({
+          code: ERROR_CODES.ENTITY_NOT_FOUND,
+          message: `ParameterDefinition not found for systemId=${parameterDefinitionSystemId}`,
+        });
+      }
+
+      // Step 3 — Map based on ConfigurationIncludes
+      // summary: systemId, paramId, name, description, pidType
+      // fullDetails: all fields
+      const base: ParameterDefinitionReadModel = {
+        systemId: overlaid.systemId,
+        paramId: overlaid.paramId,
+        name: overlaid.name,
+        description: overlaid.description,
+        pidType: overlaid.pidType ?? '',
       };
 
-    const portGroupActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.DataPortGroup,
-    );
-    const portGroups: DataPortGroupRow[] =
-      portGroupActions.length > 0
-        ? applyToCollection(defRow.dataPortGroups ?? [], portGroupActions)
-        : (defRow.dataPortGroups ?? []);
+      if (!includes.fullDetails) return Result.ok(base);
 
-    const staticPortActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.StaticControlPortDefinition,
+      return Result.ok({
+        ...base,
+        maxSize: overlaid.maxSize,
+        elementsStructure: overlaid.elementsStructure,
+        isPersistent: overlaid.isPersistent,
+        isReadOnly: overlaid.isReadOnly,
+        toolPolicies: overlaid.toolPolicies,
+      });
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Failed to load parameter definition ${parameterDefinitionSystemId}`,
+      });
+    }
+  }
+
+  // ── Overlay methods ──────────────────────────────────────────────────────
+
+  /**
+   * Applies overlay to a SpfModuleDefinition aggregate.
+   * One getEditActionsByAggregateId call returns actions for all tables under
+   * this aggregate. applyTableOverlay filters per table — same pattern as
+   * applyParamDefOverlay and applyKeyDefOverlay across all services.
+   * Only overlays tables that were joined based on includes.
+   */
+  private async applyDefinitionOverlay(
+    baseRow: SpfModuleDefinitionRow,
+    defSystemId: number,
+    session: {sessionId: number},
+    includes: ConfigurationIncludes,
+  ): Promise<SpfModuleDefinitionRow> {
+    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+      session.sessionId,
+      defSystemId,
     );
-    const staticPorts: StaticControlPortDefinitionRow[] =
-      staticPortActions.length > 0
-        ? applyToCollection(defRow.staticPorts ?? [], staticPortActions)
-        : (defRow.staticPorts ?? []);
+
+    // Overlay root definition row
+    const overlaidDef =
+      applyTableOverlay(baseRow, actions, ENTITY_NAMES.SpfModuleDefinition) ??
+      baseRow;
+
+    // summary always loaded — overlay port groups and static ports
+    const overlaidPortGroups = applyToCollection(
+      overlaidDef.dataPortGroups ?? [],
+      actions.filter(a => a.tableName === ENTITY_NAMES.DataPortGroup),
+    );
+
+    const overlaidStaticPorts = applyToCollection(
+      overlaidDef.staticPorts ?? [],
+      actions.filter(
+        a => a.tableName === ENTITY_NAMES.StaticControlPortDefinition,
+      ),
+    );
+
+    // fullDetails — overlay ports, intents, dynamic intents
+    const overlaidPortGroupsWithPorts = includes.fullDetails
+      ? overlaidPortGroups.map(g => ({
+          ...g,
+          ports: applyToCollection(
+            g.ports ?? [],
+            actions.filter(
+              a => a.tableName === ENTITY_NAMES.DataPortDefinition,
+            ),
+          ),
+        }))
+      : overlaidPortGroups;
+
+    const overlaidStaticPortsWithIntents = includes.fullDetails
+      ? overlaidStaticPorts.map(p => ({
+          ...p,
+          staticIntents: applyToCollection(
+            p.staticIntents ?? [],
+            actions.filter(
+              a => a.tableName === ENTITY_NAMES.StaticIntentDefinition,
+            ),
+          ),
+        }))
+      : overlaidStaticPorts;
+
+    const overlaidDynamicIntents = includes.fullDetails
+      ? applyToCollection(
+          overlaidDef.dynamicIntents ?? [],
+          actions.filter(
+            a => a.tableName === ENTITY_NAMES.DynamicIntentDefinition,
+          ),
+        )
+      : (overlaidDef.dynamicIntents ?? []);
+
+    return {
+      ...overlaidDef,
+      dataPortGroups: overlaidPortGroupsWithPorts,
+      staticPorts: overlaidStaticPortsWithIntents,
+      dynamicIntents: overlaidDynamicIntents,
+    };
+  }
+
+  /**
+   * Applies overlay to a SpfModuleParameterDefinition row.
+   * Called only when an active session exists — session is guaranteed non-null.
+   * One getEditActionsByAggregateId call, applyTableOverlay filters to the table.
+   */
+  private async applyParamDefOverlay(
+    baseRow: SpfModuleParameterDefinitionRow | null,
+    parameterDefinitionSystemId: number,
+    session: {sessionId: number},
+  ): Promise<SpfModuleParameterDefinitionRow | null> {
+    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+      session.sessionId,
+      parameterDefinitionSystemId,
+    );
+    return applyTableOverlay(
+      baseRow,
+      actions,
+      ENTITY_NAMES.SpfModuleParameterDefinition,
+    );
+  }
+
+  // ── Assembly methods ─────────────────────────────────────────────────────
+
+  /**
+   * Computes port capacity counts from the already-overlaid row.
+   * summary is always loaded so this is always called.
+   */
+  private computeSummaryCounts(row: SpfModuleDefinitionRow): {
+    maxInputPortsSupported: number;
+    maxOutputPortsSupported: number;
+    maxControlPortsSupported: number;
+  } {
+    const portGroups = row.dataPortGroups ?? [];
+    const staticPorts = row.staticPorts ?? [];
 
     return {
       maxInputPortsSupported: portGroups
@@ -218,87 +339,46 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     };
   }
 
-  private async assembleFullDetails(
-    defRow: SpfModuleDefinitionRow,
-    draftMap: Map<string, EditActionRow>,
-    fileSystemId: number,
-    defSystemId: number,
-  ): Promise<{
+  /**
+   * Assembles full detail read models from the already-overlaid row.
+   * Parameter definitions loaded separately via queryParameterDefinitions.
+   */
+  private assembleFullDetails(row: SpfModuleDefinitionRow): {
     dataPortGroups: DataPortGroupReadModel[];
     staticControlPorts: ControlPortDefinitionReadModel[];
     dynamicIntents: DynamicIntentDefinitionReadModel[];
-    parameterDefinitions: ParameterDefinitionReadModel[];
-  }> {
-    const portGroupActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.DataPortGroup,
-    );
-    const portGroups: DataPortGroupRow[] =
-      portGroupActions.length > 0
-        ? applyToCollection(defRow.dataPortGroups ?? [], portGroupActions)
-        : (defRow.dataPortGroups ?? []);
-
-    const portDefActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.DataPortDefinition,
-    );
-    const dataPortGroups = portGroups.map((g): DataPortGroupReadModel => {
-      const ports =
-        portDefActions.length > 0
-          ? applyToCollection(g.ports ?? [], portDefActions)
-          : (g.ports ?? []);
-      return {
+  } {
+    const dataPortGroups = (row.dataPortGroups ?? []).map(
+      (g): DataPortGroupReadModel => ({
         systemId: g.systemId,
         portIoType: g.portIoType,
         maxAllowedPortCount: g.maxAllowedPortCount,
-        ports: ports.map(
+        ports: (g.ports ?? []).map(
           (p): DataPortDefinitionReadModel => ({
             systemId: p.systemId,
             dataPortId: p.dataPortId,
             name: p.name ?? '',
           }),
         ),
-      };
-    });
-
-    const staticPortActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.StaticControlPortDefinition,
-    );
-    const staticPorts: StaticControlPortDefinitionRow[] =
-      staticPortActions.length > 0
-        ? applyToCollection(defRow.staticPorts ?? [], staticPortActions)
-        : (defRow.staticPorts ?? []);
-
-    const intentActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.StaticIntentDefinition,
-    );
-    const staticControlPorts = staticPorts.map(
-      (p): ControlPortDefinitionReadModel => {
-        const intents =
-          intentActions.length > 0
-            ? applyToCollection(p.staticIntents ?? [], intentActions)
-            : (p.staticIntents ?? []);
-        return {
-          systemId: p.systemId,
-          portId: p.portId,
-          portName: p.portName ?? '',
-          staticIntents: intents.map(
-            (i): StaticIntentDefinitionReadModel => ({
-              systemId: i.systemId,
-              intentId: i.intentId,
-              name: i.name ?? '',
-            }),
-          ),
-        };
-      },
+      }),
     );
 
-    const dynamicIntentActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.DynamicIntentDefinition,
+    const staticControlPorts = (row.staticPorts ?? []).map(
+      (p): ControlPortDefinitionReadModel => ({
+        systemId: p.systemId,
+        portId: p.portId,
+        portName: p.portName ?? '',
+        staticIntents: (p.staticIntents ?? []).map(
+          (i): StaticIntentDefinitionReadModel => ({
+            systemId: i.systemId,
+            intentId: i.intentId,
+            name: i.name ?? '',
+          }),
+        ),
+      }),
     );
-    const rawDynamic =
-      dynamicIntentActions.length > 0
-        ? applyToCollection(defRow.dynamicIntents ?? [], dynamicIntentActions)
-        : (defRow.dynamicIntents ?? []);
-    const dynamicIntents = rawDynamic.map(
+
+    const dynamicIntents = (row.dynamicIntents ?? []).map(
       (d): DynamicIntentDefinitionReadModel => ({
         systemId: d.systemId,
         intentId: d.intentId,
@@ -307,37 +387,51 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       }),
     );
 
-    const parameterDefinitions = await this.paramDefSvc.getParameterDefinitions(
-      fileSystemId,
-      defSystemId,
-    );
-
-    return {
-      dataPortGroups,
-      staticControlPorts,
-      dynamicIntents,
-      parameterDefinitions,
-    };
+    return {dataPortGroups, staticControlPorts, dynamicIntents};
   }
 
-  private async loadDefinitionDraftMap(
-    defSystemId: number,
+  /**
+   * Loads and overlays parameter definitions for a module definition aggregate.
+   * Parameters are keyed by moduleDefSystemId — separate aggregate from the definition.
+   * One getEditActionsByAggregateId call, applyToCollection filters to param table.
+   */
+  private async queryParameterDefinitions(
     fileSystemId: number,
-    applyOverlay: boolean,
-  ): Promise<Map<string, EditActionRow>> {
-    const draftMap = new Map<string, EditActionRow>();
-    if (!applyOverlay) return draftMap;
+    moduleDefSystemId: number,
+  ): Promise<ParameterDefinitionReadModel[]> {
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
+      .createQueryBuilder('param')
+      .where('param.spfModuleDefinitionSystemId = :moduleDefSystemId', {
+        moduleDefSystemId,
+      })
+      .getMany()) as SpfModuleParameterDefinitionRow[];
 
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    if (!session) return draftMap;
+    if (!session) return rows.map(r => this.toParameterDefinitionReadModel(r));
 
     const actions = await this.editActionsSvc.getEditActionsByAggregateId(
       session.sessionId,
-      defSystemId,
+      moduleDefSystemId,
     );
-    for (const a of actions) {
-      draftMap.set(`${a.systemId}:${a.tableName}`, a);
-    }
-    return draftMap;
+    const paramActions = actions.filter(
+      a => a.tableName === ENTITY_NAMES.SpfModuleParameterDefinition,
+    );
+    const overlaid =
+      paramActions.length > 0 ? applyToCollection(rows, paramActions) : rows;
+
+    return overlaid.map(r => this.toParameterDefinitionReadModel(r));
+  }
+
+  private toParameterDefinitionReadModel(
+    row: SpfModuleParameterDefinitionRow,
+  ): ParameterDefinitionReadModel {
+    return {
+      systemId: row.systemId,
+      paramId: row.paramId,
+      name: row.name,
+      description: row.description,
+      pidType: row.pidType ?? '',
+    };
   }
 }

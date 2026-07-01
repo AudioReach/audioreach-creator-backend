@@ -45,29 +45,22 @@ export class DbNodeQueryService implements NodeQueryService {
   async getDataPorts(
     nodeSystemId: number,
     fileSystemId: number,
-    applyOverlay = true,
   ): Promise<Result<DataPortReadModel[]>> {
     try {
-      // Step 1 — baseline port rows for this node
       const baseRows = (await this.dataSource
         .getRepository(ENTITY_NAMES.DataPort)
         .createQueryBuilder('dp')
         .where('dp.nodeSystemId = :nodeSystemId', {nodeSystemId})
         .getMany()) as DataPortRow[];
-      // SQL: SELECT * FROM data_ports WHERE node_system_id = ?
 
-      // Step 2 — link counts (overlay-aware)
       const portIds = baseRows.map(r => r.systemId);
       const linkCounts = await this.countDataLinksPerPort(
         portIds,
         fileSystemId,
-        applyOverlay,
       );
 
       // Step 3 — three-tier overlay on port rows
-      const session = applyOverlay
-        ? await this.editActionsSvc.findActiveSession(fileSystemId)
-        : null;
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
 
       const portEditActionMap = new Map<number, EditActionRow>();
       if (session) {
@@ -136,34 +129,23 @@ export class DbNodeQueryService implements NodeQueryService {
   async getControlPorts(
     nodeSystemId: number,
     fileSystemId: number,
-    applyOverlay = true,
   ): Promise<Result<ControlPortReadModel[]>> {
     try {
-      // Step 1 — baseline control port rows with intents
       const baseRows = (await this.dataSource
         .getRepository(ENTITY_NAMES.ControlPort)
         .createQueryBuilder('cp')
         .leftJoinAndSelect('cp.allocatedIntents', 'intent')
         .where('cp.nodeSystemId = :nodeSystemId', {nodeSystemId})
         .getMany()) as ControlPortRow[];
-      // SQL:
-      // SELECT cp.*, intent.*
-      // FROM control_ports cp
-      // LEFT JOIN intents intent ON intent.control_port_system_id = cp.system_id
-      // WHERE cp.node_system_id = ?
 
-      // Step 2 — link counts (overlay-aware)
       const portIds = baseRows.map(r => r.systemId);
       const linkCounts = await this.countControlLinksPerPort(
         portIds,
         fileSystemId,
-        applyOverlay,
       );
 
       // Step 3 — three-tier overlay on port rows
-      const session = applyOverlay
-        ? await this.editActionsSvc.findActiveSession(fileSystemId)
-        : null;
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
 
       const portEditActionMap = new Map<number, EditActionRow>();
       if (session) {
@@ -233,11 +215,9 @@ export class DbNodeQueryService implements NodeQueryService {
   private async countDataLinksPerPort(
     portSystemIds: number[],
     fileSystemId: number,
-    applyOverlay: boolean,
   ): Promise<Map<number, number>> {
     if (portSystemIds.length === 0) return new Map();
 
-    // COUNT data_links where this port appears on either end
     const rows: Array<{portId: number; linkCount: string}> =
       await this.dataSource
         .getRepository(ENTITY_NAMES.DataPort)
@@ -256,8 +236,6 @@ export class DbNodeQueryService implements NodeQueryService {
     const countMap = new Map<number, number>(
       rows.map(r => [r.portId, Number(r.linkCount)]),
     );
-
-    if (!applyOverlay) return countMap;
 
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
     if (!session) return countMap;
@@ -287,11 +265,9 @@ export class DbNodeQueryService implements NodeQueryService {
   private async countControlLinksPerPort(
     portSystemIds: number[],
     fileSystemId: number,
-    applyOverlay: boolean,
   ): Promise<Map<number, number>> {
     if (portSystemIds.length === 0) return new Map();
 
-    // COUNT control_links where this port appears on either peer end
     const rows: Array<{portId: number; linkCount: string}> =
       await this.dataSource
         .getRepository(ENTITY_NAMES.ControlPort)
@@ -310,8 +286,6 @@ export class DbNodeQueryService implements NodeQueryService {
     const countMap = new Map<number, number>(
       rows.map(r => [r.portId, Number(r.linkCount)]),
     );
-
-    if (!applyOverlay) return countMap;
 
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
     if (!session) return countMap;

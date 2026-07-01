@@ -21,6 +21,7 @@ export * from './application/ports/persistence/repositories/project/project.repo
 export * from './shared/utilities/uuid.js';
 export * from './shared/utilities/binary-utils.js';
 export * from './shared/utilities/array-utils.js';
+export * from './shared/utilities/projection.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
 export * from './shared/types/branded-ids.js';
@@ -46,11 +47,13 @@ export * from './application/ports/persistence/query-services/spf-module/spf-mod
 export * from './application/ports/persistence/query-services/node/node-query-service.js';
 export * from './application/ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module/tuning/spf-tuning-config-service.js';
-export * from './application/ports/persistence/query-services/spf-module-definition/definition-attribute.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/spf-module-definition-query-service.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/spf-module-definition-read-model.js';
-export * from './application/ports/persistence/query-services/spf-module-definition/parameter-definition/parameter-definition-query-service.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/parameter-definition/parameter-definition-read-model.js';
+export * from './application/ports/persistence/query-services/configuration-includes.js';
+export * from './application/ports/persistence/query-services/key-value/key-value-definition-read-model.js';
+export * from './application/ports/persistence/query-services/key-value/key-value-definition-projections.js';
+export * from './application/ports/persistence/query-services/key-value/key-value-def-query-service.js';
 
 // SPF module query handlers
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.query.js';

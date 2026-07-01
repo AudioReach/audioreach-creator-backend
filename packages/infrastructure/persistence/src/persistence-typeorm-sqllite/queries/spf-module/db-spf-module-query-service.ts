@@ -17,7 +17,6 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {DbNodeQueryService} from '../node/db-node-query-service.js';
-import {DbSpfTuningConfigService} from './db-spf-tuning-config-service.js';
 import type {NodeRow} from '../../entity-schema/usecase-data/node/node.schema.js';
 import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
@@ -65,36 +64,33 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
     definitionQuerySvc: SpfModuleDefinitionQueryService,
+    tuningConfigSvc: SpfTuningConfigService,
   ) {
     this.nodeQueryService = new DbNodeQueryService(dataSource, editActionsSvc);
-    this.spfTuningConfigService = new DbSpfTuningConfigService(
-      dataSource,
-      editActionsSvc,
-    );
+    this.spfTuningConfigService = tuningConfigSvc;
     this.spfModuleDefinitionQuerySvc = definitionQuerySvc;
   }
 
   async findOne(
     spfModuleSystemId: number,
     fileSystemId: number,
-    applyOverlay = true,
-  ): Promise<Result<SpfModuleReadModel | null>> {
-    const result = await this.findMany(
-      [spfModuleSystemId],
-      fileSystemId,
-      applyOverlay,
-    );
+  ): Promise<Result<SpfModuleReadModel>> {
+    const result = await this.findMany([spfModuleSystemId], fileSystemId);
     if (result.isFailure)
-      return Result.fail<SpfModuleReadModel | null>(...result.errors);
-    // null when no module matched the given systemId — not an error, just absence.
-    // Warnings propagated from findMany as-is since errors/warnings are always arrays.
-    return Result.ok(result.data[0] ?? [], result.warnings ?? []);
+      return Result.fail<SpfModuleReadModel>(...result.errors);
+    const module = result.data[0];
+    if (!module) {
+      return Result.fail({
+        code: ERROR_CODES.ENTITY_NOT_FOUND,
+        message: `SpfModule not found for systemId=${spfModuleSystemId}`,
+      });
+    }
+    return Result.ok(module, result.warnings ?? []);
   }
 
   async findMany(
     systemIds: number[],
     fileSystemId: number,
-    applyOverlay = true,
   ): Promise<Result<SpfModuleReadModel[]>> {
     try {
       if (systemIds.length === 0)
@@ -104,12 +100,8 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         });
       const uniqueIds = [...new Set(systemIds)];
 
-      // Step 1 — module roots (overlay-aware — handles CREATE/DELETE/UPDATE drafts on nodes + spf_modules)
-      const rootsResult = await this.loadModuleRoots(
-        uniqueIds,
-        fileSystemId,
-        applyOverlay,
-      );
+      // Step 1 — module roots (overlay always applied)
+      const rootsResult = await this.loadModuleRoots(uniqueIds, fileSystemId);
       if (rootsResult.isFailure)
         return Result.fail(
           ...(rootsResult.errors ?? [
@@ -134,7 +126,6 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       const defCapResult = await this.loadDefinitionCapabilities(
         defIds,
         fileSystemId,
-        applyOverlay,
       );
       if (defCapResult.isFailure)
         return Result.fail(
@@ -162,12 +153,10 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           const dataPortResult = await this.nodeQueryService.getDataPorts(
             nodeId,
             fileSystemId,
-            applyOverlay as true,
           );
           const controlPortResult = await this.nodeQueryService.getControlPorts(
             nodeId,
             fileSystemId,
-            applyOverlay as true,
           );
           if (dataPortResult.isFailure)
             warnings.push({
@@ -197,7 +186,6 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       const tableDataMap = await this.loadSpfModuleTableData(
         uniqueIds,
         fileSystemId,
-        applyOverlay,
       );
 
       // Step 6 — assemble
@@ -265,7 +253,6 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   private async loadModuleRoots(
     nodeSystemIds: number[],
     fileSystemId: number,
-    applyOverlay: boolean,
   ): Promise<Result<ModuleRootData[]>> {
     try {
       const baseRows = await this.dataSource
@@ -277,10 +264,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         .getMany();
 
       // Three-tier overlay — apply drafts on nodes + spf_modules rows
-      // Handles: CREATE (new staged module), UPDATE (alias/parent change), DELETE (removal)
-      const session = applyOverlay
-        ? await this.editActionsSvc.findActiveSession(fileSystemId)
-        : null;
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
 
       let rows = baseRows;
       if (session) {
@@ -384,7 +368,6 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   private async loadDefinitionCapabilities(
     definitionIds: number[],
     fileSystemId: number,
-    applyOverlay: boolean,
   ): Promise<Result<Map<number, Result<DefinitionCapabilityData>>>> {
     try {
       const entries = await Promise.all(
@@ -393,8 +376,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
             await this.spfModuleDefinitionQuerySvc.getDefinition(
               defId,
               fileSystemId,
-              {includeSummary: true, includeFullDetails: false},
-              applyOverlay as true,
+              {summary: true},
             );
 
           if (defResult.isFailure) {
@@ -444,9 +426,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   private async loadSpfModuleTableData(
     nodeSystemIds: number[],
     fileSystemId: number,
-    applyOverlay: boolean,
   ): Promise<Map<number, EditActionRow>> {
-    if (!applyOverlay) return new Map();
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
     if (!session) return new Map();
 

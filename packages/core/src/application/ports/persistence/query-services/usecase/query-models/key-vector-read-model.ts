@@ -3,28 +3,16 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {
+  KeyReadModel,
+  ValueReadModel,
+} from '../../key-value/key-value-definition-read-model.js';
+
 /**
  * Key-Value pair read model — shared by usecase GKV, CKV, and TKV paths.
+ * Key and value use KeyReadModel / ValueReadModel — projections of the full definition.
  */
 export interface KeyValuePairReadModel {
   readonly key: KeyReadModel;
   readonly value: ValueReadModel;
-}
-
-/**
- * Key read model
- */
-export interface KeyReadModel {
-  readonly systemId: number;
-  readonly keyId: number;
-  readonly name: string;
-}
-
-/**
- * Value read model
- */
-export interface ValueReadModel {
-  readonly systemId: number;
-  readonly valueId: number;
-  readonly name: string;
 }
