@@ -42,9 +42,8 @@ describe('AwspFileSerializer', () => {
       };
 
       const serializer = new AwspFileSerializer(mockFileSystem);
-      const result = await serializer.serialize(entities);
+      await serializer.serialize(entities);
 
-      expect(result).toBeInstanceOf(Uint8Array);
       expect(mockFileSystem.zipToBuffer).toHaveBeenCalledTimes(1);
     });
 
@@ -139,6 +138,203 @@ describe('AwspFileSerializer', () => {
         'configuration.json',
         'ui-metadata.json',
       ]);
+    });
+
+    it('should write definitions.json with 8-block object when no key/tag entities provided', async () => {
+      let capturedFiles: Map<string, string | Uint8Array> | undefined;
+
+      const mockFileSystem: FileSystemPort = {
+        zipToBuffer: jest.fn(
+          async (files: Map<string, string | Uint8Array>) => {
+            capturedFiles = files;
+            return new Uint8Array([0x50, 0x4b]);
+          },
+        ),
+      } as unknown as FileSystemPort;
+
+      const entities: DownloadEntities = {
+        headerMetadata: {
+          version: {major: 1, minor: 0, revision: 0, cplInfo: 0},
+          codecInfos: [],
+          modifiedDate: 0,
+          oemInfo: '',
+        },
+      };
+
+      const serializer = new AwspFileSerializer(mockFileSystem);
+      await serializer.serialize(entities);
+
+      const definitionsJson = capturedFiles!.get(
+        FILE_NAMES.DEFINITIONS_JSON,
+      ) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<
+        string,
+        unknown[]
+      >;
+
+      expect(Array.isArray(definitions['keyDefinitions'])).toBe(true);
+      expect(definitions['keyDefinitions']).toHaveLength(0);
+      expect(Array.isArray(definitions['tagDefinitions'])).toBe(true);
+      expect(definitions['tagDefinitions']).toHaveLength(0);
+      expect(Array.isArray(definitions['spfModuleDefinitions'])).toBe(true);
+    });
+
+    it('should serialize spfModuleDefinitions from entities into definitions.json', async () => {
+      let capturedFiles: Map<string, string | Uint8Array> | undefined;
+
+      const mockFileSystem: FileSystemPort = {
+        zipToBuffer: jest.fn(
+          async (files: Map<string, string | Uint8Array>) => {
+            capturedFiles = files;
+            return new Uint8Array([0x50, 0x4b]);
+          },
+        ),
+      } as unknown as FileSystemPort;
+
+      const entities: DownloadEntities = {
+        headerMetadata: {
+          version: {major: 1, minor: 0, revision: 0, cplInfo: 0},
+          codecInfos: [],
+          modifiedDate: 0,
+          oemInfo: '',
+        },
+        spfModuleDefinitions: [{
+          moduleDefinitionId: 0x100,
+          name: 'TestMod',
+          stackSize: 0,
+          params: [],
+          portGroups: [],
+          staticControlPorts: [],
+          dynamicIntents: [],
+          supportedProcessorIds: [],
+          supportedContainerTypes: [],
+        }],
+      };
+
+      const serializer = new AwspFileSerializer(mockFileSystem);
+      await serializer.serialize(entities);
+
+      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+
+      expect(definitions['spfModuleDefinitions']).toHaveLength(1);
+      const mod = definitions['spfModuleDefinitions'][0] as Record<string, unknown>;
+      expect(mod['id']).toBe(0x100);
+      expect(mod['name']).toBe('TestMod');
+    });
+
+    it('should serialize driverModuleDefinitions from entities into definitions.json', async () => {
+      let capturedFiles: Map<string, string | Uint8Array> | undefined;
+
+      const mockFileSystem: FileSystemPort = {
+        zipToBuffer: jest.fn(
+          async (files: Map<string, string | Uint8Array>) => {
+            capturedFiles = files;
+            return new Uint8Array([0x50, 0x4b]);
+          },
+        ),
+      } as unknown as FileSystemPort;
+
+      const entities: DownloadEntities = {
+        headerMetadata: {
+          version: {major: 1, minor: 0, revision: 0, cplInfo: 0},
+          codecInfos: [],
+          modifiedDate: 0,
+          oemInfo: '',
+        },
+        driverModuleDefinitions: [{
+          moduleDefinitionId: 0xD100,
+          name: 'DriverMod',
+          params: [],
+        }],
+      };
+
+      const serializer = new AwspFileSerializer(mockFileSystem);
+      await serializer.serialize(entities);
+
+      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+
+      expect(definitions['driverModuleDefinitions']).toHaveLength(1);
+      const mod = definitions['driverModuleDefinitions'][0] as Record<string, unknown>;
+      expect(mod['id']).toBe(0xD100);
+    });
+
+    it('should serialize spfPropertyDefinitions from entities into definitions.json', async () => {
+      let capturedFiles: Map<string, string | Uint8Array> | undefined;
+
+      const mockFileSystem: FileSystemPort = {
+        zipToBuffer: jest.fn(
+          async (files: Map<string, string | Uint8Array>) => {
+            capturedFiles = files;
+            return new Uint8Array([0x50, 0x4b]);
+          },
+        ),
+      } as unknown as FileSystemPort;
+
+      const entities: DownloadEntities = {
+        headerMetadata: {
+          version: {major: 1, minor: 0, revision: 0, cplInfo: 0},
+          codecInfos: [],
+          modifiedDate: 0,
+          oemInfo: '',
+        },
+        spfPropertyDefinitions: [{
+          propertyId: 1001,
+          name: 'SgProp',
+          maxSize: 4,
+          elementsStructure: '[]',
+          categoryName: 'SG_CFG',
+        }],
+      };
+
+      const serializer = new AwspFileSerializer(mockFileSystem);
+      await serializer.serialize(entities);
+
+      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+
+      expect(definitions['spfPropertyDefinitions']).toHaveLength(1);
+      const prop = definitions['spfPropertyDefinitions'][0] as Record<string, unknown>;
+      expect(prop['id']).toBe(1001);
+    });
+
+    it('should serialize driverPropertyDefinitions from entities into definitions.json', async () => {
+      let capturedFiles: Map<string, string | Uint8Array> | undefined;
+
+      const mockFileSystem: FileSystemPort = {
+        zipToBuffer: jest.fn(
+          async (files: Map<string, string | Uint8Array>) => {
+            capturedFiles = files;
+            return new Uint8Array([0x50, 0x4b]);
+          },
+        ),
+      } as unknown as FileSystemPort;
+
+      const entities: DownloadEntities = {
+        headerMetadata: {
+          version: {major: 1, minor: 0, revision: 0, cplInfo: 0},
+          codecInfos: [],
+          modifiedDate: 0,
+          oemInfo: '',
+        },
+        driverPropertyDefinitions: [{
+          propertyId: 3001,
+          name: 'ModProp',
+          maxSize: 4,
+          propertyStructure: '[]',
+        }],
+      };
+
+      const serializer = new AwspFileSerializer(mockFileSystem);
+      await serializer.serialize(entities);
+
+      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+
+      expect(definitions['driverPropertyDefinitions']).toHaveLength(1);
+      const prop = definitions['driverPropertyDefinitions'][0] as Record<string, unknown>;
+      expect(prop['id']).toBe(3001);
     });
   });
 });

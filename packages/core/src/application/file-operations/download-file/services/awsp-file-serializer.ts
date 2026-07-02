@@ -8,10 +8,12 @@ import type {FileSystemPort} from '../../../ports/file-system/file-system.port.j
 import {
   FILE_NAMES,
   FILE_EXTENSIONS,
+  DEFINITION_BLOCK_NAMES,
 } from '../../shared/constants/definition-block-names.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 import type {AwspFileHeader} from '../../shared/awsp-serializers/headers/index.js';
 import type {WorkspaceFileVersion} from '../../shared/awsp-serializers/version.js';
+import {AwspDefinitionsMapper} from './awsp-definitions-mapper.js';
 
 const AWSP_MAGIC = 'AWSP';
 
@@ -38,7 +40,7 @@ export class AwspFileSerializer {
    * @throws Error if ZIP creation or binary wrapping fails
    */
   async serialize(
-    _entities: DownloadEntities,
+    entities: DownloadEntities,
     options?: {
       acdbFilePath?: string;
       eacFilePath?: string;
@@ -46,10 +48,47 @@ export class AwspFileSerializer {
     },
   ): Promise<Uint8Array> {
     try {
-      // Create empty JSON files
-      // TODO: Phase 2 - Add actual data serialization
+      const mapper = new AwspDefinitionsMapper();
+
+      const keyDefs = entities.keyDefinitions
+        ? mapper.toAwspKeyDefinitions(entities.keyDefinitions)
+        : [];
+      const tagDefs = entities.tagDefinitions
+        ? mapper.toAwspTagDefinitions(entities.tagDefinitions)
+        : [];
+      const spfModDefs = entities.spfModuleDefinitions
+        ? mapper.toAwspSpfModuleDefinitions(entities.spfModuleDefinitions)
+        : [];
+      const driverModDefs = entities.driverModuleDefinitions
+        ? mapper.toDriverModuleDefinitions(entities.driverModuleDefinitions)
+        : [];
+      const spfPropDefs = entities.spfPropertyDefinitions
+        ? mapper.toSpfPropertyDefinitions(entities.spfPropertyDefinitions)
+        : [];
+      const driverPropDefs = entities.driverPropertyDefinitions
+        ? mapper.toDriverPropertyDefinitions(entities.driverPropertyDefinitions)
+        : [];
+
+      const definitions = {
+        [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: keyDefs.map(k => k.toJSON()),
+        [DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]: tagDefs.map(t => t.toJSON()),
+        [DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS]: spfModDefs.map(m =>
+          m.toJSON(),
+        ),
+        [DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS]: driverModDefs.map(
+          m => m.toJSON(),
+        ),
+        [DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS]: spfPropDefs.map(p =>
+          p.toJSON(),
+        ),
+        [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
+          driverPropDefs.map(p => p.toJSON()),
+        [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: [],
+        [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]: [],
+      };
+
       const files = new Map<string, string>([
-        [FILE_NAMES.DEFINITIONS_JSON, '{}'],
+        [FILE_NAMES.DEFINITIONS_JSON, JSON.stringify(definitions)],
         [FILE_NAMES.CONFIGURATION_JSON, '{}'],
         [FILE_NAMES.UI_METADATA_JSON, '{}'],
       ]);

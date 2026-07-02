@@ -262,6 +262,186 @@ export interface DriverCalibrationDownloadModel {
 }
 
 /**
+ * Value definition download model.
+ * Nested inside KeyDefinitionDownloadModel.
+ */
+export interface ValueDefinitionDownloadModel {
+  valueId: number;
+  name: string;
+  description?: string;
+  enumValue?: string;
+  specialValue?: string;
+}
+
+/**
+ * Key definition download model for .awsp definitions.json generation.
+ * Maps directly to AwspKeyDefinition serializer fields.
+ */
+export interface KeyDefinitionDownloadModel {
+  keyId: number;
+  name: string;
+  description?: string;
+  isVoice?: boolean;
+  isDynamic?: boolean;
+  isCalibrationKey?: boolean;
+  isGraphKey?: boolean;
+  enumName?: string;
+  enumValue?: string;
+  calKeyEnumValue?: string;
+  graphKeyEnumValue?: string;
+  specialty?: string; // raw JSON string stored in arc_keys.speciality_key_value
+  values: ValueDefinitionDownloadModel[];
+}
+
+/**
+ * Tag-key link download model.
+ * Nested inside TagDefinitionDownloadModel.
+ */
+export interface TagKeyDownloadModel {
+  keyId: number; // natural ID from arc_keys.key_id
+  keyName: string; // from arc_keys.name
+  tagEnumValue?: string; // from tag_key_def_links.tag_enum_value
+}
+
+/**
+ * Tag definition download model for .awsp definitions.json generation.
+ * Maps directly to AwspTagDefinition serializer fields.
+ */
+export interface TagDefinitionDownloadModel {
+  tagId: number;
+  name: string;
+  description?: string;
+  isVoice: boolean;
+  enumName?: string;
+  enumValue?: string;
+  supportedKeys: TagKeyDownloadModel[];
+}
+
+/**
+ * SPF module parameter definition download model.
+ */
+export interface SpfParamDefDownloadModel {
+  paramId: number;
+  name?: string;
+  description?: string;
+  maxSize: number;
+  pidType: string;
+  elementsStructure: string; // raw JSON
+  isReadOnly: boolean;
+  toolPolicies?: string; // raw JSON array string
+}
+
+/**
+ * Data port download model.
+ */
+export interface DataPortDownloadModel {
+  portId: number;
+  name?: string;
+}
+
+/**
+ * Data port group download model (input or output).
+ */
+export interface DataPortGroupDownloadModel {
+  maxPortCount: number;
+  portIoType: 'Input' | 'Output';
+  ports: DataPortDownloadModel[];
+}
+
+/**
+ * Static intent download model.
+ */
+export interface StaticIntentDownloadModel {
+  intentId: number;
+  name: string;
+}
+
+/**
+ * Static control port download model.
+ */
+export interface StaticControlPortDownloadModel {
+  portId: number;
+  portName: string;
+  intents: StaticIntentDownloadModel[];
+}
+
+/**
+ * Dynamic intent download model.
+ */
+export interface DynamicIntentDownloadModel {
+  intentId: number;
+  name: string;
+  maxPort: number;
+}
+
+/**
+ * SPF module definition download model for .awsp definitions.json generation.
+ */
+export interface SpfModuleDefinitionDownloadModel {
+  moduleDefinitionId: number;
+  name: string;
+  displayName?: string;
+  description?: string;
+  groupName?: string;
+  searchKeys?: string;
+  stackSize: number;
+  params: SpfParamDefDownloadModel[];
+  portGroups: DataPortGroupDownloadModel[];
+  staticControlPorts: StaticControlPortDownloadModel[];
+  dynamicIntents: DynamicIntentDownloadModel[];
+  supportedProcessorIds: number[];
+  supportedContainerTypes: number[];
+}
+
+/**
+ * Driver module parameter definition download model.
+ */
+export interface DriverParamDefDownloadModel {
+  parameterId: number;
+  name?: string;
+  description?: string;
+  maxSize: number;
+  paramStructure: string; // raw JSON (elements array)
+}
+
+/**
+ * Driver module definition download model for .awsp definitions.json generation.
+ */
+export interface DriverModuleDefinitionDownloadModel {
+  moduleDefinitionId: number;
+  name: string;
+  description?: string;
+  groupName?: string;
+  params: DriverParamDefDownloadModel[];
+}
+
+/**
+ * SPF property definition download model for .awsp definitions.json generation.
+ * Sourced from subgraph_property_definitions (SG_CFG) and container_property_definitions (CONTAINTER_CFG).
+ */
+export interface SpfPropertyDefinitionDownloadModel {
+  propertyId: number;
+  name: string;
+  description?: string;
+  maxSize: number;
+  elementsStructure: string; // raw JSON
+  categoryName: string; // 'SG_CFG' or 'CONTAINTER_CFG'
+  isVoice?: boolean;
+}
+
+/**
+ * Driver property definition download model for .awsp definitions.json generation.
+ * Sourced from module_property_definitions.
+ */
+export interface DriverPropertyDefinitionDownloadModel {
+  propertyId: number;
+  name: string;
+  description?: string;
+  maxSize: number;
+  propertyStructure: string; // raw JSON (elements)
+}
+
+/**
  * All domain entities needed to reconstruct .acdb and .awsp files for a given file.
  */
 export interface DownloadEntities {
@@ -274,6 +454,12 @@ export interface DownloadEntities {
   tagData?: TagDataDownloadModel[];
   taggedModules?: TaggedModuleDownloadModel[];
   driverCalibrationData?: DriverCalibrationDownloadModel[];
+  keyDefinitions?: KeyDefinitionDownloadModel[];
+  tagDefinitions?: TagDefinitionDownloadModel[];
+  spfModuleDefinitions?: SpfModuleDefinitionDownloadModel[];
+  driverModuleDefinitions?: DriverModuleDefinitionDownloadModel[];
+  spfPropertyDefinitions?: SpfPropertyDefinitionDownloadModel[];
+  driverPropertyDefinitions?: DriverPropertyDefinitionDownloadModel[];
 }
 
 /**
@@ -344,4 +530,65 @@ export interface BulkReadQueryService {
   readDriverCalibrationData(
     fileSystemId: number,
   ): Promise<DriverCalibrationDownloadModel[]>;
+  /**
+   * Read all key definitions with nested value definitions for .awsp generation.
+   *
+   * @param fileSystemId - The file system ID to scope the query
+   * @returns Array of key definitions ordered by keyId ascending
+   */
+  readKeyDefinitions(
+    fileSystemId: number,
+  ): Promise<KeyDefinitionDownloadModel[]>;
+
+  /**
+   * Read all tag definitions with nested supported key links for .awsp generation.
+   *
+   * @param fileSystemId - The file system ID to scope the query
+   * @returns Array of tag definitions ordered by tagId ascending
+   */
+  readTagDefinitions(
+    fileSystemId: number,
+  ): Promise<TagDefinitionDownloadModel[]>;
+
+  /**
+   * Read all SPF module definitions with nested parameters, ports, intents, and links for .awsp generation.
+   *
+   * @param fileSystemId - The file system ID to scope the query
+   * @returns Array of SPF module definitions ordered by moduleDefinitionId ascending
+   */
+  readSpfModuleDefinitions(
+    fileSystemId: number,
+  ): Promise<SpfModuleDefinitionDownloadModel[]>;
+
+  /**
+   * Read all driver module definitions with nested parameters for .awsp generation.
+   *
+   * @param fileSystemId - The file system ID to scope the query
+   * @returns Array of driver module definitions ordered by moduleDefinitionId ascending
+   */
+  readDriverModuleDefinitions(
+    fileSystemId: number,
+  ): Promise<DriverModuleDefinitionDownloadModel[]>;
+
+  /**
+   * Read all SPF property definitions (subgraph + container) for .awsp generation.
+   * These are global catalogue tables not scoped by fileSystemId.
+   *
+   * @param fileSystemId - Unused; present for interface consistency
+   * @returns Array of SPF property definitions with derived categoryName
+   */
+  readSpfPropertyDefinitions(
+    fileSystemId: number,
+  ): Promise<SpfPropertyDefinitionDownloadModel[]>;
+
+  /**
+   * Read all driver property definitions for .awsp generation.
+   * These are global catalogue tables not scoped by fileSystemId.
+   *
+   * @param fileSystemId - Unused; present for interface consistency
+   * @returns Array of driver property definitions
+   */
+  readDriverPropertyDefinitions(
+    fileSystemId: number,
+  ): Promise<DriverPropertyDefinitionDownloadModel[]>;
 }
