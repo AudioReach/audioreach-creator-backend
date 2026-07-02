@@ -15,6 +15,21 @@ import type {
   TagDataDownloadModel,
   TaggedModuleDownloadModel,
   DriverCalibrationDownloadModel,
+  KeyDefinitionDownloadModel,
+  TagDefinitionDownloadModel,
+  TagKeyDownloadModel,
+  ValueDefinitionDownloadModel,
+  SpfModuleDefinitionDownloadModel,
+  SpfParamDefDownloadModel,
+  DataPortGroupDownloadModel,
+  DataPortDownloadModel,
+  StaticControlPortDownloadModel,
+  StaticIntentDownloadModel,
+  DynamicIntentDownloadModel,
+  DriverModuleDefinitionDownloadModel,
+  DriverParamDefDownloadModel,
+  SpfPropertyDefinitionDownloadModel,
+  DriverPropertyDefinitionDownloadModel,
   Logger,
 } from '@arc/core';
 import {compareNumberArrays, PORT_IO_TYPE} from '@arc/core';
@@ -46,6 +61,7 @@ import type {
   DkvParameterPayloadRow,
   DkvValuesRow,
 } from '../../entity-schema/driver-module-data/driver-module.js';
+
 
 /**
  * TypeORM implementation of BulkReadQueryService.
@@ -1108,5 +1124,399 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     }
 
     return result;
+  }
+
+  async readKeyDefinitions(
+    fileSystemId: number,
+  ): Promise<KeyDefinitionDownloadModel[]> {
+    const [keyRows, valueRows] = await Promise.all([
+      this.dataSource
+        .getRepository(ENTITY_NAMES.KeyDefinition)
+        .createQueryBuilder('k')
+        .where('k.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('k.keyId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.ValueDefinition)
+        .createQueryBuilder('v')
+        .innerJoin('v.keys', 'k')
+        .where('k.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('k.keyId', 'ASC')
+        .addOrderBy('v.valueId', 'ASC')
+        .getMany(),
+    ]);
+
+    const valuesMap = new Map<number, ValueDefinitionDownloadModel[]>();
+    for (const row of valueRows) {
+      if (!valuesMap.has(row.keySystemId)) {
+        valuesMap.set(row.keySystemId, []);
+      }
+      valuesMap.get(row.keySystemId)!.push({
+        valueId: row.valueId,
+        name: row.name,
+        description: row.description ?? undefined,
+        enumValue: row.enumValue ?? undefined,
+        specialValue: row.specialValue ?? undefined,
+      });
+    }
+
+    return keyRows.map(row => ({
+      keyId: row.keyId,
+      name: row.name,
+      description: row.description ?? undefined,
+      isVoice: row.isVoice != null ? Boolean(row.isVoice) : undefined,
+      isDynamic: row.isDynamic != null ? Boolean(row.isDynamic) : undefined,
+      isCalibrationKey:
+        row.isCalibrationKey != null ? Boolean(row.isCalibrationKey) : undefined,
+      isGraphKey: row.isGraphKey != null ? Boolean(row.isGraphKey) : undefined,
+      enumName: row.cEnumMemberName ?? undefined,
+      enumValue: row.cEnumName ?? undefined,
+      calKeyEnumValue: row.calibrationEnumValue ?? undefined,
+      graphKeyEnumValue: row.graphEnumValue ?? undefined,
+      specialty: row.specialityKeyValue ?? undefined,
+      values: valuesMap.get(row.systemId) ?? [],
+    }));
+  }
+
+  async readTagDefinitions(
+    fileSystemId: number,
+  ): Promise<TagDefinitionDownloadModel[]> {
+    const [tagRows, linkRows] = await Promise.all([
+      this.dataSource
+        .getRepository(ENTITY_NAMES.TagDefinition)
+        .createQueryBuilder('td')
+        .where('td.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('td.tagId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.TagKeyDefLink)
+        .createQueryBuilder('link')
+        .innerJoinAndSelect('link.keyDefinition', 'key')
+        .innerJoin('link.tagDefinition', 'td')
+        .where('td.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('link.tagDefinitionSystemId', 'ASC')
+        .addOrderBy('key.keyId', 'ASC')
+        .getMany(),
+    ]);
+
+    const linksMap = new Map<number, TagKeyDownloadModel[]>();
+    for (const link of linkRows) {
+      if (!linksMap.has(link.tagDefinitionSystemId)) {
+        linksMap.set(link.tagDefinitionSystemId, []);
+      }
+      linksMap.get(link.tagDefinitionSystemId)!.push({
+        keyId: link.keyDefinition!.keyId,
+        keyName: link.keyDefinition!.name,
+        tagEnumValue: link.tagEnumValue ?? undefined,
+      });
+    }
+
+    return tagRows.map(row => ({
+      tagId: row.tagId,
+      name: row.name,
+      description: row.description ?? undefined,
+      isVoice: Boolean(row.isVoice),
+      enumName: row.cHeaderEnumName ?? undefined,
+      enumValue: row.cHeaderEnumValue ?? undefined,
+      supportedKeys: linksMap.get(row.systemId) ?? [],
+    }));
+  }
+
+  async readSpfModuleDefinitions(
+    fileSystemId: number,
+  ): Promise<SpfModuleDefinitionDownloadModel[]> {
+    const [
+      moduleRows,
+      paramRows,
+      portGroupRows,
+      portDefRows,
+      staticPortRows,
+      staticIntentRows,
+      dynamicIntentRows,
+      processorLinkRows,
+      containerTypeLinkRows,
+    ] = await Promise.all([
+      this.dataSource
+        .getRepository(ENTITY_NAMES.SpfModuleDefinition)
+        .createQueryBuilder('def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('def.moduleDefinitionId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
+        .createQueryBuilder('param')
+        .innerJoin('param.spfModuleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('param.spfModuleDefinitionSystemId', 'ASC')
+        .addOrderBy('param.paramId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.DataPortGroup)
+        .createQueryBuilder('pg')
+        .innerJoin('pg.moduleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('pg.moduleDefinitionSystemId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.DataPortDefinition)
+        .createQueryBuilder('port')
+        .innerJoin('port.dataPortGroup', 'pg')
+        .innerJoin('pg.moduleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('port.dataPortGroupSystemId', 'ASC')
+        .addOrderBy('port.dataPortId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.StaticControlPortDefinition)
+        .createQueryBuilder('sp')
+        .innerJoin('sp.moduleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('sp.moduleDefinitionSystemId', 'ASC')
+        .addOrderBy('sp.portId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.StaticIntentDefinition)
+        .createQueryBuilder('si')
+        .innerJoin('si.staticControlPortDefinition', 'sp')
+        .innerJoin('sp.moduleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('si.staticControlPortDefinitionSystemId', 'ASC')
+        .addOrderBy('si.intentId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.DynamicIntentDefinition)
+        .createQueryBuilder('di')
+        .innerJoin('di.moduleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('di.moduleDefinitionSystemId', 'ASC')
+        .addOrderBy('di.intentId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository('ModuleDefinitionProcessorLink')
+        .createQueryBuilder('link')
+        .innerJoinAndSelect('link.processorDefinition', 'pd')
+        .innerJoin('link.moduleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('link.moduleDefinitionSystemId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository('ModuleDefinitionContainerTypeLink')
+        .createQueryBuilder('link')
+        .innerJoinAndSelect('link.containerType', 'ct')
+        .innerJoin('link.moduleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('link.moduleDefinitionSystemId', 'ASC')
+        .getMany(),
+    ]);
+
+    // Group params by spfModuleDefinitionSystemId
+    const paramsMap = new Map<number, SpfParamDefDownloadModel[]>();
+    for (const row of paramRows) {
+      if (!paramsMap.has(row.spfModuleDefinitionSystemId))
+        paramsMap.set(row.spfModuleDefinitionSystemId, []);
+      paramsMap.get(row.spfModuleDefinitionSystemId)!.push({
+        paramId: row.paramId,
+        name: row.name ?? undefined,
+        description: row.description ?? undefined,
+        maxSize: row.maxSize,
+        pidType: row.pidType,
+        elementsStructure: row.elementsStructure ?? '[]',
+        isReadOnly: Boolean(row.isReadOnly),
+        toolPolicies: row.toolPolicies ?? undefined,
+      });
+    }
+
+    // Group data ports by dataPortGroupSystemId
+    const dataPortsMap = new Map<number, DataPortDownloadModel[]>();
+    for (const row of portDefRows) {
+      if (!dataPortsMap.has(row.dataPortGroupSystemId))
+        dataPortsMap.set(row.dataPortGroupSystemId, []);
+      dataPortsMap.get(row.dataPortGroupSystemId)!.push({
+        portId: row.dataPortId,
+        name: row.name ?? undefined,
+      });
+    }
+
+    // Group port groups by moduleDefinitionSystemId
+    const portGroupsMap = new Map<number, DataPortGroupDownloadModel[]>();
+    for (const row of portGroupRows) {
+      if (!portGroupsMap.has(row.moduleDefinitionSystemId))
+        portGroupsMap.set(row.moduleDefinitionSystemId, []);
+      portGroupsMap.get(row.moduleDefinitionSystemId)!.push({
+        maxPortCount: row.maxAllowedPortCount,
+        portIoType: row.portIoType as 'Input' | 'Output',
+        ports: dataPortsMap.get(row.systemId) ?? [],
+      });
+    }
+
+    // Group static intents by staticControlPortDefinitionSystemId
+    const staticIntentsMap = new Map<number, StaticIntentDownloadModel[]>();
+    for (const row of staticIntentRows) {
+      if (!staticIntentsMap.has(row.staticControlPortDefinitionSystemId))
+        staticIntentsMap.set(row.staticControlPortDefinitionSystemId, []);
+      staticIntentsMap.get(row.staticControlPortDefinitionSystemId)!.push({
+        intentId: row.intentId,
+        name: row.name,
+      });
+    }
+
+    // Group static ports by moduleDefinitionSystemId
+    const staticPortsMap = new Map<number, StaticControlPortDownloadModel[]>();
+    for (const row of staticPortRows) {
+      if (!staticPortsMap.has(row.moduleDefinitionSystemId))
+        staticPortsMap.set(row.moduleDefinitionSystemId, []);
+      staticPortsMap.get(row.moduleDefinitionSystemId)!.push({
+        portId: row.portId,
+        portName: row.portName ?? '',
+        intents: staticIntentsMap.get(row.systemId) ?? [],
+      });
+    }
+
+    // Group dynamic intents by moduleDefinitionSystemId
+    const dynamicIntentsMap = new Map<number, DynamicIntentDownloadModel[]>();
+    for (const row of dynamicIntentRows) {
+      if (!dynamicIntentsMap.has(row.moduleDefinitionSystemId))
+        dynamicIntentsMap.set(row.moduleDefinitionSystemId, []);
+      dynamicIntentsMap.get(row.moduleDefinitionSystemId)!.push({
+        intentId: row.intentId,
+        name: row.name,
+        maxPort: row.maxPort,
+      });
+    }
+
+    // Group processor IDs by moduleDefinitionSystemId
+    const processorIdsMap = new Map<number, number[]>();
+    for (const link of processorLinkRows) {
+      if (!processorIdsMap.has(link.moduleDefinitionSystemId))
+        processorIdsMap.set(link.moduleDefinitionSystemId, []);
+      processorIdsMap
+        .get(link.moduleDefinitionSystemId)!
+        .push(link.processorDefinition!.processorDefinitionId);
+    }
+
+    // Group container type IDs by moduleDefinitionSystemId
+    const containerTypeIdsMap = new Map<number, number[]>();
+    for (const link of containerTypeLinkRows) {
+      if (!containerTypeIdsMap.has(link.moduleDefinitionSystemId))
+        containerTypeIdsMap.set(link.moduleDefinitionSystemId, []);
+      containerTypeIdsMap
+        .get(link.moduleDefinitionSystemId)!
+        .push(link.containerType!.value);
+    }
+
+    return moduleRows.map(row => ({
+      moduleDefinitionId: row.moduleDefinitionId,
+      name: row.name,
+      displayName: row.displayName ?? undefined,
+      description: row.description ?? undefined,
+      groupName: row.groupName ?? undefined,
+      searchKeys: row.modSearchKeys ?? undefined,
+      stackSize: row.stackSize,
+      params: paramsMap.get(row.systemId) ?? [],
+      portGroups: portGroupsMap.get(row.systemId) ?? [],
+      staticControlPorts: staticPortsMap.get(row.systemId) ?? [],
+      dynamicIntents: dynamicIntentsMap.get(row.systemId) ?? [],
+      supportedProcessorIds: processorIdsMap.get(row.systemId) ?? [],
+      supportedContainerTypes: containerTypeIdsMap.get(row.systemId) ?? [],
+    }));
+  }
+
+  async readDriverModuleDefinitions(
+    fileSystemId: number,
+  ): Promise<DriverModuleDefinitionDownloadModel[]> {
+    const [moduleRows, paramRows] = await Promise.all([
+      this.dataSource
+        .getRepository(ENTITY_NAMES.DriverModuleDefinition)
+        .createQueryBuilder('def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('def.moduleDefinitionId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.DriverModuleParameterDefinition)
+        .createQueryBuilder('param')
+        .innerJoin('param.driverModuleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('param.driverModuleDefinitionSystemId', 'ASC')
+        .addOrderBy('param.parameterId', 'ASC')
+        .getMany(),
+    ]);
+
+    const paramsMap = new Map<number, DriverParamDefDownloadModel[]>();
+    for (const row of paramRows) {
+      if (!paramsMap.has(row.driverModuleDefinitionSystemId))
+        paramsMap.set(row.driverModuleDefinitionSystemId, []);
+      paramsMap.get(row.driverModuleDefinitionSystemId)!.push({
+        parameterId: row.parameterId,
+        name: row.name ?? undefined,
+        description: row.description ?? undefined,
+        maxSize: row.maxSize,
+        paramStructure: row.paramStructure,
+      });
+    }
+
+    return moduleRows.map(row => ({
+      moduleDefinitionId: row.moduleDefinitionId,
+      name: row.name,
+      description: row.description ?? undefined,
+      groupName: row.groupName ?? undefined,
+      params: paramsMap.get(row.systemId) ?? [],
+    }));
+  }
+
+  async readSpfPropertyDefinitions(
+    _fileSystemId: number,
+  ): Promise<SpfPropertyDefinitionDownloadModel[]> {
+    const [subgraphRows, containerRows] = await Promise.all([
+      this.dataSource
+        .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
+        .createQueryBuilder('sp')
+        .orderBy('sp.propertyId', 'ASC')
+        .getMany(),
+      this.dataSource
+        .getRepository(ENTITY_NAMES.ContainerProperty)
+        .createQueryBuilder('cp')
+        .orderBy('cp.propertyId', 'ASC')
+        .getMany(),
+    ]);
+
+    const result: SpfPropertyDefinitionDownloadModel[] = [
+      ...subgraphRows.map(row => ({
+        propertyId: row.propertyId,
+        name: row.name,
+        description: row.description ?? undefined,
+        maxSize: row.maxSize,
+        elementsStructure: row.elementsStructure ?? '[]',
+        categoryName: 'SG_CFG',
+        isVoice: Boolean(row.isVoice),
+      })),
+      ...containerRows.map(row => ({
+        propertyId: row.propertyId,
+        name: row.name,
+        description: row.description ?? undefined,
+        maxSize: row.maxSize,
+        elementsStructure: row.elementsStructure ?? '[]',
+        categoryName: 'CONTAINTER_CFG',
+      })),
+    ];
+
+    return result;
+  }
+
+  async readDriverPropertyDefinitions(
+    _fileSystemId: number,
+  ): Promise<DriverPropertyDefinitionDownloadModel[]> {
+    const rows = await this.dataSource
+      .getRepository(ENTITY_NAMES.ModulePropertyDefinition)
+      .createQueryBuilder('prop')
+      .orderBy('prop.propertyId', 'ASC')
+      .getMany();
+
+    return rows.map(row => ({
+      propertyId: row.propertyId,
+      name: row.name,
+      description: row.description ?? undefined,
+      maxSize: row.maxSize,
+      propertyStructure: row.propertyStructure,
+    }));
   }
 }
