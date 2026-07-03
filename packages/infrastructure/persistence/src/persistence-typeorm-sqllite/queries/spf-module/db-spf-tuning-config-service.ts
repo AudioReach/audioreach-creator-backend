@@ -11,16 +11,19 @@ import type {
   TagReadModel,
   CkvParamReadModel,
   KeyValueDefQueryService,
+  TagDefinitionQueryService,
   ConfigurationIncludes,
   KeyDefinitionSummaryReadModel,
   ValueDefinitionSummaryReadModel,
   Issue,
+  TagDefinitionReadModel,
 } from '@arc/core';
 import {
   Result,
   ERROR_CODES,
   CONFIGURATION_INCLUDES,
   IssueSeverity,
+  RESULT_KIND,
 } from '@arc/core';
 import {applyTableOverlay} from '../edit-session/overlay-utils.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
@@ -36,13 +39,13 @@ import type {
   TkvRow,
   TkvParameterPayloadRow,
 } from '../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
-import type {TagDefinitionRow} from '../../entity-schema/definitions/tag-key-value/tag-definition.schema.js';
 
 export class DbSpfTuningConfigService implements SpfTuningConfigService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
+    private readonly tagDefinitionSvc: TagDefinitionQueryService,
   ) {}
 
   // ── Public methods ───────────────────────────────────────────────────────
@@ -77,7 +80,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         overlaidRows.map(async row => {
           try {
             const result = await this.buildCkvReadModel(row, fileSystemId);
-            if (result.kind === 'fail') {
+            if (result.kind === RESULT_KIND.Fail) {
               itemErrors.push(...result.issues);
               return null;
             }
@@ -181,11 +184,25 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         ? await this.overlayTagMapRows(rows, spfModuleSystemId, session)
         : rows;
 
-      // Step 3 — Load tag definitions for tagId + tagName
+      // Step 3 — Load tag definitions for tagId + tagName, routed through
+      // TagDefinitionQueryService so session-renamed tags show the same
+      // fresh name here as via GET /definitions/tags/:id. A lookup failure
+      // is treated as "no tag defs resolved" (empty map) rather than
+      // failing the whole call — consistent with this method's existing
+      // per-item-tolerant style (tagId: 0, tagName: '' fallbacks below).
       const tagDefIds = [
         ...new Set(overlaidRows.map(r => r.tagDefinitionSystemId)),
       ];
-      const tagDefMap = await this.loadTagDefinitions(tagDefIds);
+      const tagDefsResult =
+        await this.tagDefinitionSvc.getTagDefinitionsBySystemIds(
+          tagDefIds,
+          fileSystemId,
+        );
+      const tagDefMap = new Map<number, TagDefinitionReadModel>(
+        (tagDefsResult.kind === RESULT_KIND.Fail ? [] : tagDefsResult.data).map(
+          t => [t.systemId, t],
+        ),
+      );
 
       // Step 4 — Per tag map, build TKV read models inline.
       // buildTagTkvReadModels isolates per-TKV failures internally and
@@ -200,7 +217,8 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
             session,
             fileSystemId,
           );
-          const tkvs = tkvResult.kind === 'fail' ? [] : tkvResult.data;
+          const tkvs =
+            tkvResult.kind === RESULT_KIND.Fail ? [] : tkvResult.data;
           itemErrors.push(...(tkvResult.issues ?? []));
 
           return {
@@ -343,7 +361,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       valueDefIds,
       fileSystemId,
     );
-    if (pairsResult.kind === 'fail')
+    if (pairsResult.kind === RESULT_KIND.Fail)
       return Result.fail<CkvReadModel>(...pairsResult.issues);
 
     const model: CkvReadModel = {
@@ -368,7 +386,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       valueDefIds,
       fileSystemId,
     );
-    if (pairsResult.kind === 'fail')
+    if (pairsResult.kind === RESULT_KIND.Fail)
       return Result.fail<TkvReadModel>(...pairsResult.issues);
 
     const model: TkvReadModel = {
@@ -406,7 +424,8 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         valueDefIds,
         fileSystemId,
       );
-    if (keysResult.kind === 'fail') return Result.fail(...keysResult.issues);
+    if (keysResult.kind === RESULT_KIND.Fail)
+      return Result.fail(...keysResult.issues);
 
     return keysResult;
   }
@@ -433,7 +452,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       overlaidTkvs.map(async tkv => {
         try {
           const result = await this.buildTkvReadModel(tkv, fileSystemId);
-          if (result.kind === 'fail') {
+          if (result.kind === RESULT_KIND.Fail) {
             itemErrors.push(...result.issues);
             return null;
           }
@@ -491,19 +510,5 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         ? {payload: payload.payload}
         : {}),
     };
-  }
-
-  // ── Shared helpers ───────────────────────────────────────────────────────
-
-  private async loadTagDefinitions(
-    tagDefIds: number[],
-  ): Promise<Map<number, TagDefinitionRow>> {
-    if (tagDefIds.length === 0) return new Map();
-    const rows = (await this.dataSource
-      .getRepository('TagDefinition')
-      .createQueryBuilder('td')
-      .where('td.systemId IN (:...ids)', {ids: tagDefIds})
-      .getMany()) as TagDefinitionRow[];
-    return new Map(rows.map(r => [r.systemId, r]));
   }
 }

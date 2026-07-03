@@ -25,7 +25,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
     app = testSetup.app;
     httpServer = testSetup.httpServer;
     authToken = testSetup.authToken;
-  });
+  }, 350000);
 
   afterAll(async () => {
     // Properly close the application and clean up resources

@@ -12,6 +12,7 @@ import type {
   SpfModuleQueryService,
   SpfModuleDefinitionQueryService,
   KeyValueDefQueryService,
+  TagDefinitionQueryService,
   SpfTuningConfigService,
   ContainerQueryService,
   Logger,
@@ -25,6 +26,7 @@ import {EditActionsQueryService} from './edit-session/edit-actions-query-service
 import {DbSpfModuleQueryService} from './spf-module/db-spf-module-query-service.js';
 import {DbSpfModuleDefinitionQueryService} from './spf-module-definition/db-spf-module-definition-query-service.js';
 import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-service.js';
+import {DbTagDefinitionQueryService} from './tag-definition/db-tag-definition-query-service.js';
 import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
 import {DbContainerQueryService} from './container/db-container-query-service.js';
 
@@ -42,6 +44,7 @@ export class DbQueryServices implements QueryServices {
   readonly spfModuleQueryService: SpfModuleQueryService;
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
   readonly keyValueDefQueryService: KeyValueDefQueryService;
+  readonly tagDefinitionQueryService: TagDefinitionQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly containerQueryService: ContainerQueryService;
 
@@ -66,13 +69,20 @@ export class DbQueryServices implements QueryServices {
       editActionsQueryService,
     );
 
+    this.tagDefinitionQueryService = new DbTagDefinitionQueryService(
+      dataSource,
+      editActionsQueryService,
+      this.keyValueDefQueryService,
+    );
+
     this.spfModuleDefinitionQueryService =
       new DbSpfModuleDefinitionQueryService(
         dataSource,
         editActionsQueryService,
       );
 
-    // Tuning config service — owns CKV/TKV rows, delegates key-value to KeyValueDefQueryService.
+    // Tuning config service — owns CKV/TKV rows, delegates key-value to
+    // KeyValueDefQueryService and tag names/lookups to TagDefinitionQueryService.
     // Instantiated once here and passed into spfModuleQueryService — previously
     // DbSpfModuleQueryService constructed its own separate instance internally,
     // creating two divergent DbSpfTuningConfigService objects.
@@ -80,6 +90,7 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
       this.keyValueDefQueryService,
+      this.tagDefinitionQueryService,
     );
 
     this.spfModuleQueryService = new DbSpfModuleQueryService(

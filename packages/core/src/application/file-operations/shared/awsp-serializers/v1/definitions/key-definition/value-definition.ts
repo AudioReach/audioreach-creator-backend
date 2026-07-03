@@ -21,7 +21,7 @@ export class AwspValueDefinition extends BaseDefinition {
   description?: string;
 
   /** Optional enumeration value associated with the value definition */
-  enumValue?: string;
+  enumMember?: string;
 
   /** Optional special value that should be filled when SpecialKey exists in the parent KeyDefinition */
   specialValue?: string;
@@ -46,7 +46,7 @@ export class AwspValueDefinition extends BaseDefinition {
       id: this.id,
       name: this.name,
       description: this.description,
-      enumValue: this.enumValue,
+      enumMember: this.enumMember,
       specialValue: this.specialValue,
     };
   }

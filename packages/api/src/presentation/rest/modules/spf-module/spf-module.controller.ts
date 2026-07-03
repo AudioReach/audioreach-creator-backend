@@ -61,6 +61,7 @@ import {
   type ElementArrayData,
   type StructArrayData,
   type StructData,
+  RESULT_KIND,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
@@ -674,9 +675,9 @@ export class SpfModuleController extends BaseController {
     dto.controlPorts = m.controlPorts.map(p => this.mapControlPortToDto(p));
     dto.changeInfo = undefined;
 
-    if (ckvsResult?.kind === 'ok')
+    if (ckvsResult?.kind === RESULT_KIND.Ok)
       dto.ckvs = ckvsResult.data.map(c => this.mapCkvToDto(c));
-    if (tagsResult?.kind === 'ok')
+    if (tagsResult?.kind === RESULT_KIND.Ok)
       dto.tags = tagsResult.data.map(t => this.mapTagToDto(t));
 
     return dto;

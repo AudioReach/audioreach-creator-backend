@@ -8,6 +8,7 @@ import {
   type ValidationIssue,
   IssueCategory,
   IssueSeverity,
+  RESULT_KIND,
 } from '@arc/core';
 import {
   ArcDbFileSchema,
@@ -56,8 +57,8 @@ describe('TypeOrmProjectRepository', () => {
           },
         );
 
-        expect(result.kind).toBe('ok');
-        if (result.kind !== 'ok') return;
+        expect(result.kind).toBe(RESULT_KIND.Ok);
+        if (result.kind !== RESULT_KIND.Ok) return;
 
         expect(result.data.project.systemId).toBeGreaterThan(0);
         expect(result.data.project.name).toBe('TestProject');
@@ -86,7 +87,7 @@ describe('TypeOrmProjectRepository', () => {
         openStatus: FILE_OPEN_STATUS.Loading,
         dataLossIssues: [],
       });
-      expect(first.kind).toBe('ok');
+      expect(first.kind).toBe(RESULT_KIND.Ok);
       await commitTestTransaction(qr1);
 
       const qr2 = await createTestTransaction();
@@ -105,8 +106,8 @@ describe('TypeOrmProjectRepository', () => {
           },
         );
 
-        expect(result.kind).toBe('fail');
-        if (result.kind !== 'fail') return;
+        expect(result.kind).toBe(RESULT_KIND.Fail);
+        if (result.kind !== RESULT_KIND.Fail) return;
         expect(result.issues).toHaveLength(1);
         expect(result.issues[0].code).toBe('DB_QUERY_FAILED');
         expect(result.issues[0].message).toBeTruthy();
@@ -132,8 +133,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.kind).toBe('ok');
-      if (createResult.kind !== 'ok') return;
+      expect(createResult.kind).toBe(RESULT_KIND.Ok);
+      if (createResult.kind !== RESULT_KIND.Ok) return;
       const fileSystemId = createResult.data.file.systemId;
 
       await repo.updateFileStatus(fileSystemId, FILE_OPEN_STATUS.Ready, []);
@@ -163,8 +164,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.kind).toBe('ok');
-      if (createResult.kind !== 'ok') return;
+      expect(createResult.kind).toBe(RESULT_KIND.Ok);
+      if (createResult.kind !== RESULT_KIND.Ok) return;
       const fileSystemId = createResult.data.file.systemId;
 
       const issue: ValidationIssue = {
@@ -210,8 +211,8 @@ describe('TypeOrmProjectRepository', () => {
         openStatus: FILE_OPEN_STATUS.Loading,
         dataLossIssues: [],
       });
-      expect(createResult.kind).toBe('ok');
-      if (createResult.kind !== 'ok') return;
+      expect(createResult.kind).toBe(RESULT_KIND.Ok);
+      if (createResult.kind !== RESULT_KIND.Ok) return;
       const projectSystemId = createResult.data.project.systemId;
 
       await repo.deleteProject(projectSystemId);
@@ -243,8 +244,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.kind).toBe('ok');
-      if (createResult.kind !== 'ok') return;
+      expect(createResult.kind).toBe(RESULT_KIND.Ok);
+      if (createResult.kind !== RESULT_KIND.Ok) return;
       const fileSystemId = createResult.data.file.systemId;
 
       await repo.updateFileHeader(fileSystemId, {
@@ -308,8 +309,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.kind).toBe('ok');
-      if (createResult.kind !== 'ok') return;
+      expect(createResult.kind).toBe(RESULT_KIND.Ok);
+      if (createResult.kind !== RESULT_KIND.Ok) return;
       const fileSystemId = createResult.data.file.systemId;
 
       await repo.updateFileHeader(fileSystemId, {
@@ -373,8 +374,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.kind).toBe('ok');
-      if (createResult.kind !== 'ok') return;
+      expect(createResult.kind).toBe(RESULT_KIND.Ok);
+      if (createResult.kind !== RESULT_KIND.Ok) return;
       const fileSystemId = createResult.data.file.systemId;
 
       // First update

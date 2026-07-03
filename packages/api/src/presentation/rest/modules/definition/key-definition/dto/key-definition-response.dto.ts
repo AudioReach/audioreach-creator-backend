@@ -11,10 +11,10 @@ import {Type} from 'class-transformer';
 
 export class KeyDefinitionResponseDto extends BaseKeyDefinitionDto {
   @ApiProperty({description: 'Key enum value for pseudo header file'})
-  cHeaderEnumValue!: string;
+  enumMember!: string;
 
   @ApiProperty({description: 'Key enum name for pseudo header file'})
-  cHeaderEnumName!: string;
+  enumName!: string;
 
   @ApiProperty({description: 'Indicates if the key is a voice key'})
   isVoice!: boolean;
@@ -40,12 +40,12 @@ export class KeyDefinitionResponseDto extends BaseKeyDefinitionDto {
       'Calibration key enum value for pseudo header file (required when isCalibrationKey is true)',
     required: false,
   })
-  cHeaderCalibrationKeyEnumValue?: string;
+  calKeyEnumMember?: string;
 
   @ApiProperty({
     description:
       'Graph key enum value for pseudo header file (required when isGraphKey is true)',
     required: false,
   })
-  cHeaderGraphKeyEnumValue?: string;
+  graphKeyEnumMember?: string;
 }

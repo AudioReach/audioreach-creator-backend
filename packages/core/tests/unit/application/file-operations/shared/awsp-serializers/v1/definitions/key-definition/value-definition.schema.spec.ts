@@ -38,7 +38,7 @@ describe('ValueDefinitionSchema', () => {
         id: 1,
         name: 'Value1',
         description: 'Test value description',
-        enumValue: 'ENUM_VALUE_1',
+        enumMember: 'ENUM_VALUE_1',
         specialValue: 'SPECIAL_1',
       };
 
@@ -58,7 +58,7 @@ describe('ValueDefinitionSchema', () => {
       expect(result.id).toBe(999);
       expect(result.name).toBe('TestValue');
       expect(result.description).toBeUndefined();
-      expect(result.enumValue).toBeUndefined();
+      expect(result.enumMember).toBeUndefined();
       expect(result.specialValue).toBeUndefined();
     });
   });
@@ -117,11 +117,11 @@ describe('ValueDefinitionSchema', () => {
       expect(() => ValueDefinitionSchema.parse(input)).toThrow();
     });
 
-    it('should reject value definition with non-string enumValue', () => {
+    it('should reject value definition with non-string enumMember', () => {
       const input = {
         id: 1,
         name: 'Value1',
-        enumValue: 123,
+        enumMember: 123,
       };
 
       expect(() => ValueDefinitionSchema.parse(input)).toThrow();

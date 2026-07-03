@@ -121,8 +121,8 @@ describe('KeyDefinitionBuilder', () => {
           isVoice: false,
           isDynamic: false,
           cHeaderAttributes: {
-            keyEnumName: 'KEY_1',
-            keyEnumValue: '100',
+            enumName: 'KEY_1',
+            enumMember: '100',
           },
         });
 
@@ -137,8 +137,8 @@ describe('KeyDefinitionBuilder', () => {
           isVoice: false,
           isDynamic: false,
           cHeaderAttributes: {
-            keyEnumName: 'KEY_2',
-            keyEnumValue: '200',
+            enumName: 'KEY_2',
+            enumMember: '200',
           },
         });
 
@@ -328,13 +328,13 @@ describe('KeyDefinitionBuilder', () => {
               id: 1,
               name: 'Value 1',
               description: 'Value 1 desc',
-              enumValue: '1',
+              enumMember: '1',
             },
             {
               id: 2,
               name: 'Value 2',
               description: 'Value 2 desc',
-              enumValue: '2',
+              enumMember: '2',
             },
           ],
         };
@@ -375,7 +375,7 @@ describe('KeyDefinitionBuilder', () => {
               id: 1,
               name: 'Value 1',
               description: 'Value desc',
-              enumValue: '1',
+              enumMember: '1',
             },
           ],
         };
@@ -547,7 +547,7 @@ describe('KeyDefinitionBuilder', () => {
               id: 1,
               name: 'Value 1',
               description: 'Value 1 desc',
-              enumValue: '1',
+              enumMember: '1',
             },
           ],
         };
@@ -559,7 +559,7 @@ describe('KeyDefinitionBuilder', () => {
         expect(result.values[0].valueId).toBe(1);
         expect(result.values[0].name).toBe('Value 1');
         expect(result.values[0].description).toBe('Value 1 desc');
-        expect(result.values[0].enumValue).toBe('1');
+        expect(result.values[0].enumMember).toBe('1');
       });
 
       it('should transform C header attributes', () => {
@@ -581,10 +581,10 @@ describe('KeyDefinitionBuilder', () => {
 
         const result = KeyDefinitionBuilder.transformKeyDefinition(awspKey);
 
-        expect(result.cHeaderAttributes?.keyEnumName).toBe('TEST_KEY');
-        expect(result.cHeaderAttributes?.keyEnumValue).toBe('100');
-        expect(result.cHeaderAttributes?.calibrationEnumValue).toBe('CAL_100');
-        expect(result.cHeaderAttributes?.graphEnumValue).toBe('GRAPH_100');
+        expect(result.cHeaderAttributes?.enumMember).toBe('TEST_KEY');
+        expect(result.cHeaderAttributes?.enumName).toBe('100');
+        expect(result.cHeaderAttributes?.calKeyEnumMember).toBe('CAL_100');
+        expect(result.cHeaderAttributes?.graphKeyEnumMember).toBe('GRAPH_100');
       });
 
       it('should transform specialty key', () => {
@@ -648,7 +648,7 @@ describe('KeyDefinitionBuilder', () => {
               id: 1,
               name: 'Value',
               description: '',
-              enumValue: '1',
+              enumMember: '1',
             },
           ],
         };
@@ -696,8 +696,8 @@ describe('KeyDefinitionBuilder', () => {
 
         const result = KeyDefinitionBuilder.transformKeyDefinition(awspKey);
 
-        expect(result.cHeaderAttributes?.calibrationEnumValue).toBeUndefined();
-        expect(result.cHeaderAttributes?.graphEnumValue).toBeUndefined();
+        expect(result.cHeaderAttributes?.calKeyEnumMember).toBeUndefined();
+        expect(result.cHeaderAttributes?.graphKeyEnumMember).toBeUndefined();
       });
     });
   });

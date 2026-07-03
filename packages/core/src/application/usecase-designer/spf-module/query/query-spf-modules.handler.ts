@@ -11,7 +11,7 @@ import type {
   TagReadModel,
 } from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 import type {SpfModulesQuery as SpfModuleQuery} from './query-spf-modules.query.js';
-import {Result} from '../../../shared/result/result.js';
+import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export interface SpfModuleDetailedReadModel {
@@ -58,7 +58,7 @@ export class SpfModuleQueryHandler implements QueryHandler<
         fileSystemId,
       );
 
-    if (modulesResult.kind === 'fail') {
+    if (modulesResult.kind === RESULT_KIND.Fail) {
       return Result.fail(...modulesResult.issues);
     }
 

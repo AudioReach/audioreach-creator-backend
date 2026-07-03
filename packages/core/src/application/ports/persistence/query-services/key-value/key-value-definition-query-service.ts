@@ -12,6 +12,28 @@ import type {Result} from '../../../../shared/result/result.js';
 
 export interface KeyValueDefQueryService {
   /**
+   * Returns all key definitions for the given file, with their values embedded.
+   * Optional keyId filters by natural ACDB key_id. Overlay is always applied.
+   *
+   * Result.fail only if the underlying query/overlay itself throws.
+   */
+  getAllKeyDefinitions(
+    fileSystemId: number,
+    keyNaturalId?: number,
+  ): Promise<Result<KeyDefinitionReadModel[]>>;
+
+  /**
+   * Batch — returns the overlaid KeyDefinitionReadModels for the given key
+   * systemIds. Each returned key carries its full child values. Ids that
+   * don't resolve (absent from DB and overlay) are silently omitted.
+   * Outer Result fails only if a DB query throws.
+   */
+  getKeyDefinitionsBySystemIds(
+    keySystemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<KeyDefinitionReadModel[]>>;
+
+  /**
    * Given a value systemId, returns its parent KeyDefinitionReadModel —
    * key fields plus ALL child values under that key (not just the requested
    * one). Resolution order: DB row first, then session overlay. Result.fail

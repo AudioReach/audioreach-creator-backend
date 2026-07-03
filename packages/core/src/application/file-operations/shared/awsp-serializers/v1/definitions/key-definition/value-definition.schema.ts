@@ -13,7 +13,7 @@ export const ValueDefinitionSchema = z.object({
   id: HexIdSchema,
   name: z.string().min(1),
   description: z.string().optional(),
-  enumValue: z.string().optional(),
+  enumMember: z.string().optional(),
   specialValue: z.string().optional(),
 });
 

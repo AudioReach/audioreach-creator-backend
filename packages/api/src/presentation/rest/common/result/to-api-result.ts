@@ -4,6 +4,7 @@
  */
 
 import type {Result} from '@arc/core';
+import {RESULT_KIND} from '@arc/core';
 import type {ApiResult} from '../dto/api-response/api-result.dto.js';
 import {toApiIssueItems} from '../dto/api-response/api-issue-item.mapper.js';
 
@@ -30,7 +31,7 @@ export function toApiResult<T, U = T>(
   result: Result<T>,
   mapper?: (data: T) => U,
 ): ApiResult<U> {
-  if (result.kind === 'fail') {
+  if (result.kind === RESULT_KIND.Fail) {
     throw new Error(
       'toApiResult received a fail Result — handler must throw DomainException instead of returning Result.fail().',
     );

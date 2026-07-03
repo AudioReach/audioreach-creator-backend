@@ -6,6 +6,19 @@
 import type {Issue} from '../../../shared/issues/index.js';
 
 /**
+ * Named constants for Result<T>.kind — compare against these instead of
+ * raw string literals ('ok'/'partial'/'fail'), matching the codebase's
+ * existing enum-like vocabulary convention (CHANGE_OPERATION, SESSION_STATUS,
+ * PORT_IO_TYPE, etc.).
+ */
+export const RESULT_KIND = {
+  Ok: 'OK',
+  Partial: 'PARTIAL',
+  Fail: 'FAIL',
+} as const;
+export type ResultKind = (typeof RESULT_KIND)[keyof typeof RESULT_KIND];
+
+/**
  * Outcome envelope for query and command handlers.
  *
  * Three tagged variants:
@@ -18,13 +31,17 @@ import type {Issue} from '../../../shared/issues/index.js';
  * Design §3.1, FR-2, FR-3, I-1, I-5, I-6.
  */
 export type Result<T> =
-  | {readonly kind: 'ok'; readonly data: T; readonly issues?: readonly Issue[]}
   | {
-      readonly kind: 'partial';
+      readonly kind: typeof RESULT_KIND.Ok;
+      readonly data: T;
+      readonly issues?: readonly Issue[];
+    }
+  | {
+      readonly kind: typeof RESULT_KIND.Partial;
       readonly data: T;
       readonly issues: readonly Issue[];
     }
-  | {readonly kind: 'fail'; readonly issues: readonly Issue[]};
+  | {readonly kind: typeof RESULT_KIND.Fail; readonly issues: readonly Issue[]};
 
 /**
  * Factory namespace for constructing Result<T> values.
@@ -35,13 +52,14 @@ export type Result<T> =
  *   - ok() with an empty issues array returns a variant with no issues field
  *
  * No predicate helpers — the `kind` discriminant is self-documenting (FR-3).
+ * Compare against RESULT_KIND's named constants, not raw string literals.
  */
 export const Result = {
   ok<T>(data: T, issues?: readonly Issue[]): Result<T> {
     if (issues && issues.length > 0) {
-      return {kind: 'ok', data, issues};
+      return {kind: RESULT_KIND.Ok, data, issues};
     }
-    return {kind: 'ok', data};
+    return {kind: RESULT_KIND.Ok, data};
   },
 
   partial<T>(data: T, issues: readonly Issue[]): Result<T> {
@@ -50,13 +68,13 @@ export const Result = {
         'Result.partial() requires at least one issue — use Result.ok() for issue-free success',
       );
     }
-    return {kind: 'partial', data, issues};
+    return {kind: RESULT_KIND.Partial, data, issues};
   },
 
   fail<T = never>(...issues: readonly Issue[]): Result<T> {
     if (issues.length === 0) {
       throw new Error('Result.fail() requires at least one issue');
     }
-    return {kind: 'fail', issues};
+    return {kind: RESULT_KIND.Fail, issues};
   },
 } as const;

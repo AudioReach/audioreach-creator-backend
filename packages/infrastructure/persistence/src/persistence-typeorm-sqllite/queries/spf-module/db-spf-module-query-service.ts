@@ -18,6 +18,7 @@ import {
   ERROR_CODES,
   CONFIGURATION_INCLUDES,
   IssueSeverity,
+  RESULT_KIND,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
@@ -92,7 +93,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   ): Promise<SpfModuleReadModel> {
     const result = await this.findMany([spfModuleSystemId], fileSystemId);
 
-    if (result.kind === 'fail') {
+    if (result.kind === RESULT_KIND.Fail) {
       const message = result.issues[0]?.message ?? 'Failed to load SPF module';
       throw new ResourceNotFoundException(
         `SpfModule not found for systemId=${spfModuleSystemId}: ${message}`,
@@ -123,7 +124,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
 
       // Step 1 — module roots (overlay always applied)
       const rootsResult = await this.loadModuleRoots(uniqueIds, fileSystemId);
-      if (rootsResult.kind === 'fail')
+      if (rootsResult.kind === RESULT_KIND.Fail)
         return Result.fail(...rootsResult.issues);
       const roots = rootsResult.data;
 
@@ -138,7 +139,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         defIds,
         fileSystemId,
       );
-      if (defCapResult.kind === 'fail')
+      if (defCapResult.kind === RESULT_KIND.Fail)
         return Result.fail(...defCapResult.issues);
       const defCapByDefId = defCapResult.data;
       const capabilityMap = new Map<number, Result<DefinitionCapabilityData>>();
@@ -162,13 +163,13 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
             nodeId,
             fileSystemId,
           );
-          if (dataPortResult.kind === 'fail')
+          if (dataPortResult.kind === RESULT_KIND.Fail)
             warnings.push({
               code: ERROR_CODES.INTERNAL_ERROR,
               message: `Data ports failed for node ${nodeId}: ${dataPortResult.issues?.[0]?.message}`,
               severity: IssueSeverity.Warning,
             });
-          if (controlPortResult.kind === 'fail')
+          if (controlPortResult.kind === RESULT_KIND.Fail)
             warnings.push({
               code: ERROR_CODES.INTERNAL_ERROR,
               message: `Control ports failed for node ${nodeId}: ${controlPortResult.issues?.[0]?.message}`,
@@ -177,9 +178,13 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           return {
             nodeId,
             dataPorts:
-              dataPortResult.kind === 'fail' ? [] : dataPortResult.data,
+              dataPortResult.kind === RESULT_KIND.Fail
+                ? []
+                : dataPortResult.data,
             controlPorts:
-              controlPortResult.kind === 'fail' ? [] : controlPortResult.data,
+              controlPortResult.kind === RESULT_KIND.Fail
+                ? []
+                : controlPortResult.data,
           };
         }),
       );
@@ -202,8 +207,12 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       const capabilityErrors = roots
         .map(root => capabilityMap.get(root.systemId))
         .filter(
-          (r): r is Extract<Result<DefinitionCapabilityData>, {kind: 'fail'}> =>
-            r?.kind === 'fail',
+          (
+            r,
+          ): r is Extract<
+            Result<DefinitionCapabilityData>,
+            {kind: typeof RESULT_KIND.Fail}
+          > => r?.kind === RESULT_KIND.Fail,
         )
         .flatMap(r => r.issues);
 
@@ -214,7 +223,8 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         if (moduleDraft?.operation === 'DELETE') return null;
 
         const capabilityResult = capabilityMap.get(root.systemId);
-        if (!capabilityResult || capabilityResult.kind === 'fail') return null;
+        if (!capabilityResult || capabilityResult.kind === RESULT_KIND.Fail)
+          return null;
         const capability = capabilityResult.data;
 
         const delta =
@@ -389,7 +399,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
               CONFIGURATION_INCLUDES.Summary,
             );
 
-          if (defResult.kind === 'fail') {
+          if (defResult.kind === RESULT_KIND.Fail) {
             return {
               defId,
               capResult: Result.fail<DefinitionCapabilityData>(

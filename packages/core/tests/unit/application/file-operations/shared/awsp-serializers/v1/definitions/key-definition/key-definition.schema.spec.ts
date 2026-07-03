@@ -26,7 +26,7 @@ describe('KeyDefinitionSchema', () => {
         id: 1,
         name: 'Key1',
         values: [
-          {id: 1, name: 'Value1', enumValue: 'ENUM1'},
+          {id: 1, name: 'Value1', enumMember: 'ENUM1'},
           {id: 2, name: 'Value2'},
         ],
         description: 'Test key description',

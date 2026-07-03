@@ -11,7 +11,7 @@ import type {
   KeyDefinitionSummaryReadModel,
   ValueDefinitionSummaryReadModel,
 } from '@arc/core';
-import {Result} from '@arc/core';
+import {Result, RESULT_KIND} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {
@@ -164,7 +164,7 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       valueDefIds,
       fileSystemId,
     );
-    if (pairsResult.kind === 'fail') {
+    if (pairsResult.kind === RESULT_KIND.Fail) {
       throw new Error(
         `Failed to resolve key-value pairs: ${pairsResult.issues.map(e => e.message).join(', ')}`,
       );
