@@ -39,7 +39,7 @@ export const StaticIntentDefinitionSchema =
       },
       staticControlPortDefinitionSystemId: {
         type: 'integer',
-        name: 'static_control_port_defition_system_id',
+        name: 'static_control_port_definition_system_id',
       },
     },
     relations: {

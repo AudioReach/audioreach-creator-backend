@@ -16,6 +16,16 @@ import {SpfModuleQueryHandler} from '../../../usecase-designer/spf-module/query/
 import {SpfModulesQuery} from '../../../usecase-designer/spf-module/query/query-spf-modules.query.js';
 import {ContainerQueryHandler} from '../../../usecase-designer/container/query/query-containers.handler.js';
 import {ContainerQuery} from '../../../usecase-designer/container/query/query-containers.query.js';
+import {GetAllSpfModuleDefinitionsHandler} from '../../../definition/spf-module-definition/get-all/get-all-spf-module-definitions.handler.js';
+import {GetAllSpfModuleDefinitionsQuery} from '../../../definition/spf-module-definition/get-all/get-all-spf-module-definitions.query.js';
+import {GetSpfModuleDefinitionHandler} from '../../../definition/spf-module-definition/get-by-id/get-spf-module-definition.handler.js';
+import {GetSpfModuleDefinitionQuery} from '../../../definition/spf-module-definition/get-by-id/get-spf-module-definition.query.js';
+import {GetSpfCustomModuleMetadataHandler} from '../../../definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.handler.js';
+import {GetSpfCustomModuleMetadataQuery} from '../../../definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.query.js';
+import {GetAllDriverModuleDefinitionsHandler} from '../../../definition/driver-module-definition/get-all/get-all-driver-module-definitions.handler.js';
+import {GetAllDriverModuleDefinitionsQuery} from '../../../definition/driver-module-definition/get-all/get-all-driver-module-definitions.query.js';
+import {GetDriverModuleDefinitionHandler} from '../../../definition/driver-module-definition/get-by-id/get-driver-module-definition.handler.js';
+import {GetDriverModuleDefinitionQuery} from '../../../definition/driver-module-definition/get-by-id/get-driver-module-definition.query.js';
 import {GetAllUseCasesHandler} from '../../../usecase-designer/usecase/get-all/get-all-usecases.handler.js';
 import {GetAllUseCasesQuery} from '../../../usecase-designer/usecase/get-all/get-all-usecases.query.js';
 import {GetComponentsHandler} from '../../../usecase-designer/usecase/get-components/get-components.handler.js';
@@ -97,6 +107,31 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(ContainerQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new ContainerQueryHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetAllSpfModuleDefinitionsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllSpfModuleDefinitionsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSpfModuleDefinitionQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSpfModuleDefinitionHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSpfCustomModuleMetadataQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSpfCustomModuleMetadataHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetAllDriverModuleDefinitionsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllDriverModuleDefinitionsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetDriverModuleDefinitionQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetDriverModuleDefinitionHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetAllUseCasesQuery, {
