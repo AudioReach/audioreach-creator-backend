@@ -37,6 +37,9 @@ export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
 export * from './shared/types/branded-ids.js';
 export * from './domain/entities/definitions/common/types/param-type.js';
+export * from './domain/entities/definitions/common/types/major-module-type.js';
+export * from './domain/entities/definitions/common/types/build-type.js';
+export * from './domain/entities/definitions/common/types/mdf-module-type.js';
 // New Result<T> discriminated union + namespace (design §3, FR-2, FR-3).
 export * from './application/shared/result/result.js';
 
@@ -75,6 +78,9 @@ export * from './application/ports/persistence/query-services/spf-module/tuning/
 export * from './application/ports/persistence/query-services/spf-module-definition/spf-module-definition-query-service.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/spf-module-definition-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/parameter-definition/parameter-definition-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
+export * from './application/ports/persistence/query-services/shared/module-definition-summary-read-model.js';
+export * from './application/ports/persistence/query-services/driver-module-definition/driver-module-definition-query-service.js';
 export * from './application/ports/persistence/query-services/configuration-includes.js';
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-projections.js';
@@ -103,6 +109,18 @@ export * from './application/usecase-designer/spf-module/query/query-spf-modules
 // Container query handlers
 export * from './application/usecase-designer/container/query/query-containers.query.js';
 export * from './application/usecase-designer/container/query/query-containers.handler.js';
+
+// SPF module definition query handlers
+export * from './application/definition/spf-module-definition/get-all/get-all-spf-module-definitions.query.js';
+export * from './application/definition/spf-module-definition/get-all/get-all-spf-module-definitions.handler.js';
+export * from './application/definition/spf-module-definition/get-by-id/get-spf-module-definition.query.js';
+export * from './application/definition/spf-module-definition/get-by-id/get-spf-module-definition.handler.js';
+export * from './application/definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.query.js';
+export * from './application/definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.handler.js';
+export * from './application/definition/driver-module-definition/get-all/get-all-driver-module-definitions.query.js';
+export * from './application/definition/driver-module-definition/get-all/get-all-driver-module-definitions.handler.js';
+export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.query.js';
+export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.handler.js';
 
 // Use case designer
 export * from './application/usecase-designer/spf-module/param-parser/index.js';

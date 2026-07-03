@@ -6,6 +6,8 @@
 import {QueryHandlerRegistry} from '../../../../../../src/application/orchestration/cqrs/registries/query-handler-registry.js';
 import {QueryHandlerNotFoundException} from '../../../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
 import {GetModuleCompactQuery} from '../../../../../../src/application/usecase-designer/spf-module/get/get-module-compact.query.js';
+import {GetAllDriverModuleDefinitionsQuery} from '../../../../../../src/application/definition/driver-module-definition/get-all/get-all-driver-module-definitions.query.js';
+import {GetDriverModuleDefinitionQuery} from '../../../../../../src/application/definition/driver-module-definition/get-by-id/get-driver-module-definition.query.js';
 import {TestQuery, UnknownQuery} from '../../helpers/test-commands.js';
 import {createMockQueryServices} from '../../helpers/mock-factories.js';
 
@@ -80,6 +82,33 @@ describe('QueryHandlerRegistry', () => {
       // Then: Should create different instances
       expect(handler1).not.toBe(handler2);
       expect(handler1).toEqual(handler2); // Same structure
+    });
+  });
+
+  describe('Driver Module Definition Query Handlers', () => {
+    it('should have registered GetAllDriverModuleDefinitionsQuery handler', () => {
+      const query = new GetAllDriverModuleDefinitionsQuery(
+        1,
+        undefined,
+        undefined,
+        'test-client',
+      );
+
+      const factory = registry.getQueryHandlerFactory(query);
+
+      expect(factory).toBeDefined();
+      const handler = factory.create({queryServices: mockQueryServices});
+      expect(handler.handle).toBeDefined();
+    });
+
+    it('should have registered GetDriverModuleDefinitionQuery handler', () => {
+      const query = new GetDriverModuleDefinitionQuery(1, 2, 'test-client');
+
+      const factory = registry.getQueryHandlerFactory(query);
+
+      expect(factory).toBeDefined();
+      const handler = factory.create({queryServices: mockQueryServices});
+      expect(handler.handle).toBeDefined();
     });
   });
 
