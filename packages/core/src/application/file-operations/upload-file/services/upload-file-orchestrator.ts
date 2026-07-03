@@ -18,6 +18,7 @@ import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../../../ports/id-generation/natural-id-generation.port.js';
 import {
   PROFILER_OPERATIONS,
   MEMORY_SNAPSHOTS,
@@ -108,6 +109,7 @@ export class UploadFileOrchestrator {
     private fileSystem: FileSystemPort,
     private uow: UnitOfWork,
     private idGenerator: IdGenerationPort,
+    private naturalIdGenerator: NaturalIdGenerationPort,
     workerPool?: WorkerPoolPort,
     private logger?: Logger,
     private profiler?: ProfilerPort,
@@ -116,6 +118,7 @@ export class UploadFileOrchestrator {
     this.foreignKeyMapper = new ForeignKeyMapper();
     this.builderService = new EntityBuilderService(
       this.idGenerator,
+      this.naturalIdGenerator,
       this.foreignKeyMapper,
       workerPool,
       logger,

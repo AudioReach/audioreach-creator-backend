@@ -13,6 +13,7 @@ import type {WorkerPoolPort} from '../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../../ports/profiling/profiler.port.js';
 import type {IdGenerationPort} from '../../ports/id-generation/id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../../ports/id-generation/natural-id-generation.port.js';
 import {generateUuid} from '../../../shared/utilities/uuid.js';
 import {
   FILE_OPEN_STATUS,
@@ -50,6 +51,7 @@ export class UploadFileHandler implements CommandHandler<
     private readonly uow: UnitOfWork,
     private readonly fileSystem: FileSystemPort,
     private readonly idGenerator: IdGenerationPort,
+    private readonly naturalIdGenerator: NaturalIdGenerationPort,
     workerPool?: WorkerPoolPort,
     logger?: Logger,
     profiler?: ProfilerPort,
@@ -58,6 +60,7 @@ export class UploadFileHandler implements CommandHandler<
       this.fileSystem,
       this.uow,
       this.idGenerator,
+      this.naturalIdGenerator,
       workerPool,
       logger,
       profiler,

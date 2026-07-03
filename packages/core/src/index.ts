@@ -170,6 +170,13 @@ export * from './shared/profiling/profiler-types.js';
 // ID generation port
 export * from './application/ports/id-generation/id-generation.port.js';
 
+// Natural ID generation
+export * from './application/ports/id-generation/natural-id-generation.port.js';
+export * from './domain/services/natural-id-generator/natural-id-type.js';
+export * from './domain/services/natural-id-generator/vmid-remapping.js';
+export * from './domain/services/natural-id-generator/natural-id-generator.js';
+export * from './application/services/natural-id-generator/natural-id.registry.js';
+
 // Validation framework — domain types
 export * from './domain/validation/issue.js';
 export * from './domain/validation/validation-preferences.js';

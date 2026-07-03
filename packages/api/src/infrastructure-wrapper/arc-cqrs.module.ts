@@ -9,6 +9,7 @@ import {
   QueryBus,
   CommandHandlerRegistry,
   QueryHandlerRegistry,
+  NaturalIdRegistry,
 } from '@arc/core';
 import type {
   UnitOfWorkFactory,
@@ -18,6 +19,7 @@ import type {
   Logger,
   ProfilerPort,
   IdGenerationPort,
+  NaturalIdGenerationPort,
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {createTypeOrmUnitOfWorkFactory} from './persistence/unit-of-work/typeorm-unit-of-work.factory.js';
@@ -80,6 +82,7 @@ import {ConsoleLoggerService} from './logger/index.js';
       useFactory: (
         registry: CommandHandlerRegistry,
         idGeneration: IdGenerationPort,
+        naturalIdGeneration: NaturalIdGenerationPort,
         fileSystem: FileSystemPort,
         uowFactory: UnitOfWorkFactory,
         queryServices: QueryServices,
@@ -90,6 +93,7 @@ import {ConsoleLoggerService} from './logger/index.js';
         new CommandBus(
           registry,
           idGeneration,
+          naturalIdGeneration,
           fileSystem,
           uowFactory,
           queryServices,
@@ -100,6 +104,7 @@ import {ConsoleLoggerService} from './logger/index.js';
       inject: [
         'COMMAND_HANDLER_REGISTRY',
         'ID_GENERATION',
+        'NATURAL_ID_GENERATION',
         'NODE_FILE_SYSTEM_ADAPTER',
         'UNIT_OF_WORK_FACTORY',
         'QUERY_SERVICES',
@@ -155,6 +160,10 @@ import {ConsoleLoggerService} from './logger/index.js';
         new EntityIdServiceRegistry(dataSource),
       inject: ['DATA_SOURCE'],
     },
+    {
+      provide: 'NATURAL_ID_GENERATION',
+      useFactory: (): NaturalIdGenerationPort => new NaturalIdRegistry(),
+    },
   ],
   exports: [
     CommandBus,
@@ -167,6 +176,7 @@ import {ConsoleLoggerService} from './logger/index.js';
     'LOGGER',
     'PROFILER',
     'WORKER_POOL',
+    'NATURAL_ID_GENERATION',
   ],
 })
 export class ArcCqrsModule {}

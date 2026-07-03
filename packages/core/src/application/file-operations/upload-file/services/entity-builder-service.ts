@@ -25,6 +25,8 @@ import {
 import type {ParsedAcdb} from '../models/parsed-acdb.js';
 import type {ParsedAwsp} from '../models/parsed-awsp.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../../../ports/id-generation/natural-id-generation.port.js';
+import {NaturalIdType} from '../../../../domain/services/natural-id-generator/natural-id-type.js';
 import {KeyDefinitionBuilder} from './entity-builders/key-definition-builder.js';
 import {TagDefinitionBuilder} from './entity-builders/tag-definition-builder.js';
 import {SpfModuleDefinitionBuilder} from './entity-builders/spf-module-definition-builder.js';
@@ -129,6 +131,7 @@ export class EntityBuilderService {
 
   constructor(
     private readonly idGenerator: IdGenerationPort,
+    private readonly naturalIdPort: NaturalIdGenerationPort,
     readonly foreignKeyMapper: ForeignKeyMapper,
     private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
@@ -1343,5 +1346,25 @@ export class EntityBuilderService {
       errorCount: 0,
       warningCount: 0,
     };
+  }
+
+  //TODO: Call this API during upload.
+  registerNaturalIds(
+    fileSystemId: number,
+    subgraphs: Array<{subgraphId: number}>,
+    containers: Array<{containerId: number}>,
+    modules: Array<{instanceId: number}>,
+  ): void {
+    this.naturalIdPort.registerBatch(fileSystemId, [
+      ...subgraphs.map(s => ({type: NaturalIdType.SUBGRAPH, id: s.subgraphId})),
+      ...containers.map(c => ({
+        type: NaturalIdType.CONTAINER,
+        id: c.containerId,
+      })),
+      ...modules.map(m => ({
+        type: NaturalIdType.MODINSTANCE,
+        id: m.instanceId,
+      })),
+    ]);
   }
 }

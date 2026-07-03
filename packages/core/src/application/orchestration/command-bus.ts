@@ -13,12 +13,14 @@ import type {ProfilerPort} from '../ports/profiling/profiler.port.js';
 import type {UnitOfWorkFactory} from '../ports/persistence/unit-of-work-factory.js';
 import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../ports/id-generation/id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../ports/id-generation/natural-id-generation.port.js';
 import type {QueryServices} from '../ports/persistence/query-services/query-services.js';
 
 export class CommandBus {
   constructor(
     private readonly handlerRegistry: CommandHandlerRegistry,
     private readonly idGeneration: IdGenerationPort,
+    private readonly naturalIdGeneration: NaturalIdGenerationPort,
     private readonly fileSystem: FileSystemPort,
     private readonly uowFactory: UnitOfWorkFactory,
     private readonly queryServices: QueryServices,
@@ -112,6 +114,7 @@ export class CommandBus {
     const dependencies: CommandHandlerDependencies = {
       uow,
       idGeneration: this.idGeneration,
+      naturalIdGeneration: this.naturalIdGeneration,
       fileSystem: this.fileSystem,
       queryServices: this.queryServices,
       workerPool: this.workerPool,

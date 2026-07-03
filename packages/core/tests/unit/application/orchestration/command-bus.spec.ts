@@ -21,6 +21,7 @@ describe('CommandBus', () => {
   let mockFileSystem: any;
   let mockUowFactory: any;
   let mockIdGeneration: any;
+  let mockNaturalIdGeneration: any;
   let commandBus: CommandBus;
 
   beforeEach(() => {
@@ -32,6 +33,10 @@ describe('CommandBus', () => {
       reserveBlock: jest.fn().mockResolvedValue(8_388_613),
       persistActual: jest.fn().mockResolvedValue(undefined),
     };
+    mockNaturalIdGeneration = {
+      registerBatch: jest.fn(),
+      getNextId: jest.fn().mockReturnValue(0xb0000001),
+    };
 
     // Mock UoW factory that returns the mock UoW and a release function
     mockUowFactory = jest.fn().mockResolvedValue({
@@ -42,6 +47,7 @@ describe('CommandBus', () => {
     commandBus = new CommandBus(
       mockRegistry,
       mockIdGeneration,
+      mockNaturalIdGeneration,
       mockFileSystem,
       mockUowFactory,
     );
@@ -80,6 +86,7 @@ describe('CommandBus', () => {
       const realCommandBus = new CommandBus(
         realRegistry,
         mockIdGeneration,
+        mockNaturalIdGeneration,
         mockFileSystem,
         mockUowFactory,
       );
@@ -150,6 +157,7 @@ describe('CommandBus', () => {
       const failingCommandBus = new CommandBus(
         failingRegistry,
         mockIdGeneration,
+        mockNaturalIdGeneration,
         mockFileSystem,
         mockUowFactory,
       );
@@ -198,6 +206,7 @@ describe('CommandBus', () => {
       const strictCommandBus = new CommandBus(
         strictRegistry,
         mockIdGeneration,
+        mockNaturalIdGeneration,
         mockFileSystem,
         mockUowFactory,
       );
@@ -217,6 +226,7 @@ describe('CommandBus', () => {
       const realCommandBus = new CommandBus(
         realRegistry,
         mockIdGeneration,
+        mockNaturalIdGeneration,
         mockFileSystem,
         mockUowFactory,
       );
