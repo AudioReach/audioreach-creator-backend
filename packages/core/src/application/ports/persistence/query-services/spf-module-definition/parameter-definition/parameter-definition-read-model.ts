@@ -19,6 +19,6 @@ export interface ParameterDefinitionReadModel {
   readonly maxSize?: number;
   readonly elementsStructure?: string;
   readonly isPersistent?: boolean;
-  readonly isReadOnly?: boolean;
+  readonly isReadOnly: boolean;
   readonly toolPolicies?: string;
 }

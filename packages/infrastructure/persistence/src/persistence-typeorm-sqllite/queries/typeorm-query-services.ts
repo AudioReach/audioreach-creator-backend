@@ -15,6 +15,7 @@ import type {
   TagDefinitionQueryService,
   SpfTuningConfigService,
   ContainerQueryService,
+  DriverModuleDefinitionQueryService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -29,6 +30,7 @@ import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-serv
 import {DbTagDefinitionQueryService} from './tag-definition/db-tag-definition-query-service.js';
 import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
 import {DbContainerQueryService} from './container/db-container-query-service.js';
+import {DbDriverModuleDefinitionQueryService} from './driver-module-definition/db-driver-module-definition-query-service.js';
 
 // Database implementation of ModuleQueryService
 class DbModuleQueryService implements ModuleQueryService {
@@ -47,6 +49,7 @@ export class DbQueryServices implements QueryServices {
   readonly tagDefinitionQueryService: TagDefinitionQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly containerQueryService: ContainerQueryService;
+  readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;
 
   constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(
@@ -107,5 +110,11 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
     );
+
+    this.driverModuleDefinitionQueryService =
+      new DbDriverModuleDefinitionQueryService(
+        dataSource,
+        editActionsQueryService,
+      );
   }
 }
