@@ -16,6 +16,7 @@ import {
   createMockIdGenerator,
   createMockForeignKeyMapper,
 } from '../../../../../helpers/index.js';
+import {NaturalIdGenerationPort} from '../../../../../../src/application/ports/id-generation/natural-id-generation.port.js';
 
 /**
  * Helper to create a module registration with proper capi structure
@@ -54,9 +55,14 @@ describe('EntityBuilderService - buildModuleManagerData', () => {
     mockLogger = createMockLogger();
     mockIdGenerator = createMockIdGenerator();
     mockForeignKeyMapper = createMockForeignKeyMapper();
+    const mockNaturalIdPort = {
+      registerBatch: jest.fn(),
+      getNextId: jest.fn(),
+    } as unknown as NaturalIdGenerationPort;
 
     service = new EntityBuilderService(
       mockIdGenerator,
+      mockNaturalIdPort,
       mockForeignKeyMapper,
       undefined,
       mockLogger,

@@ -12,6 +12,7 @@ import {ENTITY_TYPES} from '../../../../../../src/application/file-operations/up
 import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../../../../src/application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 import type {IdGenerationPort} from '../../../../../../src/application/ports/id-generation/id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../../../../../../src/application/ports/natural-id-generation/natural-id-generation.port.js';
 import type {FileSystemPort} from '../../../../../../src/application/ports/file-system/file-system.port.js';
 import {createMockIdGenerator} from '../../../../../helpers/index.js';
 
@@ -41,6 +42,10 @@ describe('UploadFileOrchestrator', () => {
       mockFileSystem,
       mockUow,
       mockIdGenerator,
+      {
+        registerBatch: jest.fn(),
+        getNextId: jest.fn(),
+      } as unknown as NaturalIdGenerationPort,
     );
 
     // Access private services for mocking

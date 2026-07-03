@@ -61,6 +61,7 @@ import type {WorkerPoolPort} from '../../../ports/worker/worker-pool.port.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {ProfilerPort} from '../../../ports/profiling/profiler.port.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../../../ports/id-generation/natural-id-generation.port.js';
 import {UpdateValidationPreferencesCommand} from '../../../validation/commands/update-validation-preferences.command.js';
 import {UpdateValidationPreferencesHandler} from '../../../validation/commands/update-validation-preferences.handler.js';
 import {AcknowledgeDataLossCommand} from '../../../validation/commands/acknowledge-data-loss.command.js';
@@ -78,6 +79,7 @@ import {DeleteControlLinkHandler} from '../../../usecase-designer/control-links/
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
   idGeneration: IdGenerationPort;
+  naturalIdGeneration: NaturalIdGenerationPort;
   fileSystem: FileSystemPort;
   queryServices: QueryServices;
   workerPool?: WorkerPoolPort;
@@ -136,6 +138,7 @@ export class CommandHandlerRegistry {
           deps.uow,
           deps.fileSystem,
           deps.idGeneration,
+          deps.naturalIdGeneration,
           deps.workerPool,
           deps.logger,
           deps.profiler,
