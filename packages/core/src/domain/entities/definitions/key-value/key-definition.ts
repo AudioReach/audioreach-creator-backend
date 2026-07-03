@@ -14,10 +14,10 @@ export interface SpecialityKeyValue {
 }
 
 export interface CHeaderAttributes {
-  keyEnumName?: string;
-  keyEnumValue?: string;
-  calibrationEnumValue?: string;
-  graphEnumValue?: string;
+  enumMember?: string;
+  enumName?: string;
+  calKeyEnumMember?: string;
+  graphKeyEnumMember?: string;
 }
 
 export interface KeyDefinitionInit {

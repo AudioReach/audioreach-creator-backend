@@ -15,6 +15,6 @@ export abstract class BaseKeyDefinitionDto {
   @ApiProperty({description: 'Key name'})
   name!: string;
 
-  @ApiProperty({description: 'Key description'})
+  @ApiProperty({description: 'Key description', required: false})
   description?: string;
 }

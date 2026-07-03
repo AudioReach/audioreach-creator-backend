@@ -12,6 +12,7 @@ import type {SpfModuleDefinitionQueryService} from './spf-module-definition/spf-
 import type {SpfTuningConfigService} from './spf-module/tuning/spf-tuning-config-service.js';
 import type {KeyValueDefQueryService} from './key-value/key-value-definition-query-service.js';
 import type {ContainerQueryService} from './container/container-query-service.js';
+import type {TagDefinitionQueryService} from './tag-definition/tag-definition-query-service.js';
 
 export interface QueryServices {
   readonly modulesQueryService: ModuleQueryService;
@@ -24,5 +25,6 @@ export interface QueryServices {
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly keyValueDefQueryService: KeyValueDefQueryService;
+  readonly tagDefinitionQueryService: TagDefinitionQueryService;
   readonly containerQueryService: ContainerQueryService;
 }

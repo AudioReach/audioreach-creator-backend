@@ -68,10 +68,10 @@ export class KeyDefinitionInserter {
         key.specialityKeyValue === undefined
           ? undefined
           : JSON.stringify(key.specialityKeyValue),
-      cEnumMemberName: key.cHeaderAttributes?.keyEnumName,
-      cEnumName: key.cHeaderAttributes?.keyEnumValue,
-      calibrationEnumValue: key.cHeaderAttributes?.calibrationEnumValue,
-      graphEnumValue: key.cHeaderAttributes?.graphEnumValue,
+      enumMember: key.cHeaderAttributes?.enumMember,
+      enumName: key.cHeaderAttributes?.enumName,
+      calKeyEnumMember: key.cHeaderAttributes?.calKeyEnumMember,
+      graphKeyEnumMember: key.cHeaderAttributes?.graphKeyEnumMember,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -112,7 +112,7 @@ export class KeyDefinitionInserter {
           valueId: vd.valueId,
           name: vd.name,
           description: vd.description,
-          enumValue: vd.enumValue,
+          enumMember: vd.enumMember as string | undefined,
           specialValue: vd.specialValue,
           keySystemId: key.systemId,
         };

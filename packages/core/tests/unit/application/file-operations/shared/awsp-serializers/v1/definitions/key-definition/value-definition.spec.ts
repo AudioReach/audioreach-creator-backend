@@ -55,12 +55,12 @@ describe('AwspValueDefinition serialization', () => {
       const value = new AwspValueDefinition();
       value.id = 1;
       value.name = 'TestValue';
-      value.enumValue = 'ENUM_VAL';
+      value.enumMember = 'ENUM_VAL';
       value.specialValue = 'SPECIAL';
 
       const json = value.toJSON();
 
-      expect(json.enumValue).toBe('ENUM_VAL');
+      expect(json.enumMember).toBe('ENUM_VAL');
       expect(json.specialValue).toBe('SPECIAL');
     });
   });
@@ -71,7 +71,7 @@ describe('AwspValueDefinition serialization', () => {
         id: 1,
         name: 'TestValue',
         description: 'Test',
-        enumValue: 'ENUM_VAL',
+        enumMember: 'ENUM_VAL',
         specialValue: 'SPECIAL',
       };
 

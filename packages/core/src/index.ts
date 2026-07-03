@@ -61,6 +61,20 @@ export * from './application/ports/persistence/query-services/key-value/key-valu
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-query-service.js';
 export * from './application/ports/persistence/query-services/container/container-query-service.js';
 export * from './application/ports/persistence/query-services/container/container-read-model.js';
+export * from './application/ports/persistence/query-services/tag-definition/tag-definition-read-model.js';
+export * from './application/ports/persistence/query-services/tag-definition/tag-definition-query-service.js';
+
+// Key definition query handlers
+export * from './application/definition/key-definition/get-all/get-all-key-definitions.query.js';
+export * from './application/definition/key-definition/get-all/get-all-key-definitions.handler.js';
+export * from './application/definition/key-definition/get-key/get-key-definition.query.js';
+export * from './application/definition/key-definition/get-key/get-key-definition.handler.js';
+
+// Tag definition query handlers
+export * from './application/definition/tag-definition/get-all/get-all-tag-definitions.query.js';
+export * from './application/definition/tag-definition/get-all/get-all-tag-definitions.handler.js';
+export * from './application/definition/tag-definition/get-tag/get-tag-definition.query.js';
+export * from './application/definition/tag-definition/get-tag/get-tag-definition.handler.js';
 
 // SPF module query handlers
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.query.js';

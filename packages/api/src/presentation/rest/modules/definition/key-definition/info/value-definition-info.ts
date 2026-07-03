@@ -19,7 +19,7 @@ export class ValueDefinitionInfo {
   description?: string;
 
   @ApiProperty({description: 'Value enum value for pseudo header file'})
-  cHeaderEnumValue!: string;
+  enumMember!: string;
 
   @ApiProperty({
     description:

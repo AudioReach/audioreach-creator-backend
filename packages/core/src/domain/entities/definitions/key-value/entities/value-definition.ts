@@ -8,7 +8,7 @@ export interface ValueDefinitionInit {
   valueId: number;
   name: string;
   description?: string;
-  cHeaderEnumValue?: string;
+  enumMember?: string;
   specialValue?: string;
 }
 
@@ -18,14 +18,14 @@ export class ValueDefinition {
   readonly valueId: number;
   name: string;
   description: string;
-  enumValue: string;
+  enumMember: string;
   specialValue: string;
   constructor(initParam: ValueDefinitionInit) {
     this.systemId = initParam.systemId;
     this.valueId = initParam.valueId;
     this.name = initParam.name;
     this.description = initParam.description ?? '';
-    this.enumValue = initParam.cHeaderEnumValue ?? '';
+    this.enumMember = initParam.enumMember ?? '';
     this.specialValue = initParam.specialValue ?? '';
   }
 }

@@ -4,12 +4,12 @@
  */
 
 import type {Issue, Result} from '@arc/core';
-import {IssueSeverity} from '@arc/core';
+import {IssueSeverity, RESULT_KIND} from '@arc/core';
 import {toApiResult} from '../../../../../../src/presentation/rest/common/result/to-api-result.js';
 
 describe('toApiResult', () => {
   it("projects an 'ok' result without issues to {data} only (no issues field)", () => {
-    const result: Result<number> = {kind: 'ok', data: 42};
+    const result: Result<number> = {kind: RESULT_KIND.Ok, data: 42};
     const api = toApiResult(result);
     expect(api).toEqual({data: 42});
     expect('issues' in api).toBe(false);
@@ -21,7 +21,11 @@ describe('toApiResult', () => {
       message: 'Module dropped',
       severity: IssueSeverity.Warning,
     };
-    const result: Result<number> = {kind: 'ok', data: 7, issues: [warning]};
+    const result: Result<number> = {
+      kind: RESULT_KIND.Ok,
+      data: 7,
+      issues: [warning],
+    };
     const api = toApiResult(result);
     expect(api.data).toBe(7);
     expect(api.issues).toBeDefined();
@@ -37,7 +41,7 @@ describe('toApiResult', () => {
       severity: IssueSeverity.Error,
     };
     const result: Result<number[]> = {
-      kind: 'partial',
+      kind: RESULT_KIND.Partial,
       data: [1, 2, 3],
       issues: [errorIssue],
     };
@@ -48,7 +52,11 @@ describe('toApiResult', () => {
   });
 
   it("projects an 'ok' result with an empty issues array to {data} only", () => {
-    const result: Result<string> = {kind: 'ok', data: 'hello', issues: []};
+    const result: Result<string> = {
+      kind: RESULT_KIND.Ok,
+      data: 'hello',
+      issues: [],
+    };
     const api = toApiResult(result);
     expect(api).toEqual({data: 'hello'});
     expect('issues' in api).toBe(false);
@@ -60,7 +68,10 @@ describe('toApiResult', () => {
       message: 'Project not found',
       severity: IssueSeverity.Error,
     };
-    const result: Result<number> = {kind: 'fail', issues: [failIssue]};
+    const result: Result<number> = {
+      kind: RESULT_KIND.Fail,
+      issues: [failIssue],
+    };
     expect(() => toApiResult(result)).toThrow(
       'toApiResult received a fail Result',
     );

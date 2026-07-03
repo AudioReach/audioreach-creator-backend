@@ -381,7 +381,7 @@ export class KeyDefinitionBuilder {
             valueId: awspValue.id,
             name: awspValue.name,
             description: awspValue.description,
-            cHeaderEnumValue: awspValue.enumValue,
+            enumMember: awspValue.enumMember,
             specialValue: awspValue.specialValue, // TODO: Implement specialty mapping when available
           });
           domainValues.push(domainValue);
@@ -415,10 +415,10 @@ export class KeyDefinitionBuilder {
         : undefined,
 
       cHeaderAttributes: {
-        keyEnumName: awsp.enumName,
-        keyEnumValue: awsp.enumMember,
-        calibrationEnumValue: awsp.calKeyEnumMember,
-        graphEnumValue: awsp.graphKeyEnumMember,
+        enumMember: awsp.enumName,
+        enumName: awsp.enumMember,
+        calKeyEnumMember: awsp.calKeyEnumMember,
+        graphKeyEnumMember: awsp.graphKeyEnumMember,
       },
     });
 

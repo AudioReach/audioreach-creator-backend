@@ -7277,11 +7277,11 @@
             "type": "string",
             "description": "Tag name"
           },
-          "cHeaderEnumValue": {
+          "enumMember": {
             "type": "string",
             "description": "Tag enum value for pseudo header file"
           },
-          "cHeaderEnumName": {
+          "enumName": {
             "type": "string",
             "description": "Tag enum name for pseudo header file"
           },
@@ -7318,7 +7318,7 @@
             "type": "string",
             "description": "Value description"
           },
-          "cHeaderEnumValue": {
+          "enumMember": {
             "type": "string",
             "description": "Value enum value for pseudo header file"
           },
@@ -7331,7 +7331,7 @@
           "systemId",
           "valueId",
           "name",
-          "cHeaderEnumValue"
+          "enumMember"
         ]
       },
       "KeyDefinitionResponseDto": {
@@ -7353,11 +7353,11 @@
             "type": "string",
             "description": "Key description"
           },
-          "cHeaderEnumValue": {
+          "enumMember": {
             "type": "string",
             "description": "Key enum value for pseudo header file"
           },
-          "cHeaderEnumName": {
+          "enumName": {
             "type": "string",
             "description": "Key enum name for pseudo header file"
           },
@@ -7392,11 +7392,11 @@
             "type": "boolean",
             "description": "Indicates if the key is a graph key"
           },
-          "cHeaderCalibrationKeyEnumValue": {
+          "calKeyEnumMember": {
             "type": "string",
             "description": "Calibration key enum value for pseudo header file (required when isCalibrationKey is true)"
           },
-          "cHeaderGraphKeyEnumValue": {
+          "graphKeyEnumMember": {
             "type": "string",
             "description": "Graph key enum value for pseudo header file (required when isGraphKey is true)"
           }
@@ -7406,8 +7406,8 @@
           "keyId",
           "name",
           "description",
-          "cHeaderEnumValue",
-          "cHeaderEnumName",
+          "enumMember",
+          "enumName",
           "isVoice",
           "isDynamic",
           "values",

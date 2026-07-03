@@ -22,13 +22,13 @@ export class TagDefinitionResponseDto {
     description: 'Tag enum value for pseudo header file',
     required: false,
   })
-  cHeaderEnumValue?: string;
+  enumMember?: string;
 
   @ApiProperty({
     description: 'Tag enum name for pseudo header file',
     required: false,
   })
-  cHeaderEnumName?: string;
+  enumName?: string;
 
   @ApiProperty({
     description: 'List of tag key supported',

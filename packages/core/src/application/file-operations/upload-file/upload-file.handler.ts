@@ -21,6 +21,7 @@ import {
 } from '../../../domain/entities/usecase-data/project/arc-db-file.js';
 import type {ValidationReport} from '../../../domain/validation/validation-report.js';
 import type {Issue} from '../../../shared/issues/index.js';
+import {RESULT_KIND} from '../../shared/result/result.js';
 
 export type UploadFileResult = {
   projectId: string;
@@ -93,7 +94,7 @@ export class UploadFileHandler implements CommandHandler<
         dataLossIssues: [],
       });
 
-    if (createResult.kind === 'fail') {
+    if (createResult.kind === RESULT_KIND.Fail) {
       await this.uow.rollback();
       throw new Error(
         `Project creation failed: ${createResult.issues[0]?.message ?? 'unknown error'}`,

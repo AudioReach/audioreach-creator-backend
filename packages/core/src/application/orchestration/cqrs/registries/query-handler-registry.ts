@@ -27,6 +27,14 @@ import {DownloadFileQuery} from '../../../file-operations/download-file/download
 import {DownloadFileHandler} from '../../../file-operations/download-file/download-file.handler.js';
 import {ProjectFilePropertiesQuery} from '../../../project/project-file-properties.query.js';
 import {ProjectFilePropertiesHandler} from '../../../project/project-file-properties.handler.js';
+import {GetAllKeyDefinitionsQuery} from '../../../definition/key-definition/get-all/get-all-key-definitions.query.js';
+import {GetAllKeyDefinitionsHandler} from '../../../definition/key-definition/get-all/get-all-key-definitions.handler.js';
+import {GetKeyDefinitionQuery} from '../../../definition/key-definition/get-key/get-key-definition.query.js';
+import {GetKeyDefinitionHandler} from '../../../definition/key-definition/get-key/get-key-definition.handler.js';
+import {GetAllTagDefinitionsQuery} from '../../../definition/tag-definition/get-all/get-all-tag-definitions.query.js';
+import {GetAllTagDefinitionsHandler} from '../../../definition/tag-definition/get-all/get-all-tag-definitions.handler.js';
+import {GetTagDefinitionQuery} from '../../../definition/tag-definition/get-tag/get-tag-definition.query.js';
+import {GetTagDefinitionHandler} from '../../../definition/tag-definition/get-tag/get-tag-definition.handler.js';
 import {GetCkvCalibrationDataQuery} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 import {GetCkvCalibrationDataHandler} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
 
@@ -120,6 +128,26 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(ProjectFilePropertiesQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new ProjectFilePropertiesHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetAllKeyDefinitionsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllKeyDefinitionsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetKeyDefinitionQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetKeyDefinitionHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetAllTagDefinitionsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllTagDefinitionsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetTagDefinitionQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetTagDefinitionHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetCkvCalibrationDataQuery, {

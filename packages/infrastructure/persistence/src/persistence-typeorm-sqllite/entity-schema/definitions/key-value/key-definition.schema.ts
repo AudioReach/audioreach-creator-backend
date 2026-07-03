@@ -24,16 +24,16 @@ export interface KeyDefinitionRow extends EntityBaseRow {
   name: string;
 
   // used for generating C header files
-  cEnumMemberName?: string;
-  cEnumName?: string;
+  enumMember?: string;
+  enumName?: string;
   description?: string;
   isVoice?: boolean;
   isDynamic?: boolean;
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
   specialityKeyValue?: string;
-  calibrationEnumValue?: string;
-  graphEnumValue?: string;
+  calKeyEnumMember?: string;
+  graphKeyEnumMember?: string;
 
   // base entity
   creationDate: Date;
@@ -64,13 +64,13 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
       type: 'text',
       unique: false,
     },
-    cEnumMemberName: {
-      name: 'key_enum_name',
+    enumMember: {
+      name: 'enum_member',
       type: 'text',
       nullable: true,
     },
-    cEnumName: {
-      name: 'key_enum_value',
+    enumName: {
+      name: 'enum_name',
       type: 'text',
       nullable: true,
     },
@@ -103,13 +103,13 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
       type: 'text',
       nullable: true,
     },
-    calibrationEnumValue: {
-      name: 'calibration_enum_value',
+    calKeyEnumMember: {
+      name: 'cal_key_enum_member',
       type: 'text',
       nullable: true,
     },
-    graphEnumValue: {
-      name: 'graph_enum_value',
+    graphKeyEnumMember: {
+      name: 'graph_key_enum_member',
       type: 'text',
       nullable: true,
     },
