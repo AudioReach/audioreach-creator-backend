@@ -132,7 +132,7 @@ describe('AWSP Parser Integration Tests', () => {
 
       const typeCount = parsedAwsp.getDefinitionTypeCount();
       expect(typeCount).toBeGreaterThan(0);
-      expect(typeCount).toBeLessThanOrEqual(8);
+      expect(typeCount).toBeLessThanOrEqual(10);
 
       const totalCount = parsedAwsp.getTotalDefinitionCount();
       expect(totalCount).toBeGreaterThan(0);

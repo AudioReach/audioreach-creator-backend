@@ -30,6 +30,7 @@ import {DriverCalibrationChunkSerializer} from './chunk-serializers/driver-calib
 import {TagDataChunkSerializer} from './chunk-serializers/tag-data-chunk-serializer.js';
 import {TagKeysChunkSerializer} from './chunk-serializers/tag-keys-chunk-serializer.js';
 import {TaggedModuleMapChunkSerializer} from './chunk-serializers/tagged-module-map-chunk-serializer.js';
+import {GkvAliasChunkSerializer} from './chunk-serializers/gkv-alias-chunk-serializer.js';
 import {DatapoolChunk} from '../../shared/acdb-chunks/datapool-chunk.js';
 import {DatapoolChunkSerializer} from './chunk-serializers/datapool-chunk-serializer.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
@@ -37,6 +38,7 @@ import {ACDB_RAW_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
 import {UsecaseDataChunkBuilder} from './chunk-builders/usecase-data-chunk-builder.js';
 import {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
+import {compareNumberArrays} from '../../../../shared/utilities/array-utils.js';
 
 /**
  * Serializes domain entities to binary ACDB format.
@@ -238,6 +240,74 @@ export class AcdbFileSerializer {
   }
 
   /**
+   * Merge VCPM calibration data into the voice array.
+   *
+   * VCPM entries share the VCPM_CALDATA chunk with voice-CKV entries.
+   * For each VCPM entry by subgraphId:
+   *   - If a voice entry already exists for that subgraph, append keyValueCombinations.
+   *   - Otherwise push the VCPM entry as a new voice entry.
+   * Re-sort the merged result.
+   */
+  private mergeVcpmIntoVoice(
+    voice: CalibrationDataDownloadModel[],
+    vcpm: CalibrationDataDownloadModel[],
+  ): CalibrationDataDownloadModel[] {
+    if (vcpm.length === 0) return voice;
+
+    const merged = [...voice];
+    const bySubgraphId = new Map(merged.map(v => [v.naturalId, v]));
+
+    for (const vcpmEntry of vcpm) {
+      const existing = bySubgraphId.get(vcpmEntry.naturalId);
+      if (existing) {
+        existing.keyValueCombinations = [
+          ...existing.keyValueCombinations,
+          ...vcpmEntry.keyValueCombinations,
+        ];
+        const mkMap = new Map(
+          existing.masterKeys.map(mk => [mk.keyNaturalId, mk.isDynamic]),
+        );
+        for (const mk of vcpmEntry.masterKeys) {
+          if (!mkMap.has(mk.keyNaturalId))
+            mkMap.set(mk.keyNaturalId, mk.isDynamic);
+        }
+        existing.masterKeys = [...mkMap.entries()]
+          .sort(([a], [b]) => a - b)
+          .map(([keyNaturalId, isDynamic]) => ({keyNaturalId, isDynamic}));
+      } else {
+        merged.push(vcpmEntry);
+        bySubgraphId.set(vcpmEntry.naturalId, vcpmEntry);
+      }
+    }
+
+    merged.sort((a, b) => a.naturalId - b.naturalId);
+    for (const entry of merged) {
+      entry.keyValueCombinations.sort((a, b) => {
+        const kd = compareNumberArrays(a.keyIds, b.keyIds);
+        return kd !== 0 ? kd : compareNumberArrays(a.valueIds, b.valueIds);
+      });
+    }
+
+    return merged;
+  }
+
+  /**
+   * Serialize GKV alias chunk (GALS) from usecase data.
+   * Only emits the chunk when at least one usecase has aliasId defined.
+   */
+  private serializeGkvAliasChunk(
+    usecaseData: UsecaseDataDownloadModel[],
+    chunkList: Array<{id: string; data: Uint8Array}>,
+    datapool: DatapoolChunk,
+  ): void {
+    const serializer = new GkvAliasChunkSerializer();
+    const galsData = serializer.serialize(usecaseData, datapool);
+    if (galsData.length > 0) {
+      this.addChunk(chunkList, ACDB_RAW_CHUNK_TYPES.GKV_ALIAS, galsData);
+    }
+  }
+
+  /**
    * Serialize entities to complete ACDB file.
    *
    * @param entities - Domain entities from database
@@ -257,6 +327,11 @@ export class AcdbFileSerializer {
 
       this.profiler?.start(PROFILER_OPERATIONS.ACDB_SERIALIZE_USECASE);
       await this.serializeUsecaseChunks(entities, chunkList, datapool);
+      this.serializeGkvAliasChunk(
+        entities.usecaseData ?? [],
+        chunkList,
+        datapool,
+      );
       this.logSerializeStepMetrics(
         this.profiler?.end(PROFILER_OPERATIONS.ACDB_SERIALIZE_USECASE),
       );
@@ -264,6 +339,11 @@ export class AcdbFileSerializer {
       const {audio, voice} = this.splitCalibrationData(
         entities.calibrationData ?? [],
         entities.subgraphData ?? [],
+      );
+
+      const mergedVoice = this.mergeVcpmIntoVoice(
+        voice,
+        entities.vcpmCalibrationData ?? [],
       );
 
       this.profiler?.start(
@@ -279,7 +359,7 @@ export class AcdbFileSerializer {
       this.profiler?.start(
         PROFILER_OPERATIONS.ACDB_SERIALIZE_VOICE_CALIBRATION,
       );
-      this.serializeVoiceCalibrationChunks(voice, chunkList, datapool);
+      this.serializeVoiceCalibrationChunks(mergedVoice, chunkList, datapool);
       this.logSerializeStepMetrics(
         this.profiler?.end(
           PROFILER_OPERATIONS.ACDB_SERIALIZE_VOICE_CALIBRATION,
