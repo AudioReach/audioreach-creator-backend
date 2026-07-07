@@ -3,57 +3,46 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  KeyDefinitionReadModel,
-  ValueDefinitionReadModel,
-} from './key-value-definition-read-model.js';
-import type {ConfigurationIncludes} from '../configuration-includes.js';
+import type {KeyDefinitionReadModel} from './key-value-definition-read-model.js';
+import type {Result} from '../../../../shared/Result/operation-result.js';
 
 export interface KeyValueDefQueryService {
   /**
-   * Given a value systemId, returns the overlaid ValueDefinitionReadModel
-   * with its parent KeyDefinitionReadModel.
-   * summary: systemId, keyId/valueId, name, description only.
-   * fullDetails: all fields populated.
-   * Returns null if absent from both DB and session.
+   * Given a value systemId, returns its parent KeyDefinitionReadModel —
+   * key fields plus ALL child values under that key (not just the requested
+   * one). Resolution order: DB row first, then session overlay. Result.fail
+   * with ERROR_CODES.ENTITY_NOT_FOUND only if both come up empty.
    */
-  getByValueDefinition(
+  getKeyValueDefinitionForGivenValue(
     valueDefSystemId: number,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<{
-    key: KeyDefinitionReadModel;
-    value: ValueDefinitionReadModel;
-  } | null>;
+  ): Promise<Result<KeyDefinitionReadModel>>;
 
   /**
-   * Batch variant of getByValueDefinition — resolves many valueDefSystemIds
-   * in a single DB query plus a single pair of overlay lookups, instead of
-   * one getByValueDefinition call per id (which is an N+1 query pattern).
-   * Returns a Map keyed by valueDefSystemId — ids absent from both DB and
-   * session are simply not present in the map.
+   * Batch variant — resolves many valueDefSystemIds in two DB queries total
+   * (not one per id, not one per distinct key), instead of one
+   * getKeyValueDefinitionForGivenValue call per id.
+   *
+   * Returns the distinct parent KeyDefinitionReadModels for the requested
+   * ids, deduped by key systemId. Each returned key carries ALL its child
+   * values. Ids that don't resolve (absent from DB and overlay) are
+   * silently omitted from the result.
+   *
+   * Outer Result fails only if a batch DB query itself throws.
    */
-  getByValueDefinitions(
+  getKeyValueDefinitionForGivenValues(
     valueDefSystemIds: number[],
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<
-    Map<number, {key: KeyDefinitionReadModel; value: ValueDefinitionReadModel}>
-  >;
+  ): Promise<Result<KeyDefinitionReadModel[]>>;
 
   /**
-   * Given a key systemId, returns the overlaid KeyDefinitionReadModel
-   * with all its child ValueDefinitionReadModels.
-   * summary: systemId, keyId/valueId, name, description only.
-   * fullDetails: all fields populated.
-   * Returns null if absent from both DB and session.
+   * Given a key systemId, returns the overlaid KeyDefinitionReadModel with
+   * all its child values. Resolution order: DB row first, then session
+   * overlay. Result.fail with ERROR_CODES.ENTITY_NOT_FOUND only if both
+   * come up empty.
    */
   getByKeyDefinition(
     keyDefSystemId: number,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<{
-    key: KeyDefinitionReadModel;
-    values: ReadonlyArray<ValueDefinitionReadModel>;
-  } | null>;
+  ): Promise<Result<KeyDefinitionReadModel>>;
 }

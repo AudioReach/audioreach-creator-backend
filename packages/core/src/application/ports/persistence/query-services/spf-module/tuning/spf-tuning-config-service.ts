@@ -17,9 +17,9 @@ import type {Result} from '../../../../../shared/Result/operation-result.js';
  * Owns CKV and TKV row loading and their session overlay.
  * Delegates key-value pair resolution to KeyValueDefQueryService.
  *
- * ConfigurationIncludes controls both QueryBuilder joins and mapping depth:
- *   summary     → key-value pairs that identify the bin; tags include TKV bins
- *   fullDetails → summary + params + payload per bin
+ * ConfigurationIncludes controls QueryBuilder joins and mapping depth for
+ * methods that have a fullDetails-gated dimension (params/payload). CKVs
+ * have no such dimension, so getModuleCkvs takes no includes param.
  *
  * Overlay always applied.
  */
@@ -27,7 +27,6 @@ export interface SpfTuningConfigService {
   getModuleCkvs(
     spfModuleSystemId: number,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
   ): Promise<Result<CkvReadModel[]>>;
 
   getModuleCkvParams(

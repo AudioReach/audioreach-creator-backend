@@ -4,37 +4,6 @@
  */
 
 /**
- * Full projection of the KeyDefinition domain entity (arc_keys table).
- */
-export interface KeyDefinitionReadModel {
-  readonly systemId: number;
-  readonly keyId: number;
-  readonly name: string;
-  readonly description?: string;
-  readonly isCalibrationKey?: boolean;
-  readonly isGraphKey?: boolean;
-  readonly isVoice?: boolean;
-  readonly isDynamic?: boolean;
-  readonly cEnumMemberName?: string;
-  readonly cEnumName?: string;
-  readonly specialityKeyValue?: string;
-  readonly calibrationEnumValue?: string;
-  readonly graphEnumValue?: string;
-}
-
-/**
- * Full projection of the ValueDefinition domain entity (arc_values table).
- */
-export interface ValueDefinitionReadModel {
-  readonly systemId: number;
-  readonly valueId: number;
-  readonly name: string;
-  readonly description?: string;
-  readonly enumValue?: string;
-  readonly specialValue?: string;
-}
-
-/**
  * Reduced projection of KeyDefinition — identity fields only.
  * Extracted from KeyDefinitionReadModel via project().
  */
@@ -54,4 +23,27 @@ export interface ValueReadModel {
   readonly valueId: number;
   readonly name: string;
   readonly description?: string;
+}
+
+export interface KeyDefinitionReadModel extends KeyReadModel {
+  readonly isCalibrationKey?: boolean;
+  readonly isGraphKey?: boolean;
+  readonly isVoice?: boolean;
+  readonly isDynamic?: boolean;
+  readonly cEnumMemberName?: string;
+  readonly cEnumName?: string;
+  readonly specialityKeyValue?: string;
+  readonly calibrationEnumValue?: string;
+  readonly graphEnumValue?: string;
+  readonly values: ValueDefinitionReadModel[];
+}
+
+
+
+/**
+ * Full projection of the ValueDefinition domain entity (arc_values table).
+ */
+export interface ValueDefinitionReadModel extends ValueReadModel {
+  readonly enumValue?: string;
+  readonly specialValue?: string;
 }
