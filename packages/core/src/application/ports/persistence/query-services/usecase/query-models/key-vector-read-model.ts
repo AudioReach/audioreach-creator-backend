@@ -4,15 +4,15 @@
  */
 
 import type {
-  KeyReadModel,
-  ValueReadModel,
+  KeyDefinitionSummaryReadModel,
+  ValueDefinitionSummaryReadModel,
 } from '../../key-value/key-value-definition-read-model.js';
 
 /**
  * Key-Value pair read model — shared by usecase GKV, CKV, and TKV paths.
- * Key and value use KeyReadModel / ValueReadModel — projections of the full definition.
+ * Key and value use KeyDefinitionSummaryReadModel / ValueDefinitionSummaryReadModel — projections of the full definition.
  */
 export interface KeyValuePairReadModel {
-  readonly key: KeyReadModel;
-  readonly value: ValueReadModel;
+  readonly key: KeyDefinitionSummaryReadModel;
+  readonly value: ValueDefinitionSummaryReadModel;
 }

@@ -12,10 +12,8 @@ import type {
   CkvParamReadModel,
   KeyValueDefQueryService,
   ConfigurationIncludes,
-  KeyReadModel,
-  ValueReadModel,
-  KeyDefinitionReadModel,
-  ValueDefinitionReadModel,
+  KeyDefinitionSummaryReadModel,
+  ValueDefinitionSummaryReadModel,
   Error as AppError,
 } from '@arc/core';
 import {Result, ERROR_CODES, CONFIGURATION_INCLUDES} from '@arc/core';
@@ -385,44 +383,21 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     valueDefIds: number[],
     fileSystemId: number,
   ): Promise<
-    Result<Array<{key: KeyReadModel; value: ValueReadModel}>>
+    Result<
+      Array<{
+        key: KeyDefinitionSummaryReadModel;
+        value: ValueDefinitionSummaryReadModel;
+      }>
+    >
   > {
     const keysResult =
-      await this.keyValueDefSvc.getKeyValueDefinitionForGivenValues(
+      await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
         valueDefIds,
         fileSystemId,
       );
-    if (keysResult.isFailure)
-      return Result.fail(...keysResult.errors);
+    if (keysResult.isFailure) return Result.fail(...keysResult.errors);
 
-    const resolvedByValueId = new Map<
-      number,
-      {key: KeyDefinitionReadModel; value: ValueDefinitionReadModel}
-    >();
-    for (const keyDef of keysResult.data) {
-      for (const value of keyDef.values) {
-        resolvedByValueId.set(value.systemId, {key: keyDef, value});
-      }
-    }
-
-    const itemErrors: AppError[] = [];
-    const keyValuePairs = valueDefIds
-      .map(id => {
-        const resolved = resolvedByValueId.get(id);
-        if (!resolved) {
-          itemErrors.push({message: `ValueDefinition ${id} not found`});
-          return null;
-        }
-        return {
-          key: this.toKeyReadModel(resolved.key),
-          value: this.toValueReadModel(resolved.value),
-        };
-      })
-      .filter((kv): kv is NonNullable<typeof kv> => kv != null);
-
-    return itemErrors.length > 0
-      ? Result.partial(keyValuePairs, itemErrors)
-      : Result.ok(keyValuePairs);
+    return keysResult;
   }
 
   /**
@@ -489,49 +464,20 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
     return {
       systemId: payload.systemId,
-      definition: includes === CONFIGURATION_INCLUDES.FullDetails
-        ? {
-            ...base,
-            elementsStructure: param.elementsStructure,
-            isPersistent: param.isPersistent,
-            isReadOnly: param.isReadOnly,
-            maxSize: param.maxSize,
-            toolPolicies: param.toolPolicies,
-          }
-        : base,
+      definition:
+        includes === CONFIGURATION_INCLUDES.FullDetails
+          ? {
+              ...base,
+              elementsStructure: param.elementsStructure,
+              isPersistent: param.isPersistent,
+              isReadOnly: param.isReadOnly,
+              maxSize: param.maxSize,
+              toolPolicies: param.toolPolicies,
+            }
+          : base,
       ...(includes === CONFIGURATION_INCLUDES.FullDetails && payload.payload
         ? {payload: payload.payload}
         : {}),
-    };
-  }
-
-  // ── Projection helpers ───────────────────────────────────────────────────
-
-  private toKeyReadModel(key: {
-    systemId: number;
-    keyId: number;
-    name: string;
-    description?: string;
-  }): KeyReadModel {
-    return {
-      systemId: key.systemId,
-      keyId: key.keyId,
-      name: key.name,
-      description: key.description,
-    };
-  }
-
-  private toValueReadModel(value: {
-    systemId: number;
-    valueId: number;
-    name: string;
-    description?: string;
-  }): ValueReadModel {
-    return {
-      systemId: value.systemId,
-      valueId: value.valueId,
-      name: value.name,
-      description: value.description,
     };
   }
 

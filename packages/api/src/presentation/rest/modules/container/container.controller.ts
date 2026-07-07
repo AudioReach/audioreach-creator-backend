@@ -13,6 +13,7 @@ import {
   UseGuards,
   UseInterceptors,
   HttpStatus,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -25,6 +26,12 @@ import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {
+  QueryBus,
+  ContainerQuery,
+  type ContainerReadModel,
+  type Result,
+} from '@arc/core';
 
 /**
  * Controller to support all container related APIs for usecase design.
@@ -42,7 +49,7 @@ import {PartialSuccessInterceptor} from '../../common/interceptors/partial-succe
   example: '12345',
 })
 export class ContainerController extends BaseController {
-  constructor() {
+  constructor(private readonly queryBus: QueryBus) {
     super();
   }
 
@@ -78,13 +85,27 @@ export class ContainerController extends BaseController {
   })
   async queryContainers(
     @Param('projectId') projectId: string,
-    @Body() request: SystemIdsRequestDto,
+    @Body() _request: SystemIdsRequestDto,
   ): Promise<ApiResult<ContainerDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting containers in project ${projectId}: ${JSON.stringify(request)}`,
+    const query = new ContainerQuery(
+      Number.parseInt(projectId, 10), // radix 10 guards against octal misparse
+      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
     );
-    throw new NotImplementedException('queryContainers is not implemented yet');
+
+    const result =
+      await this.queryBus.execute<Result<ContainerReadModel[]>>(query);
+
+    if (result.isFailure) {
+      throw new UnprocessableEntityException(
+        result.errors?.[0]?.message ?? 'Failed to retrieve containers',
+      );
+    }
+
+    return {
+      data: result.data.map(c => this.mapToContainerDto(c)),
+      success: true,
+      message: 'Containers retrieved successfully',
+    };
   }
 
   /**
@@ -126,5 +147,18 @@ export class ContainerController extends BaseController {
     throw new NotImplementedException(
       'getContainerProperties is not implemented yet',
     );
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Maps ContainerReadModel → ContainerDto.
+   * changeInfo is left undefined — this endpoint doesn't surface change state.
+   */
+  private mapToContainerDto(c: ContainerReadModel): ContainerDto {
+    const dto = new ContainerDto(String(c.systemId), c.containerId);
+    dto.name = c.type;
+    dto.changeInfo = undefined;
+    return dto;
   }
 }
