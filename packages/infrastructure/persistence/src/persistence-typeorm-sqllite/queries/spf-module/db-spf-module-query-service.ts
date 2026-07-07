@@ -12,6 +12,7 @@ import {
   type SpfModuleDefinitionQueryService,
   Result,
   ERROR_CODES,
+  CONFIGURATION_INCLUDES,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
@@ -376,7 +377,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
             await this.spfModuleDefinitionQuerySvc.getDefinition(
               defId,
               fileSystemId,
-              {summary: true},
+              CONFIGURATION_INCLUDES.Summary,
             );
 
           if (defResult.isFailure) {

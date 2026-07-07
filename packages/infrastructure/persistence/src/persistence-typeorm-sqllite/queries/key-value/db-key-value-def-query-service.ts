@@ -8,8 +8,8 @@ import type {
   KeyValueDefQueryService,
   KeyDefinitionReadModel,
   ValueDefinitionReadModel,
-  ConfigurationIncludes,
 } from '@arc/core';
+import {Result, ERROR_CODES} from '@arc/core';
 import {applyTableOverlay} from '../edit-session/overlay-utils.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -24,143 +24,145 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
-  async getByValueDefinition(
+  async getKeyValueDefinitionForGivenValue(
     valueDefSystemId: number,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<{
-    key: KeyDefinitionReadModel;
-    value: ValueDefinitionReadModel;
-  } | null> {
-    const result = await this.getByValueDefinitions(
+  ): Promise<Result<KeyDefinitionReadModel>> {
+    const result = await this.getKeyValueDefinitionForGivenValues(
       [valueDefSystemId],
       fileSystemId,
-      includes,
     );
-    return result.get(valueDefSystemId) ?? null;
+    if (result.isFailure) return Result.fail(...result.errors);
+
+    const match = result.data.find(keyDef =>
+      keyDef.values.some(v => v.systemId === valueDefSystemId),
+    );
+    if (!match)
+      return Result.fail({
+        code: ERROR_CODES.ENTITY_NOT_FOUND,
+        message: `ValueDefinition not found for systemId=${valueDefSystemId}`,
+      });
+    return Result.ok(match);
   }
 
   /**
-   * Batch variant — resolves many valueDefSystemIds in one DB query plus
-   * one pair of table-wide edit-action queries, instead of one
-   * getEditActionsByAggregateId call per id.
+   * Batch variant — resolves many valueDefSystemIds in two DB queries total:
+   * Step 1 finds which parent keys the requested values belong to, Step 2
+   * loads every value under those keys (not just the requested ones), so
+   * each returned KeyDefinitionReadModel carries its full child set.
    */
-  async getByValueDefinitions(
+  async getKeyValueDefinitionForGivenValues(
     valueDefSystemIds: number[],
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<
-    Map<number, {key: KeyDefinitionReadModel; value: ValueDefinitionReadModel}>
-  > {
-    if (valueDefSystemIds.length === 0) return new Map();
+  ): Promise<Result<KeyDefinitionReadModel[]>> {
+    if (valueDefSystemIds.length === 0) return Result.ok([]);
 
-    // Step 1 — QueryBuilder: one query for all requested values + their keys
-    let qb = this.dataSource
-      .getRepository(ENTITY_NAMES.ValueDefinition)
-      .createQueryBuilder('v')
-      .where('v.systemId IN (:...ids)', {ids: valueDefSystemIds});
+    try {
+      // Step 1 — resolve requested values → their distinct parent key ids
+      const requestedRows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.ValueDefinition)
+        .createQueryBuilder('v')
+        .leftJoinAndSelect('v.keys', 'k')
+        .where('v.systemId IN (:...ids)', {ids: valueDefSystemIds})
+        .getMany()) as ValueDefinitionRow[];
 
-    if (includes.summary || includes.fullDetails) {
-      qb = qb.leftJoinAndSelect('v.keys', 'k');
-    }
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      const overlaidRequestedRows = session
+        ? await this.applyBatchOverlay(requestedRows, valueDefSystemIds, session)
+        : requestedRows;
 
-    const rows = (await qb.getMany()) as ValueDefinitionRow[];
+      const keySystemIds = [
+        ...new Set(
+          overlaidRequestedRows
+            .map(r => r.keys?.systemId)
+            .filter((id): id is number => id != null),
+        ),
+      ];
+      if (keySystemIds.length === 0) return Result.ok([]);
 
-    // Step 2 — Overlay: two table-wide queries total, not one per row
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    const overlaidRows = session
-      ? await this.applyBatchOverlay(rows, valueDefSystemIds, session)
-      : rows;
+      // Step 2 — load ALL values under those keys, one batched query
+      const allValueRows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.ValueDefinition)
+        .createQueryBuilder('v')
+        .leftJoinAndSelect('v.keys', 'k')
+        .where('v.keySystemId IN (:...keyIds)', {keyIds: keySystemIds})
+        .getMany()) as ValueDefinitionRow[];
 
-    // Step 3 — Map to read model, skip rows whose parent key never resolved
-    const result = new Map<
-      number,
-      {key: KeyDefinitionReadModel; value: ValueDefinitionReadModel}
-    >();
-    for (const r of overlaidRows) {
-      if (!r.keys) continue;
-      result.set(r.systemId, {
-        key: {
-          systemId: r.keys.systemId,
-          keyId: r.keys.keyId,
-          name: r.keys.name,
-          description: r.keys.description,
-          isCalibrationKey: r.keys.isCalibrationKey,
-          isGraphKey: r.keys.isGraphKey,
-          isVoice: r.keys.isVoice,
-          isDynamic: r.keys.isDynamic,
-          cEnumMemberName: r.keys.cEnumMemberName,
-          cEnumName: r.keys.cEnumName,
-          specialityKeyValue: r.keys.specialityKeyValue,
-          calibrationEnumValue: r.keys.calibrationEnumValue,
-          graphEnumValue: r.keys.graphEnumValue,
-        },
-        value: {
-          systemId: r.systemId,
-          valueId: r.valueId,
-          name: r.name,
-          description: r.description,
-          enumValue: r.enumValue,
-          specialValue: r.specialValue,
-        },
+      const allValueIds = allValueRows.map(r => r.systemId);
+      const overlaidValueRows = session
+        ? await this.applyBatchOverlay(allValueRows, allValueIds, session)
+        : allValueRows;
+
+      // Group by parent key, build one KeyDefinitionReadModel per distinct key
+      const valuesByKeyId = new Map<number, ValueDefinitionRow[]>();
+      const keyRowById = new Map<number, KeyDefinitionRow>();
+      for (const row of overlaidValueRows) {
+        if (!row.keys) continue;
+        keyRowById.set(row.keys.systemId, row.keys);
+        const bucket = valuesByKeyId.get(row.keys.systemId) ?? [];
+        bucket.push(row);
+        valuesByKeyId.set(row.keys.systemId, bucket);
+      }
+
+      const result = keySystemIds
+        .map(keyId => keyRowById.get(keyId))
+        .filter((k): k is KeyDefinitionRow => k != null)
+        .map(keyRow =>
+          this.toKeyDefinitionReadModel(
+            keyRow,
+            valuesByKeyId.get(keyRow.systemId) ?? [],
+          ),
+        );
+
+      return Result.ok(result);
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load value definitions',
       });
     }
-    return result;
   }
 
   async getByKeyDefinition(
     keyDefSystemId: number,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<{
-    key: KeyDefinitionReadModel;
-    values: ReadonlyArray<ValueDefinitionReadModel>;
-  } | null> {
-    // Step 1 — QueryBuilder: join values when summary or fullDetails requested
-    let qb = this.dataSource
-      .getRepository(ENTITY_NAMES.KeyDefinition)
-      .createQueryBuilder('k')
-      .where('k.systemId = :id', {id: keyDefSystemId});
+  ): Promise<Result<KeyDefinitionReadModel>> {
+    try {
+      // Step 1 — QueryBuilder: key + child values always joined
+      const row = (await this.dataSource
+        .getRepository(ENTITY_NAMES.KeyDefinition)
+        .createQueryBuilder('k')
+        .leftJoinAndSelect('k.values', 'v')
+        .where('k.systemId = :id', {id: keyDefSystemId})
+        .getOne()) as KeyDefinitionRow | null;
 
-    if (includes.summary || includes.fullDetails) {
-      qb = qb.leftJoinAndSelect('k.values', 'v');
+      // Step 2 — Overlay: applied when session exists
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      const overlaid = session
+        ? await this.applyKeyDefOverlay(row, keyDefSystemId, session)
+        : row;
+      if (!overlaid)
+        return Result.fail({
+          code: ERROR_CODES.ENTITY_NOT_FOUND,
+          message: `KeyDefinition not found for systemId=${keyDefSystemId}`,
+        });
+
+      // Step 3 — Return full overlaid read model
+      return Result.ok(
+        this.toKeyDefinitionReadModel(overlaid, overlaid.values ?? []),
+      );
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Failed to load key definition ${keyDefSystemId}`,
+      });
     }
-
-    const row = (await qb.getOne()) as KeyDefinitionRow | null;
-
-    // Step 2 — Overlay: applied when session exists
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    const overlaid = session
-      ? await this.applyKeyDefOverlay(row, keyDefSystemId, session)
-      : row;
-    if (!overlaid) return null;
-
-    // Step 3 — Return full overlaid read model — caller uses project() to reduce
-    return {
-      key: {
-        systemId: overlaid.systemId,
-        keyId: overlaid.keyId,
-        name: overlaid.name,
-        description: overlaid.description,
-        isCalibrationKey: overlaid.isCalibrationKey,
-        isGraphKey: overlaid.isGraphKey,
-        isVoice: overlaid.isVoice,
-        isDynamic: overlaid.isDynamic,
-        cEnumMemberName: overlaid.cEnumMemberName,
-        cEnumName: overlaid.cEnumName,
-        specialityKeyValue: overlaid.specialityKeyValue,
-        calibrationEnumValue: overlaid.calibrationEnumValue,
-        graphEnumValue: overlaid.graphEnumValue,
-      },
-      values: (overlaid.values ?? []).map(v => ({
-        systemId: v.systemId,
-        valueId: v.valueId,
-        name: v.name,
-        description: v.description,
-        enumValue: v.enumValue,
-        specialValue: v.specialValue,
-      })),
-    };
   }
 
   // ── private overlay methods ──────────────────────────────────────────────
@@ -209,8 +211,8 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
    * Applies overlay to a batch of ValueDefinition rows (and their KeyDefinition
    * parents) using two table-wide edit-action queries — getEditActionsByTable —
    * instead of one getEditActionsByAggregateId call per row. This is what makes
-   * getByValueDefinitions O(1) queries instead of O(n), and is reused by
-   * applyKeyDefOverlay for the same reason.
+   * getKeyValueDefinitionForGivenValues O(1) queries instead of O(n), and is
+   * reused by applyKeyDefOverlay for the same reason.
    *
    * requestedIds narrows both table-wide queries to actions the caller actually
    * asked about, and (via applyToCollection's own CREATE-append behavior) allows
@@ -262,5 +264,42 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       ...v,
       keys: overlaidKeyMap.get(v.keys?.systemId ?? -1) ?? v.keys,
     }));
+  }
+
+  // ── projection helpers ────────────────────────────────────────────────────
+
+  private toKeyDefinitionReadModel(
+    key: KeyDefinitionRow,
+    values: ValueDefinitionRow[],
+  ): KeyDefinitionReadModel {
+    return {
+      systemId: key.systemId,
+      keyId: key.keyId,
+      name: key.name,
+      description: key.description,
+      isCalibrationKey: key.isCalibrationKey,
+      isGraphKey: key.isGraphKey,
+      isVoice: key.isVoice,
+      isDynamic: key.isDynamic,
+      cEnumMemberName: key.cEnumMemberName,
+      cEnumName: key.cEnumName,
+      specialityKeyValue: key.specialityKeyValue,
+      calibrationEnumValue: key.calibrationEnumValue,
+      graphEnumValue: key.graphEnumValue,
+      values: values.map(v => this.toValueDefinitionReadModel(v)),
+    };
+  }
+
+  private toValueDefinitionReadModel(
+    v: ValueDefinitionRow,
+  ): ValueDefinitionReadModel {
+    return {
+      systemId: v.systemId,
+      valueId: v.valueId,
+      name: v.name,
+      description: v.description,
+      enumValue: v.enumValue,
+      specialValue: v.specialValue,
+    };
   }
 }

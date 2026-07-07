@@ -12,6 +12,7 @@ import type {
 } from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 import type {SpfModulesQuery as SpfModuleQuery} from './query-spf-modules.query.js';
 import {Result} from '../../../shared/Result/operation-result.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export interface SpfModuleDetailedReadModel {
   modules: SpfModuleReadModel[];
@@ -94,7 +95,6 @@ export class SpfModuleQueryHandler implements QueryHandler<
           await this.queryServices.spfTuningConfigService.getModuleCkvs(
             m.systemId,
             fileSystemId,
-            {summary: true},
           );
         return [m.systemId, result] as [number, Result<CkvReadModel[]>];
       }),
@@ -112,7 +112,7 @@ export class SpfModuleQueryHandler implements QueryHandler<
           await this.queryServices.spfTuningConfigService.getModuleTags(
             m.systemId,
             fileSystemId,
-            {summary: true},
+            CONFIGURATION_INCLUDES.Summary,
           );
         return [m.systemId, result] as [number, Result<TagReadModel[]>];
       }),

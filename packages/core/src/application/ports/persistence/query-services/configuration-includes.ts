@@ -7,10 +7,16 @@
  * Controls the scope of data loaded by a query service method.
  * Reused across all query services.
  *
- * summary:     always loaded — identity fields (systemId, domain id, name, description)
- * fullDetails: optional — load all fields on top of summary
+ * Ordered scale, not independent flags — FullDetails always includes
+ * everything Summary loads, plus additional fields on top.
+ *
+ * Summary:     identity fields (systemId, domain id, name, description)
+ * FullDetails: all fields on top of Summary
  */
-export interface ConfigurationIncludes {
-  summary: boolean;
-  fullDetails?: boolean;
-}
+export const CONFIGURATION_INCLUDES = {
+  Summary:     'SUMMARY',
+  FullDetails: 'FULL_DETAILS',
+} as const;
+
+export type ConfigurationIncludes =
+  (typeof CONFIGURATION_INCLUDES)[keyof typeof CONFIGURATION_INCLUDES];

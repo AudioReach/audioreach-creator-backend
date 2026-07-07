@@ -15,7 +15,7 @@ import type {
   ParameterDefinitionReadModel,
   ConfigurationIncludes,
 } from '@arc/core';
-import {Result, ERROR_CODES, PORT_IO_TYPE} from '@arc/core';
+import {Result, ERROR_CODES, PORT_IO_TYPE, CONFIGURATION_INCLUDES} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
@@ -89,7 +89,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         .leftJoinAndSelect('def.staticPorts', 'staticPort');
 
       // fullDetails adds port definitions, intents, dynamic intents on top of summary
-      if (includes.fullDetails) {
+      if (includes === CONFIGURATION_INCLUDES.FullDetails) {
         qb = qb
           .leftJoinAndSelect('portGroup.ports', 'portDef')
           .leftJoinAndSelect('staticPort.staticIntents', 'staticIntent')
@@ -120,7 +120,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       const counts = this.computeSummaryCounts(overlaidRow);
 
       // Step 4 — full details built on top of overlaid row
-      const details = includes.fullDetails
+      const details = includes === CONFIGURATION_INCLUDES.FullDetails
         ? this.assembleFullDetails(overlaidRow)
         : {
             dataPortGroups: null,
@@ -130,7 +130,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
           };
 
       // Step 5 — parameter definitions loaded separately (own aggregate)
-      const parameterDefinitions = includes.fullDetails
+      const parameterDefinitions = includes === CONFIGURATION_INCLUDES.FullDetails
         ? await this.queryParameterDefinitions(fileSystemId, defSystemId)
         : null;
 
@@ -192,7 +192,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         pidType: overlaid.pidType ?? '',
       };
 
-      if (!includes.fullDetails) return Result.ok(base);
+      if (includes !== CONFIGURATION_INCLUDES.FullDetails) return Result.ok(base);
 
       return Result.ok({
         ...base,
@@ -252,7 +252,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     );
 
     // fullDetails — overlay ports, intents, dynamic intents
-    const overlaidPortGroupsWithPorts = includes.fullDetails
+    const overlaidPortGroupsWithPorts = includes === CONFIGURATION_INCLUDES.FullDetails
       ? overlaidPortGroups.map(g => ({
           ...g,
           ports: applyToCollection(
@@ -264,7 +264,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         }))
       : overlaidPortGroups;
 
-    const overlaidStaticPortsWithIntents = includes.fullDetails
+    const overlaidStaticPortsWithIntents = includes === CONFIGURATION_INCLUDES.FullDetails
       ? overlaidStaticPorts.map(p => ({
           ...p,
           staticIntents: applyToCollection(
@@ -276,7 +276,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         }))
       : overlaidStaticPorts;
 
-    const overlaidDynamicIntents = includes.fullDetails
+    const overlaidDynamicIntents = includes === CONFIGURATION_INCLUDES.FullDetails
       ? applyToCollection(
           overlaidDef.dynamicIntents ?? [],
           actions.filter(

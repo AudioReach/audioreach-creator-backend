@@ -14,8 +14,11 @@ import type {
   ConfigurationIncludes,
   KeyReadModel,
   ValueReadModel,
+  KeyDefinitionReadModel,
+  ValueDefinitionReadModel,
+  Error as AppError,
 } from '@arc/core';
-import {Result, ERROR_CODES} from '@arc/core';
+import {Result, ERROR_CODES, CONFIGURATION_INCLUDES} from '@arc/core';
 import {applyTableOverlay} from '../edit-session/overlay-utils.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -44,7 +47,6 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   async getModuleCkvs(
     spfModuleSystemId: number,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
   ): Promise<Result<CkvReadModel[]>> {
     try {
       // Step 1 — QueryBuilder: ckv + ckv_values (valueDefIds needed for key-value pairs)
@@ -61,15 +63,37 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         ? await this.overlayCkvRows(rows, spfModuleSystemId, session)
         : rows;
 
-      // Step 3 — Per CKV, delegate key-value pairs to KeyValueDefQueryService
-      // includes controls depth: summary=KeyReadModel, fullDetails=KeyDefinitionReadModel
+      // Step 3 — Per CKV, delegate key-value pairs to KeyValueDefQueryService.
+      // Each CKV builds independently — a thrown exception, or a Result.fail
+      // from buildCkvReadModel, is captured as an error for that CKV and
+      // processing continues for the rest. If any CKV failed, the Result is
+      // partial (isSuccess=true, errors non-empty) rather than dropping the
+      // whole array.
+      const itemErrors: AppError[] = [];
       const results = await Promise.all(
-        overlaidRows.map(async row =>
-          this.buildCkvReadModel(row, fileSystemId, includes),
-        ),
+        overlaidRows.map(async row => {
+          try {
+            const result = await this.buildCkvReadModel(row, fileSystemId);
+            if (result.isFailure) {
+              itemErrors.push(...result.errors);
+              return null;
+            }
+            itemErrors.push(...result.errors);
+            return result.data;
+          } catch (error) {
+            itemErrors.push({
+              code: ERROR_CODES.INTERNAL_ERROR,
+              message: `CKV ${row.systemId} failed to build: ${error instanceof Error ? error.message : String(error)}`,
+            });
+            return null;
+          }
+        }),
       );
 
-      return Result.ok(results);
+      const data = results.filter((r): r is CkvReadModel => r !== null);
+      return itemErrors.length > 0
+        ? Result.partial(data, itemErrors)
+        : Result.ok(data);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -128,20 +152,16 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     includes: ConfigurationIncludes,
   ): Promise<Result<TagReadModel[]>> {
     try {
-      // Step 1 — QueryBuilder: joins driven by includes
-      // fullDetails implies summary — both gates load tkvs + tkv_values
+      // Step 1 — QueryBuilder: tkvs + tkv_values always joined; payload
+      // + param definition only when fullDetails is requested
       let qb = this.dataSource
         .getRepository(ENTITY_NAMES.ModuleTagIdMap)
         .createQueryBuilder('tagMap')
+        .leftJoinAndSelect('tagMap.tkvs', 'tkv')
+        .leftJoinAndSelect('tkv.values', 'tkvVal')
         .where('tagMap.spfModuleSystemId = :id', {id: spfModuleSystemId});
 
-      if (includes.summary || includes.fullDetails) {
-        qb = qb
-          .leftJoinAndSelect('tagMap.tkvs', 'tkv')
-          .leftJoinAndSelect('tkv.values', 'tkvVal');
-      }
-
-      if (includes.fullDetails) {
+      if (includes === CONFIGURATION_INCLUDES.FullDetails) {
         qb = qb
           .leftJoinAndSelect('tkv.payloadCollection', 'payload')
           .leftJoinAndSelect('payload.spfParameter', 'param');
@@ -161,26 +181,21 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       ];
       const tagDefMap = await this.loadTagDefinitions(tagDefIds);
 
-      // Step 4 — Per tag map, build TKV read models inline
+      // Step 4 — Per tag map, build TKV read models inline.
+      // buildTagTkvReadModels isolates per-TKV failures internally and
+      // always resolves to a Result — its errors are merged in here.
+      const itemErrors: AppError[] = [];
       const results = await Promise.all(
         overlaidRows.map(async r => {
           const tagDef = tagDefMap.get(r.tagDefinitionSystemId);
-          const loadTkvs = includes.summary || includes.fullDetails;
-          const tkvs = loadTkvs
-            ? await Promise.all(
-                (r.tkvs ?? []).map(async tkv => {
-                  const overlaidTkv = session
-                    ? await this.overlayTkvRow(tkv, r.systemId, session)
-                    : tkv;
-                  if (!overlaidTkv) return null;
-                  return this.buildTkvReadModel(
-                    overlaidTkv,
-                    fileSystemId,
-                    includes,
-                  );
-                }),
-              ).then(arr => arr.filter((t): t is TkvReadModel => t !== null))
-            : [];
+
+          const tkvResult = await this.buildTagTkvReadModels(
+            r,
+            session,
+            fileSystemId,
+          );
+          const tkvs = tkvResult.isFailure ? [] : tkvResult.data;
+          itemErrors.push(...tkvResult.errors);
 
           return {
             systemId: r.systemId,
@@ -192,7 +207,9 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         }),
       );
 
-      return Result.ok(results);
+      return itemErrors.length > 0
+        ? Result.partial(results, itemErrors)
+        : Result.ok(results);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -244,19 +261,23 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   }
 
   /**
-   * Overlays a single TKV row at the tag map aggregate level.
-   * Returns null when the TKV is deleted in the session.
+   * Overlays all TKV rows under one tag map using a single
+   * getEditActionsByAggregateId call, instead of one call per TKV.
+   * Previously overlayTkvRow was called once per TKV with the same
+   * moduleTagIdMapSystemId, issuing an identical query for every TKV
+   * under the same tag map (N+1 for a tag with many TKVs).
    */
-  private async overlayTkvRow(
-    row: TkvRow,
+  private async overlayTkvRows(
+    rows: TkvRow[],
     moduleTagIdMapSystemId: number,
     session: ProjectSessionRow,
-  ): Promise<TkvRow | null> {
+  ): Promise<TkvRow[]> {
     const actions = await this.editActionsSvc.getEditActionsByAggregateId(
       session.sessionId,
       moduleTagIdMapSystemId,
     );
-    return applyTableOverlay(row, actions, ENTITY_NAMES.Tkv);
+    const tkvActions = actions.filter(a => a.tableName === ENTITY_NAMES.Tkv);
+    return tkvActions.length > 0 ? applyToCollection(rows, tkvActions) : rows;
   }
 
   private async overlayPayloadRows(
@@ -300,31 +321,31 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
   /**
    * Builds CkvReadModel — delegates key-value pair resolution to
-   * KeyValueDefQueryService.getByValueDefinitions in one batched call,
-   * instead of one getByValueDefinition call per valueDefId (N+1).
+   * KeyValueDefQueryService.getKeyValueDefinitionForGivenValues in one
+   * batched call, instead of one getKeyValueDefinitionForGivenValue call
+   * per valueDefId (N+1).
+   * A valueDefId that fails to resolve is dropped from keyValuePairs and
+   * surfaced as an item error via Result.partial.
    */
   private async buildCkvReadModel(
     row: CkvRow,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<CkvReadModel> {
+  ): Promise<Result<CkvReadModel>> {
     const valueDefIds = (row.values ?? []).map(v => v.valueDefSystemId);
-    const kvMap = await this.keyValueDefSvc.getByValueDefinitions(
+    const pairsResult = await this.resolveKeyValuePairs(
       valueDefIds,
       fileSystemId,
-      includes,
     );
+    if (pairsResult.isFailure)
+      return Result.fail<CkvReadModel>(...pairsResult.errors);
 
-    return {
+    const model: CkvReadModel = {
       systemId: row.systemId,
-      keyValuePairs: valueDefIds
-        .map(id => kvMap.get(id))
-        .filter((kv): kv is NonNullable<typeof kv> => kv != null)
-        .map(kv => ({
-          key: this.toKeyReadModel(kv.key),
-          value: this.toValueReadModel(kv.value),
-        })),
+      keyValuePairs: pairsResult.data,
     };
+    return pairsResult.errors.length > 0
+      ? Result.partial(model, pairsResult.errors)
+      : Result.ok(model);
   }
 
   /**
@@ -333,26 +354,119 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   private async buildTkvReadModel(
     row: TkvRow,
     fileSystemId: number,
-    includes: ConfigurationIncludes,
-  ): Promise<TkvReadModel> {
+  ): Promise<Result<TkvReadModel>> {
     const valueDefIds = (row.values ?? []).map(v => v.valueDefSystemId);
-    const kvMap = await this.keyValueDefSvc.getByValueDefinitions(
+    const pairsResult = await this.resolveKeyValuePairs(
       valueDefIds,
       fileSystemId,
-      includes,
     );
+    if (pairsResult.isFailure)
+      return Result.fail<TkvReadModel>(...pairsResult.errors);
 
-    return {
+    const model: TkvReadModel = {
       systemId: row.systemId,
       moduleTagIdMapSystemId: row.moduleTagIdMapSystemId,
-      keyValuePairs: valueDefIds
-        .map(id => kvMap.get(id))
-        .filter((kv): kv is NonNullable<typeof kv> => kv != null)
-        .map(kv => ({
-          key: this.toKeyReadModel(kv.key),
-          value: this.toValueReadModel(kv.value),
-        })),
+      keyValuePairs: pairsResult.data,
     };
+    return pairsResult.errors.length > 0
+      ? Result.partial(model, pairsResult.errors)
+      : Result.ok(model);
+  }
+
+  /**
+   * Resolves valueDefIds to {key, value} pairs via one batched
+   * getKeyValueDefinitionForGivenValues call. The batch call dedupes by
+   * parent key and silently omits ids that don't resolve, so this flattens
+   * the returned KeyDefinitionReadModel[] into a per-valueDefId lookup and
+   * reconstructs a not-found item error for any id absent from it — shared
+   * by buildCkvReadModel and buildTkvReadModel.
+   */
+  private async resolveKeyValuePairs(
+    valueDefIds: number[],
+    fileSystemId: number,
+  ): Promise<
+    Result<Array<{key: KeyReadModel; value: ValueReadModel}>>
+  > {
+    const keysResult =
+      await this.keyValueDefSvc.getKeyValueDefinitionForGivenValues(
+        valueDefIds,
+        fileSystemId,
+      );
+    if (keysResult.isFailure)
+      return Result.fail(...keysResult.errors);
+
+    const resolvedByValueId = new Map<
+      number,
+      {key: KeyDefinitionReadModel; value: ValueDefinitionReadModel}
+    >();
+    for (const keyDef of keysResult.data) {
+      for (const value of keyDef.values) {
+        resolvedByValueId.set(value.systemId, {key: keyDef, value});
+      }
+    }
+
+    const itemErrors: AppError[] = [];
+    const keyValuePairs = valueDefIds
+      .map(id => {
+        const resolved = resolvedByValueId.get(id);
+        if (!resolved) {
+          itemErrors.push({message: `ValueDefinition ${id} not found`});
+          return null;
+        }
+        return {
+          key: this.toKeyReadModel(resolved.key),
+          value: this.toValueReadModel(resolved.value),
+        };
+      })
+      .filter((kv): kv is NonNullable<typeof kv> => kv != null);
+
+    return itemErrors.length > 0
+      ? Result.partial(keyValuePairs, itemErrors)
+      : Result.ok(keyValuePairs);
+  }
+
+  /**
+   * Builds TkvReadModel[] for all TKVs under one tag map — overlays them
+   * in a single batch (overlayTkvRows) instead of once per TKV. Each TKV
+   * builds independently — a thrown exception, or a Result.fail from
+   * buildTkvReadModel, is captured as an error for that TKV and processing
+   * continues for the rest.
+   */
+  private async buildTagTkvReadModels(
+    tagMap: ModuleTagIdMapRow,
+    session: ProjectSessionRow | null,
+    fileSystemId: number,
+  ): Promise<Result<TkvReadModel[]>> {
+    const baseTkvs = tagMap.tkvs ?? [];
+    const overlaidTkvs = session
+      ? await this.overlayTkvRows(baseTkvs, tagMap.systemId, session)
+      : baseTkvs;
+
+    const itemErrors: AppError[] = [];
+    const results = await Promise.all(
+      overlaidTkvs.map(async tkv => {
+        try {
+          const result = await this.buildTkvReadModel(tkv, fileSystemId);
+          if (result.isFailure) {
+            itemErrors.push(...result.errors);
+            return null;
+          }
+          itemErrors.push(...result.errors);
+          return result.data;
+        } catch (error) {
+          itemErrors.push({
+            code: ERROR_CODES.INTERNAL_ERROR,
+            message: `TKV ${tkv.systemId} failed to build: ${error instanceof Error ? error.message : String(error)}`,
+          });
+          return null;
+        }
+      }),
+    );
+
+    const data = results.filter((t): t is TkvReadModel => t !== null);
+    return itemErrors.length > 0
+      ? Result.partial(data, itemErrors)
+      : Result.ok(data);
   }
 
   /**
@@ -375,7 +489,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
     return {
       systemId: payload.systemId,
-      definition: includes.fullDetails
+      definition: includes === CONFIGURATION_INCLUDES.FullDetails
         ? {
             ...base,
             elementsStructure: param.elementsStructure,
@@ -385,7 +499,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
             toolPolicies: param.toolPolicies,
           }
         : base,
-      ...(includes.fullDetails && payload.payload
+      ...(includes === CONFIGURATION_INCLUDES.FullDetails && payload.payload
         ? {payload: payload.payload}
         : {}),
     };
