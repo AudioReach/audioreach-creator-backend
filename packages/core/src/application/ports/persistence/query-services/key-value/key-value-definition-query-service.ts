@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {KeyDefinitionReadModel} from './key-value-definition-read-model.js';
+import type {
+  KeyDefinitionReadModel,
+  KeyDefinitionSummaryReadModel,
+  ValueDefinitionSummaryReadModel,
+} from './key-value-definition-read-model.js';
 import type {Result} from '../../../../shared/Result/operation-result.js';
 
 export interface KeyValueDefQueryService {
@@ -34,6 +38,30 @@ export interface KeyValueDefQueryService {
     valueDefSystemIds: number[],
     fileSystemId: number,
   ): Promise<Result<KeyDefinitionReadModel[]>>;
+
+  /**
+   * Resolves the requested ValueDefinition ids into Key/Value summary pairs.
+   *
+   * Unlike getKeyValueDefinitionForGivenValues(), which returns distinct keys
+   * with all of their child values, this method returns exactly one
+   * KeyDefinitionSummaryReadModel/ValueDefinitionSummaryReadModel pair for
+   * each requested valueDefSystemId.
+   *
+   * The order of the returned pairs matches the order of the requested
+   * valueDefSystemIds.
+   *
+   */
+  getKeyValueSummaryForGivenValues(
+    valueDefSystemIds: number[],
+    fileSystemId: number,
+  ): Promise<
+    Result<
+      Array<{
+        key: KeyDefinitionSummaryReadModel;
+        value: ValueDefinitionSummaryReadModel;
+      }>
+    >
+  >;
 
   /**
    * Given a key systemId, returns the overlaid KeyDefinitionReadModel with

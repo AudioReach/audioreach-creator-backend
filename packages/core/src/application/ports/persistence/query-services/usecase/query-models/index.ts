@@ -7,5 +7,4 @@ export * from './control-link-read-model.js';
 export * from './data-port-read-model.js';
 export * from './control-port-read-model.js';
 export * from './intent-read-model.js';
-export * from './container-read-model.js';
 export * from './subgraph-read-model.js';

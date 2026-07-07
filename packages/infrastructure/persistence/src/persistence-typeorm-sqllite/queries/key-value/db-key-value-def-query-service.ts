@@ -8,6 +8,8 @@ import type {
   KeyValueDefQueryService,
   KeyDefinitionReadModel,
   ValueDefinitionReadModel,
+  ValueDefinitionSummaryReadModel,
+  KeyDefinitionSummaryReadModel,
 } from '@arc/core';
 import {Result, ERROR_CODES} from '@arc/core';
 import {applyTableOverlay} from '../edit-session/overlay-utils.js';
@@ -68,7 +70,11 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
 
       const session = await this.editActionsSvc.findActiveSession(fileSystemId);
       const overlaidRequestedRows = session
-        ? await this.applyBatchOverlay(requestedRows, valueDefSystemIds, session)
+        ? await this.applyBatchOverlay(
+            requestedRows,
+            valueDefSystemIds,
+            session,
+          )
         : requestedRows;
 
       const keySystemIds = [
@@ -122,6 +128,67 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
           error instanceof Error
             ? error.message
             : 'Failed to load value definitions',
+      });
+    }
+  }
+
+  /**
+   * Resolves the requested ValueDefinition ids into Key/Value summary pairs.
+   *
+   * Unlike getKeyValueDefinitionForGivenValues(), which returns distinct keys
+   * with all child values, this method returns only the requested
+   * key/value mappings.
+   */
+  async getKeyValueSummaryForGivenValues(
+    valueDefSystemIds: number[],
+    fileSystemId: number,
+  ): Promise<
+    Result<
+      Array<{
+        key: KeyDefinitionSummaryReadModel;
+        value: ValueDefinitionSummaryReadModel;
+      }>
+    >
+  > {
+    const keysResult = await this.getKeyValueDefinitionForGivenValues(
+      valueDefSystemIds,
+      fileSystemId,
+    );
+
+    if (keysResult.isFailure) {
+      return Result.fail(...keysResult.errors);
+    }
+
+    try {
+      const requestedIds = new Set(valueDefSystemIds);
+
+      const keyValuePairs = keysResult.data.flatMap(key =>
+        key.values
+          .filter(value => requestedIds.has(value.systemId))
+          .map(value => ({
+            key: {
+              systemId: key.systemId,
+              keyId: key.keyId,
+              name: key.name,
+              description: key.description,
+            },
+            value: {
+              systemId: value.systemId,
+              valueId: value.valueId,
+              name: value.name,
+              description: value.description,
+            },
+          })),
+      );
+
+      return Result.ok(keyValuePairs);
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to convert key/value pairs',
       });
     }
   }

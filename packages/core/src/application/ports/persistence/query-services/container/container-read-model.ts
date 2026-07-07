@@ -5,5 +5,6 @@
 
 export interface ContainerReadModel {
   readonly systemId: number;
+  readonly containerId: number;
   readonly type: string;
 }

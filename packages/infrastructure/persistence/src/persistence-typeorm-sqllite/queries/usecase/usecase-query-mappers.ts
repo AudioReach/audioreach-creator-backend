@@ -79,6 +79,7 @@ export const UseCaseQueryMappers = {
       definitionSystemId: spfModule.definitionSystemId,
       container: {
         systemId: spfModule.container!.systemId,
+        containerId: spfModule.container!.containerId,
         type: spfModule.container!.type,
       },
       subgraph: {

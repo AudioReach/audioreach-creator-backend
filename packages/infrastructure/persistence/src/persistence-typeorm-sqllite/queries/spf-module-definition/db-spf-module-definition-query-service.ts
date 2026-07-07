@@ -15,7 +15,12 @@ import type {
   ParameterDefinitionReadModel,
   ConfigurationIncludes,
 } from '@arc/core';
-import {Result, ERROR_CODES, PORT_IO_TYPE, CONFIGURATION_INCLUDES} from '@arc/core';
+import {
+  Result,
+  ERROR_CODES,
+  PORT_IO_TYPE,
+  CONFIGURATION_INCLUDES,
+} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
@@ -120,19 +125,21 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       const counts = this.computeSummaryCounts(overlaidRow);
 
       // Step 4 — full details built on top of overlaid row
-      const details = includes === CONFIGURATION_INCLUDES.FullDetails
-        ? this.assembleFullDetails(overlaidRow)
-        : {
-            dataPortGroups: null,
-            staticControlPorts: null,
-            dynamicIntents: null,
-            parameterDefinitions: null,
-          };
+      const details =
+        includes === CONFIGURATION_INCLUDES.FullDetails
+          ? this.assembleFullDetails(overlaidRow)
+          : {
+              dataPortGroups: null,
+              staticControlPorts: null,
+              dynamicIntents: null,
+              parameterDefinitions: null,
+            };
 
       // Step 5 — parameter definitions loaded separately (own aggregate)
-      const parameterDefinitions = includes === CONFIGURATION_INCLUDES.FullDetails
-        ? await this.queryParameterDefinitions(fileSystemId, defSystemId)
-        : null;
+      const parameterDefinitions =
+        includes === CONFIGURATION_INCLUDES.FullDetails
+          ? await this.queryParameterDefinitions(fileSystemId, defSystemId)
+          : null;
 
       return Result.ok({
         systemId: overlaidRow.systemId,
@@ -192,7 +199,8 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         pidType: overlaid.pidType ?? '',
       };
 
-      if (includes !== CONFIGURATION_INCLUDES.FullDetails) return Result.ok(base);
+      if (includes !== CONFIGURATION_INCLUDES.FullDetails)
+        return Result.ok(base);
 
       return Result.ok({
         ...base,
@@ -252,38 +260,41 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     );
 
     // fullDetails — overlay ports, intents, dynamic intents
-    const overlaidPortGroupsWithPorts = includes === CONFIGURATION_INCLUDES.FullDetails
-      ? overlaidPortGroups.map(g => ({
-          ...g,
-          ports: applyToCollection(
-            g.ports ?? [],
-            actions.filter(
-              a => a.tableName === ENTITY_NAMES.DataPortDefinition,
+    const overlaidPortGroupsWithPorts =
+      includes === CONFIGURATION_INCLUDES.FullDetails
+        ? overlaidPortGroups.map(g => ({
+            ...g,
+            ports: applyToCollection(
+              g.ports ?? [],
+              actions.filter(
+                a => a.tableName === ENTITY_NAMES.DataPortDefinition,
+              ),
             ),
-          ),
-        }))
-      : overlaidPortGroups;
+          }))
+        : overlaidPortGroups;
 
-    const overlaidStaticPortsWithIntents = includes === CONFIGURATION_INCLUDES.FullDetails
-      ? overlaidStaticPorts.map(p => ({
-          ...p,
-          staticIntents: applyToCollection(
-            p.staticIntents ?? [],
-            actions.filter(
-              a => a.tableName === ENTITY_NAMES.StaticIntentDefinition,
+    const overlaidStaticPortsWithIntents =
+      includes === CONFIGURATION_INCLUDES.FullDetails
+        ? overlaidStaticPorts.map(p => ({
+            ...p,
+            staticIntents: applyToCollection(
+              p.staticIntents ?? [],
+              actions.filter(
+                a => a.tableName === ENTITY_NAMES.StaticIntentDefinition,
+              ),
             ),
-          ),
-        }))
-      : overlaidStaticPorts;
+          }))
+        : overlaidStaticPorts;
 
-    const overlaidDynamicIntents = includes === CONFIGURATION_INCLUDES.FullDetails
-      ? applyToCollection(
-          overlaidDef.dynamicIntents ?? [],
-          actions.filter(
-            a => a.tableName === ENTITY_NAMES.DynamicIntentDefinition,
-          ),
-        )
-      : (overlaidDef.dynamicIntents ?? []);
+    const overlaidDynamicIntents =
+      includes === CONFIGURATION_INCLUDES.FullDetails
+        ? applyToCollection(
+            overlaidDef.dynamicIntents ?? [],
+            actions.filter(
+              a => a.tableName === ENTITY_NAMES.DynamicIntentDefinition,
+            ),
+          )
+        : (overlaidDef.dynamicIntents ?? []);
 
     return {
       ...overlaidDef,

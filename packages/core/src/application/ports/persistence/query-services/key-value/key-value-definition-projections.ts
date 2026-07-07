@@ -6,8 +6,8 @@
 import type {
   KeyDefinitionReadModel,
   ValueDefinitionReadModel,
-  KeyReadModel,
-  ValueReadModel,
+  KeyDefinitionSummaryReadModel,
+  ValueDefinitionSummaryReadModel,
 } from './key-value-definition-read-model.js';
 
 /**
@@ -18,7 +18,9 @@ export const KeyDefinitionProjections = {
   /**
    * Reduces to summary fields only — systemId, keyId, name, description.
    */
-  toKeyReadModel: (k: KeyDefinitionReadModel): KeyReadModel => ({
+  toKeyDefinitionSummaryReadModel: (
+    k: KeyDefinitionReadModel,
+  ): KeyDefinitionSummaryReadModel => ({
     systemId: k.systemId,
     keyId: k.keyId,
     name: k.name,
@@ -34,7 +36,9 @@ export const ValueDefinitionProjections = {
   /**
    * Reduces to summary fields only — systemId, valueId, name, description.
    */
-  toValueReadModel: (v: ValueDefinitionReadModel): ValueReadModel => ({
+  toValueDefinitionSummaryReadModel: (
+    v: ValueDefinitionReadModel,
+  ): ValueDefinitionSummaryReadModel => ({
     systemId: v.systemId,
     valueId: v.valueId,
     name: v.name,

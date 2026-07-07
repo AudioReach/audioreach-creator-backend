@@ -7,14 +7,13 @@
 
 ## Document Information
 
-- **Version**: 1.0
+- **Version**: 2.0
 - **Date**: July 2026
-- **Status**: Draft
+- **Status**: Current
 - **Endpoint**: `POST /arc-api/v1/projects/{projectId}/containers/query`
 - **Related Documents**:
-  - `spf-module-query-lld.md` — Reference design (same CQRS + overlay pattern)
+  - `spf-module-query-lld.md` — Reference design (same CQRS pattern; `KeyValueDefQueryService` naming/`Result<T>` conventions this doc's method names now follow)
   - `edit-session-persistence-design.md` — Edit session overlay pattern
-  - `2026-06-01-component-query-apis-requirements.md` — Component query requirements
 
 ---
 
@@ -38,44 +37,39 @@
 
 `POST /arc-api/v1/projects/{projectId}/containers/query`
 
-Returns container identity data for a given set of container `systemId` values.
+Returns container identity data for all containers in the given project.
 
-### 1.2 Functional requirements
+### 1.2 Request body — accepted but unused
 
-#### FR-CQ-01: Request validation — empty systemIds
-If `body.systemIds` is absent or empty, the controller MUST reject with `400 Bad Request` before any handler runs.
+The request body is still typed as `SystemIdsRequestDto { systemIds: string[] }`, matching the documented swagger contract for this endpoint. **`systemIds` is not consumed anywhere in this design** — `ContainerQueryService` has no id-scoped lookup method. The endpoint always returns every container for the resolved project, regardless of what (if anything) is sent in `systemIds`. This is a deliberate simplification (see §1.4) — a future revision could reintroduce id filtering in the handler or the query service if a caller needs it.
 
-#### FR-CQ-02: Request validation — invalid systemId format
-If any entry in `body.systemIds` cannot be parsed as a positive integer, the controller MUST reject with `400 Bad Request`.
+### 1.3 Functional requirements
 
-#### FR-CQ-03: Deduplication
-The persistence layer MUST deduplicate `systemIds` silently. The response MUST NOT contain duplicate containers.
+#### FR-CQ-01: No request validation on systemIds
+Since `systemIds` is unused, there is no 400 for empty/missing `systemIds` — the field is accepted and ignored.
 
-#### FR-CQ-04: Partial result for unknown IDs
-If some `systemIds` have no matching container row, the response MUST include only the containers found. No error is raised for unrecognised IDs.
+#### FR-CQ-02: projectId resolution
+The controller MUST resolve `projectId` (string path param) to `fileSystemId` (integer) via `ProjectQueryService.getFileIdByProjectId`. If the project does not exist, the call throws (surfaces as an unhandled rejection today — no explicit 404 mapping exists in the controller; see Open Items).
 
-#### FR-CQ-05: projectId resolution
-The controller MUST resolve `projectId` (string path param) to `fileSystemId` (integer) via `ProjectQueryService.getFileIdByProjectId`. If the project does not exist, respond `404 Not Found`.
+#### FR-CQ-03: Overlay always applied — no caller flag
+`ContainerQueryService` exposes **no `applyOverlay` flag**. Overlay is always attempted inside the implementation. When no active session exists the result is identical to a direct baseline read.
 
-#### FR-CQ-06: Overlay always applied — no caller flag
-The `ContainerQueryService` port exposes **no `applyOverlay` flag**. Overlay is always attempted inside the implementation. When no active session exists the result is identical to a direct baseline read.
-
-#### FR-CQ-07: Baseline-only read when no session active
+#### FR-CQ-04: Baseline-only read when no session active
 When no active session exists for the project file, containers are returned from baseline tables only. No `edit_actions` lookup is performed.
 
-#### FR-CQ-08: Draft overlay when session active
+#### FR-CQ-05: Draft overlay when session active
 When an active session exists, the persistence layer MUST apply the edit session overlay:
 - `DELETE` draft → exclude container from result
 - `UPDATE` draft → merge changed fields onto baseline row
 - `CREATE` draft → inject staged container (no baseline row exists)
 
-#### FR-CQ-09: STAGED drafts only
-Only `edit_actions` rows with `change_status = 'STAGED'` and `valid_until IS NULL` MUST be applied. UNSTAGED changes MUST NOT appear in the response.
+#### FR-CQ-06: STAGED drafts only
+Only `edit_actions` rows with `valid_until IS NULL` are fetched by `getEditActionsByTable` (the query used here — see §4). Change-status filtering is available via that method's `options` parameter but is not applied in this implementation; all non-expired drafts for the `Container` table are included regardless of STAGED/UNSTAGED.
 
-#### FR-CQ-10: changeInfo excluded
-`ContainerDto.changeInfo` MUST be set to `undefined` in this endpoint.
+#### FR-CQ-07: changeInfo excluded
+`ContainerDto.changeInfo` is set to `undefined` in this endpoint.
 
-#### FR-CQ-11: Response envelope
+#### FR-CQ-08: Response envelope
 ```json
 {
   "data":    [ ContainerDto, ... ],
@@ -84,9 +78,15 @@ Only `edit_actions` rows with `change_status = 'STAGED'` and `valid_until IS NUL
 }
 ```
 
-### 1.3 Non-functional requirements
+### 1.4 Why `findAll`, not `findMany`/`findOne`
 
-**NFR-CQ-01:** Maximum 3 DB queries per request. No N+1 patterns.
+Confirmed with the requester during implementation: `ContainerQueryService` should expose a single `findAll(fileSystemId)` returning every container for a file — not an id-scoped `findMany(systemIds, fileSystemId)`. Rationale given: "it is query, that means we need to fetch all the container id[s]." `findAll` never targets a specific id, so it only ever resolves to `Result.ok`/`Result.fail` — never `Result.partial`. `ContainerQuery` (the CQRS query class) carries no `systemIds` either, just `projectId` + `clientId`; `ContainerQueryHandler` resolves `fileSystemId` and passes `findAll`'s `Result` straight through, no filtering step in between.
+
+This is a deliberate divergence from the original v1.0 draft of this doc (which specified `findMany(systemIds, fileSystemId)` with per-id partial-result semantics) and from `SpfModuleQueryService`'s `findOne`/`findMany` pair. If a future caller needs to look up specific container ids, that capability doesn't exist yet on this port.
+
+### 1.5 Non-functional requirements
+
+**NFR-CQ-01:** Maximum 3 DB queries per request. No N+1 patterns — `getEditActionsByTable` is one table-wide query, not one per container.
 
 ---
 
@@ -102,24 +102,11 @@ Result<T>
   warnings: Warning[]  ← always [], non-empty on partial success
 ```
 
-### 2.2 ContainerReadModel — current state
+### 2.2 `ContainerReadModel`
 
 ```typescript
 // packages/core/src/application/ports/persistence/query-services/
-//   usecase/query-models/container-read-model.ts   ← EXISTING FILE
-
-export interface ContainerReadModel {
-  readonly systemId: number;   // containers.system_id
-  readonly type:     string;   // containers.type  e.g. "AUDIO_SS"
-}
-```
-
-### 2.3 ContainerReadModel — required update
-
-`ContainerDto.id` maps to the domain/business key `containerId`. It is absent from the current read model and must be added.
-
-```typescript
-// Updated ContainerReadModel  (same file — add containerId)
+//   usecase/query-models/container-read-model.ts
 
 export interface ContainerReadModel {
   readonly systemId:    number;   // containers.system_id     — internal PK
@@ -128,9 +115,9 @@ export interface ContainerReadModel {
 }
 ```
 
-**Change:** one field added — `containerId: number`.
+`containerId` was added in this revision — the original read model only had `systemId`/`type`. `ContainerDto.id` maps to this business key.
 
-### 2.4 Source columns
+### 2.3 Source columns
 
 | `ContainerReadModel` property | DB table | DB column | Notes |
 |---|---|---|---|
@@ -138,15 +125,15 @@ export interface ContainerReadModel {
 | `containerId` | `containers` | `container_id` | domain/business key |
 | `type` | `containers` | `type` | stores type name string directly; no JOIN to `container_types` needed |
 
-### 2.5 Mapping ContainerReadModel → ContainerDto
+### 2.4 Mapping ContainerReadModel → ContainerDto
 
 | `ContainerReadModel` | `ContainerDto` field | Conversion |
 |---|---|---|
 | `systemId: number` | `systemId: string` | `String(c.systemId)` |
 | `containerId: number` | `id: number` | direct |
 | `type: string` | `name?: string` | direct — type string is the display name |
-| — | `changeInfo` | `undefined` (FR-CQ-10) |
-| — | `relatedEndPointLinks` | `[]` (not required) |
+| — | `changeInfo` | `undefined` (FR-CQ-07) |
+| — | `relatedEndPointLinks` | `[]` (default on `BaseComponentDto`, not set explicitly) |
 
 ---
 
@@ -156,45 +143,43 @@ export interface ContainerReadModel {
 
 ```
 POST /arc-api/v1/projects/{projectId}/containers/query
-  Body: { systemIds: ["123", "456"] }
+  Body: { systemIds: [...] }   ← accepted, unused (§1.2)
 
   ──────────────────────────────────────────────────────
   @arc/api  ContainerController.queryContainers()
   ──────────────────────────────────────────────────────
-  1. Parse systemIds string[] → number[]
-       NaN → HTTP 400 (before handler)
-  2. parseInt(projectId, 10) → projectId: number
-  3. new QueryContainersQuery(systemIds, projectId, clientId)
-  4. queryBus.execute(query) → Result<ContainerReadModel[]>
-  5. result.isFailure → throw HttpException HTTP 422
-  6. result.data.map(c → ContainerDto)
-  7. return ApiResult<ContainerDto[]>  HTTP 200
+  1. parseInt(projectId, 10) → projectId: number
+  2. new ContainerQuery(projectId, 'client-id')
+       ('client-id' is a placeholder — same TODO as SpfModuleController,
+        real clientId extraction from JWT is not wired up yet)
+  3. queryBus.execute(query) → Result<ContainerReadModel[]>
+  4. result.isFailure → throw UnprocessableEntityException  HTTP 422
+  5. result.data.map(c → mapToContainerDto(c))
+  6. return ApiResult<ContainerDto[]>  HTTP 200
 
   ──────────────────────────────────────────────────────
-  @arc/core  QueryContainersHandler.handle()
+  @arc/core  ContainerQueryHandler.handle()
   ──────────────────────────────────────────────────────
   1. projectQueryService.getFileIdByProjectId(projectId)
-       throws if not found → HTTP 404
-  2. containerQueryService.findMany(systemIds, fileSystemId)
+       throws if not found — no explicit try/catch here (see Open Items)
+  2. containerQueryService.findAll(fileSystemId)
        → Result<ContainerReadModel[]>
-       isFailure → return Result.fail (fatal, propagates to HTTP 422)
-  3. return Result.ok(result.data, result.warnings)
+  3. return that Result unchanged — no filtering, no re-wrapping
 
   ──────────────────────────────────────────────────────
-  @arc/persistence  DbContainerQueryService.findMany()
+  @arc/persistence  DbContainerQueryService.findAll()
   ──────────────────────────────────────────────────────
   try/catch wraps all steps → Result.fail(INTERNAL_ERROR) on exception
 
   Step 1: SELECT system_id, container_id, type FROM containers
-            WHERE system_id IN (?) AND file_system_id = ?
-            → ContainerRow[] (baseline)
+            WHERE file_system_id = ?
+            → ContainerRow[] (baseline, ALL containers for this file)
 
   Step 2: findActiveSession(fileSystemId) → session | null
             null → return Result.ok(baseline as ContainerReadModel[])
 
-  Step 3: getEditActionsByAggregateIds(session.sessionId, uniqueIds)
-            → EditActionRow[]
-            [] → return Result.ok(baseline as ContainerReadModel[])
+  Step 3: getEditActionsByTable(session.sessionId, 'Container')
+            → EditActionRow[]  (table-wide — every Container draft in the session)
 
   Step 4: applyToCollection(baselineRows, editActions) → merged ContainerRow[]
 
@@ -212,7 +197,7 @@ POST /arc-api/v1/projects/{projectId}/containers/query
 Query 1 (always):
   SELECT system_id, container_id, type
   FROM containers
-  WHERE system_id IN (?, ?, ...) AND file_system_id = ?
+  WHERE file_system_id = ?
 
 Query 2 (always):
   SELECT * FROM project_sessions
@@ -221,21 +206,22 @@ Query 2 (always):
 Query 3 (only when active session found):
   SELECT * FROM edit_actions
   WHERE session_id = ?
-    AND aggregate_id IN (?, ?, ...)
+    AND table_name = 'Container'
     AND valid_until IS NULL
-    AND change_status = 'STAGED'
 ```
 
-Maximum **3 queries** per request. Query 3 is skipped when no active session exists.
+Maximum **3 queries** per request, regardless of how many containers exist for the project — Query 1 has no `IN (...)` id list (there's nothing to scope it by), and Query 3 is one table-wide lookup, not one per container. Query 3 is skipped when no active session exists.
 
 ### 3.3 Result propagation
 
 ```
-DbContainerQueryService.findMany()     QueryContainersHandler.handle()     ContainerController
+DbContainerQueryService.findAll()      ContainerQueryHandler.handle()      ContainerController
   Result<ContainerReadModel[]>   ──►     Result<ContainerReadModel[]>  ──►  ApiResult<ContainerDto[]>
-  isFailure → INTERNAL_ERROR             isFailure → Result.fail              HTTP 422
-  isSuccess → ContainerReadModel[]       isSuccess → Result.ok                HTTP 200
+  isFailure → INTERNAL_ERROR              passed through unchanged             HTTP 422 (UnprocessableEntityException)
+  isSuccess → ContainerReadModel[]        passed through unchanged             HTTP 200
 ```
+
+There is no `Result.partial` path in this flow — `findAll` has nothing to partially fail on (it's not resolving a specific set of requested ids), so the handler and controller only ever see `isSuccess`/`isFailure`.
 
 ---
 
@@ -248,24 +234,24 @@ DbContainerQueryService.findMany()     QueryContainersHandler.handle()     Conta
 const session = await this.editActionsSvc.findActiveSession(fileSystemId);
 
 // Tier 2 — no session: return baseline unchanged
-if (!session) return Result.ok(toReadModels(baselineRows));
+if (!session) return Result.ok(baselineRows.map(toReadModel));
 
 const editActions = await this.editActionsSvc
-  .getEditActionsByAggregateIds(session.sessionId, uniqueIds);
+  .getEditActionsByTable(session.sessionId, ENTITY_NAMES.Container);
 
-// Tier 2 — no drafts for these containers: return baseline unchanged
-if (!editActions.length) return Result.ok(toReadModels(baselineRows));
-
-// Tier 3 — apply drafts
+// Tier 3 — apply drafts (skipped implicitly if editActions is empty —
+// applyToCollection is a no-op over an empty actions array)
 const merged = applyToCollection(baselineRows, editActions);
-return Result.ok(toReadModels(merged));
+return Result.ok(merged.map(toReadModel));
 ```
 
-### 4.2 Tables overlaid
+`getEditActionsByTable` is used here rather than `getEditActionsByAggregateId` (the per-id method `SpfModuleQueryService` and others use) — `findAll` has no fixed id list to loop over, so the table-wide query is the only fit. This matches the batching principle from `spf-module-query-lld.md` §1.5 ("bounded number of DB queries, not one query per item") even though the shape here is simpler: one query, no dedup or per-id map needed.
 
-| Table | Aggregate ID used | Changes applied |
-|---|---|---|
-| `containers` | `containerSystemId` (= `system_id`) | `type` UPDATE; row DELETE; staged CREATE |
+### 4.2 What gets overlaid
+
+| Table | Overlay applies to |
+|---|---|
+| `containers` | `type` UPDATE; row DELETE; staged CREATE |
 
 `container_property_data` rows are **not** overlaid by this query.
 
@@ -277,24 +263,19 @@ return Result.ok(toReadModels(merged));
 | `UPDATE` | JSON `payload` fields merged onto baseline row — e.g. updated `type` |
 | `CREATE` | Row injected into collection — staged container visible in response |
 
-### 4.4 STAGED vs UNSTAGED
-
-`EditActionsQueryService.getEditActionsByAggregateIds` enforces `change_status = 'STAGED'` and `valid_until IS NULL`. UNSTAGED drafts are never visible in read responses (FR-CQ-09).
-
 ---
 
 ## 5. CQRS — Query and Handler
 
-### QueryContainersQuery
+### `ContainerQuery`
 
 ```typescript
 // packages/core/src/application/usecase-designer/container/query/
-//   query-containers.query.ts  (new file)
+//   query-containers.query.ts
 
-export class QueryContainersQuery extends BaseQuery {
+export class ContainerQuery extends BaseQuery {
   constructor(
-    public readonly systemIds: number[],   // container systemIds to look up
-    public readonly projectId: number,     // resolved to fileSystemId in handler
+    public readonly projectId: number,
     clientId: string,
   ) {
     super(clientId);
@@ -302,32 +283,36 @@ export class QueryContainersQuery extends BaseQuery {
 }
 ```
 
-### QueryContainersHandler
+Named `ContainerQuery` (not `QueryContainersQuery`) — matching `SpfModulesQuery`'s naming convention rather than the verb-first pattern the original draft of this doc used. No `systemIds` field (§1.4).
+
+### `ContainerQueryHandler`
 
 ```typescript
 // packages/core/src/application/usecase-designer/container/query/
-//   query-containers.handler.ts  (new file)
+//   query-containers.handler.ts
 
-export class QueryContainersHandler
-  implements QueryHandler<QueryContainersQuery, Promise<Result<ContainerReadModel[]>>>
+export class ContainerQueryHandler
+  implements QueryHandler<ContainerQuery, Promise<Result<ContainerReadModel[]>>>
 {
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(query: QueryContainersQuery): Promise<Result<ContainerReadModel[]>> {
-    // Resolve project → file scope
+  async handle(query: ContainerQuery): Promise<Result<ContainerReadModel[]>> {
     const fileSystemId = await this.queryServices.projectQueryService
       .getFileIdByProjectId(query.projectId);
 
-    // Delegate entirely to persistence — overlay is handled there
-    const result = await this.queryServices.containerQueryService
-      .findMany(query.systemIds, fileSystemId);
-
-    if (result.isFailure)
-      return Result.fail(...result.errors);
-
-    return Result.ok(result.data, result.warnings);
+    // findAll has no systemIds filter — id-scoping does not exist on this path.
+    return this.queryServices.containerQueryService.findAll(fileSystemId);
   }
 }
+```
+
+Registered in `QueryHandlerRegistry` alongside `SpfModulesQuery`:
+
+```typescript
+this.queryHandlerFactories.set(ContainerQuery, {
+  create: (deps: QueryHandlerDependencies) =>
+    new ContainerQueryHandler(deps.queryServices),
+});
 ```
 
 ---
@@ -338,18 +323,14 @@ export class QueryContainersHandler
 
 ```typescript
 // packages/core/src/application/ports/persistence/query-services/
-//   container/container-query-service.ts  (new file)
+//   container/container-query-service.ts
 
 export interface ContainerQueryService {
   /**
-   * Returns ContainerReadModel[] for the given systemIds scoped to fileSystemId.
-   * Overlay is always applied internally — no applyOverlay flag (FR-CQ-06).
-   * Returns Result.ok([]) if none of the systemIds exist — not an error.
+   * Returns every ContainerReadModel for the given fileSystemId.
+   * Overlay is always applied internally — no applyOverlay flag.
    */
-  findMany(
-    systemIds:    number[],
-    fileSystemId: number,
-  ): Promise<Result<ContainerReadModel[]>>;
+  findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>>;
 }
 ```
 
@@ -357,7 +338,7 @@ export interface ContainerQueryService {
 
 ```typescript
 // packages/infrastructure/persistence/src/.../queries/container/
-//   db-container-query-service.ts  (new file)
+//   db-container-query-service.ts
 
 export class DbContainerQueryService implements ContainerQueryService {
   constructor(
@@ -365,41 +346,29 @@ export class DbContainerQueryService implements ContainerQueryService {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
-  async findMany(
-    systemIds:    number[],
-    fileSystemId: number,
-  ): Promise<Result<ContainerReadModel[]>> {
+  async findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>> {
     try {
-      if (systemIds.length === 0)
-        return Result.fail({
-          code:    ERROR_CODES.INVALID_INPUT,
-          message: 'systemIds must not be empty',
-        });
-
-      const uniqueIds = [...new Set(systemIds)];
-
-      // Step 1 — baseline load
+      // Step 1 — baseline load, all containers scoped to this file
       const baselineRows = await this.dataSource
         .getRepository(ENTITY_NAMES.Container)
         .createQueryBuilder('c')
         .select(['c.systemId', 'c.containerId', 'c.type'])
-        .where('c.systemId IN (:...ids)', {ids: uniqueIds})
-        .andWhere('c.fileSystemId = :fileSystemId', {fileSystemId})
+        .where('c.fileSystemId = :fileSystemId', {fileSystemId})
         .getMany() as ContainerRow[];
 
-      // Steps 2–4 — three-tier overlay
+      // Step 2 — three-tier overlay, table-wide (no fixed id list)
       const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      let rows: ContainerRow[] = baselineRows;
+      const rows = session
+        ? applyToCollection(
+            baselineRows,
+            await this.editActionsSvc.getEditActionsByTable(
+              session.sessionId,
+              ENTITY_NAMES.Container,
+            ),
+          )
+        : baselineRows;
 
-      if (session) {
-        const editActions = await this.editActionsSvc
-          .getEditActionsByAggregateIds(session.sessionId, uniqueIds);
-
-        if (editActions.length > 0)
-          rows = applyToCollection(baselineRows, editActions) as ContainerRow[];
-      }
-
-      // Step 5 — assemble ContainerReadModel[]
+      // Step 3 — assemble ContainerReadModel[]
       return Result.ok(
         rows.map(r => ({
           systemId:    r.systemId,
@@ -421,16 +390,16 @@ export class DbContainerQueryService implements ContainerQueryService {
 
 | Scenario | Treatment |
 |---|---|
-| Empty `systemIds` | `Result.fail(INVALID_INPUT)` — before any DB query |
 | DB error on baseline query | `try/catch` → `Result.fail(INTERNAL_ERROR)` |
 | DB error on session or overlay query | `try/catch` → `Result.fail(INTERNAL_ERROR)` |
-| systemId not found in DB | Row absent from baseline — partial result, not an error (FR-CQ-04) |
+| No containers exist for the file | Empty `rows` — `Result.ok([])`, not an error |
+| Project doesn't exist | Not handled here — `getFileIdByProjectId` throws before `findAll` is ever called; see §5 and Open Items |
 
 ---
 
 ## 7. Port Interface and Wiring
 
-### 7.1 Add `containerQueryService` to `QueryServices`
+### 7.1 `containerQueryService` on `QueryServices`
 
 ```typescript
 // packages/core/src/application/ports/persistence/query-services/query-services.ts
@@ -443,7 +412,7 @@ export interface QueryServices {
 }
 ```
 
-### 7.2 Wire `DbContainerQueryService` in `DbQueryServices`
+### 7.2 `DbContainerQueryService` in `DbQueryServices`
 
 ```typescript
 // packages/infrastructure/persistence/src/.../queries/typeorm-query-services.ts
@@ -454,7 +423,7 @@ export class DbQueryServices implements QueryServices {
   readonly containerQueryService: ContainerQueryService;
   // ... existing fields ...
 
-  constructor(dataSource: DataSource) {
+  constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(dataSource);
     // ... existing construction unchanged ...
 
@@ -466,17 +435,29 @@ export class DbQueryServices implements QueryServices {
 }
 ```
 
-### 7.3 Register handler in QueryBus
+No dependency on any other query service — same "leaf" category-service shape as `KeyValueDefQueryService`.
+
+### 7.3 `ContainerModule` — `ArcCqrsModule` import required
+
+`ContainerController` now injects `QueryBus` via its constructor. `ContainerModule` previously had no `imports` and would fail NestJS dependency resolution at bootstrap — fixed by importing `ArcCqrsModule` (which provides/exports `QueryBus`), same as `SpfModuleModule`:
 
 ```typescript
-queryBus.register(QueryContainersQuery, new QueryContainersHandler(queryServices));
+// packages/api/src/presentation/rest/modules/container/container.module.ts
+
+@Module({
+  imports: [ArcCqrsModule],
+  controllers: [ContainerController],
+  providers: [],
+  exports: [],
+})
+export class ContainerModule {}
 ```
 
 ---
 
 ## 8. DTO Mapping
 
-### ContainerReadModel → ContainerDto
+### `ContainerReadModel` → `ContainerDto`
 
 ```typescript
 // ContainerController private helper
@@ -487,40 +468,30 @@ private mapToContainerDto(c: ContainerReadModel): ContainerDto {
   //    systemId  ← String(c.systemId)  e.g. "123"
   //    id        ← c.containerId       e.g. 5
   dto.name = c.type;           // e.g. "AUDIO_SS"
-  dto.changeInfo = undefined;  // FR-CQ-10 — not included in this endpoint
+  dto.changeInfo = undefined;  // FR-CQ-07 — not included in this endpoint
   return dto;
 }
 ```
 
-### Updated `queryContainers` controller method
+### `queryContainers` controller method
 
 ```typescript
 @Post('query')
-@HttpCode(HttpStatus.OK)
 async queryContainers(
   @Param('projectId') projectId: string,
-  @Body() request: SystemIdsRequestDto,
+  @Body() _request: SystemIdsRequestDto,   // accepted, unused — see §1.2
 ): Promise<ApiResult<ContainerDto[]>> {
 
-  const systemIds = request.systemIds.map(id => {
-    const parsed = Number.parseInt(id, 10);
-    if (Number.isNaN(parsed))
-      throw new HttpException(`Invalid system ID: ${id}`, HttpStatus.BAD_REQUEST);
-    return parsed;
-  });
-
-  const query = new QueryContainersQuery(
-    systemIds,
-    Number.parseInt(projectId, 10),
-    'client-id',  // TODO: extract from JWT
+  const query = new ContainerQuery(
+    Number.parseInt(projectId, 10),  // radix 10 guards against octal misparse
+    'client-id',                      // TODO: extract real clientId from JWT
   );
 
   const result = await this.queryBus.execute<Result<ContainerReadModel[]>>(query);
 
   if (result.isFailure) {
-    throw new HttpException(
+    throw new UnprocessableEntityException(
       result.errors?.[0]?.message ?? 'Failed to retrieve containers',
-      HttpStatus.UNPROCESSABLE_ENTITY,
     );
   }
 
@@ -532,6 +503,8 @@ async queryContainers(
 }
 ```
 
+`UnprocessableEntityException` (not a raw `HttpException`) — required by the repo's `enforce-http-exceptions` ESLint rule, which restricts controllers to a fixed set of typed NestJS exceptions.
+
 ---
 
 ## 9. Folder Structure
@@ -542,12 +515,12 @@ async queryContainers(
 packages/core/src/application/
   ports/persistence/query-services/
     container/
-      container-query-service.ts            ← ContainerQueryService port interface
+      container-query-service.ts            ← ContainerQueryService port — findAll(fileSystemId) only
   usecase-designer/
     container/
       query/
-        query-containers.query.ts           ← QueryContainersQuery extends BaseQuery
-        query-containers.handler.ts         ← QueryContainersHandler
+        query-containers.query.ts           ← ContainerQuery extends BaseQuery (projectId, clientId)
+        query-containers.handler.ts          ← ContainerQueryHandler
 
 packages/infrastructure/persistence/src/.../queries/
   container/
@@ -558,20 +531,39 @@ packages/infrastructure/persistence/src/.../queries/
 
 ```
 packages/core/src/application/ports/persistence/query-services/
-  usecase/query-models/container-read-model.ts   ← add containerId: number
-  query-services.ts                              ← add containerQueryService: ContainerQueryService
+  usecase/query-models/container-read-model.ts   ← added containerId: number
+  query-services.ts                              ← added containerQueryService: ContainerQueryService
+  spf-module/... (no changes)
 
-packages/infrastructure/persistence/src/.../queries/
-  typeorm-query-services.ts                      ← wire DbContainerQueryService
+packages/core/src/
+  index.ts                                        ← exported ContainerQueryService, ContainerQuery, ContainerQueryHandler
+  application/orchestration/cqrs/registries/
+    query-handler-registry.ts                     ← registered ContainerQuery → ContainerQueryHandler
+
+packages/infrastructure/persistence/src/persistence-typeorm-sqllite/queries/
+  usecase/usecase-query-mappers.ts                ← added containerId to the inline ContainerReadModel literal
+                                                      built for ModuleReadModel.container (unrelated call site,
+                                                      broke once containerId became a required field)
+  typeorm-query-services.ts                       ← wired DbContainerQueryService
 
 packages/api/src/presentation/rest/modules/container/
-  container.controller.ts                        ← replace stub, inject QueryBus, mapToContainerDto
-  container.module.ts                            ← add QueryBus provider
+  container.controller.ts                        ← implemented queryContainers; injects QueryBus;
+                                                      added mapToContainerDto private helper
+  container.module.ts                             ← added ArcCqrsModule to imports
 ```
 
 ### No DB changes needed
 
 All required tables already exist: `containers`, `edit_actions`, `project_sessions`.
+
+---
+
+## Open Items (not addressed in this revision)
+
+- **No 404 for missing project.** `ProjectQueryService.getFileIdByProjectId` throws when the project doesn't exist; `ContainerQueryHandler`/`ContainerController` don't catch that and map it to `NotFoundException` — the original FR-CQ-05 ("404 Not Found" for missing project) from the v1.0 draft is not actually implemented. Swagger still documents a 404 response for this endpoint.
+- **No id-scoped lookup.** `systemIds` in the request body is accepted but ignored (§1.2/§1.4). If a caller needs "give me containers X, Y, Z" rather than "give me every container," `ContainerQueryService` needs a new method — no `findOne`/`findMany` exists today.
+- **207 Multi-Status is unreachable.** Swagger documents a 207 response for this endpoint (`PartialSuccessInterceptor` is applied at the controller level), but since `findAll` never produces `Result.partial`, `ApiResult.errors` is never populated by this code path — the endpoint can only ever return 200 or 422.
+- **Change-status filtering not applied.** `getEditActionsByTable` supports an `options.changeStatus` filter to restrict to `STAGED` only; this implementation passes no options, so STAGED and UNSTAGED drafts (any non-expired row) are both included. Compare to the original FR-CQ-06 in the v1.0 draft, which specified STAGED-only.
 
 ---
 

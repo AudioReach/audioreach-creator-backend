@@ -14,6 +14,7 @@ import type {
   SpfModuleDefinitionQueryService,
   KeyValueDefQueryService,
   SpfTuningConfigService,
+  ContainerQueryService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -26,6 +27,7 @@ import {DbSpfModuleQueryService} from './spf-module/db-spf-module-query-service.
 import {DbSpfModuleDefinitionQueryService} from './spf-module-definition/db-spf-module-definition-query-service.js';
 import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-service.js';
 import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
+import {DbContainerQueryService} from './container/db-container-query-service.js';
 
 // Database implementation of ModuleQueryService
 class DbModuleQueryService implements ModuleQueryService {
@@ -42,6 +44,7 @@ export class DbQueryServices implements QueryServices {
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
   readonly keyValueDefQueryService: KeyValueDefQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;
+  readonly containerQueryService: ContainerQueryService;
 
   constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(dataSource);
@@ -85,6 +88,11 @@ export class DbQueryServices implements QueryServices {
       editActionsQueryService,
       this.spfModuleDefinitionQueryService,
       this.spfTuningConfigService,
+    );
+
+    this.containerQueryService = new DbContainerQueryService(
+      dataSource,
+      editActionsQueryService,
     );
   }
 }

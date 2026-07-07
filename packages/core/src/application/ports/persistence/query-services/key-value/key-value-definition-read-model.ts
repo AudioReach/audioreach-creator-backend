@@ -7,7 +7,7 @@
  * Reduced projection of KeyDefinition — identity fields only.
  * Extracted from KeyDefinitionReadModel via project().
  */
-export interface KeyReadModel {
+export interface KeyDefinitionSummaryReadModel {
   readonly systemId: number;
   readonly keyId: number;
   readonly name: string;
@@ -18,14 +18,14 @@ export interface KeyReadModel {
  * Reduced projection of ValueDefinition — identity fields only.
  * Extracted from ValueDefinitionReadModel via project().
  */
-export interface ValueReadModel {
+export interface ValueDefinitionSummaryReadModel {
   readonly systemId: number;
   readonly valueId: number;
   readonly name: string;
   readonly description?: string;
 }
 
-export interface KeyDefinitionReadModel extends KeyReadModel {
+export interface KeyDefinitionReadModel extends KeyDefinitionSummaryReadModel {
   readonly isCalibrationKey?: boolean;
   readonly isGraphKey?: boolean;
   readonly isVoice?: boolean;
@@ -38,12 +38,10 @@ export interface KeyDefinitionReadModel extends KeyReadModel {
   readonly values: ValueDefinitionReadModel[];
 }
 
-
-
 /**
  * Full projection of the ValueDefinition domain entity (arc_values table).
  */
-export interface ValueDefinitionReadModel extends ValueReadModel {
+export interface ValueDefinitionReadModel extends ValueDefinitionSummaryReadModel {
   readonly enumValue?: string;
   readonly specialValue?: string;
 }

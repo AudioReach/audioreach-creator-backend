@@ -4,19 +4,19 @@
  */
 
 import type {
-  KeyReadModel,
-  ValueReadModel,
+  KeyDefinitionSummaryReadModel,
+  ValueDefinitionSummaryReadModel,
 } from '../../key-value/key-value-definition-read-model.js';
 
 /**
  * Result for one CKV bin — systemId + key-value pairs that identify the bin.
- * Key-value pairs resolved via KeyValueDefQueryService (KeyReadModel + ValueReadModel).
+ * Key-value pairs resolved via KeyValueDefQueryService (KeyDefinitionSummaryReadModel + ValueDefinitionSummaryReadModel).
  */
 export interface CkvReadModel {
   readonly systemId: number;
   readonly keyValuePairs: ReadonlyArray<{
-    readonly key: KeyReadModel;
-    readonly value: ValueReadModel;
+    readonly key: KeyDefinitionSummaryReadModel;
+    readonly value: ValueDefinitionSummaryReadModel;
   }>;
 }
 
@@ -27,8 +27,8 @@ export interface TkvReadModel {
   readonly systemId: number;
   readonly moduleTagIdMapSystemId: number;
   readonly keyValuePairs: ReadonlyArray<{
-    readonly key: KeyReadModel;
-    readonly value: ValueReadModel;
+    readonly key: KeyDefinitionSummaryReadModel;
+    readonly value: ValueDefinitionSummaryReadModel;
   }>;
 }
 

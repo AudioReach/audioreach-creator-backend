@@ -14,7 +14,7 @@
  * FullDetails: all fields on top of Summary
  */
 export const CONFIGURATION_INCLUDES = {
-  Summary:     'SUMMARY',
+  Summary: 'SUMMARY',
   FullDetails: 'FULL_DETAILS',
 } as const;
 
