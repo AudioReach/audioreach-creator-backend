@@ -17,19 +17,17 @@ export class MockJwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: true, // Ignore expiration for testing
-      secretOrKey: 'test-secret-key', // Test secret
+      secretOrKey: 'arc-web-api', // Match the real JWT secret
     });
   }
 
   /**
    * Validate method that always succeeds for testing
-   * Returns a mock user object
+   * Returns a mock user object matching the real JwtStrategy shape
    */
   async validate(payload: any) {
     return {
-      userId: payload.sub || 'test-user-id',
-      username: payload.username || 'test-user',
-      email: payload.email || 'test@example.com',
+      clientId: payload.clientId || 'test-client',
     };
   }
 }

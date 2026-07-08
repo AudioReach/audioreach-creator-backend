@@ -12,6 +12,9 @@ import {NodeWorkerPoolSingleton} from '@arc/fs';
 import {DataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/data-source-provider.js';
 import {getOrmBase} from '@arc/persistence';
 import {NodeBlobBytesConverter} from '../../../src/infrastructure-wrapper/database/node-blob-converter.js';
+import {AllExceptionsFilter} from '../../../src/infrastructure-wrapper/filters/all-exceptions.filter.js';
+import {ValidationExceptionFilter} from '../../../src/infrastructure-wrapper/filters/validation-exception.filter.js';
+import type {Logger} from '@arc/core';
 
 /**
  * Create a proxy app that connects to an external running server
@@ -116,6 +119,27 @@ export async function createTestApp(): Promise<INestApplication> {
       transform: true,
       forbidNonWhitelisted: true,
     }),
+  );
+
+  // Register global exception filters (same as main.ts)
+  // Use try-catch to handle the case where 'LOGGER' provider is not registered,
+  // falling back to a console-based logger to prevent test initialization failure.
+  let logger: Logger;
+  try {
+    logger = app.get<Logger>('LOGGER');
+  } catch {
+    logger = {
+      logInfo: ctx => console.log(`[INFO] ${ctx.msg}`),
+      logWarn: ctx => console.warn(`[WARN] ${ctx.msg}`),
+      logError: ctx => console.error(`[ERROR] ${ctx.msg}`, ctx.error),
+      logDebug: ctx => console.debug(`[DEBUG] ${ctx.msg}`),
+      logVerbose: ctx => console.debug(`[VERBOSE] ${ctx.msg}`),
+      logCritical: ctx => console.error(`[CRITICAL] ${ctx.msg}`, ctx.error),
+    } as Logger;
+  }
+  app.useGlobalFilters(
+    new AllExceptionsFilter(logger),
+    new ValidationExceptionFilter(logger),
   );
 
   // Enable CORS

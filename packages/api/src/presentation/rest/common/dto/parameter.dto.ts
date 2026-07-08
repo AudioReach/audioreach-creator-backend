@@ -8,6 +8,7 @@ import {BaseDto} from './base.dto.js';
 import {ConfigElementDto} from './element-data/elements/config-element/config-element.dto.js';
 import {ElementTemplateArrayDto} from './element-data/elements/element-template-array.dto.js';
 import {StructDto} from './element-data/elements/struct.dto.js';
+import {PARAM_TYPE, type ParamType} from '@arc/core';
 
 /**
  * Summary DTO containing essential parameter identification fields.
@@ -82,6 +83,17 @@ export class ParameterDto extends ParameterSummaryDto {
     required: false,
   })
   isOffloaded?: boolean;
+
+  @ApiProperty({
+    description:
+      'PID type of the parameter. Indicates the sharing scope of the parameter ID:\n' +
+      '- `NONE`: Not shared (default)\n' +
+      '- `SHARED`: Shared across module instances\n' +
+      '- `GLOBAL_SHARED`: Globally shared across all modules',
+    enum: PARAM_TYPE,
+    required: false,
+  })
+  pidType?: ParamType;
 }
 
 /**

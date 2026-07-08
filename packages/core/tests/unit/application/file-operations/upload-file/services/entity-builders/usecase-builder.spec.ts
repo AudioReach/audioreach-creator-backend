@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import 'reflect-metadata';
 import {jest} from '@jest/globals';
 import {UsecaseBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/usecase-builder.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';

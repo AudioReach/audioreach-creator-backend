@@ -19,3 +19,9 @@ export const CHANGE_STATUS = {
 } as const;
 
 export type ChangeStatus = (typeof CHANGE_STATUS)[keyof typeof CHANGE_STATUS];
+
+export interface ChangeInfo {
+  changeType: ChangeOperation;
+  changeId?: number; // EditActionRow.changeId — present when changeType != NONE
+  changeStatus?: ChangeStatus;
+}

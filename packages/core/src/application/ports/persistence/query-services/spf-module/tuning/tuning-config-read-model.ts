@@ -14,6 +14,8 @@ import type {
  */
 export interface CkvReadModel {
   readonly systemId: number;
+  /** UI persistence binary data for a given CKV. */
+  readonly uiPersistence?: Uint8Array | null;
   readonly keyValuePairs: ReadonlyArray<{
     readonly key: KeyDefinitionSummaryReadModel;
     readonly value: ValueDefinitionSummaryReadModel;

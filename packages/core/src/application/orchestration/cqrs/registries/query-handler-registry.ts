@@ -27,6 +27,9 @@ import {DownloadFileQuery} from '../../../file-operations/download-file/download
 import {DownloadFileHandler} from '../../../file-operations/download-file/download-file.handler.js';
 import {ProjectFilePropertiesQuery} from '../../../project/project-file-properties.query.js';
 import {ProjectFilePropertiesHandler} from '../../../project/project-file-properties.handler.js';
+import {GetCkvCalibrationDataQuery} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
+import {GetCkvCalibrationDataHandler} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
+
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
   fileSystem: FileSystemPort;
@@ -117,6 +120,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(ProjectFilePropertiesQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new ProjectFilePropertiesHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetCkvCalibrationDataQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetCkvCalibrationDataHandler(deps.queryServices, deps.logger),
     });
   }
 }

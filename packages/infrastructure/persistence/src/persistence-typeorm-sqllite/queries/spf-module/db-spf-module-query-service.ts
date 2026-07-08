@@ -10,6 +10,8 @@ import {
   type NodeQueryService,
   type SpfTuningConfigService,
   type SpfModuleDefinitionQueryService,
+  type CkvQueryService,
+  type KeyValueDefQueryService,
   Result,
   ERROR_CODES,
   CONFIGURATION_INCLUDES,
@@ -18,6 +20,7 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {DbNodeQueryService} from '../node/db-node-query-service.js';
+import {DbCkvCalibrationQueryService} from '../module-calibration/db-ckv-calibration-query-service.js';
 import type {NodeRow} from '../../entity-schema/usecase-data/node/node.schema.js';
 import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
@@ -61,15 +64,23 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   readonly nodeQueryService: NodeQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly spfModuleDefinitionQuerySvc: SpfModuleDefinitionQueryService;
+  readonly ckvQueryService: CkvQueryService;
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
     definitionQuerySvc: SpfModuleDefinitionQueryService,
     tuningConfigSvc: SpfTuningConfigService,
+    keyValueDefQuerySvc: KeyValueDefQueryService,
   ) {
     this.nodeQueryService = new DbNodeQueryService(dataSource, editActionsSvc);
     this.spfTuningConfigService = tuningConfigSvc;
     this.spfModuleDefinitionQuerySvc = definitionQuerySvc;
+    this.ckvQueryService = new DbCkvCalibrationQueryService(
+      dataSource,
+      editActionsSvc,
+      keyValueDefQuerySvc,
+    );
   }
 
   async findOne(
@@ -355,7 +366,6 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     }
   }
 
-  /**
   /**
    * Loads definition capabilities for a set of definition system IDs.
    * Delegates to SpfModuleDefinitionQueryService.getDefinition() with

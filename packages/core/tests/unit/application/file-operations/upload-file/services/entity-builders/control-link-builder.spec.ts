@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import 'reflect-metadata';
 import {jest} from '@jest/globals';
 import {ControlLinkBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/control-link-builder.js';
 import {ControlLink} from '../../../../../../../src/domain/entities/usecase-data/links/control-link.js';

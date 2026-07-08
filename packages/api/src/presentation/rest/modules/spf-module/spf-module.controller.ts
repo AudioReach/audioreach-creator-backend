@@ -36,10 +36,14 @@ import {
 } from './dto/request/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {ApiErrorItem} from '../../common/dto/api-response/api-error-item.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {
   QueryBus,
   SpfModulesQuery as SpfModuleQuery,
+  GetCkvCalibrationDataQuery,
+  PARAMETER_ELEMENT_TYPE,
+  type DisplayType,
   type SpfModuleDetailedReadModel,
   type SpfModuleReadModel,
   type DataPortReadModel,
@@ -48,6 +52,15 @@ import {
   type CkvReadModel,
   type TkvReadModel,
   type TagReadModel,
+  type CkvCalibrationReadModel,
+  type ParameterCalibrationReadModel,
+  type ParsedElementData,
+  type ElementSchema,
+  type StructArraySchema,
+  type ConfigElementData,
+  type ElementArrayData,
+  type StructArrayData,
+  type StructData,
 } from '@arc/core';
 import {
   DataPortDto,
@@ -58,8 +71,13 @@ import {
   ControlPortDto,
   ControlPortIntentDto,
 } from '../../common/dto/control-port.dto.js';
+import {NameValuePairDto} from '../../common/dto/element-data/elements/config-element/name-value-pair.dto.js';
+import {DISPLAY_TYPE} from '../../common/dto/element-data/elements/config-element/types/display-type.js';
+import {KeyValueDto, KeyDto, ValueDto} from '../../common/dto/key-value.dto.js';
 import {CkvDto, TkvDto, TagInfoDto} from './dto/shared/tuning-config.dto.js';
 import {KeyValueInfo, KeyInfo, ValueInfo} from '../../common/dto/kv.dto.js';
+
+type ElementDtoUnion = ConfigElementDto | ElementTemplateArrayDto | StructDto;
 
 /**
  * Controller to support all module related APIs for usecase design
@@ -67,7 +85,6 @@ import {KeyValueInfo, KeyInfo, ValueInfo} from '../../common/dto/kv.dto.js';
  */
 @ApiTags('spf-modules')
 @Controller('arc-api/v1/projects/:projectId/spf-modules')
-//@UseGuards(AuthGuard('jwt'))
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
@@ -331,22 +348,30 @@ export class SpfModuleController extends BaseController {
     @Param('ckvSystemId') ckvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
   ): Promise<ApiResult<CalDataDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Getting calibration data for SPF module:',
-      spfModuleSystemId,
-      'in project:',
+    const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
+    const query = new GetCkvCalibrationDataQuery(
       projectId,
-      'with CKV system ID:',
+      spfModuleSystemId,
       ckvSystemId,
-      paramSystemIds
-        ? 'and parameter system IDs:'
-        : 'for all parameter system IDs',
-      paramSystemIds || '',
+      clientId,
+      paramSystemIds,
     );
-    throw new NotImplementedException(
-      'getCalibrationData is not implemented yet',
+    const model = await this.queryBus.execute<CkvCalibrationReadModel>(query);
+
+    const errors: ApiErrorItem[] = (model.missingParamSystemIds ?? []).map(
+      id => ({
+        id: String(id),
+        code: 'PARAM_PAYLOAD_NOT_FOUND',
+        message: `No calibration payload found for parameter system ID ${id}`,
+      }),
     );
+
+    return {
+      data: this.transformToCalDataDto(model),
+      success: true,
+      message: 'Calibration data retrieved successfully',
+      ...(errors.length > 0 && {errors}),
+    };
   }
 
   /**
@@ -742,5 +767,205 @@ export class SpfModuleController extends BaseController {
       p.isStatic ? PortType.Static : PortType.Dynamic,
       p.allocatedIntents.map(i => new ControlPortIntentDto(i.intentId, i.name)),
     );
+  }
+
+  private transformToCalDataDto(model: CkvCalibrationReadModel): CalDataDto {
+    const dto = new CalDataDto();
+    dto.systemId = model.ckv.systemId.toString();
+    dto.changeInfo = undefined;
+    dto.Ckv = model.ckv.keyValuePairs.map(kv => {
+      const kvDto = new KeyValueDto();
+      const keyDto = new KeyDto();
+      keyDto.keyId = kv.key.keyId;
+      keyDto.name = kv.key.name;
+      keyDto.systemId = kv.key.systemId.toString();
+      const valueDto = new ValueDto();
+      valueDto.valueId = kv.value.valueId;
+      valueDto.name = kv.value.name;
+      valueDto.systemId = kv.value.systemId.toString();
+      kvDto.key = keyDto;
+      kvDto.value = valueDto;
+      return kvDto;
+    });
+    dto.parameters = model.parameters.map(p => this.transformParameterDto(p));
+    return dto;
+  }
+
+  private transformParameterDto(
+    p: ParameterCalibrationReadModel,
+  ): ParameterDetailDto {
+    const dto = new ParameterDetailDto();
+    dto.systemId = p.systemId.toString();
+    dto.changeInfo = undefined;
+    dto.parameterId = p.parameterId.toString();
+    dto.name = p.name;
+    dto.description = p.description;
+    dto.isHidden = p.isHidden;
+    dto.isReadOnly = p.isReadOnly;
+    dto.pidType = p.pidType;
+    dto.elements = p.parsedData ? this.transformElements(p.parsedData) : [];
+    return dto;
+  }
+
+  private transformElements(elements: ParsedElementData[]): ElementDtoUnion[] {
+    return elements.map(e => this.transformElement(e));
+  }
+
+  private transformElement(element: ParsedElementData): ElementDtoUnion {
+    if (element.type === PARAMETER_ELEMENT_TYPE.ConfigElement) {
+      return this.transformConfigElement(element);
+    }
+    if (element.type === PARAMETER_ELEMENT_TYPE.ElementArray) {
+      return this.transformElementArray(element);
+    }
+    if (element.type === PARAMETER_ELEMENT_TYPE.StructArray) {
+      return this.transformStructArray(element);
+    }
+    return this.transformStruct(element);
+  }
+
+  private mapDisplayType(
+    raw: DisplayType | undefined,
+  ): ConfigElementDto['displayType'] | undefined {
+    if (!raw) return undefined;
+    const map: Record<DisplayType, ConfigElementDto['displayType']> = {
+      TEXTBOX: DISPLAY_TYPE.TextBox,
+      DB_TEXTBOX: DISPLAY_TYPE.DbTextBox,
+      QFORMATTED_VALUE: DISPLAY_TYPE.QFormattedValue,
+      SLIDER: DISPLAY_TYPE.Slider,
+      CHECKBOX: DISPLAY_TYPE.CheckBox,
+      DROPDOWN: DISPLAY_TYPE.DropDown,
+      DUMP: DISPLAY_TYPE.Dump,
+      FILE: DISPLAY_TYPE.File,
+      BITFIELD: DISPLAY_TYPE.BitField,
+      FORMULA: DISPLAY_TYPE.Formula,
+      STRINGFIELD: DISPLAY_TYPE.StringField,
+    };
+    return map[raw];
+  }
+
+  private transformConfigElement(e: ConfigElementData): ConfigElementDto {
+    const dto = new ConfigElementDto();
+    dto.name = e.name;
+    dto.value = e.value;
+    dto.dataType = e.dataType as ConfigElementDto['dataType'];
+    dto.description = e.description;
+    dto.group = e.group;
+    dto.subgroup = e.subgroup;
+    dto.isReadOnly = e.isReadOnly;
+    dto.unit = e.unit;
+    dto.displayType = this.mapDisplayType(e.displayType);
+    dto.policy = e.policy as ConfigElementDto['policy'];
+    dto.qFormat = e.qFormat;
+    dto.precision = e.precision;
+    dto.min = e.min === undefined ? undefined : Number.parseFloat(e.min);
+    dto.max = e.max === undefined ? undefined : Number.parseFloat(e.max);
+    dto.allowedValues = e.rangeList?.map(r => {
+      const nv = new NameValuePairDto();
+      nv.name = r.name;
+      nv.value = r.value;
+      return nv;
+    });
+    return dto;
+  }
+
+  private transformElementArray(e: ElementArrayData): ElementTemplateArrayDto {
+    const dto = new ElementTemplateArrayDto();
+    dto.name = e.name;
+    dto.isReadOnly = e.isReadOnly;
+    dto.description = e.description;
+    dto.group = e.group;
+    dto.subgroup = e.subgroup;
+    dto.length = e.length;
+    dto.lengthFormula = e.arrayLenFormulaStr;
+    dto.template = [this.transformSchema(e.template)];
+    dto.value = this.transformElements(e.value);
+    return dto;
+  }
+
+  private transformStructArray(e: StructArrayData): ElementTemplateArrayDto {
+    return this.transformElementArray(e as unknown as ElementArrayData);
+  }
+
+  private transformStruct(e: StructData): StructDto {
+    const dto = new StructDto();
+    dto.name = e.name;
+    dto.isReadOnly = e.isReadOnly;
+    dto.description = e.description;
+    dto.group = e.group;
+    dto.subgroup = e.subgroup;
+    dto.structType = e.structureType;
+    dto.value = this.transformElements(e.value);
+    return dto;
+  }
+
+  private transformSchema(schema: ElementSchema): ElementDtoUnion {
+    if (schema.type === PARAMETER_ELEMENT_TYPE.ConfigElement) {
+      const dto = new ConfigElementDto();
+      dto.name = schema.name;
+      dto.value = schema.defaultValue ?? '';
+      dto.dataType = schema.dataType as ConfigElementDto['dataType'];
+      dto.description = schema.description;
+      dto.group = schema.group;
+      dto.subgroup = schema.subgroup;
+      dto.isReadOnly = schema.isReadOnly;
+      dto.unit = schema.unit;
+      dto.displayType = this.mapDisplayType(schema.displayType);
+      dto.policy = schema.policy as ConfigElementDto['policy'];
+      dto.qFormat = schema.qFormat;
+      dto.precision = schema.precision;
+      dto.min =
+        schema.min === undefined ? undefined : Number.parseFloat(schema.min);
+      dto.max =
+        schema.max === undefined ? undefined : Number.parseFloat(schema.max);
+      dto.allowedValues = schema.rangeList?.map(r => {
+        const nv = new NameValuePairDto();
+        nv.name = r.name;
+        nv.value = r.value;
+        return nv;
+      });
+      return dto;
+    }
+    if (schema.type === PARAMETER_ELEMENT_TYPE.ElementArray) {
+      const dto = new ElementTemplateArrayDto();
+      dto.name = schema.name;
+      dto.isReadOnly = schema.isReadOnly;
+      dto.description = schema.description;
+      dto.group = schema.group;
+      dto.subgroup = schema.subgroup;
+      dto.length = schema.length;
+      dto.lengthFormula = schema.arrayLenFormulaStr;
+      dto.template = [this.transformSchema(schema.template)];
+      dto.value = [];
+      return dto;
+    }
+    if (schema.type === PARAMETER_ELEMENT_TYPE.StructArray) {
+      return this.transformStructArraySchema(schema);
+    }
+    const dto = new StructDto();
+    dto.name = schema.name;
+    dto.isReadOnly = schema.isReadOnly;
+    dto.description = schema.description;
+    dto.group = schema.group;
+    dto.subgroup = schema.subgroup;
+    dto.structType = schema.structureType;
+    dto.value = [];
+    return dto;
+  }
+
+  private transformStructArraySchema(
+    schema: StructArraySchema,
+  ): ElementTemplateArrayDto {
+    const dto = new ElementTemplateArrayDto();
+    dto.name = schema.name;
+    dto.isReadOnly = schema.isReadOnly;
+    dto.description = schema.description;
+    dto.group = schema.group;
+    dto.subgroup = schema.subgroup;
+    dto.length = schema.length;
+    dto.lengthFormula = schema.arrayLenFormulaStr;
+    dto.template = [this.transformSchema(schema.template)];
+    dto.value = [];
+    return dto;
   }
 }

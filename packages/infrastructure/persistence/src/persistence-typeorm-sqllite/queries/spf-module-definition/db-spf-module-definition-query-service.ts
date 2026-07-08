@@ -406,9 +406,10 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
    * Parameters are keyed by moduleDefSystemId — separate aggregate from the definition.
    * One getEditActionsByAggregateId call, applyToCollection filters to param table.
    */
-  private async queryParameterDefinitions(
+  async queryParameterDefinitions(
     fileSystemId: number,
     moduleDefSystemId: number,
+    paramSystemIds?: number[],
   ): Promise<ParameterDefinitionReadModel[]> {
     const rows = (await this.dataSource
       .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
@@ -418,8 +419,14 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       })
       .getMany()) as SpfModuleParameterDefinitionRow[];
 
+    const filtered =
+      paramSystemIds && paramSystemIds.length > 0
+        ? rows.filter(r => paramSystemIds.includes(r.systemId))
+        : rows;
+
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    if (!session) return rows.map(r => this.toParameterDefinitionReadModel(r));
+    if (!session)
+      return filtered.map(r => this.toParameterDefinitionReadModel(r));
 
     const actions = await this.editActionsSvc.getEditActionsByAggregateId(
       session.sessionId,

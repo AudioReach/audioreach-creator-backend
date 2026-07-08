@@ -5,3 +5,5 @@
 
 export * from './error-codes.js';
 export * from '../exceptions/index.js';
+export * from './entity-not-found.error.js';
+export * from './parameter.errors.js';
