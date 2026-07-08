@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import 'reflect-metadata';
 import {jest} from '@jest/globals';
 import {DataLinkBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/data-link-builder.js';
 import {DataLink} from '../../../../../../../src/domain/entities/usecase-data/links/data-link.js';

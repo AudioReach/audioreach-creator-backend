@@ -9,6 +9,7 @@ import {NameValuePairDto} from './name-value-pair.dto.js';
 import {BitFieldDto} from './bit-field.dto.js';
 import type {BaseElement} from '../../types/base-element.type.js';
 import {ELEMENT_TYPE, type ElementType} from '../../types/element-type.js';
+import {DATA_TYPE, type DataType} from './types/data-type.js';
 import {DISPLAY_TYPE, type DisplayType} from './types/display-type.js';
 import {ELEMENT_POLICY, type ElementPolicy} from './types/element-policy.js';
 
@@ -39,6 +40,14 @@ export class ConfigElementDto implements BaseElement {
     type: 'string',
   })
   value!: string;
+
+  @ApiProperty({
+    description:
+      'Data type of the element value (e.g. UInt32, Int16, Float). ' +
+      'Determines how the raw binary value is interpreted.',
+    enum: DATA_TYPE,
+  })
+  dataType!: DataType;
 
   // ── Optional fields ───────────────────────────────────────────────────────
 

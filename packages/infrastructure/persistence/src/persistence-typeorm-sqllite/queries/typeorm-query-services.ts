@@ -2,7 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
 import type {
   QueryServices,
   ModuleQueryService,
@@ -88,6 +87,7 @@ export class DbQueryServices implements QueryServices {
       editActionsQueryService,
       this.spfModuleDefinitionQueryService,
       this.spfTuningConfigService,
+      this.keyValueDefQueryService,
     );
 
     this.containerQueryService = new DbContainerQueryService(

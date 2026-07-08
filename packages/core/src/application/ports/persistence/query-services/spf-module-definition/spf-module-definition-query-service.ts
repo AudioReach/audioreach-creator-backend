@@ -10,14 +10,6 @@ import type {Result} from '../../../../shared/Result/operation-result.js';
 
 export interface SpfModuleDefinitionQueryService {
   /**
-   * Returns the definition system ID for a given SPF module instance.
-   * Result.fail if the module is not found.
-   */
-  getModuleDefinitionSystemId(
-    spfModuleSystemId: number,
-  ): Promise<Result<number>>;
-
-  /**
    * Returns definition data for the given definition system ID.
    * Overlay always applied.
    *
@@ -46,4 +38,17 @@ export interface SpfModuleDefinitionQueryService {
     fileSystemId: number,
     includes: ConfigurationIncludes,
   ): Promise<Result<ParameterDefinitionReadModel>>;
+
+  /**
+   * Returns parameter definitions for the given module definition system ID.
+   * Overlay always applied.
+   *
+   * If paramSystemIds is provided, only definitions for those IDs are returned.
+   * Otherwise all definitions under the module are returned.
+   */
+  queryParameterDefinitions(
+    fileSystemId: number,
+    moduleDefSystemId: number,
+    paramSystemIds?: number[],
+  ): Promise<ParameterDefinitionReadModel[]>;
 }

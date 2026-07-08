@@ -7,8 +7,11 @@ import type {SpfModuleReadModel} from './spf-module-read-model.js';
 import type {NodeQueryService} from '../node/node-query-service.js';
 import type {SpfTuningConfigService} from './tuning/spf-tuning-config-service.js';
 import type {Result} from '../../../../shared/Result/operation-result.js';
+import type {CkvQueryService} from './ckv/ckv-query-service.js';
 
 export interface SpfModuleQueryService {
+  readonly ckvQueryService: CkvQueryService;
+
   /**
    * Returns a single SPF module with ports and definition capabilities.
    * Overlay always applied.

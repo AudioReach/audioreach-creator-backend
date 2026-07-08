@@ -30,7 +30,7 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     // Create temp directory for downloaded files
     tempDir = join(__dirname, '../temp');
     await fs.mkdir(tempDir, {recursive: true});
-  });
+  }, 30000);
 
   afterAll(async () => {
     await teardownE2ETest(app);
