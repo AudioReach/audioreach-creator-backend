@@ -130,6 +130,7 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
       sessionRepo,
+      this.keyValueDefQueryService,
     );
 
     this.driverModuleDefinitionQueryService =

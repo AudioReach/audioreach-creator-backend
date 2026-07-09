@@ -22,7 +22,9 @@ import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-sche
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
-import {SubgraphPropertyDefinitionSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
+import type {SubgraphBase} from '../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/subgraph/subgraph.schema.js';
+import type {SubgraphPropertyDataBase} from '../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/subgraph/subgraph-property-data.js';
+import type {SgkvBase} from '../../../src/persistence-typeorm-sqllite/entity-schema/usecase-data/subgraph/subgraph-sgkv-data.js';
 import {
   describe,
   it,
@@ -66,44 +68,6 @@ async function seedSession(ds: DataSource): Promise<number> {
   return row.sessionId;
 }
 
-async function seedSubgraph(
-  ds: DataSource,
-  opts: {systemId: number; fileSystemId: number},
-) {
-  await ds.query(
-    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_exported, file_system_id) VALUES (?, 1, 'sg', 0, ?)`,
-    [opts.systemId, opts.fileSystemId],
-  );
-}
-
-async function seedSubgraphPropertyDef(ds: DataSource, systemId: number) {
-  await getTestRepository(SubgraphPropertyDefinitionSchema).save({
-    systemId,
-    fileSystemId: FILE_ID,
-    propertyId: systemId,
-    name: `prop-${systemId}`,
-    maxSize: 4,
-    propertyType: 'SPF',
-    elementsStructure: '[]',
-    isVoice: false,
-  });
-}
-
-async function seedSubgraphPropertyData(
-  ds: DataSource,
-  opts: {
-    systemId: number;
-    subgraphSystemId: number;
-    subgraphPropertySystemId: number;
-  },
-) {
-  await seedSubgraphPropertyDef(ds, opts.subgraphPropertySystemId);
-  await ds.query(
-    `INSERT INTO subgraph_property_data (system_id, subgraph_system_id, subgraph_property_system_id, payload) VALUES (?, ?, ?, x'')`,
-    [opts.systemId, opts.subgraphSystemId, opts.subgraphPropertySystemId],
-  );
-}
-
 async function seedEditAction(
   ds: DataSource,
   opts: {
@@ -133,6 +97,38 @@ async function seedEditAction(
   );
 }
 
+// Minimal in-memory base rows — fetcher only applies overlay, never loads from DB
+function makeSubgraph(overrides: Partial<SubgraphBase> = {}): SubgraphBase {
+  return {
+    systemId: SUBGRAPH_ID,
+    subgraphId: 1,
+    name: 'sg',
+    isExported: false,
+    fileSystemId: FILE_ID,
+    ...overrides,
+  };
+}
+
+function makeSgkvRow(overrides: Partial<SgkvBase> = {}): SgkvBase {
+  return {
+    systemId: 500,
+    subgraphSystemId: SUBGRAPH_ID,
+    ...overrides,
+  };
+}
+
+function makePropRow(
+  overrides: Partial<SubgraphPropertyDataBase> = {},
+): SubgraphPropertyDataBase {
+  return {
+    systemId: 200,
+    subgraphSystemId: SUBGRAPH_ID,
+    subgraphPropertySystemId: 7,
+    payload: null,
+    ...overrides,
+  };
+}
+
 describe('SubgraphOverlayFetcher (integration)', () => {
   let ds: DataSource;
   let qr: QueryRunner;
@@ -151,7 +147,6 @@ describe('SubgraphOverlayFetcher (integration)', () => {
     qr = ds.createQueryRunner();
     await qr.connect();
     fetcher = new SubgraphOverlayFetcher(
-      qr.manager,
       new EditActionsQueryService(qr.manager),
     );
   });
@@ -159,106 +154,225 @@ describe('SubgraphOverlayFetcher (integration)', () => {
     await qr.release();
   });
 
-  it('returns null when no base row and sessionId is null', async () => {
-    expect(await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, null)).toBeNull();
+  // ── applyToSubgraphs ──────────────────────────────────────────────────────
+
+  describe('applyToSubgraphs', () => {
+    it('returns base rows unchanged when session has no subgraph actions', async () => {
+      const sessionId = await seedSession(ds);
+      const result = await fetcher.applyToSubgraphs(
+        [makeSubgraph()],
+        FILE_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].systemId).toBe(SUBGRAPH_ID);
+    });
+
+    it('returns empty array when base is empty and session has no CREATE', async () => {
+      const sessionId = await seedSession(ds);
+      const result = await fetcher.applyToSubgraphs([], FILE_ID, sessionId);
+      expect(result).toHaveLength(0);
+    });
+
+    it('injects CREATE-staged subgraph not in base', async () => {
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: SUBGRAPH_ID,
+        targetTable: ENTITY_NAMES.Subgraph,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({
+          subgraphId: 1,
+          name: 'sg-new',
+          isExported: false,
+          fileSystemId: FILE_ID,
+        }),
+      });
+      const result = await fetcher.applyToSubgraphs([], FILE_ID, sessionId);
+      expect(result).toHaveLength(1);
+      expect(result[0].systemId).toBe(SUBGRAPH_ID);
+      expect(result[0].name).toBe('sg-new');
+    });
+
+    it('tombstones DELETE-staged subgraph', async () => {
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: SUBGRAPH_ID,
+        targetTable: ENTITY_NAMES.Subgraph,
+        operation: CHANGE_OPERATION.Delete,
+        newValue: '{}',
+      });
+      const result = await fetcher.applyToSubgraphs(
+        [makeSubgraph()],
+        FILE_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(0);
+    });
   });
 
-  it('returns base subgraph with empty properties when sessionId is null', async () => {
-    await seedSubgraph(ds, {systemId: SUBGRAPH_ID, fileSystemId: FILE_ID});
-    const result = await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, null);
-    expect(result).not.toBeNull();
-    expect(result!.systemId).toBe(SUBGRAPH_ID);
-    expect(result!.properties).toHaveLength(0);
+  // ── applyToPropertyRows ───────────────────────────────────────────────────
+
+  describe('applyToPropertyRows', () => {
+    it('returns base rows unchanged when session has no property actions', async () => {
+      const sessionId = await seedSession(ds);
+      const result = await fetcher.applyToPropertyRows(
+        [makePropRow()],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].subgraphPropertySystemId).toBe(7);
+    });
+
+    it('returns empty array when base is empty and session has no CREATE', async () => {
+      const sessionId = await seedSession(ds);
+      const result = await fetcher.applyToPropertyRows(
+        [],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(0);
+    });
+
+    it('injects CREATE-staged property row not in base', async () => {
+      const propSystemId = 300;
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: propSystemId,
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({
+          subgraphSystemId: SUBGRAPH_ID,
+          subgraphPropertySystemId: 7,
+          payload: null,
+        }),
+      });
+      const result = await fetcher.applyToPropertyRows(
+        [],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].systemId).toBe(propSystemId);
+      expect(result[0].subgraphPropertySystemId).toBe(7);
+    });
+
+    it('applies UPDATE overlay to a base property row', async () => {
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: 200,
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        operation: CHANGE_OPERATION.Update,
+        fieldPath: 'payload',
+        newValue: JSON.stringify([1, 2, 3]),
+      });
+      const result = await fetcher.applyToPropertyRows(
+        [makePropRow()],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].systemId).toBe(200);
+    });
+
+    it('tombstones DELETE-staged property row', async () => {
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: 200,
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        operation: CHANGE_OPERATION.Delete,
+        newValue: '{}',
+      });
+      const result = await fetcher.applyToPropertyRows(
+        [makePropRow()],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(0);
+    });
   });
 
-  it('returns base subgraph with base property rows when sessionId is null', async () => {
-    await seedSubgraph(ds, {systemId: SUBGRAPH_ID, fileSystemId: FILE_ID});
-    await seedSubgraphPropertyData(ds, {
-      systemId: 200,
-      subgraphSystemId: SUBGRAPH_ID,
-      subgraphPropertySystemId: 7,
-    });
-    const result = await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, null);
-    expect(result!.properties).toHaveLength(1);
-    expect(result!.properties[0].propertySystemId).toBe(7); // normalised from subgraphPropertySystemId
-  });
+  // ── applyToSgkvRows ───────────────────────────────────────────────────────
 
-  it('returns CREATE-staged subgraph even with no base row', async () => {
-    const sessionId = await seedSession(ds);
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_ID,
-      targetSystemId: SUBGRAPH_ID,
-      targetTable: ENTITY_NAMES.Subgraph,
-      operation: CHANGE_OPERATION.Create,
-      newValue: JSON.stringify({
-        subgraphId: 1,
-        name: 'sg-new',
-        isExported: false,
-        fileSystemId: FILE_ID,
-      }),
+  describe('applyToSgkvRows', () => {
+    it('returns base rows unchanged when session has no SGKV actions', async () => {
+      const sessionId = await seedSession(ds);
+      const result = await fetcher.applyToSgkvRows(
+        [makeSgkvRow()],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].systemId).toBe(500);
     });
-    const result = await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, sessionId);
-    expect(result).not.toBeNull();
-    expect(result!.systemId).toBe(SUBGRAPH_ID);
-  });
 
-  it('tombstones DELETE-staged subgraph', async () => {
-    await seedSubgraph(ds, {systemId: SUBGRAPH_ID, fileSystemId: FILE_ID});
-    const sessionId = await seedSession(ds);
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_ID,
-      targetSystemId: SUBGRAPH_ID,
-      targetTable: ENTITY_NAMES.Subgraph,
-      operation: CHANGE_OPERATION.Delete,
-      newValue: '{}',
+    it('returns empty array when base is empty and session has no CREATE', async () => {
+      const sessionId = await seedSession(ds);
+      const result = await fetcher.applyToSgkvRows([], SUBGRAPH_ID, sessionId);
+      expect(result).toHaveLength(0);
     });
-    expect(await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, sessionId)).toBeNull();
-  });
 
-  it('includes CREATE-staged property when subgraph base row exists', async () => {
-    await seedSubgraph(ds, {systemId: SUBGRAPH_ID, fileSystemId: FILE_ID});
-    const sessionId = await seedSession(ds);
-    const propSystemId = 300;
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_ID,
-      targetSystemId: propSystemId,
-      targetTable: ENTITY_NAMES.SubgraphPropertyData,
-      operation: CHANGE_OPERATION.Create,
-      newValue: JSON.stringify({
-        subgraphSystemId: SUBGRAPH_ID,
-        subgraphPropertySystemId: 7,
-        payload: null,
-      }),
+    it('injects CREATE-staged SGKV bin not in base', async () => {
+      const sgkvSystemId = 600;
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: sgkvSystemId,
+        targetTable: ENTITY_NAMES.Sgkv,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({subgraphSystemId: SUBGRAPH_ID}),
+      });
+      const result = await fetcher.applyToSgkvRows([], SUBGRAPH_ID, sessionId);
+      expect(result).toHaveLength(1);
+      expect(result[0].systemId).toBe(sgkvSystemId);
+      expect(result[0].subgraphSystemId).toBe(SUBGRAPH_ID);
     });
-    const result = await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, sessionId);
-    expect(
-      result!.properties.find(p => p.systemId === propSystemId),
-    ).toBeDefined();
-    expect(result!.properties[0].propertySystemId).toBe(7);
-  });
 
-  it('applies UPDATE overlay to a base property payload', async () => {
-    await seedSubgraph(ds, {systemId: SUBGRAPH_ID, fileSystemId: FILE_ID});
-    await seedSubgraphPropertyData(ds, {
-      systemId: 200,
-      subgraphSystemId: SUBGRAPH_ID,
-      subgraphPropertySystemId: 7,
+    it('tombstones DELETE-staged SGKV bin', async () => {
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: 500,
+        targetTable: ENTITY_NAMES.Sgkv,
+        operation: CHANGE_OPERATION.Delete,
+        newValue: '{}',
+      });
+      const result = await fetcher.applyToSgkvRows(
+        [makeSgkvRow()],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(0);
     });
-    const sessionId = await seedSession(ds);
-    await seedEditAction(ds, {
-      sessionId,
-      aggregateId: SUBGRAPH_ID,
-      targetSystemId: 200,
-      targetTable: ENTITY_NAMES.SubgraphPropertyData,
-      operation: CHANGE_OPERATION.Update,
-      fieldPath: 'payload',
-      newValue: JSON.stringify([1, 2, 3]),
+
+    it('does not inject CREATE already present in base', async () => {
+      const sessionId = await seedSession(ds);
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: SUBGRAPH_ID,
+        targetSystemId: 500, // same systemId as the base row
+        targetTable: ENTITY_NAMES.Sgkv,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({subgraphSystemId: SUBGRAPH_ID}),
+      });
+      const result = await fetcher.applyToSgkvRows(
+        [makeSgkvRow()],
+        SUBGRAPH_ID,
+        sessionId,
+      );
+      expect(result).toHaveLength(1); // no duplicate
     });
-    const result = await fetcher.fetchOne(SUBGRAPH_ID, FILE_ID, sessionId);
-    const prop = result!.properties.find(p => p.systemId === 200);
-    expect(prop).toBeDefined();
   });
 });

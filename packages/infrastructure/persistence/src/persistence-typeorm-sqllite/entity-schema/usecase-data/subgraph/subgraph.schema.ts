@@ -14,15 +14,14 @@ import {EntitySchema} from 'typeorm';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface SubgraphBase {
   systemId: number;
-  subgraphId: number;
   name: string;
+  subgraphId: number;
   isExported: boolean;
   fileSystemId: number;
 }
 
 export interface SubgraphRow extends EntityBaseRow, SubgraphBase {
-  // true: if subgraph is exported from another acdb file — kept on Row, not Base
-  // inverse relation for convenience (reads/cascade)
+  // persistence-only relations (optional)
   modules?: SpfModuleRow[];
   vcpmInstances?: VcpmInstanceRow[];
   sgkvs?: SgkvRow[];

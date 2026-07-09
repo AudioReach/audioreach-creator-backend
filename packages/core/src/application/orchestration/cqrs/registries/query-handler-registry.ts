@@ -26,6 +26,10 @@ import {GetAllDriverModuleDefinitionsHandler} from '../../../definition/driver-m
 import {GetAllDriverModuleDefinitionsQuery} from '../../../definition/driver-module-definition/get-all/get-all-driver-module-definitions.query.js';
 import {GetDriverModuleDefinitionHandler} from '../../../definition/driver-module-definition/get-by-id/get-driver-module-definition.handler.js';
 import {GetDriverModuleDefinitionQuery} from '../../../definition/driver-module-definition/get-by-id/get-driver-module-definition.query.js';
+import {GetAllSubgraphsHandler} from '../../../usecase-designer/subgraph/query/get-all-subgraphs.handler.js';
+import {GetAllSubgraphsQuery} from '../../../usecase-designer/subgraph/query/get-all-subgraphs.query.js';
+import {SubgraphsQueryHandler} from '../../../usecase-designer/subgraph/query/subgraphs.handler.js';
+import {SubgraphsQuery} from '../../../usecase-designer/subgraph/query/subgraphs.query.js';
 import {GetAllUseCasesHandler} from '../../../usecase-designer/usecase/get-all/get-all-usecases.handler.js';
 import {GetAllUseCasesQuery} from '../../../usecase-designer/usecase/get-all/get-all-usecases.query.js';
 import {GetComponentsHandler} from '../../../usecase-designer/usecase/get-components/get-components.handler.js';
@@ -146,6 +150,16 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetDriverModuleDefinitionQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetDriverModuleDefinitionHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetAllSubgraphsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllSubgraphsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(SubgraphsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new SubgraphsQueryHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetAllUseCasesQuery, {

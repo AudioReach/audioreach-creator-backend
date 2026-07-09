@@ -10,6 +10,7 @@ import type {
   CkvReadModel,
   TagReadModel,
 } from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
+import type {KeyValuePairListReadModel} from '../../../ports/persistence/query-services/usecase/query-models/key-vector-read-model.js';
 import type {SpfModulesQuery as SpfModuleQuery} from './query-spf-modules.query.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
@@ -87,7 +88,7 @@ export class SpfModuleQueryHandler implements QueryHandler<
   private async loadCkvsForModules(
     modules: SpfModuleReadModel[],
     fileSystemId: number,
-  ): Promise<Map<number, Result<CkvReadModel[]>>> {
+  ): Promise<Map<number, Result<KeyValuePairListReadModel[]>>> {
     const entries = await Promise.all(
       modules.map(async m => {
         const result =
@@ -95,7 +96,10 @@ export class SpfModuleQueryHandler implements QueryHandler<
             m.systemId,
             fileSystemId,
           );
-        return [m.systemId, result] as [number, Result<CkvReadModel[]>];
+        return [m.systemId, result] as [
+          number,
+          Result<KeyValuePairListReadModel[]>,
+        ];
       }),
     );
     return new Map(entries);

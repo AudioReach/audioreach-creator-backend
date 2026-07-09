@@ -7,7 +7,6 @@ import {
   Controller,
   Post,
   Get,
-  Body,
   Param,
   UseInterceptors,
   HttpStatus,
@@ -85,7 +84,6 @@ export class ContainerController extends BaseController {
   })
   async queryContainers(
     @Param('projectId') projectId: string,
-    @Body() _request: SystemIdsRequestDto,
   ): Promise<ApiResult<ContainerDto[]>> {
     const query = new ContainerQuery(
       Number.parseInt(projectId, 10), // radix 10 guards against octal misparse

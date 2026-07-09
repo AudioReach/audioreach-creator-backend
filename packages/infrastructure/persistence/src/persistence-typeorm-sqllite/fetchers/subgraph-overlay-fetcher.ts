@@ -3,191 +3,192 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {EntityManager} from 'typeorm';
 import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
-import {applyTableOverlay} from '../queries/edit-session/overlay-utils.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
-import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
 import type {SubgraphBase} from '../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {SubgraphPropertyDataBase} from '../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
+import type {SgkvBase} from '../entity-schema/usecase-data/subgraph/subgraph-sgkv-data.js';
 
-// Query-ready superset types.
-export interface OverlaidSubgraphProperty {
-  systemId: number;
-  subgraphSystemId: number;
-  propertySystemId: number; // normalised from subgraphPropertySystemId
-  payload: unknown;
-}
-
-export interface OverlaidSubgraph {
-  systemId: number;
-  subgraphId: number;
-  name: string;
-  isExported: boolean;
-  fileSystemId: number;
-  properties: OverlaidSubgraphProperty[];
-}
-
+/**
+ * Overlay fetcher for the Subgraph aggregate.
+ *
+ * Works on the scalar-column base types (SubgraphBase / SgkvBase /
+ * SubgraphPropertyDataBase) — mirrors ModuleNodeOverlayFetcher which uses
+ * SpfModuleBase. Relation fields (sgkvs, values, file, …) are not the
+ * fetcher's concern; callers preserve and re-merge those from the original
+ * loaded rows after the overlay is applied.
+ *
+ * CREATE handling: OverlayMergeImpl.applyToCollection spreads newValue into
+ * the effective object but never injects targetSystemId as systemId — following
+ * PortOverlayFetcher / ContainerOverlayFetcher, CREATE actions are handled
+ * separately so systemId is taken from targetSystemId, not newValue.
+ * Only non-CREATE actions are passed to OverlayMergeImpl, which avoids the
+ * duplicate-entry / undefined-systemId problem that arises when the second
+ * loop of applyToCollection would otherwise process CREATE rows.
+ */
 export class SubgraphOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
 
-  constructor(
-    private readonly manager: EntityManager,
-    private readonly editActionsSvc: EditActionsQueryService,
-  ) {}
+  constructor(private readonly editActionsSvc: EditActionsQueryService) {}
 
-  async fetchOne(
-    subgraphSystemId: number,
+  /**
+   * Applies session overlay to a collection of pre-loaded Subgraph scalar rows.
+   *
+   * Uses getByTable — table-wide fetch covers all subgraphs in the session.
+   * Callers pass SubgraphBase[] (or SubgraphRow[], which satisfies SubgraphBase).
+   *
+   * Handles:
+   *   UPDATE  → scalar field changes merged onto the committed row
+   *   DELETE  → tombstoned row excluded from result
+   *   CREATE  → new subgraph injected with systemId = targetSystemId
+   */
+  async applyToSubgraphs(
+    baseRows: SubgraphBase[],
     fileSystemId: number,
-    sessionId: number | null,
-  ): Promise<OverlaidSubgraph | null> {
-    const baseRow = (await this.manager
-      .getRepository(ENTITY_NAMES.Subgraph)
-      .createQueryBuilder('s')
-      .select([
-        's.systemId',
-        's.subgraphId',
-        's.name',
-        's.isExported',
-        's.fileSystemId',
-      ])
-      .where(
-        's.systemId = :subgraphSystemId AND s.fileSystemId = :fileSystemId',
-        {subgraphSystemId, fileSystemId},
-      )
-      .getOne()) as unknown as SubgraphBase | null;
-
-    // Load base property rows (only if base subgraph exists)
-    let basePropRows: SubgraphPropertyDataBase[] = [];
-    if (baseRow !== null) {
-      basePropRows = (await this.manager
-        .getRepository(ENTITY_NAMES.SubgraphPropertyData)
-        .createQueryBuilder('spd')
-        .select([
-          'spd.systemId',
-          'spd.subgraphSystemId',
-          'spd.subgraphPropertySystemId',
-          'spd.payload',
-        ])
-        .where('spd.subgraphSystemId = :subgraphSystemId', {subgraphSystemId})
-        .getMany()) as unknown as SubgraphPropertyDataBase[];
-    }
-
-    if (sessionId === null) {
-      if (baseRow === null) return null;
-      return this.assembleSubgraph(
-        baseRow,
-        basePropRows.map(p => this.toOverlaidProperty(p)),
-      );
-    }
-
-    const actions = await this.editActionsSvc.getByAggregateId(
+    sessionId: number,
+  ): Promise<SubgraphBase[]> {
+    const actions = await this.editActionsSvc.getByTable(
       sessionId,
-      subgraphSystemId,
-    );
-    const subgraphActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.Subgraph,
-    );
-    const propActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.SubgraphPropertyData,
-    );
-
-    // Check for CREATE action (auto-create case — no base row exists yet)
-    const createAction = subgraphActions.find(
-      a => a.operation === CHANGE_OPERATION.Create,
-    );
-    if (baseRow === null) {
-      if (!createAction) return null;
-      const payload = createAction.newValue as Partial<SubgraphBase>;
-      const createdSubgraph: SubgraphBase = {
-        systemId: createAction.targetSystemId,
-        subgraphId: payload.subgraphId ?? 0,
-        name: payload.name ?? '',
-        isExported: payload.isExported ?? false,
-        fileSystemId: payload.fileSystemId ?? fileSystemId,
-      };
-      const createdProps = this.buildCreatedProperties(
-        propActions,
-        subgraphSystemId,
-      );
-      return this.assembleSubgraph(createdSubgraph, createdProps);
-    }
-
-    // Apply overlay to the existing subgraph row
-    const overlaidSubgraph = applyTableOverlay(
-      baseRow as unknown as {systemId: number},
-      subgraphActions,
       ENTITY_NAMES.Subgraph,
-    ) as SubgraphBase | null;
-
-    if (overlaidSubgraph === null) return null;
-
-    // Apply overlay to properties (CREATE, UPDATE, DELETE)
-    const overlaidProps = this.overlay.applyToCollection(
-      basePropRows as unknown as Array<{systemId: number}>,
-      propActions,
     );
+    if (actions.length === 0) return baseRows;
 
-    // Handle CREATE-staged properties that don't exist in base
-    const basePropIds = new Set(basePropRows.map(p => p.systemId));
-    const createdProps = this.buildCreatedProperties(
-      propActions.filter(a => !basePropIds.has(a.targetSystemId)),
-      subgraphSystemId,
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+
+    // UPDATE + DELETE on committed rows — exclude CREATE so OverlayMergeImpl's
+    // second loop (which would produce systemId:undefined for new entities)
+    // is never triggered.
+    const updateDeleteActions = actions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
     );
+    const overlaid = this.overlay
+      .applyToCollection(baseRows, updateDeleteActions)
+      .map(r => r.effective);
 
-    const survivingProps: OverlaidSubgraphProperty[] = [
-      ...overlaidProps.map(r =>
-        this.toOverlaidProperty(
-          r.effective as unknown as SubgraphPropertyDataBase,
-        ),
-      ),
-      ...createdProps,
-    ];
-
-    return this.assembleSubgraph(overlaidSubgraph, survivingProps);
-  }
-
-  private toOverlaidProperty(
-    p: SubgraphPropertyDataBase,
-  ): OverlaidSubgraphProperty {
-    return {
-      systemId: p.systemId,
-      subgraphSystemId: p.subgraphSystemId,
-      propertySystemId: p.subgraphPropertySystemId, // normalise FK name
-      payload: p.payload,
-    };
-  }
-
-  private buildCreatedProperties(
-    propActions: EditActionRow[],
-    subgraphSystemId: number,
-  ): OverlaidSubgraphProperty[] {
-    return propActions
-      .filter(a => a.operation === CHANGE_OPERATION.Create)
+    // CREATE: session-staged subgraphs not yet in DB — inject targetSystemId
+    const created: SubgraphBase[] = actions
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId),
+      )
       .map(a => {
-        const payload = a.newValue as Partial<SubgraphPropertyDataBase>;
+        const p = a.newValue as Partial<SubgraphBase>;
         return {
           systemId: a.targetSystemId,
-          subgraphSystemId: payload.subgraphSystemId ?? subgraphSystemId,
-          propertySystemId: payload.subgraphPropertySystemId ?? 0,
-          payload: payload.payload ?? null,
+          subgraphId: p.subgraphId ?? 0,
+          name: p.name ?? '',
+          isExported: Boolean(p.isExported ?? false),
+          fileSystemId: p.fileSystemId ?? fileSystemId,
         };
       });
+
+    return [...overlaid, ...created];
   }
 
-  private assembleSubgraph(
-    subgraph: SubgraphBase,
-    props: OverlaidSubgraphProperty[],
-  ): OverlaidSubgraph {
-    return {
-      systemId: subgraph.systemId,
-      subgraphId: subgraph.subgraphId,
-      name: subgraph.name,
-      isExported: subgraph.isExported,
-      fileSystemId: subgraph.fileSystemId,
-      properties: props,
-    };
+  /**
+   * Applies session overlay to pre-loaded SubgraphPropertyData rows for one subgraph.
+   *
+   * Uses getByAggregateAndTable — single indexed scan scoped to the Subgraph
+   * aggregate and SubgraphPropertyData table.
+   *
+   * Handles:
+   *   UPDATE  → scalar field changes merged onto the committed row
+   *   DELETE  → tombstoned property row excluded from result
+   *   CREATE  → new property row injected with systemId = targetSystemId
+   */
+  async applyToPropertyRows(
+    baseRows: SubgraphPropertyDataBase[],
+    subgraphSystemId: number,
+    sessionId: number,
+  ): Promise<SubgraphPropertyDataBase[]> {
+    const actions = await this.editActionsSvc.getByAggregateAndTable(
+      sessionId,
+      subgraphSystemId,
+      ENTITY_NAMES.SubgraphPropertyData,
+    );
+    if (actions.length === 0) return baseRows;
+
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+
+    // UPDATE + DELETE — exclude CREATE for same reason as applyToSubgraphs
+    const updateDeleteActions = actions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
+    const overlaid = this.overlay
+      .applyToCollection(baseRows, updateDeleteActions)
+      .map(r => r.effective);
+
+    // CREATE: session-staged property rows — inject targetSystemId
+    const created: SubgraphPropertyDataBase[] = actions
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId),
+      )
+      .map(a => {
+        const p = a.newValue as Partial<SubgraphPropertyDataBase>;
+        return {
+          systemId: a.targetSystemId,
+          subgraphSystemId: p.subgraphSystemId ?? subgraphSystemId,
+          subgraphPropertySystemId: p.subgraphPropertySystemId ?? 0,
+          payload: p.payload ?? null,
+        };
+      });
+
+    return [...overlaid, ...created];
+  }
+
+  /**
+   * Applies session overlay to pre-loaded SGKV bin scalar rows for one subgraph.
+   *
+   * Uses getByAggregateAndTable — single indexed scan limited to the Sgkv
+   * table for the given aggregate.
+   *
+   * Handles:
+   *   UPDATE  → scalar field changes merged onto the committed row
+   *   DELETE  → tombstoned bin excluded from result
+   *   CREATE  → new SGKV bin injected with systemId = targetSystemId
+   */
+  async applyToSgkvRows(
+    baseRows: SgkvBase[],
+    subgraphSystemId: number,
+    sessionId: number,
+  ): Promise<SgkvBase[]> {
+    const actions = await this.editActionsSvc.getByAggregateAndTable(
+      sessionId,
+      subgraphSystemId,
+      ENTITY_NAMES.Sgkv,
+    );
+    if (actions.length === 0) return baseRows;
+
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+
+    // UPDATE + DELETE — exclude CREATE for same reason as applyToSubgraphs
+    const updateDeleteActions = actions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
+    const overlaid = this.overlay
+      .applyToCollection(baseRows, updateDeleteActions)
+      .map(r => r.effective);
+
+    // CREATE: session-staged SGKV bins — inject targetSystemId
+    const created: SgkvBase[] = actions
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId),
+      )
+      .map(a => {
+        const p = a.newValue as Partial<SgkvBase>;
+        return {
+          systemId: a.targetSystemId,
+          subgraphSystemId: p.subgraphSystemId ?? subgraphSystemId,
+        };
+      });
+
+    return [...overlaid, ...created];
   }
 }
