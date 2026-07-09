@@ -19,6 +19,7 @@ import type {ControlLinkQueryService} from './link/control-link-query-service.js
 import type {SubsystemQueryService} from './subsystem/subsystem-query-service.js';
 import type {ContainerPropertyDefQueryService} from './container-property-definition/container-property-def-query-service.js';
 import type {SubgraphPropertyDefQueryService} from './subgraph-property-definition/subgraph-property-def-query-service.js';
+import type {SubgraphQueryService} from './subgraph/subgraph-query-service.js';
 
 export interface QueryServices {
   readonly modulesQueryService: ModuleQueryService;
@@ -38,4 +39,5 @@ export interface QueryServices {
   readonly containerPropertyDefQueryService: ContainerPropertyDefQueryService;
   readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;
   readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;
+  readonly subgraphQueryService: SubgraphQueryService;
 }

@@ -148,6 +148,7 @@ export * from './application/definition/subgraph-property-definition/get-all/get
 export * from './application/definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.handler.js';
 export * from './application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.query.js';
 export * from './application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.handler.js';
+export * from './application/ports/persistence/query-services/subgraph/subgraph-query-service.js';
 
 // SPF module query handlers
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.query.js';
@@ -168,6 +169,12 @@ export * from './application/definition/driver-module-definition/get-all/get-all
 export * from './application/definition/driver-module-definition/get-all/get-all-driver-module-definitions.handler.js';
 export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.query.js';
 export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.handler.js';
+
+// Subgraph query handlers
+export * from './application/usecase-designer/subgraph/query/get-all-subgraphs.query.js';
+export * from './application/usecase-designer/subgraph/query/get-all-subgraphs.handler.js';
+export * from './application/usecase-designer/subgraph/query/subgraphs.query.js';
+export * from './application/usecase-designer/subgraph/query/subgraphs.handler.js';
 
 // Use case designer
 export * from './application/usecase-designer/spf-module/param-parser/index.js';

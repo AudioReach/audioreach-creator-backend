@@ -16,3 +16,9 @@ export interface KeyValuePairReadModel {
   readonly key: KeyDefinitionSummaryReadModel;
   readonly value: ValueDefinitionSummaryReadModel;
 }
+
+/** A keyed bin of key-value pairs — used by SGKV, CKV, and TKV read paths. */
+export interface KeyValuePairListReadModel {
+  readonly systemId: number;
+  readonly keyValuePairs: KeyValuePairReadModel[];
+}

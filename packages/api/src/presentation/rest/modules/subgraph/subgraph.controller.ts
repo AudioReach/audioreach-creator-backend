@@ -13,6 +13,7 @@ import {
   Param,
   HttpStatus,
   UseInterceptors,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -42,11 +43,23 @@ import {
 } from '../../common/dto/control-port.dto.js';
 import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 import {
+  KeyInfo,
+  KeyValueInfo,
+  KeyValuePairsInfo,
+  ValueInfo,
+} from '../../common/dto/kv.dto.js';
+import {SharedType} from '../../common/utils/index.js';
+import {
   QueryBus,
   GetComponentsQuery,
+  GetAllSubgraphsQuery,
+  SubgraphsQuery,
   type Result,
   type ComponentsReadModel,
+  type SubgraphReadModel,
+  type KeyValuePairListReadModel,
   COMPONENT_SCOPE_TYPE,
+  RESULT_KIND,
 } from '@arc/core';
 
 /**
@@ -99,9 +112,23 @@ export class SubgraphController extends BaseController {
   async getAllSubgraphs(
     @Param('projectId') projectId: string,
   ): Promise<ApiResult<SubgraphDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(`Getting all subgraphs in project ${projectId}`);
-    throw new NotImplementedException('getAllSubgraphs is not implemented yet');
+    const query = new GetAllSubgraphsQuery(
+      Number.parseInt(projectId, 10), // radix 10 guards against octal misparse
+      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+    );
+
+    const result =
+      await this.queryBus.execute<Result<SubgraphReadModel[]>>(query);
+
+    if (result.kind === RESULT_KIND.Fail) {
+      throw new UnprocessableEntityException(
+        result.issues?.[0]?.message ?? 'Failed to retrieve subgraphs',
+      );
+    }
+
+    return {
+      data: result.data.map(s => this.mapToSubgraphDto(s)),
+    };
   }
 
   /**
@@ -139,11 +166,33 @@ export class SubgraphController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() subgraphSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<SubgraphDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting subgraphs in project ${projectId}: ${JSON.stringify(subgraphSystemIds)}`,
+    // Parse string IDs to integers — radix 10 guards against octal misparse on '0'-prefixed strings
+    const systemIds = subgraphSystemIds.systemIds.map(id => {
+      const parsed = Number.parseInt(id, 10);
+      if (Number.isNaN(parsed)) {
+        throw new BadRequestException(`Invalid system ID: ${id}`);
+      }
+      return parsed;
+    });
+
+    const query = new SubgraphsQuery(
+      systemIds,
+      Number.parseInt(projectId, 10), // radix 10 — see above
+      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
     );
-    throw new NotImplementedException('querySubgraphs is not implemented yet');
+
+    const result =
+      await this.queryBus.execute<Result<SubgraphReadModel[]>>(query);
+
+    if (result.kind === RESULT_KIND.Fail) {
+      throw new UnprocessableEntityException(
+        result.issues?.[0]?.message ?? 'Failed to retrieve subgraphs',
+      );
+    }
+
+    return {
+      data: result.data.map(s => this.mapToSubgraphDto(s)),
+    };
   }
 
   /**
@@ -406,6 +455,41 @@ export class SubgraphController extends BaseController {
         ),
     );
 
+    return dto;
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Maps SubgraphReadModel → SubgraphDto.
+   * changeInfo is left undefined — this endpoint doesn't surface change state.
+   */
+  private mapToSubgraphDto(s: SubgraphReadModel): SubgraphDto {
+    const dto = new SubgraphDto(String(s.systemId), s.subgraphId);
+    dto.name = s.name;
+    dto.subGraphSharedType = s.isExported
+      ? SharedType.Exported
+      : SharedType.None;
+    dto.SGKV = (s.sgkvs ?? []).map(sgkv => this.mapSgkvToDto(sgkv));
+    return dto;
+  }
+
+  private mapSgkvToDto(sgkv: KeyValuePairListReadModel): KeyValuePairsInfo {
+    const keyValueCollection = (sgkv.keyValuePairs ?? [])
+      .filter(kv => kv?.key && kv?.value)
+      .map(
+        kv =>
+          new KeyValueInfo(
+            new KeyInfo(kv.key.keyId, kv.key.name, String(kv.key.systemId)),
+            new ValueInfo(
+              kv.value.valueId,
+              kv.value.name,
+              String(kv.value.systemId),
+            ),
+          ),
+      );
+    const dto = new KeyValuePairsInfo(keyValueCollection);
+    dto.systemId = String(sgkv.systemId);
     return dto;
   }
 }

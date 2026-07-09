@@ -21,6 +21,7 @@ import type {
   DataLinkQueryService,
   ControlLinkQueryService,
   SubsystemQueryService,
+  SubgraphQueryService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -35,6 +36,7 @@ import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-serv
 import {DbTagDefinitionQueryService} from './tag-definition/db-tag-definition-query-service.js';
 import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
 import {DbContainerQueryService} from './container/db-container-query-service.js';
+import {DbSubgraphQueryService} from './subgraph/db-subgraph-query-service.js';
 import {DbContainerPropertyDefQueryService} from './container-property-definition/db-container-property-def-query-service.js';
 import {DbSubgraphPropertyDefQueryService} from './subgraph-property-definition/db-subgraph-property-def-query-service.js';
 import {TypeOrmSessionRepository} from '../repositories/session/typeorm-session.repository.js';
@@ -63,6 +65,7 @@ export class DbQueryServices implements QueryServices {
   readonly dataLinkQueryService: DataLinkQueryService;
   readonly controlLinkQueryService: ControlLinkQueryService;
   readonly subsystemQueryService: SubsystemQueryService;
+  readonly subgraphQueryService: SubgraphQueryService;
 
   constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(
@@ -160,6 +163,12 @@ export class DbQueryServices implements QueryServices {
     this.subsystemQueryService = new DbSubsystemQueryService(
       dataSource,
       editActionsQueryService,
+    );
+
+    this.subgraphQueryService = new DbSubgraphQueryService(
+      dataSource,
+      editActionsQueryService,
+      this.keyValueDefQueryService,
     );
   }
 }
