@@ -15,8 +15,8 @@ import type {StaticControlPortDefinitionRow} from './static-control-port-definit
 import type {SpfModuleParameterDefinitionRow} from './spf-module-parameter-definition.schema.js';
 import type {DynamicIntentDefinitionRow} from './dynamic-intent-definition.schema.js';
 import type {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema.js';
-import type {ModuleDefinitionProcessorLinkRow} from './module-definition-processor-link.schema.js';
 import type {ModuleDefinitionContainerTypeLinkRow} from './module-definition-container-type-link.schema.js';
+import type {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
 
 export interface SpfModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;
@@ -29,15 +29,16 @@ export interface SpfModuleDefinitionRow extends EntityBaseRow {
   fileSystemId: number;
   metadata?: string;
   isLoadedAtBootup: boolean;
+  processorSystemId: number;
 
   // Relations
+  processor?: ProcessorDefinitionRow;
   metaData?: ModuleDefinitionMetaDataRow;
   dataPortGroups?: DataPortGroupRow[];
   staticPorts?: StaticControlPortDefinitionRow[];
   dynamicIntents?: DynamicIntentDefinitionRow[];
   parameters: SpfModuleParameterDefinitionRow[];
   attributes?: ModuleAttributeRow[];
-  processorLinks?: ModuleDefinitionProcessorLinkRow[];
   containerTypeLinks?: ModuleDefinitionContainerTypeLinkRow[];
   modules?: SpfModuleRow[];
 }
@@ -98,16 +99,21 @@ export const SpfModuleDefinitionSchema =
         type: 'boolean',
         default: false,
       },
+      processorSystemId: {
+        name: 'processor_system_id',
+        type: 'integer',
+      },
     },
     relations: {
-      // file: {
-      //   type: 'many-to-one',
-      //   target: 'File',
-      //   joinColumn: {
-      //     name: 'file_system_id',
-      //     referencedColumnName: 'fileSystemId'
-      //   }
-      // },
+      processor: {
+        type: 'many-to-one',
+        target: 'ProcessorDefinition',
+        joinColumn: {
+          name: 'processor_system_id',
+          referencedColumnName: 'systemId',
+        },
+        onDelete: 'CASCADE',
+      },
       metaData: {
         type: 'one-to-one',
         target: 'ModuleDefinitionMetaData',
@@ -147,11 +153,6 @@ export const SpfModuleDefinitionSchema =
         target: 'ModuleAttribute',
         inverseSide: 'moduleDefinition',
         cascade: ['insert', 'update'],
-      },
-      processorLinks: {
-        type: 'one-to-many',
-        target: 'ModuleDefinitionProcessorLink',
-        inverseSide: 'moduleDefinition',
       },
       containerTypeLinks: {
         type: 'one-to-many',

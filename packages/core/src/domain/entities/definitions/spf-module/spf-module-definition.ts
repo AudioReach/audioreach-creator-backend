@@ -19,7 +19,7 @@ export interface SpfModuleDefinitionInit extends ModuleDefinitionInit {
   dataPortGroups: DataPortGroupDefinition[];
   staticControlPorts: StaticControlPortDefinition[];
   dynamicIntents?: DynamicIntentDefinition[];
-  processorSystemIds: number[];
+  processorSystemId: number;
   containerTypesSystemIds: number[];
   metaData?: string;
   isLoadedAtBootup?: boolean;
@@ -32,7 +32,7 @@ export class SpfModuleDefinition extends ModuleDefinition {
   readonly dataPortGroups: DataPortGroupDefinition[] = [];
   readonly staticControlPorts: StaticControlPortDefinition[] = [];
   readonly dynamicIntents: DynamicIntentDefinition[] = [];
-  readonly processorSystemIds: Set<number> = new Set<number>();
+  processorSystemId: number;
   readonly containerTypesSystemIds: Set<number> = new Set<number>();
   readonly isLoadedAtBootup: boolean;
 
@@ -45,14 +45,12 @@ export class SpfModuleDefinition extends ModuleDefinition {
     this.metadata = initParam.metaData;
     this.modSearchKeys = initParam.modSearchKeys;
     this.stackSize = initParam.stackSize;
+    this.processorSystemId = initParam.processorSystemId;
     for (const port of initParam.staticControlPorts) {
       this.AddStaticControlPort(port);
     }
     for (const intent of initParam.dynamicIntents ?? []) {
       this.AddDynamicIntentDefinition(intent);
-    }
-    for (const id of initParam.processorSystemIds) {
-      this.AddProcessDefinition(id);
     }
     for (const id of initParam.containerTypesSystemIds) {
       this.AddContainerType(id);
@@ -115,20 +113,6 @@ export class SpfModuleDefinition extends ModuleDefinition {
     this.staticPortIds.add(idKey);
     this.staticPortIds.add(nameKey);
     this.staticControlPorts.push(staticPort);
-  }
-
-  private AddProcessDefinition(processorDefinitionReferenceId: number) {
-    assertNonNull(
-      processorDefinitionReferenceId,
-      `processorDefinitionReferenceId is null for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
-    );
-
-    invariant(
-      !this.processorSystemIds.has(processorDefinitionReferenceId),
-      `Processor Definition Reference Id: ${BinaryUtils.toHexString(processorDefinitionReferenceId)} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
-    );
-
-    this.processorSystemIds.add(processorDefinitionReferenceId);
   }
 
   private AddContainerType(containerTypeReferenceIds: number) {

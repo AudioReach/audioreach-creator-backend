@@ -19,10 +19,7 @@ import {ModuleParameterAttributeSchema} from './definitions/module/spf/module-pa
 import {ModulePropertyDefinitionSchema} from './definitions/module/spf/module-property-definition.schema.js';
 import {SpfModuleDefinitionSchema} from './definitions/module/spf/spf-module-definition.schema.js';
 import {SpfModuleParameterDefinitionSchema} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
-import {ModuleDefinitionProcessorLinkSchema} from './definitions/module/spf/module-definition-processor-link.schema.js';
 import {ModuleDefinitionContainerTypeLinkSchema} from './definitions/module/spf/module-definition-container-type-link.schema.js';
-// Note: ModuleDefinitionProcessorLinkSchema and ModuleDefinitionContainerTypeLinkSchema
-// are already imported above and registered in getAllEntitySchemas below
 import {StaticControlPortDefinitionSchema} from './definitions/module/spf/static-control-port-definition.schema.js';
 import {StaticIntentDefinitionSchema} from './definitions/module/spf/static-intent-definition.schema.js';
 import {SubgraphPropertyDefinitionSchema} from './definitions/subgraph/subgraph-property-definition.schema.js';
@@ -134,8 +131,6 @@ export type {SpfModuleDefinitionRow} from './definitions/module/spf/spf-module-d
 export {SpfModuleDefinitionSchema} from './definitions/module/spf/spf-module-definition.schema.js';
 export type {SpfModuleParameterDefinitionRow} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
 export {SpfModuleParameterDefinitionSchema} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
-export type {ModuleDefinitionProcessorLinkRow} from './definitions/module/spf/module-definition-processor-link.schema.js';
-export {ModuleDefinitionProcessorLinkSchema} from './definitions/module/spf/module-definition-processor-link.schema.js';
 export type {ModuleDefinitionContainerTypeLinkRow} from './definitions/module/spf/module-definition-container-type-link.schema.js';
 export {ModuleDefinitionContainerTypeLinkSchema} from './definitions/module/spf/module-definition-container-type-link.schema.js';
 // (already exported above)
@@ -350,7 +345,6 @@ export function getAllEntitySchemas(
     ModulePropertyDefinitionSchema,
     SpfModuleDefinitionSchema,
     SpfModuleParameterDefinitionSchema,
-    ModuleDefinitionProcessorLinkSchema,
     ModuleDefinitionContainerTypeLinkSchema,
     StaticControlPortDefinitionSchema,
     StaticIntentDefinitionSchema,

@@ -107,7 +107,6 @@ describe('EntityBuilderService - buildModuleManagerData', () => {
         );
 
         expect(result).toHaveLength(1);
-        expect(result[0].processorDefinitionSystemId).toBe(1000);
         expect(result[0].moduleDefinitionSystemId).toBe(2000);
         expect(result[0].moduleType).toBe(3);
         expect(result[0].interfaceType).toBe(1);

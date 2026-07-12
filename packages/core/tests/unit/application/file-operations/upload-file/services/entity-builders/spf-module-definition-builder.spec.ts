@@ -105,12 +105,13 @@ describe('SpfModuleDefinitionBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
-        expect(result.entities).toHaveLength(1);
+        // supportedProcessorIds: [1, 2] → 2 entities
+        expect(result.entities).toHaveLength(2);
         expect(result.entities[0].moduleDefinitionId).toBe(100);
         expect(result.entities[0].name).toBe('Test Module');
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.successCount).toBe(1);
+        expect(result.successCount).toBe(2);
         expect(result.errorCount).toBe(0);
         expect(mockIdGenerator.getNextId).toHaveBeenCalled();
         expect(
@@ -159,7 +160,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           stackSize: 0,
           staticControlPorts: [],
           dynamicIntents: [],
-          processorSystemIds: [],
+          processorSystemId: 0,
           containerTypesSystemIds: [],
         });
 
@@ -175,7 +176,7 @@ describe('SpfModuleDefinitionBuilder', () => {
           stackSize: 0,
           staticControlPorts: [],
           dynamicIntents: [],
-          processorSystemIds: [],
+          processorSystemId: 0,
           containerTypesSystemIds: [],
         });
 
@@ -532,13 +533,17 @@ describe('SpfModuleDefinitionBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
+        // 3 processors → 3 entities
+        expect(result.entities).toHaveLength(3);
         const module = result.entities[0];
         expect(module.displayName).toBe('Complete Module Display');
         expect(module.description).toBe('Complete Description');
         expect(module.parameters).toHaveLength(1);
         expect(module.staticControlPorts).toHaveLength(1);
         expect(module.dynamicIntents).toHaveLength(1);
-        expect(module.processorSystemIds).toEqual(new Set([1, 2, 3]));
+        expect(result.entities.map(e => e.processorSystemId)).toEqual(
+          expect.arrayContaining([1, 2, 3]),
+        );
         expect(module.containerTypesSystemIds).toEqual(new Set([10, 20, 30]));
       });
     });
@@ -677,15 +682,18 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.systemId).toBe(0);
-        expect(result.entity!.moduleDefinitionId).toBe(100);
-        expect(result.entity!.name).toBe('Test Module');
-        expect(result.entity!.displayName).toBe('Test Module Display');
-        expect(result.entity!.description).toBe('Test Description');
-        expect(result.entity!.processorSystemIds).toEqual(new Set([1, 2]));
-        expect(result.entity!.containerTypesSystemIds).toEqual(
+        // Two processors → two entities, one per processor
+        expect(result.entities).toHaveLength(2);
+        expect(result.entities![0].systemId).toBe(0);
+        expect(result.entities![0].moduleDefinitionId).toBe(100);
+        expect(result.entities![0].name).toBe('Test Module');
+        expect(result.entities![0].displayName).toBe('Test Module Display');
+        expect(result.entities![0].description).toBe('Test Description');
+        expect(result.entities![0].processorSystemId).toBe(1);
+        expect(result.entities![1].processorSystemId).toBe(2);
+        expect(result.entities![0].containerTypesSystemIds).toEqual(
           new Set([10, 20]),
         );
       });
@@ -717,16 +725,20 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.parameters).toHaveLength(1);
-        expect(result.entity!.parameters[0].systemId).toBe(0);
-        expect(result.entity!.parameters[0].paramId).toBe(1);
-        expect(result.entity!.parameters[0].name).toBe('Param 1');
-        expect(result.entity!.parameters[0].description).toBe('Param 1 desc');
-        expect(result.entity!.parameters[0].maxSize).toBe(100);
-        expect(result.entity!.parameters[0].pidType).toBe(PARAM_TYPE.Shared);
-        expect(result.entity!.parameters[0].toolPolicies).toContain(
+        expect(result.entities![0].parameters).toHaveLength(1);
+        expect(result.entities![0].parameters[0].systemId).toBe(0);
+        expect(result.entities![0].parameters[0].paramId).toBe(1);
+        expect(result.entities![0].parameters[0].name).toBe('Param 1');
+        expect(result.entities![0].parameters[0].description).toBe(
+          'Param 1 desc',
+        );
+        expect(result.entities![0].parameters[0].maxSize).toBe(100);
+        expect(result.entities![0].parameters[0].pidType).toBe(
+          PARAM_TYPE.Shared,
+        );
+        expect(result.entities![0].parameters[0].toolPolicies).toContain(
           TOOL_POLICY.Calibration,
         );
       });
@@ -754,17 +766,17 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.dataPortGroups).toHaveLength(2);
+        expect(result.entities![0].dataPortGroups).toHaveLength(2);
 
-        const inputGroup = result.entity!.dataPortGroups[0];
+        const inputGroup = result.entities![0].dataPortGroups[0];
         expect(inputGroup.portIoType).toBe(PORT_IO_TYPE.Input);
         expect(inputGroup.maxAllowedPortCount).toBe(2);
         expect(inputGroup.staticPortDefinitions).toHaveLength(1);
         expect(inputGroup.staticPortDefinitions[0].dataPortId).toBe(1);
 
-        const outputGroup = result.entity!.dataPortGroups[1];
+        const outputGroup = result.entities![0].dataPortGroups[1];
         expect(outputGroup.portIoType).toBe(PORT_IO_TYPE.Output);
         expect(outputGroup.maxAllowedPortCount).toBe(3);
         expect(outputGroup.staticPortDefinitions).toHaveLength(1);
@@ -794,13 +806,17 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.staticControlPorts).toHaveLength(2);
-        expect(result.entity!.staticControlPorts[0].portId).toBe(1);
-        expect(result.entity!.staticControlPorts[0].portName).toBe('Static 1');
-        expect(result.entity!.staticControlPorts[1].portId).toBe(2);
-        expect(result.entity!.staticControlPorts[1].portName).toBe('Static 2');
+        expect(result.entities![0].staticControlPorts).toHaveLength(2);
+        expect(result.entities![0].staticControlPorts[0].portId).toBe(1);
+        expect(result.entities![0].staticControlPorts[0].portName).toBe(
+          'Static 1',
+        );
+        expect(result.entities![0].staticControlPorts[1].portId).toBe(2);
+        expect(result.entities![0].staticControlPorts[1].portName).toBe(
+          'Static 2',
+        );
       });
 
       it('should transform dynamic intents', () => {
@@ -826,15 +842,15 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.dynamicIntents).toHaveLength(2);
-        expect(result.entity!.dynamicIntents[0].intentId).toBe(10);
-        expect(result.entity!.dynamicIntents[0].name).toBe('Intent 1');
-        expect(result.entity!.dynamicIntents[0].maxPort).toBe(5);
-        expect(result.entity!.dynamicIntents[1].intentId).toBe(20);
-        expect(result.entity!.dynamicIntents[1].name).toBe('Intent 2');
-        expect(result.entity!.dynamicIntents[1].maxPort).toBe(10);
+        expect(result.entities![0].dynamicIntents).toHaveLength(2);
+        expect(result.entities![0].dynamicIntents[0].intentId).toBe(10);
+        expect(result.entities![0].dynamicIntents[0].name).toBe('Intent 1');
+        expect(result.entities![0].dynamicIntents[0].maxPort).toBe(5);
+        expect(result.entities![0].dynamicIntents[1].intentId).toBe(20);
+        expect(result.entities![0].dynamicIntents[1].name).toBe('Intent 2');
+        expect(result.entities![0].dynamicIntents[1].maxPort).toBe(10);
       });
     });
 
@@ -856,16 +872,16 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
         expect(
-          result.entity!.dataPortGroups[0].staticPortDefinitions,
+          result.entities![0].dataPortGroups[0].staticPortDefinitions,
         ).toHaveLength(0);
         expect(
-          result.entity!.dataPortGroups[1].staticPortDefinitions,
+          result.entities![0].dataPortGroups[1].staticPortDefinitions,
         ).toHaveLength(0);
-        expect(result.entity!.staticControlPorts).toHaveLength(0);
-        expect(result.entity!.dynamicIntents).toHaveLength(0);
+        expect(result.entities![0].staticControlPorts).toHaveLength(0);
+        expect(result.entities![0].dynamicIntents).toHaveLength(0);
       });
 
       it('should handle modules with no parameters', () => {
@@ -885,9 +901,9 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.parameters).toHaveLength(0);
+        expect(result.entities![0].parameters).toHaveLength(0);
       });
 
       it('should verify systemId placeholder is 0', () => {
@@ -917,10 +933,10 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.systemId).toBe(0);
-        expect(result.entity!.parameters[0].systemId).toBe(0);
+        expect(result.entities![0].systemId).toBe(0);
+        expect(result.entities![0].parameters[0].systemId).toBe(0);
       });
 
       it('should use displayName when provided, otherwise use name', () => {
@@ -939,9 +955,9 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         const result1 =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule1);
-        expect(result1.entity).not.toBeNull();
+        expect(result1.entities).not.toBeNull();
         expect(result1.errors).toHaveLength(0);
-        expect(result1.entity!.displayName).toBe('Module Display Name');
+        expect(result1.entities![0].displayName).toBe('Module Display Name');
 
         const awspModule2: AwspSpfModuleDefinition = {
           id: 200,
@@ -958,9 +974,9 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         const result2 =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule2);
-        expect(result2.entity).not.toBeNull();
+        expect(result2.entities).not.toBeNull();
         expect(result2.errors).toHaveLength(0);
-        expect(result2.entity!.displayName).toBe('Module Name Only');
+        expect(result2.entities![0].displayName).toBe('Module Name Only');
       });
     });
   });
@@ -993,9 +1009,9 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.parameters[0].pidType).toBe(PARAM_TYPE.None);
+        expect(result.entities![0].parameters[0].pidType).toBe(PARAM_TYPE.None);
       });
 
       it('should map Shared to PARAM_TYPE.Shared', () => {
@@ -1024,9 +1040,11 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.parameters[0].pidType).toBe(PARAM_TYPE.Shared);
+        expect(result.entities![0].parameters[0].pidType).toBe(
+          PARAM_TYPE.Shared,
+        );
       });
 
       it('should map GlobalShared to PARAM_TYPE.GlobalShared', () => {
@@ -1055,9 +1073,9 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.parameters[0].pidType).toBe(
+        expect(result.entities![0].parameters[0].pidType).toBe(
           PARAM_TYPE.GlobalShared,
         );
       });
@@ -1091,18 +1109,18 @@ describe('SpfModuleDefinitionBuilder', () => {
         const result =
           SpfModuleDefinitionBuilder.transformModuleDefinition(awspModule);
 
-        expect(result.entity).not.toBeNull();
+        expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
-        expect(result.entity!.parameters[0].toolPolicies).toContain(
+        expect(result.entities![0].parameters[0].toolPolicies).toContain(
           TOOL_POLICY.Calibration,
         );
-        expect(result.entity!.parameters[0].toolPolicies).toContain(
+        expect(result.entities![0].parameters[0].toolPolicies).toContain(
           TOOL_POLICY.Rtc,
         );
-        expect(result.entity!.parameters[0].toolPolicies).toContain(
+        expect(result.entities![0].parameters[0].toolPolicies).toContain(
           TOOL_POLICY.Rtm,
         );
-        expect(result.entity!.parameters[0].toolPolicies).toContain(
+        expect(result.entities![0].parameters[0].toolPolicies).toContain(
           TOOL_POLICY.RtcReadonly,
         );
       });

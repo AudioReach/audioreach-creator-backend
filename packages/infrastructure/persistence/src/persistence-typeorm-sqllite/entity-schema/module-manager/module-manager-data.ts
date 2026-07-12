@@ -13,13 +13,11 @@ import {
   InterfaceVersionTransformer,
 } from './types.js';
 import {EntitySchema} from 'typeorm';
-import type {ProcessorDefinitionRow} from '../definitions/common/processor-definition.schema.js';
 import type {SpfModuleDefinitionRow} from '../definitions/module/spf/spf-module-definition.schema.js';
 import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 
 export interface ModuleManagerDataRow extends EntityBaseRow {
   // Foreign Keys
-  processorDefinitionSystemId: number;
   moduleDefinitionSystemId: number;
   fileSystemId: number;
 
@@ -31,7 +29,6 @@ export interface ModuleManagerDataRow extends EntityBaseRow {
   tag: string;
 
   // Relations (optional, for TypeORM)
-  processorDefinition?: ProcessorDefinitionRow;
   moduleDefinition?: SpfModuleDefinitionRow;
   file?: ArcDbFileRow;
 }
@@ -41,17 +38,13 @@ export const ModuleManagerDataSchema = new EntitySchema<ModuleManagerDataRow>({
   tableName: 'module_manager_data',
   indices: [
     {
-      name: 'uq_module_manager_data_processor_module',
-      columns: ['processorDefinitionSystemId', 'moduleDefinitionSystemId'],
+      name: 'uq_module_manager_data_module_definition',
+      columns: ['moduleDefinitionSystemId'],
       unique: true,
     },
   ],
   columns: {
     ...BaseColumnSchemaPart,
-    processorDefinitionSystemId: {
-      name: 'processor_definition_system_id',
-      type: 'integer',
-    },
     moduleDefinitionSystemId: {
       name: 'module_definition_system_id',
       type: 'integer',
@@ -87,15 +80,6 @@ export const ModuleManagerDataSchema = new EntitySchema<ModuleManagerDataRow>({
     },
   },
   relations: {
-    processorDefinition: {
-      type: 'many-to-one',
-      target: 'ProcessorDefinition',
-      joinColumn: {
-        name: 'processor_definition_system_id',
-        referencedColumnName: 'systemId',
-      },
-      onDelete: 'CASCADE',
-    },
     moduleDefinition: {
       type: 'many-to-one',
       target: 'SpfModuleDefinition',
