@@ -54,6 +54,7 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
     fileSystemId: FILE_ID,
     moduleDefinitionId: 1,
     name: 'TestModule',
+    processorSystemId: PROCESSOR_DEF_ID,
     version: 1,
   });
 
@@ -62,6 +63,7 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
     fileSystemId: FILE_ID,
     moduleDefinitionId: 2,
     name: 'TestModule2',
+    processorSystemId: PROCESSOR_DEF_ID,
     version: 1,
   });
 }
@@ -69,7 +71,6 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
 function buildModuleManagerData(systemId: number): ModuleManagerData {
   return new ModuleManagerData({
     systemId,
-    processorDefinitionSystemId: PROCESSOR_DEF_ID,
     moduleDefinitionSystemId: MODULE_DEF_ID,
     fileSystemId: FILE_ID,
     moduleType: 2,
@@ -129,7 +130,6 @@ describe('ModuleManagerDataInserter', () => {
       `SELECT * FROM module_manager_data WHERE system_id = 1001`,
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0].processor_definition_system_id).toBe(PROCESSOR_DEF_ID);
     expect(rows[0].module_definition_system_id).toBe(MODULE_DEF_ID);
     expect(rows[0].file_name).toBe('test.so');
   });
@@ -139,7 +139,6 @@ describe('ModuleManagerDataInserter', () => {
   it('reports failure grouped under the aggregate natural ID', async () => {
     await manager.insert('ModuleManagerData', {
       systemId: 1002,
-      processorDefinitionSystemId: PROCESSOR_DEF_ID,
       moduleDefinitionSystemId: MODULE_DEF_ID,
       fileSystemId: FILE_ID,
       moduleType: 1,
@@ -157,7 +156,6 @@ describe('ModuleManagerDataInserter', () => {
     if (result.ok) throw new Error('expected failure');
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].message).toContain('ModuleManagerData');
-    expect(result.errors[0].message).toContain('processorId');
     expect(result.errors[0].message).toContain('moduleId');
   });
 
@@ -166,7 +164,6 @@ describe('ModuleManagerDataInserter', () => {
   it('good sibling inserts successfully when one entity fails', async () => {
     await manager.insert('ModuleManagerData', {
       systemId: 1003,
-      processorDefinitionSystemId: PROCESSOR_DEF_ID,
       moduleDefinitionSystemId: MODULE_DEF_ID,
       fileSystemId: FILE_ID,
       moduleType: 1,
@@ -180,7 +177,6 @@ describe('ModuleManagerDataInserter', () => {
     const bad = buildModuleManagerData(1003);
     const good = new ModuleManagerData({
       systemId: 1004,
-      processorDefinitionSystemId: PROCESSOR_DEF_ID,
       moduleDefinitionSystemId: 21,
       fileSystemId: FILE_ID,
       moduleType: 2,

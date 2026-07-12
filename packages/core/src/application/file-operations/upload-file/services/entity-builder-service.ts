@@ -1255,7 +1255,6 @@ export class EntityBuilderService {
 
         const moduleManagerData = new ModuleManagerData({
           systemId,
-          processorDefinitionSystemId: processorSystemId,
           moduleDefinitionSystemId,
           moduleType: registration.capi.moduleType as ModuleTypeValue,
           interfaceType: registration.interfaceType as InterfaceTypeValue,

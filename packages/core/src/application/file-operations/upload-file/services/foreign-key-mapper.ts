@@ -348,32 +348,27 @@ export class ForeignKeyMapper {
   }
 
   /**
-   * Add a module definition mapping for multiple processors at once.
-   * The same systemId is used for all processors in the list.
-   * This handles both scenarios:
-   * - Shared definitions: Pass multiple processorIds with same systemId
-   * - Processor-specific: Pass single processorId with unique systemId
+   * Add a module definition mapping for a single processor.
+   * Each (processorId, moduleDefId) pair maps to a unique systemId.
    */
   addModuleDefinitionMapping(
-    processorIds: NaturalId[],
+    processorId: NaturalId,
     moduleDefId: NaturalId,
     systemId: SystemId,
   ): void {
-    for (const processorId of processorIds) {
-      if (!this.moduleDefinitionMappings.has(processorId)) {
-        this.moduleDefinitionMappings.set(processorId, new Map());
-      }
-
-      const processorMap = this.moduleDefinitionMappings.get(processorId)!;
-
-      if (processorMap.has(moduleDefId)) {
-        throw new Error(
-          `Module definition ${moduleDefId} already mapped for processor ${processorId}`,
-        );
-      }
-
-      processorMap.set(moduleDefId, systemId);
+    if (!this.moduleDefinitionMappings.has(processorId)) {
+      this.moduleDefinitionMappings.set(processorId, new Map());
     }
+
+    const processorMap = this.moduleDefinitionMappings.get(processorId)!;
+
+    if (processorMap.has(moduleDefId)) {
+      throw new Error(
+        `Module definition ${moduleDefId} already mapped for processor ${processorId}`,
+      );
+    }
+
+    processorMap.set(moduleDefId, systemId);
   }
 
   /**

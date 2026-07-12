@@ -52,10 +52,6 @@ import {
   type DynamicIntentDefinitionRow,
 } from '../../../entity-schema/definitions/module/spf/dynamic-intent-definition.schema.js';
 import {
-  ModuleDefinitionProcessorLinkSchema,
-  type ModuleDefinitionProcessorLinkRow,
-} from '../../../entity-schema/definitions/module/spf/module-definition-processor-link.schema.js';
-import {
   ModuleDefinitionContainerTypeLinkSchema,
   type ModuleDefinitionContainerTypeLinkRow,
 } from '../../../entity-schema/definitions/module/spf/module-definition-container-type-link.schema.js';
@@ -95,7 +91,6 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       dataGroupResult,
       staticPortResult,
       dynamicIntentResult,
-      processorLinkResult,
       containerTypeLinkResult,
     ] = await Promise.all([
       this.insertParams(activeItems),
@@ -103,7 +98,6 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       this.insertDataPortGroups(activeItems),
       this.insertStaticControlPorts(activeItems),
       this.insertDynamicIntents(activeItems),
-      this.insertProcessorLinks(activeItems),
       this.insertContainerTypeLinks(activeItems),
     ]);
 
@@ -128,7 +122,6 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       ...dataGroupResult.stepResult.rawFailures,
       ...staticPortResult.stepResult.rawFailures,
       ...dynamicIntentResult.rawFailures,
-      ...processorLinkResult.rawFailures,
       ...containerTypeLinkResult.rawFailures,
       ...dataPortDefsResult.rawFailures,
       ...staticIntentsResult.rawFailures,
@@ -156,6 +149,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       stackSize: mod.stackSize,
       fileSystemId: mod.fileSystemId,
       metadata: mod.metadata,
+      processorSystemId: mod.processorSystemId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -451,47 +445,6 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
     return {
       rawFailures,
       failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
-    };
-  }
-
-  private async insertProcessorLinks(
-    items: SpfModuleDefinition[],
-  ): Promise<StepResult> {
-    const allRows: ModuleDefinitionProcessorLinkRow[] = items.flatMap(mod =>
-      [...mod.processorSystemIds].map(processorDefinitionSystemId => ({
-        moduleDefinitionSystemId: mod.systemId,
-        processorDefinitionSystemId,
-      })),
-    );
-
-    if (allRows.length === 0) return emptyStepResult();
-
-    const rawFailures: RawFailure[] = [];
-
-    try {
-      await this.manager.insert(ModuleDefinitionProcessorLinkSchema, allRows);
-    } catch {
-      for (const row of allRows) {
-        try {
-          await this.manager.insert(ModuleDefinitionProcessorLinkSchema, row);
-        } catch (rowError: unknown) {
-          const mod = items.find(
-            m => m.systemId === row.moduleDefinitionSystemId,
-          )!;
-          rawFailures.push({
-            systemId: mod.systemId,
-            entityLabel: 'ModuleDefinitionProcessorLink',
-            failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}) Row: ${JSON.stringify(row)}`,
-            dbError:
-              rowError instanceof Error ? rowError.message : String(rowError),
-          });
-        }
-      }
-    }
-
-    return {
-      rawFailures,
-      failedEntityIds: new Set<number>(),
     };
   }
 

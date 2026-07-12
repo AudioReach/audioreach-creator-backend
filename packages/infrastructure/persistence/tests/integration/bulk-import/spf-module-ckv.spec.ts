@@ -20,6 +20,7 @@ const FILE_ID = 100;
 const SUBGRAPH_ID = 10;
 const CONTAINER_ID = 20;
 const DEFINITION_ID = 30;
+const PROCESSOR_DEF_ID = 5;
 const KEY_DEF_ID = 40;
 const VALUE_DEF_ID_1 = 201;
 const VALUE_DEF_ID_2 = 202;
@@ -64,11 +65,20 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     version: 1,
   });
 
+  await manager.insert('ProcessorDefinition', {
+    systemId: PROCESSOR_DEF_ID,
+    fileSystemId: FILE_ID,
+    processorDefinitionId: 1,
+    name: 'TestProcessor',
+    version: 1,
+  });
+
   await manager.insert('SpfModuleDefinition', {
     systemId: DEFINITION_ID,
     fileSystemId: FILE_ID,
     moduleDefinitionId: 1,
     name: 'TestModuleDefinition',
+    processorSystemId: PROCESSOR_DEF_ID,
     version: 1,
   });
 

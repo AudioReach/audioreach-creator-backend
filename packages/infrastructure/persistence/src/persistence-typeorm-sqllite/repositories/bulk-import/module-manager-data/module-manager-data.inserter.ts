@@ -31,7 +31,7 @@ export class ModuleManagerDataInserter {
       step.rawFailures,
       bySystemId,
       item =>
-        `ModuleManagerData (processorId=${BinaryUtils.toHexString(item.processorDefinitionSystemId)}, moduleId=${BinaryUtils.toHexString(item.moduleDefinitionSystemId)})`,
+        `ModuleManagerData (moduleId=${BinaryUtils.toHexString(item.moduleDefinitionSystemId)})`,
     );
   }
 
@@ -40,7 +40,6 @@ export class ModuleManagerDataInserter {
   ): Promise<StepResult> {
     const rows: InsertRow<ModuleManagerDataRow>[] = items.map(item => ({
       systemId: item.systemId,
-      processorDefinitionSystemId: item.processorDefinitionSystemId,
       moduleDefinitionSystemId: item.moduleDefinitionSystemId,
       fileSystemId: item.fileSystemId,
       moduleType: item.moduleType,
@@ -62,7 +61,7 @@ export class ModuleManagerDataInserter {
       return {
         systemId: item.systemId,
         entityLabel: 'ModuleManagerData',
-        failedRowJson: `(processorId=${BinaryUtils.toHexString(item.processorDefinitionSystemId)}, moduleId=${BinaryUtils.toHexString(item.moduleDefinitionSystemId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleId=${BinaryUtils.toHexString(item.moduleDefinitionSystemId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });

@@ -9,7 +9,6 @@ export type InterfaceVersionValue = 3;
 
 export interface ModuleManagerDataInit {
   systemId: number;
-  processorDefinitionSystemId: number;
   moduleDefinitionSystemId: number;
   moduleType: ModuleTypeValue;
   interfaceType: InterfaceTypeValue;
@@ -21,7 +20,6 @@ export interface ModuleManagerDataInit {
 
 export class ModuleManagerData {
   systemId: number;
-  readonly processorDefinitionSystemId: number;
   readonly moduleDefinitionSystemId: number;
   readonly moduleType: ModuleTypeValue;
   readonly interfaceType: InterfaceTypeValue;
@@ -32,7 +30,6 @@ export class ModuleManagerData {
 
   constructor(init: ModuleManagerDataInit) {
     this.systemId = init.systemId;
-    this.processorDefinitionSystemId = init.processorDefinitionSystemId;
     this.moduleDefinitionSystemId = init.moduleDefinitionSystemId;
     this.moduleType = init.moduleType;
     this.interfaceType = init.interfaceType;

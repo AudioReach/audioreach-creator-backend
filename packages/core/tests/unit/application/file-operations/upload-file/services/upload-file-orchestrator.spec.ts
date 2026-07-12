@@ -362,7 +362,7 @@ describe('UploadFileOrchestrator', () => {
           stackSize: 0,
           staticControlPorts: [],
           dynamicIntents: [],
-          processorSystemIds: [],
+          processorSystemId: 1,
           containerTypesSystemIds: [],
         };
 
@@ -405,7 +405,7 @@ describe('UploadFileOrchestrator', () => {
           stackSize: 0,
           staticControlPorts: [],
           dynamicIntents: [],
-          processorSystemIds: [],
+          processorSystemId: 1,
           containerTypesSystemIds: [],
         };
 
@@ -512,7 +512,7 @@ describe('UploadFileOrchestrator', () => {
           stackSize: 0,
           staticControlPorts: [],
           dynamicIntents: [],
-          processorSystemIds: [],
+          processorSystemId: 1,
           containerTypesSystemIds: [],
         };
 
@@ -548,7 +548,7 @@ describe('UploadFileOrchestrator', () => {
           stackSize: 0,
           staticControlPorts: [],
           dynamicIntents: [],
-          processorSystemIds: [],
+          processorSystemId: 1,
           containerTypesSystemIds: [],
         };
 
@@ -604,7 +604,7 @@ describe('UploadFileOrchestrator', () => {
           stackSize: 0,
           staticControlPorts: [],
           dynamicIntents: [],
-          processorSystemIds: [],
+          processorSystemId: 1,
           containerTypesSystemIds: [],
         };
 

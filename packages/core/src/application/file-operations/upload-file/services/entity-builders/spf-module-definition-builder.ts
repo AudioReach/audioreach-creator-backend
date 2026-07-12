@@ -35,6 +35,13 @@ import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
+ * Natural ID used as a sentinel when a module definition has no supported processors.
+ * TODO: Once proper validation is in place, treat missing procIds as a hard upload failure
+ * instead of creating a definition with this sentinel value.
+ */
+const UNKNOWN_PROCESSOR_NATURAL_ID = 0;
+
+/**
  * Input structure for SPF module definition building tasks
  */
 export interface SpfModuleDefinitionBuildInput {
@@ -57,17 +64,13 @@ export interface SpfModuleDefinitionBuildOutput {
 }
 
 /**
- * Result of transforming a single module definition
+ * Result of transforming a single module definition (may produce multiple entities, one per processor)
  */
 interface TransformResult {
-  /** The transformed entity, or null if any errors occurred */
-  entity: SpfModuleDefinition | null;
+  /** One entity per processor, or null if transformation failed */
+  entities: SpfModuleDefinition[] | null;
   /** Array of error messages encountered during transformation */
   errors: string[];
-  /** Natural processor IDs from AWSP (to be mapped to system IDs later) */
-  processorNaturalIds?: number[];
-  /** Natural container type IDs from AWSP (to be mapped to system IDs later) */
-  containerTypeNaturalIds?: number[];
 }
 
 /**
@@ -192,23 +195,18 @@ export class SpfModuleDefinitionBuilder {
       // Assign system ID to module definition
       moduleDef.systemId = await this.idGenerator.getNextId(fileSystemId);
 
-      // IMPORTANT: Extract natural processor IDs BEFORE mapping them to system IDs
-      // At this point, processorSystemIds contains natural IDs from AWSP
-      const processorNaturalIds = [...moduleDef.processorSystemIds].map(id =>
-        asNaturalId(id),
-      );
+      // IMPORTANT: Extract natural processor ID BEFORE mapping it to system ID
+      const processorNaturalId = asNaturalId(moduleDef.processorSystemId);
 
-      // Transform processor definition natural IDs to system IDs
-      // This mutates moduleDef.processorSystemIds to contain system IDs
-      this.mapProcessorSystemIds(moduleDef);
+      // Transform processor definition natural ID to system ID
+      this.mapProcessorSystemId(moduleDef);
 
       // Transform container type natural IDs to system IDs
       this.mapContainerTypeSystemIds(moduleDef);
 
-      // Store module definition mapping using the natural processor IDs we extracted earlier
-      // This ensures the foreign key mapper is keyed by natural IDs, not system IDs
+      // Store module definition mapping using the natural processor ID
       this.foreignKeyMapper.addModuleDefinitionMapping(
-        processorNaturalIds,
+        processorNaturalId,
         asNaturalId(moduleDef.moduleDefinitionId),
         asSystemId(moduleDef.systemId),
       );
@@ -238,30 +236,22 @@ export class SpfModuleDefinitionBuilder {
   }
 
   /**
-   * Map processor natural IDs to system IDs
+   * Map processor natural ID to system ID on the module definition
    */
-  private mapProcessorSystemIds(moduleDef: SpfModuleDefinition): void {
-    const processorSystemIds: number[] = [];
-    for (const processorSystemId of moduleDef.processorSystemIds) {
-      const systemId = this.foreignKeyMapper.getProcessorDefinitionSystemId(
-        asNaturalId(processorSystemId),
-      );
-      if (systemId === undefined) {
-        this.logger?.logWarn({
-          msg: `Processor definition ID ${processorSystemId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
-          action: 'processor_mapping_not_found',
-          component: 'SpfModuleDefinitionBuilder',
-          tag: 'spf-module-definitions',
-          timestamp: new Date(),
-        });
-      } else {
-        processorSystemIds.push(systemId);
-      }
-    }
-    // Replace the Set with mapped systemIds
-    moduleDef.processorSystemIds.clear();
-    for (const systemId of processorSystemIds) {
-      moduleDef.processorSystemIds.add(systemId);
+  private mapProcessorSystemId(moduleDef: SpfModuleDefinition): void {
+    const systemId = this.foreignKeyMapper.getProcessorDefinitionSystemId(
+      asNaturalId(moduleDef.processorSystemId),
+    );
+    if (systemId === undefined) {
+      this.logger?.logWarn({
+        msg: `Processor definition ID ${moduleDef.processorSystemId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
+        action: 'processor_mapping_not_found',
+        component: 'SpfModuleDefinitionBuilder',
+        tag: 'spf-module-definitions',
+        timestamp: new Date(),
+      });
+    } else {
+      moduleDef.processorSystemId = systemId;
     }
   }
 
@@ -449,9 +439,9 @@ export class SpfModuleDefinitionBuilder {
         isBootUpModule,
       );
 
-      if (result.entity) {
-        // Successfully transformed
-        validModuleDefinitions.push(result.entity);
+      if (result.entities) {
+        // Successfully transformed — one entity per processor
+        validModuleDefinitions.push(...result.entities);
       } else {
         // Transformation failed - collect all errors
         for (const error of result.errors) {
@@ -636,9 +626,11 @@ export class SpfModuleDefinitionBuilder {
   }
 
   /**
-   * Static method for transforming AWSP SpfModuleDefinition to Domain SpfModuleDefinition
-   * This method is used both in sequential processing and worker threads
-   * Collects all errors instead of throwing on first error
+   * Static method for transforming AWSP SpfModuleDefinition to Domain SpfModuleDefinition.
+   * Produces one entity per supported processor ID. If no processors are listed,
+   * produces one entity bound to UNKNOWN_PROCESSOR_NATURAL_ID as a sentinel.
+   * This method is used both in sequential processing and worker threads.
+   * Collects all errors instead of throwing on first error.
    *
    * @param awsp - AWSP module definition to transform
    * @param isLoadedAtBootup - Whether this module is loaded at boot-up
@@ -673,38 +665,40 @@ export class SpfModuleDefinitionBuilder {
       this.transformDynamicIntents(awsp);
     if (intentsError) errors.push(intentsError);
 
-    // If any errors occurred, return null entity with all errors
+    // If any errors occurred, return null entities with all errors
     if (errors.length > 0) {
-      return {
-        entity: null,
-        errors,
-      };
+      return {entities: null, errors};
     }
 
-    // Create domain SPF module definition
-    // Note: processorSystemIds and containerTypesSystemIds initially contain NATURAL IDs from AWSP
-    // They will be mapped to system IDs in assignSystemIds()
-    const entity = new SpfModuleDefinition({
-      systemId: 0, // Placeholder - will be assigned during build process
-      moduleDefinitionId: awsp.id,
-      fileSystemId: 0, // Placeholder - will be assigned during build process
-      name: awsp.name,
-      displayName: awsp.displayName || awsp.name,
-      description: awsp.description,
-      parameters,
-      dataPortGroups: [inputDataPortsGroup, outputDataPortsGroup],
-      stackSize: 0 /* ToDo Fill correct value from aswp*/,
-      staticControlPorts,
-      dynamicIntents,
-      processorSystemIds: awsp.supportedProcessorIds || [], // Natural IDs from AWSP
-      containerTypesSystemIds: awsp.supportedContainerTypes || [], // Natural IDs from AWSP
-      isLoadedAtBootup,
-    });
+    // Determine processor IDs — one entity per processor
+    // Note: processorSystemId initially holds the NATURAL ID from AWSP;
+    // it is mapped to a system ID in assignSystemIds()
+    const procIds =
+      awsp.supportedProcessorIds && awsp.supportedProcessorIds.length > 0
+        ? awsp.supportedProcessorIds
+        : [UNKNOWN_PROCESSOR_NATURAL_ID]; // TODO: treat as upload failure once real validation is in place
 
-    return {
-      entity,
-      errors: [],
-    };
+    const entities: SpfModuleDefinition[] = procIds.map(
+      procId =>
+        new SpfModuleDefinition({
+          systemId: 0, // Placeholder - will be assigned during build process
+          moduleDefinitionId: awsp.id,
+          fileSystemId: 0, // Placeholder - will be assigned during build process
+          name: awsp.name,
+          displayName: awsp.displayName || awsp.name,
+          description: awsp.description,
+          parameters,
+          dataPortGroups: [inputDataPortsGroup, outputDataPortsGroup],
+          stackSize: 0 /* ToDo Fill correct value from awsp*/,
+          staticControlPorts,
+          dynamicIntents,
+          processorSystemId: procId, // Natural ID — will be mapped to system ID in assignSystemIds()
+          containerTypesSystemIds: awsp.supportedContainerTypes || [],
+          isLoadedAtBootup,
+        }),
+    );
+
+    return {entities, errors: []};
   }
 
   private static buildInputPortGroup(
@@ -838,9 +832,9 @@ export class SpfModuleDefinitionBuilder {
         isBootUpModule,
       );
 
-      if (result.entity) {
-        // Successfully transformed
-        validModuleDefinitions.push(result.entity);
+      if (result.entities) {
+        // Successfully transformed — one entity per processor
+        validModuleDefinitions.push(...result.entities);
       } else {
         // Transformation failed - collect all errors with diagnostic information
         const diagnosticInfo = {
