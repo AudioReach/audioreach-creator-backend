@@ -5,9 +5,9 @@
 
 import {
   IssueSeverity,
-  VALIDATION_ENTITY_TYPE,
+  ISSUE_ENTITY_TYPE,
   deriveCategoryFromSeverity,
-} from '../../issue.js';
+} from '../../../../shared/issues/index.js';
 import type {ValidationIssue} from '../../issue.js';
 import type {ValidationRule} from '../../validation-rule.js';
 import {VALIDATION_RULE_GROUP} from '../../validation-rule.js';
@@ -31,8 +31,8 @@ export class MissingDefinitionRule implements ValidationRule<ModuleValidationCon
     VALIDATION_RULE_GROUP.Commit,
   ];
   readonly requiredEntityTypes = [
-    VALIDATION_ENTITY_TYPE.SpfModule,
-    VALIDATION_ENTITY_TYPE.SpfModuleDefinition,
+    ISSUE_ENTITY_TYPE.SpfModule,
+    ISSUE_ENTITY_TYPE.SpfModuleDefinition,
   ] as const;
 
   validate(context: ModuleValidationContext): ValidationIssue[] {
@@ -47,17 +47,17 @@ export class MissingDefinitionRule implements ValidationRule<ModuleValidationCon
         issues.push({
           code: this.code,
           name: 'Missing Module Definition',
-          description:
+          message:
             `Module '${module.alias ?? 'unknown'}' ` +
             `(${BinaryUtils.toHexString(module.systemId)}) references ` +
             `definition ${BinaryUtils.toHexString(module.definitionSystemId)} ` +
             `which is not present in the loaded ACDB.`,
           defaultSeverity: this.defaultSeverity,
-          effectiveSeverity: this.defaultSeverity,
+          severity: this.defaultSeverity, // seed with default; preference-enforcer may escalate
           category: deriveCategoryFromSeverity(this.defaultSeverity),
           fixOptions: [],
           impactedEntity: {
-            entityType: VALIDATION_ENTITY_TYPE.SpfModule,
+            entityType: ISSUE_ENTITY_TYPE.SpfModule,
             systemId: module.systemId,
             displayName: module.alias,
           },

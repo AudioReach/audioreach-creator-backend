@@ -8,9 +8,9 @@ import {VALIDATION_RULE_GROUP} from '../../../../src/domain/validation/validatio
 import {
   IssueCategory,
   IssueSeverity,
-  VALIDATION_ENTITY_TYPE,
-} from '../../../../src/domain/validation/issue.js';
-import type {ValidationEntityType} from '../../../../src/domain/validation/issue.js';
+  ISSUE_ENTITY_TYPE,
+} from '../../../../src/shared/issues/index.js';
+import type {IssueEntityType} from '../../../../src/shared/issues/index.js';
 import {EMPTY_PREFERENCES} from '../../../../src/domain/validation/validation-preferences.js';
 import type {ValidationRule} from '../../../../src/domain/validation/validation-rule.js';
 import type {FileValidationContext} from '../../../../src/domain/validation/validation-context.js';
@@ -41,12 +41,12 @@ function makeIssue(code: string): ValidationIssue {
   return {
     code,
     name: code,
-    description: code,
+    message: code,
     defaultSeverity: IssueSeverity.Warning,
-    effectiveSeverity: IssueSeverity.Warning,
+    severity: IssueSeverity.Warning,
     category: IssueCategory.NonBlocking,
     fixOptions: [],
-    impactedEntity: {entityType: VALIDATION_ENTITY_TYPE.SpfModule, systemId: 1},
+    impactedEntity: {entityType: ISSUE_ENTITY_TYPE.SpfModule, systemId: 1},
     impactedUsecases: [],
   };
 }
@@ -55,7 +55,7 @@ function makeRule(
   code: string,
   groups: ValidationRuleGroup[],
   issues: ValidationIssue[],
-  requiredEntityTypes: ValidationEntityType[] = [],
+  requiredEntityTypes: IssueEntityType[] = [],
 ): ValidationRule<FileValidationContext> {
   return {
     code,
@@ -169,7 +169,7 @@ describe('ValidationEngine', () => {
   it('should set blockedSave=true when any BLOCKING issue exists', () => {
     const blockingIssue: ValidationIssue = {
       ...makeIssue('BLOCKING'),
-      effectiveSeverity: IssueSeverity.Error,
+      severity: IssueSeverity.Error,
       category: IssueCategory.Blocking,
     };
     const rule = makeRule(

@@ -6,7 +6,7 @@
 import type {SpfModuleDefinitionReadModel} from './spf-module-definition-read-model.js';
 import type {ParameterDefinitionReadModel} from './parameter-definition/parameter-definition-read-model.js';
 import type {ConfigurationIncludes} from '../configuration-includes.js';
-import type {Result} from '../../../../shared/Result/operation-result.js';
+import type {Result} from '../../../../shared/result/result.js';
 
 export interface SpfModuleDefinitionQueryService {
   /**

@@ -7,8 +7,8 @@ import {MissingDefinitionRule} from '../../../../../src/domain/validation/rules/
 import {
   IssueCategory,
   IssueSeverity,
-  VALIDATION_ENTITY_TYPE,
-} from '../../../../../src/domain/validation/issue.js';
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../src/shared/issues/index.js';
 import {VALIDATION_RULE_GROUP} from '../../../../../src/domain/validation/validation-rule.js';
 import {EMPTY_PREFERENCES} from '../../../../../src/domain/validation/validation-preferences.js';
 import type {ModuleValidationContext} from '../../../../../src/domain/validation/validation-context.js';
@@ -43,11 +43,9 @@ describe('MissingDefinitionRule', () => {
   });
 
   it('should require SpfModule and SpfModuleDefinition entity types', () => {
+    expect(rule.requiredEntityTypes).toContain(ISSUE_ENTITY_TYPE.SpfModule);
     expect(rule.requiredEntityTypes).toContain(
-      VALIDATION_ENTITY_TYPE.SpfModule,
-    );
-    expect(rule.requiredEntityTypes).toContain(
-      VALIDATION_ENTITY_TYPE.SpfModuleDefinition,
+      ISSUE_ENTITY_TYPE.SpfModuleDefinition,
     );
   });
 
@@ -68,13 +66,13 @@ describe('MissingDefinitionRule', () => {
     const issues = rule.validate(context);
     expect(issues).toHaveLength(1);
     expect(issues[0].code).toBe('ARC-MOD-001');
-    expect(issues[0].effectiveSeverity).toBe(IssueSeverity.Error);
+    expect(issues[0].severity).toBe(IssueSeverity.Error);
     expect(issues[0].category).toBe(IssueCategory.Blocking);
-    expect(issues[0].impactedEntity.entityType).toBe(
-      VALIDATION_ENTITY_TYPE.SpfModule,
+    expect(issues[0].impactedEntity?.entityType).toBe(
+      ISSUE_ENTITY_TYPE.SpfModule,
     );
-    expect(issues[0].impactedEntity.systemId).toBe(1);
-    expect(issues[0].impactedEntity.displayName).toBe('TestModule');
+    expect(issues[0].impactedEntity?.systemId).toBe(1);
+    expect(issues[0].impactedEntity?.displayName).toBe('TestModule');
   });
 
   it('should return one issue per module with missing definition', () => {
@@ -98,7 +96,7 @@ describe('MissingDefinitionRule', () => {
     );
     const issues = rule.validate(context);
     expect(issues).toHaveLength(1);
-    expect(issues[0].impactedEntity.systemId).toBe(2);
+    expect(issues[0].impactedEntity?.systemId).toBe(2);
   });
 
   it('should populate impactedUsecases from usecasesByModuleId', () => {

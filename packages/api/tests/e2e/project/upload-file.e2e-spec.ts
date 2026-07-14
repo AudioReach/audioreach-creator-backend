@@ -46,14 +46,12 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
 
     // Verify response structure
     expect(response.body).toBeDefined();
-    expect(response.body.success).toBe(true);
-    expect(response.body.message).toBe('The file has been opened successfully');
-
-    // Verify project details
     expect(response.body.data).toBeDefined();
     expect(response.body.data.projectId).toBeDefined();
     expect(response.body.data.projectType).toBe('OFFLINE');
     expect(response.body.data.sessionMode).toBe('DESIGNER');
+    expect(response.body).not.toHaveProperty('success');
+    expect(response.body).not.toHaveProperty('message');
 
     // Extract project ID for usecase API call
     const projectId = response.body.data.projectId;
@@ -67,12 +65,12 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
 
     // Verify usecases response structure
     expect(usecasesResponse.body).toBeDefined();
-    expect(usecasesResponse.body.success).toBe(true);
-    expect(usecasesResponse.body.message).toBe(
-      'Usecases retrieved successfully',
-    );
     expect(usecasesResponse.body.data).toBeDefined();
     expect(Array.isArray(usecasesResponse.body.data)).toBe(true);
+    expect(usecasesResponse.status).toBe(200);
+    expect(usecasesResponse.body).not.toHaveProperty('issues');
+    expect(usecasesResponse.body).not.toHaveProperty('success');
+    expect(usecasesResponse.body).not.toHaveProperty('message');
 
     // Log the usecases data to a file in the specified format
     const usecasesData = usecasesResponse.body.data;
@@ -125,25 +123,22 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
       const randomUsecaseSystemId = logLines[randomIndex].split(' : ')[0];
 
       const componentsResponse = await request(httpServer)
-        .post(`/arc-api/v1/projects/${projectId}/usecases/getComponents/`)
+        .post(`/arc-api/v1/projects/${projectId}/usecases/components/query`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           systemIds: [randomUsecaseSystemId],
         })
         .timeout(30000) // 30 seconds timeout
-        .expect(201);
+        .expect(200);
 
       // Verify components response structure
       expect(componentsResponse.body).toBeDefined();
-      expect(componentsResponse.body.success).toBe(true);
-      expect(componentsResponse.body.message).toBe(
-        'Components retrieved successfully',
-      );
       expect(componentsResponse.body.data).toBeDefined();
-      expect(Array.isArray(componentsResponse.body.data)).toBe(true);
-      expect(componentsResponse.body.data.length).toBe(1);
+      expect(componentsResponse.body.data.spfModules).toBeDefined();
+      expect(componentsResponse.body).not.toHaveProperty('success');
+      expect(componentsResponse.body).not.toHaveProperty('message');
 
-      const componentsData = componentsResponse.body.data[0];
+      const componentsData = componentsResponse.body.data;
       expect(componentsData.spfModules).toBeDefined();
       expect(Array.isArray(componentsData.spfModules)).toBe(true);
       expect(componentsData.dataLinks).toBeDefined();

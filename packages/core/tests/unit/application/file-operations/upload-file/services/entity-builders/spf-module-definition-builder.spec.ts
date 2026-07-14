@@ -111,8 +111,6 @@ describe('SpfModuleDefinitionBuilder', () => {
         expect(result.entities[0].name).toBe('Test Module');
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(0);
         expect(mockIdGenerator.getNextId).toHaveBeenCalled();
         expect(
           mockForeignKeyMapper.addModuleDefinitionMapping,
@@ -203,8 +201,6 @@ describe('SpfModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(0);
         expect(mockWorkerPool.executeParallel).toHaveBeenCalledTimes(1);
       });
 
@@ -216,8 +212,6 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should process multiple module definitions', async () => {
@@ -263,7 +257,6 @@ describe('SpfModuleDefinitionBuilder', () => {
         expect(result.entities).toHaveLength(2);
         expect(result.entities[0].moduleDefinitionId).toBe(100);
         expect(result.entities[1].moduleDefinitionId).toBe(200);
-        expect(result.successCount).toBe(2);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -294,9 +287,6 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         expect(result).toHaveProperty('entities');
         expect(result).toHaveProperty('issues');
-        expect(result).toHaveProperty('successCount');
-        expect(result).toHaveProperty('errorCount');
-        expect(result).toHaveProperty('warningCount');
         expect(Array.isArray(result.entities)).toBe(true);
         expect(Array.isArray(result.issues)).toBe(true);
       });
@@ -308,8 +298,6 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should return empty result when input is undefined', async () => {
@@ -320,8 +308,6 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should handle modules with no parameters', async () => {
@@ -351,7 +337,6 @@ describe('SpfModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities[0].parameters).toHaveLength(0);
-        expect(result.successCount).toBe(1);
       });
 
       it('should handle modules with multiple parameters', async () => {
@@ -400,7 +385,6 @@ describe('SpfModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
         expect(result.entities[0].parameters).toHaveLength(2);
         expect(result.entities[0].parameters[0].paramId).toBe(1);
         expect(result.entities[0].parameters[1].paramId).toBe(2);
@@ -573,8 +557,6 @@ describe('SpfModuleDefinitionBuilder', () => {
         // The transformation handles missing fields gracefully and creates entities with defaults
         // In partial success model, this creates a valid entity with default port groups
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
-        expect(result.errorCount).toBe(0);
         expect(result.entities[0].dataPortGroups).toHaveLength(2);
         expect(result.entities[0].dataPortGroups[0].maxAllowedPortCount).toBe(
           0,

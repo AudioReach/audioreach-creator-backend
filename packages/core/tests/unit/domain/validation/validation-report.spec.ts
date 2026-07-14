@@ -7,16 +7,16 @@ import {ValidationReport} from '../../../../src/domain/validation/validation-rep
 import {
   IssueCategory,
   IssueSeverity,
-} from '../../../../src/domain/validation/issue.js';
+} from '../../../../src/shared/issues/index.js';
 import type {ValidationIssue} from '../../../../src/domain/validation/issue.js';
 
 function makeIssue(overrides: Partial<ValidationIssue> = {}): ValidationIssue {
   return {
     code: 'ARC-TEST-001',
     name: 'Test Issue',
-    description: 'A test issue',
+    message: 'A test issue',
     defaultSeverity: IssueSeverity.Warning,
-    effectiveSeverity: IssueSeverity.Warning,
+    severity: IssueSeverity.Warning,
     category: IssueCategory.NonBlocking,
     fixOptions: [],
     impactedEntity: {entityType: 'SpfModule', systemId: 1},
@@ -33,7 +33,7 @@ describe('ValidationReport', () => {
 
   it('should have blockedSave=true when any BLOCKING issue exists', () => {
     const blockingIssue = makeIssue({
-      effectiveSeverity: IssueSeverity.Error,
+      severity: IssueSeverity.Error,
       category: IssueCategory.Blocking,
     });
     const report = new ValidationReport([blockingIssue]);
@@ -43,11 +43,11 @@ describe('ValidationReport', () => {
   it('should count issues by severity in summary', () => {
     const issues = [
       makeIssue({
-        effectiveSeverity: IssueSeverity.Error,
+        severity: IssueSeverity.Error,
         category: IssueCategory.Blocking,
       }),
-      makeIssue({effectiveSeverity: IssueSeverity.Warning}),
-      makeIssue({effectiveSeverity: IssueSeverity.Warning}),
+      makeIssue({severity: IssueSeverity.Warning}),
+      makeIssue({severity: IssueSeverity.Warning}),
     ];
     const report = new ValidationReport(issues);
     expect(report.summary.total).toBe(3);
@@ -63,11 +63,11 @@ describe('ValidationReport', () => {
       makeIssue({category: IssueCategory.NonBlocking}),
       makeIssue({
         category: IssueCategory.DataLoss,
-        effectiveSeverity: IssueSeverity.Warning,
+        severity: IssueSeverity.Warning,
       }),
       makeIssue({
         category: IssueCategory.DataLoss,
-        effectiveSeverity: IssueSeverity.Warning,
+        severity: IssueSeverity.Warning,
       }),
     ];
     const report = new ValidationReport(issues);
@@ -92,7 +92,7 @@ describe('ValidationReport', () => {
 
   it('should count FATAL issues as blocking', () => {
     const fatalIssue = makeIssue({
-      effectiveSeverity: IssueSeverity.Fatal,
+      severity: IssueSeverity.Fatal,
       category: IssueCategory.Blocking,
     });
     const report = new ValidationReport([fatalIssue]);

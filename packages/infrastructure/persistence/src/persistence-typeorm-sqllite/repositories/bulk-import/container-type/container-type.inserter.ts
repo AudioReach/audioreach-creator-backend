@@ -54,6 +54,7 @@ export class ContainerTypeInserter implements BulkInserter<ContainerType> {
 
     return errBulkInsert(
       rawFailures.map(f => ({
+        systemId: f.systemId,
         message: `Failed to insert ${f.entityLabel}`,
         details: `${f.entityLabel}: ${f.dbError}\n  ${f.failedRowJson}`,
       })),

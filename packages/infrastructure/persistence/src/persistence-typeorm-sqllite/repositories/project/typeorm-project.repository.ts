@@ -6,12 +6,13 @@
 import type {EntityManager} from 'typeorm';
 import {
   ArcDbFile,
+  IssueFactory,
   Project,
   PROJECT_TYPE,
+  Result,
   type ArcDbFileInit,
   type FileHeaderData,
   type FileOpenStatus,
-  type OperationResult,
   type ProjectCreationResult,
   type ProjectRepository,
   type ValidationIssue,
@@ -26,7 +27,7 @@ export class TypeOrmProjectRepository implements ProjectRepository {
     projectName: string,
     projectDescription: string,
     file: Omit<ArcDbFileInit, 'systemId'>,
-  ): Promise<OperationResult<ProjectCreationResult>> {
+  ): Promise<Result<ProjectCreationResult>> {
     try {
       const projectRow = await this.manager.save(ProjectSchema, {
         name: projectName,
@@ -45,31 +46,29 @@ export class TypeOrmProjectRepository implements ProjectRepository {
         lastReservedId: 0,
       });
 
-      return {
-        success: true,
-        data: {
-          project: new Project(
-            projectRow.systemId,
-            projectRow.name,
-            projectRow.description,
-            PROJECT_TYPE.OFFLINE,
-          ),
-          file: new ArcDbFile({
-            systemId: fileRow.systemId,
-            description: file.description,
-            metadata: file.metadata,
-            fileName: file.fileName,
-            isTarget: Boolean(fileRow.isTarget),
-            openStatus: fileRow.openStatus,
-            dataLossIssues: [],
-          }),
-        },
-      };
+      return Result.ok({
+        project: new Project(
+          projectRow.systemId,
+          projectRow.name,
+          projectRow.description,
+          PROJECT_TYPE.OFFLINE,
+        ),
+        file: new ArcDbFile({
+          systemId: fileRow.systemId,
+          description: file.description,
+          metadata: file.metadata,
+          fileName: file.fileName,
+          isTarget: Boolean(fileRow.isTarget),
+          openStatus: fileRow.openStatus,
+          dataLossIssues: [],
+        }),
+      });
     } catch (error) {
-      return {
-        success: false,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      };
+      return Result.fail(
+        IssueFactory.dbError(
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
     }
   }
 

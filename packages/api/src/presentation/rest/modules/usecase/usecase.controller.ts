@@ -49,10 +49,12 @@ import {
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
 import {
   QueryBus,
   GetAllUseCasesQuery,
   GetComponentsQuery,
+  type Result,
   UseCaseReadModel,
   type KeyValuePairReadModel,
   UseCaseComponentsReadModel,
@@ -185,22 +187,15 @@ export class UseCaseController extends BaseController {
       );
     }
 
-    // Execute query
     const query = new GetAllUseCasesQuery(
       Number.parseInt(projectId),
       'client-id', // TODO: get actual clientId from JWT
     );
 
-    const usecases = await this.queryBus.execute<UseCaseReadModel[]>(query);
+    const result =
+      await this.queryBus.execute<Result<UseCaseReadModel[]>>(query);
 
-    // Transform to DTOs - convert UsecaseIdentifierDto to UsecaseDto
-    const transformedUsecases = this.transformToUsecaseDtos(usecases);
-
-    return {
-      data: transformedUsecases,
-      success: true,
-      message: 'Usecases retrieved successfully',
-    };
+    return toApiResult(result, data => this.transformToUsecaseDtos(data));
   }
 
   //#endregion
@@ -610,18 +605,12 @@ export class UseCaseController extends BaseController {
       'client-id',
       parsedProjectId,
     ); // TODO: get actual clientId from JWT
-    const components =
-      await this.queryBus.execute<UseCaseComponentsReadModel>(query);
+    const result =
+      await this.queryBus.execute<Result<UseCaseComponentsReadModel>>(query);
 
-    // Transform components to ComponentCollectionDto (flat structure)
-    const componentCollection =
-      this.transformToComponentCollectionDto(components);
-
-    return {
-      data: componentCollection,
-      success: true,
-      message: 'Components retrieved successfully',
-    };
+    return toApiResult(result, data =>
+      this.transformToComponentCollectionDto(data),
+    );
   }
 
   //#endregion

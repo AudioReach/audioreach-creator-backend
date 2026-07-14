@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {IssueSeverity} from './issue.js';
+import type {IssueSeverity} from '../../shared/issues/index.js';
 
 export interface IssuePreference {
   /**

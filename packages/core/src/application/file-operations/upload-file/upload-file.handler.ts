@@ -20,13 +20,13 @@ import {
   type FileOpenStatus,
 } from '../../../domain/entities/usecase-data/project/arc-db-file.js';
 import type {ValidationReport} from '../../../domain/validation/validation-report.js';
-import type {ResultIssue} from '../../../shared/types/api-result.js';
+import type {Issue} from '../../../shared/issues/index.js';
 
 export type UploadFileResult = {
   projectId: string;
   projectName: string;
   projectDescription: string;
-  issues?: ResultIssue[];
+  issues?: readonly Issue[];
   openStatus: FileOpenStatus;
   /**
    * Null for now — domain validation via fromEntities() will be added
@@ -93,9 +93,11 @@ export class UploadFileHandler implements CommandHandler<
         dataLossIssues: [],
       });
 
-    if (!createResult.success) {
+    if (createResult.kind === 'fail') {
       await this.uow.rollback();
-      throw new Error(`Project creation failed: ${createResult.errorMessage}`);
+      throw new Error(
+        `Project creation failed: ${createResult.issues[0]?.message ?? 'unknown error'}`,
+      );
     }
 
     await this.uow.commit();
@@ -166,7 +168,7 @@ export class UploadFileHandler implements CommandHandler<
       projectId: project.systemId.toString(),
       projectName: project.name,
       projectDescription: project.description,
-      issues: uploadResult.issues,
+      ...(uploadResult.issues.length > 0 && {issues: uploadResult.issues}),
       openStatus: finalStatus,
       validationReport: null,
     };

@@ -164,9 +164,9 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       valueDefIds,
       fileSystemId,
     );
-    if (pairsResult.isFailure) {
+    if (pairsResult.kind === 'fail') {
       throw new Error(
-        `Failed to resolve key-value pairs: ${pairsResult.errors.map(e => e.message).join(', ')}`,
+        `Failed to resolve key-value pairs: ${pairsResult.issues.map(e => e.message).join(', ')}`,
       );
     }
 

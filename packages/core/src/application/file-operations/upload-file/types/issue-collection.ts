@@ -3,140 +3,55 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ErrorCode} from '../../../../shared/errors/error-codes.js';
-import type {ResultIssue} from '../../../../shared/types/api-result.js';
+import type {Issue} from '../../../../shared/issues/index.js';
 
 /**
- * Issue severity levels
- */
-export const ISSUE_SEVERITY = {
-  ERROR: 'error',
-  WARNING: 'warning',
-} as const;
-
-export type IssueSeverity =
-  (typeof ISSUE_SEVERITY)[keyof typeof ISSUE_SEVERITY];
-
-/**
- * Entity types that can have issues
- */
-export const ENTITY_TYPES = {
-  KEY_DEFINITION: 'KeyDefinition',
-  VALUE_DEFINITION: 'ValueDefinition',
-  SPF_MODULE_DEFINITION: 'SpfModuleDefinition',
-  DRIVER_MODULE_DEFINITION: 'DriverModuleDefinition',
-  VCPM_MODULE_DEFINITION: 'VcpmModuleDefinition',
-  SUBGRAPH: 'Subgraph',
-  CONTAINER: 'Container',
-  SPF_MODULE: 'SpfModule',
-  DRIVER_MODULE: 'DriverModule',
-  DATA_LINK: 'DataLink',
-  CONTROL_LINK: 'ControlLink',
-  USECASE: 'UseCase',
-} as const;
-
-export type EntityType = (typeof ENTITY_TYPES)[keyof typeof ENTITY_TYPES];
-
-/**
- * Represents an issue (error or warning) that occurred during entity building or insertion
- */
-export interface EntityBuildIssue {
-  severity: IssueSeverity;
-  code: ErrorCode;
-  message: string;
-  entityType: EntityType;
-  entityData?: string; // JSON string for insertion errors
-}
-
-/**
- * Result of building entities with issue collection
+ * Result of building entities with issue collection.
+ *
+ * `issues` is a flat list of base `Issue`s (ValidationIssue is structurally
+ * assignable to Issue, so validation-shaped entries flow through without
+ * translation). Downstream consumers hand this straight to `Result.partial(data, issues)`.
  */
 export interface BuildResult<T> {
   entities: T[];
-  issues: EntityBuildIssue[];
-  successCount: number;
-  errorCount: number;
-  warningCount: number;
+  issues: Issue[];
 }
 
 /**
- * Collects issues (errors and warnings) during the upload process
+ * Thin `Issue[]` accumulator used across the upload pipeline.
+ *
+ * Callers construct concrete Issues via:
+ *   - `newInsertFailureIssue(...)` in `domain/validation/insert-failures/` (DATA_LOSS)
+ *   - direct object literals for validation rule outputs (ValidationIssue extends Issue)
+ *
+ * `formatForApi()` from the pre-refactor collector is removed — the collector
+ * output is consumed by `Result.partial(data, collector.getIssues())` and the API
+ * mapper does the wire-format projection.
  */
 export class IssueCollector {
-  private issues: EntityBuildIssue[] = [];
+  private issues: Issue[] = [];
 
-  addIssue(issue: EntityBuildIssue): void {
+  addIssue(issue: Issue): void {
     this.issues.push(issue);
   }
 
-  addIssues(issues: EntityBuildIssue[]): void {
+  addIssues(issues: readonly Issue[]): void {
     this.issues.push(...issues);
   }
 
-  /**
-   * Convenience method to add an error with automatic severity
-   */
-  addError(error: Omit<EntityBuildIssue, 'severity'>): void {
-    this.addIssue({...error, severity: ISSUE_SEVERITY.ERROR});
-  }
-
-  /**
-   * Convenience method to add a warning with automatic severity
-   */
-  addWarning(warning: Omit<EntityBuildIssue, 'severity'>): void {
-    this.addIssue({...warning, severity: ISSUE_SEVERITY.WARNING});
-  }
-
-  getIssues(): EntityBuildIssue[] {
+  getIssues(): readonly Issue[] {
     return [...this.issues];
-  }
-
-  getErrors(): EntityBuildIssue[] {
-    return this.issues.filter(i => i.severity === ISSUE_SEVERITY.ERROR);
-  }
-
-  getWarnings(): EntityBuildIssue[] {
-    return this.issues.filter(i => i.severity === ISSUE_SEVERITY.WARNING);
   }
 
   hasIssues(): boolean {
     return this.issues.length > 0;
   }
 
-  hasErrors(): boolean {
-    return this.getErrors().length > 0;
-  }
-
-  hasWarnings(): boolean {
-    return this.getWarnings().length > 0;
-  }
-
   getIssueCount(): number {
     return this.issues.length;
   }
 
-  getErrorCount(): number {
-    return this.getErrors().length;
-  }
-
-  getWarningCount(): number {
-    return this.getWarnings().length;
-  }
-
   clear(): void {
     this.issues = [];
-  }
-
-  /**
-   * Format issues for API response
-   */
-  formatForApi(): {issues?: ResultIssue[]} {
-    const issues: ResultIssue[] = this.issues.map(issue => ({
-      code: issue.code,
-      message: `${issue.entityType}: ${issue.message}`,
-      severity: issue.severity === ISSUE_SEVERITY.ERROR ? 'ERROR' : 'WARNING',
-    }));
-
-    return issues.length > 0 ? {issues} : {};
   }
 }

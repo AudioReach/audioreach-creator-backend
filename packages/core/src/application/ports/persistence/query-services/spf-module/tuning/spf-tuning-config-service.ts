@@ -9,7 +9,7 @@ import type {
   CkvParamReadModel,
 } from './tuning-config-read-model.js';
 import type {ConfigurationIncludes} from '../../configuration-includes.js';
-import type {Result} from '../../../../../shared/Result/operation-result.js';
+import type {Result} from '../../../../../shared/result/result.js';
 
 /**
  * Category service for SPF module tuning data.

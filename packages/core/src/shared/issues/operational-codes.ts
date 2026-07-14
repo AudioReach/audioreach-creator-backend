@@ -1,0 +1,21 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/**
+ * Stable string codes for operational (non-validation) issues.
+ *
+ * Used by IssueFactory methods and consumed by the API-layer HTTP-status
+ * resolver so the two places stay in sync without repeating string literals.
+ */
+export const ISSUE_CODE = {
+  ENTITY_NOT_FOUND: 'ENTITY_NOT_FOUND',
+  DB_QUERY_FAILED: 'DB_QUERY_FAILED',
+  PARSE_ERROR: 'PARSE_ERROR',
+  PARAM_PAYLOAD_NOT_FOUND: 'PARAM_PAYLOAD_NOT_FOUND',
+  SESSION_NOT_OPEN: 'SESSION_NOT_OPEN',
+  SESSION_MODE_NOT_ALLOWED: 'SESSION_MODE_NOT_ALLOWED',
+} as const;
+
+export type IssueCode = (typeof ISSUE_CODE)[keyof typeof ISSUE_CODE];

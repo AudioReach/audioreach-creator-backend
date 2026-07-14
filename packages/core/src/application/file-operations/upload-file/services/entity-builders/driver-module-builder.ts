@@ -11,11 +11,12 @@ import {
   asSystemId,
 } from '../../../../../shared/types/branded-ids.js';
 import {DriverModule} from '../../../../../domain/entities/driver-module-data/driver-module.js';
-import type {
-  BuildResult,
-  EntityBuildIssue,
-} from '../../types/issue-collection.js';
-import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import type {BuildResult} from '../../types/issue-collection.js';
+import type {Issue} from '../../../../../shared/issues/index.js';
+import {
+  IssueSeverity,
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import type {ParsedAcdb} from '../../models/parsed-acdb.js';
 import {DriverCalibrationDataBuilder} from './driver-calibration-data-builder.js';
@@ -47,13 +48,7 @@ export class DriverModuleBuilder {
     parsedAcdb?: ParsedAcdb,
   ): Promise<BuildResult<DriverModule>> {
     if (!moduleDefinitionIds || moduleDefinitionIds.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     this.logger?.logDebug({
@@ -65,7 +60,7 @@ export class DriverModuleBuilder {
     });
 
     const entities: DriverModule[] = [];
-    const issues: EntityBuildIssue[] = [];
+    const issues: Issue[] = [];
 
     // Step 1: Build driver module entities
     for (const moduleDefinitionId of moduleDefinitionIds) {
@@ -78,10 +73,13 @@ export class DriverModuleBuilder {
 
         if (!definitionSystemId) {
           issues.push({
-            severity: ISSUE_SEVERITY.ERROR,
             code: ERROR_CODES.INVALID_ENTITY_DATA,
             message: `No driver module definition systemId mapping found for moduleDefinitionId ${moduleDefinitionId}`,
-            entityType: ENTITY_TYPES.DRIVER_MODULE,
+            severity: IssueSeverity.Error,
+            impactedEntity: {
+              entityType: ISSUE_ENTITY_TYPE.DriverModule,
+              systemId: moduleDefinitionId,
+            },
           });
           continue;
         }
@@ -102,10 +100,13 @@ export class DriverModuleBuilder {
         entities.push(driverModule);
       } catch (error) {
         issues.push({
-          severity: ISSUE_SEVERITY.ERROR,
           code: ERROR_CODES.INVALID_ENTITY_DATA,
           message: `Failed to build driver module for definition ${moduleDefinitionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          entityType: ENTITY_TYPES.DRIVER_MODULE,
+          severity: IssueSeverity.Error,
+          impactedEntity: {
+            entityType: ISSUE_ENTITY_TYPE.DriverModule,
+            systemId: moduleDefinitionId,
+          },
         });
       }
     }
@@ -126,11 +127,6 @@ export class DriverModuleBuilder {
     return {
       entities,
       issues,
-      successCount: entities.length,
-      errorCount: issues.filter(i => i.severity === ISSUE_SEVERITY.ERROR)
-        .length,
-      warningCount: issues.filter(i => i.severity === ISSUE_SEVERITY.WARNING)
-        .length,
     };
   }
 

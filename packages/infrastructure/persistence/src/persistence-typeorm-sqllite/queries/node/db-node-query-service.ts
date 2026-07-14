@@ -10,7 +10,7 @@ import type {
   ControlPortReadModel,
   IntentReadModel,
 } from '@arc/core';
-import {Result, ERROR_CODES, NodeType} from '@arc/core';
+import {Result, ERROR_CODES, NodeType, IssueSeverity} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
@@ -120,6 +120,7 @@ export class DbNodeQueryService implements NodeQueryService {
           error instanceof Error
             ? error.message
             : `Failed to load data ports for node ${nodeSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -206,6 +207,7 @@ export class DbNodeQueryService implements NodeQueryService {
           error instanceof Error
             ? error.message
             : `Failed to load control ports for node ${nodeSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }

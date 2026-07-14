@@ -101,9 +101,6 @@ export class TagDefinitionBuilder {
     return {
       entities,
       issues: [],
-      successCount: entities.length,
-      errorCount: 0,
-      warningCount: 0,
     };
   }
 }

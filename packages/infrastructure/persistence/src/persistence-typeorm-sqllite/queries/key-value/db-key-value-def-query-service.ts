@@ -11,7 +11,7 @@ import type {
   ValueDefinitionSummaryReadModel,
   KeyDefinitionSummaryReadModel,
 } from '@arc/core';
-import {Result, ERROR_CODES} from '@arc/core';
+import {Result, ERROR_CODES, IssueSeverity} from '@arc/core';
 import {applyTableOverlay} from '../edit-session/overlay-utils.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -34,7 +34,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       [valueDefSystemId],
       fileSystemId,
     );
-    if (result.isFailure) return Result.fail(...result.errors);
+    if (result.kind === 'fail') return Result.fail(...result.issues);
 
     const match = result.data.find(keyDef =>
       keyDef.values.some(v => v.systemId === valueDefSystemId),
@@ -43,6 +43,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       return Result.fail({
         code: ERROR_CODES.ENTITY_NOT_FOUND,
         message: `ValueDefinition not found for systemId=${valueDefSystemId}`,
+        severity: IssueSeverity.Error,
       });
     return Result.ok(match);
   }
@@ -128,6 +129,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
           error instanceof Error
             ? error.message
             : 'Failed to load value definitions',
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -155,8 +157,8 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       fileSystemId,
     );
 
-    if (keysResult.isFailure) {
-      return Result.fail(...keysResult.errors);
+    if (keysResult.kind === 'fail') {
+      return Result.fail(...keysResult.issues);
     }
 
     try {
@@ -189,6 +191,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
           error instanceof Error
             ? error.message
             : 'Failed to convert key/value pairs',
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -215,6 +218,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `KeyDefinition not found for systemId=${keyDefSystemId}`,
+          severity: IssueSeverity.Error,
         });
 
       // Step 3 — Return full overlaid read model
@@ -228,6 +232,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
           error instanceof Error
             ? error.message
             : `Failed to load key definition ${keyDefSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }

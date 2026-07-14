@@ -64,10 +64,7 @@ function makeServices(
       getFileIdByProjectId: jest.fn().mockResolvedValue(fileId),
     },
     spfModuleQueryService: {
-      findOne: jest.fn().mockResolvedValue({
-        isFailure: false,
-        data: {definitionSystemId: moduleDefId},
-      }),
+      findOne: jest.fn().mockResolvedValue({definitionSystemId: moduleDefId}),
       ckvQueryService: {
         getCkv: jest.fn().mockResolvedValue(ckv),
         getCkvPayloads: jest.fn().mockResolvedValue(payloads),

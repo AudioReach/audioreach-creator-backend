@@ -6,7 +6,7 @@
 import {Catch, HttpException, HttpStatus, Inject} from '@nestjs/common';
 import type {ExceptionFilter, ArgumentsHost} from '@nestjs/common';
 import type {Request, Response} from 'express';
-import type {Logger} from '@arc/core';
+import type {Logger, Issue} from '@arc/core';
 import {
   DomainException,
   ResourceNotFoundException,
@@ -39,35 +39,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    let status: number;
-    let errorCode: string | undefined;
-    let details: unknown;
+    const {status, errorCode, details, issues} =
+      this.resolveFromException(exception);
 
-    if (exception instanceof DomainException) {
-      // Domain exceptions from @arc/core
-      status =
-        DOMAIN_STATUS_MAP.get(exception.constructor as DomainExceptionClass) ??
-        HttpStatus.INTERNAL_SERVER_ERROR;
-      errorCode = exception.errorCode;
-      details = exception.details;
-    } else if (exception instanceof HttpException) {
-      // NestJS built-in HTTP exceptions (from controllers, guards, pipes)
-      status = exception.getStatus();
-      const exResponse = exception.getResponse();
-      if (typeof exResponse === 'object' && exResponse != null) {
-        const resp = exResponse as Record<string, unknown>;
-        errorCode = (resp.errorCode as string) ?? exception.name;
-        details = resp.details;
-      } else {
-        errorCode = exception.name;
-      }
-    } else {
-      // Unknown/unexpected exceptions
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      errorCode = 'INTERNAL_SERVER_ERROR';
-    }
-
-    // Log with appropriate severity
     const logContext = {
       component: 'ExceptionFilter',
       action: 'handleException',
@@ -84,7 +58,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.logError(logContext);
     }
 
-    // Build error response
     const errorResponse: Record<string, unknown> = {
       statusCode: status,
       errorCode: errorCode || 'UNKNOWN_ERROR',
@@ -100,10 +73,60 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorResponse.details = details;
     }
 
+    if (issues !== undefined) {
+      errorResponse.issues = issues;
+    }
+
     if (process.env.NODE_ENV !== 'production' && exception instanceof Error) {
       errorResponse.stack = exception.stack;
     }
 
     response.status(status).json(errorResponse);
+  }
+
+  private resolveFromException(exception: unknown): {
+    status: number;
+    errorCode: string | undefined;
+    details: unknown;
+    issues: Issue[] | undefined;
+  } {
+    if (exception instanceof DomainException) {
+      return {
+        status:
+          DOMAIN_STATUS_MAP.get(
+            exception.constructor as DomainExceptionClass,
+          ) ?? HttpStatus.INTERNAL_SERVER_ERROR,
+        errorCode: exception.errorCode,
+        details: exception.details,
+        issues: undefined,
+      };
+    }
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const exResponse = exception.getResponse();
+      if (typeof exResponse === 'object' && exResponse != null) {
+        const resp = exResponse as Record<string, unknown>;
+        return {
+          status,
+          errorCode: (resp.errorCode as string) ?? exception.name,
+          details: resp.details,
+          issues: Array.isArray(resp.issues)
+            ? (resp.issues as Issue[])
+            : undefined,
+        };
+      }
+      return {
+        status,
+        errorCode: exception.name,
+        details: undefined,
+        issues: undefined,
+      };
+    }
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      errorCode: 'INTERNAL_SERVER_ERROR',
+      details: undefined,
+      issues: undefined,
+    };
   }
 }

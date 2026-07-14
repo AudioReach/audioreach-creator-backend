@@ -4,7 +4,7 @@
  */
 
 import type {ContainerReadModel} from './container-read-model.js';
-import type {Result} from '../../../../shared/Result/operation-result.js';
+import type {Result} from '../../../../shared/result/result.js';
 
 export interface ContainerQueryService {
   /**

@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {IssueCategory} from './issue.js';
-import type {IssueSeverity, ValidationIssue} from './issue.js';
+import {IssueCategory} from '../../shared/issues/index.js';
+import type {IssueSeverity} from '../../shared/issues/index.js';
+import type {ValidationIssue} from './issue.js';
 
 export interface ValidationSummary {
   total: number;
@@ -35,7 +36,7 @@ export class ValidationReport {
     let nonBlocking = 0;
     let dataLoss = 0;
     for (const issue of issues) {
-      bySeverity[issue.effectiveSeverity]++;
+      bySeverity[issue.severity]++;
       if (issue.category === IssueCategory.Blocking) blocking++;
       else if (issue.category === IssueCategory.DataLoss) dataLoss++;
       else nonBlocking++;

@@ -68,7 +68,6 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
       .timeout(300000)
       .expect(201);
 
-    expect(uploadResponse.body.success).toBe(true);
     expect(uploadResponse.body.data.projectId).toBeDefined();
 
     const originalProjectId = uploadResponse.body.data.projectId;
@@ -80,7 +79,6 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
       .timeout(3000000)
       .expect(200);
 
-    expect(originalHeaderResponse.body.success).toBe(true);
     expect(originalHeaderResponse.body.data).toBeDefined();
 
     const originalHeader = originalHeaderResponse.body.data;
@@ -169,7 +167,6 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
       .timeout(300000)
       .expect(201);
 
-    expect(reuploadResponse.body.success).toBe(true);
     expect(reuploadResponse.body.data.projectId).toBeDefined();
 
     const newProjectId = reuploadResponse.body.data.projectId;
@@ -181,7 +178,6 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
       .timeout(3000000)
       .expect(200);
 
-    expect(newHeaderResponse.body.success).toBe(true);
     expect(newHeaderResponse.body.data).toBeDefined();
 
     const newHeader = newHeaderResponse.body.data;

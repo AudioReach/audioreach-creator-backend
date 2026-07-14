@@ -12,9 +12,12 @@ import {
   type SpfModuleDefinitionQueryService,
   type CkvQueryService,
   type KeyValueDefQueryService,
+  type Issue,
   Result,
+  ResourceNotFoundException,
   ERROR_CODES,
   CONFIGURATION_INCLUDES,
+  IssueSeverity,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
@@ -86,18 +89,23 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   async findOne(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<Result<SpfModuleReadModel>> {
+  ): Promise<SpfModuleReadModel> {
     const result = await this.findMany([spfModuleSystemId], fileSystemId);
-    if (result.isFailure)
-      return Result.fail<SpfModuleReadModel>(...result.errors);
+
+    if (result.kind === 'fail') {
+      const message = result.issues[0]?.message ?? 'Failed to load SPF module';
+      throw new ResourceNotFoundException(
+        `SpfModule not found for systemId=${spfModuleSystemId}: ${message}`,
+      );
+    }
+
     const module = result.data[0];
     if (!module) {
-      return Result.fail({
-        code: ERROR_CODES.ENTITY_NOT_FOUND,
-        message: `SpfModule not found for systemId=${spfModuleSystemId}`,
-      });
+      throw new ResourceNotFoundException(
+        `SpfModule not found for systemId=${spfModuleSystemId}`,
+      );
     }
-    return Result.ok(module, result.warnings ?? []);
+    return module;
   }
 
   async findMany(
@@ -109,23 +117,14 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         return Result.fail({
           code: ERROR_CODES.INVALID_INPUT,
           message: 'systemIds must not be empty',
+          severity: IssueSeverity.Error,
         });
       const uniqueIds = [...new Set(systemIds)];
 
       // Step 1 — module roots (overlay always applied)
       const rootsResult = await this.loadModuleRoots(uniqueIds, fileSystemId);
-      if (rootsResult.isFailure)
-        return Result.fail(
-          ...(rootsResult.errors ?? [
-            {
-              code: ERROR_CODES.INTERNAL_ERROR,
-              message: 'Failed to load module roots',
-            },
-          ]),
-        );
-      // Strict cast — Result<T>.data is generic so TypeScript cannot infer ModuleRootData[]
-      // directly at this call site. The cast is safe: loadModuleRoots only ever resolves
-      // to ModuleRootData[] on success, and the interface is sealed (no extra properties allowed).
+      if (rootsResult.kind === 'fail')
+        return Result.fail(...rootsResult.issues);
       const roots = rootsResult.data;
 
       // Step 2 — definition capabilities (deduped by definitionSystemId, overlay always applied)
@@ -139,15 +138,8 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         defIds,
         fileSystemId,
       );
-      if (defCapResult.isFailure)
-        return Result.fail(
-          ...(defCapResult.errors ?? [
-            {
-              code: ERROR_CODES.INTERNAL_ERROR,
-              message: 'Failed to load definition capabilities',
-            },
-          ]),
-        );
+      if (defCapResult.kind === 'fail')
+        return Result.fail(...defCapResult.issues);
       const defCapByDefId = defCapResult.data;
       const capabilityMap = new Map<number, Result<DefinitionCapabilityData>>();
       for (const root of roots) {
@@ -159,7 +151,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       // Steps 3+4 — ports per module (parallel per module)
       // Result failures on individual ports become warnings — the module is still
       // returned with empty ports rather than dropping it entirely.
-      const warnings: {code?: string; message: string}[] = [];
+      const warnings: Issue[] = [];
       const portResults = await Promise.all(
         uniqueIds.map(async nodeId => {
           const dataPortResult = await this.nodeQueryService.getDataPorts(
@@ -170,20 +162,24 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
             nodeId,
             fileSystemId,
           );
-          if (dataPortResult.isFailure)
+          if (dataPortResult.kind === 'fail')
             warnings.push({
-              message: `Data ports failed for node ${nodeId}: ${dataPortResult.errors?.[0]?.message}`,
+              code: ERROR_CODES.INTERNAL_ERROR,
+              message: `Data ports failed for node ${nodeId}: ${dataPortResult.issues?.[0]?.message}`,
+              severity: IssueSeverity.Warning,
             });
-          if (controlPortResult.isFailure)
+          if (controlPortResult.kind === 'fail')
             warnings.push({
-              message: `Control ports failed for node ${nodeId}: ${controlPortResult.errors?.[0]?.message}`,
+              code: ERROR_CODES.INTERNAL_ERROR,
+              message: `Control ports failed for node ${nodeId}: ${controlPortResult.issues?.[0]?.message}`,
+              severity: IssueSeverity.Warning,
             });
           return {
             nodeId,
-            dataPorts: dataPortResult.isSuccess ? dataPortResult.data : [],
-            controlPorts: controlPortResult.isSuccess
-              ? controlPortResult.data
-              : [],
+            dataPorts:
+              dataPortResult.kind === 'fail' ? [] : dataPortResult.data,
+            controlPorts:
+              controlPortResult.kind === 'fail' ? [] : controlPortResult.data,
           };
         }),
       );
@@ -206,9 +202,10 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       const capabilityErrors = roots
         .map(root => capabilityMap.get(root.systemId))
         .filter(
-          (r): r is Result<DefinitionCapabilityData> => !!r && r.isFailure,
+          (r): r is Extract<Result<DefinitionCapabilityData>, {kind: 'fail'}> =>
+            r?.kind === 'fail',
         )
-        .flatMap(r => r.errors ?? []);
+        .flatMap(r => r.issues);
 
       if (capabilityErrors.length > 0) return Result.fail(...capabilityErrors);
 
@@ -217,8 +214,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         if (moduleDraft?.operation === 'DELETE') return null;
 
         const capabilityResult = capabilityMap.get(root.systemId);
-        if (!capabilityResult) return null;
-        // Safe to access .data — all failures already caught above
+        if (!capabilityResult || capabilityResult.kind === 'fail') return null;
         const capability = capabilityResult.data;
 
         const delta =
@@ -252,10 +248,12 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       );
     } catch (error) {
       return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
         message:
           error instanceof Error
             ? error.message
             : 'Failed to query SPF modules',
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -362,6 +360,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           error instanceof Error
             ? error.message
             : 'Failed to load module roots',
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -390,16 +389,11 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
               CONFIGURATION_INCLUDES.Summary,
             );
 
-          if (defResult.isFailure) {
+          if (defResult.kind === 'fail') {
             return {
               defId,
               capResult: Result.fail<DefinitionCapabilityData>(
-                ...(defResult.errors ?? [
-                  {
-                    code: ERROR_CODES.ENTITY_NOT_FOUND,
-                    message: `Definition capabilities failed for defSystemId=${defId}`,
-                  },
-                ]),
+                ...defResult.issues,
               ),
             };
           }
@@ -430,6 +424,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           error instanceof Error
             ? error.message
             : 'Failed to load definition capabilities',
+        severity: IssueSeverity.Error,
       });
     }
   }

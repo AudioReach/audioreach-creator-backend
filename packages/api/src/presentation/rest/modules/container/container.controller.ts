@@ -13,7 +13,6 @@ import {
   UseGuards,
   UseInterceptors,
   HttpStatus,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -26,11 +25,12 @@ import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
 import {
   QueryBus,
   ContainerQuery,
-  type ContainerReadModel,
   type Result,
+  type ContainerReadModel,
 } from '@arc/core';
 
 /**
@@ -95,17 +95,9 @@ export class ContainerController extends BaseController {
     const result =
       await this.queryBus.execute<Result<ContainerReadModel[]>>(query);
 
-    if (result.isFailure) {
-      throw new UnprocessableEntityException(
-        result.errors?.[0]?.message ?? 'Failed to retrieve containers',
-      );
-    }
-
-    return {
-      data: result.data.map(c => this.mapToContainerDto(c)),
-      success: true,
-      message: 'Containers retrieved successfully',
-    };
+    return toApiResult(result, data =>
+      data.map(c => this.mapToContainerDto(c)),
+    );
   }
 
   /**

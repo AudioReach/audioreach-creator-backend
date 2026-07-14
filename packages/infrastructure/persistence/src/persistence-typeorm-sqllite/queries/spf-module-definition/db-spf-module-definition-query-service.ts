@@ -20,6 +20,7 @@ import {
   ERROR_CODES,
   PORT_IO_TYPE,
   CONFIGURATION_INCLUDES,
+  IssueSeverity,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
@@ -64,6 +65,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `SpfModule not found for systemId=${spfModuleSystemId} — cannot resolve definition system ID`,
+          severity: IssueSeverity.Error,
         });
       }
       return Result.ok(module.definitionSystemId);
@@ -74,6 +76,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
           error instanceof Error
             ? error.message
             : `Failed to resolve definition system ID for module ${spfModuleSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -106,6 +109,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `SpfModuleDefinition not found for systemId=${defSystemId}`,
+          severity: IssueSeverity.Error,
         });
       }
 
@@ -154,6 +158,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         code: ERROR_CODES.INTERNAL_ERROR,
         message:
           error instanceof Error ? error.message : 'Failed to load definition',
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -185,6 +190,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `ParameterDefinition not found for systemId=${parameterDefinitionSystemId}`,
+          severity: IssueSeverity.Error,
         });
       }
 
@@ -217,6 +223,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
           error instanceof Error
             ? error.message
             : `Failed to load parameter definition ${parameterDefinitionSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }

@@ -14,9 +14,14 @@ import type {
   ConfigurationIncludes,
   KeyDefinitionSummaryReadModel,
   ValueDefinitionSummaryReadModel,
-  Error as AppError,
+  Issue,
 } from '@arc/core';
-import {Result, ERROR_CODES, CONFIGURATION_INCLUDES} from '@arc/core';
+import {
+  Result,
+  ERROR_CODES,
+  CONFIGURATION_INCLUDES,
+  IssueSeverity,
+} from '@arc/core';
 import {applyTableOverlay} from '../edit-session/overlay-utils.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -67,21 +72,22 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       // processing continues for the rest. If any CKV failed, the Result is
       // partial (isSuccess=true, errors non-empty) rather than dropping the
       // whole array.
-      const itemErrors: AppError[] = [];
+      const itemErrors: Issue[] = [];
       const results = await Promise.all(
         overlaidRows.map(async row => {
           try {
             const result = await this.buildCkvReadModel(row, fileSystemId);
-            if (result.isFailure) {
-              itemErrors.push(...result.errors);
+            if (result.kind === 'fail') {
+              itemErrors.push(...result.issues);
               return null;
             }
-            itemErrors.push(...result.errors);
+            itemErrors.push(...(result.issues ?? []));
             return result.data;
           } catch (error) {
             itemErrors.push({
               code: ERROR_CODES.INTERNAL_ERROR,
               message: `CKV ${row.systemId} failed to build: ${error instanceof Error ? error.message : String(error)}`,
+              severity: IssueSeverity.Error,
             });
             return null;
           }
@@ -99,6 +105,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
           error instanceof Error
             ? error.message
             : `Failed to load CKVs for module ${spfModuleSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -140,6 +147,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
           error instanceof Error
             ? error.message
             : `Failed to load params for CKV ${ckvSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -182,7 +190,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       // Step 4 — Per tag map, build TKV read models inline.
       // buildTagTkvReadModels isolates per-TKV failures internally and
       // always resolves to a Result — its errors are merged in here.
-      const itemErrors: AppError[] = [];
+      const itemErrors: Issue[] = [];
       const results = await Promise.all(
         overlaidRows.map(async r => {
           const tagDef = tagDefMap.get(r.tagDefinitionSystemId);
@@ -192,8 +200,8 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
             session,
             fileSystemId,
           );
-          const tkvs = tkvResult.isFailure ? [] : tkvResult.data;
-          itemErrors.push(...tkvResult.errors);
+          const tkvs = tkvResult.kind === 'fail' ? [] : tkvResult.data;
+          itemErrors.push(...(tkvResult.issues ?? []));
 
           return {
             systemId: r.systemId,
@@ -215,6 +223,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
           error instanceof Error
             ? error.message
             : `Failed to load tags for module ${spfModuleSystemId}`,
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -334,15 +343,16 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       valueDefIds,
       fileSystemId,
     );
-    if (pairsResult.isFailure)
-      return Result.fail<CkvReadModel>(...pairsResult.errors);
+    if (pairsResult.kind === 'fail')
+      return Result.fail<CkvReadModel>(...pairsResult.issues);
 
     const model: CkvReadModel = {
       systemId: row.systemId,
       keyValuePairs: pairsResult.data,
     };
-    return pairsResult.errors.length > 0
-      ? Result.partial(model, pairsResult.errors)
+    const issues = pairsResult.issues;
+    return issues && issues.length > 0
+      ? Result.partial(model, issues)
       : Result.ok(model);
   }
 
@@ -358,16 +368,17 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       valueDefIds,
       fileSystemId,
     );
-    if (pairsResult.isFailure)
-      return Result.fail<TkvReadModel>(...pairsResult.errors);
+    if (pairsResult.kind === 'fail')
+      return Result.fail<TkvReadModel>(...pairsResult.issues);
 
     const model: TkvReadModel = {
       systemId: row.systemId,
       moduleTagIdMapSystemId: row.moduleTagIdMapSystemId,
       keyValuePairs: pairsResult.data,
     };
-    return pairsResult.errors.length > 0
-      ? Result.partial(model, pairsResult.errors)
+    const issues = pairsResult.issues;
+    return issues && issues.length > 0
+      ? Result.partial(model, issues)
       : Result.ok(model);
   }
 
@@ -395,7 +406,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         valueDefIds,
         fileSystemId,
       );
-    if (keysResult.isFailure) return Result.fail(...keysResult.errors);
+    if (keysResult.kind === 'fail') return Result.fail(...keysResult.issues);
 
     return keysResult;
   }
@@ -417,21 +428,22 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       ? await this.overlayTkvRows(baseTkvs, tagMap.systemId, session)
       : baseTkvs;
 
-    const itemErrors: AppError[] = [];
+    const itemErrors: Issue[] = [];
     const results = await Promise.all(
       overlaidTkvs.map(async tkv => {
         try {
           const result = await this.buildTkvReadModel(tkv, fileSystemId);
-          if (result.isFailure) {
-            itemErrors.push(...result.errors);
+          if (result.kind === 'fail') {
+            itemErrors.push(...result.issues);
             return null;
           }
-          itemErrors.push(...result.errors);
+          itemErrors.push(...(result.issues ?? []));
           return result.data;
         } catch (error) {
           itemErrors.push({
             code: ERROR_CODES.INTERNAL_ERROR,
             message: `TKV ${tkv.systemId} failed to build: ${error instanceof Error ? error.message : String(error)}`,
+            severity: IssueSeverity.Error,
           });
           return null;
         }

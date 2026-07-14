@@ -22,6 +22,7 @@ import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
 import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
@@ -29,6 +30,7 @@ import {
   CommandBus,
   CreateDataLinkCommand,
   DeleteDataLinkCommand,
+  Result,
   type UseCaseComponentsReadModel,
   type DataLinkReadModel,
 } from '@arc/core';
@@ -148,11 +150,7 @@ export class DataLinkController extends BaseController {
 
     const components =
       await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-    return {
-      data: this.toComponentCollectionDto(components),
-      success: true,
-      message: 'Data link created successfully',
-    };
+    return toApiResult(Result.ok(this.toComponentCollectionDto(components)));
   }
 
   /**
@@ -203,11 +201,9 @@ export class DataLinkController extends BaseController {
 
     const components =
       await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-    return {
-      data: this.toComponentCollectionWithSubsystemsDto(components),
-      success: true,
-      message: 'Data link created successfully',
-    };
+    return toApiResult(
+      Result.ok(this.toComponentCollectionWithSubsystemsDto(components)),
+    );
   }
 
   /**
@@ -258,20 +254,20 @@ export class DataLinkController extends BaseController {
     );
 
     const deleted = await this.commandBus.execute<DataLinkReadModel>(command);
-    return {
-      data: new DataLinkDto(
-        deleted.systemId.toString(),
-        deleted.systemId,
-        CONN_CTRL_TYPE.MODULE_MODULE,
-        deleted.sourceNodeSystemId,
-        deleted.sourcePortSystemId,
-        deleted.destinationNodeSystemId,
-        deleted.destinationPortSystemId,
-        false,
+    return toApiResult(
+      Result.ok(
+        new DataLinkDto(
+          deleted.systemId.toString(),
+          deleted.systemId,
+          CONN_CTRL_TYPE.MODULE_MODULE,
+          deleted.sourceNodeSystemId,
+          deleted.sourcePortSystemId,
+          deleted.destinationNodeSystemId,
+          deleted.destinationPortSystemId,
+          false,
+        ),
       ),
-      success: true,
-      message: 'Data link deleted successfully',
-    };
+    );
   }
 
   private toComponentCollectionDto(

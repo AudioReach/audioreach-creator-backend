@@ -12,18 +12,20 @@ import type {
 import type {Observable} from 'rxjs';
 import {map} from 'rxjs/operators';
 import type {Response} from 'express';
+import {IssueSeverity} from '@arc/core';
+import type {ApiIssueItem} from '../dto/api-response/api-issue-item.dto.js';
 
 /**
  * Interceptor that automatically upgrades the HTTP status code from 200 to 207 (Multi-Status)
- * when a bulk response contains partial failures.
+ * when a bulk response contains at least one ERROR or FATAL severity issue.
  *
- * Logic:
- * - If the response body has a non-empty `errors` array, the status code is set to 207 Multi-Status.
- * - This applies regardless of whether `data` is empty or populated (handles "all items failed" case).
- * - If `errors` is empty or absent, the default status code (200) is preserved.
+ * Logic (§5.4, FR-6.2/FR-6.3):
+ * - If the response body's `issues[]` contains any severity >= ERROR, status is set to 207.
+ * - WARNING-only issues (e.g. DATA_LOSS insert failures on an otherwise-successful upload) keep 200.
+ * - Absent or empty `issues` keeps the default 200.
  *
  * Usage:
- * Apply to bulk-query controllers via @UseInterceptors(PartialSuccessInterceptor)
+ * Apply to bulk-query controllers via @UseInterceptors(PartialSuccessInterceptor).
  *
  * @see RFC 4918 — 207 Multi-Status
  */
@@ -43,23 +45,19 @@ export class PartialSuccessInterceptor implements NestInterceptor {
 
   /**
    * Determines if the response represents a partial success scenario:
-   * - The response has a non-empty `issues` array with at least one ERROR or FATAL severity item
+   * the response has an `issues[]` array containing at least one ERROR or FATAL entry.
    *
-   * This triggers 207 regardless of whether `data` is empty or populated.
-   * When all items fail, `data` may be empty but the client still gets
-   * per-item issue details in `issues[]`.
+   * WARNING-only responses stay 200 — see §5.4 and FR-6.2.
    */
   private isPartialSuccess(body: unknown): boolean {
-    if (!body || typeof body !== 'object') {
-      return false;
-    }
-
+    if (!body || typeof body !== 'object') return false;
     const response = body as Record<string, unknown>;
-
-    return (
-      'issues' in response &&
-      Array.isArray(response.issues) &&
-      response.issues.length > 0
+    if (!('issues' in response) || !Array.isArray(response.issues))
+      return false;
+    return (response.issues as ApiIssueItem[]).some(
+      i =>
+        i.severity === IssueSeverity.Error ||
+        i.severity === IssueSeverity.Fatal,
     );
   }
 }

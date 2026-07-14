@@ -215,26 +215,14 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Extract subgraph properties from SPF data
     const subgraphs = subgraphDataChunk.getAllSubgraphs();
 
     if (!subgraphs || subgraphs.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Build domain subgraphs with system IDs assigned
@@ -258,7 +246,7 @@ export class EntityBuilderService {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} subgraphs from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
+      msg: `Successfully built ${result.entities.length} subgraphs from ACDB with system IDs assigned (${result.issues.length} issues)`,
       action: 'acdb_subgraphs_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
@@ -288,26 +276,14 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Extract container properties from SPF data (deduplicated)
     const containers = subgraphDataChunk.getAllContainers();
 
     if (!containers || containers.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Build domain containers with system IDs assigned and extract processor mappings
@@ -318,7 +294,7 @@ export class EntityBuilderService {
     this.containerProcessorMap = result.containerProcessorMap;
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} containers from ACDB with system IDs assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
+      msg: `Successfully built ${result.entities.length} containers from ACDB with system IDs assigned (${result.issues.length} issues)`,
       action: 'acdb_containers_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
@@ -479,26 +455,14 @@ export class EntityBuilderService {
         tag: 'acdb-processing',
         timestamp: new Date(),
       });
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Extract module instance info from SPF data
     const spfModuleInfos = subgraphDataChunk.getAllModules();
 
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Extract module properties from SPF data
@@ -537,7 +501,7 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} SPF modules from ACDB with system IDs and calibration data assigned (${result.successCount} successful, ${result.errorCount} errors, ${result.warningCount} warnings)`,
+      msg: `Successfully built ${result.entities.length} SPF modules from ACDB with system IDs and calibration data assigned (${result.issues.length} issues)`,
       action: 'acdb_spf_modules_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
@@ -738,13 +702,7 @@ export class EntityBuilderService {
     const awspKeyDefinitions = parsedAwsp.getKeyDefinitions();
 
     if (!awspKeyDefinitions || awspKeyDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Build domain key definitions with system IDs assigned
@@ -754,7 +712,7 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} key definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      msg: `Successfully built ${result.entities.length} key definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       action: 'awsp_key_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
@@ -775,13 +733,7 @@ export class EntityBuilderService {
     const awspTagDefinitions = parsedAwsp.getTagDefinitions();
 
     if (!awspTagDefinitions || awspTagDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Build domain tag definitions with system IDs assigned
@@ -791,7 +743,7 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} tag definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      msg: `Successfully built ${result.entities.length} tag definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       action: 'awsp_tag_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
@@ -813,13 +765,7 @@ export class EntityBuilderService {
     const awspProcessorDefs = parsedAwsp.getProcessorDefinitions();
 
     if (!awspProcessorDefs || awspProcessorDefs.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     const entities: ProcessorDefinition[] = [];
@@ -854,9 +800,6 @@ export class EntityBuilderService {
     return {
       entities,
       issues: [],
-      successCount: entities.length,
-      errorCount: 0,
-      warningCount: 0,
     };
   }
 
@@ -872,13 +815,7 @@ export class EntityBuilderService {
     const awspContainerTypes = parsedAwsp.getContainerTypes();
 
     if (!awspContainerTypes || awspContainerTypes.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     const entities: ContainerType[] = [];
@@ -913,9 +850,6 @@ export class EntityBuilderService {
     return {
       entities,
       issues: [],
-      successCount: entities.length,
-      errorCount: 0,
-      warningCount: 0,
     };
   }
 
@@ -935,13 +869,7 @@ export class EntityBuilderService {
     );
 
     if (!awspPropertyDefinitions || awspPropertyDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     const entities: SubgraphPropertyDefinition[] = [];
@@ -981,9 +909,6 @@ export class EntityBuilderService {
     return {
       entities,
       issues: [],
-      successCount: entities.length,
-      errorCount: 0,
-      warningCount: 0,
     };
   }
 
@@ -1026,13 +951,7 @@ export class EntityBuilderService {
     const awspModuleDefinitions = parsedAwsp.getSpfModuleDefinitions();
 
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Extract boot-up module IDs
@@ -1046,7 +965,7 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} SPF module definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      msg: `Successfully built ${result.entities.length} SPF module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       action: 'awsp_spf_module_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
@@ -1069,13 +988,7 @@ export class EntityBuilderService {
     const awspModuleDefinitions = parsedAwsp.getDriverModuleDefinitions();
 
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Build domain driver module definitions with system IDs assigned
@@ -1086,7 +999,7 @@ export class EntityBuilderService {
       );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} driver module definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      msg: `Successfully built ${result.entities.length} driver module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       action: 'awsp_driver_module_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
@@ -1108,13 +1021,7 @@ export class EntityBuilderService {
     const awspModuleDefinitions = parsedAwsp.getVcpmModuleDefinitions();
 
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     const result =
@@ -1124,7 +1031,7 @@ export class EntityBuilderService {
       );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} VCPM module definitions from AWSP with system IDs assigned, ${result.errorCount} failures`,
+      msg: `Successfully built ${result.entities.length} VCPM module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       action: 'awsp_vcpm_module_definitions_complete',
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
@@ -1149,13 +1056,7 @@ export class EntityBuilderService {
     );
 
     if (!driverCalChunk) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Extract module definition IDs from the chunk
@@ -1163,13 +1064,7 @@ export class EntityBuilderService {
       driverCalChunk.moduleLookupEntries.map(entry => entry.moduleDefinitionId);
 
     if (moduleDefinitionIds.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Build domain driver modules with system IDs assigned and calibration data attached
@@ -1180,7 +1075,7 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} driver modules from ACDB with system IDs assigned, ${result.errorCount} failures`,
+      msg: `Successfully built ${result.entities.length} driver modules from ACDB with system IDs assigned, ${result.issues.length} issues`,
       action: 'acdb_driver_modules_complete',
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
@@ -1296,13 +1191,7 @@ export class EntityBuilderService {
     );
 
     if (!awspPropertyDefinitions || awspPropertyDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     const entities: PropertyDefinition[] = [];
@@ -1341,9 +1230,6 @@ export class EntityBuilderService {
     return {
       entities,
       issues: [],
-      successCount: entities.length,
-      errorCount: 0,
-      warningCount: 0,
     };
   }
 

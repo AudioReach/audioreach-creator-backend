@@ -5,9 +5,9 @@
 
 import type {
   IssueSeverity,
-  ValidationEntityType,
-  ValidationIssue,
-} from './issue.js';
+  IssueEntityType,
+} from '../../shared/issues/index.js';
+import type {ValidationIssue} from './issue.js';
 import type {
   BaseValidationContext,
   FileValidationContext,
@@ -69,6 +69,6 @@ export interface ValidationRule<
    *   Subgraph            → subgraphs + subgraphsBySystemId
    *   SpfModuleDefinition → definitions
    */
-  readonly requiredEntityTypes: ReadonlyArray<ValidationEntityType>;
+  readonly requiredEntityTypes: ReadonlyArray<IssueEntityType>;
   validate(context: TContext): ValidationIssue[];
 }
