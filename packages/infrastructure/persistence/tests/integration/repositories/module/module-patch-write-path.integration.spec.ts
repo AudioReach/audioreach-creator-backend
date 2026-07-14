@@ -71,7 +71,7 @@ async function seedSession(ds: DataSource): Promise<number> {
 
 async function seedModule(ds: DataSource) {
   await ds.query(
-    `INSERT OR IGNORE INTO processor_definitions (system_id, processor_definition_id, name) VALUES (1, 1, 'proc')`,
+    `INSERT OR IGNORE INTO processor_definitions (system_id, processor_definition_id, name, file_system_id) VALUES (1, 1, 'proc', ${FILE_ID})`,
   );
   await ds.query(
     `INSERT INTO subgraphs (system_id, name, subgraph_id, is_exported, file_system_id) VALUES (?, 'sg', 1, 0, ?)`,

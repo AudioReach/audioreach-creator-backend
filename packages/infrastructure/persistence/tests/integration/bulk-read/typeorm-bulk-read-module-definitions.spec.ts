@@ -138,6 +138,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
   let containerTypeLinkRepo: Repository<ModuleDefinitionContainerTypeLinkRow>;
   let fileSystemId: number;
   let nextId: number;
+  let defaultProcessorSystemId: number;
 
   beforeAll(async () => {
     await setupIntegrationTest();
@@ -145,17 +146,37 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
     repository = new TypeOrmBulkReadQueryService(ds);
     projectRepo = getTestRepository<ProjectRow>(ProjectSchema);
     fileRepo = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
-    spfModuleRepo = getTestRepository<SpfModuleDefinitionRow>(SpfModuleDefinitionSchema);
-    paramRepo = getTestRepository<SpfModuleParameterDefinitionRow>(SpfModuleParameterDefinitionSchema);
+    spfModuleRepo = getTestRepository<SpfModuleDefinitionRow>(
+      SpfModuleDefinitionSchema,
+    );
+    paramRepo = getTestRepository<SpfModuleParameterDefinitionRow>(
+      SpfModuleParameterDefinitionSchema,
+    );
     portGroupRepo = getTestRepository<DataPortGroupRow>(DataPortGroupSchema);
-    portDefRepo = getTestRepository<DataPortDefinitionRow>(DataPortDefinitionSchema);
-    staticPortRepo = getTestRepository<StaticControlPortDefinitionRow>(StaticControlPortDefinitionSchema);
-    staticIntentRepo = getTestRepository<StaticIntentDefinitionRow>(StaticIntentDefinitionSchema);
-    dynamicIntentRepo = getTestRepository<DynamicIntentDefinitionRow>(DynamicIntentDefinitionSchema);
-    processorRepo = getTestRepository<ProcessorDefinitionRow>(ProcessorDefinitionSchema);
-    processorLinkRepo = getTestRepository<ModuleDefinitionProcessorLinkRow>(ModuleDefinitionProcessorLinkSchema);
-    containerTypeRepo = getTestRepository<ContainerTypeRow>(ContainerTypeSchema);
-    containerTypeLinkRepo = getTestRepository<ModuleDefinitionContainerTypeLinkRow>(ModuleDefinitionContainerTypeLinkSchema);
+    portDefRepo = getTestRepository<DataPortDefinitionRow>(
+      DataPortDefinitionSchema,
+    );
+    staticPortRepo = getTestRepository<StaticControlPortDefinitionRow>(
+      StaticControlPortDefinitionSchema,
+    );
+    staticIntentRepo = getTestRepository<StaticIntentDefinitionRow>(
+      StaticIntentDefinitionSchema,
+    );
+    dynamicIntentRepo = getTestRepository<DynamicIntentDefinitionRow>(
+      DynamicIntentDefinitionSchema,
+    );
+    processorRepo = getTestRepository<ProcessorDefinitionRow>(
+      ProcessorDefinitionSchema,
+    );
+    processorLinkRepo = getTestRepository<ModuleDefinitionProcessorLinkRow>(
+      ModuleDefinitionProcessorLinkSchema,
+    );
+    containerTypeRepo =
+      getTestRepository<ContainerTypeRow>(ContainerTypeSchema);
+    containerTypeLinkRepo =
+      getTestRepository<ModuleDefinitionContainerTypeLinkRow>(
+        ModuleDefinitionContainerTypeLinkSchema,
+      );
   });
 
   afterAll(async () => {
@@ -166,6 +187,13 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
     await setupEachTest();
     nextId = 1;
     fileSystemId = await createFileFixture(projectRepo, fileRepo);
+    const defaultProcessor = await processorRepo.save({
+      systemId: nextId++,
+      processorDefinitionId: 0x01,
+      name: 'DefaultProcessor',
+      fileSystemId: fileSystemId,
+    });
+    defaultProcessorSystemId = defaultProcessor.systemId;
   });
 
   it('should return empty array when no SPF module definitions exist', async () => {
@@ -184,6 +212,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       groupName: 'TestGroup',
       modSearchKeys: 'search key',
       stackSize: 4096,
+      processorSystemId: defaultProcessorSystemId,
     });
 
     const result = await repository.readSpfModuleDefinitions(fileSystemId);
@@ -200,7 +229,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
     expect(result[0].portGroups).toEqual([]);
     expect(result[0].staticControlPorts).toEqual([]);
     expect(result[0].dynamicIntents).toEqual([]);
-    expect(result[0].supportedProcessorIds).toEqual([]);
+    expect(result[0].supportedProcessorIds).toEqual([0x01]);
     expect(result[0].supportedContainerTypes).toEqual([]);
   });
 
@@ -211,6 +240,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       moduleDefinitionId: 0x200,
       name: 'ModWithParams',
       stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
     });
     await paramRepo.save({
       systemId: nextId++,
@@ -240,8 +270,12 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
     expect(result[0].params).toHaveLength(2);
     expect(result[0].params[0].paramId).toBe(1);
     expect(result[0].params[0].pidType).toBe('Shared');
-    expect(result[0].params[0].elementsStructure).toBe(JSON.stringify([{type: 'uint32'}]));
-    expect(result[0].params[0].toolPolicies).toBe(JSON.stringify(['Calibration']));
+    expect(result[0].params[0].elementsStructure).toBe(
+      JSON.stringify([{type: 'uint32'}]),
+    );
+    expect(result[0].params[0].toolPolicies).toBe(
+      JSON.stringify(['Calibration']),
+    );
     expect(result[0].params[0].isReadOnly).toBe(false);
     expect(result[0].params[1].paramId).toBe(2);
     expect(result[0].params[1].isReadOnly).toBe(true);
@@ -254,12 +288,13 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       moduleDefinitionId: 0x300,
       name: 'ModWithPorts',
       stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
     });
     const inputGroup = await portGroupRepo.save({
       systemId: nextId++,
       moduleDefinitionSystemId: mod.systemId,
       maxAllowedPortCount: 4,
-      portIoType: 'Input',
+      portIoType: 'INPUT',
     });
     await portDefRepo.save({
       systemId: nextId++,
@@ -271,7 +306,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       systemId: nextId++,
       moduleDefinitionSystemId: mod.systemId,
       maxAllowedPortCount: 2,
-      portIoType: 'Output',
+      portIoType: 'OUTPUT',
     });
     await portDefRepo.save({
       systemId: nextId++,
@@ -300,6 +335,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       moduleDefinitionId: 0x400,
       name: 'ModWithStaticPorts',
       stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
     });
     const port = await staticPortRepo.save({
       systemId: nextId++,
@@ -331,6 +367,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       moduleDefinitionId: 0x500,
       name: 'ModWithDynamicIntents',
       stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
     });
     await dynamicIntentRepo.save({
       systemId: nextId++,
@@ -349,25 +386,23 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
   });
 
   it('should return module with supported processor and container type IDs', async () => {
+    const proc = await processorRepo.save({
+      systemId: nextId++,
+      processorDefinitionId: 0xa1,
+      name: 'ProcessorA',
+      fileSystemId: fileSystemId,
+    });
     const mod = await spfModuleRepo.save({
       systemId: nextId++,
       fileSystemId,
       moduleDefinitionId: 0x600,
       name: 'ModWithLinks',
       stackSize: 0,
-    });
-    const proc = await processorRepo.save({
-      systemId: nextId++,
-      processorDefinitionId: 0xA1,
-      name: 'ProcessorA',
-    });
-    await processorLinkRepo.save({
-      moduleDefinitionSystemId: mod.systemId,
-      processorDefinitionSystemId: proc.systemId,
+      processorSystemId: proc.systemId,
     });
     const ct = await containerTypeRepo.save({
       systemId: nextId++,
-      value: 0xB1,
+      value: 0xb1,
       name: 'ContainerB',
     });
     await containerTypeLinkRepo.save({
@@ -377,8 +412,8 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
 
     const result = await repository.readSpfModuleDefinitions(fileSystemId);
 
-    expect(result[0].supportedProcessorIds).toEqual([0xA1]);
-    expect(result[0].supportedContainerTypes).toEqual([0xB1]);
+    expect(result[0].supportedProcessorIds).toEqual([0xa1]);
+    expect(result[0].supportedContainerTypes).toEqual([0xb1]);
   });
 
   it('should scope results to fileSystemId', async () => {
@@ -390,6 +425,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       moduleDefinitionId: 0x100,
       name: 'OwnModule',
       stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
     });
     await spfModuleRepo.save({
       systemId: nextId++,
@@ -397,6 +433,7 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
       moduleDefinitionId: 0x200,
       name: 'OtherModule',
       stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
     });
 
     const result = await repository.readSpfModuleDefinitions(fileSystemId);
@@ -406,13 +443,36 @@ describe('TypeOrmBulkReadRepository - readSpfModuleDefinitions', () => {
   });
 
   it('should order by moduleDefinitionId ascending', async () => {
-    await spfModuleRepo.save({systemId: nextId++, fileSystemId, moduleDefinitionId: 0x300, name: 'ModC', stackSize: 0});
-    await spfModuleRepo.save({systemId: nextId++, fileSystemId, moduleDefinitionId: 0x100, name: 'ModA', stackSize: 0});
-    await spfModuleRepo.save({systemId: nextId++, fileSystemId, moduleDefinitionId: 0x200, name: 'ModB', stackSize: 0});
+    await spfModuleRepo.save({
+      systemId: nextId++,
+      fileSystemId,
+      moduleDefinitionId: 0x300,
+      name: 'ModC',
+      stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
+    });
+    await spfModuleRepo.save({
+      systemId: nextId++,
+      fileSystemId,
+      moduleDefinitionId: 0x100,
+      name: 'ModA',
+      stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
+    });
+    await spfModuleRepo.save({
+      systemId: nextId++,
+      fileSystemId,
+      moduleDefinitionId: 0x200,
+      name: 'ModB',
+      stackSize: 0,
+      processorSystemId: defaultProcessorSystemId,
+    });
 
     const result = await repository.readSpfModuleDefinitions(fileSystemId);
 
-    expect(result.map(m => m.moduleDefinitionId)).toEqual([0x100, 0x200, 0x300]);
+    expect(result.map(m => m.moduleDefinitionId)).toEqual([
+      0x100, 0x200, 0x300,
+    ]);
   });
 });
 
@@ -435,8 +495,12 @@ describe('TypeOrmBulkReadRepository - readDriverModuleDefinitions', () => {
     repository = new TypeOrmBulkReadQueryService(ds);
     projectRepo = getTestRepository<ProjectRow>(ProjectSchema);
     fileRepo = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
-    driverModuleRepo = getTestRepository<DriverModuleDefinitionRow>(DriverModuleDefinitionSchema);
-    driverParamRepo = getTestRepository<DriverModuleParameterDefinitionRow>(DriverModuleParameterDefinitionSchema);
+    driverModuleRepo = getTestRepository<DriverModuleDefinitionRow>(
+      DriverModuleDefinitionSchema,
+    );
+    driverParamRepo = getTestRepository<DriverModuleParameterDefinitionRow>(
+      DriverModuleParameterDefinitionSchema,
+    );
   });
 
   afterAll(async () => {
@@ -458,7 +522,7 @@ describe('TypeOrmBulkReadRepository - readDriverModuleDefinitions', () => {
     await driverModuleRepo.save({
       systemId: nextId++,
       fileSystemId,
-      moduleDefinitionId: 0xD100,
+      moduleDefinitionId: 0xd100,
       name: 'DriverMod',
       description: 'A driver module',
       groupName: 'DriverGroup',
@@ -467,7 +531,7 @@ describe('TypeOrmBulkReadRepository - readDriverModuleDefinitions', () => {
     const result = await repository.readDriverModuleDefinitions(fileSystemId);
 
     expect(result).toHaveLength(1);
-    expect(result[0].moduleDefinitionId).toBe(0xD100);
+    expect(result[0].moduleDefinitionId).toBe(0xd100);
     expect(result[0].name).toBe('DriverMod');
     expect(result[0].description).toBe('A driver module');
     expect(result[0].groupName).toBe('DriverGroup');
@@ -478,7 +542,7 @@ describe('TypeOrmBulkReadRepository - readDriverModuleDefinitions', () => {
     const mod = await driverModuleRepo.save({
       systemId: nextId++,
       fileSystemId,
-      moduleDefinitionId: 0xD200,
+      moduleDefinitionId: 0xd200,
       name: 'DriverWithParams',
     });
     await driverParamRepo.save({
@@ -496,14 +560,26 @@ describe('TypeOrmBulkReadRepository - readDriverModuleDefinitions', () => {
     expect(result[0].params[0].parameterId).toBe(1);
     expect(result[0].params[0].name).toBe('DParam1');
     expect(result[0].params[0].maxSize).toBe(16);
-    expect(result[0].params[0].paramStructure).toBe(JSON.stringify([{type: 'uint16'}]));
+    expect(result[0].params[0].paramStructure).toBe(
+      JSON.stringify([{type: 'uint16'}]),
+    );
   });
 
   it('should scope results to fileSystemId', async () => {
     const file2SystemId = await createFileFixture(projectRepo, fileRepo);
 
-    await driverModuleRepo.save({systemId: nextId++, fileSystemId, moduleDefinitionId: 0xD100, name: 'OwnDriver'});
-    await driverModuleRepo.save({systemId: nextId++, fileSystemId: file2SystemId, moduleDefinitionId: 0xD200, name: 'OtherDriver'});
+    await driverModuleRepo.save({
+      systemId: nextId++,
+      fileSystemId,
+      moduleDefinitionId: 0xd100,
+      name: 'OwnDriver',
+    });
+    await driverModuleRepo.save({
+      systemId: nextId++,
+      fileSystemId: file2SystemId,
+      moduleDefinitionId: 0xd200,
+      name: 'OtherDriver',
+    });
 
     const result = await repository.readDriverModuleDefinitions(fileSystemId);
 
@@ -531,8 +607,12 @@ describe('TypeOrmBulkReadRepository - readSpfPropertyDefinitions', () => {
     repository = new TypeOrmBulkReadQueryService(ds);
     projectRepo = getTestRepository<ProjectRow>(ProjectSchema);
     fileRepo = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
-    subgraphPropRepo = getTestRepository<SubgraphPropertyRow>(SubgraphPropertyDefinitionSchema);
-    containerPropRepo = getTestRepository<ContainerPropertyRow>(ContainerPropertyDefinitionSchema);
+    subgraphPropRepo = getTestRepository<SubgraphPropertyRow>(
+      SubgraphPropertyDefinitionSchema,
+    );
+    containerPropRepo = getTestRepository<ContainerPropertyRow>(
+      ContainerPropertyDefinitionSchema,
+    );
   });
 
   afterAll(async () => {
@@ -553,6 +633,7 @@ describe('TypeOrmBulkReadRepository - readSpfPropertyDefinitions', () => {
   it('should return subgraph property definitions with categoryName SG_CFG', async () => {
     await subgraphPropRepo.save({
       systemId: nextId++,
+      fileSystemId,
       propertyId: 1001,
       name: 'SgProp1',
       maxSize: 32,
@@ -567,13 +648,16 @@ describe('TypeOrmBulkReadRepository - readSpfPropertyDefinitions', () => {
     expect(sgProps).toHaveLength(1);
     expect(sgProps[0].propertyId).toBe(1001);
     expect(sgProps[0].name).toBe('SgProp1');
-    expect(sgProps[0].elementsStructure).toBe(JSON.stringify([{type: 'uint32'}]));
+    expect(sgProps[0].elementsStructure).toBe(
+      JSON.stringify([{type: 'uint32'}]),
+    );
     expect(sgProps[0].isVoice).toBe(false);
   });
 
   it('should return container property definitions with categoryName CONTAINTER_CFG', async () => {
     await containerPropRepo.save({
       systemId: nextId++,
+      fileSystemId,
       propertyId: 2001,
       name: 'ContProp1',
       maxSize: 64,
@@ -593,6 +677,7 @@ describe('TypeOrmBulkReadRepository - readSpfPropertyDefinitions', () => {
   it('should return combined results from both tables', async () => {
     await subgraphPropRepo.save({
       systemId: nextId++,
+      fileSystemId,
       propertyId: 1001,
       name: 'SgProp',
       maxSize: 4,
@@ -601,6 +686,7 @@ describe('TypeOrmBulkReadRepository - readSpfPropertyDefinitions', () => {
     });
     await containerPropRepo.save({
       systemId: nextId++,
+      fileSystemId,
       propertyId: 2001,
       name: 'ContProp',
       maxSize: 4,
@@ -615,9 +701,10 @@ describe('TypeOrmBulkReadRepository - readSpfPropertyDefinitions', () => {
     expect(categories).toContain('CONTAINTER_CFG');
   });
 
-  it('should return same results regardless of fileSystemId (global table)', async () => {
+  it('should scope results to fileSystemId', async () => {
     await subgraphPropRepo.save({
       systemId: nextId++,
+      fileSystemId,
       propertyId: 1001,
       name: 'GlobalProp',
       maxSize: 4,
@@ -630,7 +717,7 @@ describe('TypeOrmBulkReadRepository - readSpfPropertyDefinitions', () => {
     const result2 = await repository.readSpfPropertyDefinitions(file2SystemId);
 
     expect(result1).toHaveLength(1);
-    expect(result2).toHaveLength(1);
+    expect(result2).toHaveLength(0);
   });
 });
 
@@ -652,7 +739,9 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
     repository = new TypeOrmBulkReadQueryService(ds);
     projectRepo = getTestRepository<ProjectRow>(ProjectSchema);
     fileRepo = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
-    modulePropRepo = getTestRepository<ModulePropertyRow>(ModulePropertyDefinitionSchema);
+    modulePropRepo = getTestRepository<ModulePropertyRow>(
+      ModulePropertyDefinitionSchema,
+    );
   });
 
   afterAll(async () => {
@@ -673,6 +762,7 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
   it('should return module property definitions with all fields', async () => {
     await modulePropRepo.save({
       systemId: nextId++,
+      fileSystemId,
       propertyId: 3001,
       name: 'ModProp1',
       description: 'A module property',
@@ -687,12 +777,15 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
     expect(result[0].name).toBe('ModProp1');
     expect(result[0].description).toBe('A module property');
     expect(result[0].maxSize).toBe(128);
-    expect(result[0].propertyStructure).toBe(JSON.stringify([{type: 'uint8', count: 128}]));
+    expect(result[0].propertyStructure).toBe(
+      JSON.stringify([{type: 'uint8', count: 128}]),
+    );
   });
 
-  it('should return same results regardless of fileSystemId (global table)', async () => {
+  it('should scope results to fileSystemId', async () => {
     await modulePropRepo.save({
       systemId: nextId++,
+      fileSystemId,
       propertyId: 3001,
       name: 'GlobalModProp',
       maxSize: 4,
@@ -700,10 +793,12 @@ describe('TypeOrmBulkReadRepository - readDriverPropertyDefinitions', () => {
     });
     const file2SystemId = await createFileFixture(projectRepo, fileRepo);
 
-    const result1 = await repository.readDriverPropertyDefinitions(fileSystemId);
-    const result2 = await repository.readDriverPropertyDefinitions(file2SystemId);
+    const result1 =
+      await repository.readDriverPropertyDefinitions(fileSystemId);
+    const result2 =
+      await repository.readDriverPropertyDefinitions(file2SystemId);
 
     expect(result1).toHaveLength(1);
-    expect(result2).toHaveLength(1);
+    expect(result2).toHaveLength(0);
   });
 });

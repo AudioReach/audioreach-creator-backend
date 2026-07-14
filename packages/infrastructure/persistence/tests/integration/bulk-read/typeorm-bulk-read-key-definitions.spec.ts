@@ -41,7 +41,9 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
     projectRepository = getTestRepository<ProjectRow>(ProjectSchema);
     fileRepository = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
     keyRepository = getTestRepository<KeyDefinitionRow>(KeyDefinitionSchema);
-    valueRepository = getTestRepository<ValueDefinitionRow>(ValueDefinitionSchema);
+    valueRepository = getTestRepository<ValueDefinitionRow>(
+      ValueDefinitionSchema,
+    );
   });
 
   afterAll(async () => {
@@ -96,7 +98,7 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
       keySystemId: key.systemId,
       valueId: 1001,
       name: 'Value1001',
-      enumValue: 'ENUM_1001',
+      enumMember: 'ENUM_1001',
     });
     await valueRepository.save({
       systemId: nextId++,
@@ -113,7 +115,7 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
     expect(result[0].isCalibrationKey).toBe(true);
     expect(result[0].values).toHaveLength(2);
     expect(result[0].values[0].valueId).toBe(1001);
-    expect(result[0].values[0].enumValue).toBe('ENUM_1001');
+    expect(result[0].values[0].enumMember).toBe('ENUM_1001');
     expect(result[0].values[1].valueId).toBe(1002);
   });
 
@@ -128,18 +130,18 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
       isDynamic: false,
       isCalibrationKey: true,
       isGraphKey: false,
-      cEnumMemberName: 'KEY_ENUM_NAME',
-      cEnumName: 'KEY_ENUM_VALUE',
-      calibrationEnumValue: 'CAL_ENUM',
-      graphEnumValue: 'GRAPH_ENUM',
+      enumName: 'KEY_ENUM_NAME',
+      enumMember: 'KEY_ENUM_VALUE',
+      calKeyEnumMember: 'CAL_ENUM',
+      graphKeyEnumMember: 'GRAPH_ENUM',
     });
 
     const result = await repository.readKeyDefinitions(testFileSystemId);
 
     expect(result[0].enumName).toBe('KEY_ENUM_NAME');
-    expect(result[0].enumValue).toBe('KEY_ENUM_VALUE');
-    expect(result[0].calKeyEnumValue).toBe('CAL_ENUM');
-    expect(result[0].graphKeyEnumValue).toBe('GRAPH_ENUM');
+    expect(result[0].enumMember).toBe('KEY_ENUM_VALUE');
+    expect(result[0].calKeyEnumMember).toBe('CAL_ENUM');
+    expect(result[0].graphKeyEnumMember).toBe('GRAPH_ENUM');
     expect(result[0].description).toBe('A key');
     expect(result[0].isVoice).toBe(true);
   });
@@ -189,9 +191,27 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
   });
 
   it('should order keys by keyId ascending', async () => {
-    await keyRepository.save({systemId: nextId++, fileSystemId: testFileSystemId, keyId: 300, name: 'Key300', isCalibrationKey: true});
-    await keyRepository.save({systemId: nextId++, fileSystemId: testFileSystemId, keyId: 100, name: 'Key100', isCalibrationKey: true});
-    await keyRepository.save({systemId: nextId++, fileSystemId: testFileSystemId, keyId: 200, name: 'Key200', isCalibrationKey: true});
+    await keyRepository.save({
+      systemId: nextId++,
+      fileSystemId: testFileSystemId,
+      keyId: 300,
+      name: 'Key300',
+      isCalibrationKey: true,
+    });
+    await keyRepository.save({
+      systemId: nextId++,
+      fileSystemId: testFileSystemId,
+      keyId: 100,
+      name: 'Key100',
+      isCalibrationKey: true,
+    });
+    await keyRepository.save({
+      systemId: nextId++,
+      fileSystemId: testFileSystemId,
+      keyId: 200,
+      name: 'Key200',
+      isCalibrationKey: true,
+    });
 
     const result = await repository.readKeyDefinitions(testFileSystemId);
 
@@ -217,7 +237,8 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     fileRepository = getTestRepository<ArcDbFileRow>(ArcDbFileSchema);
     keyRepository = getTestRepository<KeyDefinitionRow>(KeyDefinitionSchema);
     tagRepository = getTestRepository<TagDefinitionRow>(TagDefinitionSchema);
-    tagKeyLinkRepository = getTestRepository<TagKeyDefLinkRow>(TagKeyDefLinkSchema);
+    tagKeyLinkRepository =
+      getTestRepository<TagKeyDefLinkRow>(TagKeyDefLinkSchema);
   });
 
   afterAll(async () => {
@@ -289,7 +310,7 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     expect(result[0].supportedKeys).toHaveLength(1);
     expect(result[0].supportedKeys[0].keyId).toBe(100);
     expect(result[0].supportedKeys[0].keyName).toBe('KeyA');
-    expect(result[0].supportedKeys[0].tagEnumValue).toBe('TAG_ENUM_VAL');
+    expect(result[0].supportedKeys[0].enumValue).toBe('TAG_ENUM_VAL');
   });
 
   it('should return all optional tag fields', async () => {
@@ -309,7 +330,7 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     expect(result[0].description).toBe('A tag');
     expect(result[0].isVoice).toBe(true);
     expect(result[0].enumName).toBe('TAG_ENUM_NAME');
-    expect(result[0].enumValue).toBe('TAG_ENUM_VALUE');
+    expect(result[0].enumMember).toBe('TAG_ENUM_VALUE');
   });
 
   it('should handle tag with no supportedKeys', async () => {
@@ -350,8 +371,20 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
       modifiedDate: Date.now(),
       oemInfo: 'OEM',
     });
-    await tagRepository.save({systemId: nextId++, fileSystemId: testFileSystemId, tagId: 500, name: 'OwnTag', isVoice: false});
-    await tagRepository.save({systemId: nextId++, fileSystemId: file2.systemId, tagId: 600, name: 'OtherTag', isVoice: false});
+    await tagRepository.save({
+      systemId: nextId++,
+      fileSystemId: testFileSystemId,
+      tagId: 500,
+      name: 'OwnTag',
+      isVoice: false,
+    });
+    await tagRepository.save({
+      systemId: nextId++,
+      fileSystemId: file2.systemId,
+      tagId: 600,
+      name: 'OtherTag',
+      isVoice: false,
+    });
 
     const result = await repository.readTagDefinitions(testFileSystemId);
 

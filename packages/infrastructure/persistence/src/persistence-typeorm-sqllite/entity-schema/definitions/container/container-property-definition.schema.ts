@@ -9,6 +9,7 @@ import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
 export interface ContainerPropertyRow extends EntityBaseRow {
+  fileSystemId: number;
   propertyId: number;
   name: string;
   description?: string;
@@ -26,6 +27,10 @@ export const ContainerPropertyDefinitionSchema =
     tableName: 'container_property_definitions',
     columns: {
       ...BaseColumnSchemaPart,
+      fileSystemId: {
+        type: 'integer',
+        name: 'file_system_id',
+      },
       propertyId: {
         type: 'integer',
         name: 'property_id',

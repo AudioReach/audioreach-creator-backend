@@ -30,9 +30,12 @@ import type {
   DriverParamDefDownloadModel,
   SpfPropertyDefinitionDownloadModel,
   DriverPropertyDefinitionDownloadModel,
+  ConfigurationDownloadModel,
+  ProcessorDefinitionDownloadModel,
+  ContainerTypeDefinitionDownloadModel,
   Logger,
 } from '@arc/core';
-import {compareNumberArrays, PORT_IO_TYPE} from '@arc/core';
+import {compareNumberArrays, LINK_TYPE, PORT_IO_TYPE} from '@arc/core';
 import type {DataSource, SelectQueryBuilder, ObjectLiteral} from 'typeorm';
 import {DbFileQuery} from '../db-file-query.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -56,12 +59,30 @@ import type {
   TkvParameterPayloadRow,
 } from '../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
 import type {TagDefinitionRow} from '../../entity-schema/definitions/tag-key-value/tag-definition.schema.js';
+import type {TagKeyDefLinkRow} from '../../entity-schema/definitions/tag-key-value/tag-key-def-link.schema.js';
 import type {
   DkvRow,
   DkvParameterPayloadRow,
   DkvValuesRow,
 } from '../../entity-schema/driver-module-data/driver-module.js';
-
+import type {KeyDefinitionRow} from '../../entity-schema/definitions/key-value/key-definition.schema.js';
+import type {ValueDefinitionRow} from '../../entity-schema/definitions/key-value/value-definition.schema.js';
+import type {SpfModuleDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
+import type {SpfModuleParameterDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
+import type {DataPortGroupRow} from '../../entity-schema/definitions/module/spf/data-group-definition.schema.js';
+import type {DataPortDefinitionRow} from '../../entity-schema/definitions/module/spf/data-port-definition.schema.js';
+import type {StaticControlPortDefinitionRow} from '../../entity-schema/definitions/module/spf/static-control-port-definition.schema.js';
+import type {StaticIntentDefinitionRow} from '../../entity-schema/definitions/module/spf/static-intent-definition.schema.js';
+import type {DynamicIntentDefinitionRow} from '../../entity-schema/definitions/module/spf/dynamic-intent-definition.schema.js';
+import type {ModuleDefinitionContainerTypeLinkRow} from '../../entity-schema/definitions/module/spf/module-definition-container-type-link.schema.js';
+import type {DriverModuleDefinitionRow} from '../../entity-schema/definitions/module/driver/driver-module-definition.schema.js';
+import type {DriverModuleParameterDefinitionRow} from '../../entity-schema/definitions/module/driver/driver-module-parameter-definition.schema.js';
+import type {SubgraphPropertyRow} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
+import type {ContainerPropertyRow} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
+import type {ModulePropertyRow} from '../../entity-schema/definitions/module/spf/module-property-definition.schema.js';
+import type {ProcessorDefinitionRow} from '../../entity-schema/definitions/common/processor-definition.schema.js';
+import type {ContainerTypeRow} from '../../entity-schema/definitions/container/container-definition.schema.js';
+import type {ConfigurationRow} from '../../entity-schema/project-data/configuration.schema.js';
 
 /**
  * TypeORM implementation of BulkReadQueryService.
@@ -111,6 +132,15 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       tagData,
       taggedModules,
       driverCalibrationData,
+      configurationData,
+      keyDefinitions,
+      tagDefinitions,
+      spfModuleDefinitions,
+      driverModuleDefinitions,
+      spfPropertyDefinitions,
+      driverPropertyDefinitions,
+      processorDefinitions,
+      containerTypeDefinitions,
     ] = await Promise.all([
       timed('readFileProperties', this.readFileProperties(fileSystemId)),
       timed('readUsecaseData', this.readUsecaseData(fileSystemId)),
@@ -124,6 +154,33 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         'readDriverCalibrationData',
         this.readDriverCalibrationData(fileSystemId),
       ),
+      timed('readConfiguration', this.readConfiguration(fileSystemId)),
+      timed('readKeyDefinitions', this.readKeyDefinitions(fileSystemId)),
+      timed('readTagDefinitions', this.readTagDefinitions(fileSystemId)),
+      timed(
+        'readSpfModuleDefinitions',
+        this.readSpfModuleDefinitions(fileSystemId),
+      ),
+      timed(
+        'readDriverModuleDefinitions',
+        this.readDriverModuleDefinitions(fileSystemId),
+      ),
+      timed(
+        'readSpfPropertyDefinitions',
+        this.readSpfPropertyDefinitions(fileSystemId),
+      ),
+      timed(
+        'readDriverPropertyDefinitions',
+        this.readDriverPropertyDefinitions(fileSystemId),
+      ),
+      timed(
+        'readProcessorDefinitions',
+        this.readProcessorDefinitions(fileSystemId),
+      ),
+      timed(
+        'readContainerTypeDefinitions',
+        this.readContainerTypeDefinitions(fileSystemId),
+      ),
     ]);
 
     return {
@@ -136,6 +193,15 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       tagData,
       taggedModules,
       driverCalibrationData,
+      configurationData: configurationData ?? undefined,
+      keyDefinitions,
+      tagDefinitions,
+      spfModuleDefinitions,
+      driverModuleDefinitions,
+      spfPropertyDefinitions,
+      driverPropertyDefinitions,
+      processorDefinitions,
+      containerTypeDefinitions,
     };
   }
 
@@ -355,7 +421,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('dl.destinationPort', 'dest_port')
       .where('dl.fileSystemId = :fileSystemId', {fileSystemId})
       .andWhere('dl.linkType IN (:...types)', {
-        types: ['INTRA_SUBGRAPH', 'INTER_USECASE'],
+        types: [LINK_TYPE.IntraSubgraph, LINK_TYPE.InterUsecase],
       })
       .orderBy('sg.subgraphId', 'ASC')
       .addOrderBy('src_mod.instanceId', 'ASC')
@@ -379,7 +445,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('peer2_port.allocatedIntents', 'i2')
       .where('cl.fileSystemId = :fileSystemId', {fileSystemId})
       .andWhere('cl.linkType IN (:...types)', {
-        types: ['INTRA_SUBGRAPH', 'INTER_USECASE'],
+        types: [LINK_TYPE.IntraSubgraph, LINK_TYPE.InterUsecase],
       })
       .orderBy('sg.subgraphId', 'ASC')
       .addOrderBy('peer1_mod.instanceId', 'ASC')
@@ -500,7 +566,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         sourcePortId: dl.sourcePort!.dataPortId,
         destinationInstanceId: dl.destinationNode!.spfModule!.instanceId,
         destinationPortId: dl.destinationPort!.dataPortId,
-        isInterGraph: dl.linkType === 'INTER_USECASE',
+        isInterGraph: dl.linkType === LINK_TYPE.InterUsecase,
       });
     }
     return map;
@@ -549,7 +615,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         peer1PortId: cl.nodeAPort!.portId,
         peer2InstanceId: cl.peerNodeB!.spfModule!.instanceId,
         peer2PortId: cl.nodeBPort!.portId,
-        isInterGraph: cl.linkType === 'INTER_USECASE',
+        isInterGraph: cl.linkType === LINK_TYPE.InterUsecase,
         heapId: cl.heapId ?? undefined,
         intentIds,
       });
@@ -1135,7 +1201,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .createQueryBuilder('k')
         .where('k.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('k.keyId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<KeyDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.ValueDefinition)
         .createQueryBuilder('v')
@@ -1143,7 +1209,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('k.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('k.keyId', 'ASC')
         .addOrderBy('v.valueId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<ValueDefinitionRow[]>,
     ]);
 
     const valuesMap = new Map<number, ValueDefinitionDownloadModel[]>();
@@ -1155,7 +1221,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         valueId: row.valueId,
         name: row.name,
         description: row.description ?? undefined,
-        enumValue: row.enumValue ?? undefined,
+        enumMember: row.enumMember ?? undefined,
         specialValue: row.specialValue ?? undefined,
       });
     }
@@ -1164,16 +1230,18 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       keyId: row.keyId,
       name: row.name,
       description: row.description ?? undefined,
-      isVoice: row.isVoice != null ? Boolean(row.isVoice) : undefined,
-      isDynamic: row.isDynamic != null ? Boolean(row.isDynamic) : undefined,
+      isVoice: row.isVoice == null ? undefined : Boolean(row.isVoice),
+      isDynamic: row.isDynamic == null ? undefined : Boolean(row.isDynamic),
       isCalibrationKey:
-        row.isCalibrationKey != null ? Boolean(row.isCalibrationKey) : undefined,
-      isGraphKey: row.isGraphKey != null ? Boolean(row.isGraphKey) : undefined,
-      enumName: row.cEnumMemberName ?? undefined,
-      enumValue: row.cEnumName ?? undefined,
-      calKeyEnumValue: row.calibrationEnumValue ?? undefined,
-      graphKeyEnumValue: row.graphEnumValue ?? undefined,
-      specialty: row.specialityKeyValue ?? undefined,
+        row.isCalibrationKey == null
+          ? undefined
+          : Boolean(row.isCalibrationKey),
+      isGraphKey: row.isGraphKey == null ? undefined : Boolean(row.isGraphKey),
+      enumName: row.enumName ?? undefined,
+      enumMember: row.enumMember ?? undefined,
+      calKeyEnumMember: row.calKeyEnumMember ?? undefined,
+      graphKeyEnumMember: row.graphKeyEnumMember ?? undefined,
+      specialityKeyValue: row.specialityKeyValue ?? undefined,
       values: valuesMap.get(row.systemId) ?? [],
     }));
   }
@@ -1187,7 +1255,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .createQueryBuilder('td')
         .where('td.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('td.tagId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<TagDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.TagKeyDefLink)
         .createQueryBuilder('link')
@@ -1196,7 +1264,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('td.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('link.tagDefinitionSystemId', 'ASC')
         .addOrderBy('key.keyId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<TagKeyDefLinkRow[]>,
     ]);
 
     const linksMap = new Map<number, TagKeyDownloadModel[]>();
@@ -1207,7 +1275,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       linksMap.get(link.tagDefinitionSystemId)!.push({
         keyId: link.keyDefinition!.keyId,
         keyName: link.keyDefinition!.name,
-        tagEnumValue: link.tagEnumValue ?? undefined,
+        enumValue: link.tagEnumValue ?? undefined,
       });
     }
 
@@ -1217,7 +1285,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       description: row.description ?? undefined,
       isVoice: Boolean(row.isVoice),
       enumName: row.cHeaderEnumName ?? undefined,
-      enumValue: row.cHeaderEnumValue ?? undefined,
+      enumMember: row.cHeaderEnumValue ?? undefined,
       supportedKeys: linksMap.get(row.systemId) ?? [],
     }));
   }
@@ -1233,15 +1301,15 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       staticPortRows,
       staticIntentRows,
       dynamicIntentRows,
-      processorLinkRows,
       containerTypeLinkRows,
     ] = await Promise.all([
       this.dataSource
         .getRepository(ENTITY_NAMES.SpfModuleDefinition)
         .createQueryBuilder('def')
+        .leftJoinAndSelect('def.processor', 'pd')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('def.moduleDefinitionId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<SpfModuleDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
         .createQueryBuilder('param')
@@ -1249,14 +1317,14 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('param.spfModuleDefinitionSystemId', 'ASC')
         .addOrderBy('param.paramId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<SpfModuleParameterDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.DataPortGroup)
         .createQueryBuilder('pg')
         .innerJoin('pg.moduleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('pg.moduleDefinitionSystemId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<DataPortGroupRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.DataPortDefinition)
         .createQueryBuilder('port')
@@ -1265,7 +1333,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('port.dataPortGroupSystemId', 'ASC')
         .addOrderBy('port.dataPortId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<DataPortDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.StaticControlPortDefinition)
         .createQueryBuilder('sp')
@@ -1273,7 +1341,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('sp.moduleDefinitionSystemId', 'ASC')
         .addOrderBy('sp.portId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<StaticControlPortDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.StaticIntentDefinition)
         .createQueryBuilder('si')
@@ -1282,7 +1350,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('si.staticControlPortDefinitionSystemId', 'ASC')
         .addOrderBy('si.intentId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<StaticIntentDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.DynamicIntentDefinition)
         .createQueryBuilder('di')
@@ -1290,15 +1358,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('di.moduleDefinitionSystemId', 'ASC')
         .addOrderBy('di.intentId', 'ASC')
-        .getMany(),
-      this.dataSource
-        .getRepository('ModuleDefinitionProcessorLink')
-        .createQueryBuilder('link')
-        .innerJoinAndSelect('link.processorDefinition', 'pd')
-        .innerJoin('link.moduleDefinition', 'def')
-        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('link.moduleDefinitionSystemId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<DynamicIntentDefinitionRow[]>,
       this.dataSource
         .getRepository('ModuleDefinitionContainerTypeLink')
         .createQueryBuilder('link')
@@ -1306,103 +1366,21 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('link.moduleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('link.moduleDefinitionSystemId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<ModuleDefinitionContainerTypeLinkRow[]>,
     ]);
 
-    // Group params by spfModuleDefinitionSystemId
-    const paramsMap = new Map<number, SpfParamDefDownloadModel[]>();
-    for (const row of paramRows) {
-      if (!paramsMap.has(row.spfModuleDefinitionSystemId))
-        paramsMap.set(row.spfModuleDefinitionSystemId, []);
-      paramsMap.get(row.spfModuleDefinitionSystemId)!.push({
-        paramId: row.paramId,
-        name: row.name ?? undefined,
-        description: row.description ?? undefined,
-        maxSize: row.maxSize,
-        pidType: row.pidType,
-        elementsStructure: row.elementsStructure ?? '[]',
-        isReadOnly: Boolean(row.isReadOnly),
-        toolPolicies: row.toolPolicies ?? undefined,
-      });
-    }
-
-    // Group data ports by dataPortGroupSystemId
-    const dataPortsMap = new Map<number, DataPortDownloadModel[]>();
-    for (const row of portDefRows) {
-      if (!dataPortsMap.has(row.dataPortGroupSystemId))
-        dataPortsMap.set(row.dataPortGroupSystemId, []);
-      dataPortsMap.get(row.dataPortGroupSystemId)!.push({
-        portId: row.dataPortId,
-        name: row.name ?? undefined,
-      });
-    }
-
-    // Group port groups by moduleDefinitionSystemId
-    const portGroupsMap = new Map<number, DataPortGroupDownloadModel[]>();
-    for (const row of portGroupRows) {
-      if (!portGroupsMap.has(row.moduleDefinitionSystemId))
-        portGroupsMap.set(row.moduleDefinitionSystemId, []);
-      portGroupsMap.get(row.moduleDefinitionSystemId)!.push({
-        maxPortCount: row.maxAllowedPortCount,
-        portIoType: row.portIoType as 'Input' | 'Output',
-        ports: dataPortsMap.get(row.systemId) ?? [],
-      });
-    }
-
-    // Group static intents by staticControlPortDefinitionSystemId
-    const staticIntentsMap = new Map<number, StaticIntentDownloadModel[]>();
-    for (const row of staticIntentRows) {
-      if (!staticIntentsMap.has(row.staticControlPortDefinitionSystemId))
-        staticIntentsMap.set(row.staticControlPortDefinitionSystemId, []);
-      staticIntentsMap.get(row.staticControlPortDefinitionSystemId)!.push({
-        intentId: row.intentId,
-        name: row.name,
-      });
-    }
-
-    // Group static ports by moduleDefinitionSystemId
-    const staticPortsMap = new Map<number, StaticControlPortDownloadModel[]>();
-    for (const row of staticPortRows) {
-      if (!staticPortsMap.has(row.moduleDefinitionSystemId))
-        staticPortsMap.set(row.moduleDefinitionSystemId, []);
-      staticPortsMap.get(row.moduleDefinitionSystemId)!.push({
-        portId: row.portId,
-        portName: row.portName ?? '',
-        intents: staticIntentsMap.get(row.systemId) ?? [],
-      });
-    }
-
-    // Group dynamic intents by moduleDefinitionSystemId
-    const dynamicIntentsMap = new Map<number, DynamicIntentDownloadModel[]>();
-    for (const row of dynamicIntentRows) {
-      if (!dynamicIntentsMap.has(row.moduleDefinitionSystemId))
-        dynamicIntentsMap.set(row.moduleDefinitionSystemId, []);
-      dynamicIntentsMap.get(row.moduleDefinitionSystemId)!.push({
-        intentId: row.intentId,
-        name: row.name,
-        maxPort: row.maxPort,
-      });
-    }
-
-    // Group processor IDs by moduleDefinitionSystemId
-    const processorIdsMap = new Map<number, number[]>();
-    for (const link of processorLinkRows) {
-      if (!processorIdsMap.has(link.moduleDefinitionSystemId))
-        processorIdsMap.set(link.moduleDefinitionSystemId, []);
-      processorIdsMap
-        .get(link.moduleDefinitionSystemId)!
-        .push(link.processorDefinition!.processorDefinitionId);
-    }
-
-    // Group container type IDs by moduleDefinitionSystemId
-    const containerTypeIdsMap = new Map<number, number[]>();
-    for (const link of containerTypeLinkRows) {
-      if (!containerTypeIdsMap.has(link.moduleDefinitionSystemId))
-        containerTypeIdsMap.set(link.moduleDefinitionSystemId, []);
-      containerTypeIdsMap
-        .get(link.moduleDefinitionSystemId)!
-        .push(link.containerType!.value);
-    }
+    const paramsMap = this.buildSpfParamsMap(paramRows);
+    const dataPortsMap = this.buildDataPortsMap(portDefRows);
+    const portGroupsMap = this.buildPortGroupsMap(portGroupRows, dataPortsMap);
+    const staticIntentsMap = this.buildStaticIntentsMap(staticIntentRows);
+    const staticPortsMap = this.buildStaticPortsMap(
+      staticPortRows,
+      staticIntentsMap,
+    );
+    const dynamicIntentsMap = this.buildDynamicIntentsMap(dynamicIntentRows);
+    const containerTypeIdsMap = this.buildContainerTypeIdsMap(
+      containerTypeLinkRows,
+    );
 
     return moduleRows.map(row => ({
       moduleDefinitionId: row.moduleDefinitionId,
@@ -1416,9 +1394,125 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       portGroups: portGroupsMap.get(row.systemId) ?? [],
       staticControlPorts: staticPortsMap.get(row.systemId) ?? [],
       dynamicIntents: dynamicIntentsMap.get(row.systemId) ?? [],
-      supportedProcessorIds: processorIdsMap.get(row.systemId) ?? [],
+      supportedProcessorIds:
+        row.processor?.processorDefinitionId != null
+          ? [row.processor.processorDefinitionId]
+          : [],
       supportedContainerTypes: containerTypeIdsMap.get(row.systemId) ?? [],
     }));
+  }
+
+  private buildSpfParamsMap(
+    rows: SpfModuleParameterDefinitionRow[],
+  ): Map<number, SpfParamDefDownloadModel[]> {
+    const map = new Map<number, SpfParamDefDownloadModel[]>();
+    for (const row of rows) {
+      if (!map.has(row.spfModuleDefinitionSystemId))
+        map.set(row.spfModuleDefinitionSystemId, []);
+      map.get(row.spfModuleDefinitionSystemId)!.push({
+        paramId: row.paramId,
+        name: row.name ?? undefined,
+        description: row.description ?? undefined,
+        maxSize: row.maxSize,
+        pidType: row.pidType,
+        elementsStructure: row.elementsStructure ?? '[]',
+        isReadOnly: Boolean(row.isReadOnly),
+        toolPolicies: row.toolPolicies ?? undefined,
+      });
+    }
+    return map;
+  }
+
+  private buildDataPortsMap(
+    rows: DataPortDefinitionRow[],
+  ): Map<number, DataPortDownloadModel[]> {
+    const map = new Map<number, DataPortDownloadModel[]>();
+    for (const row of rows) {
+      if (!map.has(row.dataPortGroupSystemId))
+        map.set(row.dataPortGroupSystemId, []);
+      map.get(row.dataPortGroupSystemId)!.push({
+        portId: row.dataPortId,
+        name: row.name ?? undefined,
+      });
+    }
+    return map;
+  }
+
+  private buildPortGroupsMap(
+    rows: DataPortGroupRow[],
+    dataPortsMap: Map<number, DataPortDownloadModel[]>,
+  ): Map<number, DataPortGroupDownloadModel[]> {
+    const map = new Map<number, DataPortGroupDownloadModel[]>();
+    for (const row of rows) {
+      if (!map.has(row.moduleDefinitionSystemId))
+        map.set(row.moduleDefinitionSystemId, []);
+      map.get(row.moduleDefinitionSystemId)!.push({
+        maxPortCount: row.maxAllowedPortCount,
+        portIoType: row.portIoType === PORT_IO_TYPE.Input ? 'Input' : 'Output',
+        ports: dataPortsMap.get(row.systemId) ?? [],
+      });
+    }
+    return map;
+  }
+
+  private buildStaticIntentsMap(
+    rows: StaticIntentDefinitionRow[],
+  ): Map<number, StaticIntentDownloadModel[]> {
+    const map = new Map<number, StaticIntentDownloadModel[]>();
+    for (const row of rows) {
+      if (!map.has(row.staticControlPortDefinitionSystemId))
+        map.set(row.staticControlPortDefinitionSystemId, []);
+      map.get(row.staticControlPortDefinitionSystemId)!.push({
+        intentId: row.intentId,
+        name: row.name,
+      });
+    }
+    return map;
+  }
+
+  private buildStaticPortsMap(
+    rows: StaticControlPortDefinitionRow[],
+    staticIntentsMap: Map<number, StaticIntentDownloadModel[]>,
+  ): Map<number, StaticControlPortDownloadModel[]> {
+    const map = new Map<number, StaticControlPortDownloadModel[]>();
+    for (const row of rows) {
+      if (!map.has(row.moduleDefinitionSystemId))
+        map.set(row.moduleDefinitionSystemId, []);
+      map.get(row.moduleDefinitionSystemId)!.push({
+        portId: row.portId,
+        portName: row.portName ?? '',
+        intents: staticIntentsMap.get(row.systemId) ?? [],
+      });
+    }
+    return map;
+  }
+
+  private buildDynamicIntentsMap(
+    rows: DynamicIntentDefinitionRow[],
+  ): Map<number, DynamicIntentDownloadModel[]> {
+    const map = new Map<number, DynamicIntentDownloadModel[]>();
+    for (const row of rows) {
+      if (!map.has(row.moduleDefinitionSystemId))
+        map.set(row.moduleDefinitionSystemId, []);
+      map.get(row.moduleDefinitionSystemId)!.push({
+        intentId: row.intentId,
+        name: row.name,
+        maxPort: row.maxPort,
+      });
+    }
+    return map;
+  }
+
+  private buildContainerTypeIdsMap(
+    links: ModuleDefinitionContainerTypeLinkRow[],
+  ): Map<number, number[]> {
+    const map = new Map<number, number[]>();
+    for (const link of links) {
+      if (!map.has(link.moduleDefinitionSystemId))
+        map.set(link.moduleDefinitionSystemId, []);
+      map.get(link.moduleDefinitionSystemId)!.push(link.containerType!.value);
+    }
+    return map;
   }
 
   async readDriverModuleDefinitions(
@@ -1430,7 +1524,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .createQueryBuilder('def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('def.moduleDefinitionId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<DriverModuleDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.DriverModuleParameterDefinition)
         .createQueryBuilder('param')
@@ -1438,7 +1532,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('param.driverModuleDefinitionSystemId', 'ASC')
         .addOrderBy('param.parameterId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<DriverModuleParameterDefinitionRow[]>,
     ]);
 
     const paramsMap = new Map<number, DriverParamDefDownloadModel[]>();
@@ -1464,19 +1558,21 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   }
 
   async readSpfPropertyDefinitions(
-    _fileSystemId: number,
+    fileSystemId: number,
   ): Promise<SpfPropertyDefinitionDownloadModel[]> {
     const [subgraphRows, containerRows] = await Promise.all([
       this.dataSource
         .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
         .createQueryBuilder('sp')
+        .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('sp.propertyId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<SubgraphPropertyRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.ContainerProperty)
         .createQueryBuilder('cp')
+        .where('cp.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('cp.propertyId', 'ASC')
-        .getMany(),
+        .getMany() as Promise<ContainerPropertyRow[]>,
     ]);
 
     const result: SpfPropertyDefinitionDownloadModel[] = [
@@ -1503,13 +1599,14 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   }
 
   async readDriverPropertyDefinitions(
-    _fileSystemId: number,
+    fileSystemId: number,
   ): Promise<DriverPropertyDefinitionDownloadModel[]> {
-    const rows = await this.dataSource
+    const rows = (await this.dataSource
       .getRepository(ENTITY_NAMES.ModulePropertyDefinition)
       .createQueryBuilder('prop')
+      .where('prop.fileSystemId = :fileSystemId', {fileSystemId})
       .orderBy('prop.propertyId', 'ASC')
-      .getMany();
+      .getMany()) as ModulePropertyRow[];
 
     return rows.map(row => ({
       propertyId: row.propertyId,
@@ -1517,6 +1614,72 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       description: row.description ?? undefined,
       maxSize: row.maxSize,
       propertyStructure: row.propertyStructure,
+    }));
+  }
+
+  async readConfiguration(
+    fileSystemId: number,
+  ): Promise<ConfigurationDownloadModel | null> {
+    const row = (await this.dataSource
+      .getRepository(ENTITY_NAMES.Configuration)
+      .createQueryBuilder('c')
+      .select([
+        'c.portStrategy',
+        'c.defaultProcessorDomain',
+        'c.rtcConfig',
+        'c.alsaLibConfig',
+      ])
+      .where('c.fileSystemId = :fileSystemId', {fileSystemId})
+      .getOne()) as ConfigurationRow | null;
+
+    if (!row) return null;
+
+    return {
+      portStrategy: row.portStrategy,
+      defaultProcessorDomain: row.defaultProcessorDomain,
+      rtcConfig: row.rtcConfig,
+      alsaLibConfig: row.alsaLibConfig,
+    };
+  }
+
+  async readProcessorDefinitions(
+    fileSystemId: number,
+  ): Promise<ProcessorDefinitionDownloadModel[]> {
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.ProcessorDefinition)
+      .createQueryBuilder('pd')
+      .where('pd.fileSystemId = :fileSystemId', {fileSystemId})
+      .orderBy('pd.processorDefinitionId', 'ASC')
+      .getMany()) as ProcessorDefinitionRow[];
+
+    return rows.map(row => ({
+      processorDefinitionId: row.processorDefinitionId,
+      name: row.name,
+    }));
+  }
+
+  async readContainerTypeDefinitions(
+    fileSystemId: number,
+  ): Promise<ContainerTypeDefinitionDownloadModel[]> {
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.ContainerType)
+      .createQueryBuilder('ct')
+      .innerJoin('ct.moduleDefinitionLinks', 'link')
+      .innerJoin(
+        'link.moduleDefinition',
+        'def',
+        'def.fileSystemId = :fileSystemId',
+        {
+          fileSystemId,
+        },
+      )
+      .distinct(true)
+      .orderBy('ct.value', 'ASC')
+      .getMany()) as ContainerTypeRow[];
+
+    return rows.map(row => ({
+      value: row.value,
+      name: row.name,
     }));
   }
 }
