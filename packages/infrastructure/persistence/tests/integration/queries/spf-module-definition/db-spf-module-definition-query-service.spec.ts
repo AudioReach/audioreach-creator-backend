@@ -228,6 +228,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
           systemId: base,
           processorDefinitionId: base,
           name: `Processor${moduleIndex}`,
+          fileSystemId,
         })
       ).systemId;
 

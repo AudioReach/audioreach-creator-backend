@@ -422,6 +422,9 @@ export class UploadFileOrchestrator {
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
+
+      // Phase 8: Insert Configuration (no dependencies — just needs fileId)
+      await this.insertConfiguration(bulkRepo);
     } catch (error) {
       // Log persistence errors
       this.logger?.logError({
@@ -1523,5 +1526,25 @@ export class UploadFileOrchestrator {
         });
       }
     }
+  }
+
+  /**
+   * Phase 8: Insert Configuration
+   */
+  private async insertConfiguration(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    const configurationData = this.parsedAwsp!.getConfiguration();
+    if (!configurationData) {
+      throw new Error(
+        'configuration.json is missing or unparsed — cannot persist configuration. Ensure the AWSP file contains a valid configuration.json.',
+      );
+    }
+    const systemId = await this.idGenerator.getNextId(this.currentFileId);
+    await bulkRepo.insertConfiguration(
+      this.currentFileId,
+      systemId,
+      configurationData,
+    );
   }
 }

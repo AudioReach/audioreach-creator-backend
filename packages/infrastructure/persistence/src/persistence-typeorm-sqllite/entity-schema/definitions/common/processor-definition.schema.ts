@@ -10,6 +10,7 @@ import type {SpfModuleDefinitionRow} from '../module/spf/spf-module-definition.s
 export interface ProcessorDefinitionRow extends EntityBaseRow {
   name: string;
   processorDefinitionId: number;
+  fileSystemId: number;
   moduleDefinitions?: SpfModuleDefinitionRow[];
 }
 
@@ -27,6 +28,10 @@ export const ProcessorDefinitionSchema =
         type: 'varchar',
         length: 255,
         name: 'name',
+      },
+      fileSystemId: {
+        type: 'integer',
+        name: 'file_system_id',
       },
     },
     relations: {

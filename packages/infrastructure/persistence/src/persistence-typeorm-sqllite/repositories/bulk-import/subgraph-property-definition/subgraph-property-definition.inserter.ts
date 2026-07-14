@@ -29,6 +29,7 @@ export class SubgraphPropertyDefinitionInserter {
 
     const rows: InsertRow<SubgraphPropertyRow>[] = items.map(item => ({
       systemId: item.systemId,
+      fileSystemId: item.fileSystemId,
       propertyId: item.propertyId,
       name: item.name,
       propertyType: item.type,

@@ -5,18 +5,18 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1785142459052 implements MigrationInterface {
-  name = 'InitialCreate1785142459052';
+export class InitialCreate1785297093633 implements MigrationInterface {
+  name = 'InitialCreate1785297093633';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `CREATE TABLE "processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL)`,
+      `CREATE TABLE "processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE TABLE "container_types" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "value" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "container_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text)`,
+      `CREATE TABLE "container_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text)`,
     );
     await queryRunner.query(
       `CREATE TABLE "arc_keys" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "key_id" integer NOT NULL, "name" text NOT NULL, "enum_member" text, "enum_name" text, "description" text, "is_voice" boolean, "is_dynamic" boolean, "is_calibration_key" boolean, "is_graph_key" boolean, "speciality_key_value" text, "cal_key_enum_member" text, "graph_key_enum_member" text)`,
@@ -70,7 +70,7 @@ export class InitialCreate1785142459052 implements MigrationInterface {
       `CREATE TABLE "module_parameter_attributes" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "value" text NOT NULL, "module_parameter_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "module_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_category_type" varchar(255), "property_structure" text NOT NULL)`,
+      `CREATE TABLE "module_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_category_type" varchar(255), "property_structure" text NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE TABLE "spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"))`,
@@ -85,19 +85,22 @@ export class InitialCreate1785142459052 implements MigrationInterface {
       `CREATE TABLE "module_definition_container_types" ("module_definition_system_id" integer NOT NULL, "container_type_system_id" integer NOT NULL, PRIMARY KEY ("module_definition_system_id", "container_type_system_id"))`,
     );
     await queryRunner.query(
+      `CREATE TABLE "module_definition_processor_definitions" ("module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL, PRIMARY KEY ("module_definition_system_id", "processor_definition_system_id"))`,
+    );
+    await queryRunner.query(
       `CREATE TABLE "static_control_port_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "port_id" integer NOT NULL, "port_name" varchar(255), "module_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_static_ports_module_def_id" ON "static_control_port_definitions" ("module_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_defition_system_id" integer NOT NULL, "static_control_port_definition_system_id" integer)`,
+      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_defition_system_id") `,
+      `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_definition_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL)`,
+      `CREATE TABLE "subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE TABLE "vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
@@ -169,7 +172,7 @@ export class InitialCreate1785142459052 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_projects_name" ON "projects" ("name") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "extra_config" text)`,
+      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uk_configuration_file" ON "configuration" ("file_system_id") `,
@@ -623,6 +626,18 @@ export class InitialCreate1785142459052 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "temporary_module_definition_container_types" RENAME TO "module_definition_container_types"`,
     );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_module_definition_processor_definitions" ("module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL, CONSTRAINT "FK_63cb55edb521f1ac33b38f5ed78" FOREIGN KEY ("module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_24dd3554a74f2464253b28b3dc7" FOREIGN KEY ("processor_definition_system_id") REFERENCES "processor_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("module_definition_system_id", "processor_definition_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_module_definition_processor_definitions"("module_definition_system_id", "processor_definition_system_id") SELECT "module_definition_system_id", "processor_definition_system_id" FROM "module_definition_processor_definitions"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE "module_definition_processor_definitions"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "temporary_module_definition_processor_definitions" RENAME TO "module_definition_processor_definitions"`,
+    );
     await queryRunner.query(`DROP INDEX "idx_static_ports_module_def_id"`);
     await queryRunner.query(
       `CREATE TABLE "temporary_static_control_port_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "port_id" integer NOT NULL, "port_name" varchar(255), "module_definition_system_id" integer NOT NULL, CONSTRAINT "FK_7ea40124dd5ed75a44da71268c9" FOREIGN KEY ("module_definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -639,17 +654,17 @@ export class InitialCreate1785142459052 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "idx_static_intent_defs_port_id"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_defition_system_id" integer NOT NULL, "static_control_port_definition_system_id" integer, CONSTRAINT "FK_ec3390b2d1cf73e8b8158d9b690" FOREIGN KEY ("static_control_port_definition_system_id") REFERENCES "static_control_port_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_definition_system_id" integer NOT NULL, CONSTRAINT "FK_ec3390b2d1cf73e8b8158d9b690" FOREIGN KEY ("static_control_port_definition_system_id") REFERENCES "static_control_port_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_static_intent_definitions"("system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_defition_system_id", "static_control_port_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_defition_system_id", "static_control_port_definition_system_id" FROM "static_intent_definitions"`,
+      `INSERT INTO "temporary_static_intent_definitions"("system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_definition_system_id" FROM "static_intent_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "static_intent_definitions"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_static_intent_definitions" RENAME TO "static_intent_definitions"`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_defition_system_id") `,
+      `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_definition_system_id") `,
     );
     await queryRunner.query(
       `DROP INDEX "idx_module_param_defs_vcpm_module_def_id"`,
@@ -791,10 +806,10 @@ export class InitialCreate1785142459052 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "uk_configuration_file"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "extra_config" text, CONSTRAINT "FK_be312e55b8b1321dc1ca9ac1367" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL, CONSTRAINT "FK_be312e55b8b1321dc1ca9ac1367" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_configuration"("system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config" FROM "configuration"`,
+      `INSERT INTO "temporary_configuration"("system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config" FROM "configuration"`,
     );
     await queryRunner.query(`DROP TABLE "configuration"`);
     await queryRunner.query(
@@ -2029,10 +2044,10 @@ export class InitialCreate1785142459052 implements MigrationInterface {
       `ALTER TABLE "configuration" RENAME TO "temporary_configuration"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "extra_config" text)`,
+      `CREATE TABLE "configuration" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "port_strategy" varchar CHECK( "port_strategy" IN ('INPUT_EVEN_OUTPUT_ODD','SEQUENTIAL') ) NOT NULL, "default_processor_domain" integer NOT NULL, "rtc_config" text NOT NULL, "alsa_lib_config" text NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "configuration"("system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "extra_config" FROM "temporary_configuration"`,
+      `INSERT INTO "configuration"("system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "port_strategy", "default_processor_domain", "rtc_config", "alsa_lib_config" FROM "temporary_configuration"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_configuration"`);
     await queryRunner.query(
@@ -2183,14 +2198,14 @@ export class InitialCreate1785142459052 implements MigrationInterface {
       `ALTER TABLE "static_intent_definitions" RENAME TO "temporary_static_intent_definitions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_defition_system_id" integer NOT NULL, "static_control_port_definition_system_id" integer)`,
+      `CREATE TABLE "static_intent_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "intent_id" integer NOT NULL, "name" varchar(255), "static_control_port_definition_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "static_intent_definitions"("system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_defition_system_id", "static_control_port_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_defition_system_id", "static_control_port_definition_system_id" FROM "temporary_static_intent_definitions"`,
+      `INSERT INTO "static_intent_definitions"("system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "intent_id", "name", "static_control_port_definition_system_id" FROM "temporary_static_intent_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_static_intent_definitions"`);
     await queryRunner.query(
-      `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_defition_system_id") `,
+      `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_definition_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "idx_static_ports_module_def_id"`);
     await queryRunner.query(
@@ -2207,6 +2222,18 @@ export class InitialCreate1785142459052 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_static_ports_module_def_id" ON "static_control_port_definitions" ("module_definition_system_id") `,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "module_definition_processor_definitions" RENAME TO "temporary_module_definition_processor_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "module_definition_processor_definitions" ("module_definition_system_id" integer NOT NULL, "processor_definition_system_id" integer NOT NULL, PRIMARY KEY ("module_definition_system_id", "processor_definition_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "module_definition_processor_definitions"("module_definition_system_id", "processor_definition_system_id") SELECT "module_definition_system_id", "processor_definition_system_id" FROM "temporary_module_definition_processor_definitions"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE "temporary_module_definition_processor_definitions"`,
     );
     await queryRunner.query(
       `ALTER TABLE "module_definition_container_types" RENAME TO "temporary_module_definition_container_types"`,
@@ -2537,6 +2564,9 @@ export class InitialCreate1785142459052 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "static_intent_definitions"`);
     await queryRunner.query(`DROP INDEX "idx_static_ports_module_def_id"`);
     await queryRunner.query(`DROP TABLE "static_control_port_definitions"`);
+    await queryRunner.query(
+      `DROP TABLE "module_definition_processor_definitions"`,
+    );
     await queryRunner.query(`DROP TABLE "module_definition_container_types"`);
     await queryRunner.query(
       `DROP INDEX "idx_module_param_defs_spf_module_def_id"`,

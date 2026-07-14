@@ -7,6 +7,7 @@ import type {
   ACDBVersionInfo,
   CodecInfo,
 } from '../../../../file-operations/shared/acdb-chunks/header-chunk.js';
+import type {ModulePortStrategy} from '../../../../file-operations/shared/awsp-serializers/v1/configuration/types.js';
 
 /**
  * ACDB project header metadata from database.
@@ -269,7 +270,7 @@ export interface ValueDefinitionDownloadModel {
   valueId: number;
   name: string;
   description?: string;
-  enumValue?: string;
+  enumMember?: string;
   specialValue?: string;
 }
 
@@ -286,10 +287,10 @@ export interface KeyDefinitionDownloadModel {
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
   enumName?: string;
-  enumValue?: string;
-  calKeyEnumValue?: string;
-  graphKeyEnumValue?: string;
-  specialty?: string; // raw JSON string stored in arc_keys.speciality_key_value
+  enumMember?: string;
+  calKeyEnumMember?: string;
+  graphKeyEnumMember?: string;
+  specialityKeyValue?: string;
   values: ValueDefinitionDownloadModel[];
 }
 
@@ -300,7 +301,7 @@ export interface KeyDefinitionDownloadModel {
 export interface TagKeyDownloadModel {
   keyId: number; // natural ID from arc_keys.key_id
   keyName: string; // from arc_keys.name
-  tagEnumValue?: string; // from tag_key_def_links.tag_enum_value
+  enumValue?: string; // from tag_key_def_links.tag_enum_value
 }
 
 /**
@@ -313,7 +314,7 @@ export interface TagDefinitionDownloadModel {
   description?: string;
   isVoice: boolean;
   enumName?: string;
-  enumValue?: string;
+  enumMember?: string;
   supportedKeys: TagKeyDownloadModel[];
 }
 
@@ -442,6 +443,26 @@ export interface DriverPropertyDefinitionDownloadModel {
 }
 
 /**
+ * Configuration data read from the configuration table for AWSP download.
+ */
+export interface ConfigurationDownloadModel {
+  portStrategy: ModulePortStrategy;
+  defaultProcessorDomain: number;
+  rtcConfig: string; // raw JSON string — RtcConfig wire format
+  alsaLibConfig: string; // raw JSON string — AlsaLibConfig wire format
+}
+
+export interface ProcessorDefinitionDownloadModel {
+  processorDefinitionId: number;
+  name: string;
+}
+
+export interface ContainerTypeDefinitionDownloadModel {
+  value: number;
+  name: string;
+}
+
+/**
  * All domain entities needed to reconstruct .acdb and .awsp files for a given file.
  */
 export interface DownloadEntities {
@@ -460,6 +481,9 @@ export interface DownloadEntities {
   driverModuleDefinitions?: DriverModuleDefinitionDownloadModel[];
   spfPropertyDefinitions?: SpfPropertyDefinitionDownloadModel[];
   driverPropertyDefinitions?: DriverPropertyDefinitionDownloadModel[];
+  processorDefinitions?: ProcessorDefinitionDownloadModel[];
+  containerTypeDefinitions?: ContainerTypeDefinitionDownloadModel[];
+  configurationData?: ConfigurationDownloadModel;
 }
 
 /**
@@ -591,4 +615,22 @@ export interface BulkReadQueryService {
   readDriverPropertyDefinitions(
     fileSystemId: number,
   ): Promise<DriverPropertyDefinitionDownloadModel[]>;
+
+  /**
+   * Read configuration data for AWSP file generation.
+   *
+   * @param fileSystemId - The file system ID to scope the query
+   * @returns Configuration data or null if not found
+   */
+  readConfiguration(
+    fileSystemId: number,
+  ): Promise<ConfigurationDownloadModel | null>;
+
+  readProcessorDefinitions(
+    fileSystemId: number,
+  ): Promise<ProcessorDefinitionDownloadModel[]>;
+
+  readContainerTypeDefinitions(
+    fileSystemId: number,
+  ): Promise<ContainerTypeDefinitionDownloadModel[]>;
 }

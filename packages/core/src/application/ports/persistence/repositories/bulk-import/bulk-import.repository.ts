@@ -23,6 +23,7 @@ import type {
   DriverModule,
   DriverModuleDefinition,
   ModuleManagerData,
+  ConfigurationData,
 } from '@arc/core';
 
 /**
@@ -196,4 +197,17 @@ export interface BulkImportRepository {
   insertModuleManagerData(
     items: readonly ModuleManagerData[],
   ): Promise<BulkInsertResult>;
+
+  /**
+   * Inserts the configuration row for a file (portStrategy, defaultProcessorDomain, rtc, alsaLib).
+   *
+   * @param fileSystemId - The file system ID this configuration belongs to
+   * @param systemId - Pre-assigned system ID for the configuration row
+   * @param data - Parsed configuration data from configuration.json
+   */
+  insertConfiguration(
+    fileSystemId: number,
+    systemId: number,
+    data: ConfigurationData,
+  ): Promise<void>;
 }

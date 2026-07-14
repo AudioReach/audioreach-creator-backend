@@ -28,6 +28,7 @@ export class ProcessorDefinitionInserter {
       systemId: item.systemId,
       processorDefinitionId: item.processorDefinitionId,
       name: item.name,
+      fileSystemId: item.fileSystemId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(

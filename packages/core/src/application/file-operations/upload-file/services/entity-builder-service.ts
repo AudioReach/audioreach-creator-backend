@@ -825,6 +825,7 @@ export class EntityBuilderService {
         systemId,
         processorDefinitionId: awspProcessor.id,
         name: awspProcessor.name,
+        fileSystemId,
       });
 
       entities.push(processor);
@@ -927,6 +928,7 @@ export class EntityBuilderService {
 
       const propertyDef = new SubgraphPropertyDefinition({
         systemId,
+        fileSystemId,
         propertyId: awspProperty.id,
         name: awspProperty.name,
         type: PROPERTY_TYPE.Spf,
@@ -1249,6 +1251,7 @@ export class EntityBuilderService {
 
       const propertyDef = new PropertyDefinition({
         systemId,
+        fileSystemId,
         propertyId: awspProperty.id,
         name: awspProperty.name,
         type: PROPERTY_TYPE.Spf,

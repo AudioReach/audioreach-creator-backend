@@ -68,6 +68,12 @@ export class AwspFileSerializer {
       const driverPropDefs = entities.driverPropertyDefinitions
         ? mapper.toDriverPropertyDefinitions(entities.driverPropertyDefinitions)
         : [];
+      const processorDefs = entities.processorDefinitions
+        ? mapper.toProcessorDefinitions(entities.processorDefinitions)
+        : [];
+      const containerTypeDefs = entities.containerTypeDefinitions
+        ? mapper.toContainerTypeDefinitions(entities.containerTypeDefinitions)
+        : [];
 
       const definitions = {
         [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: keyDefs.map(k => k.toJSON()),
@@ -83,20 +89,26 @@ export class AwspFileSerializer {
         ),
         [DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS]:
           driverPropDefs.map(p => p.toJSON()),
-        [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: [],
-        [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]: [],
+        [DEFINITION_BLOCK_NAMES.SUPPORTED_PROCESSORS]: processorDefs.map(p =>
+          p.toJSON(),
+        ),
+        [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]:
+          containerTypeDefs.map(ct => ct.toJSON()),
       };
 
       const files = new Map<string, string>([
         [FILE_NAMES.DEFINITIONS_JSON, JSON.stringify(definitions)],
-        [FILE_NAMES.CONFIGURATION_JSON, '{}'],
-        [FILE_NAMES.UI_METADATA_JSON, '{}'],
+        [FILE_NAMES.CONFIGURATION_JSON, this.buildConfigurationJson(entities)],
+        [
+          FILE_NAMES.UI_METADATA_JSON,
+          JSON.stringify({version: {major: 1, minor: 0}}),
+        ],
       ]);
 
       const zipBuffer = await this.fileSystem.zipToBuffer(files);
 
       const header: AwspFileHeader = {
-        version: options?.version ?? {major: 1, minor: 0},
+        version: options?.version ?? {major: 9, minor: 0},
         acdbFilePath: options?.acdbFilePath ?? '',
         eacFilePath: options?.eacFilePath ?? '',
         workspaceFileInfo: {type: 'JSON', isZipped: true, isEncrypted: false},
@@ -108,6 +120,25 @@ export class AwspFileSerializer {
         `Failed to serialize ${FILE_EXTENSIONS.AWSP} file: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Build the wire-format configuration.json string from persisted configuration data.
+   * Re-wraps portStrategy and defaultProcessorDomain into the object shapes that
+   * PortStrategySchema and ProcessorDomainIdSchema expect during upload parsing.
+   */
+  private buildConfigurationJson(entities: DownloadEntities): string {
+    const config = entities.configurationData;
+    if (!config) return '{}';
+
+    const hexId = `0x${config.defaultProcessorDomain.toString(16).toUpperCase().padStart(8, '0')}`;
+    const configJson = {
+      portStrategy: {strategy: config.portStrategy},
+      defaultProcessorDomain: {id: hexId},
+      rtc: JSON.parse(config.rtcConfig) as unknown,
+      alsaLib: JSON.parse(config.alsaLibConfig) as unknown,
+    };
+    return JSON.stringify(configJson);
   }
 
   /**
