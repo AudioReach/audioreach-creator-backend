@@ -12,6 +12,7 @@ export type PropertyType = (typeof PROPERTY_TYPE)[keyof typeof PROPERTY_TYPE];
 
 export interface PropertyDefinitionInit {
   systemId: number;
+  fileSystemId: number;
   propertyId: number;
   name: string;
   type: PropertyType;
@@ -22,6 +23,7 @@ export interface PropertyDefinitionInit {
 
 export class PropertyDefinition {
   systemId: number;
+  fileSystemId: number;
   readonly propertyId: number;
   name: string;
   type: PropertyType;
@@ -31,6 +33,7 @@ export class PropertyDefinition {
 
   constructor(initParam: PropertyDefinitionInit) {
     this.systemId = initParam.systemId;
+    this.fileSystemId = initParam.fileSystemId;
     this.propertyId = initParam.propertyId;
     this.name = initParam.name;
     this.type = initParam.type;

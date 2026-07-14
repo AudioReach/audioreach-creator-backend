@@ -20,6 +20,7 @@ import {ModulePropertyDefinitionSchema} from './definitions/module/spf/module-pr
 import {SpfModuleDefinitionSchema} from './definitions/module/spf/spf-module-definition.schema.js';
 import {SpfModuleParameterDefinitionSchema} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
 import {ModuleDefinitionContainerTypeLinkSchema} from './definitions/module/spf/module-definition-container-type-link.schema.js';
+import {ModuleDefinitionProcessorLinkSchema} from './definitions/module/spf/module-definition-processor-link.schema.js';
 import {StaticControlPortDefinitionSchema} from './definitions/module/spf/static-control-port-definition.schema.js';
 import {StaticIntentDefinitionSchema} from './definitions/module/spf/static-intent-definition.schema.js';
 import {SubgraphPropertyDefinitionSchema} from './definitions/subgraph/subgraph-property-definition.schema.js';
@@ -137,6 +138,8 @@ export type {SpfModuleParameterDefinitionRow} from './definitions/module/spf/spf
 export {SpfModuleParameterDefinitionSchema} from './definitions/module/spf/spf-module-parameter-definition.schema.js';
 export type {ModuleDefinitionContainerTypeLinkRow} from './definitions/module/spf/module-definition-container-type-link.schema.js';
 export {ModuleDefinitionContainerTypeLinkSchema} from './definitions/module/spf/module-definition-container-type-link.schema.js';
+export type {ModuleDefinitionProcessorLinkRow} from './definitions/module/spf/module-definition-processor-link.schema.js';
+export {ModuleDefinitionProcessorLinkSchema} from './definitions/module/spf/module-definition-processor-link.schema.js';
 // (already exported above)
 export type {StaticControlPortDefinitionRow} from './definitions/module/spf/static-control-port-definition.schema.js';
 export {StaticControlPortDefinitionSchema} from './definitions/module/spf/static-control-port-definition.schema.js';
@@ -358,6 +361,7 @@ export function getAllEntitySchemas(
     SpfModuleDefinitionSchema,
     SpfModuleParameterDefinitionSchema,
     ModuleDefinitionContainerTypeLinkSchema,
+    ModuleDefinitionProcessorLinkSchema,
     StaticControlPortDefinitionSchema,
     StaticIntentDefinitionSchema,
     SubgraphPropertyDefinitionSchema,

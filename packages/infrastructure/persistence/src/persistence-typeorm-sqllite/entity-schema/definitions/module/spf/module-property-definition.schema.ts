@@ -11,6 +11,7 @@ import type {SpfModulePropertiesDataRow} from '../../../usecase-data/module/spf-
 import {EntitySchema} from 'typeorm';
 
 export interface ModulePropertyRow extends EntityBaseRow {
+  fileSystemId: number;
   propertyId: number;
   name: string;
   description?: string;
@@ -28,6 +29,10 @@ export const ModulePropertyDefinitionSchema =
     tableName: 'module_property_definitions',
     columns: {
       ...BaseColumnSchemaPart,
+      fileSystemId: {
+        type: 'integer',
+        name: 'file_system_id',
+      },
       propertyId: {
         type: 'integer',
         name: 'property_id',

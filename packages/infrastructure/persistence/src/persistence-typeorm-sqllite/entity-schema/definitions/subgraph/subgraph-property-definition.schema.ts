@@ -8,6 +8,7 @@ import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
 export interface SubgraphPropertyRow extends EntityBaseRow {
+  fileSystemId: number;
   propertyId: number;
   name: string;
   description?: string;
@@ -25,6 +26,10 @@ export const SubgraphPropertyDefinitionSchema =
     tableName: 'subgraph_property_definitions',
     columns: {
       ...BaseColumnSchemaPart,
+      fileSystemId: {
+        type: 'integer',
+        name: 'file_system_id',
+      },
       propertyId: {
         type: 'integer',
         name: 'property_id',

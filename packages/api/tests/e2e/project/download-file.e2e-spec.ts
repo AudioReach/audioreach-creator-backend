@@ -20,6 +20,7 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
   let authToken: string;
   let tempDir: string;
   let downloadedAcdbPath: string;
+  let downloadedAwspPath: string;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -44,7 +45,7 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
   });
 
   afterEach(async () => {
-    // Clean up downloaded file after each test
+    // Clean up downloaded files after each test
     if (downloadedAcdbPath) {
       try {
         await fs.unlink(downloadedAcdbPath);
@@ -52,6 +53,14 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
         // Ignore if file doesn't exist
       }
       downloadedAcdbPath = '';
+    }
+    if (downloadedAwspPath) {
+      try {
+        await fs.unlink(downloadedAwspPath);
+      } catch (error) {
+        // Ignore if file doesn't exist
+      }
+      downloadedAwspPath = '';
     }
   });
 
@@ -136,7 +145,9 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     const timestamp = Date.now();
 
     downloadedAcdbPath = join(tempDir, `downloaded-${timestamp}.acdb`);
+    downloadedAwspPath = join(tempDir, `downloaded-${timestamp}.awsp`);
     await fs.writeFile(downloadedAcdbPath, acdbContent);
+    await fs.writeFile(downloadedAwspPath, awspContent);
 
     // If debug mode, also copy both files to logs folder for debugging
     if (process.env.USE_EXTERNAL_SERVER === 'true') {
@@ -154,16 +165,19 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
       console.log(`  - ${debugAwspPath}`);
     }
 
-    // Verify file was written
+    // Verify files were written
     const stats = await fs.stat(downloadedAcdbPath);
     expect(stats.size).toBeGreaterThan(0);
 
-    // STEP 4: Re-upload the downloaded .acdb with original .awsp
+    const awspStats = await fs.stat(downloadedAwspPath);
+    expect(awspStats.size).toBeGreaterThan(0);
+
+    // STEP 4: Re-upload the downloaded .acdb and .awsp files
     const reuploadResponse = await request(httpServer)
       .post('/arc-api/v1/projects/offline/upload-files')
       .set('Authorization', `Bearer ${authToken}`)
       .attach('acdbFile', downloadedAcdbPath)
-      .attach('workspaceFile', awspPath)
+      .attach('workspaceFile', downloadedAwspPath)
       .timeout(300000)
       .expect(201);
 

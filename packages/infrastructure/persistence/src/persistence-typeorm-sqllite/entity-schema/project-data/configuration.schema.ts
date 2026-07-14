@@ -12,7 +12,9 @@ import {MODULE_PORT_STRATEGIES, type ModulePortStrategy} from '@arc/core';
 export interface ConfigurationRow extends EntityBaseRow {
   fileSystemId: number;
   portStrategy: ModulePortStrategy;
-  extraConfig: string | null;
+  defaultProcessorDomain: number;
+  rtcConfig: string;
+  alsaLibConfig: string;
 
   file?: ArcDbFileRow;
 }
@@ -33,10 +35,20 @@ export const ConfigurationSchema = new EntitySchema<ConfigurationRow>({
       enum: Object.values(MODULE_PORT_STRATEGIES),
       nullable: false,
     },
-    extraConfig: {
-      name: 'extra_config',
+    defaultProcessorDomain: {
+      name: 'default_processor_domain',
+      type: 'integer',
+      nullable: false,
+    },
+    rtcConfig: {
+      name: 'rtc_config',
       type: 'text',
-      nullable: true,
+      nullable: false,
+    },
+    alsaLibConfig: {
+      name: 'alsa_lib_config',
+      type: 'text',
+      nullable: false,
     },
   },
   relations: {

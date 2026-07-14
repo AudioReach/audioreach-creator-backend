@@ -12,7 +12,7 @@ import type {
   DriverModuleDefinitionDownloadModel,
   SpfPropertyDefinitionDownloadModel,
   DriverPropertyDefinitionDownloadModel,
-} from '../../../../../../src/application/ports/persistence/repositories/bulk-read/bulk-read.repository.js';
+} from '../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import {KeyDefinitionSchema} from '../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/key-definition/key-definition.schema.js';
 import {TagDefinitionSchema} from '../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/tag-definition/tag-definition.schema.js';
 import {AwspSpfModuleDefinitionSchema} from '../../../../../../src/application/file-operations/shared/awsp-serializers/v1/definitions/module-definition/spf/spf-module-definition.schema.js';
@@ -59,9 +59,9 @@ describe('AwspDefinitionsMapper', () => {
         isCalibrationKey: true,
         isGraphKey: false,
         enumName: 'KEY_ENUM_NAME',
-        enumValue: 'KEY_ENUM_VALUE',
-        calKeyEnumValue: 'CAL_ENUM',
-        graphKeyEnumValue: 'GRAPH_ENUM',
+        enumMember: 'KEY_ENUM_VALUE',
+        calKeyEnumMember: 'CAL_ENUM',
+        graphKeyEnumMember: 'GRAPH_ENUM',
         values: [],
       };
 
@@ -71,17 +71,17 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.isVoice).toBe(true);
       expect(result.isDynamic).toBe(false);
       expect(result.enumName).toBe('KEY_ENUM_NAME');
-      expect(result.enumValue).toBe('KEY_ENUM_VALUE');
-      expect(result.calKeyEnumValue).toBe('CAL_ENUM');
-      expect(result.graphKeyEnumValue).toBe('GRAPH_ENUM');
+      expect(result.enumMember).toBe('KEY_ENUM_VALUE');
+      expect(result.calKeyEnumMember).toBe('CAL_ENUM');
+      expect(result.graphKeyEnumMember).toBe('GRAPH_ENUM');
     });
 
-    it('should assign specialty string directly as SpecialKey', () => {
+    it('should assign specialty SpecialKey via specialityKeyValue JSON', () => {
       const model: KeyDefinitionDownloadModel = {
         keyId: 300,
         name: 'Key300',
         isCalibrationKey: true,
-        specialty: 'SampleRate',
+        specialityKeyValue: JSON.stringify({key: 'SAMPLE_RATE', value: ''}),
         values: [],
       };
 
@@ -113,7 +113,7 @@ describe('AwspDefinitionsMapper', () => {
             valueId: 4001,
             name: 'Val4001',
             description: 'a value',
-            enumValue: 'VAL_ENUM',
+            enumMember: 'VAL_ENUM',
             specialValue: 'SPECIAL',
           },
         ],
@@ -125,7 +125,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(val.id).toBe(4001);
       expect(val.name).toBe('Val4001');
       expect(val.description).toBe('a value');
-      expect(val.enumValue).toBe('VAL_ENUM');
+      expect(val.enumMember).toBe('VAL_ENUM');
       expect(val.specialValue).toBe('SPECIAL');
     });
 
@@ -163,7 +163,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.id).toBe(500);
       expect(result.name).toBe('TagX');
       expect(result.isVoice).toBe(false);
-      expect(result.supportedKeys).toEqual([]);
+      expect(result.keys).toEqual([]);
     });
 
     it('should map all optional tag fields', () => {
@@ -173,7 +173,7 @@ describe('AwspDefinitionsMapper', () => {
         description: 'A tag',
         isVoice: true,
         enumName: 'TAG_ENUM_NAME',
-        enumValue: 'TAG_ENUM_VALUE',
+        enumMember: 'TAG_ENUM_VALUE',
         supportedKeys: [],
       };
 
@@ -182,7 +182,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.description).toBe('A tag');
       expect(result.isVoice).toBe(true);
       expect(result.enumName).toBe('TAG_ENUM_NAME');
-      expect(result.enumValue).toBe('TAG_ENUM_VALUE');
+      expect(result.enumMember).toBe('TAG_ENUM_VALUE');
     });
 
     it('should map supportedKeys with id, name, and enumValue', () => {
@@ -191,20 +191,20 @@ describe('AwspDefinitionsMapper', () => {
         name: 'TagZ',
         isVoice: false,
         supportedKeys: [
-          {keyId: 100, keyName: 'KeyA', tagEnumValue: 'KEY_TAG_ENUM'},
+          {keyId: 100, keyName: 'KeyA', enumValue: 'KEY_TAG_ENUM'},
           {keyId: 200, keyName: 'KeyB'},
         ],
       };
 
       const [result] = mapper.toAwspTagDefinitions([model]);
 
-      expect(result.supportedKeys).toHaveLength(2);
-      expect(result.supportedKeys![0].id).toBe(100);
-      expect(result.supportedKeys![0].name).toBe('KeyA');
-      expect(result.supportedKeys![0].enumValue).toBe('KEY_TAG_ENUM');
-      expect(result.supportedKeys![1].id).toBe(200);
-      expect(result.supportedKeys![1].name).toBe('KeyB');
-      expect(result.supportedKeys![1].enumValue).toBeUndefined();
+      expect(result.keys).toHaveLength(2);
+      expect(result.keys![0].id).toBe(100);
+      expect(result.keys![0].name).toBe('KeyA');
+      expect(result.keys![0].enumValue).toBe('KEY_TAG_ENUM');
+      expect(result.keys![1].id).toBe(200);
+      expect(result.keys![1].name).toBe('KeyB');
+      expect(result.keys![1].enumValue).toBeUndefined();
     });
 
     it('should produce toJSON output that passes TagDefinitionSchema validation', () => {
@@ -240,8 +240,8 @@ describe('AwspDefinitionsMapper', () => {
         portGroups: [],
         staticControlPorts: [],
         dynamicIntents: [],
-        supportedProcessorIds: [0xA1, 0xA2],
-        supportedContainerTypes: [0xB1],
+        supportedProcessorIds: [0xa1, 0xa2],
+        supportedContainerTypes: [0xb1],
       };
 
       const [result] = mapper.toAwspSpfModuleDefinitions([model]);
@@ -253,8 +253,8 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.groupName).toBe('Group');
       expect(result.searchKeys).toBe('search');
       expect(result.stackSize).toBe(4096);
-      expect(result.supportedProcessorIds).toEqual([0xA1, 0xA2]);
-      expect(result.supportedContainerTypes).toEqual([0xB1]);
+      expect(result.processors).toEqual([0xa1, 0xa2]);
+      expect(result.containerTypes).toEqual([0xb1]);
     });
 
     it('should parse elementsStructure JSON for parameters', () => {
@@ -263,15 +263,17 @@ describe('AwspDefinitionsMapper', () => {
         moduleDefinitionId: 0x200,
         name: 'ModWithParams',
         stackSize: 0,
-        params: [{
-          paramId: 1,
-          name: 'P1',
-          maxSize: 64,
-          pidType: 'Shared',
-          elementsStructure: JSON.stringify(elements),
-          isReadOnly: false,
-          toolPolicies: JSON.stringify(['Calibration']),
-        }],
+        params: [
+          {
+            paramId: 1,
+            name: 'P1',
+            maxSize: 64,
+            pidType: 'SHARED',
+            elementsStructure: JSON.stringify(elements),
+            isReadOnly: false,
+            toolPolicies: JSON.stringify(['CALIBRATION']),
+          },
+        ],
         portGroups: [],
         staticControlPorts: [],
         dynamicIntents: [],
@@ -281,12 +283,12 @@ describe('AwspDefinitionsMapper', () => {
 
       const [result] = mapper.toAwspSpfModuleDefinitions([model]);
 
-      expect(result.paramDefinitions).toHaveLength(1);
-      expect(result.paramDefinitions![0].id).toBe(1);
-      expect(result.paramDefinitions![0].pidType).toBe('Shared');
-      expect(result.paramDefinitions![0].elements).toEqual(elements);
-      expect(result.paramDefinitions![0].toolPolicies).toEqual(['Calibration']);
-      expect(result.paramDefinitions![0].isReadOnly).toBe(false);
+      expect(result.parameters).toHaveLength(1);
+      expect(result.parameters![0].id).toBe(1);
+      expect(result.parameters![0].pidType).toBe('Shared');
+      expect(result.parameters![0].elements).toEqual(elements);
+      expect(result.parameters![0].toolPolicies).toEqual(['Calibration']);
+      expect(result.parameters![0].isReadOnly).toBe(false);
     });
 
     it('should map input and output port groups', () => {
@@ -296,8 +298,16 @@ describe('AwspDefinitionsMapper', () => {
         stackSize: 0,
         params: [],
         portGroups: [
-          {maxPortCount: 4, portIoType: 'Input', ports: [{portId: 1, name: 'In0'}]},
-          {maxPortCount: 2, portIoType: 'Output', ports: [{portId: 2, name: 'Out0'}]},
+          {
+            maxPortCount: 4,
+            portIoType: 'Input',
+            ports: [{portId: 1, name: 'In0'}],
+          },
+          {
+            maxPortCount: 2,
+            portIoType: 'Output',
+            ports: [{portId: 2, name: 'Out0'}],
+          },
         ],
         staticControlPorts: [],
         dynamicIntents: [],
@@ -307,12 +317,12 @@ describe('AwspDefinitionsMapper', () => {
 
       const [result] = mapper.toAwspSpfModuleDefinitions([model]);
 
-      expect(result.inputPortsInfo).toBeDefined();
-      expect(result.inputPortsInfo!.maxPortCount).toBe(4);
-      expect(result.inputPortsInfo!.ports).toHaveLength(1);
-      expect(result.inputPortsInfo!.ports[0].id).toBe(1);
-      expect(result.outputPortsInfo).toBeDefined();
-      expect(result.outputPortsInfo!.ports[0].id).toBe(2);
+      expect(result.inputPort).toBeDefined();
+      expect(result.inputPort!.maxPortCount).toBe(4);
+      expect(result.inputPort!.ports).toHaveLength(1);
+      expect(result.inputPort!.ports[0].id).toBe(1);
+      expect(result.outputPort).toBeDefined();
+      expect(result.outputPort!.ports[0].id).toBe(2);
     });
 
     it('should map static control ports with supportedIntents', () => {
@@ -322,10 +332,13 @@ describe('AwspDefinitionsMapper', () => {
         stackSize: 0,
         params: [],
         portGroups: [],
-        staticControlPorts: [{
-          portId: 10, portName: 'CtrlPort0',
-          intents: [{intentId: 100, name: 'IntentA'}],
-        }],
+        staticControlPorts: [
+          {
+            portId: 10,
+            portName: 'CtrlPort0',
+            intents: [{intentId: 100, name: 'IntentA'}],
+          },
+        ],
         dynamicIntents: [],
         supportedProcessorIds: [],
         supportedContainerTypes: [],
@@ -333,11 +346,15 @@ describe('AwspDefinitionsMapper', () => {
 
       const [result] = mapper.toAwspSpfModuleDefinitions([model]);
 
-      expect(result.controlPortsInfo).toBeDefined();
-      expect(result.controlPortsInfo!.staticPorts).toHaveLength(1);
-      expect(result.controlPortsInfo!.staticPorts![0].id).toBe(10);
-      expect(result.controlPortsInfo!.staticPorts![0].supportedIntents).toHaveLength(1);
-      expect(result.controlPortsInfo!.staticPorts![0].supportedIntents[0].id).toBe(100);
+      expect(result.controlPort).toBeDefined();
+      expect(result.controlPort!.staticPorts).toHaveLength(1);
+      expect(result.controlPort!.staticPorts![0].id).toBe(10);
+      expect(result.controlPort!.staticPorts![0].supportedIntents).toHaveLength(
+        1,
+      );
+      expect(result.controlPort!.staticPorts![0].supportedIntents[0].id).toBe(
+        100,
+      );
     });
 
     it('should map dynamic intents with maxports', () => {
@@ -355,10 +372,10 @@ describe('AwspDefinitionsMapper', () => {
 
       const [result] = mapper.toAwspSpfModuleDefinitions([model]);
 
-      expect(result.controlPortsInfo).toBeDefined();
-      expect(result.controlPortsInfo!.dynamicIntents).toHaveLength(1);
-      expect(result.controlPortsInfo!.dynamicIntents![0].id).toBe(200);
-      expect(result.controlPortsInfo!.dynamicIntents![0].maxports).toBe(8);
+      expect(result.controlPort).toBeDefined();
+      expect(result.controlPort!.dynamicIntents).toHaveLength(1);
+      expect(result.controlPort!.dynamicIntents![0].id).toBe(200);
+      expect(result.controlPort!.dynamicIntents![0].maxports).toBe(8);
     });
 
     it('should not set controlPortsInfo when no static ports or dynamic intents', () => {
@@ -376,7 +393,7 @@ describe('AwspDefinitionsMapper', () => {
 
       const [result] = mapper.toAwspSpfModuleDefinitions([model]);
 
-      expect(result.controlPortsInfo).toBeUndefined();
+      expect(result.controlPort).toBeUndefined();
     });
 
     it('should produce toJSON output that passes AwspSpfModuleDefinitionSchema validation', () => {
@@ -406,7 +423,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all basic fields', () => {
       const model: DriverModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0xD100,
+        moduleDefinitionId: 0xd100,
         name: 'DriverMod',
         description: 'A driver',
         groupName: 'DriverGroup',
@@ -415,37 +432,39 @@ describe('AwspDefinitionsMapper', () => {
 
       const [result] = mapper.toDriverModuleDefinitions([model]);
 
-      expect(result.id).toBe(0xD100);
+      expect(result.id).toBe(0xd100);
       expect(result.name).toBe('DriverMod');
       expect(result.description).toBe('A driver');
-      expect(result.paramDefinitions).toEqual([]);
+      expect(result.parameters).toEqual([]);
     });
 
     it('should parse paramStructure JSON for parameters and use default toolPolicies/pidType', () => {
       const elements = [{type: 'uint16'}];
       const model: DriverModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0xD200,
+        moduleDefinitionId: 0xd200,
         name: 'DriverWithParams',
-        params: [{
-          parameterId: 1,
-          name: 'DP1',
-          maxSize: 16,
-          paramStructure: JSON.stringify(elements),
-        }],
+        params: [
+          {
+            parameterId: 1,
+            name: 'DP1',
+            maxSize: 16,
+            paramStructure: JSON.stringify(elements),
+          },
+        ],
       };
 
       const [result] = mapper.toDriverModuleDefinitions([model]);
 
-      expect(result.paramDefinitions).toHaveLength(1);
-      expect(result.paramDefinitions![0].id).toBe(1);
-      expect(result.paramDefinitions![0].elements).toEqual(elements);
-      expect(result.paramDefinitions![0].toolPolicies).toEqual([]);
-      expect(result.paramDefinitions![0].pidType).toBe('None');
+      expect(result.parameters).toHaveLength(1);
+      expect(result.parameters![0].id).toBe(1);
+      expect(result.parameters![0].elements).toEqual(elements);
+      expect(result.parameters![0].toolPolicies).toEqual([]);
+      expect(result.parameters![0].pidType).toBe('None');
     });
 
     it('should produce toJSON output that passes AwspDriverModuleDefinitionSchema validation', () => {
       const model: DriverModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0xD300,
+        moduleDefinitionId: 0xd300,
         name: 'ValidDriver',
         params: [],
       };

@@ -7,6 +7,7 @@ import type {EntityManager} from 'typeorm';
 import type {
   BulkImportRepository,
   BulkInsertResult,
+  ConfigurationData,
   Container,
   ContainerType,
   ControlLink,
@@ -27,6 +28,7 @@ import type {
   UseCase,
   VcpmModuleDefinition,
 } from '@arc/core';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SpfModuleInserter} from './spf-module/spf-module.inserter.js';
 import {SpfModuleDefinitionInserter} from './spf-module-definition/spf-module-definition.inserter.js';
 import {DriverModuleInserter} from './driver-module/driver-module.inserter.js';
@@ -169,5 +171,23 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     items: readonly ModuleManagerData[],
   ): Promise<BulkInsertResult> {
     return new ModuleManagerDataInserter(this.manager).insert(items);
+  }
+
+  async insertConfiguration(
+    fileSystemId: number,
+    systemId: number,
+    data: ConfigurationData,
+  ): Promise<void> {
+    // toJSON() returns Record<string,unknown>; stored as a JSON string.
+    // buildConfigurationJson in AwspFileSerializer calls JSON.parse on these columns
+    // to recover the object — these two sides must stay in sync.
+    await this.manager.getRepository(ENTITY_NAMES.Configuration).insert({
+      systemId,
+      fileSystemId,
+      portStrategy: data.portStrategy,
+      defaultProcessorDomain: data.defaultProcessorDomain,
+      rtcConfig: JSON.stringify(data.rtc.toJSON()),
+      alsaLibConfig: JSON.stringify(data.alsaLib.toJSON()),
+    });
   }
 }

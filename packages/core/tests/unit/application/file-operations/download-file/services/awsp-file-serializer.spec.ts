@@ -7,11 +7,14 @@ import {describe, it, expect, jest} from '@jest/globals';
 import {AwspFileSerializer} from '../../../../../../src/application/file-operations/download-file/services/awsp-file-serializer.js';
 import type {DownloadEntities} from '../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import type {FileSystemPort} from '../../../../../../src/application/ports/file-system/file-system.port.js';
-import {FILE_NAMES} from '../../../../../../src/application/file-operations/shared/constants/definition-block-names.js';
+import {
+  FILE_NAMES,
+  DEFINITION_BLOCK_NAMES,
+} from '../../../../../../src/application/file-operations/shared/constants/definition-block-names.js';
 
 describe('AwspFileSerializer', () => {
   describe('serialize', () => {
-    it('should create ZIP with 3 empty JSON files', async () => {
+    it('should create ZIP with 3 JSON files including definitions structure', async () => {
       const mockFileSystem: FileSystemPort = {
         zipToBuffer: jest.fn(
           async (files: Map<string, string | Uint8Array>) => {
@@ -21,10 +24,17 @@ describe('AwspFileSerializer', () => {
             expect(files.has(FILE_NAMES.CONFIGURATION_JSON)).toBe(true);
             expect(files.has(FILE_NAMES.UI_METADATA_JSON)).toBe(true);
 
-            // Verify all files contain empty JSON
-            expect(files.get(FILE_NAMES.DEFINITIONS_JSON)).toBe('{}');
+            // definitions.json contains the 8-block structure with empty arrays
+            const defsJson = files.get(FILE_NAMES.DEFINITIONS_JSON) as string;
+            const defs = JSON.parse(defsJson) as Record<string, unknown>;
+            expect(defs[DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]).toEqual([]);
+            expect(defs[DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]).toEqual([]);
+
+            // configuration.json and ui-metadata.json are empty objects
             expect(files.get(FILE_NAMES.CONFIGURATION_JSON)).toBe('{}');
-            expect(files.get(FILE_NAMES.UI_METADATA_JSON)).toBe('{}');
+            expect(files.get(FILE_NAMES.UI_METADATA_JSON)).toBe(
+              JSON.stringify({version: {major: 1, minor: 0}}),
+            );
 
             // Return mock ZIP buffer
             return new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP file signature
@@ -172,11 +182,23 @@ describe('AwspFileSerializer', () => {
         unknown[]
       >;
 
-      expect(Array.isArray(definitions['keyDefinitions'])).toBe(true);
-      expect(definitions['keyDefinitions']).toHaveLength(0);
-      expect(Array.isArray(definitions['tagDefinitions'])).toBe(true);
-      expect(definitions['tagDefinitions']).toHaveLength(0);
-      expect(Array.isArray(definitions['spfModuleDefinitions'])).toBe(true);
+      expect(
+        Array.isArray(definitions[DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]),
+      ).toBe(true);
+      expect(definitions[DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]).toHaveLength(
+        0,
+      );
+      expect(
+        Array.isArray(definitions[DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]),
+      ).toBe(true);
+      expect(definitions[DEFINITION_BLOCK_NAMES.TAG_DEFINITIONS]).toHaveLength(
+        0,
+      );
+      expect(
+        Array.isArray(
+          definitions[DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS],
+        ),
+      ).toBe(true);
     });
 
     it('should serialize spfModuleDefinitions from entities into definitions.json', async () => {
@@ -198,27 +220,38 @@ describe('AwspFileSerializer', () => {
           modifiedDate: 0,
           oemInfo: '',
         },
-        spfModuleDefinitions: [{
-          moduleDefinitionId: 0x100,
-          name: 'TestMod',
-          stackSize: 0,
-          params: [],
-          portGroups: [],
-          staticControlPorts: [],
-          dynamicIntents: [],
-          supportedProcessorIds: [],
-          supportedContainerTypes: [],
-        }],
+        spfModuleDefinitions: [
+          {
+            moduleDefinitionId: 0x100,
+            name: 'TestMod',
+            stackSize: 0,
+            params: [],
+            portGroups: [],
+            staticControlPorts: [],
+            dynamicIntents: [],
+            supportedProcessorIds: [],
+            supportedContainerTypes: [],
+          },
+        ],
       };
 
       const serializer = new AwspFileSerializer(mockFileSystem);
       await serializer.serialize(entities);
 
-      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
-      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+      const definitionsJson = capturedFiles!.get(
+        FILE_NAMES.DEFINITIONS_JSON,
+      ) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<
+        string,
+        unknown[]
+      >;
 
-      expect(definitions['spfModuleDefinitions']).toHaveLength(1);
-      const mod = definitions['spfModuleDefinitions'][0] as Record<string, unknown>;
+      expect(
+        definitions[DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS],
+      ).toHaveLength(1);
+      const mod = (
+        definitions[DEFINITION_BLOCK_NAMES.SPF_MODULE_DEFINITIONS] as unknown[]
+      )[0] as Record<string, unknown>;
       expect(mod['id']).toBe(0x100);
       expect(mod['name']).toBe('TestMod');
     });
@@ -242,22 +275,35 @@ describe('AwspFileSerializer', () => {
           modifiedDate: 0,
           oemInfo: '',
         },
-        driverModuleDefinitions: [{
-          moduleDefinitionId: 0xD100,
-          name: 'DriverMod',
-          params: [],
-        }],
+        driverModuleDefinitions: [
+          {
+            moduleDefinitionId: 0xd100,
+            name: 'DriverMod',
+            params: [],
+          },
+        ],
       };
 
       const serializer = new AwspFileSerializer(mockFileSystem);
       await serializer.serialize(entities);
 
-      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
-      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+      const definitionsJson = capturedFiles!.get(
+        FILE_NAMES.DEFINITIONS_JSON,
+      ) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<
+        string,
+        unknown[]
+      >;
 
-      expect(definitions['driverModuleDefinitions']).toHaveLength(1);
-      const mod = definitions['driverModuleDefinitions'][0] as Record<string, unknown>;
-      expect(mod['id']).toBe(0xD100);
+      expect(
+        definitions[DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS],
+      ).toHaveLength(1);
+      const mod = (
+        definitions[
+          DEFINITION_BLOCK_NAMES.DRIVER_MODULE_DEFINITIONS
+        ] as unknown[]
+      )[0] as Record<string, unknown>;
+      expect(mod['id']).toBe(0xd100);
     });
 
     it('should serialize spfPropertyDefinitions from entities into definitions.json', async () => {
@@ -279,23 +325,36 @@ describe('AwspFileSerializer', () => {
           modifiedDate: 0,
           oemInfo: '',
         },
-        spfPropertyDefinitions: [{
-          propertyId: 1001,
-          name: 'SgProp',
-          maxSize: 4,
-          elementsStructure: '[]',
-          categoryName: 'SG_CFG',
-        }],
+        spfPropertyDefinitions: [
+          {
+            propertyId: 1001,
+            name: 'SgProp',
+            maxSize: 4,
+            elementsStructure: '[]',
+            categoryName: 'SG_CFG',
+          },
+        ],
       };
 
       const serializer = new AwspFileSerializer(mockFileSystem);
       await serializer.serialize(entities);
 
-      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
-      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+      const definitionsJson = capturedFiles!.get(
+        FILE_NAMES.DEFINITIONS_JSON,
+      ) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<
+        string,
+        unknown[]
+      >;
 
-      expect(definitions['spfPropertyDefinitions']).toHaveLength(1);
-      const prop = definitions['spfPropertyDefinitions'][0] as Record<string, unknown>;
+      expect(
+        definitions[DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS],
+      ).toHaveLength(1);
+      const prop = (
+        definitions[
+          DEFINITION_BLOCK_NAMES.SPF_PROPERTY_DEFINITIONS
+        ] as unknown[]
+      )[0] as Record<string, unknown>;
       expect(prop['id']).toBe(1001);
     });
 
@@ -318,22 +377,35 @@ describe('AwspFileSerializer', () => {
           modifiedDate: 0,
           oemInfo: '',
         },
-        driverPropertyDefinitions: [{
-          propertyId: 3001,
-          name: 'ModProp',
-          maxSize: 4,
-          propertyStructure: '[]',
-        }],
+        driverPropertyDefinitions: [
+          {
+            propertyId: 3001,
+            name: 'ModProp',
+            maxSize: 4,
+            propertyStructure: '[]',
+          },
+        ],
       };
 
       const serializer = new AwspFileSerializer(mockFileSystem);
       await serializer.serialize(entities);
 
-      const definitionsJson = capturedFiles!.get(FILE_NAMES.DEFINITIONS_JSON) as string;
-      const definitions = JSON.parse(definitionsJson) as Record<string, unknown[]>;
+      const definitionsJson = capturedFiles!.get(
+        FILE_NAMES.DEFINITIONS_JSON,
+      ) as string;
+      const definitions = JSON.parse(definitionsJson) as Record<
+        string,
+        unknown[]
+      >;
 
-      expect(definitions['driverPropertyDefinitions']).toHaveLength(1);
-      const prop = definitions['driverPropertyDefinitions'][0] as Record<string, unknown>;
+      expect(
+        definitions[DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS],
+      ).toHaveLength(1);
+      const prop = (
+        definitions[
+          DEFINITION_BLOCK_NAMES.DRIVER_PROPERTY_DEFINITIONS
+        ] as unknown[]
+      )[0] as Record<string, unknown>;
       expect(prop['id']).toBe(3001);
     });
   });
