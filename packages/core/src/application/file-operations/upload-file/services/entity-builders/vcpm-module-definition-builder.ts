@@ -23,11 +23,12 @@ import {
 import type {AwspVcpmModuleDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
 import type {AwspPidType} from '../../../shared/awsp-serializers/v1/definitions/module-definition/type/pid-type.js';
 import type {AwspToolPolicy} from '../../../shared/awsp-serializers/v1/definitions/module-definition/type/tool-policy.js';
-import type {
-  BuildResult,
-  EntityBuildIssue,
-} from '../../types/issue-collection.js';
-import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import type {BuildResult} from '../../types/issue-collection.js';
+import type {Issue} from '../../../../../shared/issues/index.js';
+import {
+  IssueSeverity,
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 
@@ -58,13 +59,7 @@ export class VcpmModuleDefinitionBuilder {
     fileSystemId: number,
   ): Promise<BuildResult<VcpmModuleDefinition>> {
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     this.logger?.logDebug({
@@ -76,7 +71,7 @@ export class VcpmModuleDefinitionBuilder {
     });
 
     const entities: VcpmModuleDefinition[] = [];
-    const issues: EntityBuildIssue[] = [];
+    const issues: Issue[] = [];
 
     for (const awspDef of awspModuleDefinitions) {
       try {
@@ -93,10 +88,13 @@ export class VcpmModuleDefinitionBuilder {
         entities.push(definition);
       } catch (error) {
         issues.push({
-          severity: ISSUE_SEVERITY.ERROR,
           code: ERROR_CODES.INVALID_ENTITY_DATA,
           message: `Failed to build VCPM module definition ${BinaryUtils.toHexString(awspDef.id)}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          entityType: ENTITY_TYPES.VCPM_MODULE_DEFINITION,
+          severity: IssueSeverity.Error,
+          impactedEntity: {
+            entityType: ISSUE_ENTITY_TYPE.VcpmModuleDefinition,
+            systemId: awspDef.id,
+          },
         });
       }
     }
@@ -112,11 +110,6 @@ export class VcpmModuleDefinitionBuilder {
     return {
       entities,
       issues,
-      successCount: entities.length,
-      errorCount: issues.filter(i => i.severity === ISSUE_SEVERITY.ERROR)
-        .length,
-      warningCount: issues.filter(i => i.severity === ISSUE_SEVERITY.WARNING)
-        .length,
     };
   }
 
@@ -148,7 +141,7 @@ export class VcpmModuleDefinitionBuilder {
     awspDef: AwspVcpmModuleDefinition,
     definition: VcpmModuleDefinition,
     fileSystemId: number,
-    issues: EntityBuildIssue[],
+    issues: Issue[],
   ): Promise<void> {
     if (!awspDef.parameters || awspDef.parameters.length === 0) {
       return;
@@ -182,10 +175,13 @@ export class VcpmModuleDefinitionBuilder {
         );
       } catch (error) {
         issues.push({
-          severity: ISSUE_SEVERITY.ERROR,
           code: ERROR_CODES.INVALID_ENTITY_DATA,
           message: `Failed to build parameter ${BinaryUtils.toHexString(awspParam.id)} for VCPM module ${BinaryUtils.toHexString(awspDef.id)}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          entityType: ENTITY_TYPES.VCPM_MODULE_DEFINITION,
+          severity: IssueSeverity.Error,
+          impactedEntity: {
+            entityType: ISSUE_ENTITY_TYPE.VcpmModuleDefinition,
+            systemId: awspDef.id,
+          },
         });
       }
     }

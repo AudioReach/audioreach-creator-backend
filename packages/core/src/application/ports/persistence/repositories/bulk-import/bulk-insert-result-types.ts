@@ -16,6 +16,7 @@
  *    aggregate: {instanceId=42, systemId=100}"
  */
 export type BulkInsertError = {
+  readonly systemId: number;
   readonly message: string;
   readonly details: string;
 };

@@ -56,8 +56,8 @@ describe('TypeOrmProjectRepository', () => {
           },
         );
 
-        expect(result.success).toBe(true);
-        if (!result.success) return;
+        expect(result.kind).toBe('ok');
+        if (result.kind !== 'ok') return;
 
         expect(result.data.project.systemId).toBeGreaterThan(0);
         expect(result.data.project.name).toBe('TestProject');
@@ -86,7 +86,7 @@ describe('TypeOrmProjectRepository', () => {
         openStatus: FILE_OPEN_STATUS.Loading,
         dataLossIssues: [],
       });
-      expect(first.success).toBe(true);
+      expect(first.kind).toBe('ok');
       await commitTestTransaction(qr1);
 
       const qr2 = await createTestTransaction();
@@ -105,9 +105,11 @@ describe('TypeOrmProjectRepository', () => {
           },
         );
 
-        expect(result.success).toBe(false);
-        if (result.success) return;
-        expect(result.errorMessage).toBeTruthy();
+        expect(result.kind).toBe('fail');
+        if (result.kind !== 'fail') return;
+        expect(result.issues).toHaveLength(1);
+        expect(result.issues[0].code).toBe('DB_QUERY_FAILED');
+        expect(result.issues[0].message).toBeTruthy();
       } finally {
         await rollbackTestTransaction(qr2);
       }
@@ -130,8 +132,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.success).toBe(true);
-      if (!createResult.success) return;
+      expect(createResult.kind).toBe('ok');
+      if (createResult.kind !== 'ok') return;
       const fileSystemId = createResult.data.file.systemId;
 
       await repo.updateFileStatus(fileSystemId, FILE_OPEN_STATUS.Ready, []);
@@ -161,8 +163,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.success).toBe(true);
-      if (!createResult.success) return;
+      expect(createResult.kind).toBe('ok');
+      if (createResult.kind !== 'ok') return;
       const fileSystemId = createResult.data.file.systemId;
 
       const issue: ValidationIssue = {
@@ -208,8 +210,8 @@ describe('TypeOrmProjectRepository', () => {
         openStatus: FILE_OPEN_STATUS.Loading,
         dataLossIssues: [],
       });
-      expect(createResult.success).toBe(true);
-      if (!createResult.success) return;
+      expect(createResult.kind).toBe('ok');
+      if (createResult.kind !== 'ok') return;
       const projectSystemId = createResult.data.project.systemId;
 
       await repo.deleteProject(projectSystemId);
@@ -241,8 +243,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.success).toBe(true);
-      if (!createResult.success) return;
+      expect(createResult.kind).toBe('ok');
+      if (createResult.kind !== 'ok') return;
       const fileSystemId = createResult.data.file.systemId;
 
       await repo.updateFileHeader(fileSystemId, {
@@ -306,8 +308,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.success).toBe(true);
-      if (!createResult.success) return;
+      expect(createResult.kind).toBe('ok');
+      if (createResult.kind !== 'ok') return;
       const fileSystemId = createResult.data.file.systemId;
 
       await repo.updateFileHeader(fileSystemId, {
@@ -371,8 +373,8 @@ describe('TypeOrmProjectRepository', () => {
           dataLossIssues: [],
         },
       );
-      expect(createResult.success).toBe(true);
-      if (!createResult.success) return;
+      expect(createResult.kind).toBe('ok');
+      if (createResult.kind !== 'ok') return;
       const fileSystemId = createResult.data.file.systemId;
 
       // First update

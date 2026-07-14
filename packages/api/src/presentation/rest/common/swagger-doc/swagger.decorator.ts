@@ -18,6 +18,7 @@ import {fileURLToPath} from 'node:url';
 import {existsSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {ApiResult} from '../dto/api-response/api-result.dto.js';
+import {ApiIssueItem} from '../dto/api-response/api-issue-item.dto.js';
 
 interface ExampleConfig {
   modulePath?: string;
@@ -73,7 +74,7 @@ export function ApiDocumentationWithExample(options: ApiDocumentationOptions) {
   handleResponseDocumentation(options, decorators, dtoTypes);
 
   // Register all DTOs with Swagger, including ApiResult
-  const allDtoTypes = [ApiResult, ...dtoTypes];
+  const allDtoTypes = [ApiResult, ApiIssueItem, ...dtoTypes];
   if (allDtoTypes.length > 0) {
     decorators.push(ApiExtraModels(...allDtoTypes));
   }
@@ -234,7 +235,12 @@ function shouldTreatAsArray(
 }
 
 /**
- * Generates ApiResult wrapper schema for response
+ * Generates ApiResult wrapper schema for response.
+ *
+ * Produces `{allOf: [ApiResult, {properties: {data}}]}`. The `ApiResult` base
+ * schema contributes the optional `issues[]` field automatically, so partial-
+ * success (207) responses render correctly in Swagger UI without a per-
+ * endpoint schema override.
  */
 function generateWrappedResponseSchema(
   baseType: Type<unknown>,

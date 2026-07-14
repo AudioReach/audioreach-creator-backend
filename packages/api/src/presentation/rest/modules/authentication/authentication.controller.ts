@@ -9,6 +9,8 @@ import {AuthenticationService} from './authentication.service.js';
 import {RegisterDto, RegisterResponseData} from './dto/authentication.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
+import {Result} from '@arc/core';
 
 @ApiTags('authentication')
 @Controller('arc-api/v1/auth')
@@ -41,10 +43,6 @@ export class AuthenticationController {
   })
   register(@Body() request?: RegisterDto): ApiResult<RegisterResponseData> {
     const data = this.authService.register(request);
-    return {
-      success: true,
-      message: 'Registration successful',
-      data: data,
-    };
+    return toApiResult(Result.ok(data));
   }
 }

@@ -13,11 +13,12 @@ import {
 import {DriverModuleDefinition} from '../../../../../domain/entities/definitions/driver-module/driver-module-definition.js';
 import {DriverModuleParameterDefinition} from '../../../../../domain/entities/definitions/driver-module/driver-module-parameter-definition.js';
 import type {DriverModuleDefinition as AwspDriverModuleDefinition} from '../../../shared/awsp-serializers/v1/definitions/index.js';
-import type {
-  BuildResult,
-  EntityBuildIssue,
-} from '../../types/issue-collection.js';
-import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import type {BuildResult} from '../../types/issue-collection.js';
+import type {Issue} from '../../../../../shared/issues/index.js';
+import {
+  IssueSeverity,
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
@@ -41,13 +42,7 @@ export class DriverModuleDefinitionBuilder {
     fileSystemId: number,
   ): Promise<BuildResult<DriverModuleDefinition>> {
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     this.logger?.logDebug({
@@ -59,7 +54,7 @@ export class DriverModuleDefinitionBuilder {
     });
 
     const entities: DriverModuleDefinition[] = [];
-    const issues: EntityBuildIssue[] = [];
+    const issues: Issue[] = [];
 
     for (const awspDef of awspModuleDefinitions) {
       try {
@@ -76,10 +71,13 @@ export class DriverModuleDefinitionBuilder {
         entities.push(definition);
       } catch (error) {
         issues.push({
-          severity: ISSUE_SEVERITY.ERROR,
           code: ERROR_CODES.INVALID_ENTITY_DATA,
           message: `Failed to build driver module definition ${awspDef.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          entityType: ENTITY_TYPES.DRIVER_MODULE_DEFINITION,
+          severity: IssueSeverity.Error,
+          impactedEntity: {
+            entityType: ISSUE_ENTITY_TYPE.DriverModuleDefinition,
+            systemId: awspDef.id,
+          },
         });
       }
     }
@@ -95,11 +93,6 @@ export class DriverModuleDefinitionBuilder {
     return {
       entities,
       issues,
-      successCount: entities.length,
-      errorCount: issues.filter(i => i.severity === ISSUE_SEVERITY.ERROR)
-        .length,
-      warningCount: issues.filter(i => i.severity === ISSUE_SEVERITY.WARNING)
-        .length,
     };
   }
 
@@ -139,7 +132,7 @@ export class DriverModuleDefinitionBuilder {
     awspDef: AwspDriverModuleDefinition,
     definition: DriverModuleDefinition,
     fileSystemId: number,
-    issues: EntityBuildIssue[],
+    issues: Issue[],
   ): Promise<void> {
     if (!awspDef.parameters || awspDef.parameters.length === 0) {
       return;
@@ -169,10 +162,13 @@ export class DriverModuleDefinitionBuilder {
         );
       } catch (error) {
         issues.push({
-          severity: ISSUE_SEVERITY.ERROR,
           code: ERROR_CODES.INVALID_ENTITY_DATA,
           message: `Failed to build parameter ${awspParam.id} for driver module ${awspDef.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          entityType: ENTITY_TYPES.DRIVER_MODULE_DEFINITION,
+          severity: IssueSeverity.Error,
+          impactedEntity: {
+            entityType: ISSUE_ENTITY_TYPE.DriverModuleDefinition,
+            systemId: awspDef.id,
+          },
         });
       }
     }

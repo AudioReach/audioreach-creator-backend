@@ -28,10 +28,9 @@ export * from './shared/utilities/projection.js';
 export * from './shared/types/logger.interface.js';
 export * from './shared/types/json-types.js';
 export * from './shared/types/branded-ids.js';
-export * from './shared/types/operation-result.js';
 export * from './domain/entities/definitions/common/types/param-type.js';
-export * from './application/shared/Result/operation-result.js';
-export * from './shared/types/api-result.js';
+// New Result<T> discriminated union + namespace (design §3, FR-2, FR-3).
+export * from './application/shared/result/result.js';
 
 // Shared Change Types
 export * from './application/shared/change-vocabulary.js';
@@ -195,6 +194,22 @@ export * from './domain/services/natural-id-generator/natural-id-type.js';
 export * from './domain/services/natural-id-generator/vmid-remapping.js';
 export * from './domain/services/natural-id-generator/natural-id-generator.js';
 export * from './application/services/natural-id-generator/natural-id.registry.js';
+
+// Shared Issue vocabulary — base type for Result<T>.issues (design §2, FR-4)
+// Named re-exports only: shared/issues re-exports IssueSeverity/IssueCategory/etc which
+// would collide with domain/validation/issue.js wildcards below. Only unique symbols here.
+export type {Issue} from './shared/issues/issue.js';
+export {IssueFactory} from './shared/issues/factories.js';
+export {ISSUE_CODE} from './shared/issues/operational-codes.js';
+export type {IssueCode} from './shared/issues/operational-codes.js';
+export {ISSUE_ENTITY_TYPE} from './shared/issues/impacted-entity.js';
+export type {
+  IssueEntityType,
+  ImpactedEntity,
+} from './shared/issues/impacted-entity.js';
+export {IssueSeverity, IssueCategory} from './shared/issues/severity.js';
+export {CLIENT_INPUT_TYPE} from './shared/issues/fix-option.js';
+export type {ClientInputType} from './shared/issues/fix-option.js';
 
 // Validation framework — domain types
 export * from './domain/validation/issue.js';

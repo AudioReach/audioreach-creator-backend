@@ -9,6 +9,7 @@ import {
   type ContainerReadModel,
   Result,
   ERROR_CODES,
+  IssueSeverity,
 } from '@arc/core';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -64,6 +65,7 @@ export class DbContainerQueryService implements ContainerQueryService {
         code: ERROR_CODES.INTERNAL_ERROR,
         message:
           error instanceof Error ? error.message : 'Failed to query containers',
+        severity: IssueSeverity.Error,
       });
     }
   }

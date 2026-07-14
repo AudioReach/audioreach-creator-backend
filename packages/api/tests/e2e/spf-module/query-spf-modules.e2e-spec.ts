@@ -124,7 +124,6 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       .timeout(30000)
       .expect(200);
 
-    expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data)).toBe(true);
     expect(response.body.data).toHaveLength(0);
   });
@@ -142,8 +141,6 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       .timeout(30000)
       .expect(200);
 
-    expect(response.body.success).toBe(true);
-    expect(response.body.message).toBe('SPF modules retrieved successfully');
     expect(Array.isArray(response.body.data)).toBe(true);
     expect(response.body.data.length).toBeGreaterThan(0);
 
@@ -207,7 +204,6 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       .timeout(30000)
       .expect(200);
 
-    expect(response.body.success).toBe(true);
     expect(response.body.data.length).toBe(1);
     expect(response.body.data[0].systemId).toBe(moduleSystemIds[0]);
   });
@@ -225,7 +221,6 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       .timeout(30000)
       .expect(200);
 
-    expect(response.body.success).toBe(true);
     for (const module of response.body.data) {
       expect(module.ckvs).toBeUndefined();
       expect(module.tags).toBeUndefined();
@@ -298,7 +293,6 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       .timeout(30000)
       .expect(200);
 
-    expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data)).toBe(true);
 
     // tags must be absent when only ckvs requested
@@ -343,7 +337,6 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       .timeout(30000)
       .expect(200);
 
-    expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data)).toBe(true);
 
     // ckvs must be absent when only tags requested
@@ -383,7 +376,6 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       .timeout(30000)
       .expect(200);
 
-    expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data)).toBe(true);
 
     // both ckvs and tags must be present arrays

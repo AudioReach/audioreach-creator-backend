@@ -6,7 +6,7 @@
 import type {SpfModuleReadModel} from './spf-module-read-model.js';
 import type {NodeQueryService} from '../node/node-query-service.js';
 import type {SpfTuningConfigService} from './tuning/spf-tuning-config-service.js';
-import type {Result} from '../../../../shared/Result/operation-result.js';
+import type {Result} from '../../../../shared/result/result.js';
 import type {CkvQueryService} from './ckv/ckv-query-service.js';
 
 export interface SpfModuleQueryService {
@@ -15,18 +15,22 @@ export interface SpfModuleQueryService {
   /**
    * Returns a single SPF module with ports and definition capabilities.
    * Overlay always applied.
-   * Result.fail(ENTITY_NOT_FOUND) if the module does not exist; also fails on DB error.
+   *
+   * Behaviour (FR-1.4):
+   *   - Throws `ResourceNotFoundException` when the module does not exist.
+   *   - Throws (or rethrows) on any other total failure (DB error, definition failure).
+   *   - Never returns `Result.fail` — this method is not `Result`-shaped.
    */
   findOne(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<Result<SpfModuleReadModel>>;
+  ): Promise<SpfModuleReadModel>;
 
   /**
    * Returns SPF modules for the given system IDs.
    * Overlay always applied.
    * Unknown IDs are silently omitted — partial result.
-   * Empty input returns Result.ok([]) without hitting the DB.
+   * Empty input returns `Result.fail(INVALID_INPUT)` — an empty request is a caller bug.
    */
   findMany(
     systemIds: number[],

@@ -6,7 +6,7 @@
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
 import type {UpdateValidationPreferencesCommand} from './update-validation-preferences.command.js';
-import {SEVERITY_ORDER} from '../../../domain/validation/issue.js';
+import {SEVERITY_ORDER} from '../../../shared/issues/index.js';
 import type {ValidationPreferences} from '../../../domain/validation/validation-preferences.js';
 
 /**

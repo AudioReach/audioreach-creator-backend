@@ -50,27 +50,11 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
         query.projectId,
       );
 
-    // Step 2: resolve SPF module (includes definitionSystemId)
-    const spfModuleResult =
-      await this.queryServices.spfModuleQueryService.findOne(
-        query.spfModuleSystemId,
-        fileSystemId,
-      );
-
-    if (spfModuleResult.isFailure) {
-      throw new ResourceNotFoundException(
-        spfModuleResult.errors?.[0]?.message ??
-          `SpfModule with systemId ${query.spfModuleSystemId} not found`,
-      );
-    }
-
-    const spfModule = spfModuleResult.data;
-
-    if (!spfModule) {
-      throw new ResourceNotFoundException(
-        `SpfModule with systemId ${query.spfModuleSystemId} not found`,
-      );
-    }
+    // findOne throws ResourceNotFoundException on missing / underlying failure (FR-1.4)
+    const spfModule = await this.queryServices.spfModuleQueryService.findOne(
+      query.spfModuleSystemId,
+      fileSystemId,
+    );
 
     // Step 3: fetch CKV, payloads, and definitions in parallel
     const [ckv, payloads, parameterDefinitions] = await Promise.all([

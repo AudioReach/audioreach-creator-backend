@@ -16,7 +16,6 @@ import {
   UseInterceptors,
   BadRequestException,
   NotImplementedException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -36,20 +35,20 @@ import {
 } from './dto/request/spf-module-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
-import {ApiIssueItem} from '../../common/dto/api-response/api-issue-item.dto.js';
-import {IssueSeverity} from '@arc/core';
-import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {
+  IssueSeverity,
+  ISSUE_CODE,
+  Result,
   QueryBus,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
   PARAMETER_ELEMENT_TYPE,
+  type Issue,
   type DisplayType,
   type SpfModuleDetailedReadModel,
   type SpfModuleReadModel,
   type DataPortReadModel,
   type ControlPortReadModel,
-  type Result,
   type CkvReadModel,
   type TkvReadModel,
   type TagReadModel,
@@ -63,6 +62,8 @@ import {
   type StructArrayData,
   type StructData,
 } from '@arc/core';
+import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
 import {
   DataPortDto,
   PortIoType,
@@ -193,26 +194,15 @@ export class SpfModuleController extends BaseController {
     const result =
       await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
 
-    if (result.isFailure) {
-      throw new UnprocessableEntityException(
-        result.errors?.[0]?.message ?? 'Failed to retrieve SPF modules',
-      );
-    }
-
-    const {modules, ckvsByModule, tagsByModule} = result.data;
-    const dtos = modules.map(m =>
-      this.mapToSpfModuleDto(
-        m,
-        ckvsByModule?.get(m.systemId),
-        tagsByModule?.get(m.systemId),
+    return toApiResult(result, ({modules, ckvsByModule, tagsByModule}) =>
+      modules.map(m =>
+        this.mapToSpfModuleDto(
+          m,
+          ckvsByModule?.get(m.systemId),
+          tagsByModule?.get(m.systemId),
+        ),
       ),
     );
-
-    return {
-      data: dtos,
-      success: true,
-      message: 'SPF modules retrieved successfully',
-    };
   }
 
   /**
@@ -359,20 +349,16 @@ export class SpfModuleController extends BaseController {
     );
     const model = await this.queryBus.execute<CkvCalibrationReadModel>(query);
 
-    const issues: ApiIssueItem[] = (model.missingParamSystemIds ?? []).map(
-      id => ({
-        code: 'PARAM_PAYLOAD_NOT_FOUND',
-        message: `No calibration payload found for parameter system ID ${id}`,
-        severity: IssueSeverity.Error,
-      }),
-    );
+    const issues: Issue[] = (model.missingParamSystemIds ?? []).map(id => ({
+      code: ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND,
+      message: `No calibration payload found for parameter system ID ${id}`,
+      severity: IssueSeverity.Error,
+    }));
 
-    return {
-      data: this.transformToCalDataDto(model),
-      success: true,
-      message: 'Calibration data retrieved successfully',
-      ...(issues.length > 0 && {issues}),
-    };
+    const calData = this.transformToCalDataDto(model);
+    const resultEnvelope =
+      issues.length > 0 ? Result.partial(calData, issues) : Result.ok(calData);
+    return toApiResult(resultEnvelope);
   }
 
   /**
@@ -688,9 +674,9 @@ export class SpfModuleController extends BaseController {
     dto.controlPorts = m.controlPorts.map(p => this.mapControlPortToDto(p));
     dto.changeInfo = undefined;
 
-    if (ckvsResult?.isSuccess)
+    if (ckvsResult?.kind === 'ok')
       dto.ckvs = ckvsResult.data.map(c => this.mapCkvToDto(c));
-    if (tagsResult?.isSuccess)
+    if (tagsResult?.kind === 'ok')
       dto.tags = tagsResult.data.map(t => this.mapTagToDto(t));
 
     return dto;

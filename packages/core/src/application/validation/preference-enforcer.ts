@@ -7,7 +7,7 @@ import {
   IssueCategory,
   SEVERITY_ORDER,
   deriveCategoryFromSeverity,
-} from '../../domain/validation/issue.js';
+} from '../../shared/issues/index.js';
 import type {ValidationIssue} from '../../domain/validation/issue.js';
 import {buildSuppressionKey} from '../../domain/validation/validation-preferences.js';
 import type {ValidationPreferences} from '../../domain/validation/validation-preferences.js';
@@ -23,6 +23,11 @@ import type {ValidationPreferences} from '../../domain/validation/validation-pre
  * 5. NON_BLOCKING — check instance suppression, then global disable
  *
  * Returns null if the issue should be hidden from the report.
+ *
+ * Behavioural note: the returned issue populates the base Issue `severity`
+ * field (renamed from the pre-refactor `effectiveSeverity`). Rules already
+ * seed `severity = defaultSeverity` at construction, so the field is always
+ * present on the input issue.
  */
 export function applyPreferences(
   issue: ValidationIssue,
@@ -33,16 +38,21 @@ export function applyPreferences(
 
   // 2. Fast path: no code override and no instance suppression for this entity
   const pref = preferences.overrides[issue.code];
-  const suppressionKey = buildSuppressionKey(
-    issue.code,
-    issue.impactedEntity.entityType,
-    issue.impactedEntity.systemId,
-  );
+  const entityType = issue.impactedEntity?.entityType;
+  const systemId = issue.impactedEntity?.systemId;
+  if (entityType === undefined || systemId === undefined) {
+    // TODO: replace console.warn with Logger port (Logger.logWarn) once injected — see logger.interface.ts
+    console.warn(
+      `applyPreferences: issue ${issue.code} has no impactedEntity — preferences skipped`,
+    );
+    return issue;
+  }
+  const suppressionKey = buildSuppressionKey(issue.code, entityType, systemId);
   if (!pref && !preferences.suppressions?.[suppressionKey]) return issue;
 
   // 3. Apply severity override once to determine effective severity/category
   let effectiveSeverity = issue.defaultSeverity;
-  let effectiveCategory: IssueCategory = issue.category;
+  let effectiveCategory: IssueCategory | undefined = issue.category;
 
   if (pref?.severityOverride) {
     const defaultIdx = SEVERITY_ORDER.indexOf(issue.defaultSeverity);
@@ -57,7 +67,7 @@ export function applyPreferences(
   if (effectiveCategory === IssueCategory.Blocking) {
     return effectiveSeverity === issue.defaultSeverity
       ? issue
-      : {...issue, effectiveSeverity, category: effectiveCategory};
+      : {...issue, severity: effectiveSeverity, category: effectiveCategory};
   }
 
   // 5. NON_BLOCKING: check instance suppression then global disable
@@ -67,5 +77,5 @@ export function applyPreferences(
   // Return with effective severity/category (may be unchanged)
   return effectiveSeverity === issue.defaultSeverity
     ? issue
-    : {...issue, effectiveSeverity, category: effectiveCategory};
+    : {...issue, severity: effectiveSeverity, category: effectiveCategory};
 }

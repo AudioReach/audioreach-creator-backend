@@ -28,12 +28,14 @@ import {
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
 import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,
   CreateControlLinkCommand,
   DeleteControlLinkCommand,
+  Result,
   type UseCaseComponentsReadModel,
   type ControlLinkReadModel,
 } from '@arc/core';
@@ -154,11 +156,7 @@ export class ControlLinkController extends BaseController {
 
     const components =
       await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-    return {
-      data: this.toComponentCollectionDto(components),
-      success: true,
-      message: 'Control link created successfully',
-    };
+    return toApiResult(Result.ok(this.toComponentCollectionDto(components)));
   }
 
   /**
@@ -210,11 +208,9 @@ export class ControlLinkController extends BaseController {
 
     const components =
       await this.commandBus.execute<UseCaseComponentsReadModel>(command);
-    return {
-      data: this.toComponentCollectionWithSubsystemsDto(components),
-      success: true,
-      message: 'Control link created successfully',
-    };
+    return toApiResult(
+      Result.ok(this.toComponentCollectionWithSubsystemsDto(components)),
+    );
   }
 
   /**
@@ -344,21 +340,21 @@ export class ControlLinkController extends BaseController {
 
     const deleted =
       await this.commandBus.execute<ControlLinkReadModel>(command);
-    return {
-      data: new ControlLinkDto(
-        deleted.systemId.toString(),
-        deleted.systemId,
-        CONN_CTRL_TYPE.MODULE_MODULE,
-        deleted.peerNodeASystemId,
-        deleted.nodeAPortSystemId,
-        deleted.peerNodeBSystemId,
-        deleted.nodeBPortSystemId,
-        false,
-        undefined,
+    return toApiResult(
+      Result.ok(
+        new ControlLinkDto(
+          deleted.systemId.toString(),
+          deleted.systemId,
+          CONN_CTRL_TYPE.MODULE_MODULE,
+          deleted.peerNodeASystemId,
+          deleted.nodeAPortSystemId,
+          deleted.peerNodeBSystemId,
+          deleted.nodeBPortSystemId,
+          false,
+          undefined,
+        ),
       ),
-      success: true,
-      message: 'Control link deleted successfully',
-    };
+    );
   }
 
   private toComponentCollectionDto(

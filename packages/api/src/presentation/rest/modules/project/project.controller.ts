@@ -41,6 +41,7 @@ import {
   UploadFileCommand,
   DownloadFileQuery,
   ProjectFilePropertiesQuery,
+  Result,
 } from '@arc/core';
 import type {
   PathRef,
@@ -61,7 +62,7 @@ import * as os from 'node:os';
 import path from 'node:path';
 import type {Response} from 'express';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
-import {toApiIssueItems} from '../../common/dto/api-response/api-issue-item.mapper.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
 import {ProjectInfoResponseDto} from './dto/project-info-response.dto.js';
 import {ProjectInfoUpdateDto} from './dto/project-info-update.dto.js';
 import {ProjectFilePropertiesResponseDto} from './dto/project-file-properties.dto.js';
@@ -288,18 +289,11 @@ export class ProjectController {
       sessionMode: SessionMode.Designer,
     };
 
-    const apiIssues = toApiIssueItems(result.issues);
-    const hasIssues = apiIssues && apiIssues.length > 0;
-
-    const projectResponse: ApiResult<ProjectInfoResponseDto> = {
-      data: projectdetails,
-      success: !hasIssues,
-      message: hasIssues
-        ? `Project created with ${apiIssues?.length} issues. Please review and fix them.`
-        : 'The file has been opened successfully',
-      issues: apiIssues,
-    };
-    return projectResponse;
+    return toApiResult(
+      result.issues?.length
+        ? Result.partial(projectdetails, result.issues)
+        : Result.ok(projectdetails),
+    );
   }
 
   @Get()
@@ -716,11 +710,7 @@ export class ProjectController {
       new ProjectFilePropertiesQuery(projectId, clientId),
     );
 
-    return {
-      data: result,
-      success: true,
-      message: 'Project file properties retrieved successfully',
-    };
+    return toApiResult(Result.ok(result));
   }
 
   @Delete('/:projectId')

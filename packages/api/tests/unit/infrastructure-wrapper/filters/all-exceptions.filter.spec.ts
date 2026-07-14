@@ -73,4 +73,54 @@ describe('AllExceptionsFilter', () => {
     filter.catch(exception, mockHost as any);
     expect(mockResponse.status).toHaveBeenCalledWith(501);
   });
+
+  it('propagates issues[] from HttpException payload to top-level errorResponse.issues', () => {
+    const {HttpException} = jest.requireActual(
+      '@nestjs/common',
+    ) as typeof import('@nestjs/common');
+    const issues = [
+      {
+        code: 'ENTITY_NOT_FOUND',
+        message: 'Module 5 not found',
+        severity: 'ERROR',
+      },
+    ];
+    const exception = new HttpException(
+      {
+        statusCode: 404,
+        errorCode: 'ENTITY_NOT_FOUND',
+        message: 'Module 5 not found',
+        issues,
+      },
+      404,
+    );
+
+    filter.catch(exception, mockHost as any);
+    expect(mockResponse.status).toHaveBeenCalledWith(404);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 404,
+        errorCode: 'ENTITY_NOT_FOUND',
+        message: 'Module 5 not found',
+        issues,
+      }),
+    );
+  });
+
+  it('does not add issues field when HttpException payload has no issues[]', () => {
+    const {HttpException} = jest.requireActual(
+      '@nestjs/common',
+    ) as typeof import('@nestjs/common');
+    const exception = new HttpException(
+      {statusCode: 400, errorCode: 'BAD_REQUEST', message: 'bad'},
+      400,
+    );
+
+    filter.catch(exception, mockHost as any);
+    const jsonBody = mockResponse.json.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect('issues' in jsonBody).toBe(false);
+  });
 });

@@ -5,78 +5,100 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {
+  ISSUE_ENTITY_TYPE,
   IssueSeverity,
   IssueCategory,
-  VALIDATION_ENTITY_TYPE,
-  type ValidationEntityType,
+  type IssueEntityType,
 } from '@arc/core';
 import {ApiFixOptionDto} from './api-fix-option.dto.js';
 
+/**
+ * Nested DTO for the impacted-entity field on ApiIssueItem.
+ *
+ * Structurally mirrors core `ImpactedEntity` from
+ * `packages/core/src/shared/issues/impacted-entity.ts`.
+ */
 export class ApiImpactedEntityDto {
-  @ApiProperty({enum: VALIDATION_ENTITY_TYPE, enumName: 'IssueEntityType'})
-  entityType!: ValidationEntityType;
+  @ApiProperty({
+    description: 'The type of entity this issue applies to.',
+    enum: ISSUE_ENTITY_TYPE,
+    enumName: 'IssueEntityType',
+  })
+  entityType!: IssueEntityType;
 
-  @ApiProperty({description: 'Database system ID of the impacted entity'})
+  @ApiProperty({
+    description: 'System-level identifier of the impacted entity.',
+    type: 'number',
+  })
   systemId!: number;
 
   @ApiProperty({
+    description: 'Human-readable name for display (e.g., module alias).',
     required: false,
-    description: 'Human-readable name for display (e.g. module alias)',
+    type: 'string',
   })
   displayName?: string;
 }
 
 /**
- * Unified issue item used in ApiResult.issues[].
+ * Wire representation of a single structured issue, carried by
+ * `ApiResult<T>.issues[]`.
  *
- * Operational failures (parse errors, bulk item failures) populate only
- * {code, message, severity}. Domain validation issues populate all fields.
- *
- * A DATA_LOSS category item implies that save is blocked (blockedSave semantics).
+ * Structurally mirrors core `Issue` (design §6.2, FR-4.1). The mapper
+ * `toApiIssueItem` performs a field-for-field projection — extra fields
+ * on `ValidationIssue` (`name`, `defaultSeverity`) are deliberately not
+ * projected so the wire shape stays purely `Issue`.
  */
 export class ApiIssueItem {
   @ApiProperty({
     description:
-      'Machine-readable issue code. Validation rules follow ARC-{ENTITY}-{SEQ} format ' +
-      '(e.g. ARC-MOD-001). Operational failures use descriptive constants (e.g. DB_QUERY_FAILED).',
+      'Machine-readable issue code. Validation rules use ARC-{ENTITY}-{SEQ}; ' +
+      'operational codes are descriptive constants (ENTITY_NOT_FOUND, DB_QUERY_FAILED, PARSE_ERROR).',
+    type: 'string',
   })
   code!: string;
 
-  @ApiProperty({description: 'Human-readable issue detail'})
+  @ApiProperty({
+    description: 'Human-readable message describing the issue.',
+    type: 'string',
+  })
   message!: string;
 
-  @ApiProperty({enum: IssueSeverity, enumName: 'IssueSeverity'})
+  @ApiProperty({
+    description: 'Severity of the issue.',
+    enum: IssueSeverity,
+    enumName: 'IssueSeverity',
+  })
   severity!: IssueSeverity;
 
   @ApiProperty({
+    description:
+      'Optional broader classification (BLOCKING / NON_BLOCKING / DATA_LOSS). ' +
+      'Populated by validation issues; typically absent on operational issues.',
     enum: IssueCategory,
     enumName: 'IssueCategory',
     required: false,
-    description:
-      'Present for domain validation issues; absent for operational failures',
   })
   category?: IssueCategory;
 
   @ApiProperty({
+    description: 'The entity this issue applies to, if any.',
     type: ApiImpactedEntityDto,
     required: false,
-    description:
-      'Present for domain validation issues; absent for operational failures',
   })
   impactedEntity?: ApiImpactedEntityDto;
 
   @ApiProperty({
+    description: 'Use-case systemIds affected by this issue, if any.',
     type: [Number],
     required: false,
-    description: 'System IDs of use cases affected by this issue',
   })
   impactedUsecases?: number[];
 
   @ApiProperty({
+    description: 'Client-actionable fix options, if any.',
     type: [ApiFixOptionDto],
     required: false,
-    description:
-      'Actionable fix commands the client can dispatch via POST /apply-fix',
   })
   fixOptions?: ApiFixOptionDto[];
 }

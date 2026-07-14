@@ -7,7 +7,7 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {ContainerReadModel} from '../../../ports/persistence/query-services/container/container-read-model.js';
 import type {ContainerQuery} from './query-containers.query.js';
-import type {Result} from '../../../shared/Result/operation-result.js';
+import type {Result} from '../../../shared/result/result.js';
 
 /**
  * Handles ContainerQuery.

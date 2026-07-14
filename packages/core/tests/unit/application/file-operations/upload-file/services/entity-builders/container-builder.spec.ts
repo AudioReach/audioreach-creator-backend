@@ -11,9 +11,9 @@ import type {Logger} from '../../../../../../../src/shared/types/logger.interfac
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
 import {
-  ENTITY_TYPES,
-  ISSUE_SEVERITY,
-} from '../../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
+  ISSUE_ENTITY_TYPE,
+  IssueSeverity,
+} from '../../../../../../../src/shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../../../src/shared/errors/error-codes.js';
 import {
   createMockLogger,
@@ -67,9 +67,6 @@ describe('ContainerBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(0);
-        expect(result.warningCount).toBe(0);
         expect(result.issues).toEqual([]);
 
         // Verify first container
@@ -99,9 +96,6 @@ describe('ContainerBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
-        expect(result.warningCount).toBe(0);
       });
 
       it('should process multiple container properties', async () => {
@@ -129,7 +123,6 @@ describe('ContainerBuilder', () => {
         expect(result.entities[0].containerId).toBe(1);
         expect(result.entities[1].containerId).toBe(5);
         expect(result.entities[2].containerId).toBe(10);
-        expect(result.successCount).toBe(3);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -147,9 +140,6 @@ describe('ContainerBuilder', () => {
 
         expect(result).toHaveProperty('entities');
         expect(result).toHaveProperty('issues');
-        expect(result).toHaveProperty('successCount');
-        expect(result).toHaveProperty('errorCount');
-        expect(result).toHaveProperty('warningCount');
         expect(Array.isArray(result.entities)).toBe(true);
         expect(Array.isArray(result.issues)).toBe(true);
       });
@@ -218,7 +208,6 @@ describe('ContainerBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(3);
-        expect(result.successCount).toBe(3);
         expect(result.entities[0].containerId).toBe(1);
         expect(result.entities[1].containerId).toBe(5);
         expect(result.entities[2].containerId).toBe(10);
@@ -234,8 +223,6 @@ describe('ContainerBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should return empty result when input is undefined', async () => {
@@ -246,8 +233,6 @@ describe('ContainerBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should handle container properties with empty properties map', async () => {
@@ -264,7 +249,6 @@ describe('ContainerBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
       });
 
       it('should handle container properties with populated properties map', async () => {
@@ -285,7 +269,6 @@ describe('ContainerBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
       });
 
       it('should handle large number of container properties', async () => {
@@ -303,8 +286,7 @@ describe('ContainerBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(100);
-        expect(result.successCount).toBe(100);
-        expect(result.errorCount).toBe(0);
+        expect(result.issues).toHaveLength(0);
       });
     });
 
@@ -332,10 +314,11 @@ describe('ContainerBuilder', () => {
         convertSpy.mockRestore();
 
         expect(result.entities).toHaveLength(0);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
-        expect(result.issues[0].severity).toBe(ISSUE_SEVERITY.ERROR);
-        expect(result.issues[0].entityType).toBe(ENTITY_TYPES.CONTAINER);
+        expect(result.issues[0].severity).toBe(IssueSeverity.Error);
+        expect(result.issues[0].impactedEntity?.entityType).toBe(
+          ISSUE_ENTITY_TYPE.Container,
+        );
       });
 
       it('should log warning when conversion fails', async () => {
@@ -406,8 +389,6 @@ describe('ContainerBuilder', () => {
         convertSpy.mockRestore();
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
       });
 
@@ -432,7 +413,7 @@ describe('ContainerBuilder', () => {
 
         convertSpy.mockRestore();
 
-        expect(result.issues[0].entityData).toBe('containerId: 42');
+        expect(result.issues[0].impactedEntity?.systemId).toBe(42);
       });
 
       it('should use correct error code in issues', async () => {
@@ -480,7 +461,7 @@ describe('ContainerBuilder', () => {
 
         convertSpy.mockRestore();
 
-        expect(result.errorCount).toBe(1);
+        expect(result.issues).toHaveLength(1);
         expect(result.issues[0].message).toBe('Unknown error');
       });
     });
@@ -549,26 +530,7 @@ describe('ContainerBuilder', () => {
         expect(result).toMatchObject({
           entities: expect.any(Array),
           issues: expect.any(Array),
-          successCount: expect.any(Number),
-          errorCount: expect.any(Number),
-          warningCount: expect.any(Number),
         });
-      });
-
-      it('should have warningCount always 0', async () => {
-        const properties: AcdbContainerProperties[] = [
-          {
-            containerId: 1,
-            properties: new Map(),
-          },
-        ];
-
-        const result = await builder.buildContainers(
-          properties,
-          TEST_FILE_SYSTEM_ID,
-        );
-
-        expect(result.warningCount).toBe(0);
       });
 
       it('should have entities as Container instances', async () => {

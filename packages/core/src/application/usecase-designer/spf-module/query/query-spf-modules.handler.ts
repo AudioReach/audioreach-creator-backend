@@ -11,15 +11,16 @@ import type {
   TagReadModel,
 } from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 import type {SpfModulesQuery as SpfModuleQuery} from './query-spf-modules.query.js';
-import {Result} from '../../../shared/Result/operation-result.js';
+import {Result} from '../../../shared/result/result.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
 export interface SpfModuleDetailedReadModel {
   modules: SpfModuleReadModel[];
   // Present when includeCkvs/includeTags=true — one entry per requested module,
-  // regardless of outcome. Result.ok([]) means the module genuinely has none;
-  // Result.fail(...) means loading that module's data errored. Callers must
-  // check isSuccess/isFailure per entry rather than inferring from absence.
+  // regardless of outcome. `kind === 'ok'` with data `[]` means the module
+  // genuinely has none; `kind === 'fail'` means loading that module's data
+  // errored. Callers must switch on `.kind` per entry rather than inferring
+  // from absence.
   ckvsByModule?: Map<number, Result<CkvReadModel[]>>;
   tagsByModule?: Map<number, Result<TagReadModel[]>>;
 }
@@ -57,10 +58,8 @@ export class SpfModuleQueryHandler implements QueryHandler<
         fileSystemId,
       );
 
-    if (modulesResult.isFailure) {
-      return Result.fail(
-        ...(modulesResult.errors ?? [{message: 'Failed to load modules'}]),
-      );
+    if (modulesResult.kind === 'fail') {
+      return Result.fail(...modulesResult.issues);
     }
 
     const modules = modulesResult.data;

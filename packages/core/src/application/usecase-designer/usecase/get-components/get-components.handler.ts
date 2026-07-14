@@ -7,31 +7,27 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {UseCaseComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/index.js';
 import {GetComponentsQuery} from './get-components.query.js';
+import {Result} from '../../../shared/result/result.js';
 
-/**
- * Handler for GetComponentsQuery
- * Retrieves all components (modules, data links, control links) for specific use cases
- */
 export class GetComponentsHandler implements QueryHandler<
   GetComponentsQuery,
-  Promise<UseCaseComponentsReadModel>
+  Promise<Result<UseCaseComponentsReadModel>>
 > {
   constructor(private queryServices: QueryServices) {}
 
-  async handle(query: GetComponentsQuery): Promise<UseCaseComponentsReadModel> {
-    // Validate project existence if projectId is provided
+  async handle(
+    query: GetComponentsQuery,
+  ): Promise<Result<UseCaseComponentsReadModel>> {
     if (query.projectId !== undefined) {
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
     }
-
-    // Convert string array to number array for database query
     const useCaseSystemIds = query.useCaseSystemIds.map(Number);
-
-    // Get all components for the specified use cases
-    return await this.queryServices.useCaseQueryService.getAllComponentsForUseCases(
-      useCaseSystemIds,
+    return Result.ok(
+      await this.queryServices.useCaseQueryService.getAllComponentsForUseCases(
+        useCaseSystemIds,
+      ),
     );
   }
 }

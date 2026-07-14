@@ -8,7 +8,10 @@ import {UploadFileOrchestrator} from '../../../../../../src/application/file-ope
 import {EntityBuilderService} from '../../../../../../src/application/file-operations/upload-file/services/entity-builder-service.js';
 import {KeyDefinition} from '../../../../../../src/domain/entities/definitions/key-value/key-definition.js';
 import {ERROR_CODES} from '../../../../../../src/shared/errors/error-codes.js';
-import {ENTITY_TYPES} from '../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
+import {
+  ISSUE_ENTITY_TYPE,
+  IssueSeverity,
+} from '../../../../../../src/shared/issues/index.js';
 import type {UnitOfWork} from '../../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../../../../src/application/ports/persistence/repositories/bulk-import/bulk-import.repository.js';
 import type {IdGenerationPort} from '../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -92,9 +95,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [mockKeyDef],
             issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
           });
         mockBulkRepo.insertKeyDefinitions.mockResolvedValue({ok: true});
 
@@ -135,9 +135,6 @@ describe('UploadFileOrchestrator', () => {
             return {
               entities: [mockKeyDef],
               issues: [],
-              successCount: 1,
-              errorCount: 0,
-              warningCount: 0,
             };
           });
 
@@ -171,9 +168,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [],
             issues: [],
-            successCount: 0,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
@@ -187,9 +181,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [],
             issues: [],
-            successCount: 0,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
@@ -234,9 +225,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [mockKeyDef],
             issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
           });
         mockBulkRepo.insertKeyDefinitions.mockRejectedValue(
           new Error('Insert failed'),
@@ -255,9 +243,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [],
             issues: [],
-            successCount: 0,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
@@ -271,9 +256,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [],
             issues: [],
-            successCount: 0,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         await buildAndInsertKeyDefinitions(mockBulkRepo);
@@ -303,9 +285,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [mockKeyDef],
             issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
           });
         mockBulkRepo.insertKeyDefinitions.mockResolvedValue({ok: true});
 
@@ -371,9 +350,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [mockModuleDef as any],
             issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         mockBulkRepo.insertSpfModuleDefinitions.mockResolvedValue({ok: true});
@@ -418,9 +394,6 @@ describe('UploadFileOrchestrator', () => {
             return {
               entities: [mockModuleDef as any],
               issues: [],
-              successCount: 1,
-              errorCount: 0,
-              warningCount: 0,
             };
           });
 
@@ -458,9 +431,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [],
             issues: [],
-            successCount: 0,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
@@ -474,9 +444,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [],
             issues: [],
-            successCount: 0,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
@@ -521,9 +488,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [mockModuleDef as any],
             issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         mockBulkRepo.insertSpfModuleDefinitions.mockRejectedValue(
@@ -557,14 +521,13 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [mockModuleDef as any],
             issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         mockBulkRepo.insertSpfModuleDefinitions.mockResolvedValue({
           ok: false,
-          message: 'UNIQUE constraint failed',
+          errors: [
+            {systemId: 100, message: 'UNIQUE constraint failed', details: ''},
+          ],
         });
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
@@ -581,9 +544,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [],
             issues: [],
-            successCount: 0,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
@@ -613,9 +573,6 @@ describe('UploadFileOrchestrator', () => {
           .mockResolvedValue({
             entities: [mockModuleDef as any],
             issues: [],
-            successCount: 1,
-            errorCount: 0,
-            warningCount: 0,
           });
 
         mockBulkRepo.insertSpfModuleDefinitions.mockResolvedValue({ok: true});
@@ -638,15 +595,15 @@ describe('UploadFileOrchestrator', () => {
               entities: [],
               issues: [
                 {
-                  severity: 'error' as const,
+                  severity: IssueSeverity.Error,
                   code: ERROR_CODES.INVALID_ENTITY_DATA,
                   message: 'Invalid module definition',
-                  entityType: ENTITY_TYPES.SPF_MODULE_DEFINITION,
+                  impactedEntity: {
+                    entityType: ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+                    systemId: 0,
+                  },
                 },
               ],
-              successCount: 0,
-              errorCount: 1,
-              warningCount: 0,
             });
 
           await buildAndInsertSpfModuleDefinitions(mockBulkRepo);

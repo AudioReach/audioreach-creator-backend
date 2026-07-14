@@ -9,7 +9,7 @@ import type {DriverModuleDefinition as AwspDriverModuleDefinition} from '../../.
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
-import {ISSUE_SEVERITY} from '../../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
+import {IssueSeverity} from '../../../../../../../src/shared/issues/index.js';
 import {
   createMockLogger,
   createMockIdGenerator,
@@ -54,8 +54,7 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
-        expect(result.errorCount).toBe(0);
+        expect(result.issues).toHaveLength(0);
         expect(result.entities[0].moduleDefinitionId).toBe(100);
         expect(result.entities[0].name).toBe('Driver Module 1');
         expect(result.entities[0].displayName).toBe('Driver Module 1 Display');
@@ -179,7 +178,6 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
         expect(result.entities[0].moduleDefinitionId).toBe(100);
         expect(result.entities[1].moduleDefinitionId).toBe(200);
       });
@@ -225,8 +223,7 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(0);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
+        expect(result.issues).toHaveLength(0);
       });
 
       it('should return empty result when input is null', async () => {
@@ -236,7 +233,6 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(0);
-        expect(result.successCount).toBe(0);
       });
 
       it('should return empty result when input is undefined', async () => {
@@ -246,7 +242,6 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(0);
-        expect(result.successCount).toBe(0);
       });
 
       it('should handle module with no parameters', async () => {
@@ -266,7 +261,6 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities[0].parameters).toHaveLength(0);
-        expect(result.successCount).toBe(1);
       });
 
       it('should handle parameter with no maxSize', async () => {
@@ -320,9 +314,8 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(0);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
-        expect(result.issues[0].severity).toBe(ISSUE_SEVERITY.ERROR);
+        expect(result.issues[0].severity).toBe(IssueSeverity.Error);
       });
 
       it('should collect error when parameter build fails', async () => {
@@ -357,7 +350,6 @@ describe('DriverModuleDefinitionBuilder', () => {
         // Module is still created but parameter fails
         expect(result.entities).toHaveLength(1);
         expect(result.entities[0].parameters).toHaveLength(0);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
       });
 
@@ -398,8 +390,7 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2); // Module 1 and 3 succeed
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(1);
+        expect(result.issues).toHaveLength(1);
       });
     });
   });

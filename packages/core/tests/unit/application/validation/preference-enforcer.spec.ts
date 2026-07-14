@@ -7,8 +7,8 @@ import {applyPreferences} from '../../../../src/application/validation/preferenc
 import {
   IssueCategory,
   IssueSeverity,
-  VALIDATION_ENTITY_TYPE,
-} from '../../../../src/domain/validation/issue.js';
+  ISSUE_ENTITY_TYPE,
+} from '../../../../src/shared/issues/index.js';
 import {
   EMPTY_PREFERENCES,
   buildSuppressionKey,
@@ -20,12 +20,12 @@ function makeIssue(overrides: Partial<ValidationIssue> = {}): ValidationIssue {
   return {
     code: 'ARC-TEST-001',
     name: 'Test',
-    description: 'Test',
+    message: 'Test',
     defaultSeverity: IssueSeverity.Warning,
-    effectiveSeverity: IssueSeverity.Warning,
+    severity: IssueSeverity.Warning,
     category: IssueCategory.NonBlocking,
     fixOptions: [],
-    impactedEntity: {entityType: VALIDATION_ENTITY_TYPE.SpfModule, systemId: 1},
+    impactedEntity: {entityType: ISSUE_ENTITY_TYPE.SpfModule, systemId: 1},
     impactedUsecases: [],
     ...overrides,
   };
@@ -60,7 +60,7 @@ describe('applyPreferences', () => {
   it('should NOT disable a BLOCKING issue', () => {
     const issue = makeIssue({
       defaultSeverity: IssueSeverity.Error,
-      effectiveSeverity: IssueSeverity.Error,
+      severity: IssueSeverity.Error,
       category: IssueCategory.Blocking,
     });
     const prefs: ValidationPreferences = {
@@ -73,21 +73,21 @@ describe('applyPreferences', () => {
   it('should escalate severity when override is strictly higher', () => {
     const issue = makeIssue({
       defaultSeverity: IssueSeverity.Warning,
-      effectiveSeverity: IssueSeverity.Warning,
+      severity: IssueSeverity.Warning,
     });
     const prefs: ValidationPreferences = {
       overrides: {'ARC-TEST-001': {severityOverride: IssueSeverity.Error}},
       suppressions: {},
     };
     const result = applyPreferences(issue, prefs);
-    expect(result?.effectiveSeverity).toBe(IssueSeverity.Error);
+    expect(result?.severity).toBe(IssueSeverity.Error);
     expect(result?.category).toBe(IssueCategory.Blocking);
   });
 
   it('should silently ignore downgrade attempt', () => {
     const issue = makeIssue({
       defaultSeverity: IssueSeverity.Error,
-      effectiveSeverity: IssueSeverity.Error,
+      severity: IssueSeverity.Error,
       category: IssueCategory.Blocking,
     });
     const prefs: ValidationPreferences = {
@@ -95,20 +95,20 @@ describe('applyPreferences', () => {
       suppressions: {},
     };
     const result = applyPreferences(issue, prefs);
-    expect(result?.effectiveSeverity).toBe(IssueSeverity.Error); // unchanged
+    expect(result?.severity).toBe(IssueSeverity.Error); // unchanged
     expect(result?.category).toBe(IssueCategory.Blocking);
   });
 
   it('should suppress a specific NON_BLOCKING issue instance', () => {
     const issue = makeIssue({
       impactedEntity: {
-        entityType: VALIDATION_ENTITY_TYPE.DataLink,
+        entityType: ISSUE_ENTITY_TYPE.DataLink,
         systemId: 8388625,
       },
     });
     const key = buildSuppressionKey(
       'ARC-TEST-001',
-      VALIDATION_ENTITY_TYPE.DataLink,
+      ISSUE_ENTITY_TYPE.DataLink,
       8388625,
     );
     const prefs: ValidationPreferences = {
@@ -121,16 +121,16 @@ describe('applyPreferences', () => {
   it('should NOT suppress a BLOCKING issue instance', () => {
     const issue = makeIssue({
       defaultSeverity: IssueSeverity.Error,
-      effectiveSeverity: IssueSeverity.Error,
+      severity: IssueSeverity.Error,
       category: IssueCategory.Blocking,
       impactedEntity: {
-        entityType: VALIDATION_ENTITY_TYPE.SpfModule,
+        entityType: ISSUE_ENTITY_TYPE.SpfModule,
         systemId: 1,
       },
     });
     const key = buildSuppressionKey(
       'ARC-TEST-001',
-      VALIDATION_ENTITY_TYPE.SpfModule,
+      ISSUE_ENTITY_TYPE.SpfModule,
       1,
     );
     const prefs: ValidationPreferences = {
@@ -143,12 +143,12 @@ describe('applyPreferences', () => {
   it('should return issue as-is when escalated to BLOCKING (cannot suppress/disable)', () => {
     const issue = makeIssue({
       defaultSeverity: IssueSeverity.Warning,
-      effectiveSeverity: IssueSeverity.Warning,
+      severity: IssueSeverity.Warning,
       category: IssueCategory.NonBlocking,
     });
     const key = buildSuppressionKey(
       'ARC-TEST-001',
-      VALIDATION_ENTITY_TYPE.SpfModule,
+      ISSUE_ENTITY_TYPE.SpfModule,
       1,
     );
     const prefs: ValidationPreferences = {
@@ -160,7 +160,7 @@ describe('applyPreferences', () => {
     // Escalated to ERROR → BLOCKING → suppression and disable are ignored
     const result = applyPreferences(issue, prefs);
     expect(result).not.toBeNull();
-    expect(result?.effectiveSeverity).toBe(IssueSeverity.Error);
+    expect(result?.severity).toBe(IssueSeverity.Error);
     expect(result?.category).toBe(IssueCategory.Blocking);
   });
 

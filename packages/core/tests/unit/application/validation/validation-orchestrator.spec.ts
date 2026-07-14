@@ -11,7 +11,7 @@ import {VALIDATION_RULE_GROUP} from '../../../../src/domain/validation/validatio
 import {
   IssueCategory,
   IssueSeverity,
-} from '../../../../src/domain/validation/issue.js';
+} from '../../../../src/shared/issues/index.js';
 import type {ValidationIssue} from '../../../../src/domain/validation/issue.js';
 import type {ValidationQueryRepository} from '../../../../src/application/ports/persistence/repositories/validation/validation-query.repository.js';
 import {EMPTY_PREFERENCES} from '../../../../src/domain/validation/validation-preferences.js';
@@ -20,9 +20,9 @@ function makeIssue(code: string, category: IssueCategory): ValidationIssue {
   return {
     code,
     name: code,
-    description: '',
+    message: '',
     defaultSeverity: IssueSeverity.Warning,
-    effectiveSeverity: IssueSeverity.Warning,
+    severity: IssueSeverity.Warning,
     category,
     fixOptions: [],
     impactedEntity: {entityType: 'SpfModule', systemId: 1},

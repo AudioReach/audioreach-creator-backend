@@ -12,11 +12,12 @@ import {
   asNaturalId,
   asSystemId,
 } from '../../../../../shared/types/branded-ids.js';
-import type {
-  BuildResult,
-  EntityBuildIssue,
-} from '../../types/issue-collection.js';
-import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import type {BuildResult} from '../../types/issue-collection.js';
+import type {Issue} from '../../../../../shared/issues/index.js';
+import {
+  IssueSeverity,
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import {CONTAINER_PROP_ID_PROC_DOMAIN} from '../../../shared/constants/spf-ids.js';
 
@@ -52,9 +53,6 @@ export class ContainerBuilder {
       return {
         entities: [],
         issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
         containerProcessorMap: new Map(),
       };
     }
@@ -68,7 +66,7 @@ export class ContainerBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} containers with system IDs assigned, ${result.errorCount} failed, extracted ${result.containerProcessorMap.size} processor mappings`,
+      msg: `Successfully built ${result.entities.length} containers with system IDs assigned, ${result.issues.length} failed, extracted ${result.containerProcessorMap.size} processor mappings`,
       action: 'container_building_complete',
       component: 'ContainerBuilder',
       tag: 'container-building',
@@ -115,10 +113,8 @@ export class ContainerBuilder {
   ): ContainerBuildResult {
     // Direct conversion logic
     const containers: Container[] = [];
-    const issues: EntityBuildIssue[] = [];
+    const issues: Issue[] = [];
     const containerProcessorMap = new Map<number, number>();
-    let successCount = 0;
-    let errorCount = 0;
 
     for (const acdbContainer of acdbContainerPropertyData) {
       try {
@@ -130,10 +126,7 @@ export class ContainerBuilder {
         if (processorId !== null) {
           containerProcessorMap.set(acdbContainer.containerId, processorId);
         }
-
-        successCount++;
       } catch (error) {
-        errorCount++;
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         const issue = this.convertToEntityBuildIssue(
@@ -155,9 +148,6 @@ export class ContainerBuilder {
     return {
       entities: containers,
       issues,
-      successCount,
-      errorCount,
-      warningCount: 0,
       containerProcessorMap,
     };
   }
@@ -233,14 +223,15 @@ export class ContainerBuilder {
   private convertToEntityBuildIssue(
     errorMessage: string,
     containerId?: number,
-  ): EntityBuildIssue {
+  ): Issue {
     return {
-      entityType: ENTITY_TYPES.CONTAINER,
-      severity: ISSUE_SEVERITY.ERROR,
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message: errorMessage,
-      entityData:
-        containerId === undefined ? undefined : `containerId: ${containerId}`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Container,
+        systemId: containerId ?? 0,
+      },
     };
   }
 }

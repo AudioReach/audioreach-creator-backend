@@ -27,11 +27,12 @@ import {DataPortGroupDefinition} from '../../../../../domain/entities/definition
 import {DataPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 import {StaticControlPortDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
 import {DynamicIntentDefinition} from '../../../../../domain/entities/definitions/spf-module/value-objects/dynamic-intent-definition.js';
-import type {
-  BuildResult,
-  EntityBuildIssue,
-} from '../../types/issue-collection.js';
-import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import type {BuildResult} from '../../types/issue-collection.js';
+import type {Issue} from '../../../../../shared/issues/index.js';
+import {
+  IssueSeverity,
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
@@ -120,13 +121,7 @@ export class SpfModuleDefinitionBuilder {
     bootUpModuleIds?: Set<number>,
   ): Promise<BuildResult<SpfModuleDefinition>> {
     if (!awspModuleDefinitions || awspModuleDefinitions.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     this.logger?.logDebug({
@@ -154,7 +149,7 @@ export class SpfModuleDefinitionBuilder {
       }
 
       this.logger?.logInfo({
-        msg: `Successfully built ${result.successCount} SPF module definitions with system IDs assigned, ${result.errorCount} failures`,
+        msg: `Successfully built ${result.entities.length} SPF module definitions with system IDs assigned, ${result.issues.length} failures`,
         action: 'spf_module_definition_building_complete',
         component: 'SpfModuleDefinitionBuilder',
         tag: 'spf-module-definitions',
@@ -360,7 +355,7 @@ export class SpfModuleDefinitionBuilder {
 
     // Process results and collect valid module definitions and issues
     const validModuleDefinitions: SpfModuleDefinition[] = [];
-    const issues: EntityBuildIssue[] = [];
+    const issues: Issue[] = [];
 
     for (const [i, result] of results.entries()) {
       const task = tasks[i];
@@ -380,7 +375,7 @@ export class SpfModuleDefinitionBuilder {
       const output = result.data as SpfModuleDefinitionBuildOutput;
       validModuleDefinitions.push(...output.validModuleDefinitions);
 
-      // Convert worker errors to EntityBuildIssue format
+      // Convert worker errors to Issue format
       for (const error of output.errors) {
         const entityBuildIssue = this.convertToEntityBuildIssue(error.error);
         issues.push(entityBuildIssue);
@@ -407,9 +402,6 @@ export class SpfModuleDefinitionBuilder {
     return {
       entities: validModuleDefinitions,
       issues: issues,
-      successCount: validModuleDefinitions.length,
-      errorCount: issues.length,
-      warningCount: 0,
     };
   }
 
@@ -430,7 +422,7 @@ export class SpfModuleDefinitionBuilder {
     });
 
     const validModuleDefinitions: SpfModuleDefinition[] = [];
-    const issues: EntityBuildIssue[] = [];
+    const issues: Issue[] = [];
 
     for (const awspModuleDef of moduleDefinitions) {
       const isBootUpModule = bootUpModuleIds?.has(awspModuleDef.id) ?? false;
@@ -447,7 +439,7 @@ export class SpfModuleDefinitionBuilder {
         for (const error of result.errors) {
           const detailedMessage = `Module ${awspModuleDef.id} (${awspModuleDef.name}): ${error}`;
 
-          // Convert to EntityBuildIssue format
+          // Convert to Issue format
           const entityBuildIssue =
             this.convertToEntityBuildIssue(detailedMessage);
           issues.push(entityBuildIssue);
@@ -475,21 +467,21 @@ export class SpfModuleDefinitionBuilder {
     return {
       entities: validModuleDefinitions,
       issues: issues,
-      successCount: validModuleDefinitions.length,
-      errorCount: issues.length,
-      warningCount: 0,
     };
   }
 
   /**
-   * Convert builder error to EntityBuildIssue format
+   * Convert builder error to Issue format
    */
-  private convertToEntityBuildIssue(message: string): EntityBuildIssue {
+  private convertToEntityBuildIssue(message: string): Issue {
     return {
-      severity: ISSUE_SEVERITY.ERROR,
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message,
-      entityType: ENTITY_TYPES.SPF_MODULE_DEFINITION,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+        systemId: 0,
+      },
     };
   }
 

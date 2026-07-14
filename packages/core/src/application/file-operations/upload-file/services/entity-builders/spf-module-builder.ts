@@ -31,11 +31,12 @@ import {
   type NaturalId,
   type SystemId,
 } from '../../../../../shared/types/branded-ids.js';
-import type {
-  BuildResult,
-  EntityBuildIssue,
-} from '../../types/issue-collection.js';
-import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import type {BuildResult} from '../../types/issue-collection.js';
+import type {Issue} from '../../../../../shared/issues/index.js';
+import {
+  IssueSeverity,
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 import type {ParsedAcdb} from '../../models/parsed-acdb.js';
 import {CalibrationDataBuilder} from './calibration-data-builder.js';
@@ -78,13 +79,7 @@ export class SpfModuleBuilder {
   ): Promise<BuildResult<SpfModule>> {
     // Input validation
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     this.logger?.logInfo({
@@ -132,7 +127,7 @@ export class SpfModuleBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} SPF modules with system IDs assigned, ${result.errorCount} failed`,
+      msg: `Successfully built ${result.entities.length} SPF modules with system IDs assigned, ${result.issues.length} failed`,
       action: 'spf_module_building_complete',
       component: 'SpfModuleBuilder',
       tag: 'spf-module-building',
@@ -435,9 +430,7 @@ export class SpfModuleBuilder {
     activeControlPortInfo: ActiveControlPortInfo,
   ): BuildResult<SpfModule> {
     const spfModules: SpfModule[] = [];
-    const issues: EntityBuildIssue[] = [];
-    let successCount = 0;
-    let errorCount = 0;
+    const issues: Issue[] = [];
 
     for (const moduleInfo of spfModuleInfos) {
       const result = this.processModuleInfo(
@@ -452,16 +445,11 @@ export class SpfModuleBuilder {
       );
       spfModules.push(...result.modules);
       issues.push(...result.issues);
-      successCount += result.successCount;
-      errorCount += result.errorCount;
     }
 
     return {
       entities: spfModules,
       issues,
-      successCount,
-      errorCount,
-      warningCount: 0,
     };
   }
 
@@ -479,14 +467,10 @@ export class SpfModuleBuilder {
     activeControlPortInfo: ActiveControlPortInfo,
   ): {
     modules: SpfModule[];
-    issues: EntityBuildIssue[];
-    successCount: number;
-    errorCount: number;
+    issues: Issue[];
   } {
     const modules: SpfModule[] = [];
-    const issues: EntityBuildIssue[] = [];
-    let successCount = 0;
-    let errorCount = 0;
+    const issues: Issue[] = [];
 
     for (const moduleInstance of moduleInfo.spfModules) {
       try {
@@ -522,9 +506,7 @@ export class SpfModuleBuilder {
           moduleDisplayNames,
         );
         modules.push(spfModule);
-        successCount++;
       } catch (error) {
-        errorCount++;
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         const issue = this.convertToEntityBuildIssue(
@@ -536,7 +518,7 @@ export class SpfModuleBuilder {
       }
     }
 
-    return {modules, issues, successCount, errorCount};
+    return {modules, issues};
   }
 
   private logConversionError(instanceId: number, error: unknown): void {
@@ -552,14 +534,15 @@ export class SpfModuleBuilder {
   private convertToEntityBuildIssue(
     errorMessage: string,
     instanceId?: number,
-  ): EntityBuildIssue {
+  ): Issue {
     return {
-      entityType: ENTITY_TYPES.SPF_MODULE,
-      severity: ISSUE_SEVERITY.ERROR,
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message: errorMessage,
-      entityData:
-        instanceId === undefined ? undefined : `instanceId: ${instanceId}`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.SpfModule,
+        systemId: instanceId ?? 0,
+      },
     };
   }
 

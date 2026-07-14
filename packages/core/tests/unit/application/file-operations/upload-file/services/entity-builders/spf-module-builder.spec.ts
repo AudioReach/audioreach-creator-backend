@@ -14,9 +14,9 @@ import type {Logger} from '../../../../../../../src/shared/types/logger.interfac
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
 import {
-  ENTITY_TYPES,
-  ISSUE_SEVERITY,
-} from '../../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
+  ISSUE_ENTITY_TYPE,
+  IssueSeverity,
+} from '../../../../../../../src/shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../../../src/shared/errors/error-codes.js';
 import {
   createMockLogger,
@@ -147,9 +147,6 @@ describe('SpfModuleBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(0);
-        expect(result.warningCount).toBe(0);
         expect(result.issues).toEqual([]);
 
         // Verify first module
@@ -188,9 +185,6 @@ describe('SpfModuleBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
-        expect(result.warningCount).toBe(0);
       });
 
       it('should process multiple module infos', async () => {
@@ -235,7 +229,6 @@ describe('SpfModuleBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -268,9 +261,6 @@ describe('SpfModuleBuilder', () => {
 
         expect(result).toHaveProperty('entities');
         expect(result).toHaveProperty('issues');
-        expect(result).toHaveProperty('successCount');
-        expect(result).toHaveProperty('errorCount');
-        expect(result).toHaveProperty('warningCount');
         expect(Array.isArray(result.entities)).toBe(true);
         expect(Array.isArray(result.issues)).toBe(true);
       });
@@ -410,8 +400,6 @@ describe('SpfModuleBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should return empty result when input is undefined', async () => {
@@ -429,8 +417,6 @@ describe('SpfModuleBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should handle module infos with empty spfModules array', async () => {
@@ -455,7 +441,6 @@ describe('SpfModuleBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(0);
-        expect(result.successCount).toBe(0);
       });
     });
 
@@ -494,10 +479,11 @@ describe('SpfModuleBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(0);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
-        expect(result.issues[0].severity).toBe(ISSUE_SEVERITY.ERROR);
-        expect(result.issues[0].entityType).toBe(ENTITY_TYPES.SPF_MODULE);
+        expect(result.issues[0].severity).toBe(IssueSeverity.Error);
+        expect(result.issues[0].impactedEntity?.entityType).toBe(
+          ISSUE_ENTITY_TYPE.SpfModule,
+        );
       });
 
       it('should log warning when conversion fails', async () => {
@@ -588,8 +574,6 @@ describe('SpfModuleBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
       });
 
@@ -625,7 +609,7 @@ describe('SpfModuleBuilder', () => {
           defaultParsedAcdb,
         );
 
-        expect(result.issues[0].entityData).toBe('instanceId: 42');
+        expect(result.issues[0].impactedEntity?.systemId).toBe(42);
       });
 
       it('should use correct error code in issues', async () => {
@@ -695,7 +679,7 @@ describe('SpfModuleBuilder', () => {
           defaultParsedAcdb,
         );
 
-        expect(result.errorCount).toBe(1);
+        expect(result.issues).toHaveLength(1);
         expect(result.issues[0].message).toContain(
           'Module property config not found',
         );
@@ -814,39 +798,7 @@ describe('SpfModuleBuilder', () => {
         expect(result).toMatchObject({
           entities: expect.any(Array),
           issues: expect.any(Array),
-          successCount: expect.any(Number),
-          errorCount: expect.any(Number),
-          warningCount: expect.any(Number),
         });
-      });
-
-      it('should have warningCount always 0', async () => {
-        const spfModuleInfos: SpfModuleInfo[] = [
-          {
-            subgraphId: 1,
-            containerId: 2,
-            spfModules: [
-              {
-                instanceId: 101,
-                moduleId: 1001,
-              },
-            ],
-          },
-        ];
-
-        const result = await builder.buildSpfModules(
-          spfModuleInfos,
-          TEST_FILE_SYSTEM_ID,
-          TEST_PORT_STRATEGY,
-          [],
-          defaultSpfModuleDefinitions,
-          defaultAwspTagDefinitions,
-          defaultContainerProcessorMap,
-          defaultActiveControlPortInfo,
-          defaultParsedAcdb,
-        );
-
-        expect(result.warningCount).toBe(0);
       });
 
       it('should have entities as SpfModule instances', async () => {

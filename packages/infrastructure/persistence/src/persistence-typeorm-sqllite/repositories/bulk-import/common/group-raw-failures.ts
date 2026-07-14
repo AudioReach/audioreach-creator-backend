@@ -22,6 +22,7 @@ export function groupRawFailures<T>(
   }
 
   const errors = [...byAggregate.entries()].map(([systemId, lines]) => ({
+    systemId,
     message: `Failed to insert ${describeAggregate(aggregateById.get(systemId)!)}`,
     details: lines.join('\n'),
   }));

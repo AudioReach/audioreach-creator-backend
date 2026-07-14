@@ -12,11 +12,12 @@ import {
   asNaturalId,
   asSystemId,
 } from '../../../../../shared/types/branded-ids.js';
-import type {
-  BuildResult,
-  EntityBuildIssue,
-} from '../../types/issue-collection.js';
-import {ENTITY_TYPES, ISSUE_SEVERITY} from '../../types/issue-collection.js';
+import type {BuildResult} from '../../types/issue-collection.js';
+import type {Issue} from '../../../../../shared/issues/index.js';
+import {
+  IssueSeverity,
+  ISSUE_ENTITY_TYPE,
+} from '../../../../../shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../shared/errors/error-codes.js';
 
 /**
@@ -40,13 +41,7 @@ export class SubgraphBuilder {
   ): Promise<BuildResult<Subgraph>> {
     // Input validation
     if (!subgraphProperties || subgraphProperties.length === 0) {
-      return {
-        entities: [],
-        issues: [],
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-      };
+      return {entities: [], issues: []};
     }
 
     // Step 1: Build entities (systemId = 0)
@@ -58,7 +53,7 @@ export class SubgraphBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.successCount} subgraphs with system IDs assigned, ${result.errorCount} failed`,
+      msg: `Successfully built ${result.entities.length} subgraphs with system IDs assigned, ${result.issues.length} failed`,
       action: 'subgraph_building_complete',
       component: 'SubgraphBuilder',
       tag: 'subgraph-building',
@@ -104,17 +99,13 @@ export class SubgraphBuilder {
   ): BuildResult<Subgraph> {
     // Direct conversion logic
     const subgraphs: Subgraph[] = [];
-    const issues: EntityBuildIssue[] = [];
-    let successCount = 0;
-    let errorCount = 0;
+    const issues: Issue[] = [];
 
     for (const subgraphProperty of subgraphProperties) {
       try {
         const subgraph = this.convertAcdbSubgraphPropertyData(subgraphProperty);
         subgraphs.push(subgraph);
-        successCount++;
       } catch (error) {
-        errorCount++;
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         const issue = this.convertToEntityBuildIssue(
@@ -136,9 +127,6 @@ export class SubgraphBuilder {
     return {
       entities: subgraphs,
       issues,
-      successCount,
-      errorCount,
-      warningCount: 0,
     };
   }
 
@@ -183,14 +171,15 @@ export class SubgraphBuilder {
   private convertToEntityBuildIssue(
     errorMessage: string,
     subgraphId?: number,
-  ): EntityBuildIssue {
+  ): Issue {
     return {
-      entityType: ENTITY_TYPES.SUBGRAPH,
-      severity: ISSUE_SEVERITY.ERROR,
       code: ERROR_CODES.INVALID_ENTITY_DATA,
       message: errorMessage,
-      entityData:
-        subgraphId === undefined ? undefined : `subgraphId: ${subgraphId}`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.Subgraph,
+        systemId: subgraphId ?? 0,
+      },
     };
   }
 }

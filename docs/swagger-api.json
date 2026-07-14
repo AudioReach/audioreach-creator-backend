@@ -6280,7 +6280,8 @@
           "FATAL",
           "ERROR",
           "WARNING"
-        ]
+        ],
+        "description": "Severity of the issue."
       },
       "IssueCategory": {
         "type": "string",
@@ -6289,7 +6290,7 @@
           "NON_BLOCKING",
           "DATA_LOSS"
         ],
-        "description": "Present for domain validation issues; absent for operational failures"
+        "description": "Optional broader classification (BLOCKING / NON_BLOCKING / DATA_LOSS). Populated by validation issues; typically absent on operational issues."
       },
       "IssueEntityType": {
         "type": "string",
@@ -6300,13 +6301,26 @@
           "Subgraph",
           "UseCase",
           "Container",
-          "SpfModuleDefinition"
-        ]
+          "SpfModuleDefinition",
+          "DriverModule",
+          "DriverModuleDefinition",
+          "VcpmModuleDefinition",
+          "KeyDefinition",
+          "TagDefinition",
+          "ProcessorDefinition",
+          "ContainerType",
+          "ModuleManagerData",
+          "SubgraphPropertyDefinition",
+          "ContainerPropertyDefinition",
+          "Unknown"
+        ],
+        "description": "The type of entity this issue applies to."
       },
       "ApiImpactedEntityDto": {
         "type": "object",
         "properties": {
           "entityType": {
+            "description": "The type of entity this issue applies to.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/IssueEntityType"
@@ -6315,11 +6329,11 @@
           },
           "systemId": {
             "type": "number",
-            "description": "Database system ID of the impacted entity"
+            "description": "System-level identifier of the impacted entity."
           },
           "displayName": {
             "type": "string",
-            "description": "Human-readable name for display (e.g. module alias)"
+            "description": "Human-readable name for display (e.g., module alias)."
           }
         },
         "required": [
@@ -6334,21 +6348,21 @@
           "STRING",
           "BOOLEAN"
         ],
-        "description": "Input type to render in the UI"
+        "description": "Input type the UI should render."
       },
       "ApiClientInputSpecDto": {
         "type": "object",
         "properties": {
           "field": {
             "type": "string",
-            "description": "Key in commandPayload the client must fill in before calling POST /apply-fix"
+            "description": "Key in commandPayload the client must fill in before dispatching the fix."
           },
           "label": {
             "type": "string",
-            "description": "Human-readable label shown to the user"
+            "description": "UI prompt label shown to the user."
           },
           "type": {
-            "description": "Input type to render in the UI",
+            "description": "Input type the UI should render.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/ClientInputType"
@@ -6367,22 +6381,23 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Unique identifier for this fix option (e.g. delete-duplicate-link)"
+            "description": "Stable identifier — e.g. \"delete-duplicate-link\"."
           },
           "description": {
             "type": "string",
-            "description": "Human-readable description of what this fix does"
+            "description": "Human-readable description of the fix."
           },
           "commandType": {
             "type": "string",
-            "description": "Command type string dispatched via POST /apply-fix"
+            "description": "Discriminator consumed by the fix-command dispatcher."
           },
           "commandPayload": {
             "type": "object",
-            "description": "Partial command payload; null fields must be filled by the client via requiredClientInputs"
+            "description": "Prefilled command payload — fields the client must fill in are set to null.",
+            "additionalProperties": true
           },
           "requiredClientInputs": {
-            "description": "Client inputs required before this fix can be dispatched",
+            "description": "Fields the client must fill in before dispatching.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ApiClientInputSpecDto"
@@ -6402,13 +6417,14 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "Machine-readable issue code. Validation rules follow ARC-{ENTITY}-{SEQ} format (e.g. ARC-MOD-001). Operational failures use descriptive constants (e.g. DB_QUERY_FAILED)."
+            "description": "Machine-readable issue code. Validation rules use ARC-{ENTITY}-{SEQ}; operational codes are descriptive constants (ENTITY_NOT_FOUND, DB_QUERY_FAILED, PARSE_ERROR)."
           },
           "message": {
             "type": "string",
-            "description": "Human-readable issue detail"
+            "description": "Human-readable message describing the issue."
           },
           "severity": {
+            "description": "Severity of the issue.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/IssueSeverity"
@@ -6416,7 +6432,7 @@
             ]
           },
           "category": {
-            "description": "Present for domain validation issues; absent for operational failures",
+            "description": "Optional broader classification (BLOCKING / NON_BLOCKING / DATA_LOSS). Populated by validation issues; typically absent on operational issues.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/IssueCategory"
@@ -6424,7 +6440,7 @@
             ]
           },
           "impactedEntity": {
-            "description": "Present for domain validation issues; absent for operational failures",
+            "description": "The entity this issue applies to, if any.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/ApiImpactedEntityDto"
@@ -6432,14 +6448,14 @@
             ]
           },
           "impactedUsecases": {
-            "description": "System IDs of use cases affected by this issue",
+            "description": "Use-case systemIds affected by this issue, if any.",
             "type": "array",
             "items": {
               "type": "number"
             }
           },
           "fixOptions": {
-            "description": "Actionable fix commands the client can dispatch via POST /apply-fix",
+            "description": "Client-actionable fix options, if any.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ApiFixOptionDto"
@@ -6463,18 +6479,8 @@
             "items": {
               "$ref": "#/components/schemas/ApiIssueItem"
             }
-          },
-          "success": {
-            "type": "boolean"
-          },
-          "message": {
-            "type": "string"
           }
-        },
-        "required": [
-          "success",
-          "message"
-        ]
+        }
       },
       "RegisterDto": {
         "type": "object",

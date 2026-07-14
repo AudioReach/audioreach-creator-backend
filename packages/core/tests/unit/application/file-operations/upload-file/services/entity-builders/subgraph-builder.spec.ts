@@ -11,9 +11,9 @@ import type {Logger} from '../../../../../../../src/shared/types/logger.interfac
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
 import {
-  ENTITY_TYPES,
-  ISSUE_SEVERITY,
-} from '../../../../../../../src/application/file-operations/upload-file/types/issue-collection.js';
+  ISSUE_ENTITY_TYPE,
+  IssueSeverity,
+} from '../../../../../../../src/shared/issues/index.js';
 import {ERROR_CODES} from '../../../../../../../src/shared/errors/error-codes.js';
 import {
   createMockLogger,
@@ -67,9 +67,6 @@ describe('SubgraphBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(0);
-        expect(result.warningCount).toBe(0);
         expect(result.issues).toEqual([]);
 
         // Verify first subgraph
@@ -102,9 +99,6 @@ describe('SubgraphBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
-        expect(result.warningCount).toBe(0);
       });
 
       it('should process multiple subgraph properties', async () => {
@@ -132,7 +126,6 @@ describe('SubgraphBuilder', () => {
         expect(result.entities[0].subgraphId).toBe(1);
         expect(result.entities[1].subgraphId).toBe(5);
         expect(result.entities[2].subgraphId).toBe(10);
-        expect(result.successCount).toBe(3);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -150,9 +143,6 @@ describe('SubgraphBuilder', () => {
 
         expect(result).toHaveProperty('entities');
         expect(result).toHaveProperty('issues');
-        expect(result).toHaveProperty('successCount');
-        expect(result).toHaveProperty('errorCount');
-        expect(result).toHaveProperty('warningCount');
         expect(Array.isArray(result.entities)).toBe(true);
         expect(Array.isArray(result.issues)).toBe(true);
       });
@@ -221,7 +211,6 @@ describe('SubgraphBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(3);
-        expect(result.successCount).toBe(3);
         expect(result.entities[0].subgraphId).toBe(1);
         expect(result.entities[1].subgraphId).toBe(5);
         expect(result.entities[2].subgraphId).toBe(10);
@@ -269,8 +258,6 @@ describe('SubgraphBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should return empty result when input is undefined', async () => {
@@ -281,8 +268,6 @@ describe('SubgraphBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should handle subgraph properties with empty properties map', async () => {
@@ -299,7 +284,6 @@ describe('SubgraphBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
       });
 
       it('should handle subgraph properties with populated properties map', async () => {
@@ -320,7 +304,6 @@ describe('SubgraphBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.successCount).toBe(1);
       });
 
       it('should handle large number of subgraph properties', async () => {
@@ -338,8 +321,7 @@ describe('SubgraphBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(100);
-        expect(result.successCount).toBe(100);
-        expect(result.errorCount).toBe(0);
+        expect(result.issues).toHaveLength(0);
       });
     });
 
@@ -367,10 +349,11 @@ describe('SubgraphBuilder', () => {
         convertSpy.mockRestore();
 
         expect(result.entities).toHaveLength(0);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
-        expect(result.issues[0].severity).toBe(ISSUE_SEVERITY.ERROR);
-        expect(result.issues[0].entityType).toBe(ENTITY_TYPES.SUBGRAPH);
+        expect(result.issues[0].severity).toBe(IssueSeverity.Error);
+        expect(result.issues[0].impactedEntity?.entityType).toBe(
+          ISSUE_ENTITY_TYPE.Subgraph,
+        );
       });
 
       it('should log warning when conversion fails', async () => {
@@ -439,8 +422,6 @@ describe('SubgraphBuilder', () => {
         convertSpy.mockRestore();
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(1);
         expect(result.issues).toHaveLength(1);
       });
 
@@ -465,7 +446,7 @@ describe('SubgraphBuilder', () => {
 
         convertSpy.mockRestore();
 
-        expect(result.issues[0].entityData).toBe('subgraphId: 42');
+        expect(result.issues[0].impactedEntity?.systemId).toBe(42);
       });
 
       it('should use correct error code in issues', async () => {
@@ -513,7 +494,7 @@ describe('SubgraphBuilder', () => {
 
         convertSpy.mockRestore();
 
-        expect(result.errorCount).toBe(1);
+        expect(result.issues).toHaveLength(1);
         expect(result.issues[0].message).toBe('Unknown error');
       });
     });
@@ -580,26 +561,7 @@ describe('SubgraphBuilder', () => {
         expect(result).toMatchObject({
           entities: expect.any(Array),
           issues: expect.any(Array),
-          successCount: expect.any(Number),
-          errorCount: expect.any(Number),
-          warningCount: expect.any(Number),
         });
-      });
-
-      it('should have warningCount always 0', async () => {
-        const properties: AcdbSubgraphProperties[] = [
-          {
-            subgraphId: 1,
-            properties: new Map(),
-          },
-        ];
-
-        const result = await builder.buildSubgraphs(
-          properties,
-          TEST_FILE_SYSTEM_ID,
-        );
-
-        expect(result.warningCount).toBe(0);
       });
 
       it('should have entities as Subgraph instances', async () => {

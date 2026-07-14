@@ -75,8 +75,6 @@ describe('KeyDefinitionBuilder', () => {
         expect(result.entities[0].name).toBe('Test Key');
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.successCount).toBe(1);
-        expect(result.errorCount).toBe(0);
         expect(mockIdGenerator.getNextId).toHaveBeenCalled();
         expect(mockForeignKeyMapper.addKeyDefinitionMapping).toHaveBeenCalled();
       });
@@ -167,8 +165,6 @@ describe('KeyDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.successCount).toBe(2);
-        expect(result.errorCount).toBe(0);
         expect(mockWorkerPool.executeParallel).toHaveBeenCalledTimes(1);
       });
 
@@ -180,8 +176,6 @@ describe('KeyDefinitionBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should process multiple key definitions', async () => {
@@ -229,7 +223,6 @@ describe('KeyDefinitionBuilder', () => {
         expect(result.entities).toHaveLength(2);
         expect(result.entities[0].keyId).toBe(100);
         expect(result.entities[1].keyId).toBe(200);
-        expect(result.successCount).toBe(2);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -261,9 +254,6 @@ describe('KeyDefinitionBuilder', () => {
 
         expect(result).toHaveProperty('entities');
         expect(result).toHaveProperty('issues');
-        expect(result).toHaveProperty('successCount');
-        expect(result).toHaveProperty('errorCount');
-        expect(result).toHaveProperty('warningCount');
         expect(Array.isArray(result.entities)).toBe(true);
         expect(Array.isArray(result.issues)).toBe(true);
       });
@@ -275,8 +265,6 @@ describe('KeyDefinitionBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should return empty result when input is undefined', async () => {
@@ -284,8 +272,6 @@ describe('KeyDefinitionBuilder', () => {
 
         expect(result.entities).toEqual([]);
         expect(result.issues).toEqual([]);
-        expect(result.successCount).toBe(0);
-        expect(result.errorCount).toBe(0);
       });
 
       it('should handle keys with no values', async () => {
@@ -316,7 +302,6 @@ describe('KeyDefinitionBuilder', () => {
         );
 
         expect(result.entities[0].values).toHaveLength(0);
-        expect(result.successCount).toBe(1);
       });
 
       it('should handle keys with multiple values', async () => {
@@ -435,7 +420,6 @@ describe('KeyDefinitionBuilder', () => {
 
         expect(result.entities).toHaveLength(0);
         expect(result.issues.length).toBeGreaterThan(0);
-        expect(result.errorCount).toBeGreaterThan(0);
       });
 
       it('should handle worker pool failures in parallel mode', async () => {

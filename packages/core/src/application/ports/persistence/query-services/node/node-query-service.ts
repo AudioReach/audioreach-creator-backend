@@ -5,7 +5,7 @@
 
 import type {DataPortReadModel} from '../usecase/query-models/data-port-read-model.js';
 import type {ControlPortReadModel} from '../usecase/query-models/control-port-read-model.js';
-import type {Result} from '../../../../shared/Result/operation-result.js';
+import type {Result} from '../../../../shared/result/result.js';
 
 /**
  * Common query service for node — used by any node type (SpfModule, Subsystem, etc.).

@@ -12,8 +12,8 @@ import type {SpfModuleDefinition} from '../../domain/entities/definitions/spf-mo
 import type {FileValidationContext} from '../../domain/validation/validation-context.js';
 import type {ValidationPreferences} from '../../domain/validation/validation-preferences.js';
 import {EMPTY_PREFERENCES} from '../../domain/validation/validation-preferences.js';
-import {VALIDATION_ENTITY_TYPE} from '../../domain/validation/issue.js';
-import type {ValidationEntityType} from '../../domain/validation/issue.js';
+import {ISSUE_ENTITY_TYPE} from '../../shared/issues/index.js';
+import type {IssueEntityType} from '../../shared/issues/index.js';
 import type {ValidationQueryRepository} from '../ports/persistence/repositories/validation/validation-query.repository.js';
 
 /**
@@ -76,7 +76,7 @@ export class ValidationContextBuilder {
    */
   async fromDb(
     fileSystemId: number,
-    requiredEntityTypes: ReadonlySet<ValidationEntityType>,
+    requiredEntityTypes: ReadonlySet<IssueEntityType>,
   ): Promise<FileValidationContext> {
     const [
       modules,
@@ -87,22 +87,22 @@ export class ValidationContextBuilder {
       definitions,
       preferences,
     ] = await Promise.all([
-      requiredEntityTypes.has(VALIDATION_ENTITY_TYPE.SpfModule)
+      requiredEntityTypes.has(ISSUE_ENTITY_TYPE.SpfModule)
         ? this.queryRepo.findModulesByFile(fileSystemId)
         : Promise.resolve([] as SpfModule[]),
-      requiredEntityTypes.has(VALIDATION_ENTITY_TYPE.UseCase)
+      requiredEntityTypes.has(ISSUE_ENTITY_TYPE.UseCase)
         ? this.queryRepo.findUsecasesByFile(fileSystemId)
         : Promise.resolve([] as UseCase[]),
-      requiredEntityTypes.has(VALIDATION_ENTITY_TYPE.Subgraph)
+      requiredEntityTypes.has(ISSUE_ENTITY_TYPE.Subgraph)
         ? this.queryRepo.findSubgraphsByFile(fileSystemId)
         : Promise.resolve([] as Subgraph[]),
-      requiredEntityTypes.has(VALIDATION_ENTITY_TYPE.DataLink)
+      requiredEntityTypes.has(ISSUE_ENTITY_TYPE.DataLink)
         ? this.queryRepo.findDataLinksByFile(fileSystemId)
         : Promise.resolve([] as DataLink[]),
-      requiredEntityTypes.has(VALIDATION_ENTITY_TYPE.ControlLink)
+      requiredEntityTypes.has(ISSUE_ENTITY_TYPE.ControlLink)
         ? this.queryRepo.findControlLinksByFile(fileSystemId)
         : Promise.resolve([] as ControlLink[]),
-      requiredEntityTypes.has(VALIDATION_ENTITY_TYPE.SpfModuleDefinition)
+      requiredEntityTypes.has(ISSUE_ENTITY_TYPE.SpfModuleDefinition)
         ? this.queryRepo.findDefinitionsByFile(fileSystemId)
         : Promise.resolve([] as SpfModuleDefinition[]),
       this.queryRepo

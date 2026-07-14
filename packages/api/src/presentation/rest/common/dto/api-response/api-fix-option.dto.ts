@@ -6,50 +6,66 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {CLIENT_INPUT_TYPE, type ClientInputType} from '@arc/core';
 
+/**
+ * Client-input specification for a fix option. Mirrors core `ClientInputSpec`
+ * from `packages/core/src/shared/issues/fix-option.ts`.
+ */
 export class ApiClientInputSpecDto {
   @ApiProperty({
     description:
-      'Key in commandPayload the client must fill in before calling POST /apply-fix',
+      'Key in commandPayload the client must fill in before dispatching the fix.',
+    type: 'string',
   })
   field!: string;
 
-  @ApiProperty({description: 'Human-readable label shown to the user'})
+  @ApiProperty({
+    description: 'UI prompt label shown to the user.',
+    type: 'string',
+  })
   label!: string;
 
   @ApiProperty({
+    description: 'Input type the UI should render.',
     enum: CLIENT_INPUT_TYPE,
     enumName: 'ClientInputType',
-    description: 'Input type to render in the UI',
   })
   type!: ClientInputType;
 }
 
+/**
+ * Client-actionable fix option carried by ApiIssueItem.fixOptions[]. Mirrors
+ * core `FixOption` from `packages/core/src/shared/issues/fix-option.ts`.
+ */
 export class ApiFixOptionDto {
   @ApiProperty({
-    description:
-      'Unique identifier for this fix option (e.g. delete-duplicate-link)',
+    description: 'Stable identifier — e.g. "delete-duplicate-link".',
+    type: 'string',
   })
   id!: string;
 
   @ApiProperty({
-    description: 'Human-readable description of what this fix does',
+    description: 'Human-readable description of the fix.',
+    type: 'string',
   })
   description!: string;
 
   @ApiProperty({
-    description: 'Command type string dispatched via POST /apply-fix',
+    description: 'Discriminator consumed by the fix-command dispatcher.',
+    type: 'string',
   })
   commandType!: string;
 
   @ApiProperty({
     description:
-      'Partial command payload; null fields must be filled by the client via requiredClientInputs',
+      'Prefilled command payload — fields the client must fill in are set to null.',
+    type: 'object',
+    additionalProperties: true,
   })
   commandPayload!: Record<string, unknown>;
 
   @ApiProperty({
+    description: 'Fields the client must fill in before dispatching.',
     type: [ApiClientInputSpecDto],
-    description: 'Client inputs required before this fix can be dispatched',
   })
   requiredClientInputs!: ApiClientInputSpecDto[];
 }
