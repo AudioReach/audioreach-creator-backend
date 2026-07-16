@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1783827135926 implements MigrationInterface {
-  name = 'InitialCreate1783827135926';
+export class InitialCreate1784126836269 implements MigrationInterface {
+  name = 'InitialCreate1784126836269';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -361,10 +361,10 @@ export class InitialCreate1783827135926 implements MigrationInterface {
       `CREATE TABLE "sgkv_values" ("sgkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("sgkv_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL)`,
+      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer)`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar(64))`,
     );
     await queryRunner.query(
       `CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `,
@@ -440,6 +440,15 @@ export class InitialCreate1783827135926 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE TABLE "validation_preferences" ("file_system_id" integer PRIMARY KEY NOT NULL, "preferences" text NOT NULL DEFAULT ('{"overrides":{},"suppressions":{}}'), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_31cca7f2381e850651519aeafc" ON "subsystem_filtered_keys_key_definition" ("subsystems_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_d02480461bd53ac751c7de97c9" ON "subsystem_filtered_keys_key_definition" ("key_definition_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "use_case_categories" ("use_case_system_id" integer NOT NULL, "category_system_id" integer NOT NULL, PRIMARY KEY ("use_case_system_id", "category_system_id"))`,
@@ -1213,10 +1222,10 @@ export class InitialCreate1783827135926 implements MigrationInterface {
       `ALTER TABLE "temporary_sgkv_values" RENAME TO "sgkv_values"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, CONSTRAINT "FK_84d896fd64dc0971dd15a904809" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer, CONSTRAINT "FK_84d896fd64dc0971dd15a904809" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_subsystems"("system_id", "created_at", "updated_at", "version", "name") SELECT "system_id", "created_at", "updated_at", "version", "name" FROM "subsystems"`,
+      `INSERT INTO "temporary_subsystems"("system_id", "created_at", "updated_at", "version", "name", "subsystem_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subsystem_id" FROM "subsystems"`,
     );
     await queryRunner.query(`DROP TABLE "subsystems"`);
     await queryRunner.query(
@@ -1225,10 +1234,10 @@ export class InitialCreate1783827135926 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar(64), CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id" FROM "use_cases"`,
+      `INSERT INTO "temporary_use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type" FROM "use_cases"`,
     );
     await queryRunner.query(`DROP TABLE "use_cases"`);
     await queryRunner.query(
@@ -1358,6 +1367,26 @@ export class InitialCreate1783827135926 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_session_commits_session" ON "session_commits" ("session_id") `,
     );
+    await queryRunner.query(`DROP INDEX "IDX_31cca7f2381e850651519aeafc"`);
+    await queryRunner.query(`DROP INDEX "IDX_d02480461bd53ac751c7de97c9"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, CONSTRAINT "FK_31cca7f2381e850651519aeafc3" FOREIGN KEY ("subsystems_system_id") REFERENCES "subsystems" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "FK_d02480461bd53ac751c7de97c9c" FOREIGN KEY ("key_definition_system_id") REFERENCES "arc_keys" ("system_id") ON DELETE CASCADE ON UPDATE CASCADE, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_subsystem_filtered_keys_key_definition"("subsystems_system_id", "key_definition_system_id") SELECT "subsystems_system_id", "key_definition_system_id" FROM "subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE "subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "temporary_subsystem_filtered_keys_key_definition" RENAME TO "subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_31cca7f2381e850651519aeafc" ON "subsystem_filtered_keys_key_definition" ("subsystems_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_d02480461bd53ac751c7de97c9" ON "subsystem_filtered_keys_key_definition" ("key_definition_system_id") `,
+    );
     await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
     await queryRunner.query(
@@ -1396,6 +1425,26 @@ export class InitialCreate1783827135926 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_d5b97ccc404cecb9166a453280" ON "use_case_categories" ("use_case_system_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "IDX_d02480461bd53ac751c7de97c9"`);
+    await queryRunner.query(`DROP INDEX "IDX_31cca7f2381e850651519aeafc"`);
+    await queryRunner.query(
+      `ALTER TABLE "subsystem_filtered_keys_key_definition" RENAME TO "temporary_subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "subsystem_filtered_keys_key_definition"("subsystems_system_id", "key_definition_system_id") SELECT "subsystems_system_id", "key_definition_system_id" FROM "temporary_subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE "temporary_subsystem_filtered_keys_key_definition"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_d02480461bd53ac751c7de97c9" ON "subsystem_filtered_keys_key_definition" ("key_definition_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_31cca7f2381e850651519aeafc" ON "subsystem_filtered_keys_key_definition" ("subsystems_system_id") `,
     );
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(
@@ -1521,10 +1570,10 @@ export class InitialCreate1783827135926 implements MigrationInterface {
       `ALTER TABLE "use_cases" RENAME TO "temporary_use_cases"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar(64))`,
     );
     await queryRunner.query(
-      `INSERT INTO "use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id" FROM "temporary_use_cases"`,
+      `INSERT INTO "use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type" FROM "temporary_use_cases"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_use_cases"`);
     await queryRunner.query(
@@ -1537,10 +1586,10 @@ export class InitialCreate1783827135926 implements MigrationInterface {
       `ALTER TABLE "subsystems" RENAME TO "temporary_subsystems"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL)`,
+      `CREATE TABLE "subsystems" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(255) NOT NULL, "subsystem_id" integer)`,
     );
     await queryRunner.query(
-      `INSERT INTO "subsystems"("system_id", "created_at", "updated_at", "version", "name") SELECT "system_id", "created_at", "updated_at", "version", "name" FROM "temporary_subsystems"`,
+      `INSERT INTO "subsystems"("system_id", "created_at", "updated_at", "version", "name", "subsystem_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subsystem_id" FROM "temporary_subsystems"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_subsystems"`);
     await queryRunner.query(
@@ -2322,6 +2371,11 @@ export class InitialCreate1783827135926 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
     await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(`DROP TABLE "use_case_categories"`);
+    await queryRunner.query(`DROP INDEX "IDX_d02480461bd53ac751c7de97c9"`);
+    await queryRunner.query(`DROP INDEX "IDX_31cca7f2381e850651519aeafc"`);
+    await queryRunner.query(
+      `DROP TABLE "subsystem_filtered_keys_key_definition"`,
+    );
     await queryRunner.query(`DROP TABLE "validation_preferences"`);
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(`DROP TABLE "session_commits"`);

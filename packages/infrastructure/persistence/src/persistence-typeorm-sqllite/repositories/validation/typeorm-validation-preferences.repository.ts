@@ -9,18 +9,19 @@ import type {
   ValidationPreferences,
 } from '@arc/core';
 import {EMPTY_PREFERENCES} from '@arc/core';
+import {ValidationPreferencesSchema} from '../../entity-schema/validation/validation-preferences.schema.js';
 
 export class TypeOrmValidationPreferencesRepository implements ValidationPreferencesRepository {
   constructor(private readonly dataSource: DataSource) {}
 
   async getPreferences(fileSystemId: number): Promise<ValidationPreferences> {
-    const result: {preferences: string}[] = await this.dataSource.query(
-      `SELECT preferences FROM validation_preferences WHERE file_system_id = ?`,
-      [fileSystemId],
+    const row = await this.dataSource.manager.findOne(
+      ValidationPreferencesSchema,
+      {where: {fileSystemId}},
     );
-    if (!result || result.length === 0) return EMPTY_PREFERENCES;
+    if (!row) return EMPTY_PREFERENCES;
     try {
-      return JSON.parse(result[0].preferences) as ValidationPreferences;
+      return JSON.parse(row.preferences) as ValidationPreferences;
     } catch {
       return EMPTY_PREFERENCES;
     }
@@ -30,14 +31,10 @@ export class TypeOrmValidationPreferencesRepository implements ValidationPrefere
     fileSystemId: number,
     prefs: ValidationPreferences,
   ): Promise<void> {
-    const json = JSON.stringify(prefs);
-    await this.dataSource.query(
-      `INSERT INTO validation_preferences (file_system_id, preferences, updated_at)
-       VALUES (?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(file_system_id) DO UPDATE
-         SET preferences = excluded.preferences,
-             updated_at  = CURRENT_TIMESTAMP`,
-      [fileSystemId, json],
+    await this.dataSource.manager.upsert(
+      ValidationPreferencesSchema,
+      {fileSystemId, preferences: JSON.stringify(prefs), updatedAt: new Date()},
+      ['fileSystemId'],
     );
   }
 }

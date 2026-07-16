@@ -164,11 +164,28 @@ export class UploadFileHandler implements CommandHandler<
       );
     }
 
+    const dataLossResultIssues: Issue[] = uploadResult.dataLossIssues.map(
+      issue => ({
+        code: issue.code,
+        message: issue.message,
+        severity: issue.severity,
+        category: issue.category,
+        impactedEntity: issue.impactedEntity,
+        impactedUsecases: issue.impactedUsecases,
+        fixOptions: issue.fixOptions,
+      }),
+    );
+
+    const allIssues: Issue[] = [
+      ...(uploadResult.issues ?? []),
+      ...dataLossResultIssues,
+    ];
+
     return {
       projectId: project.systemId.toString(),
       projectName: project.name,
       projectDescription: project.description,
-      ...(uploadResult.issues.length > 0 && {issues: uploadResult.issues}),
+      ...(allIssues.length > 0 && {issues: allIssues}),
       openStatus: finalStatus,
       validationReport: null,
     };

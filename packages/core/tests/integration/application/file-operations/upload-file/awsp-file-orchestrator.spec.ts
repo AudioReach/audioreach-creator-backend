@@ -9,6 +9,7 @@ import {ConfigurationData} from '../../../../../src/application/file-operations/
 import {BinaryUtils} from '../../../../../src/shared/utilities/binary-utils.js';
 import type {FileSystemPort} from '../../../../../src/application/ports/file-system/file-system.port.js';
 import type {PathRef} from '../../../../../src/application/file-operations/shared/utils/file-ref.js';
+import type {Logger} from '../../../../../src/shared/types/logger.interface.js';
 
 /** Build a minimal valid AWSP binary envelope for testing. */
 function buildTestAwspEnvelope(zipData: Uint8Array): Uint8Array {
@@ -115,6 +116,11 @@ describe('AwspFileOrchestrator', () => {
         if (ref.uri.includes('definitions.json')) {
           return new TextEncoder().encode(JSON.stringify(definitionsJson));
         }
+        if (ref.uri.includes('ui-metadata.json')) {
+          return new TextEncoder().encode(
+            JSON.stringify({version: {major: 1, minor: 0}}),
+          );
+        }
         return new Uint8Array();
       });
 
@@ -138,6 +144,170 @@ describe('AwspFileOrchestrator', () => {
 
       // Verify unzipBuffer was called (not the old unzip)
       expect(mockFs.unzipBuffer).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call parsedAwsp.setUiMetadata when ui-metadata.json exists', async () => {
+      const configJson = {
+        portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
+        defaultProcessorDomain: {id: '0x2'},
+        rtc: {processors: []},
+        alsaLib: {includeTlvHeader: false, fileType: 'BIN', groups: []},
+      };
+      const definitionsJson = {keyDefinitions: [], tagDefinitions: []};
+      const uiMetadataJson = {version: {major: 1, minor: 0}};
+
+      const emptyZip = new Uint8Array([
+        0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      ]);
+      const awspEnvelope = buildTestAwspEnvelope(emptyZip);
+
+      const mockFs: FileSystemPort = {
+        exists: jest.fn().mockResolvedValue(true),
+        readAll: jest.fn(),
+        unzip: jest.fn().mockResolvedValue(undefined),
+        unzipBuffer: jest.fn().mockResolvedValue(undefined),
+        joinPath: jest.fn((dir, file) => `${dir}/${file}`),
+        dirname: jest.fn(path => path.split('/').slice(0, -1).join('/')),
+        basename: jest.fn(path => path.split('/').pop() || ''),
+        deleteDirectory: jest.fn(),
+        zipToBuffer: jest.fn(),
+        parseBlock: jest.fn(),
+      };
+
+      (mockFs.readAll as jest.Mock).mockImplementation(async (ref: PathRef) => {
+        if (ref.uri.endsWith('.awsp')) return awspEnvelope;
+        if (ref.uri.includes('configuration.json'))
+          return new TextEncoder().encode(JSON.stringify(configJson));
+        if (ref.uri.includes('definitions.json'))
+          return new TextEncoder().encode(JSON.stringify(definitionsJson));
+        if (ref.uri.includes('ui-metadata.json'))
+          return new TextEncoder().encode(JSON.stringify(uiMetadataJson));
+        return new Uint8Array();
+      });
+
+      const mockLogger: Logger = {
+        logInfo: jest.fn(),
+        logError: jest.fn(),
+        logWarn: jest.fn(),
+        logDebug: jest.fn(),
+        logVerbose: jest.fn(),
+        logCritical: jest.fn(),
+      };
+
+      const orchestrator = new AwspFileOrchestrator(
+        mockFs,
+        undefined,
+        mockLogger,
+      );
+      const result = await orchestrator.parseAWSP({
+        kind: 'path',
+        name: 'test.awsp',
+        uri: '/test/test.awsp',
+        mimeType: 'application/octet-stream',
+      });
+
+      expect(result.getUiMetadata().version.major).toBe(1);
+    });
+
+    it('should throw when ui-metadata.json is absent', async () => {
+      const configJson = {
+        portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
+        defaultProcessorDomain: {id: '0x2'},
+        rtc: {processors: []},
+        alsaLib: {includeTlvHeader: false, fileType: 'BIN', groups: []},
+      };
+      const definitionsJson = {keyDefinitions: [], tagDefinitions: []};
+      const emptyZip = new Uint8Array([
+        0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      ]);
+      const awspEnvelope = buildTestAwspEnvelope(emptyZip);
+
+      const mockFs: FileSystemPort = {
+        exists: jest
+          .fn()
+          .mockImplementation(
+            async (path: string) => !path.includes('ui-metadata.json'),
+          ),
+        readAll: jest.fn(),
+        unzip: jest.fn().mockResolvedValue(undefined),
+        unzipBuffer: jest.fn().mockResolvedValue(undefined),
+        joinPath: jest.fn((dir, file) => `${dir}/${file}`),
+        dirname: jest.fn(path => path.split('/').slice(0, -1).join('/')),
+        basename: jest.fn(path => path.split('/').pop() || ''),
+        deleteDirectory: jest.fn(),
+        zipToBuffer: jest.fn(),
+        parseBlock: jest.fn(),
+      };
+
+      (mockFs.readAll as jest.Mock).mockImplementation(async (ref: PathRef) => {
+        if (ref.uri.endsWith('.awsp')) return awspEnvelope;
+        if (ref.uri.includes('configuration.json'))
+          return new TextEncoder().encode(JSON.stringify(configJson));
+        if (ref.uri.includes('definitions.json'))
+          return new TextEncoder().encode(JSON.stringify(definitionsJson));
+        return new Uint8Array();
+      });
+
+      const orchestrator = new AwspFileOrchestrator(mockFs);
+      await expect(
+        orchestrator.parseAWSP({
+          kind: 'path',
+          name: 'test.awsp',
+          uri: '/test/test.awsp',
+          mimeType: 'application/octet-stream',
+        }),
+      ).rejects.toThrow('ui-metadata.json');
+    });
+
+    it('should throw when ui-metadata.json contains invalid JSON', async () => {
+      const configJson = {
+        portStrategy: {strategy: 'INPUT_EVEN_OUTPUT_ODD'},
+        defaultProcessorDomain: {id: '0x2'},
+        rtc: {processors: []},
+        alsaLib: {includeTlvHeader: false, fileType: 'BIN', groups: []},
+      };
+      const definitionsJson = {keyDefinitions: [], tagDefinitions: []};
+      const emptyZip = new Uint8Array([
+        0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      ]);
+      const awspEnvelope = buildTestAwspEnvelope(emptyZip);
+
+      const mockFs: FileSystemPort = {
+        exists: jest.fn().mockResolvedValue(true),
+        readAll: jest.fn(),
+        unzip: jest.fn().mockResolvedValue(undefined),
+        unzipBuffer: jest.fn().mockResolvedValue(undefined),
+        joinPath: jest.fn((dir, file) => `${dir}/${file}`),
+        dirname: jest.fn(path => path.split('/').slice(0, -1).join('/')),
+        basename: jest.fn(path => path.split('/').pop() || ''),
+        deleteDirectory: jest.fn(),
+        zipToBuffer: jest.fn(),
+        parseBlock: jest.fn(),
+      };
+
+      (mockFs.readAll as jest.Mock).mockImplementation(async (ref: PathRef) => {
+        if (ref.uri.endsWith('.awsp')) return awspEnvelope;
+        if (ref.uri.includes('configuration.json'))
+          return new TextEncoder().encode(JSON.stringify(configJson));
+        if (ref.uri.includes('definitions.json'))
+          return new TextEncoder().encode(JSON.stringify(definitionsJson));
+        if (ref.uri.includes('ui-metadata.json'))
+          return new TextEncoder().encode('INVALID JSON{{{');
+        return new Uint8Array();
+      });
+
+      const orchestrator = new AwspFileOrchestrator(mockFs);
+      await expect(
+        orchestrator.parseAWSP({
+          kind: 'path',
+          name: 'test.awsp',
+          uri: '/test/test.awsp',
+          mimeType: 'application/octet-stream',
+        }),
+      ).rejects.toThrow();
     });
   });
 });

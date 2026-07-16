@@ -21,6 +21,7 @@ export const ISSUE_ENTITY_TYPE = {
   Subgraph: 'Subgraph',
   UseCase: 'UseCase',
   Container: 'Container',
+  Subsystem: 'Subsystem',
   SpfModuleDefinition: 'SpfModuleDefinition',
   DriverModule: 'DriverModule',
   DriverModuleDefinition: 'DriverModuleDefinition',

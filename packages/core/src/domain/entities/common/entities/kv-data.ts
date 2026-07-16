@@ -28,7 +28,7 @@ export class KvData {
   readonly parameterPayloads: ModuleParameterData[] = [];
   systemId: number; // Mutable to allow assignment during system ID resolution phase
   readonly valueDefinitionSystemIds: readonly number[];
-  readonly uiPersistence: Uint8Array | null;
+  uiPersistence: Uint8Array | null;
 
   constructor(init: KvDataInit) {
     this.systemId = init.systemId;

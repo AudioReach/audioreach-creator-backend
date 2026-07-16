@@ -15,6 +15,7 @@ import type {
   AwspVcpmModuleDefinition,
 } from '../../shared/awsp-serializers/v1/definitions/index.js';
 import type {ConfigurationData} from '../../shared/awsp-serializers/v1/configuration/index.js';
+import type {UiMetadata} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {DEFINITION_BLOCK_NAMES} from '../../shared/constants/definition-block-names.js';
 
 /**
@@ -44,6 +45,15 @@ export type DefinitionBlockName =
 export class ParsedAwsp {
   private definitions = new Map<DefinitionBlockName, DefinitionCollection>();
   private configuration!: ConfigurationData;
+  private uiMetadata!: UiMetadata;
+
+  setUiMetadata(metadata: UiMetadata): void {
+    this.uiMetadata = metadata;
+  }
+
+  getUiMetadata(): UiMetadata {
+    return this.uiMetadata;
+  }
 
   /**
    * Add a collection of parsed definitions to the container

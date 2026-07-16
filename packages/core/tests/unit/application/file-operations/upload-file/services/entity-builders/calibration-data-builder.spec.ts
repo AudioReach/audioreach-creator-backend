@@ -25,6 +25,7 @@ import {
 import {Subgraph} from '../../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {VcpmInstance} from '../../../../../../../src/domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
 import {SPF_VCPM_MODULE_ID} from '../../../../../../../src/application/file-operations/shared/constants/spf-ids.js';
+import {KvData} from '../../../../../../../src/domain/entities/common/entities/kv-data.js';
 
 describe('CalibrationDataBuilder', () => {
   let builder: CalibrationDataBuilder;
@@ -1269,5 +1270,73 @@ describe('CalibrationDataBuilder', () => {
       );
       expect(vcpmLookupAttempted).toBe(false);
     });
+  });
+});
+
+describe('CalibrationDataBuilder.applyUiMetadataToCkvs', () => {
+  let builder: CalibrationDataBuilder;
+  let mockFkMapper: ReturnType<typeof createMockForeignKeyMapper>;
+  let mockIdGenerator: ReturnType<typeof createMockIdGenerator>;
+
+  beforeEach(() => {
+    mockFkMapper = createMockForeignKeyMapper();
+    mockIdGenerator = createMockIdGenerator();
+    builder = new CalibrationDataBuilder(mockIdGenerator);
+  });
+
+  it('should decode base64 payload and set uiPersistence on matching zero-CKV', () => {
+    const ckv = new KvData({
+      systemId: 1,
+      valueDefinitionSystemIds: [],
+      uiPersistence: null,
+    });
+    const payloadData = Buffer.from('hello').toString('base64');
+    const uiMeta = {
+      version: {major: 1, minor: 0},
+      payloadMap: [{id: 'abc', data: payloadData}],
+      modules: [
+        {
+          definitionId: 0x1234,
+          instanceId: 42,
+          calViewUiPersistences: [{payloadId: 'abc'}],
+        },
+      ],
+      usecases: [],
+      subsystems: [],
+      subgraphs: [],
+      dataLinks: [],
+    };
+    builder.applyUiMetadataToCkvs([ckv], 42, uiMeta as any, mockFkMapper);
+    expect(ckv.uiPersistence).not.toBeNull();
+    expect(Buffer.from(ckv.uiPersistence!).toString()).toBe('hello');
+  });
+
+  it('should logError and leave uiPersistence null when no matching CKV', () => {
+    const mockLogger = createMockLogger();
+    builder = new CalibrationDataBuilder(mockIdGenerator, mockLogger);
+    const ckv = new KvData({
+      systemId: 1,
+      valueDefinitionSystemIds: [999],
+      uiPersistence: null,
+    });
+    const payloadData = Buffer.from('test').toString('base64');
+    const uiMeta = {
+      version: {major: 1, minor: 0},
+      payloadMap: [{id: 'abc', data: payloadData}],
+      modules: [
+        {
+          definitionId: 0x1234,
+          instanceId: 42,
+          calViewUiPersistences: [{payloadId: 'abc'}], // zero-CKV match but ckv has valueSystemIds=[999]
+        },
+      ],
+      usecases: [],
+      subsystems: [],
+      subgraphs: [],
+      dataLinks: [],
+    };
+    builder.applyUiMetadataToCkvs([ckv], 42, uiMeta as any, mockFkMapper);
+    expect(ckv.uiPersistence).toBeNull();
+    expect(mockLogger.logError).toHaveBeenCalled();
   });
 });

@@ -35,6 +35,9 @@ import {VcpmModuleDefinitionBuilder} from './entity-builders/vcpm-module-definit
 import {CalibrationDataBuilder} from './entity-builders/calibration-data-builder.js';
 import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
 import {SubgraphBuilder} from './entity-builders/subgraph-builder.js';
+import {SubsystemBuilder} from './entity-builders/subsystem-builder.js';
+import type {UiMetadata} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
+import type {Subsystem} from '../../../../domain/entities/usecase-data/subsystem/subsystem.js';
 import {
   ContainerBuilder,
   type ContainerBuildResult,
@@ -45,6 +48,7 @@ import {DataLinkBuilder} from './entity-builders/data-link-builder.js';
 import {ControlLinkBuilder} from './entity-builders/control-link-builder.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import {asNaturalId, asSystemId} from '../../../../shared/types/branded-ids.js';
+import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
 import type {UsecaseDataChunk} from '../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {SubgraphDataChunk} from '../../shared/acdb-chunks/subgraph-data-chunk.js';
 import type {SubgraphPairDataChunk} from '../../shared/acdb-chunks/subgraph-pair-data-chunk.js';
@@ -122,6 +126,7 @@ export class EntityBuilderService {
   private driverModuleDefinitionBuilder: DriverModuleDefinitionBuilder;
   private vcpmModuleDefinitionBuilder: VcpmModuleDefinitionBuilder;
   private subgraphBuilder: SubgraphBuilder;
+  private subsystemBuilder: SubsystemBuilder;
   private containerBuilder: ContainerBuilder;
   private spfModuleBuilder: SpfModuleBuilder;
   private driverModuleBuilder: DriverModuleBuilder;
@@ -168,6 +173,11 @@ export class EntityBuilderService {
       this.foreignKeyMapper,
       this.logger,
     );
+    this.subsystemBuilder = new SubsystemBuilder(
+      this.idGenerator,
+      this.foreignKeyMapper,
+      this.logger,
+    );
     this.containerBuilder = new ContainerBuilder(
       this.idGenerator,
       this.foreignKeyMapper,
@@ -201,6 +211,7 @@ export class EntityBuilderService {
   async buildSubgraphs(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
+    parsedAwsp: ParsedAwsp,
   ): Promise<BuildResult<Subgraph>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
@@ -229,6 +240,7 @@ export class EntityBuilderService {
     const result = await this.subgraphBuilder.buildSubgraphs(
       subgraphs,
       fileSystemId,
+      parsedAwsp.getUiMetadata(),
     );
 
     // Attach VCPM data to subgraphs that have voice calibration entries
@@ -254,6 +266,13 @@ export class EntityBuilderService {
     });
 
     return result;
+  }
+
+  async buildSubsystems(
+    fileSystemId: number,
+    uiMetadata: UiMetadata,
+  ): Promise<Subsystem[]> {
+    return this.subsystemBuilder.build(uiMetadata.subsystems, fileSystemId);
   }
 
   /**
@@ -440,7 +459,7 @@ export class EntityBuilderService {
   async buildSpfModules(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
-    parsedAwsp?: ParsedAwsp,
+    parsedAwsp: ParsedAwsp,
   ): Promise<BuildResult<SpfModule>> {
     // Extract subgraph data from ACDB
     const subgraphDataChunk = parsedAcdb.getChunk<SubgraphDataChunk>(
@@ -469,13 +488,13 @@ export class EntityBuilderService {
     const modulePropertyConfigs = subgraphDataChunk.getAllModuleProperties();
 
     // Get SPF module definitions from ParsedAwsp for display names
-    const spfModuleDefinitions = parsedAwsp?.getSpfModuleDefinitions() || [];
+    const spfModuleDefinitions = parsedAwsp.getSpfModuleDefinitions() || [];
 
     // Get tag definitions from ParsedAwsp for tag data value resolution
-    const awspTagDefinitions = parsedAwsp?.getTagDefinitions() || [];
+    const awspTagDefinitions = parsedAwsp.getTagDefinitions() || [];
 
     // Get port strategy from configuration (required)
-    const configuration = parsedAwsp?.getConfiguration();
+    const configuration = parsedAwsp.getConfiguration();
     if (!configuration?.portStrategy) {
       throw new Error(
         'Port strategy not found in configuration. Please ensure configuration.json exists in the AWSP file with a valid portStrategy.',
@@ -508,6 +527,22 @@ export class EntityBuilderService {
       timestamp: new Date(),
     });
 
+    const uiMetadata = parsedAwsp.getUiMetadata();
+    if (uiMetadata) {
+      const calBuilder = new CalibrationDataBuilder(
+        this.idGenerator,
+        this.logger,
+      );
+      for (const module of result.entities) {
+        calBuilder.applyUiMetadataToCkvs(
+          module.ckvs as KvData[],
+          module.instanceId,
+          uiMetadata,
+          this.foreignKeyMapper,
+        );
+      }
+    }
+
     for (const module of result.entities) {
       this.foreignKeyMapper.addModuleInstanceSubgraphMapping(
         asNaturalId(module.instanceId),
@@ -525,6 +560,7 @@ export class EntityBuilderService {
   async buildDataLinks(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
+    parsedAwsp: ParsedAwsp,
   ): Promise<DataLink[]> {
     const allDataLinkProperties: DataLinkProperty[] = [];
     let intraSubgraphCount = 0;
@@ -566,6 +602,7 @@ export class EntityBuilderService {
     const dataLinks = await this.dataLinkBuilder.buildDataLinks(
       allDataLinkProperties,
       fileSystemId,
+      parsedAwsp.getUiMetadata(),
     );
 
     this.logger?.logInfo({
@@ -653,6 +690,7 @@ export class EntityBuilderService {
   async buildUsecases(
     parsedAcdb: ParsedAcdb,
     fileSystemId: number,
+    parsedAwsp: ParsedAwsp,
   ): Promise<UseCase[]> {
     // Extract usecase data from ACDB
     const usecaseChunk = parsedAcdb.getChunk<UsecaseDataChunk>(
@@ -678,6 +716,7 @@ export class EntityBuilderService {
       usecaseChunk.usecases,
       fileSystemId,
       gkvAliasChunk,
+      parsedAwsp.getUiMetadata(),
     );
 
     this.logger?.logInfo({

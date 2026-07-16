@@ -10,11 +10,13 @@ import type {SubgraphRow} from './subgraph/subgraph.schema.js';
 import type {UseCaseSubgraphPairRow} from './use-case-subgraph-pair.schema.js';
 import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
+import {USECASE_TYPE, type UsecaseType} from '@arc/core';
 
 export interface UseCaseRow extends EntityBaseRow {
   aliasId: number;
   alias: string;
   fileSystemId: number;
+  type?: UsecaseType;
 
   // Relations
   file?: ArcDbFileRow;
@@ -55,6 +57,12 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
     fileSystemId: {
       type: 'integer',
       name: 'file_system_id',
+    },
+    type: {
+      type: 'simple-enum',
+      enum: Object.values(USECASE_TYPE),
+      nullable: true,
+      name: 'type',
     },
   },
   relations: {

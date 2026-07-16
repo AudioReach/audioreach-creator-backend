@@ -620,4 +620,22 @@ describe('ForeignKeyMapper', () => {
       expect(stats.valueMappings).toBe(0);
     });
   });
+
+  describe('subsystem mappings', () => {
+    it('should store and retrieve a subsystem mapping', () => {
+      mapper.addSubsystemMapping(asNaturalId(0xf0100001), asSystemId(42));
+      expect(mapper.getSubsystemSystemId(asNaturalId(0xf0100001))).toBe(42);
+    });
+
+    it('should return undefined for unmapped subsystem', () => {
+      expect(mapper.getSubsystemSystemId(asNaturalId(0xdead))).toBeUndefined();
+    });
+
+    it('should throw when the same subsystem is mapped twice', () => {
+      mapper.addSubsystemMapping(asNaturalId(0xf0100001), asSystemId(42));
+      expect(() =>
+        mapper.addSubsystemMapping(asNaturalId(0xf0100001), asSystemId(99)),
+      ).toThrow();
+    });
+  });
 });

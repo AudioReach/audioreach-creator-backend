@@ -6,6 +6,7 @@
 import {jest} from '@jest/globals';
 import {UsecaseBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/usecase-builder.js';
 import {UseCase} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
+import {USECASE_TYPE} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import type {UsecaseEntry} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/usecase-data-chunk.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -496,6 +497,66 @@ describe('UsecaseBuilder', () => {
 
         expect(result[0].keyVector.valueSystemIds).toEqual([501, 502, 503]);
       });
+    });
+  });
+
+  describe('UsecaseBuilder type from ui-metadata', () => {
+    it('should assign type when GKV set matches a ui-metadata usecase entry', async () => {
+      mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(999));
+      mockForeignKeyMapper.getSubgraphSystemId.mockReturnValue(asSystemId(100));
+
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        subsystems: [],
+        subgraphs: [],
+        modules: [],
+        dataLinks: [],
+        usecases: [
+          {type: USECASE_TYPE.Ec, keyValue: '[0xA2000000: 0xA3000000]'},
+        ],
+      };
+
+      const usecaseEntry: UsecaseEntry = {
+        keyValuePairList: {
+          keyValueList: [{keyId: 0xa2000000, value: 0xa3000000}],
+        },
+        sgList: [],
+        sgPairList: [],
+      };
+
+      const usecases = await builder.buildUsecases(
+        [usecaseEntry],
+        TEST_FILE_SYSTEM_ID,
+        undefined,
+        uiMetadata as any,
+      );
+      expect(usecases[0].type).toBe(USECASE_TYPE.Ec);
+    });
+
+    it('should leave type undefined when no ui-metadata GKV match', async () => {
+      mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(999));
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        subsystems: [],
+        subgraphs: [],
+        modules: [],
+        dataLinks: [],
+        usecases: [],
+      };
+      const usecaseEntry: UsecaseEntry = {
+        keyValuePairList: {keyValueList: [{keyId: 0xa2, value: 0xa3}]},
+        sgList: [],
+        sgPairList: [],
+      };
+      const usecases = await builder.buildUsecases(
+        [usecaseEntry],
+        TEST_FILE_SYSTEM_ID,
+        undefined,
+        uiMetadata as any,
+      );
+      expect(usecases[0].type).toBeUndefined();
     });
   });
 });

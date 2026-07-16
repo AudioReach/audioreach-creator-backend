@@ -532,8 +532,19 @@ describe('UploadFileOrchestrator', () => {
 
         await buildAndInsertSpfModuleDefinitions(mockBulkRepo);
 
-        // Verify that the error was collected (implementation detail)
+        // Verify insertion error was surfaced as a DATA_LOSS issue
         expect(mockBulkRepo.insertSpfModuleDefinitions).toHaveBeenCalled();
+        const dataLossIssues = (orchestrator as any)
+          .dataLossIssues as unknown[];
+        expect(dataLossIssues).toHaveLength(1);
+        expect(dataLossIssues[0]).toMatchObject({
+          category: 'DATA_LOSS',
+          code: expect.any(String),
+          impactedEntity: {
+            entityType: 'SpfModuleDefinition',
+            systemId: 100,
+          },
+        });
       });
     });
 

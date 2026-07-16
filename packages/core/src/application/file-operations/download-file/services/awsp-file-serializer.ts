@@ -24,7 +24,7 @@ const AWSP_MAGIC = 'AWSP';
  *   [N]  Header JSON (UTF-8)
  *   [4]  Raw data length (uint32 little-endian)
  *   [M]  ZIP archive containing:
- *          definitions.json, configuration.json, persistence.json, fileinfo.json
+ *          definitions.json, configuration.json, ui-metadata.json
  */
 export class AwspFileSerializer {
   constructor(private readonly fileSystem: FileSystemPort) {}
@@ -51,8 +51,7 @@ export class AwspFileSerializer {
       const files = new Map<string, string>([
         [FILE_NAMES.DEFINITIONS_JSON, '{}'],
         [FILE_NAMES.CONFIGURATION_JSON, '{}'],
-        [FILE_NAMES.PERSISTENCE_JSON, '{}'],
-        [FILE_NAMES.FILEINFO_JSON, '{}'],
+        [FILE_NAMES.UI_METADATA_JSON, '{}'],
       ]);
 
       const zipBuffer = await this.fileSystem.zipToBuffer(files);

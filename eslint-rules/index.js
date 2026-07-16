@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url);
 const noManualStatusCodes = require('./no-manual-status-codes.cjs');
 const noControllerTryCatch = require('./no-controller-try-catch.cjs');
 const enforceHttpExceptions = require('./enforce-http-exceptions.cjs');
+const noRawPersistenceQueries = require('./no-raw-persistence-queries.cjs');
 const noDomainInfrastructureDeps = require('./no-domain-infrastructure-deps.cjs');
 
 export default {
@@ -21,5 +22,6 @@ export default {
     'no-controller-try-catch': noControllerTryCatch,
     'enforce-http-exceptions': enforceHttpExceptions,
     'no-domain-infrastructure-deps': noDomainInfrastructureDeps,
+    'no-raw-persistence-queries': noRawPersistenceQueries,
   },
 };

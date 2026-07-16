@@ -25,7 +25,7 @@ export class Subgraph {
 
   systemId: number;
   readonly subgraphId: number;
-  readonly name: string;
+  name: string;
   readonly isExported: boolean;
   fileSystemId: number;
   vcpmDataInstance: VcpmInstance | null;

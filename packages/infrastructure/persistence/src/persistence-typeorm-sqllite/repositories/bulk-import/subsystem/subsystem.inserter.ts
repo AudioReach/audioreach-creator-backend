@@ -4,7 +4,12 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {Node, BulkInsertResult, DataPort, ControlPort} from '@arc/core';
+import type {
+  BulkInsertResult,
+  DataPort,
+  ControlPort,
+  Subsystem,
+} from '@arc/core';
 import {okBulkInsert} from '@arc/core';
 import type {BulkInserter} from '../common/bulk-inserter.interface.js';
 import {
@@ -26,28 +31,34 @@ import {ControlPortSchema} from '../../../entity-schema/usecase-data/node/contro
 import type {ControlPortRow} from '../../../entity-schema/usecase-data/node/control-port.js';
 import {
   SubsystemSchema,
+  SubsystemFilteredKeySchema,
   type SubsystemRow,
 } from '../../../entity-schema/usecase-data/subsystem/subsystem.js';
 
-export class SubsystemInserter implements BulkInserter<Node> {
+export class SubsystemInserter implements BulkInserter<Subsystem> {
   constructor(private readonly manager: EntityManager) {}
 
-  public async insert(nodes: Node[]): Promise<BulkInsertResult> {
-    if (nodes.length === 0) return okBulkInsert();
+  public async insert(subsystems: Subsystem[]): Promise<BulkInsertResult> {
+    if (subsystems.length === 0) return okBulkInsert();
 
-    const nodeBySystemId = new Map(nodes.map(n => [n.systemId, n]));
+    const subsystemBySystemId = new Map(subsystems.map(s => [s.systemId, s]));
 
-    const nodeStep = await this.insertNodes(nodes);
-    const activeNodes = nodes.filter(
-      n => !nodeStep.failedEntityIds.has(n.systemId),
+    const nodeStep = await this.insertNodes(subsystems);
+    const activeSubsystems = subsystems.filter(
+      s => !nodeStep.failedEntityIds.has(s.systemId),
     );
 
     const [dataPortsStep, controlPortsStep, subsystemsStep] = await Promise.all(
       [
-        this.insertDataPorts(activeNodes),
-        this.insertControlPorts(activeNodes),
-        this.insertSubsystems(activeNodes),
+        this.insertDataPorts(activeSubsystems),
+        this.insertControlPorts(activeSubsystems),
+        this.insertSubsystemRows(activeSubsystems),
       ],
+    );
+
+    const filteredKeysStep = await this.insertFilteredKeys(
+      activeSubsystems,
+      subsystemsStep.failedEntityIds,
     );
 
     const allRawFailures: RawFailure[] = [
@@ -55,23 +66,24 @@ export class SubsystemInserter implements BulkInserter<Node> {
       ...dataPortsStep.rawFailures,
       ...controlPortsStep.rawFailures,
       ...subsystemsStep.rawFailures,
+      ...filteredKeysStep.rawFailures,
     ];
 
     return groupRawFailures(
       allRawFailures,
-      nodeBySystemId,
-      n => `some or all data belonging to Subsystem {systemId=${n.systemId}}`,
+      subsystemBySystemId,
+      s => `some or all data belonging to Subsystem {systemId=${s.systemId}}`,
     );
   }
 
   // ─── Node ────────────────────────────────────────────────────────────────────
 
-  private async insertNodes(nodes: Node[]): Promise<StepResult> {
-    const rows: InsertRow<NodeRow>[] = nodes.map(n => ({
-      systemId: n.systemId,
-      parentId: n.parentId,
+  private async insertNodes(subsystems: Subsystem[]): Promise<StepResult> {
+    const rows: InsertRow<NodeRow>[] = subsystems.map(s => ({
+      systemId: s.systemId,
+      parentId: s.parentId,
       type: NODE_TYPE.Subsystem,
-      fileSystemId: n.fileSystemId,
+      fileSystemId: s.fileSystemId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -81,10 +93,10 @@ export class SubsystemInserter implements BulkInserter<Node> {
     );
 
     const rawFailures: RawFailure[] = failedEntities.map(error => {
-      const node = nodes.find(n => n.systemId === error.systemId)!;
+      const subsystem = subsystems.find(s => s.systemId === error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
-        systemId: node.systemId,
+        systemId: subsystem.systemId,
         entityLabel: 'Subsystem-Node',
         failedRowJson: JSON.stringify(failedRow),
         dbError: error.message,
@@ -99,24 +111,24 @@ export class SubsystemInserter implements BulkInserter<Node> {
 
   // ─── DataPort ────────────────────────────────────────────────────────────────
 
-  private async insertDataPorts(nodes: Node[]): Promise<StepResult> {
+  private async insertDataPorts(subsystems: Subsystem[]): Promise<StepResult> {
     const contextByPortSystemId = new Map<
       number,
-      {readonly port: DataPort; readonly node: Node}
+      {readonly port: DataPort; readonly subsystem: Subsystem}
     >(
-      nodes.flatMap(n =>
-        n.dataPorts.map(port => [port.systemId, {port, node: n}] as const),
+      subsystems.flatMap(s =>
+        s.dataPorts.map(port => [port.systemId, {port, subsystem: s}] as const),
       ),
     );
 
-    const rows: InsertRow<DataPortRow>[] = nodes.flatMap(n =>
-      n.dataPorts.map(port => ({
+    const rows: InsertRow<DataPortRow>[] = subsystems.flatMap(s =>
+      s.dataPorts.map(port => ({
         systemId: port.systemId,
         dataPortId: port.dataPortId,
         portIoType: port.portIoType,
         isStatic: port.isStatic,
         name: port.name,
-        nodeSystemId: n.systemId,
+        nodeSystemId: s.systemId,
       })),
     );
 
@@ -132,7 +144,7 @@ export class SubsystemInserter implements BulkInserter<Node> {
       const ctx = contextByPortSystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
-        systemId: ctx.node.systemId,
+        systemId: ctx.subsystem.systemId,
         entityLabel: 'Data Port',
         failedRowJson: JSON.stringify(failedRow),
         dbError: error.message,
@@ -147,23 +159,27 @@ export class SubsystemInserter implements BulkInserter<Node> {
 
   // ─── ControlPort ─────────────────────────────────────────────────────────────
 
-  private async insertControlPorts(nodes: Node[]): Promise<StepResult> {
+  private async insertControlPorts(
+    subsystems: Subsystem[],
+  ): Promise<StepResult> {
     const contextByPortSystemId = new Map<
       number,
-      {readonly port: ControlPort; readonly node: Node}
+      {readonly port: ControlPort; readonly subsystem: Subsystem}
     >(
-      nodes.flatMap(n =>
-        n.controlPorts.map(port => [port.systemId, {port, node: n}] as const),
+      subsystems.flatMap(s =>
+        s.controlPorts.map(
+          port => [port.systemId, {port, subsystem: s}] as const,
+        ),
       ),
     );
 
-    const rows: InsertRow<ControlPortRow>[] = nodes.flatMap(n =>
-      n.controlPorts.map(port => ({
+    const rows: InsertRow<ControlPortRow>[] = subsystems.flatMap(s =>
+      s.controlPorts.map(port => ({
         systemId: port.systemId,
         portId: port.portId,
         isStatic: port.isStatic,
         name: port.name,
-        nodeSystemId: n.systemId,
+        nodeSystemId: s.systemId,
       })),
     );
 
@@ -179,7 +195,7 @@ export class SubsystemInserter implements BulkInserter<Node> {
       const ctx = contextByPortSystemId.get(error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
-        systemId: ctx.node.systemId,
+        systemId: ctx.subsystem.systemId,
         entityLabel: 'Control Port',
         failedRowJson: JSON.stringify(failedRow),
         dbError: error.message,
@@ -194,10 +210,13 @@ export class SubsystemInserter implements BulkInserter<Node> {
 
   // ─── Subsystem ───────────────────────────────────────────────────────────────
 
-  private async insertSubsystems(nodes: Node[]): Promise<StepResult> {
-    const rows: InsertRow<SubsystemRow>[] = nodes.map(n => ({
-      systemId: n.systemId,
-      name: '',
+  private async insertSubsystemRows(
+    subsystems: Subsystem[],
+  ): Promise<StepResult> {
+    const rows: InsertRow<SubsystemRow>[] = subsystems.map(s => ({
+      systemId: s.systemId,
+      name: s.name,
+      subsystemId: s.subsystemId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -207,10 +226,10 @@ export class SubsystemInserter implements BulkInserter<Node> {
     );
 
     const rawFailures: RawFailure[] = failedEntities.map(error => {
-      const node = nodes.find(n => n.systemId === error.systemId)!;
+      const subsystem = subsystems.find(s => s.systemId === error.systemId)!;
       const failedRow = rows.find(r => r.systemId === error.systemId);
       return {
-        systemId: node.systemId,
+        systemId: subsystem.systemId,
         entityLabel: 'Subsystem',
         failedRowJson: JSON.stringify(failedRow),
         dbError: error.message,
@@ -221,5 +240,49 @@ export class SubsystemInserter implements BulkInserter<Node> {
       rawFailures,
       failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
     };
+  }
+
+  private async insertFilteredKeys(
+    subsystems: Subsystem[],
+    failedSubsystemIds: Set<number>,
+  ): Promise<StepResult> {
+    const rows: {
+      subsystemsSystemId: number;
+      keyDefinitionSystemId: number;
+    }[] = [];
+    for (const s of subsystems) {
+      if (failedSubsystemIds.has(s.systemId)) continue;
+      for (const keySystemId of s.filteredKeySystemIds) {
+        rows.push({
+          subsystemsSystemId: s.systemId,
+          keyDefinitionSystemId: keySystemId,
+        });
+      }
+    }
+    if (rows.length === 0) return emptyStepResult();
+
+    try {
+      await this.manager
+        .createQueryBuilder()
+        .insert()
+        .into(SubsystemFilteredKeySchema)
+        .values(rows)
+        .orIgnore()
+        .execute();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return {
+        rawFailures: subsystems.map(s => ({
+          systemId: s.systemId,
+          entityLabel: 'SubsystemFilteredKey',
+          failedRowJson: JSON.stringify(
+            rows.filter(r => r.subsystemsSystemId === s.systemId),
+          ),
+          dbError: msg,
+        })),
+        failedEntityIds: new Set(subsystems.map(s => s.systemId)),
+      };
+    }
+    return emptyStepResult();
   }
 }
