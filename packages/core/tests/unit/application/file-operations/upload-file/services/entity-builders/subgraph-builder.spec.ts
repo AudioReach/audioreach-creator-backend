@@ -20,6 +20,7 @@ import {
   createMockIdGenerator,
   createMockForeignKeyMapper,
 } from '../../../../../../helpers/index.js';
+import {asSystemId} from '../../../../../../../src/shared/types/branded-ids.js';
 
 describe('SubgraphBuilder', () => {
   let builder: SubgraphBuilder;
@@ -646,6 +647,251 @@ describe('SubgraphBuilder', () => {
         const uniqueSystemIds = new Set(systemIds);
         expect(uniqueSystemIds.size).toBe(systemIds.length);
       });
+    });
+
+    describe('name deduplication', () => {
+      function makeProps(id: number): AcdbSubgraphProperties {
+        return {subgraphId: id, properties: new Map()};
+      }
+
+      it('should suffix all members of a duplicate group with _1, _2', async () => {
+        const result = await builder.buildSubgraphs(
+          [makeProps(1), makeProps(2)],
+          TEST_FILE_SYSTEM_ID,
+          {
+            version: {major: 1, minor: 0},
+            subgraphs: [
+              {id: 1, name: 'RxPath', supportedKeyValues: []},
+              {id: 2, name: 'RxPath', supportedKeyValues: []},
+            ],
+            usecases: [],
+            subsystems: [],
+            modules: [],
+            dataLinks: [],
+            payloadMap: [],
+          },
+        );
+
+        expect(result.entities[0].name).toBe('RxPath_1');
+        expect(result.entities[1].name).toBe('RxPath_2');
+      });
+
+      it('should suffix only the duplicate group when mixed with unique names', async () => {
+        const result = await builder.buildSubgraphs(
+          [makeProps(1), makeProps(2), makeProps(3)],
+          TEST_FILE_SYSTEM_ID,
+          {
+            version: {major: 1, minor: 0},
+            subgraphs: [
+              {id: 1, name: 'RxPath', supportedKeyValues: []},
+              {id: 2, name: 'TxPath', supportedKeyValues: []},
+              {id: 3, name: 'RxPath', supportedKeyValues: []},
+            ],
+            usecases: [],
+            subsystems: [],
+            modules: [],
+            dataLinks: [],
+            payloadMap: [],
+          },
+        );
+
+        expect(result.entities[0].name).toBe('RxPath_1');
+        expect(result.entities[1].name).toBe('TxPath');
+        expect(result.entities[2].name).toBe('RxPath_2');
+      });
+
+      it('should leave all names unchanged when all are unique', async () => {
+        const result = await builder.buildSubgraphs(
+          [makeProps(1), makeProps(2)],
+          TEST_FILE_SYSTEM_ID,
+          {
+            version: {major: 1, minor: 0},
+            subgraphs: [
+              {id: 1, name: 'RxPath', supportedKeyValues: []},
+              {id: 2, name: 'TxPath', supportedKeyValues: []},
+            ],
+            usecases: [],
+            subsystems: [],
+            modules: [],
+            dataLinks: [],
+            payloadMap: [],
+          },
+        );
+
+        expect(result.entities[0].name).toBe('RxPath');
+        expect(result.entities[1].name).toBe('TxPath');
+      });
+
+      it('should suffix all three when all share the same name', async () => {
+        const result = await builder.buildSubgraphs(
+          [makeProps(1), makeProps(2), makeProps(3)],
+          TEST_FILE_SYSTEM_ID,
+          {
+            version: {major: 1, minor: 0},
+            subgraphs: [
+              {id: 1, name: 'RxPath', supportedKeyValues: []},
+              {id: 2, name: 'RxPath', supportedKeyValues: []},
+              {id: 3, name: 'RxPath', supportedKeyValues: []},
+            ],
+            usecases: [],
+            subsystems: [],
+            modules: [],
+            dataLinks: [],
+            payloadMap: [],
+          },
+        );
+
+        expect(result.entities[0].name).toBe('RxPath_1');
+        expect(result.entities[1].name).toBe('RxPath_2');
+        expect(result.entities[2].name).toBe('RxPath_3');
+      });
+
+      it('should log a warning listing the original name and all renamed values', async () => {
+        await builder.buildSubgraphs(
+          [makeProps(1), makeProps(2)],
+          TEST_FILE_SYSTEM_ID,
+          {
+            version: {major: 1, minor: 0},
+            subgraphs: [
+              {id: 1, name: 'RxPath', supportedKeyValues: []},
+              {id: 2, name: 'RxPath', supportedKeyValues: []},
+            ],
+            usecases: [],
+            subsystems: [],
+            modules: [],
+            dataLinks: [],
+            payloadMap: [],
+          },
+        );
+
+        expect(mockLogger.logWarn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            msg: expect.stringContaining('RxPath'),
+            action: 'subgraph_name_deduplicated',
+          }),
+        );
+      });
+    });
+  });
+
+  describe('with ui-metadata', () => {
+    it('should use name from ui-metadata when present', async () => {
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        usecases: [],
+        subsystems: [],
+        modules: [],
+        dataLinks: [],
+        subgraphs: [{id: 1, name: 'Speaker', supportedKeyValues: []}],
+      };
+      const props: AcdbSubgraphProperties[] = [
+        {subgraphId: 1, properties: new Map()},
+      ];
+      const result = await builder.buildSubgraphs(
+        props,
+        TEST_FILE_SYSTEM_ID,
+        uiMetadata as any,
+      );
+      expect(result.entities[0].name).toBe('Speaker');
+    });
+
+    it('should fall back to Subgraph_N when name absent in ui-metadata', async () => {
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        usecases: [],
+        subsystems: [],
+        modules: [],
+        dataLinks: [],
+        subgraphs: [{id: 1, supportedKeyValues: []}],
+      };
+      const props: AcdbSubgraphProperties[] = [
+        {subgraphId: 1, properties: new Map()},
+      ];
+      const result = await builder.buildSubgraphs(
+        props,
+        TEST_FILE_SYSTEM_ID,
+        uiMetadata as any,
+      );
+      expect(result.entities[0].name).toBe('Subgraph_1');
+    });
+
+    it('should fall back to Subgraph_N when subgraph not in ui-metadata', async () => {
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        usecases: [],
+        subsystems: [],
+        modules: [],
+        dataLinks: [],
+        subgraphs: [],
+      };
+      const props: AcdbSubgraphProperties[] = [
+        {subgraphId: 99, properties: new Map()},
+      ];
+      const result = await builder.buildSubgraphs(
+        props,
+        TEST_FILE_SYSTEM_ID,
+        uiMetadata as any,
+      );
+      expect(result.entities[0].name).toBe('Subgraph_99');
+    });
+
+    it('should build SGKVs from supportedKeyValues', async () => {
+      mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(500));
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        usecases: [],
+        subsystems: [],
+        modules: [],
+        dataLinks: [],
+        subgraphs: [
+          {
+            id: 1,
+            name: 'S',
+            supportedKeyValues: [{keyValue: '[0xA2000000: 0xA2000001]'}],
+          },
+        ],
+      };
+      const props: AcdbSubgraphProperties[] = [
+        {subgraphId: 1, properties: new Map()},
+      ];
+      const result = await builder.buildSubgraphs(
+        props,
+        TEST_FILE_SYSTEM_ID,
+        uiMetadata as any,
+      );
+      expect(result.entities[0].sgkvs).toHaveLength(1);
+      expect(result.entities[0].sgkvs[0].valueDefinitionSystemIds).toEqual([
+        500,
+      ]);
+    });
+
+    it('should skip unresolved SGKV entries and log warn', async () => {
+      mockForeignKeyMapper.getValueSystemId.mockReturnValue(undefined);
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        usecases: [],
+        subsystems: [],
+        modules: [],
+        dataLinks: [],
+        subgraphs: [
+          {id: 1, name: 'S', supportedKeyValues: [{keyValue: '[0xA2: 0xA3]'}]},
+        ],
+      };
+      const props: AcdbSubgraphProperties[] = [
+        {subgraphId: 1, properties: new Map()},
+      ];
+      const result = await builder.buildSubgraphs(
+        props,
+        TEST_FILE_SYSTEM_ID,
+        uiMetadata as any,
+      );
+      expect(result.entities[0].sgkvs).toHaveLength(0);
+      expect(mockLogger.logWarn).toHaveBeenCalled();
     });
   });
 });

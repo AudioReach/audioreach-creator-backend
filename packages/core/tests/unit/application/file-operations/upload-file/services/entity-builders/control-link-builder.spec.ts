@@ -46,8 +46,8 @@ describe('ControlLinkBuilder', () => {
       // Return different system IDs based on instance ID to simulate real mapping
       return asSystemId(instanceId.valueOf() * 10);
     });
-    mockForeignKeyMapper.getControlPortSystemId.mockImplementation(() =>
-      asSystemId(200),
+    mockForeignKeyMapper.getControlPortSystemId.mockImplementation(
+      (_nodeSystemId, portId) => asSystemId((portId as unknown as number) * 10),
     );
     mockForeignKeyMapper.getSubgraphSystemIdForModuleInstance.mockImplementation(
       instanceId => asSystemId(3000 + (instanceId as unknown as number)),
@@ -101,8 +101,8 @@ describe('ControlLinkBuilder', () => {
         expect(result.controlLinks[0].peerNodeBSystemId).toBe(
           getExpectedSystemId(102),
         );
-        expect(result.controlLinks[0].nodeAPortSystemId).toBe(200);
-        expect(result.controlLinks[0].nodeBPortSystemId).toBe(200);
+        expect(result.controlLinks[0].nodeAPortSystemId).toBe(10); // peer1PortId(1) * 10
+        expect(result.controlLinks[0].nodeBPortSystemId).toBe(20); // peer2PortId(2) * 10
         expect(result.controlLinks[0].heapId).toBe(5);
         expect(result.controlLinks[0].linkType).toBe(LINK_TYPE.IntraUsecase);
 

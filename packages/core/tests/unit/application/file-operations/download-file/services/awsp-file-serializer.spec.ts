@@ -11,22 +11,20 @@ import {FILE_NAMES} from '../../../../../../src/application/file-operations/shar
 
 describe('AwspFileSerializer', () => {
   describe('serialize', () => {
-    it('should create ZIP with 4 empty JSON files', async () => {
+    it('should create ZIP with 3 empty JSON files', async () => {
       const mockFileSystem: FileSystemPort = {
         zipToBuffer: jest.fn(
           async (files: Map<string, string | Uint8Array>) => {
-            // Verify 4 files are passed
-            expect(files.size).toBe(4);
+            // Verify 3 files are passed
+            expect(files.size).toBe(3);
             expect(files.has(FILE_NAMES.DEFINITIONS_JSON)).toBe(true);
             expect(files.has(FILE_NAMES.CONFIGURATION_JSON)).toBe(true);
-            expect(files.has(FILE_NAMES.PERSISTENCE_JSON)).toBe(true);
-            expect(files.has(FILE_NAMES.FILEINFO_JSON)).toBe(true);
+            expect(files.has(FILE_NAMES.UI_METADATA_JSON)).toBe(true);
 
             // Verify all files contain empty JSON
             expect(files.get(FILE_NAMES.DEFINITIONS_JSON)).toBe('{}');
             expect(files.get(FILE_NAMES.CONFIGURATION_JSON)).toBe('{}');
-            expect(files.get(FILE_NAMES.PERSISTENCE_JSON)).toBe('{}');
-            expect(files.get(FILE_NAMES.FILEINFO_JSON)).toBe('{}');
+            expect(files.get(FILE_NAMES.UI_METADATA_JSON)).toBe('{}');
 
             // Return mock ZIP buffer
             return new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP file signature
@@ -139,8 +137,7 @@ describe('AwspFileSerializer', () => {
       expect(Array.from(capturedFiles!.keys())).toEqual([
         'definitions.json',
         'configuration.json',
-        'persistence.json',
-        'fileinfo.json',
+        'ui-metadata.json',
       ]);
     });
   });

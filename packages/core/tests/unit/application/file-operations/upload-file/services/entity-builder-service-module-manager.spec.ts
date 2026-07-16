@@ -341,3 +341,19 @@ describe('EntityBuilderService - buildModuleManagerData', () => {
     });
   });
 });
+
+describe('EntityBuilderService - buildSubsystems', () => {
+  it('buildSubsystems should be available as a function', () => {
+    const mockIdGenerator = {
+      getNextId: jest.fn(),
+    } as unknown as IdGenerationPort;
+    const mockFkMapper = {} as unknown as ForeignKeyMapper;
+    const mockNaturalIdPort = {} as unknown as NaturalIdGenerationPort;
+    const service = new EntityBuilderService(
+      mockIdGenerator,
+      mockNaturalIdPort,
+      mockFkMapper,
+    );
+    expect(typeof service.buildSubsystems).toBe('function');
+  });
+});

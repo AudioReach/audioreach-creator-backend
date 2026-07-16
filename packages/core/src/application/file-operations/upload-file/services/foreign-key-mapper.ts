@@ -49,6 +49,7 @@ export class ForeignKeyMapper {
   private propertyDefinitionMap = new Map<NaturalId, SystemId>();
   private containerTypeMappings = new Map<NaturalId, SystemId>();
   private spfModuleMappings = new Map<NaturalId, SystemId>();
+  private subsystemMappings = new Map<NaturalId, SystemId>();
   private moduleInstanceSubgraphMappings = new Map<NaturalId, SystemId>();
   private moduleInstanceToDefinitionMappings = new Map<SystemId, SystemId>();
   private moduleInputPortMappings = new Map<
@@ -622,6 +623,19 @@ export class ForeignKeyMapper {
    */
   getSpfModuleSystemId(instanceId: NaturalId): SystemId | undefined {
     return this.spfModuleMappings.get(instanceId);
+  }
+
+  addSubsystemMapping(subsystemId: NaturalId, systemId: SystemId): void {
+    if (this.subsystemMappings.has(subsystemId)) {
+      throw new Error(
+        `Subsystem ${subsystemId} already mapped to systemId ${this.subsystemMappings.get(subsystemId)}`,
+      );
+    }
+    this.subsystemMappings.set(subsystemId, systemId);
+  }
+
+  getSubsystemSystemId(subsystemId: NaturalId): SystemId | undefined {
+    return this.subsystemMappings.get(subsystemId);
   }
 
   addModuleInstanceSubgraphMapping(

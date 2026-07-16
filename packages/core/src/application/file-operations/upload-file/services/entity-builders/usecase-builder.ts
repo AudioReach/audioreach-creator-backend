@@ -7,11 +7,17 @@ import {
   type KeyVectorInput,
   type SubgraphPair,
 } from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
+import {
+  USECASE_TYPE,
+  type UsecaseType,
+} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {GkvAliasChunk} from '../../../shared/acdb-chunks/gkv-alias-chunk.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
+import type {UiMetadata} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
+import {parseKeyValueString} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {asNaturalId} from '../../../../../shared/types/branded-ids.js';
 
 export class UsecaseBuilder {
@@ -25,6 +31,7 @@ export class UsecaseBuilder {
     usecaseEntries: UsecaseEntry[],
     fileSystemId: number,
     gkvAliasChunk?: GkvAliasChunk,
+    uiMetadata?: UiMetadata,
   ): Promise<UseCase[]> {
     if (!usecaseEntries || usecaseEntries.length === 0) {
       return [];
@@ -34,6 +41,30 @@ export class UsecaseBuilder {
     let successCount = 0;
     let errorCount = 0;
 
+    // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds
+    const resolvedUiUsecases: {type: UsecaseType; valueSystemIdSet: string}[] =
+      [];
+    for (const uiUc of uiMetadata?.usecases ?? []) {
+      const pairs = parseKeyValueString(uiUc.keyValue);
+      const ids = pairs
+        .map(({keyId, valueId}) =>
+          this.foreignKeyMapper?.getValueSystemId(
+            asNaturalId(keyId),
+            asNaturalId(valueId),
+          ),
+        )
+        .filter(id => id !== undefined)
+        .map(id => id as number)
+        .sort((a, b) => a - b);
+      const validValues = Object.values(USECASE_TYPE) as string[];
+      if (ids.length > 0 && validValues.includes(uiUc.type)) {
+        resolvedUiUsecases.push({
+          type: uiUc.type as UsecaseType,
+          valueSystemIdSet: ids.join(','),
+        });
+      }
+    }
+
     for (const [i, usecaseEntry] of usecaseEntries.entries()) {
       try {
         const usecase = await this.convertUsecaseEntry(
@@ -41,6 +72,7 @@ export class UsecaseBuilder {
           i,
           fileSystemId,
           gkvAliasChunk,
+          resolvedUiUsecases,
         );
         usecases.push(usecase);
         successCount++;
@@ -72,6 +104,7 @@ export class UsecaseBuilder {
     index: number,
     fileSystemId: number,
     gkvAliasChunk?: GkvAliasChunk,
+    resolvedUiUsecases: {type: UsecaseType; valueSystemIdSet: string}[] = [],
   ): Promise<UseCase> {
     const keyVector = this.convertToKeyVector(entry, index);
     const systemId = await this.idGenerator.getNextId(fileSystemId);
@@ -120,6 +153,14 @@ export class UsecaseBuilder {
 
     const aliasEntry = gkvAliasChunk?.getAlias(entry.keyValuePairList);
 
+    const sortedSet = [...keyVector.valueSystemIds]
+      .sort((a, b) => a - b)
+      .join(',');
+    const matched = resolvedUiUsecases.find(
+      u => u.valueSystemIdSet === sortedSet,
+    );
+    const type = matched?.type;
+
     return new UseCase({
       systemId,
       fileSystemId,
@@ -129,6 +170,7 @@ export class UsecaseBuilder {
       alias: aliasEntry?.usecaseName,
       aliasId: aliasEntry?.usecaseId,
       categories: undefined, //TODO:
+      type,
     });
   }
 

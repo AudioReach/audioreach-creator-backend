@@ -3,11 +3,4 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-/** Discriminator const/type for usecase types. */
-export const USECASE_TYPE = {
-  Ec: 'EC',
-  Regular: 'REGULAR',
-  Manual: 'MANUAL',
-} as const;
-
-export type UsecaseType = (typeof USECASE_TYPE)[keyof typeof USECASE_TYPE];
+export {USECASE_TYPE, type UsecaseType} from '@arc/core';

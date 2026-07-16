@@ -10,6 +10,7 @@ import {
   FILE_EXTENSIONS,
 } from '../../shared/constants/definition-block-names.js';
 import {Configuration} from '../../shared/awsp-serializers/v1/configuration/configuration.js';
+import {UiMetadata} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
 import type {PathRef} from '../../shared/utils/file-ref.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
@@ -58,100 +59,40 @@ export class AwspFileOrchestrator {
       // Unzip the .awsp file
       unzippedFolderPath = await this.unzipAwspFile(awspFilePath.uri);
 
-      // Look for definition.json file specifically
-      const definitionFilePath = this.fs.joinPath(
+      // definitions.json
+      const jsonData = await this.readJsonFile(
         unzippedFolderPath,
         FILE_NAMES.DEFINITIONS_JSON,
+        (raw): Record<string, JsonObject[]> => {
+          if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+            throw new Error(
+              'Invalid JSON structure: expected an object with definition blocks',
+            );
+          }
+          return raw as Record<string, JsonObject[]>;
+        },
       );
-
-      // Check if definition.json exists
-      const definitionExists = await this.fs.exists(definitionFilePath);
-      if (!definitionExists) {
-        throw new Error(
-          `${FILE_NAMES.DEFINITIONS_JSON} file not found in the unzipped folder`,
-        );
-      }
-
-      // Read the entire JSON file as bytes and convert to text
-      const fileRef: PathRef = {
-        kind: 'path',
-        name: definitionFilePath,
-        uri: definitionFilePath,
-        mimeType: 'application/json',
-      };
-      const fileBytes = await this.fs.readAll(fileRef);
-      const jsonContent = new TextDecoder('utf8').decode(fileBytes);
-      const jsonData: Record<string, JsonObject[]> | null = JSON.parse(
-        jsonContent,
-      ) as Record<string, JsonObject[]> | null;
-
-      // Validate that jsonData is an object and not an array
-      if (
-        typeof jsonData !== 'object' ||
-        jsonData === null ||
-        Array.isArray(jsonData)
-      ) {
-        throw new Error(
-          'Invalid JSON structure: expected an object with definition blocks',
-        );
-      }
-
-      // Parse all definitions using the AwspParser
       const definitions =
         await this.definitionParser.parseDefinitions(jsonData);
-
-      // Create ParsedAwsp instance and populate it with parsed definitions
       const parsedAwsp = new ParsedAwsp();
-
-      // Map the parsed definitions to the ParsedAwsp structure
       this.populateParsedAwsp(parsedAwsp, definitions);
 
-      // Look for configuration.json file (mandatory)
-      const configurationFilePath = this.fs.joinPath(
+      // configuration.json
+      const configurationInstance = await this.readJsonFile(
         unzippedFolderPath,
         FILE_NAMES.CONFIGURATION_JSON,
+        raw => Configuration.fromJSON(raw),
       );
-
-      // Check if configuration.json exists
-      const configurationExists = await this.fs.exists(configurationFilePath);
-      if (!configurationExists) {
-        throw new Error(
-          `${FILE_NAMES.CONFIGURATION_JSON} file not found in the unzipped folder`,
-        );
-      }
-
-      // Read the configuration JSON file
-      const configFileRef: PathRef = {
-        kind: 'path',
-        name: configurationFilePath,
-        uri: configurationFilePath,
-        mimeType: 'application/json',
-      };
-      const configFileBytes = await this.fs.readAll(configFileRef);
-      const configJsonContent = new TextDecoder('utf8').decode(configFileBytes);
-      const configJsonData: JsonObject | null = JSON.parse(
-        configJsonContent,
-      ) as JsonObject | null;
-
-      // Validate that configJsonData is an object
-      if (
-        typeof configJsonData !== 'object' ||
-        configJsonData === null ||
-        Array.isArray(configJsonData)
-      ) {
-        throw new Error(
-          'Invalid configuration.json structure: expected an object',
-        );
-      }
-
-      // Parse and hydrate to class instance using fromJSON (which calls ConfigurationSchema.parse internally)
-      const configurationInstance = Configuration.fromJSON(configJsonData);
-
-      // Extract the nested configuration data (already a class instance)
       const configurationData = configurationInstance.configuration;
-
-      // Set configuration data in ParsedAwsp (no cast needed)
       parsedAwsp.setConfiguration(configurationData);
+
+      // ui-metadata.json
+      const uiMetadata = await this.readJsonFile(
+        unzippedFolderPath,
+        FILE_NAMES.UI_METADATA_JSON,
+        raw => UiMetadata.fromJSON(raw),
+      );
+      parsedAwsp.setUiMetadata(uiMetadata);
 
       this.logger?.logInfo({
         msg: `Configuration parsed successfully with portStrategy: ${configurationData.portStrategy}, defaultProcessorDomain: ${configurationData.defaultProcessorDomain}`,
@@ -298,6 +239,30 @@ export class AwspFileOrchestrator {
    * Delete the unzipped folder after parsing is complete
    * @param folderPath - Path to the folder to delete
    */
+  private async readJsonFile<T>(
+    folder: string,
+    filename: string,
+    parse: (raw: unknown) => T,
+  ): Promise<T> {
+    const filePath = this.fs.joinPath(folder, filename);
+
+    const exists = await this.fs.exists(filePath);
+    if (!exists) {
+      throw new Error(`${filename} file not found in the unzipped folder`);
+    }
+
+    const fileRef: PathRef = {
+      kind: 'path',
+      name: filePath,
+      uri: filePath,
+      mimeType: 'application/json',
+    };
+
+    const bytes = await this.fs.readAll(fileRef);
+    const raw: unknown = JSON.parse(new TextDecoder('utf8').decode(bytes));
+    return parse(raw);
+  }
+
   private async deleteUnzippedFolder(folderPath: string): Promise<void> {
     try {
       const folderExists = await this.fs.exists(folderPath);

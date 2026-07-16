@@ -355,23 +355,44 @@ export class ControlLinkBuilder {
       linkType = LINK_TYPE.IntraUsecase;
     }
 
+    // Enforce canonical order required by ck_control_link_port_canonical_order:
+    // nodeA_port_system_id < nodeB_port_system_id
+    const [canonA, canonAPort, canonB, canonBPort, canonSrcSg, canonDstSg] =
+      nodeAPortSystemId < nodeBPortSystemId
+        ? [
+            peerNodeASystemId,
+            nodeAPortSystemId,
+            peerNodeBSystemId,
+            nodeBPortSystemId,
+            sourceSgId,
+            destSgId,
+          ]
+        : [
+            peerNodeBSystemId,
+            nodeBPortSystemId,
+            peerNodeASystemId,
+            nodeAPortSystemId,
+            destSgId,
+            sourceSgId,
+          ];
+
     const controlLink = new ControlLink(
       0, // systemId - Will be generated during insertion
       fileSystemId,
-      peerNodeASystemId,
-      peerNodeBSystemId,
-      nodeAPortSystemId,
-      nodeBPortSystemId,
+      canonA,
+      canonB,
+      canonAPort,
+      canonBPort,
       heapId,
       linkType,
-      sourceSgId,
-      destSgId,
+      canonSrcSg,
+      canonDstSg,
     );
 
     return {
       controlLink,
-      nodeAPortSystemId,
-      nodeBPortSystemId,
+      nodeAPortSystemId: canonAPort,
+      nodeBPortSystemId: canonBPort,
       intents,
     };
   }

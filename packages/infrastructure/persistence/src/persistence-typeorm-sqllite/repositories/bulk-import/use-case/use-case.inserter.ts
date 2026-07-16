@@ -60,6 +60,7 @@ export class UseCaseInserter {
       aliasId: item.aliasId ?? 0,
       alias: item.alias ?? '',
       fileSystemId: item.fileSystemId,
+      type: item.type,
     }));
 
     const {failedEntities} = await BatchInserter.insert(

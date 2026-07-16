@@ -151,6 +151,7 @@ export * from './domain/entities/usecase-data/links/data-link.js';
 export * from './domain/entities/usecase-data/links/subsystem-control-link.js';
 export * from './domain/entities/usecase-data/links/subsystem-data-link.js';
 export * from './domain/entities/usecase-data/module/spf-module.js';
+export * from './domain/entities/usecase-data/subsystem/subsystem.js';
 export * from './domain/entities/driver-module-data/driver-module.js';
 export * from './domain/entities/usecase-data/module/entities/spf-module-tag-data.js';
 export * from './domain/entities/usecase-data/node/entities/data-port.js';
@@ -161,6 +162,7 @@ export * from './domain/entities/usecase-data/subgraph/entities/sgkv.js';
 export * from './domain/entities/usecase-data/project/project.js';
 export * from './domain/entities/usecase-data/project/arc-db-file.js';
 export * from './domain/entities/usecase-data/usecase/usecase.js';
+export * from './domain/entities/usecase-data/usecase/usecase-type.js';
 
 // Domain entities - module manager
 export * from './domain/entities/module-manager/module-manager-data.js';

@@ -15,6 +15,8 @@ import {
   type SystemId,
 } from '../../../../../shared/types/branded-ids.js';
 import type {KeyVectorInput} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
+import type {UiMetadata} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
+import {parseKeyValueString} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {PARSED_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
 import {SPF_VCPM_MODULE_ID} from '../../../shared/constants/spf-ids.js';
 import type {
@@ -1223,6 +1225,74 @@ export class CalibrationDataBuilder {
         payload.payload,
       );
       kvData.addParameterPayload(moduleParamData);
+    }
+  }
+
+  applyUiMetadataToCkvs(
+    ckvList: KvData[],
+    instanceId: number,
+    uiMetadata: UiMetadata,
+    foreignKeyMapper: ForeignKeyMapper,
+  ): void {
+    const moduleEntry = uiMetadata.modules.find(
+      m => m.instanceId === instanceId,
+    );
+    if (!moduleEntry || moduleEntry.calViewUiPersistences.length === 0) return;
+
+    const payloadByUuid = new Map<string, Uint8Array>(
+      uiMetadata.payloadMap.map(p => [
+        p.id,
+        Uint8Array.from(Buffer.from(p.data, 'base64')),
+      ]),
+    );
+
+    for (const persistence of moduleEntry.calViewUiPersistences) {
+      const payload = payloadByUuid.get(persistence.payloadId);
+      if (!payload) {
+        this.logger?.logError({
+          msg: `payloadId ${persistence.payloadId} not found in payloadMap for module 0x${instanceId.toString(16)}`,
+          action: 'ckv_payload_not_found',
+          component: 'CalibrationDataBuilder',
+          tag: 'calibration-building',
+          timestamp: new Date(),
+        });
+        continue;
+      }
+
+      let targetValueSystemIds: number[];
+      if (persistence.calKeyValue) {
+        const pairs = parseKeyValueString(persistence.calKeyValue);
+        targetValueSystemIds = pairs
+          .map(({keyId, valueId}) =>
+            foreignKeyMapper.getValueSystemId(
+              asNaturalId(keyId),
+              asNaturalId(valueId),
+            ),
+          )
+          .filter(id => id !== undefined)
+          .map(id => id as number)
+          .sort((a, b) => a - b);
+      } else {
+        targetValueSystemIds = [];
+      }
+
+      const match = ckvList.find(ckv => {
+        const sorted = [...ckv.valueDefinitionSystemIds].sort((a, b) => a - b);
+        if (sorted.length !== targetValueSystemIds.length) return false;
+        return sorted.every((v, i) => v === targetValueSystemIds[i]);
+      });
+
+      if (match) {
+        match.uiPersistence = payload;
+      } else {
+        this.logger?.logError({
+          msg: `No matching CKV for module 0x${instanceId.toString(16)} payloadId=${persistence.payloadId} calKeyValue=${persistence.calKeyValue ?? '(zero-CKV)'}`,
+          action: 'ckv_match_not_found',
+          component: 'CalibrationDataBuilder',
+          tag: 'calibration-building',
+          timestamp: new Date(),
+        });
+      }
     }
   }
 }

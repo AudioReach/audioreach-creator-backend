@@ -73,7 +73,10 @@ import {
   SgkvSchema,
   SgkvValuesSchema,
 } from './usecase-data/subgraph/subgraph-sgkv-data.js';
-import {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
+import {
+  SubsystemSchema,
+  SubsystemFilteredKeySchema,
+} from './usecase-data/subsystem/subsystem.js';
 import {
   UseCaseSchema,
   UseCaseCategorySchema,
@@ -267,8 +270,14 @@ export {
 } from './usecase-data/subgraph/subgraph-sgkv-data.js';
 
 // Use Case Data - Subsystem
-export type {SubsystemRow} from './usecase-data/subsystem/subsystem.js';
-export {SubsystemSchema} from './usecase-data/subsystem/subsystem.js';
+export type {
+  SubsystemRow,
+  SubsystemFilteredKeyRow,
+} from './usecase-data/subsystem/subsystem.js';
+export {
+  SubsystemSchema,
+  SubsystemFilteredKeySchema,
+} from './usecase-data/subsystem/subsystem.js';
 
 // Use Case Data - Main
 export type {
@@ -392,6 +401,7 @@ export function getAllEntitySchemas(
     SgkvSchema,
     SgkvValuesSchema,
     SubsystemSchema,
+    SubsystemFilteredKeySchema,
     UseCaseSchema,
     UseCaseCategorySchema,
     UsecaseGkvValuesSchema,

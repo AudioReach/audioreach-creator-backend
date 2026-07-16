@@ -29,13 +29,13 @@ import {IssueCollector} from '../types/issue-collection.js';
 import {
   type Issue,
   ISSUE_ENTITY_TYPE,
+  type IssueEntityType,
 } from '../../../../shared/issues/index.js';
 import type {ValidationIssue} from '../../../../domain/validation/issue.js';
 import {newInsertFailureIssue} from '../../../../domain/validation/insert-failures/insert-failure.factory.js';
 import type {InsertFailureType} from '../../../../domain/validation/insert-failures/insert-failure-codes.js';
 import {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
-
 /**
  * Large block size for ID reservation to cover all entities in a file upload.
  * This reduces database round-trips during entity creation.
@@ -382,6 +382,9 @@ export class UploadFileOrchestrator {
       // Phase 2: Build and Insert Subgraphs (no dependencies)
       await this.buildAndInsertSubgraphs(bulkRepo);
 
+      // Phase 2b: Build and Insert Subsystems from ui-metadata
+      await this.buildAndInsertSubsystems(bulkRepo);
+
       // Phase 3: Build and Insert Containers (no dependencies)
       await this.buildAndInsertContainers(bulkRepo);
 
@@ -464,7 +467,10 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertKeyDefinitions(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'KeyDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.KeyDefinition,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -483,7 +489,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -492,7 +501,7 @@ export class UploadFileOrchestrator {
 
   private collectInsertionErrors(
     insertResult: BulkInsertResult,
-    entityType: string,
+    entityType: IssueEntityType,
   ): void {
     if (insertResult.ok) return;
 
@@ -580,7 +589,10 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertTagDefinitions(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'TagDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.TagDefinition,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -599,7 +611,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -628,7 +643,10 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'ProcessorDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.ProcessorDefinition,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -647,7 +665,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -676,7 +697,10 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'ContainerType');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.ContainerType,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -695,7 +719,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -733,7 +760,10 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'SpfModuleDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -752,7 +782,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -777,7 +810,10 @@ export class UploadFileOrchestrator {
         await bulkRepo.insertModuleManagerData(moduleManagerData);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'ModuleManagerData');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.ModuleManagerData,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -796,7 +832,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -833,7 +872,10 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'DriverModuleDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.DriverModuleDefinition,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -852,7 +894,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -884,7 +929,10 @@ export class UploadFileOrchestrator {
         result.entities,
       );
 
-      this.collectInsertionErrors(insertResult, 'VcpmModuleDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.VcpmModuleDefinition,
+      );
 
       if (insertResult.ok) {
         this.logger?.logInfo({
@@ -902,7 +950,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -931,7 +982,10 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'SubgraphPropertyDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.SubgraphPropertyDefinition,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -950,7 +1004,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -979,7 +1036,10 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'ContainerPropertyDefinition');
+      this.collectInsertionErrors(
+        insertResult,
+        ISSUE_ENTITY_TYPE.ContainerPropertyDefinition,
+      );
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -998,7 +1058,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -1015,6 +1078,7 @@ export class UploadFileOrchestrator {
     const result = await this.builderService.buildSubgraphs(
       this.parsedAcdb!,
       this.currentFileId,
+      this.parsedAwsp!,
     );
 
     // Collect build issues
@@ -1025,7 +1089,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertSubgraphs(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'Subgraph');
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Subgraph);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1044,7 +1108,62 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
+          ),
+        });
+      }
+    }
+  }
+
+  /**
+   * Phase 2b: Build and Insert Subsystems from ui-metadata
+   */
+  private async buildAndInsertSubsystems(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    const uiMetadata = this.parsedAwsp?.getUiMetadata();
+    if (!uiMetadata?.subsystems?.length) {
+      this.logger?.logInfo({
+        msg: 'No subsystems in ui-metadata — skipping Phase 2b',
+        action: 'subsystems_skipped',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    const subsystems = await this.builderService.buildSubsystems(
+      this.currentFileId,
+      uiMetadata,
+    );
+
+    if (subsystems.length > 0) {
+      const insertResult = await bulkRepo.insertSubsystems(subsystems);
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Subsystem);
+      if (insertResult.ok) {
+        this.logger?.logInfo({
+          msg: `Successfully inserted ${subsystems.length} subsystems`,
+          action: 'subsystems_persisted',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+        });
+      } else {
+        this.logger?.logError({
+          msg: `Failed to insert some subsystems: ${insertResult.errors.length} failures`,
+          action: 'subsystems_insertion_failed',
+          component: 'UploadFileOrchestrator',
+          tag: 'database-persistence',
+          timestamp: new Date(),
+          error: new Error(
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -1071,7 +1190,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertContainers(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'Container');
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Container);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1090,7 +1209,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -1135,7 +1257,7 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'SpfModule');
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.SpfModule);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1154,7 +1276,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -1181,7 +1306,7 @@ export class UploadFileOrchestrator {
       const insertResult = await bulkRepo.insertDriverModules(result.entities);
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'DriverModule');
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.DriverModule);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1200,7 +1325,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -1218,6 +1346,7 @@ export class UploadFileOrchestrator {
     const dataLinks = await this.builderService.buildDataLinks(
       this.parsedAcdb!,
       this.currentFileId,
+      this.parsedAwsp!,
     );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.DATA_LINK_BUILDING,
@@ -1240,7 +1369,7 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'DataLink');
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.DataLink);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1259,7 +1388,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -1300,7 +1432,7 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'ControlLink');
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.ControlLink);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1319,7 +1451,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }
@@ -1363,6 +1498,7 @@ export class UploadFileOrchestrator {
     const usecases = await this.builderService.buildUsecases(
       this.parsedAcdb!,
       this.currentFileId,
+      this.parsedAwsp!,
     );
     const buildMetrics = this.profiler?.end(
       PROFILER_OPERATIONS.USECASE_BUILDING,
@@ -1385,7 +1521,7 @@ export class UploadFileOrchestrator {
       );
 
       // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, 'UseCase');
+      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.UseCase);
 
       // Log based on actual insertion result
       if (insertResult.ok) {
@@ -1404,7 +1540,10 @@ export class UploadFileOrchestrator {
           tag: 'database-persistence',
           timestamp: new Date(),
           error: new Error(
-            '\t' + insertResult.errors.map(e => e.message).join('\n\t'),
+            '\t' +
+              insertResult.errors
+                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+                .join('\n\t'),
           ),
         });
       }

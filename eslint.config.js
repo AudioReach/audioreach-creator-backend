@@ -155,6 +155,13 @@ export default [
           ],
         },
       ],
+
+      'custom/no-raw-persistence-queries': [
+        'error',
+        {
+          persistencePattern: 'persistence',
+        },
+      ],
     },
   },
 
@@ -298,6 +305,14 @@ export default [
     rules: {
       // Disabled: null is semantically correct for database NULL values and singleton patterns
       'unicorn/no-null': 'off',
+    },
+  },
+
+  // TypeORM migrations use raw queryRunner.query() by design
+  {
+    files: ['**/migrations/**/*.ts'],
+    rules: {
+      'custom/no-raw-persistence-queries': 'off',
     },
   },
 

@@ -9,6 +9,7 @@ import type {DataLink as DataLinkProperty} from '../../../shared/acdb-chunks/spf
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../ports/id-generation/id-generation.port.js';
+import type {UiMetadata} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {
   asNaturalId,
   asSystemId,
@@ -33,6 +34,7 @@ export class DataLinkBuilder {
   async buildDataLinks(
     dataLinkProperties: DataLinkProperty[],
     fileSystemId: number,
+    uiMetadata?: UiMetadata,
   ): Promise<DataLink[]> {
     // Input validation
     if (!dataLinkProperties || dataLinkProperties.length === 0) {
@@ -49,6 +51,14 @@ export class DataLinkBuilder {
     // STEP 1: Early deduplication by composite natural key
     const uniqueProperties = new Map<string, DataLinkProperty>();
     let duplicateCount = 0;
+
+    const ecLookup = new Map<string, boolean>();
+    for (const dl of uiMetadata?.dataLinks ?? []) {
+      ecLookup.set(
+        `${dl.sourceId}:${dl.sourcePortId}:${dl.destinationId}:${dl.destinationPortId}`,
+        dl.isEcLink,
+      );
+    }
 
     for (const property of dataLinkProperties) {
       const key = `${property.sourceInstanceId}:${property.sourcePortId}->${property.destinationInstanceId}:${property.destinationPortId}`;
@@ -75,7 +85,11 @@ export class DataLinkBuilder {
     let failureCount = 0;
 
     for (const property of uniqueProperties.values()) {
-      const dataLink = this.convertDataLinkProperty(property, fileSystemId);
+      const dataLink = this.convertDataLinkProperty(
+        property,
+        fileSystemId,
+        ecLookup,
+      );
 
       if (dataLink === null) {
         failureCount++;
@@ -141,6 +155,7 @@ export class DataLinkBuilder {
   private convertDataLinkProperty(
     property: DataLinkProperty,
     fileSystemId: number,
+    ecLookup: Map<string, boolean> = new Map(),
   ): DataLink | null {
     try {
       // Get node systemIds from foreign key mapper
@@ -250,7 +265,9 @@ export class DataLinkBuilder {
 
       const isEc =
         linkType === LINK_TYPE.IntraUsecase
-          ? false // TODO: read isEc from workspace file once parser support is added
+          ? (ecLookup.get(
+              `${property.sourceInstanceId}:${property.sourcePortId}:${property.destinationInstanceId}:${property.destinationPortId}`,
+            ) ?? false)
           : undefined;
 
       return new DataLink({

@@ -16,13 +16,13 @@ import type {
   IdGenerationPort,
   KeyDefinition,
   ModuleManagerData,
-  Node,
   ProcessorDefinition,
   PropertyDefinition,
   SpfModule,
   SpfModuleDefinition,
   Subgraph,
   SubgraphPropertyDefinition,
+  Subsystem,
   TagDefinition,
   UseCase,
   VcpmModuleDefinition,
@@ -75,7 +75,7 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
     ]);
   }
 
-  insertSubsystems(items: readonly Node[]): Promise<BulkInsertResult> {
+  insertSubsystems(items: readonly Subsystem[]): Promise<BulkInsertResult> {
     return new SubsystemInserter(this.manager).insert([...items]);
   }
 

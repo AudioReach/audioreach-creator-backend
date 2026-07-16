@@ -15,7 +15,7 @@ import type {
   UseCase,
   SpfModuleDefinition,
   BulkInsertResult,
-  Node,
+  Subsystem,
   VcpmModuleDefinition,
   TagDefinition,
   SubgraphPropertyDefinition,
@@ -54,12 +54,12 @@ export interface BulkImportRepository {
   insertSubgraphs(items: readonly Subgraph[]): Promise<BulkInsertResult>;
 
   /**
-   * Inserts subsystem node rows in bulk, including data ports, control ports, and intents.
+   * Inserts subsystem node rows in bulk, including data ports, control ports, and filtered keys.
    *
    * @param items - Subsystem nodes with pre-assigned systemIds
    * @returns Promise resolving to the bulk insert result indicating success and any failed entities
    */
-  insertSubsystems(items: readonly Node[]): Promise<BulkInsertResult>;
+  insertSubsystems(items: readonly Subsystem[]): Promise<BulkInsertResult>;
 
   /**
    * Inserts data link rows in bulk.

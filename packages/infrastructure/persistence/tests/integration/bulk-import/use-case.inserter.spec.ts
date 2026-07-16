@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {UseCase} from '@arc/core';
+import {UseCase, USECASE_TYPE} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -93,6 +93,7 @@ function buildUseCase(
     }[];
     valueSystemIds?: number[];
     alias?: string;
+    type?: string;
   } = {},
 ): UseCase {
   return new UseCase({
@@ -103,6 +104,7 @@ function buildUseCase(
     keyVector: {valueSystemIds: opts.valueSystemIds ?? []},
     subgraphSystemIds: opts.subgraphSystemIds ?? [],
     subgraphPairs: opts.subgraphPairs ?? [],
+    type: opts.type,
   });
 }
 
@@ -444,5 +446,27 @@ describe('UseCaseInserter', () => {
     );
     expect(pairRows).toHaveLength(1);
     expect(pairRows[0].dest_subgraph_system_id).toBe(SG2_ID);
+  });
+
+  // ── type field ─────────────────────────────────────────────────────────────
+
+  it('should persist the type field when provided', async () => {
+    const uc = buildUseCase(2001, {type: USECASE_TYPE.Ec});
+    await inserter.insert([uc]);
+    const rows = await dataSource.query(
+      `SELECT type FROM use_cases WHERE system_id = ?`,
+      [uc.systemId],
+    );
+    expect(rows[0].type).toBe(USECASE_TYPE.Ec);
+  });
+
+  it('should persist NULL type when type is undefined', async () => {
+    const uc = buildUseCase(2002, {type: undefined});
+    await inserter.insert([uc]);
+    const rows = await dataSource.query(
+      `SELECT type FROM use_cases WHERE system_id = ?`,
+      [uc.systemId],
+    );
+    expect(rows[0].type).toBeNull();
   });
 });

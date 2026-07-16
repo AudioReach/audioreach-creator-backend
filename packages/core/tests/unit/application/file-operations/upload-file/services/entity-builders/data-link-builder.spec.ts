@@ -600,4 +600,70 @@ describe('DataLinkBuilder', () => {
       });
     });
   });
+
+  describe('DataLinkBuilder isEc from ui-metadata', () => {
+    it('should set isEc=true for IntraUsecase link matching ui-metadata isEcLink=true', async () => {
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        usecases: [],
+        subsystems: [],
+        subgraphs: [],
+        modules: [],
+        dataLinks: [
+          {
+            isEcLink: true,
+            sourceId: 1,
+            sourcePortId: 10,
+            destinationId: 2,
+            destinationPortId: 20,
+          },
+        ],
+      };
+
+      const property: DataLinkProperty = {
+        sourceInstanceId: 1,
+        sourcePortId: 10,
+        destinationInstanceId: 2,
+        destinationPortId: 20,
+        isInterGraph: false,
+      };
+
+      const links = await builder.buildDataLinks(
+        [property],
+        TEST_FILE_SYSTEM_ID,
+        uiMetadata as any,
+      );
+      expect(links).toHaveLength(1);
+      expect(links[0].isEc).toBe(true);
+    });
+
+    it('should set isEc=false when IntraUsecase link is not in ui-metadata', async () => {
+      const uiMetadata = {
+        version: {major: 1, minor: 0},
+        payloadMap: [],
+        usecases: [],
+        subsystems: [],
+        subgraphs: [],
+        modules: [],
+        dataLinks: [],
+      };
+
+      const property: DataLinkProperty = {
+        sourceInstanceId: 1,
+        sourcePortId: 10,
+        destinationInstanceId: 2,
+        destinationPortId: 20,
+        isInterGraph: false,
+      };
+
+      const links = await builder.buildDataLinks(
+        [property],
+        TEST_FILE_SYSTEM_ID,
+        uiMetadata as any,
+      );
+      expect(links).toHaveLength(1);
+      expect(links[0].isEc).toBe(false);
+    });
+  });
 });
