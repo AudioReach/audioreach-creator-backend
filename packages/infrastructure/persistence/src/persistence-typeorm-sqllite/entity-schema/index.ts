@@ -85,6 +85,7 @@ import {
 import {UseCaseSubgraphSchema} from './usecase-data/use-case-subgraph.schema.js';
 import {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.schema.js';
 import {EditActionSchema} from './edit-session/edit-action.schema.js';
+import {SessionEntityVersionSchema} from './edit-session/session-entity-version.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
 import {ProjectSessionSchema} from './edit-session/project-session.schema.js';
 import {SessionCommitSchema} from './edit-session/session-commit.schema.js';
@@ -299,6 +300,8 @@ export {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.s
 
 export type {EditActionRow} from './edit-session/edit-action.schema.js';
 export {EditActionSchema} from './edit-session/edit-action.schema.js';
+export type {SessionEntityVersionRow} from './edit-session/session-entity-version.schema.js';
+export {SessionEntityVersionSchema} from './edit-session/session-entity-version.schema.js';
 export {RESTORE_TYPE} from './edit-session/restore-point.schema.js';
 export type {
   RestoreType,
@@ -409,6 +412,7 @@ export function getAllEntitySchemas(
     UseCaseSubgraphPairSchema,
 
     EditActionSchema,
+    SessionEntityVersionSchema,
     RestorePointSchema,
 
     // Project Session Schemas (v2)

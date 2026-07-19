@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -153,7 +154,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
 
       // Value→key direction, distinct from loadOverlaidKeysWithValues
       // (key-first). One query for the requested values, plus (if a
-      // session is active) one getEditActionsByTable('ValueDefinition')
+      // session is active) one getByTable('ValueDefinition')
       // overlay pass scoped to just the requested ids — so a
       // session-only CREATE value still resolves to its parent key.
       const valueRows = (await this.dataSource
@@ -165,12 +166,12 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       let overlaidValueRows = valueRows;
       if (sessionId !== null) {
         const requestedIdSet = new Set(valueDefSystemIds);
-        const allValueActions = await this.editActionsSvc.getEditActionsByTable(
+        const allValueActions = await this.editActionsSvc.getByTable(
           sessionId,
           ENTITY_NAMES.ValueDefinition,
         );
         const valueActions = allValueActions.filter(a =>
-          requestedIdSet.has(a.systemId),
+          requestedIdSet.has(a.targetSystemId),
         );
         overlaidValueRows = applyToCollection(valueRows, valueActions);
       }
@@ -344,7 +345,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
    * routes through. At most 4 queries regardless of key count: keys,
    * values (joined to keys for the 'all' case so it stays independent of
    * the key query), and (only when a session is active) one table-wide
-   * getEditActionsByTable per table. The four queries have no
+   * getByTable per table. The four queries have no
    * interdependency, so they run concurrently.
    *
    * No per-key failure isolation — a thrown DB error fails the whole call.
@@ -385,13 +386,13 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
         valueRowsQuery.getMany() as Promise<ValueDefinitionRow[]>,
         sessionId === null
           ? Promise.resolve([])
-          : this.editActionsSvc.getEditActionsByTable(
+          : this.editActionsSvc.getByTable(
               sessionId,
               ENTITY_NAMES.KeyDefinition,
             ),
         sessionId === null
           ? Promise.resolve([])
-          : this.editActionsSvc.getEditActionsByTable(
+          : this.editActionsSvc.getByTable(
               sessionId,
               ENTITY_NAMES.ValueDefinition,
             ),

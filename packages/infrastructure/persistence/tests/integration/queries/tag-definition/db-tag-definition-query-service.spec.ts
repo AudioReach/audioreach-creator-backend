@@ -23,6 +23,7 @@ import {
 import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
+  SOURCE,
   Result,
   IssueSeverity,
   RESULT_KIND,
@@ -98,10 +99,10 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
       getTestRepository<ProjectSessionRow>(ProjectSessionSchema);
     service = new DbTagDefinitionQueryService(
       dataSource,
-      new EditActionsQueryService(dataSource),
+      new EditActionsQueryService(dataSource.manager),
       new DbKeyValueDefQueryService(
         dataSource,
-        new EditActionsQueryService(dataSource),
+        new EditActionsQueryService(dataSource.manager),
       ),
     );
   });
@@ -286,15 +287,17 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const session = await createSession(fileSystemId);
 
     await editActionRepository.save({
-      systemId: tag.systemId,
+      targetSystemId: tag.systemId,
       aggregateId: tag.systemId,
       sessionId: session.sessionId,
-      tableName: ENTITY_NAMES.TagDefinition,
+      targetTable: ENTITY_NAMES.TagDefinition,
       operation: CHANGE_OPERATION.Update,
-      payload: {name: 'UpdatedName'},
+      fieldPath: null,
+      newValue: {name: 'UpdatedName'},
+      source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      baseVersion: null,
       groupId: null,
+      linkedEntityGroupId: null,
       validUntil: null,
     });
 
@@ -318,15 +321,17 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const session = await createSession(fileSystemId);
 
     await editActionRepository.save({
-      systemId: tag.systemId,
+      targetSystemId: tag.systemId,
       aggregateId: tag.systemId,
       sessionId: session.sessionId,
-      tableName: ENTITY_NAMES.TagDefinition,
+      targetTable: ENTITY_NAMES.TagDefinition,
       operation: CHANGE_OPERATION.Delete,
-      payload: {systemId: tag.systemId},
+      fieldPath: '$',
+      newValue: null,
+      source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      baseVersion: null,
       groupId: null,
+      linkedEntityGroupId: null,
       validUntil: null,
     });
 
@@ -360,15 +365,17 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const session = await createSession(fileSystemId);
 
     await editActionRepository.save({
-      systemId: key.systemId,
+      targetSystemId: key.systemId,
       aggregateId: key.systemId,
       sessionId: session.sessionId,
-      tableName: ENTITY_NAMES.KeyDefinition,
+      targetTable: ENTITY_NAMES.KeyDefinition,
       operation: CHANGE_OPERATION.Delete,
-      payload: {systemId: key.systemId},
+      fieldPath: '$',
+      newValue: null,
+      source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      baseVersion: null,
       groupId: null,
+      linkedEntityGroupId: null,
       validUntil: null,
     });
 
@@ -443,7 +450,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     // post-Task-3 (scoped to the tags' linked keys, not the whole file).
     const realKeyValueDefSvc = new DbKeyValueDefQueryService(
       dataSource,
-      new EditActionsQueryService(dataSource),
+      new EditActionsQueryService(dataSource.manager),
     );
     const stubKeyValueDefSvc: Pick<
       KeyValueDefQueryService,
@@ -468,7 +475,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
 
     const serviceWithStub = new DbTagDefinitionQueryService(
       dataSource,
-      new EditActionsQueryService(dataSource),
+      new EditActionsQueryService(dataSource.manager),
       stubKeyValueDefSvc as KeyValueDefQueryService,
     );
 

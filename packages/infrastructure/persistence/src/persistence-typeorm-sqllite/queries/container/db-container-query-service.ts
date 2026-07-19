@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import {
@@ -42,7 +43,7 @@ export class DbContainerQueryService implements ContainerQueryService {
       const rows = session
         ? applyToCollection(
             baselineRows,
-            await this.editActionsSvc.getEditActionsByTable(
+            await this.editActionsSvc.getByTable(
               session.sessionId,
               ENTITY_NAMES.Container,
             ),

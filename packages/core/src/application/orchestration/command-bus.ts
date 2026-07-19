@@ -3,7 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {Command} from './cqrs/commands/command.js';
+import {BaseCommand} from '../shared/base-command.js';
+import {
+  SessionRequiredError,
+  SessionModeNotAllowedError,
+} from './cqrs/errors.js';
+import type {ActiveSession} from './cqrs/active-session.js';
 import {CommandHandlerRegistry} from './cqrs/registries/command-handler-registry.js';
 import type {CommandHandlerDependencies} from './cqrs/registries/command-handler-registry.js';
 import type {FileSystemPort} from '../ports/file-system/file-system.port.js';
@@ -15,6 +20,7 @@ import type {UnitOfWork} from '../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../ports/id-generation/id-generation.port.js';
 import type {NaturalIdGenerationPort} from '../ports/id-generation/natural-id-generation.port.js';
 import type {QueryServices} from '../ports/persistence/query-services/query-services.js';
+import {generateUuid} from '../../shared/utilities/uuid.js';
 
 export class CommandBus {
   constructor(
@@ -29,7 +35,27 @@ export class CommandBus {
     private readonly profiler?: ProfilerPort,
   ) {}
 
-  async execute<TResponse = void>(command: Command): Promise<TResponse> {
+  /**
+   * Execute a command, optionally with an active session.
+   *
+   * Before invoking the handler, enforces (§7a.3 of foundation.md):
+   *   1. Session requirement: throws SessionRequiredError when requiresSession = true
+   *      but no session is provided.
+   *   2. Mode gate: throws SessionModeNotAllowedError when allowedModes is non-empty
+   *      and the session's mode is not in the list.
+   *   3. WriteContext stamping: calls uow.setWriteContext({ session, groupId }) when
+   *      a session is present. Skipped for Case-3 commands (requiresSession = false).
+   *
+   * Transaction lifecycle stays with handlers — CommandBus does NOT call
+   * startTransaction, commit, or rollback (§7a.4 of foundation.md).
+   */
+  async execute<TResponse = void>(
+    command: BaseCommand,
+    session?: ActiveSession,
+  ): Promise<TResponse> {
+    this.enforceSessionPolicy(command, session);
+
+    // ── UoW creation and WriteContext stamping ────────────────────────────
     const {uow, release} = await this.uowFactory();
 
     this.logger?.logDebug({
@@ -40,10 +66,13 @@ export class CommandBus {
       timestamp: new Date(),
     });
 
+    // Stamp WriteContext only when a session is present (Case 1 + 2).
+    if (session) {
+      uow.setWriteContext({session, groupId: generateUuid()});
+    }
+
     try {
       const handler = this.createHandler(command, uow);
-
-      // Call command handler to perform the operation
       const result = await handler.handle(command);
 
       // Safety check: ensure transaction is closed
@@ -109,7 +138,28 @@ export class CommandBus {
     }
   }
 
-  private createHandler(command: Command, uow: UnitOfWork): any {
+  private enforceSessionPolicy(
+    command: BaseCommand,
+    session?: ActiveSession,
+  ): void {
+    const cmdBaseInfo = command.constructor as typeof BaseCommand;
+    if (cmdBaseInfo.requiresSession && !session) {
+      throw new SessionRequiredError(cmdBaseInfo.name);
+    }
+    if (
+      session &&
+      cmdBaseInfo.allowedModes.length > 0 &&
+      !cmdBaseInfo.allowedModes.includes(session.mode)
+    ) {
+      throw new SessionModeNotAllowedError(
+        cmdBaseInfo.name,
+        session.mode,
+        cmdBaseInfo.allowedModes,
+      );
+    }
+  }
+
+  private createHandler(command: BaseCommand, uow: UnitOfWork): any {
     const factory = this.handlerRegistry.getCommandHandlerFactory(command);
     const dependencies: CommandHandlerDependencies = {
       uow,

@@ -9,6 +9,10 @@ export * from './application/orchestration/cqrs/request.js';
 export * from './application/orchestration/cqrs/registries/command-handler-registry.js';
 export * from './application/orchestration/cqrs/registries/query-handler-registry.js';
 export * from './application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
+// Session context types and errors (§8.1 and §7a.4 of foundation.md)
+export * from './application/orchestration/cqrs/active-session.js';
+export * from './application/orchestration/cqrs/write-context.js';
+export * from './application/orchestration/cqrs/errors.js';
 
 // Shared errors
 export * from './shared/errors/index.js';
@@ -35,6 +39,8 @@ export * from './application/shared/result/result.js';
 // Shared Change Types
 export * from './application/shared/change-vocabulary.js';
 export * from './application/shared/read-model-base.js';
+// Write handler shared result type
+export * from './application/shared/write-result.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';
@@ -89,9 +95,6 @@ export * from './application/usecase-designer/spf-module/param-parser/index.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/ckv-calibration-read-model.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
-export * from './application/usecase-designer/index.js';
-export * from './application/usecase-designer/spf-module/create/create-module.command.js';
-export * from './application/usecase-designer/spf-module/create/create-module.handler.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';
@@ -237,6 +240,7 @@ export * from './domain/validation/validation-context.js';
 // Validation framework — application ports
 export * from './application/ports/persistence/repositories/validation/validation-preferences.repository.js';
 export * from './application/ports/persistence/repositories/validation/validation-query.repository.js';
+export * from './application/ports/persistence/repositories/session/session.repository.js';
 
 // Validation framework — CQRS
 export * from './application/validation/queries/validate-file.query.js';

@@ -9,3 +9,10 @@ export * from './queries/typeorm-query-services.js';
 // Export database utilities
 export * from './orm-base.js';
 export * from './migration-index.js';
+
+// Export write services
+export * from './services/pending-change-cache.js';
+export * from './services/pending-change-writer.js';
+
+// Session repository
+export {TypeOrmSessionRepository} from './repositories/session/typeorm-session.repository.js';
