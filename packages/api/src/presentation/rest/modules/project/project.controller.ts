@@ -17,7 +17,7 @@ import {
   Post,
   Request,
   UploadedFiles,
-  //UseGuards,
+  UseGuards,
   UseInterceptors,
   Inject,
   Res,
@@ -82,6 +82,7 @@ import {CreateUsecasesRequestDto} from './dto/create-usecases-request.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
+import {SessionGuard} from '../../../../guards/session-guard.js';
 
 @Controller('arc-api/v1/projects')
 //@UseGuards(AuthGuard('jwt'))
@@ -1285,6 +1286,7 @@ export class ProjectController {
   }
 
   @Post('/:projectId/end-session')
+  @UseGuards(SessionGuard)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
     summary: 'End the current session',

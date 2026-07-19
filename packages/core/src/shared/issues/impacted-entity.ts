@@ -15,6 +15,7 @@
  * of TypeORM entity names. Add new values here as callers require them.
  */
 export const ISSUE_ENTITY_TYPE = {
+  Project: 'Project',
   SpfModule: 'SpfModule',
   DataLink: 'DataLink',
   ControlLink: 'ControlLink',

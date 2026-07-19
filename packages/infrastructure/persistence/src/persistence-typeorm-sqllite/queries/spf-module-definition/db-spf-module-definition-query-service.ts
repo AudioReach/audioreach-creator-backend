@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -36,7 +37,7 @@ import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-mod
  * getDefinition() always loads summary (port capacity counts) by default.
  * fullDetails=true loads ports, intents, and parameters on top of summary.
  *
- * Overlay always applied — one getEditActionsByAggregateId call per aggregate,
+ * Overlay always applied — one getByAggregateId call per aggregate,
  * applyTableOverlay filters per table from the single result.
  * Same pattern as applyParamDefOverlay / applyKeyDefOverlay across all services.
  *
@@ -232,7 +233,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
 
   /**
    * Applies overlay to a SpfModuleDefinition aggregate.
-   * One getEditActionsByAggregateId call returns actions for all tables under
+   * One getByAggregateId call returns actions for all tables under
    * this aggregate. applyTableOverlay filters per table — same pattern as
    * applyParamDefOverlay and applyKeyDefOverlay across all services.
    * Only overlays tables that were joined based on includes.
@@ -243,7 +244,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     session: {sessionId: number},
     includes: ConfigurationIncludes,
   ): Promise<SpfModuleDefinitionRow> {
-    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+    const actions = await this.editActionsSvc.getByAggregateId(
       session.sessionId,
       defSystemId,
     );
@@ -256,13 +257,13 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     // summary always loaded — overlay port groups and static ports
     const overlaidPortGroups = applyToCollection(
       overlaidDef.dataPortGroups ?? [],
-      actions.filter(a => a.tableName === ENTITY_NAMES.DataPortGroup),
+      actions.filter(a => a.targetTable === ENTITY_NAMES.DataPortGroup),
     );
 
     const overlaidStaticPorts = applyToCollection(
       overlaidDef.staticPorts ?? [],
       actions.filter(
-        a => a.tableName === ENTITY_NAMES.StaticControlPortDefinition,
+        a => a.targetTable === ENTITY_NAMES.StaticControlPortDefinition,
       ),
     );
 
@@ -274,7 +275,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
             ports: applyToCollection(
               g.ports ?? [],
               actions.filter(
-                a => a.tableName === ENTITY_NAMES.DataPortDefinition,
+                a => a.targetTable === ENTITY_NAMES.DataPortDefinition,
               ),
             ),
           }))
@@ -287,7 +288,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
             staticIntents: applyToCollection(
               p.staticIntents ?? [],
               actions.filter(
-                a => a.tableName === ENTITY_NAMES.StaticIntentDefinition,
+                a => a.targetTable === ENTITY_NAMES.StaticIntentDefinition,
               ),
             ),
           }))
@@ -298,7 +299,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         ? applyToCollection(
             overlaidDef.dynamicIntents ?? [],
             actions.filter(
-              a => a.tableName === ENTITY_NAMES.DynamicIntentDefinition,
+              a => a.targetTable === ENTITY_NAMES.DynamicIntentDefinition,
             ),
           )
         : (overlaidDef.dynamicIntents ?? []);
@@ -314,14 +315,14 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   /**
    * Applies overlay to a SpfModuleParameterDefinition row.
    * Called only when an active session exists — session is guaranteed non-null.
-   * One getEditActionsByAggregateId call, applyTableOverlay filters to the table.
+   * One getByAggregateId call, applyTableOverlay filters to the table.
    */
   private async applyParamDefOverlay(
     baseRow: SpfModuleParameterDefinitionRow | null,
     parameterDefinitionSystemId: number,
     session: {sessionId: number},
   ): Promise<SpfModuleParameterDefinitionRow | null> {
-    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+    const actions = await this.editActionsSvc.getByAggregateId(
       session.sessionId,
       parameterDefinitionSystemId,
     );
@@ -411,7 +412,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   /**
    * Loads and overlays parameter definitions for a module definition aggregate.
    * Parameters are keyed by moduleDefSystemId — separate aggregate from the definition.
-   * One getEditActionsByAggregateId call, applyToCollection filters to param table.
+   * One getByAggregateId call, applyToCollection filters to param table.
    */
   async queryParameterDefinitions(
     fileSystemId: number,
@@ -435,12 +436,12 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     if (!session)
       return filtered.map(r => this.toParameterDefinitionReadModel(r));
 
-    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+    const actions = await this.editActionsSvc.getByAggregateId(
       session.sessionId,
       moduleDefSystemId,
     );
     const paramActions = actions.filter(
-      a => a.tableName === ENTITY_NAMES.SpfModuleParameterDefinition,
+      a => a.targetTable === ENTITY_NAMES.SpfModuleParameterDefinition,
     );
     const overlaid =
       paramActions.length > 0 ? applyToCollection(rows, paramActions) : rows;

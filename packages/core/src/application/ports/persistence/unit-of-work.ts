@@ -7,6 +7,8 @@ import type {BulkImportRepository} from './repositories/bulk-import/bulk-import.
 import type {ProjectRepository} from './repositories/project/project.repository.js';
 import type {ValidationPreferencesRepository} from './repositories/validation/validation-preferences.repository.js';
 import type {ValidationQueryRepository} from './repositories/validation/validation-query.repository.js';
+import type {WriteContext} from '../../orchestration/cqrs/write-context.js';
+import type {ISessionRepository} from './repositories/session/session.repository.js';
 
 /**
  * Unit of Work pattern for managing database transactions and repository access.
@@ -16,58 +18,38 @@ import type {ValidationQueryRepository} from './repositories/validation/validati
  * - QueryRunner remains alive for the entire command execution
  * - Handlers control transaction boundaries via startTransaction/commit/rollback
  * - CommandBus releases QueryRunner after command completes
+ * - setWriteContext / getWriteContext: session + groupId plumbing for write handlers
+ *   and edit-repo adapters. CommandBus stamps once; consumers read only.
+ * - applyCachedActions: flushes the PendingChangeCache buffer before commit.
+ * - getSessionRepository: provides session lifecycle methods inside handlers.
+ *
+ * NOTE: getQueryRunner() is intentionally NOT on this interface. UnitOfWork is a
+ * core abstraction that must remain free of infrastructure (TypeORM) imports.
+ * Persistence-layer services (PendingChangeWriter, aggregate edit repos) that need
+ * a QueryRunner receive it as a constructor parameter from TypeOrmUnitOfWork.
  */
 export interface UnitOfWork {
-  /**
-   * Start a new transaction.
-   * @throws Error if transaction is already active
-   */
   startTransaction(): Promise<void>;
-
-  /**
-   * Commit the active transaction.
-   * Note: QueryRunner remains alive after commit (CommandBus will release it)
-   * @throws Error if no active transaction
-   */
   commit(): Promise<void>;
-
-  /**
-   * Rollback the active transaction.
-   * Note: QueryRunner remains alive after rollback (CommandBus will release it)
-   * @throws Error if no active transaction
-   */
   rollback(): Promise<void>;
-
-  /**
-   * Check if a transaction is currently active.
-   */
   isInTransaction(): boolean;
-
-  /**
-   * Get bulk import repository for file upload operations.
-   * Uses shared QueryRunner from this UOW.
-   */
   getBulkImportRepository(): BulkImportRepository;
-
-  /**
-   * Get project repository for project management operations.
-   * Uses shared QueryRunner from this UOW.
-   */
   getProjectRepository(): ProjectRepository;
-
-  /**
-   * Get validation preferences repository.
-   * Uses shared QueryRunner from this UOW.
-   */
   getValidationPreferencesRepository(): ValidationPreferencesRepository;
+  getValidationQueryService(): ValidationQueryRepository;
+
+  /** Stamps WriteContext once per request — called by CommandBus after session checks. */
+  setWriteContext(ctx: WriteContext): void;
+
+  /** Returns the WriteContext stamped by CommandBus. @throws if never set. */
+  getWriteContext(): WriteContext;
 
   /**
-   * Get validation query service for running validations from command handlers.
-   * Provides read-only access to domain entities needed by ValidationContextBuilder.fromDb().
-   * Uses the same DB connection as this UOW for consistency.
-   *
-   * Use this in command handlers (commit, save) that need to run validation
-   * against DB-persisted entities. For the upload path, use fromEntities() instead.
+   * Flushes PendingChangeCache to DB within the current transaction.
+   * Call before uow.commit() when cache writes were used. No-op when empty.
    */
-  getValidationQueryService(): ValidationQueryRepository;
+  applyCachedActions(): Promise<void>;
+
+  /** Returns ISessionRepository bound to this UoW's connection. */
+  getSessionRepository(): ISessionRepository;
 }

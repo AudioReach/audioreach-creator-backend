@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import {
@@ -230,7 +231,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         const delta =
           moduleDraft?.operation === 'UPDATE'
             ? (JSON.parse(
-                moduleDraft.payload as string,
+                moduleDraft.newValue as string,
               ) as Partial<SpfModuleRow>)
             : {};
 
@@ -290,19 +291,16 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       if (session) {
         const actionArrays = await Promise.all(
           nodeSystemIds.map(id =>
-            this.editActionsSvc.getEditActionsByAggregateId(
-              session.sessionId,
-              id,
-            ),
+            this.editActionsSvc.getByAggregateId(session.sessionId, id),
           ),
         );
         const allActions = actionArrays.flat();
 
         const nodeActions = allActions.filter(
-          a => a.tableName === ENTITY_NAMES.Node,
+          a => a.targetTable === ENTITY_NAMES.Node,
         );
         const spfActions = allActions.filter(
-          a => a.tableName === ENTITY_NAMES.SpfModule,
+          a => a.targetTable === ENTITY_NAMES.SpfModule,
         );
 
         if (nodeActions.length > 0 || spfActions.length > 0) {
@@ -448,11 +446,13 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
 
     const draftMap = new Map<number, EditActionRow>();
     for (const nodeId of nodeSystemIds) {
-      const drafts = await this.editActionsSvc.getEditActionsByAggregateId(
+      const drafts = await this.editActionsSvc.getByAggregateId(
         session.sessionId,
         nodeId,
       );
-      const spfDraft = drafts.find(d => d.tableName === ENTITY_NAMES.SpfModule);
+      const spfDraft = drafts.find(
+        d => d.targetTable === ENTITY_NAMES.SpfModule,
+      );
       if (spfDraft) draftMap.set(nodeId, spfDraft);
     }
     return draftMap;

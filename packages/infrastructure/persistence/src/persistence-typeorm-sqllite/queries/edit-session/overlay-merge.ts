@@ -3,69 +3,237 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHANGE_OPERATION, type ChangeOperation} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  PENDING_CHANGE_STATUS,
+  SOURCE,
+} from '@arc/core';
+import type {ChangeOperation, PendingChangeStatus} from '@arc/core';
+import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
+import type {DiffEntry, FieldPathReducer} from './field-path-reducer.js';
+import {FieldPathReducer as FieldPathReducerImpl} from './field-path-reducer.js';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
-/** Minimal shape needed for overlay — decoupled from EditActionRow */
-export interface EditActionForOverlay {
-  systemId: number;
-  operation: ChangeOperation;
-  payload: unknown;
+// ── Public types ──────────────────────────────────────────────────────────────
+
+// Re-export so callers can reference the type without importing from @arc/core directly.
+export type {PendingChangeStatus} from '@arc/core';
+
+export type OverlayResult<T> = {
+  effective: T;
+  diffEntries: DiffEntry[];
+  /**
+   * Absent when the entity has no pending changes (base row returned as-is,
+   * operation = NONE). Present when at least one pending row exists.
+   */
+  pendingChangeStatus?: PendingChangeStatus;
+  /**
+   * NONE    — entity has no pending changes (committed base row only).
+   * CREATE  — entity was created in this session.
+   * UPDATE  — entity has pending field changes on a committed base.
+   * DELETE is never present in a returned result — tombstoned entities
+   *         cause applyToSingle / applyToCollection to return null / exclude.
+   */
+  operation: Exclude<ChangeOperation, typeof CHANGE_OPERATION.Delete>;
+};
+
+export interface OverlayMerge {
+  applyToSingle<T extends {systemId: number}>(
+    baseRow: T | null,
+    pendingRows: EditActionRow[],
+  ): OverlayResult<T> | null;
+
+  applyToCollection<T extends {systemId: number}>(
+    baseRows: T[],
+    pendingRows: EditActionRow[],
+  ): OverlayResult<T>[];
 }
 
-/**
- * Apply overlay to a single base row.
- * - ADD:    returns payload as full entity (base row is null for new entities)
- * - UPDATE: merges partial payload over base row ({ ...baseRow, ...payload })
- * - DELETE: returns null (entity is gone)
- * - null action: returns base row as-is
- */
+// ── Implementation ────────────────────────────────────────────────────────────
 
+export class OverlayMergeImpl implements OverlayMerge {
+  constructor(private readonly fieldPathReducer: FieldPathReducer) {}
+
+  applyToSingle<T extends {systemId: number}>(
+    baseRow: T | null,
+    pendingRows: EditActionRow[],
+  ): OverlayResult<T> | null {
+    if (pendingRows.length === 0) {
+      if (baseRow === null) return null;
+      // No pending changes — return committed base row; operation = NONE,
+      // pendingChangeStatus absent (nothing is pending).
+      return {
+        effective: deepClone(baseRow),
+        diffEntries: [],
+        operation: CHANGE_OPERATION.None,
+      };
+    }
+    return this.foldRows<T>(baseRow, pendingRows);
+  }
+
+  applyToCollection<T extends {systemId: number}>(
+    baseRows: T[],
+    pendingRows: EditActionRow[],
+  ): OverlayResult<T>[] {
+    const pendingBySystemId = groupByTargetSystemId(pendingRows);
+    const baseSystemIds = new Set(baseRows.map(r => r.systemId));
+    const results: OverlayResult<T>[] = [];
+
+    for (const base of baseRows) {
+      const rows = pendingBySystemId.get(base.systemId) ?? [];
+      const result = this.applyToSingle<T>(base, rows);
+      if (result !== null) results.push(result);
+    }
+
+    for (const [systemId, rows] of pendingBySystemId) {
+      if (baseSystemIds.has(systemId)) continue;
+      const result = this.applyToSingle<T>(null, rows);
+      if (result !== null) results.push(result);
+    }
+
+    return results;
+  }
+
+  private foldRows<T extends {systemId: number}>(
+    baseRow: T | null,
+    pendingRows: EditActionRow[],
+  ): OverlayResult<T> | null {
+    const sorted = sortPendingRows(pendingRows);
+    const effective: Record<string, unknown> =
+      baseRow === null ? {} : deepClone(baseRow as Record<string, unknown>);
+
+    const diffEntries: DiffEntry[] = [];
+    let operation: Exclude<ChangeOperation, typeof CHANGE_OPERATION.Delete> =
+      CHANGE_OPERATION.Update;
+    let tombstone = false;
+
+    for (const row of sorted) {
+      if (row.operation === CHANGE_OPERATION.Delete) {
+        tombstone = true;
+        break;
+      }
+      if (row.operation === CHANGE_OPERATION.Create) {
+        operation = CHANGE_OPERATION.Create;
+      }
+      this.fieldPathReducer.applyRow(effective, row);
+      diffEntries.push(
+        ...this.fieldPathReducer.deriveDiffEntries(
+          row,
+          baseRow as Record<string, unknown> | null,
+        ),
+      );
+    }
+
+    if (tombstone) return null;
+
+    return {
+      effective: effective as T,
+      diffEntries,
+      pendingChangeStatus: computePendingChangeStatus(sorted),
+      operation,
+    };
+  }
+}
+
+// ── Private utilities ─────────────────────────────────────────────────────────
+
+function sortPendingRows(rows: EditActionRow[]): EditActionRow[] {
+  return [...rows].sort((a, b) => {
+    const diff = a.createdAt.getTime() - b.createdAt.getTime();
+    return diff === 0 ? a.changeId - b.changeId : diff;
+  });
+}
+
+function groupByTargetSystemId(
+  rows: EditActionRow[],
+): Map<number, EditActionRow[]> {
+  const map = new Map<number, EditActionRow[]>();
+  for (const row of rows) {
+    const bucket = map.get(row.targetSystemId);
+    if (bucket) bucket.push(row);
+    else map.set(row.targetSystemId, [row]);
+  }
+  return map;
+}
+
+function computePendingChangeStatus(
+  rows: EditActionRow[],
+): PendingChangeStatus {
+  if (rows.length === 0) return PENDING_CHANGE_STATUS.Staged;
+  let hasStaged = false;
+  let hasUnstaged = false;
+  for (const row of rows) {
+    if (row.changeStatus === CHANGE_STATUS.Staged) hasStaged = true;
+    if (row.changeStatus === CHANGE_STATUS.Unstaged) hasUnstaged = true;
+    if (hasStaged && hasUnstaged) return PENDING_CHANGE_STATUS.Partial;
+  }
+  return hasUnstaged
+    ? PENDING_CHANGE_STATUS.Unstaged
+    : PENDING_CHANGE_STATUS.Staged;
+}
+
+function deepClone<T>(value: T): T {
+  return structuredClone(value);
+}
+
+// ── Backwards-compat shims — LLD3 removes these when read services are rewritten ─
+
+/**
+ * Minimal shape used by existing read services to call the overlay.
+ * @deprecated Use OverlayMergeImpl directly. Removed in LLD3.
+ */
+export interface EditActionForOverlay {
+  targetSystemId: number;
+  operation: ChangeOperation;
+  newValue: unknown;
+}
+
+const _compat = new OverlayMergeImpl(new FieldPathReducerImpl());
+
+// eslint-disable-next-line sonarjs/deprecation -- this IS the deprecated compat shim; EditActionForOverlay is used internally here
+function toEditActionRow(ea: EditActionForOverlay): EditActionRow {
+  return {
+    changeId: 0,
+    sessionId: 0,
+    aggregateId: 0,
+    targetSystemId: ea.targetSystemId,
+    targetTable: ENTITY_NAMES.EditAction,
+    operation: ea.operation,
+    fieldPath: null,
+    newValue: ea.newValue,
+    source: SOURCE.Manual,
+    changeStatus: CHANGE_STATUS.Staged,
+    groupId: null,
+    linkedEntityGroupId: null,
+    createdAt: new Date(0),
+    validUntil: null,
+  };
+}
+
+/** @deprecated Use OverlayMergeImpl.applyToSingle(). Removed in LLD3. */
 export function applyToSingle<T extends {systemId: number}>(
   baseRow: T | null,
+  // eslint-disable-next-line sonarjs/deprecation -- parameter type for this deprecated overload
   editAction: EditActionForOverlay | null,
 ): T | null {
   if (!editAction) return baseRow;
-
-  if (editAction.operation === CHANGE_OPERATION.Delete) return null;
-
-  if (editAction.operation === CHANGE_OPERATION.Create)
-    return editAction.payload as T;
-
-  if (!baseRow) return null; // invalid operation
-
-  return {...baseRow, ...(editAction.payload as Partial<T>)};
+  return (
+    _compat.applyToSingle<T>(baseRow, [toEditActionRow(editAction)])
+      ?.effective ?? null
+  );
 }
 
-/**
- * Apply overlay to a collection of base rows.
- * - Existing rows: delegates to applyToSingle per element
- * - ADD actions for entities not yet in actual table: appended to result
- */
+/** @deprecated Use OverlayMergeImpl.applyToCollection(). Removed in LLD3. */
 export function applyToCollection<T extends {systemId: number}>(
   baseRows: T[],
+  // eslint-disable-next-line sonarjs/deprecation -- parameter type for this deprecated overload
   editActions: EditActionForOverlay[],
 ): T[] {
-  const editActionsMap = new Map<number, EditActionForOverlay>(
-    editActions.map(ea => [ea.systemId, ea]),
-  );
-  const baseSystemIdsSet = new Set(baseRows.map(row => row.systemId));
-  const result: T[] = [];
-  for (const row of baseRows) {
-    const overlayRow = applyToSingle(
-      row,
-      editActionsMap.get(row.systemId) ?? null,
-    );
-    if (overlayRow != null) result.push(overlayRow);
-  }
-
-  for (const editAction of editActions)
-    if (
-      editAction.operation === CHANGE_OPERATION.Create &&
-      !baseSystemIdsSet.has(editAction.systemId)
-    ) {
-      const added = editAction.payload as T;
-      if (added != null) result.push(added);
-    }
-
-  return result;
+  return _compat
+    .applyToCollection<T>(
+      baseRows,
+      editActions.map(ea => toEditActionRow(ea)),
+    )
+    .map(r => r.effective);
 }

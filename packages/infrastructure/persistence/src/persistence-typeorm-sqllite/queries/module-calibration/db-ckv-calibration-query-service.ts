@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 import type {DataSource} from 'typeorm';
 import type {
   CkvQueryService,
@@ -54,16 +55,17 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       await this.editActionsQueryService.findActiveSession(fileSystemId);
     if (!session) return this.queryCkvRow(ckvSystemId, fileSystemId);
 
-    const editActions =
-      await this.editActionsQueryService.getEditActionsByAggregateId(
-        session.sessionId,
-        moduleSystemId,
-      );
+    const editActions = await this.editActionsQueryService.getByAggregateId(
+      session.sessionId,
+      moduleSystemId,
+    );
 
     const baseCkv = await this.queryCkvRowRaw(ckvSystemId);
     const ckvAction =
       editActions.find(
-        a => a.tableName === ENTITY_NAMES.Ckv && a.systemId === ckvSystemId,
+        a =>
+          a.targetTable === ENTITY_NAMES.Ckv &&
+          a.targetSystemId === ckvSystemId,
       ) ?? null;
 
     const overlaidCkv = applyToSingle(baseCkv, ckvAction);
@@ -89,16 +91,15 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       await this.editActionsQueryService.findActiveSession(fileSystemId);
     if (!session) return this.queryCkvPayloads(ckvSystemId, paramSystemIds);
 
-    const editActions =
-      await this.editActionsQueryService.getEditActionsByAggregateId(
-        session.sessionId,
-        moduleSystemId,
-      );
+    const editActions = await this.editActionsQueryService.getByAggregateId(
+      session.sessionId,
+      moduleSystemId,
+    );
     if (editActions.length === 0)
       return this.queryCkvPayloads(ckvSystemId, paramSystemIds);
 
     const payloadActions = editActions.filter(
-      a => a.tableName === ENTITY_NAMES.CkvParameterPayload,
+      a => a.targetTable === ENTITY_NAMES.CkvParameterPayload,
     );
     const basePayloads = await this.queryCkvPayloadsRaw(ckvSystemId);
     const overlaidPayloads = applyToCollection(basePayloads, payloadActions);

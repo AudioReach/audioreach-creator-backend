@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -160,7 +161,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
 
   /**
    * Applies overlay to TagDefinition rows and their TagKeyDefLink rows —
-   * one table-wide getEditActionsByTable query per table (two total when a
+   * one table-wide getByTable query per table (two total when a
    * session is active), not one per row/link. Those two table-wide fetches
    * are independent of each other and run concurrently.
    *
@@ -171,7 +172,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
    * (the scope is derived from it), so it can't join the two-way Promise.all
    * above.
    *
-   * session may be null (no active edit session) — getEditActionsByTable
+   * session may be null (no active edit session) — getByTable
    * calls are skipped in that case and base rows pass through unchanged.
    *
    * Links whose key definition resolves to nothing (deleted in session, or
@@ -186,13 +187,13 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
 
     const [linkActions, tagActions] = await Promise.all([
       session
-        ? this.editActionsSvc.getEditActionsByTable(
+        ? this.editActionsSvc.getByTable(
             session.sessionId,
             ENTITY_NAMES.TagKeyDefLink,
           )
         : Promise.resolve([]),
       session
-        ? this.editActionsSvc.getEditActionsByTable(
+        ? this.editActionsSvc.getByTable(
             session.sessionId,
             ENTITY_NAMES.TagDefinition,
           )

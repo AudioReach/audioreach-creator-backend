@@ -21,10 +21,19 @@ import {
 export const createMockUnitOfWork = (): jest.Mocked<UnitOfWork> => {
   return {
     beginTransaction: jest.fn().mockResolvedValue(undefined),
+    startTransaction: jest.fn().mockResolvedValue(undefined),
     commit: jest.fn().mockResolvedValue(undefined),
     rollback: jest.fn().mockResolvedValue(undefined),
     isInTransaction: jest.fn().mockReturnValue(false),
     getRepository: jest.fn(),
+    setWriteContext: jest.fn(),
+    getWriteContext: jest.fn(),
+    applyCachedActions: jest.fn().mockResolvedValue(undefined),
+    getSessionRepository: jest.fn(),
+    getBulkImportRepository: jest.fn(),
+    getProjectRepository: jest.fn(),
+    getValidationPreferencesRepository: jest.fn(),
+    getValidationQueryService: jest.fn(),
   } as any;
 };
 
