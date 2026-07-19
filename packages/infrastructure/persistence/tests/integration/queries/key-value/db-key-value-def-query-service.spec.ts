@@ -21,7 +21,7 @@ import {
   getTestRepository,
   getTestDataSource,
 } from '../../helpers/test-database-setup.js';
-import {CHANGE_OPERATION, CHANGE_STATUS, RESULT_KIND} from '@arc/core';
+import {CHANGE_OPERATION, CHANGE_STATUS, RESULT_KIND, SOURCE} from '@arc/core';
 import {DbKeyValueDefQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/key-value/db-key-value-def-query-service.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
@@ -77,7 +77,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       getTestRepository<ProjectSessionRow>(ProjectSessionSchema);
     service = new DbKeyValueDefQueryService(
       dataSource,
-      new EditActionsQueryService(dataSource),
+      new EditActionsQueryService(dataSource.manager),
     );
   });
 
@@ -216,15 +216,17 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     const session = await createSession(fileSystemId);
 
     await editActionRepository.save({
-      systemId: key.systemId,
+      targetSystemId: key.systemId,
       aggregateId: key.systemId,
       sessionId: session.sessionId,
-      tableName: ENTITY_NAMES.KeyDefinition,
+      targetTable: ENTITY_NAMES.KeyDefinition,
       operation: CHANGE_OPERATION.Update,
-      payload: {name: 'UpdatedName'},
+      fieldPath: null,
+      newValue: {name: 'UpdatedName'},
+      source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      baseVersion: null,
       groupId: null,
+      linkedEntityGroupId: null,
       validUntil: null,
     });
 
@@ -247,15 +249,17 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     const session = await createSession(fileSystemId);
 
     await editActionRepository.save({
-      systemId: key.systemId,
+      targetSystemId: key.systemId,
       aggregateId: key.systemId,
       sessionId: session.sessionId,
-      tableName: ENTITY_NAMES.KeyDefinition,
+      targetTable: ENTITY_NAMES.KeyDefinition,
       operation: CHANGE_OPERATION.Delete,
-      payload: {systemId: key.systemId},
+      fieldPath: '$',
+      newValue: null,
+      source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      baseVersion: null,
       groupId: null,
+      linkedEntityGroupId: null,
       validUntil: null,
     });
 
@@ -271,20 +275,22 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     const session = await createSession(fileSystemId);
 
     await editActionRepository.save({
-      systemId: 999,
+      targetSystemId: 999,
       aggregateId: 999,
       sessionId: session.sessionId,
-      tableName: ENTITY_NAMES.KeyDefinition,
+      targetTable: ENTITY_NAMES.KeyDefinition,
       operation: CHANGE_OPERATION.Create,
-      payload: {
+      fieldPath: '$',
+      newValue: {
         systemId: 999,
         fileSystemId,
         keyId: 900,
         name: 'SessionOnlyKey',
       },
+      source: SOURCE.Manual,
       changeStatus: CHANGE_STATUS.Staged,
-      baseVersion: null,
       groupId: null,
+      linkedEntityGroupId: null,
       validUntil: null,
     });
 

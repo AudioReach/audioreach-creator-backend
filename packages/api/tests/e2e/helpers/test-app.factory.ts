@@ -14,6 +14,8 @@ import {getOrmBase} from '@arc/persistence';
 import {NodeBlobBytesConverter} from '../../../src/infrastructure-wrapper/database/node-blob-converter.js';
 import {AllExceptionsFilter} from '../../../src/infrastructure-wrapper/filters/all-exceptions.filter.js';
 import {ValidationExceptionFilter} from '../../../src/infrastructure-wrapper/filters/validation-exception.filter.js';
+import {SessionRequiredFilter} from '../../../src/filters/session-required.filter.js';
+import {SessionModeNotAllowedFilter} from '../../../src/filters/session-mode-not-allowed.filter.js';
 import type {Logger} from '@arc/core';
 
 /**
@@ -140,6 +142,8 @@ export async function createTestApp(): Promise<INestApplication> {
   app.useGlobalFilters(
     new AllExceptionsFilter(logger),
     new ValidationExceptionFilter(logger),
+    new SessionRequiredFilter(),
+    new SessionModeNotAllowedFilter(),
   );
 
   // Enable CORS

@@ -11,6 +11,8 @@ import {AppModule} from './app.module.js';
 import {Tokens} from './presentation/rest/common/utils/index.js';
 import {AllExceptionsFilter} from './infrastructure-wrapper/filters/all-exceptions.filter.js';
 import {ValidationExceptionFilter} from './infrastructure-wrapper/filters/validation-exception.filter.js';
+import {SessionRequiredFilter} from './filters/session-required.filter.js';
+import {SessionModeNotAllowedFilter} from './filters/session-mode-not-allowed.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -32,6 +34,8 @@ async function bootstrap() {
   app.useGlobalFilters(
     new AllExceptionsFilter(logger),
     new ValidationExceptionFilter(logger),
+    new SessionRequiredFilter(),
+    new SessionModeNotAllowedFilter(),
   );
 
   const port = process.env.PORT ?? 3000;

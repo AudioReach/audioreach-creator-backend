@@ -4,13 +4,16 @@
  */
 
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
-import {applyToCollection} from './overlay-merge.js';
+import {OverlayMergeImpl} from './overlay-merge.js';
+import {FieldPathReducer} from './field-path-reducer.js';
+
+const overlay = new OverlayMergeImpl(new FieldPathReducer());
 
 /**
  * Applies overlay to a single base row using pre-fetched EditActionRow[],
  * filtered by tableName before delegating to applyToCollection.
  *
- * Why this exists: getEditActionsByAggregateId returns actions for all tables
+ * Why this exists: getByAggregateId returns actions for all tables
  * under one aggregate in a single DB call. This function filters to the relevant
  * table, eliminating the repeated filter → null-guard → applyToCollection → [0]
  * pattern that would otherwise be duplicated across every service
@@ -25,7 +28,9 @@ export function applyTableOverlay<T extends {systemId: number}>(
   actions: EditActionRow[],
   tableName: string,
 ): T | null {
-  const tableActions = actions.filter(a => a.tableName === tableName);
+  const tableActions = actions.filter(a => a.targetTable === tableName);
   const baseRows = baseRow ? [baseRow] : [];
-  return applyToCollection(baseRows, tableActions)[0] ?? null;
+  return (
+    overlay.applyToCollection<T>(baseRows, tableActions)[0]?.effective ?? null
+  );
 }

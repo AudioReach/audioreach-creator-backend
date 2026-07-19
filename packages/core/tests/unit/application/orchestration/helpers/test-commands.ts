@@ -10,6 +10,9 @@ import {BaseQuery} from '../../../../../src/application/shared/base-query.js';
  * Simple test command for testing command bus functionality
  */
 export class TestCommand extends BaseCommand {
+  static override readonly requiresSession = false;
+  static override readonly allowedModes = [] as const;
+
   constructor(
     public readonly testData: string,
     clientId: string = 'test-client',
@@ -22,6 +25,9 @@ export class TestCommand extends BaseCommand {
  * Test command that should not have a registered handler
  */
 export class UnknownCommand extends BaseCommand {
+  static override readonly requiresSession = false;
+  static override readonly allowedModes = [] as const;
+
   constructor(clientId: string = 'test-client') {
     super(clientId);
   }

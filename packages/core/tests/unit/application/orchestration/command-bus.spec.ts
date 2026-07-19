@@ -7,7 +7,6 @@ import {jest} from '@jest/globals';
 import {CommandBus} from '../../../../src/application/orchestration/command-bus.js';
 import {CommandHandlerRegistry} from '../../../../src/application/orchestration/cqrs/registries/command-handler-registry.js';
 import {CommandHandlerNotFoundException} from '../../../../src/application/orchestration/cqrs/exceptions/handler-not-found-exception.js';
-import {AddModuleCommand} from '../../../../src/application/usecase-designer/index.js';
 import {TestCommand, UnknownCommand} from './helpers/test-commands.js';
 import {
   createMockUnitOfWork,
@@ -69,36 +68,10 @@ describe('CommandBus', () => {
     });
 
     it('should execute command with typed return value', async () => {
-      // Given: Command with expected return type
       const command = new TestCommand('test-data');
-
-      // When: Executing with type parameter
       const result = await commandBus.execute<string>(command);
-
-      // Then: Should return typed result
       expect(result).toBe('mock-result');
       expect(typeof result).toBe('string');
-    });
-
-    it('should handle command execution with real registry', async () => {
-      // Given: CommandBus with real registry
-      const realRegistry = CommandHandlerRegistry.Instance;
-      const realCommandBus = new CommandBus(
-        realRegistry,
-        mockIdGeneration,
-        mockNaturalIdGeneration,
-        mockFileSystem,
-        mockUowFactory,
-      );
-
-      const command = new AddModuleCommand(1, 2, 3, 'test-module');
-
-      // When: Executing real command
-      const result = await realCommandBus.execute<number>(command);
-
-      // Then: Should execute successfully
-      expect(result).toBeDefined();
-      expect(typeof result).toBe('number');
     });
   });
 

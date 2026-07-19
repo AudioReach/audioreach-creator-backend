@@ -50,10 +50,8 @@
 
 import type {Command} from '../commands/command.js';
 import type {CommandHandler} from '../commands/command-handler.js';
-import {AddModuleCommandHandler} from '../../../usecase-designer/spf-module/create/create-module.handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {CommandHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
-import {AddModuleCommand} from '../../../usecase-designer/index.js';
 import {UploadFileCommand} from '../../../file-operations/upload-file/upload-file.command.js';
 import {UploadFileHandler} from '../../../file-operations/upload-file/upload-file.handler.js';
 import type {FileSystemPort} from '../../../ports/file-system/file-system.port.js';
@@ -67,6 +65,10 @@ import {UpdateValidationPreferencesHandler} from '../../../validation/commands/u
 import {AcknowledgeDataLossCommand} from '../../../validation/commands/acknowledge-data-loss.command.js';
 import {AcknowledgeDataLossHandler} from '../../../validation/commands/acknowledge-data-loss.handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
+import {StartSessionCommand} from '../../../edit-session/start-session/start-session.command.js';
+import {StartSessionHandler} from '../../../edit-session/start-session/start-session.handler.js';
+import {EndSessionCommand} from '../../../edit-session/end-session/end-session.command.js';
+import {EndSessionHandler} from '../../../edit-session/end-session/end-session.handler.js';
 import {CreateDataLinkCommand} from '../../../usecase-designer/data-links/create/create-data-link.command.js';
 import {CreateDataLinkHandler} from '../../../usecase-designer/data-links/create/create-data-link.handler.js';
 import {DeleteDataLinkCommand} from '../../../usecase-designer/data-links/delete/delete-data-link.command.js';
@@ -128,10 +130,6 @@ export class CommandHandlerRegistry {
   }
 
   private registerAllCommandHandlers(): void {
-    // To Do: Have separate registration files for each feature and register them here
-    this.commandHandlerFactories.set(AddModuleCommand, {
-      create: deps => new AddModuleCommandHandler(deps.uow),
-    });
     this.commandHandlerFactories.set(UploadFileCommand, {
       create: deps =>
         new UploadFileHandler(
@@ -177,6 +175,14 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(DeleteControlLinkCommand, {
       create: deps => new DeleteControlLinkHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(StartSessionCommand, {
+      create: deps => new StartSessionHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(EndSessionCommand, {
+      create: deps => new EndSessionHandler(deps.uow),
     });
   }
 }

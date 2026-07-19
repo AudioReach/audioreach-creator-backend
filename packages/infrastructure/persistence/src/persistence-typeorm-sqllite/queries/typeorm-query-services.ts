@@ -49,7 +49,9 @@ export class DbQueryServices implements QueryServices {
   readonly containerQueryService: ContainerQueryService;
 
   constructor(dataSource: DataSource, logger?: Logger) {
-    const editActionsQueryService = new EditActionsQueryService(dataSource);
+    const editActionsQueryService = new EditActionsQueryService(
+      dataSource.manager,
+    );
 
     this.modulesQueryService = new DbModuleQueryService();
     this.useCaseQueryService = new DbUseCaseQueryService(dataSource);

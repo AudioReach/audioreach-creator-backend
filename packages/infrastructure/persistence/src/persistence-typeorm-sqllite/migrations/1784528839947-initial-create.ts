@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1784286892428 implements MigrationInterface {
-  name = 'InitialCreate1784286892428';
+export class InitialCreate1784528839947 implements MigrationInterface {
+  name = 'InitialCreate1784528839947';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -394,25 +394,31 @@ export class InitialCreate1784286892428 implements MigrationInterface {
       `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
+      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "group_id" text, "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_session" ON "edit_actions" ("session_id") `,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_entity_active" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "table_name") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "target_table") WHERE "valid_until" IS NULL`,
+    );
+    await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_status_active" ON "edit_actions" ("session_id", "change_status") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_source_active" ON "edit_actions" ("session_id", "source") WHERE "valid_until" IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_xgroup_active" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "session_entity_versions" ("session_id" integer NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, PRIMARY KEY ("session_id", "target_system_id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "restore_points" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer, "file_system_id" integer NOT NULL, "restore_type" varchar CHECK( "restore_type" IN ('EDIT_SNAPSHOT','FULL_SNAPSHOT') ) NOT NULL, "snapshot_data" text NOT NULL, "description" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`,
@@ -1301,39 +1307,53 @@ export class InitialCreate1784286892428 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_entity_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
     await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_source_active"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_xgroup_active"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime, CONSTRAINT "FK_56f75f850acdde5e18d4eebdbdc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "group_id" text, "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime, CONSTRAINT "FK_56f75f850acdde5e18d4eebdbdc" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_edit_actions"("change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until") SELECT "change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until" FROM "edit_actions"`,
+      `INSERT INTO "temporary_edit_actions"("change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until") SELECT "change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until" FROM "edit_actions"`,
     );
     await queryRunner.query(`DROP TABLE "edit_actions"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_edit_actions" RENAME TO "edit_actions"`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_session" ON "edit_actions" ("session_id") `,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_entity_active" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "table_name") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "target_table") WHERE "valid_until" IS NULL`,
+    );
+    await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_status_active" ON "edit_actions" ("session_id", "change_status") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_source_active" ON "edit_actions" ("session_id", "source") WHERE "valid_until" IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_xgroup_active" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_session_entity_versions" ("session_id" integer NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, CONSTRAINT "FK_b459d828cdd38b0472de30c117e" FOREIGN KEY ("session_id") REFERENCES "project_sessions" ("session_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("session_id", "target_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_session_entity_versions"("session_id", "target_system_id", "base_version") SELECT "session_id", "target_system_id", "base_version" FROM "session_entity_versions"`,
+    );
+    await queryRunner.query(`DROP TABLE "session_entity_versions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_session_entity_versions" RENAME TO "session_entity_versions"`,
     );
     await queryRunner.query(`DROP INDEX "idx_project_sessions_file"`);
     await queryRunner.query(`DROP INDEX "idx_project_sessions_status"`);
@@ -1450,39 +1470,53 @@ export class InitialCreate1784286892428 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_project_sessions_file" ON "project_sessions" ("file_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
+    await queryRunner.query(
+      `ALTER TABLE "session_entity_versions" RENAME TO "temporary_session_entity_versions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "session_entity_versions" ("session_id" integer NOT NULL, "target_system_id" integer NOT NULL, "base_version" integer NOT NULL, PRIMARY KEY ("session_id", "target_system_id"))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "session_entity_versions"("session_id", "target_system_id", "base_version") SELECT "session_id", "target_system_id", "base_version" FROM "temporary_session_entity_versions"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_session_entity_versions"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_xgroup_active"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_source_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_entity_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
     await queryRunner.query(
       `ALTER TABLE "edit_actions" RENAME TO "temporary_edit_actions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "system_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "session_id" integer NOT NULL, "table_name" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "payload" text NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "base_version" integer, "group_id" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
+      `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "group_id" text, "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
     );
     await queryRunner.query(
-      `INSERT INTO "edit_actions"("change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until") SELECT "change_id", "system_id", "aggregate_id", "session_id", "table_name", "operation", "payload", "change_status", "base_version", "group_id", "created_at", "valid_until" FROM "temporary_edit_actions"`,
+      `INSERT INTO "edit_actions"("change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until") SELECT "change_id", "session_id", "aggregate_id", "target_system_id", "target_table", "operation", "field_path", "new_value", "source", "change_status", "group_id", "linked_entity_group_id", "created_at", "valid_until" FROM "temporary_edit_actions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_edit_actions"`);
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
+      `CREATE INDEX "idx_edit_actions_xgroup_active" ON "edit_actions" ("session_id", "linked_entity_group_id") WHERE "valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_source_active" ON "edit_actions" ("session_id", "source") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_status_active" ON "edit_actions" ("session_id", "change_status") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
+      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "target_table") WHERE "valid_until" IS NULL`,
+    );
+    await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_table_active" ON "edit_actions" ("session_id", "table_name") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_entity_active" ON "edit_actions" ("session_id", "system_id") WHERE "valid_until" IS NULL`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_edit_actions_session" ON "edit_actions" ("session_id") `,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
     );
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
     await queryRunner.query(
@@ -2361,12 +2395,14 @@ export class InitialCreate1784286892428 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "idx_restore_points_file"`);
     await queryRunner.query(`DROP INDEX "idx_restore_points_session"`);
     await queryRunner.query(`DROP TABLE "restore_points"`);
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
+    await queryRunner.query(`DROP TABLE "session_entity_versions"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_xgroup_active"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_source_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_entity_active"`);
-    await queryRunner.query(`DROP INDEX "idx_edit_actions_session"`);
+    await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
     await queryRunner.query(`DROP TABLE "edit_actions"`);
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
     await queryRunner.query(`DROP TABLE "use_case_subgraph_pairs"`);

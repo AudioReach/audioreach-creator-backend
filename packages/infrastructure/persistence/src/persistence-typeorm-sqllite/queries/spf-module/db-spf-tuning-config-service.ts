@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -250,18 +251,18 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
   /**
    * Overlays CKV rows at the module aggregate level.
-   * One getEditActionsByAggregateId call — filters to Ckv actions.
+   * One getByAggregateId call — filters to Ckv actions.
    */
   private async overlayCkvRows(
     rows: CkvRow[],
     spfModuleSystemId: number,
     session: ProjectSessionRow,
   ): Promise<CkvRow[]> {
-    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+    const actions = await this.editActionsSvc.getByAggregateId(
       session.sessionId,
       spfModuleSystemId,
     );
-    const ckvActions = actions.filter(a => a.tableName === ENTITY_NAMES.Ckv);
+    const ckvActions = actions.filter(a => a.targetTable === ENTITY_NAMES.Ckv);
     return ckvActions.length > 0 ? applyToCollection(rows, ckvActions) : rows;
   }
 
@@ -273,12 +274,12 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     spfModuleSystemId: number,
     session: ProjectSessionRow,
   ): Promise<ModuleTagIdMapRow[]> {
-    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+    const actions = await this.editActionsSvc.getByAggregateId(
       session.sessionId,
       spfModuleSystemId,
     );
     const tagMapActions = actions.filter(
-      a => a.tableName === ENTITY_NAMES.ModuleTagIdMap,
+      a => a.targetTable === ENTITY_NAMES.ModuleTagIdMap,
     );
     return tagMapActions.length > 0
       ? applyToCollection(rows, tagMapActions)
@@ -287,7 +288,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
   /**
    * Overlays all TKV rows under one tag map using a single
-   * getEditActionsByAggregateId call, instead of one call per TKV.
+   * getByAggregateId call, instead of one call per TKV.
    * Previously overlayTkvRow was called once per TKV with the same
    * moduleTagIdMapSystemId, issuing an identical query for every TKV
    * under the same tag map (N+1 for a tag with many TKVs).
@@ -297,11 +298,11 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     moduleTagIdMapSystemId: number,
     session: ProjectSessionRow,
   ): Promise<TkvRow[]> {
-    const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+    const actions = await this.editActionsSvc.getByAggregateId(
       session.sessionId,
       moduleTagIdMapSystemId,
     );
-    const tkvActions = actions.filter(a => a.tableName === ENTITY_NAMES.Tkv);
+    const tkvActions = actions.filter(a => a.targetTable === ENTITY_NAMES.Tkv);
     return tkvActions.length > 0 ? applyToCollection(rows, tkvActions) : rows;
   }
 
@@ -312,7 +313,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   ): Promise<Array<CkvParameterPayloadRow | TkvParameterPayloadRow>> {
     const results = await Promise.all(
       payloads.map(async payload => {
-        const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+        const actions = await this.editActionsSvc.getByAggregateId(
           session.sessionId,
           payload.systemId,
         );

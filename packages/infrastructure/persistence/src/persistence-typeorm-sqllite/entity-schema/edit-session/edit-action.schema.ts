@@ -5,21 +5,23 @@
 
 import {EntitySchema} from 'typeorm';
 import type {ProjectSessionRow} from './project-session.schema.js';
-import type {ChangeOperation, ChangeStatus} from '@arc/core';
-import {CHANGE_OPERATION, CHANGE_STATUS} from '@arc/core';
+import type {ChangeOperation, ChangeStatus, Source} from '@arc/core';
+import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 import type {EntityName} from '../entity-table-names.js';
 
 export interface EditActionRow {
   changeId: number;
-  systemId: number;
-  aggregateId: number;
   sessionId: number;
-  tableName: EntityName;
+  aggregateId: number;
+  targetSystemId: number;
+  targetTable: EntityName;
   operation: ChangeOperation;
-  payload: unknown; // json
+  fieldPath: string | null;
+  newValue: unknown; // simple-json
+  source: Source;
   changeStatus: ChangeStatus;
-  baseVersion: number | null;
   groupId: string | null;
+  linkedEntityGroupId: string | null;
   createdAt: Date;
   validUntil: Date | null;
   session?: ProjectSessionRow;
@@ -35,8 +37,8 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       primary: true,
       generated: 'increment',
     },
-    systemId: {
-      name: 'system_id',
+    sessionId: {
+      name: 'session_id',
       type: 'integer',
       nullable: false,
     },
@@ -46,13 +48,13 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       nullable: false,
       default: 0,
     },
-    sessionId: {
-      name: 'session_id',
+    targetSystemId: {
+      name: 'target_system_id',
       type: 'integer',
       nullable: false,
     },
-    tableName: {
-      name: 'table_name',
+    targetTable: {
+      name: 'target_table',
       type: 'varchar',
       length: 100,
       nullable: false,
@@ -62,9 +64,20 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       type: 'simple-enum',
       enum: Object.values(CHANGE_OPERATION),
     },
-    payload: {
-      name: 'payload',
+    fieldPath: {
+      name: 'field_path',
+      type: 'varchar',
+      nullable: true,
+    },
+    newValue: {
+      name: 'new_value',
       type: 'simple-json',
+      nullable: true,
+    },
+    source: {
+      name: 'source',
+      type: 'simple-enum',
+      enum: Object.values(SOURCE),
       nullable: false,
     },
     changeStatus: {
@@ -73,14 +86,14 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       enum: Object.values(CHANGE_STATUS),
       default: CHANGE_STATUS.Staged,
     },
-    baseVersion: {
-      name: 'base_version',
-      type: 'integer',
-      nullable: true,
-    },
     groupId: {
       name: 'group_id',
       type: 'text',
+      nullable: true,
+    },
+    linkedEntityGroupId: {
+      name: 'linked_entity_group_id',
+      type: 'varchar',
       nullable: true,
     },
     createdAt: {
@@ -104,22 +117,28 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
   },
   indices: [
     {
-      name: 'idx_edit_actions_session',
-      columns: ['sessionId'],
-    },
-    {
-      name: 'idx_edit_actions_entity_active',
-      columns: ['sessionId', 'systemId'],
+      name: 'uniq_edit_actions_current',
+      columns: ['sessionId', 'targetSystemId', 'fieldPath'],
+      unique: true,
       where: '"valid_until" IS NULL',
     },
     {
-      name: 'idx_edit_actions_table_active',
-      columns: ['sessionId', 'tableName'],
-      where: '"valid_until" IS NULL',
+      // SQLite treats each NULL as distinct in unique indexes, so the above
+      // index does NOT enforce uniqueness for accumulator rows (fieldPath IS NULL).
+      // This separate index covers that case.
+      name: 'uniq_edit_actions_current_null_path',
+      columns: ['sessionId', 'targetSystemId'],
+      unique: true,
+      where: '"valid_until" IS NULL AND "field_path" IS NULL',
     },
     {
       name: 'idx_edit_actions_agg_active',
       columns: ['sessionId', 'aggregateId'],
+      where: '"valid_until" IS NULL',
+    },
+    {
+      name: 'idx_edit_actions_table_active',
+      columns: ['sessionId', 'targetTable'],
       where: '"valid_until" IS NULL',
     },
     {
@@ -128,10 +147,14 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       where: '"valid_until" IS NULL',
     },
     {
-      name: 'uniq_edit_actions_current',
-      columns: ['sessionId', 'systemId'],
-      unique: true,
+      name: 'idx_edit_actions_source_active',
+      columns: ['sessionId', 'source'],
       where: '"valid_until" IS NULL',
+    },
+    {
+      name: 'idx_edit_actions_xgroup_active',
+      columns: ['sessionId', 'linkedEntityGroupId'],
+      where: '"valid_until" IS NULL AND "linked_entity_group_id" IS NOT NULL',
     },
   ],
 });

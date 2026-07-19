@@ -2,6 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -64,14 +65,14 @@ export class DbNodeQueryService implements NodeQueryService {
 
       const portEditActionMap = new Map<number, EditActionRow>();
       if (session) {
-        const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+        const actions = await this.editActionsSvc.getByAggregateId(
           session.sessionId,
           nodeSystemId,
         );
         for (const action of actions.filter(
-          a => a.tableName === ENTITY_NAMES.DataPort,
+          a => a.targetTable === ENTITY_NAMES.DataPort,
         )) {
-          portEditActionMap.set(action.systemId, action);
+          portEditActionMap.set(action.targetSystemId, action);
         }
       }
 
@@ -89,13 +90,12 @@ export class DbNodeQueryService implements NodeQueryService {
       if (definitionSystemId !== null) {
         const defDraftMap = new Map<string, EditActionRow>();
         if (session) {
-          const defActions =
-            await this.editActionsSvc.getEditActionsByAggregateId(
-              session.sessionId,
-              definitionSystemId,
-            );
+          const defActions = await this.editActionsSvc.getByAggregateId(
+            session.sessionId,
+            definitionSystemId,
+          );
           for (const a of defActions)
-            defDraftMap.set(`${a.systemId}:${a.tableName}`, a);
+            defDraftMap.set(`${a.targetSystemId}:${a.targetTable}`, a);
         }
         portNameMap = await this.buildDataPortNameMap(
           definitionSystemId,
@@ -150,14 +150,14 @@ export class DbNodeQueryService implements NodeQueryService {
 
       const portEditActionMap = new Map<number, EditActionRow>();
       if (session) {
-        const actions = await this.editActionsSvc.getEditActionsByAggregateId(
+        const actions = await this.editActionsSvc.getByAggregateId(
           session.sessionId,
           nodeSystemId,
         );
         for (const action of actions.filter(
-          a => a.tableName === ENTITY_NAMES.ControlPort,
+          a => a.targetTable === ENTITY_NAMES.ControlPort,
         )) {
-          portEditActionMap.set(action.systemId, action);
+          portEditActionMap.set(action.targetSystemId, action);
         }
       }
 
@@ -176,13 +176,12 @@ export class DbNodeQueryService implements NodeQueryService {
       if (definitionSystemId !== null) {
         const defDraftMap = new Map<string, EditActionRow>();
         if (session) {
-          const defActions =
-            await this.editActionsSvc.getEditActionsByAggregateId(
-              session.sessionId,
-              definitionSystemId,
-            );
+          const defActions = await this.editActionsSvc.getByAggregateId(
+            session.sessionId,
+            definitionSystemId,
+          );
           for (const a of defActions)
-            defDraftMap.set(`${a.systemId}:${a.tableName}`, a);
+            defDraftMap.set(`${a.targetSystemId}:${a.targetTable}`, a);
         }
         ({controlPortNameMap, intentNameMap} =
           await this.buildControlPortNameMaps(definitionSystemId, defDraftMap));
@@ -242,13 +241,13 @@ export class DbNodeQueryService implements NodeQueryService {
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
     if (!session) return countMap;
 
-    const linkDrafts = await this.editActionsSvc.getEditActionsByTable(
+    const linkDrafts = await this.editActionsSvc.getByTable(
       session.sessionId,
       ENTITY_NAMES.DataLink,
     );
 
     for (const draft of linkDrafts) {
-      const p = JSON.parse(draft.payload as string) as {
+      const p = JSON.parse(draft.newValue as string) as {
         sourcePortSystemId?: number;
         destinationPortSystemId?: number;
       };
@@ -292,13 +291,13 @@ export class DbNodeQueryService implements NodeQueryService {
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
     if (!session) return countMap;
 
-    const linkDrafts = await this.editActionsSvc.getEditActionsByTable(
+    const linkDrafts = await this.editActionsSvc.getByTable(
       session.sessionId,
       ENTITY_NAMES.ControlLink,
     );
 
     for (const draft of linkDrafts) {
-      const p = JSON.parse(draft.payload as string) as {
+      const p = JSON.parse(draft.newValue as string) as {
         nodeAPortSystemId?: number;
         nodeBPortSystemId?: number;
       };
@@ -355,7 +354,7 @@ export class DbNodeQueryService implements NodeQueryService {
       .getMany()) as DataPortDefinitionRow[];
 
     const portDefActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.DataPortDefinition,
+      a => a.targetTable === ENTITY_NAMES.DataPortDefinition,
     );
     const overlaid =
       portDefActions.length > 0
@@ -386,10 +385,10 @@ export class DbNodeQueryService implements NodeQueryService {
       .getMany()) as StaticControlPortDefinitionRow[];
 
     const staticPortActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.StaticControlPortDefinition,
+      a => a.targetTable === ENTITY_NAMES.StaticControlPortDefinition,
     );
     const intentDefActions = [...draftMap.values()].filter(
-      a => a.tableName === ENTITY_NAMES.StaticIntentDefinition,
+      a => a.targetTable === ENTITY_NAMES.StaticIntentDefinition,
     );
 
     const overlaidPorts =

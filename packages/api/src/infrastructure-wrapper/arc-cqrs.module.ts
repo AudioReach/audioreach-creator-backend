@@ -20,10 +20,15 @@ import type {
   ProfilerPort,
   IdGenerationPort,
   NaturalIdGenerationPort,
+  ISessionRepository,
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {createTypeOrmUnitOfWorkFactory} from './persistence/unit-of-work/typeorm-unit-of-work.factory.js';
-import {DbQueryServices, EntityIdServiceRegistry} from '@arc/persistence';
+import {
+  DbQueryServices,
+  EntityIdServiceRegistry,
+  TypeOrmSessionRepository,
+} from '@arc/persistence';
 import {FixCommandDispatcher} from './validation/fix-command-dispatcher.js';
 import type {DataSource} from 'typeorm';
 import {
@@ -32,6 +37,7 @@ import {
   createWorkerPool,
 } from '@arc/fs';
 import {ConsoleLoggerService} from './logger/index.js';
+import {SessionGuard} from '../guards/session-guard.js';
 
 @Module({
   providers: [
@@ -164,11 +170,25 @@ import {ConsoleLoggerService} from './logger/index.js';
       provide: 'NATURAL_ID_GENERATION',
       useFactory: (): NaturalIdGenerationPort => new NaturalIdRegistry(),
     },
+    {
+      provide: 'SESSION_REPOSITORY',
+      useFactory: (dataSource: DataSource) =>
+        new TypeOrmSessionRepository(dataSource.manager),
+      inject: ['DATA_SOURCE'],
+    },
+    {
+      provide: SessionGuard,
+      useFactory: (sessionRepo: ISessionRepository) =>
+        new SessionGuard(sessionRepo),
+      inject: ['SESSION_REPOSITORY'],
+    },
   ],
   exports: [
     CommandBus,
     QueryBus,
     FixCommandDispatcher,
+    SessionGuard,
+    'SESSION_REPOSITORY',
     'QUERY_SERVICES',
     'COMMAND_HANDLER_REGISTRY',
     'QUERY_HANDLER_REGISTRY',
