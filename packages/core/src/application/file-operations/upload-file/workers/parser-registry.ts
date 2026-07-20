@@ -24,6 +24,11 @@ import type {
   SpfModuleDefinitionBuildOutput,
 } from '../services/entity-builders/spf-module-definition-builder.js';
 import {SpfModuleDefinitionBuilder} from '../services/entity-builders/spf-module-definition-builder.js';
+import type {
+  SubsystemPathComputeInput,
+  SubsystemPathComputeOutput,
+} from '../services/entity-builders/subsystem-builder.js';
+import {SubsystemBuilder} from '../services/entity-builders/subsystem-builder.js';
 import type {Handler} from '../../../ports/worker/handler-registry.port.js';
 import {HANDLER_KEYS} from '../../shared/constants/registry-keys.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
@@ -113,6 +118,17 @@ export function createParserRegistry(): Map<string, Handler> {
   ): SpfModuleDefinitionBuildOutput => {
     // Use SpfModuleDefinitionBuilder static method for building
     return SpfModuleDefinitionBuilder.buildModuleDefinitions(input);
+  }) as Handler);
+
+  /**
+   * Handler for computing subsystem boundary paths.
+   * Pure CPU-bound computation — no I/O. Called from 4+1 parallel worker tasks
+   * during SubsystemLinkBuilder.build().
+   */
+  registry.set(HANDLER_KEYS.COMPUTE_SUBSYSTEM_LINK_PATHS, ((
+    input: SubsystemPathComputeInput,
+  ): SubsystemPathComputeOutput => {
+    return SubsystemBuilder.computePaths(input);
   }) as Handler);
 
   // Future handlers can be registered here

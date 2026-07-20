@@ -36,8 +36,7 @@ import {CalibrationDataBuilder} from './entity-builders/calibration-data-builder
 import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
 import {SubgraphBuilder} from './entity-builders/subgraph-builder.js';
 import {SubsystemBuilder} from './entity-builders/subsystem-builder.js';
-import type {UiMetadata} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
-import type {Subsystem} from '../../../../domain/entities/usecase-data/subsystem/subsystem.js';
+import type {UiSubsystem} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {
   ContainerBuilder,
   type ContainerBuildResult,
@@ -46,6 +45,7 @@ import {SpfModuleBuilder} from './entity-builders/spf-module-builder.js';
 import {DriverModuleBuilder} from './entity-builders/driver-module-builder.js';
 import {DataLinkBuilder} from './entity-builders/data-link-builder.js';
 import {ControlLinkBuilder} from './entity-builders/control-link-builder.js';
+import type {SubsystemBuildResult} from './entity-builders/subsystem-builder.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import {asNaturalId, asSystemId} from '../../../../shared/types/branded-ids.js';
 import {KvData} from '../../../../domain/entities/common/entities/kv-data.js';
@@ -176,6 +176,7 @@ export class EntityBuilderService {
     this.subsystemBuilder = new SubsystemBuilder(
       this.idGenerator,
       this.foreignKeyMapper,
+      this.workerPool,
       this.logger,
     );
     this.containerBuilder = new ContainerBuilder(
@@ -269,10 +270,17 @@ export class EntityBuilderService {
   }
 
   async buildSubsystems(
+    uiSubsystems: UiSubsystem[],
     fileSystemId: number,
-    uiMetadata: UiMetadata,
-  ): Promise<Subsystem[]> {
-    return this.subsystemBuilder.build(uiMetadata.subsystems, fileSystemId);
+    dataLinks: DataLink[],
+    controlLinks: ControlLink[],
+  ): Promise<SubsystemBuildResult> {
+    return this.subsystemBuilder.build(
+      uiSubsystems,
+      fileSystemId,
+      dataLinks,
+      controlLinks,
+    );
   }
 
   /**

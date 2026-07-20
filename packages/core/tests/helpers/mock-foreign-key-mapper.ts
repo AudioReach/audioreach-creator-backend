@@ -91,6 +91,7 @@ export function createMockForeignKeyMapper(): jest.Mocked<ForeignKeyMapper> {
     // Module instance to subgraph mappings
     addModuleInstanceSubgraphMapping: jest.fn(),
     getSubgraphSystemIdForModuleInstance: jest.fn(),
+    getModuleInstanceSubgraphEntries: jest.fn().mockReturnValue(new Map()),
     addModuleInstanceToDefinitionMapping: jest.fn(),
     getModuleDefinitionSystemIdFromInstance: jest.fn(),
 
