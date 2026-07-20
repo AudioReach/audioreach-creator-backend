@@ -12,6 +12,7 @@ export const HANDLER_KEYS = {
   PARSE_DEFINITION: 'parseDefinition', // For AWSP definition parsing
   BUILD_KEY_DEFINITIONS: 'buildKeyDefinitions', // For key definition building
   BUILD_SPF_MODULE_DEFINITIONS: 'buildSpfModuleDefinitions', // For SPF module definition building
+  COMPUTE_SUBSYSTEM_LINK_PATHS: 'computeSubsystemLinkPaths', // For subsystem boundary path computation
   VALIDATE_CHUNK: 'validateChunk', // Future use
 
   // Level 1: File serialization (download-file)

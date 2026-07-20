@@ -638,6 +638,10 @@ export class ForeignKeyMapper {
     return this.subsystemMappings.get(subsystemId);
   }
 
+  getModuleInstanceSubgraphEntries(): ReadonlyMap<NaturalId, SystemId> {
+    return this.moduleInstanceSubgraphMappings;
+  }
+
   addModuleInstanceSubgraphMapping(
     instanceId: NaturalId,
     subgraphSystemId: SystemId,

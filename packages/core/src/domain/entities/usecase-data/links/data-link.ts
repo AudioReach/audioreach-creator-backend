@@ -58,7 +58,7 @@ export class DataLink {
     }
   }
 
-  private addSubsystemDataLink(sls: SubsystemDataLink): void {
+  public addSubsystemDataLink(sls: SubsystemDataLink): void {
     assertNonNull(
       sls,
       `subsystemDataLink is null for DataLink: ${BinaryUtils.toHexString(this.systemId)}`,
