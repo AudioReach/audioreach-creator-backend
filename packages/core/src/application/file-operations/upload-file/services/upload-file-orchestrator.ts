@@ -36,6 +36,10 @@ import {newInsertFailureIssue} from '../../../../domain/validation/insert-failur
 import type {InsertFailureType} from '../../../../domain/validation/insert-failures/insert-failure-codes.js';
 import {HeaderChunk} from '../../shared/acdb-chunks/header-chunk.js';
 import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
+import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
+import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
+import type {Subsystem} from '../../../../domain/entities/usecase-data/subsystem/subsystem.js';
+
 /**
  * Large block size for ID reservation to cover all entities in a file upload.
  * This reduces database round-trips during entity creation.
@@ -104,7 +108,7 @@ export class UploadFileOrchestrator {
     private uow: UnitOfWork,
     private idGenerator: IdGenerationPort,
     private naturalIdGenerator: NaturalIdGenerationPort,
-    workerPool?: WorkerPoolPort,
+    private readonly workerPool?: WorkerPoolPort,
     private logger?: Logger,
     private profiler?: ProfilerPort,
   ) {
@@ -114,7 +118,7 @@ export class UploadFileOrchestrator {
       this.idGenerator,
       this.naturalIdGenerator,
       this.foreignKeyMapper,
-      workerPool,
+      this.workerPool,
       logger,
     );
 
@@ -125,7 +129,7 @@ export class UploadFileOrchestrator {
     );
     this.awspParser = new AwspFileOrchestrator(
       this.fileSystem,
-      workerPool,
+      this.workerPool,
       logger,
     );
   }
@@ -382,9 +386,6 @@ export class UploadFileOrchestrator {
       // Phase 2: Build and Insert Subgraphs (no dependencies)
       await this.buildAndInsertSubgraphs(bulkRepo);
 
-      // Phase 2b: Build and Insert Subsystems from ui-metadata
-      await this.buildAndInsertSubsystems(bulkRepo);
-
       // Phase 3: Build and Insert Containers (no dependencies)
       await this.buildAndInsertContainers(bulkRepo);
 
@@ -394,11 +395,30 @@ export class UploadFileOrchestrator {
       // Phase 4b: Build and Insert Driver Modules with DKV Calibration Data
       await this.buildAndInsertDriverModules(bulkRepo);
 
-      // Phase 5: Build and Insert Data Links (depend on modules)
-      await this.buildAndInsertDataLinks(bulkRepo);
+      // Phase 5: Build links, compute subsystem boundary ports, insert all three
+      const dataLinks = await this.buildDataLinks();
+      const {controlLinks, controlPortIntents} = await this.buildControlLinks();
+      const uiSubsystems = this.parsedAwsp?.getUiMetadata()?.subsystems ?? [];
+      const {
+        subsystems,
+        dataLinks: finalDataLinks,
+        controlLinks: finalControlLinks,
+      } = uiSubsystems.length > 0
+        ? await this.builderService.buildSubsystems(
+            uiSubsystems,
+            this.currentFileId,
+            dataLinks,
+            controlLinks,
+          )
+        : {subsystems: [], dataLinks, controlLinks};
 
-      // Phase 6: Build and Insert Control Links (depend on modules)
-      await this.buildAndInsertControlLinks(bulkRepo);
+      await this.insertSubsystems(bulkRepo, subsystems);
+      await this.insertDataLinks(bulkRepo, finalDataLinks);
+      await this.insertControlLinks(
+        bulkRepo,
+        finalControlLinks,
+        controlPortIntents,
+      );
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
@@ -1119,58 +1139,6 @@ export class UploadFileOrchestrator {
   }
 
   /**
-   * Phase 2b: Build and Insert Subsystems from ui-metadata
-   */
-  private async buildAndInsertSubsystems(
-    bulkRepo: BulkImportRepository,
-  ): Promise<void> {
-    const uiMetadata = this.parsedAwsp?.getUiMetadata();
-    if (!uiMetadata?.subsystems?.length) {
-      this.logger?.logInfo({
-        msg: 'No subsystems in ui-metadata — skipping Phase 2b',
-        action: 'subsystems_skipped',
-        component: 'UploadFileOrchestrator',
-        tag: 'database-persistence',
-        timestamp: new Date(),
-      });
-      return;
-    }
-
-    const subsystems = await this.builderService.buildSubsystems(
-      this.currentFileId,
-      uiMetadata,
-    );
-
-    if (subsystems.length > 0) {
-      const insertResult = await bulkRepo.insertSubsystems(subsystems);
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Subsystem);
-      if (insertResult.ok) {
-        this.logger?.logInfo({
-          msg: `Successfully inserted ${subsystems.length} subsystems`,
-          action: 'subsystems_persisted',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-        });
-      } else {
-        this.logger?.logError({
-          msg: `Failed to insert some subsystems: ${insertResult.errors.length} failures`,
-          action: 'subsystems_insertion_failed',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-          error: new Error(
-            '\t' +
-              insertResult.errors
-                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
-                .join('\n\t'),
-          ),
-        });
-      }
-    }
-  }
-
-  /**
    * Phase 3: Build and Insert Containers
    */
   private async buildAndInsertContainers(
@@ -1335,155 +1303,162 @@ export class UploadFileOrchestrator {
     }
   }
 
-  /**
-   * Phase 5: Build and Insert Data Links
-   */
-  private async buildAndInsertDataLinks(
-    bulkRepo: BulkImportRepository,
-  ): Promise<void> {
-    // Profile building phase
+  private async buildDataLinks(): Promise<DataLink[]> {
     this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_BUILDING);
     const dataLinks = await this.builderService.buildDataLinks(
       this.parsedAcdb!,
       this.currentFileId,
       this.parsedAwsp!,
     );
-    const buildMetrics = this.profiler?.end(
-      PROFILER_OPERATIONS.DATA_LINK_BUILDING,
+    this.logEntityBuildMetrics(
+      this.profiler?.end(PROFILER_OPERATIONS.DATA_LINK_BUILDING),
+      dataLinks.length,
     );
-    this.logEntityBuildMetrics(buildMetrics, dataLinks.length);
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_BUILD),
     );
-
-    if (dataLinks.length > 0) {
-      // Profile insertion phase
-      this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_INSERT);
-      const insertResult = await bulkRepo.insertDataLinks(dataLinks);
-      const insertMetrics = this.profiler?.end(
-        PROFILER_OPERATIONS.DATA_LINK_INSERT,
-      );
-      this.logEntityInsertMetrics(insertMetrics, dataLinks.length);
-      this.logMemorySnapshot(
-        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_INSERT),
-      );
-
-      // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.DataLink);
-
-      // Log based on actual insertion result
-      if (insertResult.ok) {
-        this.logger?.logInfo({
-          msg: `Successfully inserted ${dataLinks.length} data links`,
-          action: 'data_links_persisted',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-        });
-      } else {
-        this.logger?.logError({
-          msg: `Failed to insert some data links: ${insertResult.errors.length} insertion failures out of ${dataLinks.length} entities`,
-          action: 'data_links_insertion_failed',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-          error: new Error(
-            '\t' +
-              insertResult.errors
-                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
-                .join('\n\t'),
-          ),
-        });
-      }
-    }
+    return dataLinks;
   }
 
-  /**
-   * Phase 6: Build and Insert Control Links
-   */
-  private async buildAndInsertControlLinks(
-    bulkRepo: BulkImportRepository,
-  ): Promise<void> {
-    // Profile building phase
+  private async buildControlLinks(): Promise<{
+    controlLinks: ControlLink[];
+    controlPortIntents: Map<number, number[]>;
+  }> {
     this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING);
-    const {controlLinks, controlPortIntents} =
-      await this.builderService.buildControlLinks(
-        this.parsedAcdb!,
-        this.currentFileId,
-      );
-    const buildMetrics = this.profiler?.end(
-      PROFILER_OPERATIONS.CONTROL_LINK_BUILDING,
+    const result = await this.builderService.buildControlLinks(
+      this.parsedAcdb!,
+      this.currentFileId,
     );
-    this.logEntityBuildMetrics(buildMetrics, controlLinks.length);
+    this.logEntityBuildMetrics(
+      this.profiler?.end(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING),
+      result.controlLinks.length,
+    );
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_BUILD),
     );
+    return result;
+  }
 
-    if (controlLinks.length > 0) {
-      // Profile insertion phase
-      this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_INSERT);
-      const insertResult = await bulkRepo.insertControlLinks(controlLinks);
-      const insertMetrics = this.profiler?.end(
-        PROFILER_OPERATIONS.CONTROL_LINK_INSERT,
-      );
-      this.logEntityInsertMetrics(insertMetrics, controlLinks.length);
-      this.logMemorySnapshot(
-        this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_INSERT),
-      );
+  private async insertSubsystems(
+    bulkRepo: BulkImportRepository,
+    subsystems: Subsystem[],
+  ): Promise<void> {
+    if (subsystems.length === 0) return;
+    const insertResult = await bulkRepo.insertSubsystems(subsystems);
+    this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.Subsystem);
+    if (insertResult.ok) {
+      this.logger?.logInfo({
+        msg: `Successfully inserted ${subsystems.length} subsystems with boundary ports`,
+        action: 'subsystems_persisted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
+    } else {
+      this.logger?.logError({
+        msg: `Failed to insert some subsystems: ${insertResult.errors.length} failures`,
+        action: 'subsystems_insertion_failed',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+        error: new Error(
+          '\t' +
+            insertResult.errors
+              .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+              .join('\n\t'),
+        ),
+      });
+    }
+  }
 
-      // Collect insertion errors from the insert result
-      this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.ControlLink);
+  private async insertDataLinks(
+    bulkRepo: BulkImportRepository,
+    dataLinks: DataLink[],
+  ): Promise<void> {
+    if (dataLinks.length === 0) return;
+    this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_INSERT);
+    const insertResult = await bulkRepo.insertDataLinks(dataLinks);
+    this.logEntityInsertMetrics(
+      this.profiler?.end(PROFILER_OPERATIONS.DATA_LINK_INSERT),
+      dataLinks.length,
+    );
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_DATA_LINK_INSERT),
+    );
+    this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.DataLink);
+    if (insertResult.ok) {
+      this.logger?.logInfo({
+        msg: `Successfully inserted ${dataLinks.length} data links`,
+        action: 'data_links_persisted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
+    } else {
+      this.logger?.logError({
+        msg: `Failed to insert some data links: ${insertResult.errors.length} insertion failures out of ${dataLinks.length} entities`,
+        action: 'data_links_insertion_failed',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+        error: new Error(
+          '\t' +
+            insertResult.errors
+              .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+              .join('\n\t'),
+        ),
+      });
+    }
+  }
 
-      // Log based on actual insertion result
-      if (insertResult.ok) {
-        this.logger?.logInfo({
-          msg: `Successfully inserted ${controlLinks.length} control links`,
-          action: 'control_links_persisted',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-        });
-      } else {
-        this.logger?.logError({
-          msg: `Failed to insert some control links: ${insertResult.errors.length} insertion failures out of ${controlLinks.length} entities`,
-          action: 'control_links_insertion_failed',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-          error: new Error(
-            '\t' +
-              insertResult.errors
-                .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
-                .join('\n\t'),
-          ),
-        });
-      }
+  private async insertControlLinks(
+    bulkRepo: BulkImportRepository,
+    controlLinks: ControlLink[],
+    controlPortIntents: Map<number, number[]>,
+  ): Promise<void> {
+    if (controlLinks.length === 0) return;
+    this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_INSERT);
+    const insertResult = await bulkRepo.insertControlLinks(controlLinks);
+    this.logEntityInsertMetrics(
+      this.profiler?.end(PROFILER_OPERATIONS.CONTROL_LINK_INSERT),
+      controlLinks.length,
+    );
+    this.logMemorySnapshot(
+      this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_CONTROL_LINK_INSERT),
+    );
+    this.collectInsertionErrors(insertResult, ISSUE_ENTITY_TYPE.ControlLink);
+    if (insertResult.ok) {
+      this.logger?.logInfo({
+        msg: `Successfully inserted ${controlLinks.length} control links`,
+        action: 'control_links_persisted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
+    } else {
+      this.logger?.logError({
+        msg: `Failed to insert some control links: ${insertResult.errors.length} insertion failures out of ${controlLinks.length} entities`,
+        action: 'control_links_insertion_failed',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+        error: new Error(
+          '\t' +
+            insertResult.errors
+              .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+              .join('\n\t'),
+        ),
+      });
+    }
 
-      // TODO: Insert intents for control ports
-      // The controlPortIntents Map contains: Map<controlPortSystemId, intentIds[]>
-      // This needs to be transformed into IntentRow[] and bulk inserted into the intents table
-      // Each entry should create rows with: { intentId, controlPortSystemId }
-      // Reference: IntentSchema in packages/infrastructure/persistence/src/persistence-typeorm-sqllite/entity-schema/usecase-data/node/control-port.ts
-      // Table structure: intents table with columns (system_id, intent_id, control_port_system_id)
-      // Unique constraint: (control_port_system_id, intent_id)
-      //
-      // Implementation steps:
-      // 1. Create IntentInserter in packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/bulk-import/intent/
-      // 2. Add insertIntents() method to BulkImportRepository interface
-      // 3. Implement method in TypeOrmBulkImportRepository
-      // 4. Transform controlPortIntents Map to IntentRow[] array here
-      // 5. Call bulkRepo.insertIntents(intentRows) and log results
-      //
-      // Data available: controlPortIntents Map with ${controlPortIntents.size} control ports containing intents
-      if (controlPortIntents.size > 0) {
-        this.logger?.logInfo({
-          msg: `Control port intents extracted: ${controlPortIntents.size} control ports have associated intents (insertion pending implementation)`,
-          action: 'control_port_intents_extracted',
-          component: 'UploadFileOrchestrator',
-          tag: 'database-persistence',
-          timestamp: new Date(),
-        });
-      }
+    if (controlPortIntents.size > 0) {
+      this.logger?.logInfo({
+        msg: `Control port intents extracted: ${controlPortIntents.size} control ports have associated intents (insertion pending implementation)`,
+        action: 'control_port_intents_extracted',
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        timestamp: new Date(),
+      });
     }
   }
 
