@@ -1351,6 +1351,30 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success — some key definitions could not be resolved (see errors array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/KeyDefinitionResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project or key definition does not exist",
             "content": {
@@ -1508,6 +1532,30 @@
         "responses": {
           "200": {
             "description": "Successfully fetched information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TagDefinitionResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some tag definitions could not be resolved (see errors array)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6428,6 +6476,488 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/subsystems": {
+      "post": {
+        "description": "Creates a new empty subsystem with the given name.\n\n**Optional parameters:**\n- `parentId`: System ID of an existing subsystem to nest this one under. If omitted, the subsystem is created at the root level of the use case.",
+        "operationId": "SubsystemController_createSubsystem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: CreateSubsystemRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubsystemRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subsystem created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SubsystemDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "404": {
+            "description": "Project or parent subsystem not found"
+          },
+          "422": {
+            "description": "Failed to create subsystem"
+          }
+        },
+        "summary": "Create an empty subsystem",
+        "tags": [
+          "subsystems"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}/components/move-in": {
+      "post": {
+        "description": "Moves one or more components (subgraphs or SPF modules) into the specified subsystem.\n\nEach moved component gets its parentId updated to this subsystem. Links that cross the new subsystem boundary and become invalid are removed; new links are constructed as needed.\n\n**Response fields:**\n- `added`: Moved components (with updated parentId) and any newly constructed links\n- `updated`: Entities that pre-existed and were modified by the move (e.g. subsystems whose boundary or child list changed)\n- `removed`: Links that were deleted due to the boundary change (not the moved components themselves)",
+        "operationId": "SubsystemController_moveComponentsIntoSubsystem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subsystemSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System ID of the target subsystem",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: MoveSubsystemComponentsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveSubsystemComponentsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All components moved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/MoveSubsystemComponentsResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some components were moved but others failed (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/MoveSubsystemComponentsResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "componentSystemIds is empty"
+          },
+          "404": {
+            "description": "Project or subsystem not found"
+          },
+          "422": {
+            "description": "Business rule violation (e.g. circular hierarchy, component not in this project)"
+          }
+        },
+        "summary": "Move components into a subsystem",
+        "tags": [
+          "subsystems"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}/components/move-out": {
+      "post": {
+        "description": "Moves one or more components (subgraphs or SPF modules) out of the specified subsystem to the subsystem's parent (which may be another subsystem or the root graph).\n\nLinks that cross the new boundary and become invalid are removed; new links are constructed as needed.\n\n**Response fields:**\n- `added`: Moved components (with updated parentId) and any newly constructed links\n- `updated`: Entities that pre-existed and were modified by the move (e.g. subsystems whose boundary or child list changed)\n- `removed`: Links that were deleted due to the boundary change (not the moved components themselves)",
+        "operationId": "SubsystemController_moveComponentsOutOfSubsystem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subsystemSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System ID of the subsystem to move components out of",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: MoveSubsystemComponentsRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveSubsystemComponentsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All components moved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/MoveSubsystemComponentsResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some components were moved but others failed (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/MoveSubsystemComponentsResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "componentSystemIds is empty"
+          },
+          "404": {
+            "description": "Project or subsystem not found"
+          },
+          "422": {
+            "description": "Business rule violation (e.g. component is not a direct child of this subsystem)"
+          }
+        },
+        "summary": "Move components out of a subsystem",
+        "tags": [
+          "subsystems"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}": {
+      "delete": {
+        "description": "Deletes the specified subsystem. The subsystem must have no child components or nested subsystems.\n\nReturns the removed subsystem.",
+        "operationId": "SubsystemController_removeSubsystem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subsystemSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System ID of the subsystem to remove",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subsystem removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SubsystemDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or subsystem not found"
+          },
+          "422": {
+            "description": "Subsystem is not empty — remove all children before deleting"
+          }
+        },
+        "summary": "Remove an empty subsystem",
+        "tags": [
+          "subsystems"
+        ]
+      },
+      "patch": {
+        "description": "Partially updates a subsystem. Only provided fields are updated; absent fields remain unchanged.\n\n**Patchable fields:**\n- `name`: Subsystem name (max 255 characters)\n- `maxInputDataPortsSupported`: Target input data port count — the API adds or removes input DataPort entities to reach this number\n- `maxOutputDataPortsSupported`: Target output data port count — the API adds or removes output DataPort entities to reach this number\n- `maxControlPortsSupported`: Target control port count — the API adds or removes ControlPort entities to reach this number\n\n**Example usage:**\n```\nPATCH /arc-api/v1/projects/proj123/subsystems/12345\n{ \"name\": \"audio-subsystem\" }\n```",
+        "operationId": "SubsystemController_patchSubsystem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subsystemSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System ID of the subsystem to update",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: PatchSubsystemRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSubsystemRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subsystem updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SubsystemDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some fields were updated but others failed (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SubsystemDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No fields provided"
+          },
+          "404": {
+            "description": "Project or subsystem not found"
+          },
+          "422": {
+            "description": "Business rule violation (e.g. port count below current usage)"
+          }
+        },
+        "summary": "Partially update subsystem properties",
+        "tags": [
+          "subsystems"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}/filtered-keys": {
+      "put": {
+        "description": "Replaces the full set of filtered keys assigned to the subsystem.\n\nThe provided `keySystemIds` list becomes the new set — any keys not included are removed. Pass an empty array to clear all filtered keys.\n\nReturns the updated subsystem.",
+        "operationId": "SubsystemController_setSubsystemFilteredKeys",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subsystemSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System ID of the subsystem",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: SetSubsystemFilteredKeysRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSubsystemFilteredKeysRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Filtered keys set successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SubsystemDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "404": {
+            "description": "Project or subsystem not found"
+          },
+          "422": {
+            "description": "One or more key system IDs do not exist in this project"
+          }
+        },
+        "summary": "Set filtered keys for a subsystem",
+        "tags": [
+          "subsystems"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/containers/query": {
       "post": {
         "operationId": "ContainerController_queryContainers",
@@ -7306,6 +7836,7 @@
           "Subgraph",
           "UseCase",
           "Container",
+          "Subsystem",
           "SpfModuleDefinition",
           "DriverModule",
           "DriverModuleDefinition",
@@ -8224,7 +8755,6 @@
           "systemId",
           "keyId",
           "name",
-          "description",
           "values"
         ]
       },
@@ -8371,7 +8901,6 @@
           "systemId",
           "keyId",
           "name",
-          "description",
           "enumMember",
           "enumName",
           "isVoice",
@@ -10841,7 +11370,7 @@
             "description": "Type of the usecase",
             "enum": [
               "EC",
-              "REGULAR",
+              "ROUTED",
               "MANUAL"
             ]
           },
@@ -12127,6 +12656,104 @@
       "SubgraphPairDto": {
         "type": "object",
         "properties": {}
+      },
+      "CreateSubsystemRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Subsystem name.",
+            "maxLength": 255
+          },
+          "parentId": {
+            "type": "number",
+            "description": "System ID of the parent subsystem. If not provided, the subsystem is created at the root level."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "MoveSubsystemComponentsRequestDto": {
+        "type": "object",
+        "properties": {
+          "componentSystemIds": {
+            "description": "System IDs of the components (subgraphs or SPF modules) to move",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "componentSystemIds"
+        ]
+      },
+      "MoveSubsystemComponentsResponseDto": {
+        "type": "object",
+        "properties": {
+          "added": {
+            "description": "Components that were moved (with updated parentId) and any newly constructed links.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+              }
+            ]
+          },
+          "updated": {
+            "description": "Entities that pre-existed and were modified by the move (e.g. subsystems whose children list or port wiring changed).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+              }
+            ]
+          },
+          "removed": {
+            "description": "Links that were removed because they became invalid after the move. Does not include the moved components themselves.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComponentCollectionWithSubsystemsDto"
+              }
+            ]
+          }
+        }
+      },
+      "PatchSubsystemRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Subsystem name. Max 255 characters.",
+            "maxLength": 255
+          },
+          "maxInputDataPortsSupported": {
+            "type": "number",
+            "description": "Target number of input data ports. The API will add or remove input DataPort entities to reach this count."
+          },
+          "maxOutputDataPortsSupported": {
+            "type": "number",
+            "description": "Target number of output data ports. The API will add or remove output DataPort entities to reach this count."
+          },
+          "maxControlPortsSupported": {
+            "type": "number",
+            "description": "Target number of control ports. The API will add or remove ControlPort entities to reach this count."
+          }
+        }
+      },
+      "SetSubsystemFilteredKeysRequestDto": {
+        "type": "object",
+        "properties": {
+          "keySystemIds": {
+            "description": "System IDs of the key definitions to assign as filtered keys. Replaces the current set. Pass an empty array to clear all filtered keys.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "keySystemIds"
+        ]
       },
       "ContainerDto": {
         "type": "object",
