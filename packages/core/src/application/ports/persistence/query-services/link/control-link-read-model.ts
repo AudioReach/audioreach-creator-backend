@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {LinkType} from '../../../../../../domain/entities/usecase-data/links/link-type.js';
+import type {LinkType} from '../../../../../domain/entities/usecase-data/links/link-type.js';
 
 export interface ControlLinkReadModel {
   readonly systemId: number;

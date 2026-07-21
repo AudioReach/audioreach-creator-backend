@@ -14,6 +14,9 @@ import type {KeyValueDefQueryService} from './key-value/key-value-definition-que
 import type {ContainerQueryService} from './container/container-query-service.js';
 import type {DriverModuleDefinitionQueryService} from './driver-module-definition/driver-module-definition-query-service.js';
 import type {TagDefinitionQueryService} from './tag-definition/tag-definition-query-service.js';
+import type {DataLinkQueryService} from './link/data-link-query-service.js';
+import type {ControlLinkQueryService} from './link/control-link-query-service.js';
+import type {SubsystemQueryService} from './subsystem/subsystem-query-service.js';
 import type {ContainerPropertyDefQueryService} from './container-property-definition/container-property-def-query-service.js';
 import type {SubgraphPropertyDefQueryService} from './subgraph-property-definition/subgraph-property-def-query-service.js';
 
@@ -22,7 +25,6 @@ export interface QueryServices {
   readonly useCaseQueryService: UseCaseQueryService;
   readonly projectQueryService: ProjectQueryService;
   readonly validationQueryService: ValidationQueryRepository;
-  /** Repository for reading all entities needed for file download. */
   readonly bulkReadQueryService: BulkReadQueryService;
   readonly spfModuleQueryService: SpfModuleQueryService;
   readonly spfModuleDefinitionQueryService: SpfModuleDefinitionQueryService;
@@ -30,6 +32,9 @@ export interface QueryServices {
   readonly keyValueDefQueryService: KeyValueDefQueryService;
   readonly tagDefinitionQueryService: TagDefinitionQueryService;
   readonly containerQueryService: ContainerQueryService;
+  readonly dataLinkQueryService: DataLinkQueryService;
+  readonly controlLinkQueryService: ControlLinkQueryService;
+  readonly subsystemQueryService: SubsystemQueryService;
   readonly containerPropertyDefQueryService: ContainerPropertyDefQueryService;
   readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;
   readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;

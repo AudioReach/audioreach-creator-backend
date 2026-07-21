@@ -75,8 +75,28 @@ export * from './application/ports/persistence/query-services/query-services.js'
 export * from './application/ports/persistence/query-services/module/module-query-service.js';
 export * from './application/ports/persistence/query-services/module/query-models/module-compact.js';
 export * from './application/ports/persistence/query-services/usecase/usecase-query-service.js';
-export * from './application/ports/persistence/query-services/usecase/query-models/index.js';
+export * from './application/ports/persistence/query-services/usecase/query-models/key-vector-read-model.js';
+export * from './application/ports/persistence/query-services/usecase/query-models/usecase-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/ports/data-port-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/ports/control-port-read-model.js';
+export * from './application/ports/persistence/query-services/spf-module/ports/intent-read-model.js';
+export * from './application/ports/persistence/query-services/subgraph/subgraph-read-model.js';
 export * from './application/ports/persistence/query-services/project/project-query-service.js';
+
+// Link query services
+export * from './application/ports/persistence/query-services/link/data-link-read-model.js';
+export * from './application/ports/persistence/query-services/link/control-link-read-model.js';
+export * from './application/ports/persistence/query-services/link/data-link-query-service.js';
+export * from './application/ports/persistence/query-services/link/control-link-query-service.js';
+
+// Subsystem query service + read model
+export * from './application/ports/persistence/query-services/subsystem/subsystem-query-service.js';
+export * from './application/ports/persistence/query-services/subsystem/subsystem-read-model.js';
+export * from './application/ports/persistence/query-services/usecase/query-models/components-read-model.js';
+export * from './application/usecase-designer/usecase/get-component-with-subsystem/components-with-subsystems-read-model.js';
+
+// Filter expression (shared filter AST — no framework deps)
+export * from './shared/filter/index.js';
 export type {ParameterPayloadReadModel} from './application/ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module/ckv/ckv-query-service.js';
 
@@ -156,8 +176,13 @@ export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-ca
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
-export * from './application/usecase-designer/usecase/get-all/index.js';
-export * from './application/usecase-designer/usecase/get-components/index.js';
+export * from './application/usecase-designer/usecase/get-all/get-all-usecases.handler.js';
+export * from './application/usecase-designer/usecase/get-all/get-all-usecases.query.js';
+export * from './application/usecase-designer/usecase/get-components/get-components.query.js';
+export * from './application/usecase-designer/usecase/get-components/get-components.handler.js';
+export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
+export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';
+export * from './application/usecase-designer/usecase/get-component-with-subsystem/build-subsystem-tree.js';
 export * from './application/usecase-designer/data-links/create/create-data-link.command.js';
 export * from './application/usecase-designer/data-links/create/create-data-link.handler.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.command.js';

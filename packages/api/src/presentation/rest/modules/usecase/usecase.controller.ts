@@ -11,6 +11,7 @@ import {
   Post,
   Patch,
   //  UseGuards,
+  HttpCode,
   HttpStatus,
   UseInterceptors,
   Param,
@@ -53,10 +54,15 @@ import {
   QueryBus,
   GetAllUseCasesQuery,
   GetComponentsQuery,
+  GetComponentsWithSubsystemsQuery,
   type Result,
   UseCaseReadModel,
   type KeyValuePairReadModel,
-  UseCaseComponentsReadModel,
+  type ComponentsReadModel,
+  type ComponentsWithSubsystemsReadModel,
+  COMPONENT_SCOPE_TYPE,
+  FilterParser,
+  validateFilterFields,
 } from '@arc/core';
 import {
   KeyValuePairsInfo,
@@ -65,6 +71,16 @@ import {
   ValueInfo,
 } from '../../common/dto/kv.dto.js';
 import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
+
+/**
+ * Valid filter fields for GET /usecases.
+ * Adding a new field: add here + add matching .register() in USECASE_PARAM_FILTER.
+ */
+const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
+  'spfModuleInstanceId',
+  'subgraphId',
+  'containerId',
+]);
 
 /**
  * Controller to support all usecase related APIs
@@ -174,20 +190,34 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Query('filter') filterExpression?: string,
   ): Promise<ApiResult<UsecaseDto[]>> {
-    console.log('Getting usecases for project:', projectId);
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
 
-    // TODO: Implement filter parsing and validation
-    // Filter expression will be parsed and applied in future implementation
-    if (filterExpression) {
-      console.log(
-        'Filter expression provided but not yet implemented:',
-        filterExpression,
+    // Parse filter expression — returns warning on invalid syntax, undefined if absent
+    const {expression, issue} = FilterParser.tryParse(filterExpression);
+    if (issue) {
+      throw new BadRequestException(issue.message);
+    }
+
+    // Validate field names against allowed set for this endpoint
+    if (expression) {
+      const unknownField = validateFilterFields(
+        expression,
+        USECASE_ALLOWED_FILTER_FIELDS,
       );
+      if (unknownField) {
+        throw new BadRequestException(
+          `Unknown filter field: '${unknownField}'`,
+        );
+      }
     }
 
     const query = new GetAllUseCasesQuery(
-      Number.parseInt(projectId),
+      parsedProjectId,
       'client-id', // TODO: get actual clientId from JWT
+      expression,
     );
 
     const result =
@@ -483,6 +513,7 @@ export class UseCaseController extends BaseController {
    * For components shared between usecases, only one copy will be returned.
    */
   @Post('components/query')
+  @HttpCode(HttpStatus.OK)
   @ApiDocumentationWithExample({
     summary: 'Query components across multiple usecases (flat structure)',
     description:
@@ -529,17 +560,8 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<ComponentCollectionDto>> {
-    console.log(
-      'Getting components for usecases in project:',
-      projectId,
-      'with system IDs:',
-      usecaseSystemIds,
-    );
-
-    // Validate input
     if (
-      !usecaseSystemIds ||
-      !usecaseSystemIds.systemIds ||
+      !usecaseSystemIds?.systemIds ||
       usecaseSystemIds.systemIds.length === 0
     ) {
       throw new BadRequestException(
@@ -547,7 +569,6 @@ export class UseCaseController extends BaseController {
       );
     }
 
-    // Convert string systemIds to numbers
     const systemIds = usecaseSystemIds.systemIds.map(id => {
       const parsed = Number.parseInt(id, 10);
       if (Number.isNaN(parsed)) {
@@ -556,18 +577,19 @@ export class UseCaseController extends BaseController {
       return parsed;
     });
 
-    // Execute the query to get components
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
     }
+
     const query = new GetComponentsQuery(
-      systemIds,
-      'client-id',
+      {type: COMPONENT_SCOPE_TYPE.Usecase, systemIds},
       parsedProjectId,
-    ); // TODO: get actual clientId from JWT
+      'client-id', // TODO: get actual clientId from JWT
+    );
+
     const result =
-      await this.queryBus.execute<Result<UseCaseComponentsReadModel>>(query);
+      await this.queryBus.execute<Result<ComponentsReadModel>>(query);
 
     return toApiResult(result, data =>
       this.transformToComponentCollectionDto(data),
@@ -583,6 +605,7 @@ export class UseCaseController extends BaseController {
    * For components shared between usecases, only one copy will be returned.
    */
   @Post('components/query-with-subsystems')
+  @HttpCode(HttpStatus.OK)
   @ApiDocumentationWithExample({
     summary:
       'Query components across multiple usecases (with subsystem hierarchy)',
@@ -629,21 +652,12 @@ export class UseCaseController extends BaseController {
       },
     ],
   })
-  queryUsecaseComponentsWithSubsystems(
+  async queryUsecaseComponentsWithSubsystems(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
   ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
-    console.log(
-      'Getting components with subsystem hierarchy for usecases in project:',
-      projectId,
-      'with system IDs:',
-      usecaseSystemIds,
-    );
-
-    // Validate input
     if (
-      !usecaseSystemIds ||
-      !usecaseSystemIds.systemIds ||
+      !usecaseSystemIds?.systemIds ||
       usecaseSystemIds.systemIds.length === 0
     ) {
       throw new BadRequestException(
@@ -651,17 +665,31 @@ export class UseCaseController extends BaseController {
       );
     }
 
-    //TODO: Convert string systemIds to numbers
+    const systemIds = usecaseSystemIds.systemIds.map(id => {
+      const parsed = Number.parseInt(id, 10);
+      if (Number.isNaN(parsed)) {
+        throw new BadRequestException(`Invalid use case system ID: ${id}`);
+      }
+      return parsed;
+    });
 
-    // TODO: Implement components with subsystem hierarchy logic
-    // 1. Execute query to get components for the specified usecases
-    // 2. Build subsystem hierarchy structure
-    // 3. Organize components within their respective subsystems
-    // 4. Populate ComponentCollectionDto.subsystems with the hierarchy
-    // 5. Return UsecaseComponentsDto with complete subsystem information
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
 
-    throw new NotImplementedException(
-      'queryUsecaseComponentsWithSubsystems is not implemented yet',
+    const query = new GetComponentsWithSubsystemsQuery(
+      {type: COMPONENT_SCOPE_TYPE.Usecase, systemIds},
+      parsedProjectId,
+      'client-id', // TODO: get actual clientId from JWT
+    );
+
+    const result =
+      await this.queryBus.execute<Result<ComponentsWithSubsystemsReadModel>>(
+        query,
+      );
+    return toApiResult(result, data =>
+      this.transformToComponentCollectionWithSubsystemsDto(data),
     );
   }
 
@@ -846,43 +874,40 @@ export class UseCaseController extends BaseController {
    * Transform UseCaseComponentsReadModel to ComponentCollectionDto
    */
   private transformToComponentCollectionDto(
-    components: UseCaseComponentsReadModel,
+    components: ComponentsReadModel,
   ): ComponentCollectionDto {
-    const componentCollection = new ComponentCollectionDto();
+    const dto = new ComponentCollectionDto();
 
-    // Transform modules to SpfModuleDto
-    componentCollection.spfModules = components.modules.map(module => {
+    dto.spfModules = components.modules.map(module => {
       const moduleDto = new SpfModuleDto(
         module.systemId.toString(),
         module.instanceId,
         module.definitionSystemId,
         module.name,
       );
-      moduleDto.subgraphId = module.subgraph.systemId;
-      moduleDto.containerId = module.container.systemId;
+      // SpfModuleReadModel has subgraphId + containerId directly (no nested objects)
+      moduleDto.subgraphId = module.subgraphId;
+      moduleDto.containerId = module.containerId;
 
-      // Map data ports
       moduleDto.dataPorts = module.dataPorts.map(
         port =>
           new DataPortDto(
             port.systemId.toString(),
             port.portId,
-            port.name,
+            port.name ?? '',
             port.portIoType === 'Input' ? PortIoType.Input : PortIoType.Output,
             port.isStatic ? PortType.Static : PortType.Dynamic,
           ),
       );
 
-      // Map control ports with intents
       moduleDto.controlPorts = module.controlPorts.map(port => {
         const intents = port.allocatedIntents.map(
           intent => new ControlPortIntentDto(intent.intentId, intent.name),
         );
-
         return new ControlPortDto(
           port.systemId.toString(),
           port.portId,
-          port.name,
+          port.name ?? '',
           port.isStatic ? PortType.Static : PortType.Dynamic,
           intents,
         );
@@ -891,38 +916,66 @@ export class UseCaseController extends BaseController {
       return moduleDto;
     });
 
-    // Transform data links to DataLinkDto
-    componentCollection.dataLinks = components.dataLinks.map(
+    dto.dataLinks = components.dataLinks.map(
       link =>
         new DataLinkDto(
           link.systemId.toString(),
-          link.systemId, // Using systemId as id for now
-          CONN_CTRL_TYPE.MODULE_MODULE, // Default connection type
+          link.systemId,
+          CONN_CTRL_TYPE.MODULE_MODULE,
           link.sourceNodeSystemId,
           link.sourcePortSystemId,
           link.destinationNodeSystemId,
           link.destinationPortSystemId,
-          false, // isDangling - default to false
+          false,
         ),
     );
 
-    // Transform control links to ControlLinkDto
-    componentCollection.controlLinks = components.controlLinks.map(
+    dto.controlLinks = components.controlLinks.map(
       link =>
         new ControlLinkDto(
           link.systemId.toString(),
-          link.systemId, // Using systemId as id for now
-          CONN_CTRL_TYPE.MODULE_MODULE, // Default connection type
+          link.systemId,
+          CONN_CTRL_TYPE.MODULE_MODULE,
           link.peerNodeASystemId,
           link.nodeAPortSystemId,
           link.peerNodeBSystemId,
           link.nodeBPortSystemId,
-          false, // isDangling - default to false
-          undefined, // parentId
+          false,
+          undefined,
         ),
     );
 
-    return componentCollection;
+    return dto;
+  }
+
+  private transformToComponentCollectionWithSubsystemsDto(
+    tree: ComponentsWithSubsystemsReadModel,
+  ): ComponentCollectionWithSubsystemsDto {
+    const dto = new ComponentCollectionWithSubsystemsDto();
+    // Reuse flat mapper for modules + links at this level
+    const flat = this.transformToComponentCollectionDto(tree);
+    dto.spfModules = flat.spfModules;
+    dto.dataLinks = flat.dataLinks;
+    dto.controlLinks = flat.controlLinks;
+
+    // Map each subsystem recursively — same shape as root
+    dto.subsystems = tree.subsystems.map(sub => {
+      const subDto = new SubsystemDto(
+        String(sub.systemId),
+        sub.systemId, // id — use systemId as the numeric id
+        sub.name,
+      );
+      subDto.filteredKeys = sub.filteredKeys.map(
+        k => new KeyInfo(k.keyId, k.name, String(k.systemId)),
+      );
+      // children has the same ComponentsWithSubsystemsReadModel shape — recurse
+      subDto.children = this.transformToComponentCollectionWithSubsystemsDto(
+        sub.children,
+      );
+      return subDto;
+    });
+
+    return dto;
   }
 
   //#endregion

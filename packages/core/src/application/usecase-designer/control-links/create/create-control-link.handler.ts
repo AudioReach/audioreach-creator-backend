@@ -8,11 +8,11 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {CreateControlLinkCommand} from './create-control-link.command.js';
-import type {UseCaseComponentsReadModel} from '../../../../application/ports/persistence/query-services/usecase/query-models/usecase-components-read-model.js';
+import type {ComponentsReadModel} from '../../../../application/ports/persistence/query-services/usecase/query-models/components-read-model.js';
 
 export class CreateControlLinkHandler implements CommandHandler<
   CreateControlLinkCommand,
-  UseCaseComponentsReadModel
+  ComponentsReadModel
 > {
   constructor(
     private readonly uow: UnitOfWork,
@@ -20,9 +20,7 @@ export class CreateControlLinkHandler implements CommandHandler<
     private readonly idGeneration: IdGenerationPort,
   ) {}
 
-  handle(
-    _command: CreateControlLinkCommand,
-  ): Promise<UseCaseComponentsReadModel> {
+  handle(_command: CreateControlLinkCommand): Promise<ComponentsReadModel> {
     if (
       this.uow == undefined ||
       this.queryServices == undefined ||

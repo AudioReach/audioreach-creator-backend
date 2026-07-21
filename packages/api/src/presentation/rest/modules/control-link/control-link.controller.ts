@@ -36,7 +36,7 @@ import {
   CreateControlLinkCommand,
   DeleteControlLinkCommand,
   Result,
-  type UseCaseComponentsReadModel,
+  type ComponentsReadModel,
   type ControlLinkReadModel,
 } from '@arc/core';
 import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
@@ -154,7 +154,7 @@ export class ControlLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+      await this.commandBus.execute<ComponentsReadModel>(command);
     return toApiResult(Result.ok(this.toComponentCollectionDto(components)));
   }
 
@@ -205,7 +205,7 @@ export class ControlLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+      await this.commandBus.execute<ComponentsReadModel>(command);
     return toApiResult(
       Result.ok(this.toComponentCollectionWithSubsystemsDto(components)),
     );
@@ -355,7 +355,7 @@ export class ControlLinkController extends BaseController {
   }
 
   private toComponentCollectionDto(
-    components: UseCaseComponentsReadModel,
+    components: ComponentsReadModel,
   ): ComponentCollectionDto {
     const dto = new ComponentCollectionDto();
     dto.controlLinks = components.controlLinks.map(
@@ -376,7 +376,7 @@ export class ControlLinkController extends BaseController {
   }
 
   private toComponentCollectionWithSubsystemsDto(
-    components: UseCaseComponentsReadModel,
+    components: ComponentsReadModel,
   ): ComponentCollectionWithSubsystemsDto {
     const dto = new ComponentCollectionWithSubsystemsDto();
     dto.controlLinks = components.controlLinks.map(

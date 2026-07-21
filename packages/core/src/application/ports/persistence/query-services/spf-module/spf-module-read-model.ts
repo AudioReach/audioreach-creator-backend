@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataPortReadModel} from '../usecase/query-models/data-port-read-model.js';
-import type {ControlPortReadModel} from '../usecase/query-models/control-port-read-model.js';
+import type {DataPortReadModel} from './ports/data-port-read-model.js';
+import type {ControlPortReadModel} from './ports/control-port-read-model.js';
 
 export interface SpfModuleReadModel {
   readonly systemId: number;
