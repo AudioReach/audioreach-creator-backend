@@ -117,17 +117,9 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-      - name: 📊 Generate Coverage Report
-        id: coverage
-        if: steps.test.outcome != 'skipped'
-        run: |
-          echo "📊 Generating Coverage report..."
-          pnpm turbo run coverage:workspace || echo "⚠️ Coverage generation failed"
-        continue-on-error: false
-
       - name: 📤 Upload Coverage Artifacts
         uses: actions/upload-artifact@v4
-        if: steps.coverage.outcome != 'skipped'
+        if: steps.test.outcome != 'skipped'
         with:
           name: coverage-report
           path: |
@@ -149,7 +141,6 @@ jobs:
           echo "| Lint | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test | ${{ steps.test.outcome == 'success' && '✅' || steps.test.outcome == 'failure' && '❌' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Coverage | ${{ steps.coverage.outcome == 'success' && '✅' || steps.coverage.outcome == 'failure' && '❌' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             echo "🔀 **PR-${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY

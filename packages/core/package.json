@@ -21,9 +21,9 @@
     "build:watch": "tsc --watch",
     "clean": "shx rm -rf dist *.tsbuildinfo",
     "format": "prettier --write .",
-    "test:core": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests --verbose=false",
-    "test:unit:core": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects unit --passWithNoTests --verbose=false",
-    "test:integration:core": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects integration --passWithNoTests --verbose=false",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests --verbose=false",
+    "test:unit": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects unit --passWithNoTests --verbose=false",
+    "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects integration --passWithNoTests --verbose=false",
     "coverage:core": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage --passWithNoTests",
     "coverage:clean": "shx rm -rf coverage",
     "typecheck": "tsc --noEmit"
