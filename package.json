@@ -34,6 +34,11 @@
     "migration:gen": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:generate",
     "migration:revert": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:revert",
     "migration:show": "typeorm -d ./packages/api/dist/infrastructure-wrapper/database/data-source-cli.js migration:show",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "test:e2e": "turbo run test:e2e",
+    "coverage": "turbo run coverage:workspace",
     "setup-ai-links": "node scripts/setup-ai-links.js"
   },
   "keywords": [
