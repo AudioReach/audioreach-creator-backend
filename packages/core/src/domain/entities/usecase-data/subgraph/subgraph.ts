@@ -61,17 +61,20 @@ export class Subgraph {
   }
 
   private addSgkv(sgkv: Sgkv): void {
-    const systemIdKey = `sys:${sgkv.systemId}`;
     const valuesKey = `vals:${[...sgkv.valueDefinitionSystemIds].sort((a, b) => a - b).join(',')}`;
-    invariant(
-      !this.sgkvKeys.has(systemIdKey),
-      `SGKV with systemId ${sgkv.systemId} already exists for Subgraph (subgraphId=${BinaryUtils.toHexString(this.subgraphId)})`,
-    );
+    // Only deduplicate by systemId once IDs have been assigned (0 = not yet assigned)
+    if (sgkv.systemId !== 0) {
+      const systemIdKey = `sys:${sgkv.systemId}`;
+      invariant(
+        !this.sgkvKeys.has(systemIdKey),
+        `SGKV with systemId ${sgkv.systemId} already exists for Subgraph (subgraphId=${BinaryUtils.toHexString(this.subgraphId)})`,
+      );
+      this.sgkvKeys.add(systemIdKey);
+    }
     invariant(
       !this.sgkvKeys.has(valuesKey),
       `SGKV with valueDefinitionSystemIds already exists for Subgraph (subgraphId=${BinaryUtils.toHexString(this.subgraphId)})`,
     );
-    this.sgkvKeys.add(systemIdKey);
     this.sgkvKeys.add(valuesKey);
     this.sgkvs.push(sgkv);
   }
