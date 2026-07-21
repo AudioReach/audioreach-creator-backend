@@ -5,29 +5,115 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {UseCaseComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/index.js';
-import {GetComponentsQuery} from './get-components.query.js';
-import {Result} from '../../../shared/result/result.js';
+import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
+import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {
+  GetComponentsQuery,
+  COMPONENT_SCOPE_TYPE,
+} from './get-components.query.js';
 
 export class GetComponentsHandler implements QueryHandler<
   GetComponentsQuery,
-  Promise<Result<UseCaseComponentsReadModel>>
+  Promise<Result<ComponentsReadModel>>
 > {
-  constructor(private queryServices: QueryServices) {}
+  constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetComponentsQuery,
-  ): Promise<Result<UseCaseComponentsReadModel>> {
-    if (query.projectId !== undefined) {
+  ): Promise<Result<ComponentsReadModel>> {
+    const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
+
+    if (query.scope.type === COMPONENT_SCOPE_TYPE.Usecase) {
+      const invalidResult = await this.findInvalidUsecaseId(
+        query.scope.systemIds,
+        fileId,
+      );
+      if (invalidResult.kind === RESULT_KIND.Fail)
+        throw new Error(
+          invalidResult.issues[0]?.message ?? 'Failed to validate usecase IDs',
+        );
+      if (invalidResult.data !== undefined)
+        throw new Error(`UseCase ${invalidResult.data} not found`);
     }
-    const useCaseSystemIds = query.useCaseSystemIds.map(Number);
-    return Result.ok(
-      await this.queryServices.useCaseQueryService.getAllComponentsForUseCases(
-        useCaseSystemIds,
-      ),
-    );
+
+    const svc = this.queryServices;
+
+    switch (query.scope.type) {
+      case COMPONENT_SCOPE_TYPE.Usecase:
+        return this.loadComponents(
+          svc.spfModuleQueryService.findByUsecaseIds(
+            query.scope.systemIds,
+            fileId,
+          ),
+          svc.dataLinkQueryService.findByUsecaseIds(
+            query.scope.systemIds,
+            fileId,
+          ),
+          svc.controlLinkQueryService.findByUsecaseIds(
+            query.scope.systemIds,
+            fileId,
+          ),
+        );
+
+      case COMPONENT_SCOPE_TYPE.Subgraph:
+        return this.loadComponents(
+          svc.spfModuleQueryService.findBySubgraphId(
+            query.scope.systemId,
+            fileId,
+          ),
+          svc.dataLinkQueryService.findBySubgraphId(
+            query.scope.systemId,
+            fileId,
+          ),
+          svc.controlLinkQueryService.findBySubgraphId(
+            query.scope.systemId,
+            fileId,
+          ),
+        );
+    }
+  }
+
+  private async findInvalidUsecaseId(
+    systemIds: number[],
+    fileId: number,
+  ): Promise<Result<number | undefined>> {
+    const allResult =
+      await this.queryServices.useCaseQueryService.getAllUseCases(fileId);
+    if (allResult.kind === RESULT_KIND.Fail) return allResult;
+    const knownIds = new Set(allResult.data.map(uc => uc.systemId));
+    return Result.ok(systemIds.find(id => !knownIds.has(id)));
+  }
+
+  private async loadComponents(
+    modulesPromise: Promise<Result<ComponentsReadModel['modules']>>,
+    dataLinksPromise: Promise<Result<ComponentsReadModel['dataLinks']>>,
+    controlLinksPromise: Promise<Result<ComponentsReadModel['controlLinks']>>,
+  ): Promise<Result<ComponentsReadModel>> {
+    const [modulesResult, dataLinksResult, controlLinksResult] =
+      await Promise.all([
+        modulesPromise,
+        dataLinksPromise,
+        controlLinksPromise,
+      ]);
+    if (modulesResult.kind === RESULT_KIND.Fail)
+      throw new Error(
+        modulesResult.issues[0]?.message ?? 'Failed to load modules',
+      );
+    if (dataLinksResult.kind === RESULT_KIND.Fail)
+      throw new Error(
+        dataLinksResult.issues[0]?.message ?? 'Failed to load data links',
+      );
+    if (controlLinksResult.kind === RESULT_KIND.Fail)
+      throw new Error(
+        controlLinksResult.issues[0]?.message ?? 'Failed to load control links',
+      );
+    return Result.ok({
+      modules: modulesResult.data,
+      dataLinks: dataLinksResult.data,
+      controlLinks: controlLinksResult.data,
+    });
   }
 }

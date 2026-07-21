@@ -18,6 +18,9 @@ import type {
   ContainerPropertyDefQueryService,
   SubgraphPropertyDefQueryService,
   DriverModuleDefinitionQueryService,
+  DataLinkQueryService,
+  ControlLinkQueryService,
+  SubsystemQueryService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -36,11 +39,11 @@ import {DbContainerPropertyDefQueryService} from './container-property-definitio
 import {DbSubgraphPropertyDefQueryService} from './subgraph-property-definition/db-subgraph-property-def-query-service.js';
 import {TypeOrmSessionRepository} from '../repositories/session/typeorm-session.repository.js';
 import {DbDriverModuleDefinitionQueryService} from './driver-module-definition/db-driver-module-definition-query-service.js';
+import {DbDataLinkQueryService} from './link/db-data-link-query-service.js';
+import {DbControlLinkQueryService} from './link/db-control-link-query-service.js';
+import {DbSubsystemQueryService} from './subsystem/db-subsystem-query-service.js';
 
-// Database implementation of ModuleQueryService
-class DbModuleQueryService implements ModuleQueryService {
-  // Add query methods here as needed
-}
+class DbModuleQueryService implements ModuleQueryService {}
 
 export class DbQueryServices implements QueryServices {
   readonly modulesQueryService: ModuleQueryService;
@@ -57,6 +60,9 @@ export class DbQueryServices implements QueryServices {
   readonly containerPropertyDefQueryService: ContainerPropertyDefQueryService;
   readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;
   readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;
+  readonly dataLinkQueryService: DataLinkQueryService;
+  readonly controlLinkQueryService: ControlLinkQueryService;
+  readonly subsystemQueryService: SubsystemQueryService;
 
   constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(
@@ -65,7 +71,6 @@ export class DbQueryServices implements QueryServices {
     const sessionRepo = new TypeOrmSessionRepository(dataSource.manager);
 
     this.modulesQueryService = new DbModuleQueryService();
-    this.useCaseQueryService = new DbUseCaseQueryService(dataSource);
     this.projectQueryService = new DbProjectQueryService(dataSource);
     this.validationQueryService = new TypeOrmValidationQueryRepository(
       dataSource,
@@ -75,8 +80,6 @@ export class DbQueryServices implements QueryServices {
       logger,
     );
 
-    // Key-value category service — owns arc_values + arc_keys
-    // Instantiated before spfTuningConfigService, which delegates to it
     this.keyValueDefQueryService = new DbKeyValueDefQueryService(
       dataSource,
       editActionsQueryService,
@@ -138,5 +141,25 @@ export class DbQueryServices implements QueryServices {
         editActionsQueryService,
         sessionRepo,
       );
+
+    this.useCaseQueryService = new DbUseCaseQueryService(
+      dataSource,
+      editActionsQueryService,
+      this.keyValueDefQueryService,
+    );
+
+    // Individual link + subsystem query services
+    this.dataLinkQueryService = new DbDataLinkQueryService(
+      dataSource,
+      editActionsQueryService,
+    );
+    this.controlLinkQueryService = new DbControlLinkQueryService(
+      dataSource,
+      editActionsQueryService,
+    );
+    this.subsystemQueryService = new DbSubsystemQueryService(
+      dataSource,
+      editActionsQueryService,
+    );
   }
 }

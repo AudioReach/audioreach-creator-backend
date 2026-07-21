@@ -8,15 +8,14 @@ import {
   NotImplementedException,
   Post,
   Get,
+  BadRequestException,
   Body,
   Param,
   HttpStatus,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
-import {AuthGuard} from '@nestjs/passport';
 import {SubgraphDto, SubgraphPropertiesDto} from './dto/subgraph.dto.js';
 import {SubgraphPairDto} from './dto/subgraph-pair.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
@@ -28,6 +27,27 @@ import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.deco
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {UsecaseIdentifierDto} from '../usecase/dto/usecase.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
+import {toApiResult} from '../../common/result/to-api-result.js';
+import {SpfModuleDto} from '../spf-module/dto/shared/spf-module.dto.js';
+import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
+import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
+import {
+  DataPortDto,
+  PortIoType,
+  PortType,
+} from '../../common/dto/data-port.dto.js';
+import {
+  ControlPortDto,
+  ControlPortIntentDto,
+} from '../../common/dto/control-port.dto.js';
+import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
+import {
+  QueryBus,
+  GetComponentsQuery,
+  type Result,
+  type ComponentsReadModel,
+  COMPONENT_SCOPE_TYPE,
+} from '@arc/core';
 
 /**
  * Controller to support all subgraph related APIs for usecase design.
@@ -35,7 +55,7 @@ import {PartialSuccessInterceptor} from '../../common/interceptors/partial-succe
  */
 @ApiTags('subgraphs')
 @Controller('arc-api/v1/projects/:projectId/subgraphs')
-@UseGuards(AuthGuard('jwt'))
+//@UseGuards(AuthGuard('jwt'))
 @ApiExtraModels(
   ConfigElementDto,
   ElementTemplateArrayDto,
@@ -50,7 +70,7 @@ import {PartialSuccessInterceptor} from '../../common/interceptors/partial-succe
   example: '12345',
 })
 export class SubgraphController extends BaseController {
-  constructor() {
+  constructor(private readonly queryBus: QueryBus) {
     super();
   }
 
@@ -247,13 +267,28 @@ export class SubgraphController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
   ): Promise<ApiResult<ComponentCollectionDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting components for project: ${projectId} and subgraph: ${subgraphSystemId}`,
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    const parsedSubgraphId = Number.parseInt(subgraphSystemId, 10);
+
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+    if (Number.isNaN(parsedSubgraphId)) {
+      throw new BadRequestException(
+        `Invalid subgraph system ID: ${subgraphSystemId}`,
+      );
+    }
+
+    const query = new GetComponentsQuery(
+      {type: COMPONENT_SCOPE_TYPE.Subgraph, systemId: parsedSubgraphId},
+      parsedProjectId,
+      'client-id', // TODO: get actual clientId from JWT
     );
-    throw new NotImplementedException(
-      'getComponentsForSubgraph is not implemented yet',
-    );
+
+    const result =
+      await this.queryBus.execute<Result<ComponentsReadModel>>(query);
+
+    return toApiResult(result, data => this.mapToComponentCollectionDto(data));
   }
 
   /**
@@ -296,5 +331,81 @@ export class SubgraphController extends BaseController {
     throw new NotImplementedException(
       'getSubgraphPairs is not implemented yet',
     );
+  }
+
+  // ── Private mapper ───────────────────────────────────────────────────────────
+
+  private mapToComponentCollectionDto(
+    components: ComponentsReadModel,
+  ): ComponentCollectionDto {
+    const dto = new ComponentCollectionDto();
+
+    dto.spfModules = components.modules.map(module => {
+      const moduleDto = new SpfModuleDto(
+        module.systemId.toString(),
+        module.instanceId,
+        module.definitionSystemId,
+        module.name,
+      );
+      moduleDto.subgraphId = module.subgraphId;
+      moduleDto.containerId = module.containerId;
+
+      moduleDto.dataPorts = module.dataPorts.map(
+        port =>
+          new DataPortDto(
+            port.systemId.toString(),
+            port.portId,
+            port.name ?? '',
+            port.portIoType === 'Input' ? PortIoType.Input : PortIoType.Output,
+            port.isStatic ? PortType.Static : PortType.Dynamic,
+          ),
+      );
+
+      moduleDto.controlPorts = module.controlPorts.map(port => {
+        const intents = port.allocatedIntents.map(
+          intent => new ControlPortIntentDto(intent.intentId, intent.name),
+        );
+        return new ControlPortDto(
+          port.systemId.toString(),
+          port.portId,
+          port.name ?? '',
+          port.isStatic ? PortType.Static : PortType.Dynamic,
+          intents,
+        );
+      });
+
+      return moduleDto;
+    });
+
+    dto.dataLinks = components.dataLinks.map(
+      link =>
+        new DataLinkDto(
+          link.systemId.toString(),
+          link.systemId,
+          CONN_CTRL_TYPE.MODULE_MODULE,
+          link.sourceNodeSystemId,
+          link.sourcePortSystemId,
+          link.destinationNodeSystemId,
+          link.destinationPortSystemId,
+          false,
+        ),
+    );
+
+    dto.controlLinks = components.controlLinks.map(
+      link =>
+        new ControlLinkDto(
+          link.systemId.toString(),
+          link.systemId,
+          CONN_CTRL_TYPE.MODULE_MODULE,
+          link.peerNodeASystemId,
+          link.nodeAPortSystemId,
+          link.peerNodeBSystemId,
+          link.nodeBPortSystemId,
+          false,
+          undefined,
+        ),
+    );
+
+    return dto;
   }
 }

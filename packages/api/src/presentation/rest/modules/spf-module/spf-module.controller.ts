@@ -802,7 +802,7 @@ export class SpfModuleController extends BaseController {
     const dto = new DataPortDto(
       String(p.systemId),
       p.portId,
-      p.name,
+      p.name ?? '',
       p.portIoType === 'Input' ? PortIoType.Input : PortIoType.Output,
       p.isStatic ? PortType.Static : PortType.Dynamic,
     );
@@ -818,7 +818,7 @@ export class SpfModuleController extends BaseController {
     return new ControlPortDto(
       String(p.systemId),
       p.portId,
-      p.name,
+      p.name ?? '',
       p.isStatic ? PortType.Static : PortType.Dynamic,
       p.allocatedIntents.map(i => new ControlPortIntentDto(i.intentId, i.name)),
     );

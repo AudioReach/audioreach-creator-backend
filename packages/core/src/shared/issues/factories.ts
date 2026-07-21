@@ -174,4 +174,55 @@ export const IssueFactory = {
       },
     };
   },
+
+  selfLoop(nodeId: number): Issue {
+    return {
+      code: ISSUE_CODE.CL_SELF_LOOP,
+      message: `Source and destination are the same node (systemId: ${nodeId}). Self-loops are not allowed.`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  subsystemNotAllowedOnFlatView(nodeId: number): Issue {
+    return {
+      code: ISSUE_CODE.CL_SUBSYSTEM_FLAT_VIEW,
+      message: `Subsystem node ${nodeId} is not allowed on POST /control-links. Use POST /control-links/with-subsystems.`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  duplicateControlLink(portA: number, portB: number): Issue {
+    return {
+      code: ISSUE_CODE.CL_DUPLICATE,
+      message: `A non-deleted control link already exists between ports ${portA} and ${portB}.`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  emptyIntentIntersection(portA: number, portB: number): Issue {
+    return {
+      code: ISSUE_CODE.CL_EMPTY_INTENT_INTERSECTION,
+      message: `No common intents between ports ${portA} and ${portB}. Cannot create control link.`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  usecaseMismatch(nodeA: number, nodeB: number): Issue {
+    return {
+      code: ISSUE_CODE.CL_USECASE_MISMATCH,
+      message: `Nodes ${nodeA} and ${nodeB} do not satisfy the isInterUsecase requirement.`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  subsystemPortSideConflict(portSystemId: number): Issue {
+    return {
+      code: ISSUE_CODE.CL_SUBSYSTEM_PORT_SIDE_CONFLICT,
+      message:
+        `Control port ${portSystemId} belongs to a subsystem and already has a connection ` +
+        `on the same side (inner or outer) as the new link. ` +
+        `A subsystem port can carry at most one inner-side and one outer-side connection.`,
+      severity: IssueSeverity.Error,
+    };
+  },
 } as const;

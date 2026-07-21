@@ -37,6 +37,26 @@ export interface SpfModuleQueryService {
     fileSystemId: number,
   ): Promise<Result<SpfModuleReadModel[]>>;
 
+  /**
+   * Returns all SPF modules reachable from the given usecase system IDs.
+   * Scoped via use_case_subgraphs → spf_modules.subgraph_system_id.
+   * A module shared across multiple usecases appears ONCE — deduplicated by systemId.
+   * Overlay applied.
+   */
+  findByUsecaseIds(
+    usecaseSystemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<SpfModuleReadModel[]>>;
+
+  /**
+   * Returns all SPF modules whose subgraph_system_id = subgraphId.
+   * Overlay applied.
+   */
+  findBySubgraphId(
+    subgraphId: number,
+    fileSystemId: number,
+  ): Promise<Result<SpfModuleReadModel[]>>;
+
   // Sub-services — reusable directly by handlers that need only ports for a specific node
   readonly nodeQueryService: NodeQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;

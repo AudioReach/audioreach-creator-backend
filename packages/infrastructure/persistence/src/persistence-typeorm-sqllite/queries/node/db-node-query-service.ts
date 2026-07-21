@@ -10,6 +10,7 @@ import type {
   DataPortReadModel,
   ControlPortReadModel,
   IntentReadModel,
+  NodeInfo,
 } from '@arc/core';
 import {Result, ERROR_CODES, NodeType, IssueSeverity} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -424,5 +425,223 @@ export class DbNodeQueryService implements NodeQueryService {
       // Use definition name when available; fall back to generated name
       name: intentNameMap?.get(row.intentId) ?? `Intent_${row.intentId}`,
     };
+  }
+
+  // ── New methods: findNodeById, getAllNodeParentMap, getIntentsByPortSystemIds ─
+
+  async findNodeById(
+    nodeSystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<NodeInfo | null>> {
+    try {
+      const row = (await this.dataSource
+        .getRepository(ENTITY_NAMES.Node)
+        .createQueryBuilder('node')
+        .select(['node.systemId', 'node.type', 'node.parentId'])
+        .where('node.systemId = :id', {id: nodeSystemId})
+        .andWhere('node.fileSystemId = :fileSystemId', {fileSystemId})
+        .getOne()) as NodeRow | null;
+
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+
+      if (!row) {
+        // Check staged CREATEs
+        if (session) {
+          const actions = await this.editActionsSvc.getByTable(
+            session.sessionId,
+            ENTITY_NAMES.Node,
+          );
+          const createAction = actions.find(
+            a => a.operation === 'CREATE' && a.targetSystemId === nodeSystemId,
+          );
+          if (createAction) {
+            const p = createAction.newValue as {
+              type: string;
+              parentId?: number | null;
+            };
+            return Result.ok({
+              systemId: nodeSystemId,
+              type: p.type as NodeInfo['type'],
+              parentId: p.parentId ?? null,
+            });
+          }
+        }
+        return Result.ok(null);
+      }
+
+      // Check staged DELETEs
+      if (session) {
+        const actions = await this.editActionsSvc.getByTable(
+          session.sessionId,
+          ENTITY_NAMES.Node,
+        );
+        const isDeleted = actions.some(
+          a => a.operation === 'DELETE' && a.targetSystemId === nodeSystemId,
+        );
+        if (isDeleted) return Result.ok(null);
+      }
+
+      return Result.ok({
+        systemId: row.systemId,
+        type: row.type as NodeInfo['type'],
+        parentId: row.parentId ?? null,
+      });
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Failed to load node ${nodeSystemId}`,
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  async getAllNodeParentMap(
+    fileSystemId: number,
+  ): Promise<Result<Map<number, number | null>>> {
+    try {
+      const rows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.Node)
+        .createQueryBuilder('node')
+        .select(['node.systemId', 'node.parentId'])
+        .where('node.fileSystemId = :fileSystemId', {fileSystemId})
+        .getMany()) as NodeRow[];
+
+      const map = new Map<number, number | null>(
+        rows.map(r => [r.systemId, r.parentId ?? null]),
+      );
+
+      // Apply session overlay: add CREATEs, remove DELETEs
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      if (session) {
+        const actions = await this.editActionsSvc.getByTable(
+          session.sessionId,
+          ENTITY_NAMES.Node,
+        );
+        for (const action of actions) {
+          if (action.operation === 'CREATE') {
+            const p = action.newValue as {parentId?: number | null};
+            map.set(action.targetSystemId, p.parentId ?? null);
+          } else if (action.operation === 'DELETE') {
+            map.delete(action.targetSystemId);
+          }
+        }
+      }
+
+      return Result.ok(map);
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Failed to load node parent map for file ${fileSystemId}`,
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  async getIntentsByPortSystemIds(
+    portSystemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<Map<number, IntentReadModel[]>>> {
+    if (portSystemIds.length === 0) return Result.ok(new Map());
+    try {
+      const rows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.Intent)
+        .createQueryBuilder('i')
+        .innerJoin(
+          ENTITY_NAMES.ControlPort,
+          'cp',
+          'cp.systemId = i.controlPortSystemId AND cp.fileSystemId = :fileSystemId',
+          {fileSystemId},
+        )
+        .where('i.controlPortSystemId IN (:...ids)', {ids: portSystemIds})
+        .getMany()) as IntentRow[];
+
+      const map = new Map<number, IntentReadModel[]>();
+      for (const row of rows) {
+        const portId = row.controlPortSystemId;
+        if (!map.has(portId)) map.set(portId, []);
+        map.get(portId)!.push(this.mapToIntentReadModel(row));
+      }
+
+      // Apply session overlay for Intent CREATEs/DELETEs
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      if (session) {
+        const actions = await this.editActionsSvc.getByTable(
+          session.sessionId,
+          ENTITY_NAMES.Intent,
+        );
+        this.applyIntentOverlay(map, actions, new Set(portSystemIds));
+      }
+
+      return Result.ok(map);
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Failed to load intents for ports`,
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  private applyIntentOverlay(
+    map: Map<number, IntentReadModel[]>,
+    actions: {
+      operation: string;
+      targetSystemId: number;
+      newValue: unknown;
+    }[],
+    portSet: Set<number>,
+  ): void {
+    for (const action of actions) {
+      const p = action.newValue as {
+        controlPortSystemId?: number;
+        intentId?: number;
+      };
+      if (!p.controlPortSystemId || !portSet.has(p.controlPortSystemId))
+        continue;
+      if (action.operation === 'CREATE') {
+        this.applyIntentCreate(map, action.targetSystemId, p);
+      } else if (action.operation === 'DELETE') {
+        this.applyIntentDelete(
+          map,
+          p.controlPortSystemId,
+          action.targetSystemId,
+        );
+      }
+    }
+  }
+
+  private applyIntentCreate(
+    map: Map<number, IntentReadModel[]>,
+    systemId: number,
+    p: {controlPortSystemId?: number; intentId?: number},
+  ): void {
+    const portId = p.controlPortSystemId!;
+    if (!map.has(portId)) map.set(portId, []);
+    map.get(portId)!.push({
+      systemId,
+      intentId: p.intentId ?? 0,
+      name: `Intent_${p.intentId ?? 0}`,
+    });
+  }
+
+  private applyIntentDelete(
+    map: Map<number, IntentReadModel[]>,
+    portId: number,
+    targetSystemId: number,
+  ): void {
+    const existing = map.get(portId);
+    if (!existing) return;
+    const filtered = existing.filter(i => i.systemId !== targetSystemId);
+    if (filtered.length > 0) map.set(portId, filtered);
+    else map.delete(portId);
   }
 }

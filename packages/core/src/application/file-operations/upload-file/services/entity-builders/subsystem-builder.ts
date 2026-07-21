@@ -9,8 +9,8 @@ import {SubsystemDataLink} from '../../../../../domain/entities/usecase-data/lin
 import {SubsystemControlLink} from '../../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
 import {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
-import {SubsystemBoundaryPathService} from '../../../../../domain/services/subsystem-data-links/subsystem-boundary-path.service.js';
-import type {PathOutput} from '../../../../../domain/services/subsystem-data-links/subsystem-boundary-path.service.js';
+import {SubsystemBoundaryPathService} from '../../../../../domain/services/shared/subsystem-boundary-path.service.js';
+import type {PathOutput} from '../../../../../domain/services/shared/subsystem-boundary-path.service.js';
 import type {UiSubsystem} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';

@@ -5,7 +5,7 @@
 
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {ControlLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/control-link-read-model.js';
+import type {ControlLinkReadModel} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
 import type {DeleteControlLinkCommand} from './delete-control-link.command.js';
 
 export class DeleteControlLinkHandler implements CommandHandler<

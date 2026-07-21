@@ -36,7 +36,7 @@ import {
   CreateControlLinkCommand,
   DeleteControlLinkCommand,
   Result,
-  type UseCaseComponentsReadModel,
+  type ComponentsReadModel,
   type ControlLinkReadModel,
 } from '@arc/core';
 import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
@@ -135,26 +135,22 @@ export class ControlLinkController extends BaseController {
     ],
   })
   async createControlLink(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Body() createDto: CreateControlLinkRequest,
   ): Promise<ApiResult<ComponentCollectionDto>> {
-    console.log(
-      'Creating control link for project:',
-      projectId,
-      'with data:',
-      createDto,
-    );
-
     const command = new CreateControlLinkCommand(
       createDto.startComponentId,
       createDto.startPortId,
       createDto.endComponentId,
       createDto.endPortId,
-      0,
+      1, // heapId default (FR-CL-13)
+      createDto.isInterUsecase ?? false,
+      createDto.parentSystemId ? Number(createDto.parentSystemId) : undefined,
+      true, // allowModulesOnly — flat view only accepts module nodes
     );
 
     const components =
-      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+      await this.commandBus.execute<ComponentsReadModel>(command);
     return toApiResult(Result.ok(this.toComponentCollectionDto(components)));
   }
 
@@ -188,24 +184,22 @@ export class ControlLinkController extends BaseController {
     ],
   })
   async createControlLinkWithSubsystems(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Body() createDto: CreateControlLinkRequest,
   ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
-    console.log(
-      'Creating control link (with-subsystems) for project:',
-      projectId,
-    );
-
     const command = new CreateControlLinkCommand(
       createDto.startComponentId,
       createDto.startPortId,
       createDto.endComponentId,
       createDto.endPortId,
-      0,
+      1, // heapId default (FR-CL-13)
+      createDto.isInterUsecase ?? false,
+      createDto.parentSystemId ? Number(createDto.parentSystemId) : undefined,
+      false, // allowModulesOnly — with-subsystems accepts module or subsystem nodes
     );
 
     const components =
-      await this.commandBus.execute<UseCaseComponentsReadModel>(command);
+      await this.commandBus.execute<ComponentsReadModel>(command);
     return toApiResult(
       Result.ok(this.toComponentCollectionWithSubsystemsDto(components)),
     );
@@ -355,7 +349,7 @@ export class ControlLinkController extends BaseController {
   }
 
   private toComponentCollectionDto(
-    components: UseCaseComponentsReadModel,
+    components: ComponentsReadModel,
   ): ComponentCollectionDto {
     const dto = new ComponentCollectionDto();
     dto.controlLinks = components.controlLinks.map(
@@ -376,7 +370,7 @@ export class ControlLinkController extends BaseController {
   }
 
   private toComponentCollectionWithSubsystemsDto(
-    components: UseCaseComponentsReadModel,
+    components: ComponentsReadModel,
   ): ComponentCollectionWithSubsystemsDto {
     const dto = new ComponentCollectionWithSubsystemsDto();
     dto.controlLinks = components.controlLinks.map(

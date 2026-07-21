@@ -8,7 +8,7 @@ import {
   SubsystemBoundaryPathService,
   type PathInput,
   type PathOutput,
-} from '../../../../../src/domain/services/subsystem-data-links/subsystem-boundary-path.service.js';
+} from '../../../../../src/domain/services/shared/subsystem-boundary-path.service.js';
 import {PORT_IO_TYPE} from '../../../../../src/domain/entities/common/enums/port-io-type.js';
 
 // ---------------------------------------------------------------------------
