@@ -5,11 +5,15 @@
 
 import {Module} from '@nestjs/common';
 import {SubsystemController} from './subsystem.controller.js';
+import {ArcCqrsModule} from '../../../../infrastructure-wrapper/arc-cqrs.module.js';
 
 /**
- * Module for subsystem functionality
+ * Module for subsystem functionality.
+ * Imports ArcCqrsModule to make CommandBus and QueryBus available for injection
+ * in SubsystemController — same pattern as SpfModuleModule.
  */
 @Module({
+  imports: [ArcCqrsModule],
   controllers: [SubsystemController],
   providers: [],
   exports: [],
