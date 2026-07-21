@@ -110,6 +110,172 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     return module;
   }
 
+  async findByUsecaseIds(
+    usecaseSystemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<SpfModuleReadModel[]>> {
+    if (usecaseSystemIds.length === 0) return Result.ok([]);
+
+    try {
+      // Step 1 — One query: get nodeIds AND subgraphIds in one shot
+      // Path: Node → SpfModule (subgraphSystemId) → UseCaseSubgraph (usecase filter)
+      interface NodeSubgraphRaw {
+        node_system_id: number;
+        sm_subgraph_system_id: number;
+      }
+      const baseRows: NodeSubgraphRaw[] = await this.dataSource
+        .getRepository(ENTITY_NAMES.Node)
+        .createQueryBuilder('node')
+        .select(['node.systemId', 'sm.subgraphSystemId'])
+        .innerJoin(
+          ENTITY_NAMES.SpfModule,
+          'sm',
+          'sm.system_id = node.system_id',
+        )
+        .innerJoin(
+          ENTITY_NAMES.UseCaseSubgraph,
+          'ucs',
+          'ucs.subgraph_system_id = sm.subgraph_system_id AND ucs.usecase_system_id IN (:...ids)',
+          {ids: usecaseSystemIds},
+        )
+        .where('node.fileSystemId = :fileSystemId', {fileSystemId})
+        .getRawMany();
+
+      const nodeIds = new Set(baseRows.map(r => r.node_system_id));
+      const subgraphIds = new Set(baseRows.map(r => r.sm_subgraph_system_id));
+
+      // Step 2 — Overlay: check BOTH main table and edit_actions
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      if (session) {
+        await this.applyUsecaseSubgraphOverlay(
+          usecaseSystemIds,
+          subgraphIds,
+          nodeIds,
+          session.sessionId,
+        );
+      }
+
+      if (nodeIds.size === 0) return Result.ok([]);
+
+      // Step 3 — findMany handles definition caps, port loading, and module-level overlay
+      return this.findMany([...nodeIds], fileSystemId);
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load modules for usecases',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  /** Applies session overlay to subgraph membership + new/deleted modules. */
+  private async applyUsecaseSubgraphOverlay(
+    usecaseSystemIds: number[],
+    subgraphIds: Set<number>,
+    nodeIds: Set<number>,
+    sessionId: number,
+  ): Promise<void> {
+    const [ucsActions, spfCreates, nodeDeletes] = await Promise.all([
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.UseCaseSubgraph),
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.SpfModule, {
+        operations: ['CREATE'],
+      }),
+      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Node, {
+        operations: ['DELETE'],
+      }),
+    ]);
+
+    for (const a of ucsActions) {
+      const p = a.newValue as {
+        usecaseSystemId?: number;
+        subgraphSystemId?: number;
+      };
+      if (!p.subgraphSystemId || !usecaseSystemIds.includes(p.usecaseSystemId!))
+        continue;
+      if (a.operation === 'CREATE') subgraphIds.add(p.subgraphSystemId);
+      if (a.operation === 'DELETE') subgraphIds.delete(p.subgraphSystemId);
+    }
+
+    for (const a of spfCreates) {
+      const p = a.newValue as {systemId?: number; subgraphSystemId?: number};
+      if (
+        p.systemId &&
+        p.subgraphSystemId &&
+        subgraphIds.has(p.subgraphSystemId)
+      ) {
+        nodeIds.add(p.systemId);
+      }
+    }
+
+    for (const a of nodeDeletes) {
+      nodeIds.delete(a.targetSystemId);
+    }
+  }
+
+  async findBySubgraphId(
+    subgraphId: number,
+    fileSystemId: number,
+  ): Promise<Result<SpfModuleReadModel[]>> {
+    try {
+      // Step 1 — baseline modules for this subgraph from main table
+      const baseRows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.Node)
+        .createQueryBuilder('node')
+        .select('node.systemId')
+        .innerJoin(
+          ENTITY_NAMES.SpfModule,
+          'sm',
+          'sm.system_id = node.system_id AND sm.subgraph_system_id = :subgraphId',
+          {subgraphId},
+        )
+        .where('node.fileSystemId = :fileSystemId', {fileSystemId})
+        .getMany()) as Array<{systemId: number}>;
+
+      const nodeIds = new Set(baseRows.map(r => r.systemId));
+
+      // Step 2 — Overlay: session-created/deleted modules for this subgraph
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+
+      if (session) {
+        const spfCreates = await this.editActionsSvc.getByTable(
+          session.sessionId,
+          ENTITY_NAMES.SpfModule,
+          {operations: ['CREATE']},
+        );
+        for (const a of spfCreates) {
+          const p = a.newValue as {
+            systemId?: number;
+            subgraphSystemId?: number;
+          };
+          if (p.systemId && p.subgraphSystemId === subgraphId)
+            nodeIds.add(p.systemId);
+        }
+
+        const nodeDeletes = await this.editActionsSvc.getByTable(
+          session.sessionId,
+          ENTITY_NAMES.Node,
+          {operations: ['DELETE']},
+        );
+        for (const a of nodeDeletes) nodeIds.delete(a.targetSystemId);
+      }
+
+      if (nodeIds.size === 0) return Result.ok([]);
+      return this.findMany([...nodeIds], fileSystemId);
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load modules for subgraph',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
   async findMany(
     systemIds: number[],
     fileSystemId: number,

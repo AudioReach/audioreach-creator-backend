@@ -30,6 +30,8 @@ import {GetAllUseCasesHandler} from '../../../usecase-designer/usecase/get-all/g
 import {GetAllUseCasesQuery} from '../../../usecase-designer/usecase/get-all/get-all-usecases.query.js';
 import {GetComponentsHandler} from '../../../usecase-designer/usecase/get-components/get-components.handler.js';
 import {GetComponentsQuery} from '../../../usecase-designer/usecase/get-components/get-components.query.js';
+import {GetComponentsWithSubsystemsHandler} from '../../../usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';
+import {GetComponentsWithSubsystemsQuery} from '../../../usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
 import {QueryHandlerNotFoundException} from '../exceptions/handler-not-found-exception.js';
 import {ValidateFileQuery} from '../../../validation/queries/validate-file.query.js';
 import {ValidateFileQueryHandler} from '../../../validation/queries/validate-file.handler.js';
@@ -150,6 +152,13 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetComponentsQuery, {
       create: (handlerDependencies: QueryHandlerDependencies) =>
         new GetComponentsHandler(handlerDependencies.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetComponentsWithSubsystemsQuery, {
+      create: (handlerDependencies: QueryHandlerDependencies) =>
+        new GetComponentsWithSubsystemsHandler(
+          handlerDependencies.queryServices,
+        ),
     });
 
     this.queryHandlerFactories.set(ValidateFileQuery, {

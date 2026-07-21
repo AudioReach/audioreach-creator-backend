@@ -5,13 +5,14 @@
 
 import type {
   KeyValuePairReadModel,
-  ModuleReadModel,
-  DataLinkReadModel,
-  ControlLinkReadModel,
+  SpfModuleReadModel,
   DataPortReadModel,
   ControlPortReadModel,
   IntentReadModel,
+  DataLinkReadModel,
+  ControlLinkReadModel,
 } from '@arc/core';
+import {PORT_IO_TYPE} from '@arc/core';
 import type {
   ValueDefinitionRow,
   NodeRow,
@@ -19,9 +20,6 @@ import type {
   ControlLinkRow,
 } from '../../entity-schema/index.js';
 
-/**
- * Mappers for converting database rows to read models for use case queries
- */
 export const UseCaseQueryMappers = {
   mapValueToKeyVector(value: ValueDefinitionRow): KeyValuePairReadModel {
     return {
@@ -38,82 +36,96 @@ export const UseCaseQueryMappers = {
     };
   },
 
-  mapNodeToModuleReadModel(node: NodeRow): ModuleReadModel {
-    const spfModule = node.spfModule!;
+  // ── Module mappers ────────────────────────────────────────────────────────────
 
-    // Map data ports
-    const dataPorts: DataPortReadModel[] =
+  mapNodeToSpfModuleReadModel(node: NodeRow): SpfModuleReadModel {
+    const spfModule = node.spfModule!;
+    const definition = spfModule.definition!;
+    const portGroups = definition.dataPortGroups ?? [];
+    const dataPorts = UseCaseQueryMappers.buildDataPorts(node);
+    const controlPorts = UseCaseQueryMappers.buildControlPorts(node);
+
+    return {
+      systemId: node.systemId,
+      parentId: node.parentId,
+      instanceId: spfModule.instanceId,
+      alias: spfModule.alias,
+      name: definition.name,
+      moduleId: definition.moduleDefinitionId,
+      definitionSystemId: spfModule.definitionSystemId,
+      subgraphId: spfModule.subgraphSystemId,
+      containerId: spfModule.containerSystemId,
+      maxInputPortsSupported: portGroups
+        .filter(g => g.portIoType === PORT_IO_TYPE.Input)
+        .reduce((s, g) => s + g.maxAllowedPortCount, 0),
+      maxOutputPortsSupported: portGroups
+        .filter(g => g.portIoType === PORT_IO_TYPE.Output)
+        .reduce((s, g) => s + g.maxAllowedPortCount, 0),
+      maxControlPortsSupported: definition.staticPorts?.length ?? 0,
+      dataPorts,
+      controlPorts,
+    };
+  },
+
+  // ── Link mappers ──────────────────────────────────────────────────────────────
+
+  mapToComponentDataLinkReadModel(dl: DataLinkRow): DataLinkReadModel {
+    return {
+      systemId: dl.systemId,
+      sourceNodeSystemId: dl.sourceNodeSystemId,
+      destinationNodeSystemId: dl.destinationNodeSystemId,
+      sourcePortSystemId: dl.sourcePortSystemId,
+      destinationPortSystemId: dl.destinationPortSystemId,
+      linkType: dl.linkType,
+      isEc: dl.isEc,
+    };
+  },
+
+  mapToComponentControlLinkReadModel(cl: ControlLinkRow): ControlLinkReadModel {
+    return {
+      systemId: cl.systemId,
+      peerNodeASystemId: cl.peerNodeASystemId,
+      peerNodeBSystemId: cl.peerNodeBSystemId,
+      nodeAPortSystemId: cl.nodeAPortSystemId,
+      nodeBPortSystemId: cl.nodeBPortSystemId,
+      heapId: cl.heapId,
+      linkType: cl.linkType,
+    };
+  },
+
+  // ── Private port builders ─────────────────────────────────────────────────────
+
+  buildDataPorts(node: NodeRow): DataPortReadModel[] {
+    return (
       node.dataPorts?.map(port => ({
         systemId: port.systemId,
         portId: port.dataPortId,
-        name: port.name || '',
+        name: port.name ?? null,
         portIoType: port.portIoType,
         isStatic: port.isStatic,
         totalLinksAtPort: 0,
-      })) || [];
+      })) ?? []
+    );
+  },
 
-    // Map control ports with intents
-    const controlPorts: ControlPortReadModel[] =
+  buildControlPorts(node: NodeRow): ControlPortReadModel[] {
+    return (
       node.controlPorts?.map(port => {
         const allocatedIntents: IntentReadModel[] =
           port.allocatedIntents?.map(intent => ({
             systemId: intent.systemId,
             intentId: intent.intentId,
             name: `Intent_${intent.intentId}`,
-          })) || [];
-
+          })) ?? [];
         return {
           systemId: port.systemId,
           portId: port.portId,
-          name: port.name || '',
+          name: port.name ?? null,
           isStatic: port.isStatic,
           allocatedIntents,
           totalLinksAtPort: 0,
         };
-      }) || [];
-
-    return {
-      systemId: node.systemId,
-      name: spfModule.alias,
-      instanceId: spfModule.systemId,
-      definitionSystemId: spfModule.definitionSystemId,
-      container: {
-        systemId: spfModule.container!.systemId,
-        containerId: spfModule.container!.containerId,
-        containerTypeSystemId:
-          spfModule.container!.containerTypeSystemId ?? null,
-        containerTypeName: null, // resolved separately when needed; usecase mapper does not join container_types
-      },
-      subgraph: {
-        systemId: spfModule.subgraph!.systemId,
-        name: spfModule.subgraph!.name,
-      },
-      dataPorts,
-      controlPorts,
-    };
-  },
-
-  mapToDataLinkReadModel(dataLink: DataLinkRow): DataLinkReadModel {
-    return {
-      systemId: dataLink.systemId,
-      sourceNodeSystemId: dataLink.sourceNodeSystemId,
-      destinationNodeSystemId: dataLink.destinationNodeSystemId,
-      sourcePortSystemId: dataLink.sourcePortSystemId,
-      destinationPortSystemId: dataLink.destinationPortSystemId,
-      linkType: dataLink.linkType,
-      isEc: dataLink.isEc,
-    };
-  },
-
-  mapToControlLinkReadModel(controlLink: ControlLinkRow): ControlLinkReadModel {
-    return {
-      systemId: controlLink.systemId,
-      peerNodeASystemId: controlLink.peerNodeASystemId,
-      peerNodeBSystemId: controlLink.peerNodeBSystemId,
-      nodeAPortSystemId: controlLink.nodeAPortSystemId,
-      nodeBPortSystemId: controlLink.nodeBPortSystemId,
-      heapId: controlLink.heapId,
-      linkType: controlLink.linkType,
-    };
+      }) ?? []
+    );
   },
 };

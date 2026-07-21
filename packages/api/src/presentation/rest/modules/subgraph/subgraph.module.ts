@@ -5,13 +5,10 @@
 
 import {Module} from '@nestjs/common';
 import {SubgraphController} from './subgraph.controller.js';
+import {ArcCqrsModule} from '../../../../infrastructure-wrapper/arc-cqrs.module.js';
 
-/**
- * Module for subgraph functionality
- */
 @Module({
+  imports: [ArcCqrsModule],
   controllers: [SubgraphController],
-  providers: [],
-  exports: [],
 })
 export class SubgraphModule {}

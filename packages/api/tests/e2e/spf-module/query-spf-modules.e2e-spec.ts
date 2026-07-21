@@ -347,7 +347,7 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       expect(Array.isArray(module.tags)).toBe(true);
 
       for (const tag of module.tags) {
-        expect(typeof tag.systemId).toBe('number');
+        expect(typeof tag.systemId).toBe('string');
         expect(typeof tag.tagId).toBe('number');
         expect(typeof tag.tagName).toBe('string');
         expect(Array.isArray(tag.tkvs)).toBe(true);

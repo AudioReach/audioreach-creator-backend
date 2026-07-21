@@ -5,7 +5,7 @@
 
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {DataLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/data-link-read-model.js';
+import type {DataLinkReadModel} from '../../../ports/persistence/query-services/link/data-link-read-model.js';
 import type {DeleteDataLinkCommand} from './delete-data-link.command.js';
 
 export class DeleteDataLinkHandler implements CommandHandler<

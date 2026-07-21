@@ -4,14 +4,13 @@
  */
 
 import {BaseQuery} from '../../../shared/base-query.js';
+import type {FilterExpression} from '../../../../shared/filter/filter-expression.js';
 
-/**
- * Query to get all use cases with their global key vectors for a specific project
- */
 export class GetAllUseCasesQuery extends BaseQuery {
   constructor(
     public readonly projectId: number,
     clientId: string,
+    public readonly filter?: FilterExpression,
   ) {
     super(clientId);
   }
