@@ -12,15 +12,11 @@ import type {
 } from './types/element-definition.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import type {
-  ParsedElementData,
-  ElementSchema,
+  ElementCalData,
   ConfigElementData,
-  ConfigElementSchema,
   StructData,
-  StructSchema,
   ElementArrayData,
-  StructArrayData,
-} from './types/parsed-element-data.js';
+} from './types/element-cal-data.js';
 import {BinaryDataReader} from './utils/binary-data-reader.js';
 import {evaluateFormula} from './utils/formular-evaluator.js';
 
@@ -49,6 +45,35 @@ function rawFallback(payload: Uint8Array): ConfigElementData {
 
 /** Loosely-typed representation of an original element object from `paramStructure` JSON. */
 type OriginalElement = Record<string, unknown>;
+
+/** Parses a min/max string using the same dataType dispatch as readScalar.
+ *  Returns undefined for absent, non-finite, or inapplicable (RawData) values. */
+function parseMinMax(
+  value: string | undefined,
+  dataType: string,
+): number | undefined {
+  if (value === undefined) return undefined;
+  let n: number;
+  switch (dataType) {
+    case 'UInt8':
+    case 'UInt16':
+    case 'UInt32':
+    case 'UInt64':
+    case 'Int8':
+    case 'Int16':
+    case 'Int32':
+    case 'Int64':
+      n = Number.parseInt(value, 10);
+      break;
+    case 'Float':
+    case 'Double':
+      n = Number.parseFloat(value);
+      break;
+    default:
+      return undefined;
+  }
+  return Number.isFinite(n) ? n : undefined;
+}
 
 /**
  * Converts a `paramStructure` JSON string into a normalized `DefinitionElement[]`.
@@ -148,7 +173,7 @@ function normalizeConfigElementArray(original: OriginalElement): ElementArray {
 }
 
 /**
- * Parses binary parameter payloads into structured `ParsedElementData` trees.
+ * Parses binary parameter payloads into structured `ElementCalData` trees.
  *
  * Reads `payload` bytes sequentially according to the `paramStructure` JSON schema
  * stored in `SpfModuleParameterDefinitionRow.paramStructure`. `paramStructure` is
@@ -173,11 +198,11 @@ export function parseParameterData(
   payload: Uint8Array,
   paramStructure: string,
   logger?: Logger,
-): ParsedElementData[] {
+): ElementCalData[] {
   try {
     const definitions = convertParamDefinition(paramStructure);
     const reader = new BinaryDataReader(payload);
-    const parsed: ParsedElementData[] = [];
+    const parsed: ElementCalData[] = [];
     for (const element of definitions) {
       parsed.push(parseElement(element, reader, parsed));
     }
@@ -204,8 +229,8 @@ export function parseParameterData(
 function parseElement(
   element: DefinitionElement,
   reader: BinaryDataReader,
-  parsedSoFar: ParsedElementData[],
-): ParsedElementData {
+  parsedSoFar: ElementCalData[],
+): ElementCalData {
   if (element.alignment) {
     reader.align(element.alignment);
   }
@@ -215,9 +240,9 @@ function parseElement(
     case 'Struct':
       return parseStruct(element, reader, parsedSoFar);
     case 'ConfigElementArray':
-      return parseElementArray(element, reader, parsedSoFar);
+      return parseArrayElement(element, reader, parsedSoFar);
     case 'StructArray':
-      return parseStructArray(element, reader, parsedSoFar);
+      return parseArrayElement(element, reader, parsedSoFar);
   }
 }
 
@@ -248,8 +273,8 @@ function parseConfigElement(
     qFormat: element.qFormat,
     precision: element.precision,
     defaultValue: element.defaultValue,
-    min: element.min,
-    max: element.max,
+    min: parseMinMax(element.min, element.dataType),
+    max: parseMinMax(element.max, element.dataType),
     rangeList: element.rangeList,
     dependentOnElements: element.dependentOnElements,
     alignment: element.alignment,
@@ -306,11 +331,14 @@ function readScalar(
 function parseStruct(
   element: StructElement,
   reader: BinaryDataReader,
-  parsedSoFar: ParsedElementData[],
+  parsedSoFar: ElementCalData[],
 ): StructData {
-  const children: ParsedElementData[] = [];
+  const context: ElementCalData[] = [...parsedSoFar];
+  const children: ElementCalData[] = [];
   for (const child of element.elements) {
-    children.push(parseElement(child, reader, [...parsedSoFar, ...children]));
+    const parsed = parseElement(child, reader, context);
+    children.push(parsed);
+    context.push(parsed);
   }
   return {
     type: PARAMETER_ELEMENT_TYPE.Struct,
@@ -319,7 +347,7 @@ function parseStruct(
     group: element.group,
     subgroup: element.subgroup,
     isReadOnly: false,
-    structureType: element.structureType,
+    structType: element.structureType,
     alignment: element.alignment,
     channel: element.channel,
     groupSet: element.groupSet,
@@ -330,14 +358,14 @@ function parseStruct(
 }
 
 /**
- * Parses an `ElementArray` (scalar items) by determining its length, then
- * parsing each item using `element.template` (a `ConfigElement`) as the definition.
+ * Parses an `ElementArray` or `StructArray` by determining its length, then
+ * parsing each item using `element.template` as the definition.
  * Items are named `<arrayName>[i]`.
  */
-function parseElementArray(
-  element: ElementArray,
+function parseArrayElement(
+  element: ElementArray | StructArray,
   reader: BinaryDataReader,
-  parsedSoFar: ParsedElementData[],
+  parsedSoFar: ElementCalData[],
 ): ElementArrayData {
   const formulaLength = computeArrayLength(
     element.arrayLenFormulaStr ?? '',
@@ -346,22 +374,24 @@ function parseElementArray(
   const length = formulaLength > 0 ? formulaLength : (element.arrayLength ?? 0);
 
   const arrayName = element.name;
-  const templateSchema = buildTemplateSchema(
-    element.template,
-    arrayName,
-  ) as ConfigElementSchema;
+  const templateElement = buildTemplateElement(element.template, arrayName);
+  const structType =
+    element.elementType === PARAMETER_ELEMENT_TYPE.StructArray
+      ? element.template.structureType
+      : undefined;
 
-  const items: ParsedElementData[] = [];
+  const items: ElementCalData[] = [];
+  const context: ElementCalData[] = [...parsedSoFar];
   for (let i = 0; i < length; i++) {
-    items.push(
-      parseTemplateItem(
-        element.template,
-        reader,
-        [...parsedSoFar, ...items],
-        arrayName,
-        i,
-      ),
+    const parsed = parseTemplateItem(
+      element.template,
+      reader,
+      context,
+      arrayName,
+      i,
     );
+    items.push(parsed);
+    context.push(parsed);
   }
 
   return {
@@ -371,6 +401,7 @@ function parseElementArray(
     group: element.group,
     subgroup: element.subgroup,
     isReadOnly: element.isReadOnly ?? false,
+    structType,
     alignment: element.alignment,
     channel: element.channel,
     groupSet: element.groupSet,
@@ -379,7 +410,7 @@ function parseElementArray(
     copySrcInfoList: element.copySrcInfoList,
     displayType: element.displayType,
     policy: element.policy,
-    template: templateSchema,
+    template: [templateElement],
     value: items,
     length,
     arrayLenFormulaStr: element.arrayLenFormulaStr,
@@ -387,90 +418,38 @@ function parseElementArray(
 }
 
 /**
- * Parses a `StructArray` (struct items) by determining its length, then
- * parsing each item using `element.template` (a `StructElement`) as the definition.
- * Items are named `<arrayName>[i]`.
+ * Builds a `ElementCalData` descriptor from a single `DefinitionElement`.
+ * Used to populate the `template` field of `ElementArrayData`.
+ * For `ConfigElement`, `value` is set to `defaultValue ?? ''`.
+ * For `Struct`, `value` is set to `[]` (no binary data to parse for the template).
+ * For nested arrays, `value` and `template` are empty.
  */
-function parseStructArray(
-  element: StructArray,
-  reader: BinaryDataReader,
-  parsedSoFar: ParsedElementData[],
-): StructArrayData {
-  const formulaLength = computeArrayLength(
-    element.arrayLenFormulaStr ?? '',
-    parsedSoFar,
-  );
-  const length = formulaLength > 0 ? formulaLength : (element.arrayLength ?? 0);
-
-  const arrayName = element.name;
-  const templateSchema = buildTemplateSchema(
-    element.template,
-    arrayName,
-  ) as StructSchema;
-
-  const items: ParsedElementData[] = [];
-  for (let i = 0; i < length; i++) {
-    items.push(
-      parseTemplateItem(
-        element.template,
-        reader,
-        [...parsedSoFar, ...items],
-        arrayName,
-        i,
-      ),
-    );
-  }
-
-  return {
-    type: PARAMETER_ELEMENT_TYPE.StructArray,
-    name: arrayName,
-    description: element.description,
-    group: element.group,
-    subgroup: element.subgroup,
-    isReadOnly: element.isReadOnly ?? false,
-    structureType: element.template.structureType,
-    alignment: element.alignment,
-    channel: element.channel,
-    groupSet: element.groupSet,
-    rtmPlotType: element.rtmPlotType,
-    copySrc: element.copySrc,
-    copySrcInfoList: element.copySrcInfoList,
-    displayType: element.displayType,
-    policy: element.policy,
-    template: templateSchema,
-    value: items,
-    length,
-    arrayLenFormulaStr: element.arrayLenFormulaStr,
-  };
-}
-
-/**
- * Builds an `ElementSchema` descriptor from a single `DefinitionElement`.
- * Used to describe the shape of each item in an array.
- */
-function buildTemplateSchema(
+function buildTemplateElement(
   element: DefinitionElement,
   arrayName: string,
-): ElementSchema {
+): ElementCalData {
   const name = element.name ?? arrayName;
   switch (element.elementType) {
     case 'ConfigElement':
       return {
         type: PARAMETER_ELEMENT_TYPE.ConfigElement,
         name,
+        description: element.description,
+        group: element.group,
+        subgroup: element.subgroup,
         isReadOnly: element.isReadOnly ?? false,
         dataType: element.dataType,
+        value: element.defaultValue ?? '',
         unit: element.unitStr,
         displayType: element.displayType,
         policy: element.policy,
         qFormat: element.qFormat,
         precision: element.precision,
         defaultValue: element.defaultValue,
-        min: element.min,
-        max: element.max,
+        min: parseMinMax(element.min, element.dataType),
+        max: parseMinMax(element.max, element.dataType),
         rangeList: element.rangeList,
         dependentOnElements: element.dependentOnElements,
-        description: element.description,
         alignment: element.alignment,
         channel: element.channel,
         groupSet: element.groupSet,
@@ -488,14 +467,14 @@ function buildTemplateSchema(
         description: element.description,
         group: element.group,
         subgroup: element.subgroup,
-        structureType: element.structureType,
+        structType: element.structureType,
         alignment: element.alignment,
         channel: element.channel,
         groupSet: element.groupSet,
         rtmPlotType: element.rtmPlotType,
         copySrc: element.copySrc,
-        children: element.elements.map(child =>
-          buildTemplateSchema(child, child.name ?? name),
+        value: element.elements.map(child =>
+          buildTemplateElement(child, child.name ?? name),
         ),
       };
     case 'ConfigElementArray':
@@ -514,19 +493,17 @@ function buildTemplateSchema(
         copySrcInfoList: element.copySrcInfoList,
         displayType: element.displayType,
         policy: element.policy,
-        template: buildTemplateSchema(
-          element.template,
-          name,
-        ) as ConfigElementSchema,
+        template: [buildTemplateElement(element.template, name)],
+        value: [],
         length: element.arrayLength,
         arrayLenFormulaStr: element.arrayLenFormulaStr,
       };
     case 'StructArray':
       return {
-        type: PARAMETER_ELEMENT_TYPE.StructArray,
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
         name,
         isReadOnly: element.isReadOnly ?? false,
-        structureType: element.template.structureType,
+        structType: element.template.structureType,
         description: element.description,
         group: element.group,
         subgroup: element.subgroup,
@@ -538,7 +515,8 @@ function buildTemplateSchema(
         copySrcInfoList: element.copySrcInfoList,
         displayType: element.displayType,
         policy: element.policy,
-        template: buildTemplateSchema(element.template, name) as StructSchema,
+        template: [buildTemplateElement(element.template, name)],
+        value: [],
         length: element.arrayLength,
         arrayLenFormulaStr: element.arrayLenFormulaStr,
       };
@@ -552,13 +530,13 @@ function buildTemplateSchema(
 function parseTemplateItem(
   template: DefinitionElement,
   reader: BinaryDataReader,
-  parsedSoFar: ParsedElementData[],
+  parsedSoFar: ElementCalData[],
   arrayName: string,
   index: number,
-): ParsedElementData {
+): ElementCalData {
   const namedTemplate: DefinitionElement = {
     ...template,
-    name: template.name ?? `${arrayName}[${index}]`,
+    name: `${template.name ?? arrayName}[${index}]`,
   };
   return parseElement(namedTemplate, reader, parsedSoFar);
 }
@@ -570,7 +548,7 @@ function parseTemplateItem(
  */
 function computeArrayLength(
   formula: string,
-  parsedElements: ParsedElementData[],
+  parsedElements: ElementCalData[],
 ): number {
   const trimmed = formula.trim();
   if (!trimmed) return 0;

@@ -67,12 +67,9 @@ import {
   type TagReadModel,
   type CkvCalibrationReadModel,
   type ParameterCalibrationReadModel,
-  type ParsedElementData,
-  type ElementSchema,
-  type StructArraySchema,
+  type ElementCalData,
   type ConfigElementData,
   type ElementArrayData,
-  type StructArrayData,
   type StructData,
   RESULT_KIND,
 } from '@arc/core';
@@ -834,19 +831,16 @@ export class SpfModuleController extends BaseController {
     return dto;
   }
 
-  private transformElements(elements: ParsedElementData[]): ElementDtoUnion[] {
+  private transformElements(elements: ElementCalData[]): ElementDtoUnion[] {
     return elements.map(e => this.transformElement(e));
   }
 
-  private transformElement(element: ParsedElementData): ElementDtoUnion {
+  private transformElement(element: ElementCalData): ElementDtoUnion {
     if (element.type === PARAMETER_ELEMENT_TYPE.ConfigElement) {
       return this.transformConfigElement(element);
     }
     if (element.type === PARAMETER_ELEMENT_TYPE.ElementArray) {
       return this.transformElementArray(element);
-    }
-    if (element.type === PARAMETER_ELEMENT_TYPE.StructArray) {
-      return this.transformStructArray(element);
     }
     return this.transformStruct(element);
   }
@@ -885,8 +879,8 @@ export class SpfModuleController extends BaseController {
     dto.policy = e.policy as ConfigElementDto['policy'];
     dto.qFormat = e.qFormat;
     dto.precision = e.precision;
-    dto.min = e.min === undefined ? undefined : Number.parseFloat(e.min);
-    dto.max = e.max === undefined ? undefined : Number.parseFloat(e.max);
+    dto.min = e.min;
+    dto.max = e.max;
     dto.allowedValues = e.rangeList?.map(r => {
       const nv = new NameValuePairDto();
       nv.name = r.name;
@@ -905,13 +899,9 @@ export class SpfModuleController extends BaseController {
     dto.subgroup = e.subgroup;
     dto.length = e.length;
     dto.lengthFormula = e.arrayLenFormulaStr;
-    dto.template = [this.transformSchema(e.template)];
+    dto.template = this.transformElements(e.template);
     dto.value = this.transformElements(e.value);
     return dto;
-  }
-
-  private transformStructArray(e: StructArrayData): ElementTemplateArrayDto {
-    return this.transformElementArray(e as unknown as ElementArrayData);
   }
 
   private transformStruct(e: StructData): StructDto {
@@ -921,78 +911,8 @@ export class SpfModuleController extends BaseController {
     dto.description = e.description;
     dto.group = e.group;
     dto.subgroup = e.subgroup;
-    dto.structType = e.structureType;
+    dto.structType = e.structType;
     dto.value = this.transformElements(e.value);
-    return dto;
-  }
-
-  private transformSchema(schema: ElementSchema): ElementDtoUnion {
-    if (schema.type === PARAMETER_ELEMENT_TYPE.ConfigElement) {
-      const dto = new ConfigElementDto();
-      dto.name = schema.name;
-      dto.value = schema.defaultValue ?? '';
-      dto.dataType = schema.dataType as ConfigElementDto['dataType'];
-      dto.description = schema.description;
-      dto.group = schema.group;
-      dto.subgroup = schema.subgroup;
-      dto.isReadOnly = schema.isReadOnly;
-      dto.unit = schema.unit;
-      dto.displayType = this.mapDisplayType(schema.displayType);
-      dto.policy = schema.policy as ConfigElementDto['policy'];
-      dto.qFormat = schema.qFormat;
-      dto.precision = schema.precision;
-      dto.min =
-        schema.min === undefined ? undefined : Number.parseFloat(schema.min);
-      dto.max =
-        schema.max === undefined ? undefined : Number.parseFloat(schema.max);
-      dto.allowedValues = schema.rangeList?.map(r => {
-        const nv = new NameValuePairDto();
-        nv.name = r.name;
-        nv.value = r.value;
-        return nv;
-      });
-      return dto;
-    }
-    if (schema.type === PARAMETER_ELEMENT_TYPE.ElementArray) {
-      const dto = new ElementTemplateArrayDto();
-      dto.name = schema.name;
-      dto.isReadOnly = schema.isReadOnly;
-      dto.description = schema.description;
-      dto.group = schema.group;
-      dto.subgroup = schema.subgroup;
-      dto.length = schema.length;
-      dto.lengthFormula = schema.arrayLenFormulaStr;
-      dto.template = [this.transformSchema(schema.template)];
-      dto.value = [];
-      return dto;
-    }
-    if (schema.type === PARAMETER_ELEMENT_TYPE.StructArray) {
-      return this.transformStructArraySchema(schema);
-    }
-    const dto = new StructDto();
-    dto.name = schema.name;
-    dto.isReadOnly = schema.isReadOnly;
-    dto.description = schema.description;
-    dto.group = schema.group;
-    dto.subgroup = schema.subgroup;
-    dto.structType = schema.structureType;
-    dto.value = [];
-    return dto;
-  }
-
-  private transformStructArraySchema(
-    schema: StructArraySchema,
-  ): ElementTemplateArrayDto {
-    const dto = new ElementTemplateArrayDto();
-    dto.name = schema.name;
-    dto.isReadOnly = schema.isReadOnly;
-    dto.description = schema.description;
-    dto.group = schema.group;
-    dto.subgroup = schema.subgroup;
-    dto.length = schema.length;
-    dto.lengthFormula = schema.arrayLenFormulaStr;
-    dto.template = [this.transformSchema(schema.template)];
-    dto.value = [];
     return dto;
   }
 
