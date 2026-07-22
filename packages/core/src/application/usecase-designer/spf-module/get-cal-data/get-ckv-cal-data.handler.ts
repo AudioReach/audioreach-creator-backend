@@ -12,7 +12,7 @@ import type {
 import type {ParameterPayloadReadModel} from '../../../ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
 import type {ParameterDefinitionReadModel} from '../../../ports/persistence/query-services/spf-module-definition/parameter-definition/parameter-definition-read-model.js';
 import {parseParameterData} from '../param-parser/parse-elements.js';
-import type {ParsedElementData} from '../param-parser/types/parsed-element-data.js';
+import type {ElementCalData} from '../param-parser/types/element-cal-data.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {
   NullPayloadError,
@@ -128,7 +128,7 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
         throw new ParameterDefinitionMissingError(p.parameterSystemId);
       }
 
-      const parsedData: ParsedElementData[] = parseParameterData(
+      const parsedData: ElementCalData[] = parseParameterData(
         p.payload,
         def.elementsStructure ?? '',
         this.logger,

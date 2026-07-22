@@ -7,8 +7,7 @@ import type {
   ConfigElementData,
   ElementArrayData,
   StructData,
-  StructArrayData,
-} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/parsed-element-data.js';
+} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-cal-data.js';
 import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-definition.js';
 
 describe('parseParameterData', () => {
@@ -102,9 +101,9 @@ describe('parseParameterData', () => {
       ]);
       const result = parseParameterData(payload, structure);
       const arr = result[0] as ElementArrayData;
-      expect(arr.template.name).toBe('filter_coeffs');
-      expect(arr.value[0].name).toBe('filter_coeffs');
-      expect(arr.value[1].name).toBe('filter_coeffs');
+      expect(arr.template[0].name).toBe('filter_coeffs');
+      expect(arr.value[0].name).toBe('filter_coeffs[0]');
+      expect(arr.value[1].name).toBe('filter_coeffs[1]');
     });
   });
 
@@ -227,7 +226,7 @@ describe('parseParameterData', () => {
         },
       ]);
       const result = parseParameterData(payload, structure);
-      const arr = result[0] as StructArrayData;
+      const arr = result[0] as ElementArrayData;
       expect(arr.value[0].type).toBe(PARAMETER_ELEMENT_TYPE.Struct);
     });
 
@@ -321,10 +320,10 @@ describe('parseParameterData', () => {
       ]);
       const result = parseParameterData(payload, structure);
       // result[0] = ConfigElementData(num_bands, value='2')
-      // result[1] = StructArrayData(bands, length=2)
+      // result[1] = ElementArrayData(bands, length=2)
       expect(result).toHaveLength(2);
-      const bands = result[1] as StructArrayData;
-      expect(bands.type).toBe(PARAMETER_ELEMENT_TYPE.StructArray);
+      const bands = result[1] as ElementArrayData;
+      expect(bands.type).toBe(PARAMETER_ELEMENT_TYPE.ElementArray);
       expect(bands.length).toBe(2);
       expect(bands.value).toHaveLength(2);
 
@@ -436,9 +435,9 @@ describe('parseParameterData', () => {
       expect((drcDelay.value[4] as ConfigElementData).value).toBe('96');
 
       // ── config_data: StructArray driven by num_config=1 ──
-      const configData = result[6] as StructArrayData;
+      const configData = result[6] as ElementArrayData;
       expect(configData).toMatchObject({
-        type: PARAMETER_ELEMENT_TYPE.StructArray,
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
         name: 'config_data',
         length: 1,
       });
@@ -466,8 +465,8 @@ describe('parseParameterData', () => {
 
       // ── subband_drc: StructArray; length driven by "iir_mbdrc_config_params_t::num_bands"
       //    The formula evaluator strips the namespace prefix → resolves to num_bands=5 ──
-      const subbandDrc = configData0.value[3] as StructArrayData;
-      expect(subbandDrc.type).toBe(PARAMETER_ELEMENT_TYPE.StructArray);
+      const subbandDrc = configData0.value[3] as ElementArrayData;
+      expect(subbandDrc.type).toBe(PARAMETER_ELEMENT_TYPE.ElementArray);
       expect(subbandDrc.name).toBe('subband_drc');
       expect(subbandDrc.length).toBe(5);
       expect(subbandDrc.value).toHaveLength(5);
@@ -480,8 +479,8 @@ describe('parseParameterData', () => {
 
       // ── iir_filter: StructArray; length driven by "(iir_mbdrc_config_params_t::num_bands)- 1"
       //    → resolves to num_bands-1 = 4 ──
-      const iirFilter = configData0.value[4] as StructArrayData;
-      expect(iirFilter.type).toBe(PARAMETER_ELEMENT_TYPE.StructArray);
+      const iirFilter = configData0.value[4] as ElementArrayData;
+      expect(iirFilter.type).toBe(PARAMETER_ELEMENT_TYPE.ElementArray);
       expect(iirFilter.name).toBe('iir_filter');
       expect(iirFilter.length).toBe(4);
       expect(iirFilter.value).toHaveLength(4);
