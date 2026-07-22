@@ -28,9 +28,9 @@ export class ApiImpactedEntityDto {
 
   @ApiProperty({
     description: 'System-level identifier of the impacted entity.',
-    type: 'number',
+    type: 'string',
   })
-  systemId!: number;
+  systemId!: string;
 
   @ApiProperty({
     description: 'Human-readable name for display (e.g., module alias).',

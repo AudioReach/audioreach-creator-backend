@@ -786,7 +786,7 @@ export class SpfModuleController extends BaseController {
 
   private mapTagToDto(t: TagReadModel): TagInfoDto {
     return new TagInfoDto(
-      t.systemId,
+      String(t.systemId),
       t.tagId,
       t.tagName,
       t.tkvs.map(tkv => this.mapTkvToDto(tkv)),

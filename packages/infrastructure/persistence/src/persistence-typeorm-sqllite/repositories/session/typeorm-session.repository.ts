@@ -123,6 +123,17 @@ export class TypeOrmSessionRepository implements ISessionRepository {
     return result.affected ?? 0;
   }
 
+  async countStagedChangesForSession(sessionId: number): Promise<number> {
+    const result = await this.manager
+      .createQueryBuilder(EditActionSchema, 'ea')
+      .select('COUNT(*)', 'count')
+      .where('ea.sessionId = :sessionId', {sessionId})
+      .andWhere('ea.changeStatus = :status', {status: CHANGE_STATUS.Staged})
+      .andWhere('ea.validUntil IS NULL')
+      .getRawOne<{count: string}>();
+    return Number(result?.count ?? 0);
+  }
+
   async countCommitsForSession(sessionId: number): Promise<number> {
     const result = await this.manager
       .createQueryBuilder(SessionCommitSchema, 'sc')

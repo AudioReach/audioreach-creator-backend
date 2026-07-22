@@ -24,7 +24,6 @@ import {
   UsecaseIdentifierDto,
   UsecaseDto,
   SubsystemFilteredUsecasesDto,
-  UsecaseWithModificationSummary,
   UsecaseType,
 } from './dto/usecase.dto.js';
 import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
@@ -84,7 +83,6 @@ import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
   UsecaseIdentifierDto,
   UsecaseDto,
   SubsystemFilteredUsecasesDto,
-  UsecaseWithModificationSummary,
   BaseComponentDto,
   SpfModuleDto,
   SubsystemDto,
@@ -196,43 +194,6 @@ export class UseCaseController extends BaseController {
       await this.queryBus.execute<Result<UseCaseReadModel[]>>(query);
 
     return toApiResult(result, data => this.transformToUsecaseDtos(data));
-  }
-
-  //#endregion
-
-  //#region Get usecase modification summary
-
-  /**
-   * Get all added and deleted usecases with their modification summary.
-   */
-  @Get('modifications-summary')
-  @ApiDocumentationWithExample({
-    summary:
-      'Get all added and deleted usecases with their modification summary',
-    responses: [
-      {
-        status: HttpStatus.OK,
-        description: 'Success',
-        dto: [UsecaseWithModificationSummary],
-      },
-      {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project not found',
-      },
-      {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get modification summary)',
-      },
-    ],
-  })
-  async getUsecaseModificationSummary(
-    @Param('projectId') projectId: string,
-  ): Promise<ApiResult<UsecaseWithModificationSummary[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log('Getting usecase modification summary for project:', projectId);
-    throw new NotImplementedException(
-      'getUsecaseModificationSummary is not implemented yet',
-    );
   }
 
   //#endregion

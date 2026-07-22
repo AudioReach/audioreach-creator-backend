@@ -34,9 +34,6 @@ The modification framework supports multiple session modes, each with specific A
 | **DESIGNER** | Full design and configuration | • Read APIs<br>• Tuning APIs<br>• Designer APIs<br>• Change Management APIs |
 | **DISCOVERY_WIZARD** | Import and discovery operations | • Read APIs<br>• Import/Discovery APIs<br>• Change Management APIs |
 | **DIFF_MERGE** | Comparison and merging | • Read APIs<br>• Tuning APIs<br>• Designer APIs<br>• Diff/Merge APIs<br>• Change Management APIs |
-| **SIMULATION** | Simulation playback and analysis | • Read APIs only |
-| **CONNECTED** | Device connected (online) mode | • Read APIs<br>• Tuning/Calibration APIs |
-| **DISCONNECTED** | Device disconnected (offline) mode | • Read APIs<br>• Tuning/Calibration APIs |
 
 ### Mode Restrictions & Validation
 
@@ -78,7 +75,7 @@ The modification framework supports multiple session modes, each with specific A
 | Endpoint | Method | Description | Comments |
 |----------|--------|-------------|----------|
 | `/start-session` | POST | Start a new session with specified mode | |
-| `/end-session` | POST | End current session (commits staged changes) | Commits staged changes, discards unstaged changes, and returns project to READONLY (default no-session state) |
+| `/end-session` | POST | End current session (discard unstaged changes only) | Errors (422 `STAGED_CHANGES_EXIST`) if staged changes exist — commit or discard them first. Discards unstaged changes and returns project to READONLY. |
 
 **Note**: For detailed API specifications, refer to `docs/swagger-api.json`
 
@@ -94,7 +91,7 @@ The modification framework supports multiple session modes, each with specific A
 | `/create-usecases` | POST | Reconcile staged changes with database | Generates usecases using routing logic |
 | `/stage-changes` | POST | Stage specific changes for commit | |
 | `/unstage-changes` | POST | Unstage previously staged changes | |
-| `/commit-changes` | POST | Commit specific staged changes | |
+| `/commit-changes` | POST | Commit specific staged changes | Available in all session modes. Pass `?enforceValidation=true` to run validation before applying. |
 | `/discard-changes` | POST | Discard uncommitted changes | |
 
 **Note**: For detailed API specifications, refer to `docs/swagger-api.json`
@@ -190,15 +187,20 @@ sequenceDiagram
     UI->>+API: POST /tuning/goto-change?cid=changeId1
     API->>-UI: 200 OK
     
-    UI->>+API: POST /end-session
+    UI->>+API: POST /commit-changes
     Note over API: Commits all staged changes
+    API->>-UI: 200 OK (committed)
+    
+    UI->>+API: POST /end-session
+    Note over API: Discards unstaged changes<br/>Closes session
     API->>-UI: 200 OK (session ended)
 ```
 
 **Key Points**:
 - Only tuning operations allowed
 - All changes automatically staged
-- `end-session` commits all staged changes atomically
+- Call `commit-changes` before `end-session` to persist staged changes
+- `end-session` errors with 422 (`STAGED_CHANGES_EXIST`) if staged changes remain
 - Designer operations (add-module, add-link) would return `403 Forbidden`
 
 ---
@@ -230,8 +232,12 @@ sequenceDiagram
     UI->>+API: POST /stage-changes?cid=changeId3,changeId4
     API->>-UI: 200 OK
     
+    UI->>+API: POST /commit-changes
+    Note over API: Commits all staged changes
+    API->>-UI: 200 OK (committed)
+    
     UI->>+API: POST /end-session
-    Note over API: Commits staged changes<br/>Discards unstaged changes
+    Note over API: Discards unstaged changes<br/>Closes session
     API->>-UI: 200 OK (session ended)
 ```
 
@@ -240,7 +246,8 @@ sequenceDiagram
 - After adding modules/links, call `create-usecases` to generate usecases
 - `create-usecases` uses routing logic to automatically create usecases from staged changes
 - Changes can be staged/unstaged before commit
-- `end-session` commits only staged changes
+- Call `commit-changes` before `end-session` to persist staged changes
+- `end-session` errors with 422 (`STAGED_CHANGES_EXIST`) if staged changes remain
 - `preview-changes` is not part of the DESIGNER workflow and is not currently planned for this mode
 
 ---
@@ -272,8 +279,12 @@ sequenceDiagram
     Note over API: User rejects<br/>unwanted definitions
     API->>-UI: 200 OK
     
-    UI->>+API: POST /end-session
+    UI->>+API: POST /commit-changes
     Note over API: Commits staged definitions
+    API->>-UI: 200 OK (committed)
+    
+    UI->>+API: POST /end-session
+    Note over API: Discards remaining unstaged<br/>Closes session
     API->>-UI: 200 OK (session ended)
 ```
 
@@ -281,6 +292,8 @@ sequenceDiagram
 - Only import operations allowed
 - Imported definitions initially unstaged for user review
 - User explicitly stages desired definitions
+- Call `commit-changes` before `end-session` to persist staged changes
+- `end-session` errors with 422 (`STAGED_CHANGES_EXIST`) if staged changes remain
 - Designer operations (add-module) would return `403 Forbidden`
 
 ---
@@ -313,7 +326,7 @@ sequenceDiagram
     API->>-UI: 200 OK
     
     UI->>+API: POST /commit-changes?cid=u1,u2
-    Note over API: Partial commit<br/>(not end-session)
+    Note over API: Partial commit
     API->>-UI: 200 OK
     
     UI->>+API: GET /preview-changes
@@ -323,15 +336,20 @@ sequenceDiagram
     UI->>+API: POST /stage-changes?cid=u5
     API->>-UI: 200 OK
     
+    UI->>+API: POST /commit-changes?cid=u5
+    Note over API: Commits remaining staged changes
+    API->>-UI: 200 OK (committed)
+    
     UI->>+API: POST /end-session
-    Note over API: Commits remaining<br/>staged changes
+    Note over API: Discards unstaged<br/>Closes session
     API->>-UI: 200 OK (session ended)
 ```
 
 **Key Points**:
 - Full capabilities: tuning + designer + diff/merge
 - Supports partial commits via `commit-changes`
-- `end-session` commits all remaining staged changes
+- Call `commit-changes` before `end-session` to persist all desired staged changes
+- `end-session` errors with 422 (`STAGED_CHANGES_EXIST`) if staged changes remain
 - Most flexible mode for complex merge scenarios
 
 ---
@@ -342,6 +360,7 @@ sequenceDiagram
 |---------|------|--------|---------|
 | 1.0 | 2026-02-24 | Architecture Team | Initial API reference document with session modes, workflows, and endpoint documentation |
 | 1.1 | 2026-07-22 | Architecture Team | Fix base path (arcapi → arc-api); add SIMULATION/CONNECTED/DISCONNECTED session modes; update Section C base path to spf-modules; replace phantom modules-instance rows in Section D with implemented SPF module and link routes (data-links, control-links including with-subsystems and properties); mark preview-changes as not currently planned |
+| 1.2 | 2026-07-24 | Architecture Team | end-session no longer commits staged changes — returns 422 if staged changes exist; commit-changes available in all session modes; remove unimplemented SIMULATION/CONNECTED/DISCONNECTED modes; update all workflow diagrams |
 
 ---
 

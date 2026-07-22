@@ -8,3 +8,4 @@ export {ResourceNotFoundException} from './resource-not-found.exception.js';
 export {InvalidOperationException} from './invalid-operation.exception.js';
 export {DomainNotImplementedException} from './not-implemented.exception.js';
 export {DomainRuleViolationException} from './domain-rule-violation.exception.js';
+export {StagedChangesExistException} from './staged-changes-exist.exception.js';

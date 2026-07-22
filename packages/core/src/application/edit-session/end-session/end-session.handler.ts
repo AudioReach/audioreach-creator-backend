@@ -9,9 +9,13 @@ import type {EndSessionCommand} from './end-session.command.js';
 import type {Result} from '../../shared/result/result.js';
 import {Result as ResultFactory} from '../../shared/result/result.js';
 import type {SessionResult} from '../session-types.js';
+import {StagedChangesExistException} from '../../../shared/exceptions/staged-changes-exist.exception.js';
 
 /**
  * Implements REQ-SESS-09 (wipe UNSTAGED) and REQ-SESS-10 (retain as audit). (§7b.2)
+ *
+ * Rejects with StagedChangesExistException (422) if any STAGED changes remain —
+ * the client must commit or discard them before ending the session.
  */
 export class EndSessionHandler implements CommandHandler<
   EndSessionCommand,
@@ -24,6 +28,13 @@ export class EndSessionHandler implements CommandHandler<
     try {
       const session = this.uow.getWriteContext().session;
       const sessionRepo = this.uow.getSessionRepository();
+
+      const stagedCount = await sessionRepo.countStagedChangesForSession(
+        session.sessionId,
+      );
+      if (stagedCount > 0) {
+        throw new StagedChangesExistException(stagedCount);
+      }
 
       const wipedCount = await sessionRepo.wipeUnstagedForSession(
         session.sessionId,
