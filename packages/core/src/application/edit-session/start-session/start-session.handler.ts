@@ -34,6 +34,13 @@ export class StartSessionHandler implements CommandHandler<
     try {
       const sessionRepo = this.uow.getSessionRepository();
 
+      // READONLY is not a startable mode — it is the implicit state when no session is active.
+      if ((cmd.mode as string) === 'READONLY') {
+        throw new InvalidOperationException(
+          'READONLY is not a startable mode. It is the implicit state when no session is active.',
+        );
+      }
+
       const fileSystemId = await sessionRepo.findFileSystemIdByProjectId(
         cmd.projectId,
       );

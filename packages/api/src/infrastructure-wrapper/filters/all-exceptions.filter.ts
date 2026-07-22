@@ -13,6 +13,7 @@ import {
   InvalidOperationException,
   DomainNotImplementedException,
   DomainRuleViolationException,
+  StagedChangesExistException,
 } from '@arc/core';
 
 /**
@@ -29,6 +30,10 @@ const DOMAIN_STATUS_MAP = new Map<DomainExceptionClass, number>([
   [ResourceNotFoundException, HttpStatus.NOT_FOUND],
   [InvalidOperationException, HttpStatus.BAD_REQUEST],
   [DomainNotImplementedException, HttpStatus.NOT_IMPLEMENTED],
+  [
+    StagedChangesExistException as unknown as DomainExceptionClass,
+    HttpStatus.UNPROCESSABLE_ENTITY,
+  ],
 ]);
 
 @Catch()

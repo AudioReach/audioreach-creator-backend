@@ -82,7 +82,10 @@ import {
   DiscardChangesResponseDto,
 } from './dto/changeset.dto.js';
 import {StartSessionRequestDto, SessionResponseDto} from './dto/session.dto.js';
-import {CreateUsecasesResponseDto} from './dto/create-usecases-response.dto.js';
+import {
+  CreateUsecasesResponseDto,
+  UsecaseIdentifierWithChangeInfoDto,
+} from './dto/create-usecases-response.dto.js';
 import {CreateUsecasesRequestDto} from './dto/create-usecases-request.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
@@ -875,7 +878,11 @@ export class ProjectController {
       'If no staged changes exist, returns empty arrays with success: true.\n\n' +
       'Note: warnings and errors arrays are placeholders and will be populated when the validation framework is introduced.',
   })
-  @ApiExtraModels(ApiResult, CreateUsecasesResponseDto)
+  @ApiExtraModels(
+    ApiResult,
+    CreateUsecasesResponseDto,
+    UsecaseIdentifierWithChangeInfoDto,
+  )
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully reconciled staged changes',
@@ -1064,11 +1071,13 @@ export class ProjectController {
     summary: 'Commit changes',
     description:
       'Commit staged changes in the project based on project Id.\n\n' +
+      'Available in all session modes (TUNING, DESIGNER, DISCOVERY_WIZARD, DIFF_MERGE).\n\n' +
       'Behavior:\n' +
       '- If changeIds is not provided or empty, all staged changes will be committed\n' +
       '- If changeIds is provided, only the specified changes will be committed\n' +
       '- All dependencies of the specified changes must be staged, otherwise the commit will fail\n' +
-      '- The operation validates that all required dependencies are present before committing',
+      '- The operation validates that all required dependencies are present before committing\n' +
+      '- Pass ?enforceValidation=true to run COMMIT-group validation rules before applying changes; validation failures return 422',
   })
   @ApiExtraModels(ApiResult, CommitChangesResponseDto)
   @ApiResponse({
@@ -1205,9 +1214,10 @@ export class ProjectController {
     description:
       'Start a new session with specified mode. Returns error if a session is already active.\n\n' +
       '## Session Modes & Supported Operations\n\n' +
-      '### READONLY\n' +
-      '- Only read APIs are supported\n' +
-      '- No modifications allowed\n\n' +
+      '### READONLY (default — not a startable mode)\n' +
+      '- Implicit state when no active session exists\n' +
+      '- Every project begins in READONLY; it returns to READONLY after end-session\n' +
+      '- Read APIs work without any session; start-session is not needed or allowed for READONLY\n\n' +
       '### TUNING\n' +
       '- Read APIs\n' +
       '- Tuning/Calibration APIs (get-cal-data, set-cal-data, goto-change)\n' +
@@ -1227,8 +1237,7 @@ export class ProjectController {
       '- Designer APIs\n' +
       '- Diff/Merge APIs (diff-files, merge-changes)\n' +
       '- Change Management APIs\n\n' +
-      '**Important**: If an invalid API is called during a session, it will return `403 Forbidden` with error code `INVALID_OPERATION_FOR_MODE`.\n\n' +
-      'For detailed workflow scenarios and complete API reference, see: `docs/modification-framework/modification-framework-api-reference.md`',
+      '**Important**: If an invalid API is called during a session, it will return `403 Forbidden` with error code `INVALID_OPERATION_FOR_MODE`.\n\n',
   })
   @ApiExtraModels(ApiResult, SessionResponseDto, StartSessionRequestDto)
   @ApiResponse({
@@ -1301,11 +1310,11 @@ export class ProjectController {
     summary: 'End the current session',
     description:
       'End the current active session. This operation will:\n' +
-      '1. Commit all staged changes\n' +
-      '2. Clear all unstaged changes\n' +
-      '3. Move session to READONLY state\n' +
-      '4. Return a summary of all committed and cleared changes\n\n' +
-      'If any issues occur while committing changes, an error will be returned and the session will remain active.',
+      '1. Verify no staged changes remain (returns 422 STAGED_CHANGES_EXIST if any exist — commit or discard them first)\n' +
+      '2. Discard all unstaged changes\n' +
+      '3. Return project to READONLY (the default no-session state — the active session is ended or deleted)\n' +
+      '4. Return a summary of discarded changes\n\n' +
+      'If any error occurs during this operation, the session will remain active.',
   })
   @ApiExtraModels(ApiResult, SessionResponseDto)
   @ApiResponse({
@@ -1323,8 +1332,22 @@ export class ProjectController {
     },
   })
   @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description:
+      'Staged changes exist — commit or discard them before ending the session',
+    schema: {
+      example: {
+        statusCode: 422,
+        errorCode: 'STAGED_CHANGES_EXIST',
+        message:
+          'Cannot end session: 3 staged change(s) must be committed or discarded first.',
+        details: {stagedCount: 3},
+      },
+    },
+  })
+  @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
-    description: 'Failed to commit changes or no active session',
+    description: 'No active session',
     schema: {
       allOf: [
         {$ref: getSchemaPath(ApiResult)},

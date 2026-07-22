@@ -5,14 +5,13 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {IsArray} from 'class-validator';
-import {BaseComponentDto} from '../../../common/dto/base-component.dto.js';
 import {BaseDto} from '../../../common/dto/base.dto.js';
 import {
   KeyValuePairsInfo,
   KeyValueInfo,
   SubsystemFilteredKeyValuePairsInfo,
 } from '../../../common/dto/kv.dto.js';
-import {EndPointLink, ModificationAction} from '../../../common/utils/index.js';
+import {EndPointLink} from '../../../common/utils/index.js';
 /**
  * TypeScript interface for equality comparison
  */
@@ -169,57 +168,5 @@ export class SubsystemFilteredUsecasesDto {
         `SubsystemFilteredUsecasesDto validation failed: ${validation.errors.join(', ')}`,
       );
     }
-  }
-}
-
-/**
- * Full usecases information including usecase identifier and all its
- * components (module-instances, data links, control links, dangling links).
- */
-export class UsecaseWithComponents {
-  @ApiProperty({
-    description: 'Usecase identifier information',
-    type: UsecaseIdentifierDto,
-  })
-  readonly usecaseIdentifier: UsecaseIdentifierDto;
-
-  @ApiProperty({
-    description: 'Array of components in the usecase',
-    type: [BaseComponentDto],
-  })
-  components: BaseComponentDto<number>[] = [];
-
-  constructor(usecaseId: UsecaseIdentifierDto) {
-    this.usecaseIdentifier = usecaseId;
-  }
-}
-
-export class UsecaseWithModificationSummary {
-  @ApiProperty({
-    description: 'Usecase with components information',
-    type: UsecaseWithComponents,
-  })
-  readonly usecase: UsecaseWithComponents;
-
-  @ApiProperty({
-    description: 'Type of modification action performed on the usecase',
-    enum: ModificationAction,
-  })
-  readonly usecaseModification: ModificationAction;
-
-  @ApiProperty({
-    description: 'Summary of the modifications made to the usecase',
-    type: String,
-  })
-  readonly modificationSummary: string;
-
-  constructor(
-    usecaseWithComponents: UsecaseWithComponents,
-    usecaseModificaiton: ModificationAction,
-    summary: string,
-  ) {
-    this.usecase = usecaseWithComponents;
-    this.usecaseModification = usecaseModificaiton;
-    this.modificationSummary = summary;
   }
 }

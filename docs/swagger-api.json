@@ -922,7 +922,7 @@
     },
     "/arc-api/v1/projects/{projectId}/commit-changes": {
       "post": {
-        "description": "Commit staged changes in the project based on project Id.\n\nBehavior:\n- If changeIds is not provided or empty, all staged changes will be committed\n- If changeIds is provided, only the specified changes will be committed\n- All dependencies of the specified changes must be staged, otherwise the commit will fail\n- The operation validates that all required dependencies are present before committing",
+        "description": "Commit staged changes in the project based on project Id.\n\nAvailable in all session modes (TUNING, DESIGNER, DISCOVERY_WIZARD, DIFF_MERGE).\n\nBehavior:\n- If changeIds is not provided or empty, all staged changes will be committed\n- If changeIds is provided, only the specified changes will be committed\n- All dependencies of the specified changes must be staged, otherwise the commit will fail\n- The operation validates that all required dependencies are present before committing\n- Pass ?enforceValidation=true to run COMMIT-group validation rules before applying changes; validation failures return 422",
         "operationId": "ProjectController_commitChanges",
         "parameters": [
           {
@@ -1118,7 +1118,7 @@
     },
     "/arc-api/v1/projects/{projectId}/start-session": {
       "post": {
-        "description": "Start a new session with specified mode. Returns error if a session is already active.\n\n## Session Modes & Supported Operations\n\n### READONLY\n- Only read APIs are supported\n- No modifications allowed\n\n### TUNING\n- Read APIs\n- Tuning/Calibration APIs (get-cal-data, set-cal-data, goto-change)\n- Change Management APIs\n\n### DESIGNER\n- Read APIs\n- Tuning APIs\n- Designer APIs (add-module, add-data-link, etc.)\n- Change Management APIs\n\n### DISCOVERY_WIZARD\n- Read APIs\n- Import/Discovery APIs (import-h2xml)\n- Change Management APIs\n\n### DIFF_MERGE\n- Read APIs\n- Tuning APIs\n- Designer APIs\n- Diff/Merge APIs (diff-files, merge-changes)\n- Change Management APIs\n\n**Important**: If an invalid API is called during a session, it will return `403 Forbidden` with error code `INVALID_OPERATION_FOR_MODE`.\n\nFor detailed workflow scenarios and complete API reference, see: `docs/modification-framework/modification-framework-api-reference.md`",
+        "description": "Start a new session with specified mode. Returns error if a session is already active.\n\n## Session Modes & Supported Operations\n\n### READONLY (default — not a startable mode)\n- Implicit state when no active session exists\n- Every project begins in READONLY; it returns to READONLY after end-session\n- Read APIs work without any session; start-session is not needed or allowed for READONLY\n\n### TUNING\n- Read APIs\n- Tuning/Calibration APIs (get-cal-data, set-cal-data, goto-change)\n- Change Management APIs\n\n### DESIGNER\n- Read APIs\n- Tuning APIs\n- Designer APIs (add-module, add-data-link, etc.)\n- Change Management APIs\n\n### DISCOVERY_WIZARD\n- Read APIs\n- Import/Discovery APIs (import-h2xml)\n- Change Management APIs\n\n### DIFF_MERGE\n- Read APIs\n- Tuning APIs\n- Designer APIs\n- Diff/Merge APIs (diff-files, merge-changes)\n- Change Management APIs\n\n**Important**: If an invalid API is called during a session, it will return `403 Forbidden` with error code `INVALID_OPERATION_FOR_MODE`.\n\n",
         "operationId": "ProjectController_startSession",
         "parameters": [
           {
@@ -1216,7 +1216,7 @@
     },
     "/arc-api/v1/projects/{projectId}/end-session": {
       "post": {
-        "description": "End the current active session. This operation will:\n1. Commit all staged changes\n2. Clear all unstaged changes\n3. Move session to READONLY state\n4. Return a summary of all committed and cleared changes\n\nIf any issues occur while committing changes, an error will be returned and the session will remain active.",
+        "description": "End the current active session. This operation will:\n1. Verify no staged changes remain (returns 422 STAGED_CHANGES_EXIST if any exist — commit or discard them first)\n2. Discard all unstaged changes\n3. Return project to READONLY (the default no-session state — the active session is ended or deleted)\n4. Return a summary of discarded changes\n\nIf any error occurs during this operation, the session will remain active.",
         "operationId": "ProjectController_endSession",
         "parameters": [
           {
@@ -1252,7 +1252,7 @@
             }
           },
           "400": {
-            "description": "Failed to commit changes or no active session",
+            "description": "No active session",
             "content": {
               "application/json": {
                 "schema": {
@@ -1291,6 +1291,23 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Staged changes exist — commit or discard them before ending the session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "statusCode": 422,
+                    "errorCode": "STAGED_CHANGES_EXIST",
+                    "message": "Cannot end session: 3 staged change(s) must be committed or discarded first.",
+                    "details": {
+                      "stagedCount": 3
+                    }
+                  }
                 }
               }
             }
@@ -2894,59 +2911,6 @@
           }
         },
         "summary": "Get all usecases with optional filtering",
-        "tags": [
-          "usecases"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/usecases/modifications-summary": {
-      "get": {
-        "operationId": "UseCaseController_getUsecaseModificationSummary",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/UsecaseWithModificationSummary"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Project not found"
-          },
-          "422": {
-            "description": "Failed to get modification summary)"
-          }
-        },
-        "summary": "Get all added and deleted usecases with their modification summary",
         "tags": [
           "usecases"
         ]
@@ -8064,10 +8028,7 @@
               "TUNING",
               "DISCOVERY_WIZARD",
               "DIFF_MERGE",
-              "DESIGNER",
-              "SIMULATION",
-              "CONNECTED",
-              "DISCONNECTED"
+              "DESIGNER"
             ],
             "description": "Current session mode for the project"
           }
@@ -8271,7 +8232,7 @@
           "description"
         ]
       },
-      "UsecaseIdentifierDto": {
+      "UsecaseIdentifierWithChangeInfoDto": {
         "type": "object",
         "properties": {
           "systemId": {
@@ -8312,12 +8273,17 @@
             "items": {
               "$ref": "#/components/schemas/EndPointLink"
             }
+          },
+          "changeId": {
+            "type": "string",
+            "description": "The changeId for this usecase"
           }
         },
         "required": [
           "systemId",
           "keyValueCollection",
-          "usecaseType"
+          "usecaseType",
+          "changeId"
         ]
       },
       "CreateUsecasesResponseDto": {
@@ -8327,21 +8293,21 @@
             "description": "Usecases created during reconciliation",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+              "$ref": "#/components/schemas/UsecaseIdentifierWithChangeInfoDto"
             }
           },
           "updated": {
             "description": "Usecases updated during reconciliation",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+              "$ref": "#/components/schemas/UsecaseIdentifierWithChangeInfoDto"
             }
           },
           "deleted": {
             "description": "Usecases deleted during reconciliation",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UsecaseIdentifierDto"
+              "$ref": "#/components/schemas/UsecaseIdentifierWithChangeInfoDto"
             }
           },
           "issues": {
@@ -8627,10 +8593,7 @@
           "TUNING",
           "DISCOVERY_WIZARD",
           "DIFF_MERGE",
-          "DESIGNER",
-          "SIMULATION",
-          "CONNECTED",
-          "DISCONNECTED"
+          "DESIGNER"
         ],
         "description": "Current session mode"
       },
@@ -10316,6 +10279,55 @@
           "allowedInterfaces"
         ]
       },
+      "UsecaseIdentifierDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System identifier of the usecase"
+          },
+          "keyValueCollection": {
+            "description": "Collection of key-value pairs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyValueInfo"
+            }
+          },
+          "usecaseAliasId": {
+            "type": "number",
+            "description": "Optional alias identifier for the usecase"
+          },
+          "usecaseAliasName": {
+            "type": "string",
+            "description": "Alias name for the usecase"
+          },
+          "usecaseCategory": {
+            "type": "string",
+            "description": "Category of the usecase"
+          },
+          "usecaseType": {
+            "type": "string",
+            "description": "Type of the usecase",
+            "enum": [
+              "Ec",
+              "Regular",
+              "Manual"
+            ]
+          },
+          "relatedEndPointLinks": {
+            "description": "Related endpoint links for the usecase",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EndPointLink"
+            }
+          }
+        },
+        "required": [
+          "systemId",
+          "keyValueCollection",
+          "usecaseType"
+        ]
+      },
       "UsecaseDto": {
         "type": "object",
         "properties": {
@@ -10432,62 +10444,6 @@
           "id",
           "name",
           "relatedEndPointLinks"
-        ]
-      },
-      "UsecaseWithComponents": {
-        "type": "object",
-        "properties": {
-          "usecaseIdentifier": {
-            "description": "Usecase identifier information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UsecaseIdentifierDto"
-              }
-            ]
-          },
-          "components": {
-            "description": "Array of components in the usecase",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BaseComponentDto"
-            }
-          }
-        },
-        "required": [
-          "usecaseIdentifier",
-          "components"
-        ]
-      },
-      "UsecaseWithModificationSummary": {
-        "type": "object",
-        "properties": {
-          "usecase": {
-            "description": "Usecase with components information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UsecaseWithComponents"
-              }
-            ]
-          },
-          "usecaseModification": {
-            "type": "string",
-            "description": "Type of modification action performed on the usecase",
-            "enum": [
-              "None",
-              "Add",
-              "Delete",
-              "Update"
-            ]
-          },
-          "modificationSummary": {
-            "type": "string",
-            "description": "Summary of the modifications made to the usecase"
-          }
-        },
-        "required": [
-          "usecase",
-          "usecaseModification",
-          "modificationSummary"
         ]
       },
       "DataPortDto": {
@@ -12637,7 +12593,36 @@
       },
       "SubgraphPairDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "sourceSubgraphSystemId": {
+            "type": "string",
+            "description": "Source subgraph system ID"
+          },
+          "destinationSubgraphSystemId": {
+            "type": "string",
+            "description": "Destination subgraph system ID"
+          },
+          "dataLinks": {
+            "description": "Data links between the subgraph pair",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataLinkDto"
+            }
+          },
+          "controlLinks": {
+            "description": "Control links between the subgraph pair",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlLinkDto"
+            }
+          }
+        },
+        "required": [
+          "sourceSubgraphSystemId",
+          "destinationSubgraphSystemId",
+          "dataLinks",
+          "controlLinks"
+        ]
       },
       "CreateSubsystemRequestDto": {
         "type": "object",

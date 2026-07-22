@@ -86,7 +86,7 @@ describe('api-issue-item.mapper', () => {
 
       expect(dto.impactedEntity).toBeInstanceOf(ApiImpactedEntityDto);
       expect(dto.impactedEntity?.entityType).toBe(ISSUE_ENTITY_TYPE.Container);
-      expect(dto.impactedEntity?.systemId).toBe(601);
+      expect(dto.impactedEntity?.systemId).toBe('601');
       expect(dto.impactedEntity?.displayName).toBeUndefined();
     });
 

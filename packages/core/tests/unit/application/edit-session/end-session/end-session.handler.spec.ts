@@ -8,6 +8,7 @@ import {EndSessionHandler} from '../../../../../src/application/edit-session/end
 import {EndSessionCommand} from '../../../../../src/application/edit-session/end-session/end-session.command.js';
 import {SESSION_MODE} from '../../../../../src/application/shared/change-vocabulary.js';
 import {RESULT_KIND} from '../../../../../src/application/shared/result/result.js';
+import {StagedChangesExistException} from '../../../../../src/shared/exceptions/staged-changes-exist.exception.js';
 import type {UnitOfWork} from '../../../../../src/application/ports/persistence/unit-of-work.js';
 import type {ISessionRepository} from '../../../../../src/application/ports/persistence/repositories/session/session.repository.js';
 
@@ -29,6 +30,7 @@ function buildMockSessionRepo(): jest.Mocked<ISessionRepository> {
     findActiveSessionByProjectId: jest.fn(),
     createSession: jest.fn(),
     countCommitsForSession: jest.fn(),
+    countStagedChangesForSession: jest.fn(),
     deleteSession: jest.fn(),
     markSessionEnded: jest.fn(),
     wipeUnstagedForSession: jest.fn(),
@@ -60,8 +62,22 @@ function buildMockUow(
 }
 
 describe('EndSessionHandler', () => {
+  it('throws StagedChangesExistException and rolls back when staged changes remain', async () => {
+    const sessionRepo = buildMockSessionRepo();
+    sessionRepo.countStagedChangesForSession.mockResolvedValue(3);
+
+    const uow = buildMockUow(sessionRepo);
+    await expect(
+      new EndSessionHandler(uow).handle(new EndSessionCommand(PROJECT_ID)),
+    ).rejects.toThrow(StagedChangesExistException);
+    expect(uow.rollback).toHaveBeenCalledTimes(1);
+    expect(uow.commit).not.toHaveBeenCalled();
+    expect(sessionRepo.wipeUnstagedForSession).not.toHaveBeenCalled();
+  });
+
   it('wipes, deletes session, and returns ok when no commits exist', async () => {
     const sessionRepo = buildMockSessionRepo();
+    sessionRepo.countStagedChangesForSession.mockResolvedValue(0);
     sessionRepo.wipeUnstagedForSession.mockResolvedValue(3);
     sessionRepo.countCommitsForSession.mockResolvedValue(0);
     sessionRepo.deleteSession.mockResolvedValue(undefined);
@@ -85,6 +101,7 @@ describe('EndSessionHandler', () => {
 
   it('wipes, marks ended, and returns ok when commits exist', async () => {
     const sessionRepo = buildMockSessionRepo();
+    sessionRepo.countStagedChangesForSession.mockResolvedValue(0);
     sessionRepo.wipeUnstagedForSession.mockResolvedValue(2);
     sessionRepo.countCommitsForSession.mockResolvedValue(4);
     sessionRepo.markSessionEnded.mockResolvedValue(undefined);
@@ -106,6 +123,7 @@ describe('EndSessionHandler', () => {
 
   it('rolls back and re-throws when wipeUnstagedForSession rejects', async () => {
     const sessionRepo = buildMockSessionRepo();
+    sessionRepo.countStagedChangesForSession.mockResolvedValue(0);
     sessionRepo.wipeUnstagedForSession.mockRejectedValue(
       new Error('DB wipe failed'),
     );
@@ -120,6 +138,7 @@ describe('EndSessionHandler', () => {
 
   it('rolls back and re-throws when markSessionEnded rejects', async () => {
     const sessionRepo = buildMockSessionRepo();
+    sessionRepo.countStagedChangesForSession.mockResolvedValue(0);
     sessionRepo.wipeUnstagedForSession.mockResolvedValue(0);
     sessionRepo.countCommitsForSession.mockResolvedValue(2);
     sessionRepo.markSessionEnded.mockRejectedValue(

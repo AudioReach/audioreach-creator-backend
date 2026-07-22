@@ -108,9 +108,9 @@ export class TkvDto extends BaseKeyValueDto {
 export class TagInfoDto {
   @ApiProperty({
     description: 'Tag system ID',
-    type: Number,
+    type: String,
   })
-  systemId: number;
+  systemId: string;
 
   @ApiProperty({
     description: 'Tag ID',
@@ -132,7 +132,7 @@ export class TagInfoDto {
   tkvs: TkvDto[];
 
   constructor(
-    systemId: number,
+    systemId: string,
     tagId: number,
     tagName: string,
     tkvs: TkvDto[] = [],

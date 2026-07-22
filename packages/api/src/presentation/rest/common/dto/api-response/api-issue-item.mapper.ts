@@ -24,7 +24,7 @@ export function toApiIssueItem(issue: Issue): ApiIssueItem {
   if (issue.impactedEntity !== undefined) {
     const impactedItem = new ApiImpactedEntityDto();
     impactedItem.entityType = issue.impactedEntity.entityType;
-    impactedItem.systemId = issue.impactedEntity.systemId;
+    impactedItem.systemId = String(issue.impactedEntity.systemId);
     if (issue.impactedEntity.displayName !== undefined) {
       impactedItem.displayName = issue.impactedEntity.displayName;
     }
