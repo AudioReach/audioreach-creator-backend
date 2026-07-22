@@ -1,8 +1,8 @@
 # Modification Framework: API Reference & Workflows
 
 ## Document Information
-- **Version**: 1.0
-- **Date**: February 2026
+- **Version**: 1.1
+- **Date**: July 2026
 - **Status**: Final
 - **Author**: Architecture Team
 
@@ -29,16 +29,23 @@ The modification framework supports multiple session modes, each with specific A
 
 | Mode | Description | Supported API Categories |
 |------|-------------|-------------------------|
-| **READONLY** | Read-only access to project data | • Read APIs only<br>• No modifications allowed |
+| **READONLY** | Default state for every project. No active session exists. A project begins here and returns here after `end-session`. Cannot be passed to `start-session`. Read APIs only; no modifications allowed. | • Read APIs only<br>• No modifications allowed |
 | **TUNING** | Calibration and parameter tuning | • Read APIs<br>• Tuning/Calibration APIs<br>• Change Management APIs |
 | **DESIGNER** | Full design and configuration | • Read APIs<br>• Tuning APIs<br>• Designer APIs<br>• Change Management APIs |
 | **DISCOVERY_WIZARD** | Import and discovery operations | • Read APIs<br>• Import/Discovery APIs<br>• Change Management APIs |
 | **DIFF_MERGE** | Comparison and merging | • Read APIs<br>• Tuning APIs<br>• Designer APIs<br>• Diff/Merge APIs<br>• Change Management APIs |
+| **SIMULATION** | Simulation playback and analysis | • Read APIs only |
+| **CONNECTED** | Device connected (online) mode | • Read APIs<br>• Tuning/Calibration APIs |
+| **DISCONNECTED** | Device disconnected (offline) mode | • Read APIs<br>• Tuning/Calibration APIs |
 
 ### Mode Restrictions & Validation
 
+> **Note:** READONLY is not a mode passed to `start-session` — it is the implicit state when no active session exists.
+> Every project starts in READONLY. Calling `start-session` creates an active session in the specified mode.
+> Calling `end-session` destroys that session, returning the project to READONLY.
+
 **Enforcement Mechanism**:
-- Session mode is set when starting a session via `POST /projects/:projectId/start-session`
+- Session mode is set when starting a session via `POST /arc-api/v1/projects/:projectId/start-session`
 - Backend validates each API call against the current session mode
 - Invalid API calls return `403 Forbidden` with error code `INVALID_OPERATION_FOR_MODE`
 
@@ -55,7 +62,7 @@ The modification framework supports multiple session modes, each with specific A
       "supportedModes": ["DESIGNER", "DIFF_MERGE"]
     },
     "timestamp": "2026-02-23T15:30:00Z",
-    "path": "/arcapi/v1/projects/123/modules-instance"
+    "path": "/arc-api/v1/projects/123/spf-modules"
   }
 }
 ```
@@ -66,12 +73,12 @@ The modification framework supports multiple session modes, each with specific A
 
 ### A. Session Management APIs
 
-**Base Path**: `/arcapi/v1/projects/:projectId`
+**Base Path**: `/arc-api/v1/projects/:projectId`
 
 | Endpoint | Method | Description | Comments |
 |----------|--------|-------------|----------|
 | `/start-session` | POST | Start a new session with specified mode | |
-| `/end-session` | POST | End current session (commits staged changes) | |
+| `/end-session` | POST | End current session (commits staged changes) | Commits staged changes, discards unstaged changes, and returns project to READONLY (default no-session state) |
 
 **Note**: For detailed API specifications, refer to `docs/swagger-api.json`
 
@@ -79,11 +86,11 @@ The modification framework supports multiple session modes, each with specific A
 
 ### B. Change Management APIs
 
-**Base Path**: `/arcapi/v1/projects/:projectId`
+**Base Path**: `/arc-api/v1/projects/:projectId`
 
 | Endpoint | Method | Description | Comments |
 |----------|--------|-------------|----------|
-| `/preview-changes` | GET | Preview all pending changes (read-only) | Returns summary without modifying database |
+| `/preview-changes` | GET | Preview all pending changes (read-only) | Not currently planned |
 | `/create-usecases` | POST | Reconcile staged changes with database | Generates usecases using routing logic |
 | `/stage-changes` | POST | Stage specific changes for commit | |
 | `/unstage-changes` | POST | Unstage previously staged changes | |
@@ -96,14 +103,14 @@ The modification framework supports multiple session modes, each with specific A
 
 ### C. Tuning/Calibration APIs
 
-**Base Path**: `/arcapi/v1/projects/:projectId/module-instances`
+**Base Path**: `/arc-api/v1/projects/:projectId/spf-modules`
 
 | Endpoint | Method | Description | Supported Modes | Comments |
 |----------|--------|-------------|-----------------|----------|
-| `/:moduleInstanceSystemId/cal-data/:ckvSystemId` | GET | Get calibration data for module | TUNING, DESIGNER, DIFF_MERGE | |
-| `/:moduleInstanceSystemId/cal-data/:ckvSystemId` | PUT | Update calibration data | TUNING, DESIGNER, DIFF_MERGE | |
-| `/:moduleInstanceSystemId/tag-data/:tagSystemId/:tkvSystemId` | GET | Get tag data for module | TUNING, DESIGNER, DIFF_MERGE | |
-| `/:moduleInstanceSystemId/tag-data/:tagSystemId/:tkvSystemId` | PUT | Update tag data | TUNING, DESIGNER, DIFF_MERGE | |
+| `/:spfModuleSystemId/cal-data/:ckvSystemId` | GET | Get calibration data for module | TUNING, DESIGNER, DIFF_MERGE | |
+| `/:spfModuleSystemId/cal-data/:ckvSystemId` | PUT | Update calibration data | TUNING, DESIGNER, DIFF_MERGE | |
+| `/:spfModuleSystemId/tag-data/:tagSystemId/:tkvSystemId` | GET | Get tag data for module | TUNING, DESIGNER, DIFF_MERGE | |
+| `/:spfModuleSystemId/tag-data/:tagSystemId/:tkvSystemId` | PUT | Update tag data | TUNING, DESIGNER, DIFF_MERGE | |
 | `/tuning/goto-change` | POST | Navigate to specific change | TUNING, DESIGNER, DIFF_MERGE | Future API |
 
 **Note**: For detailed API specifications, refer to `docs/swagger-api.json`
@@ -112,15 +119,20 @@ The modification framework supports multiple session modes, each with specific A
 
 ### D. Usecase Designer APIs
 
-**Base Path**: `/arcapi/v1/projects/:projectId`
+**Base Path**: `/arc-api/v1/projects/:projectId`
 
 | Endpoint | Method | Description | Supported Modes | Comments |
 |----------|--------|-------------|-----------------|----------|
-| `/modules-instance` | POST | Add new module to graph | DESIGNER, DIFF_MERGE | Future API |
-| `/modules-instance/:id` | PATCH | Update module properties | DESIGNER, DIFF_MERGE | Future API |
-| `/modules-instance/:id` | DELETE | Delete module from graph | DESIGNER, DIFF_MERGE | Future API |
-| `/data-links` | POST | Add data link between modules | DESIGNER, DIFF_MERGE | Future API |
-| `/data-links/:id` | DELETE | Delete data link | DESIGNER, DIFF_MERGE | Future API |
+| `/spf-modules` | POST | Add new SPF module to graph | DESIGNER, DIFF_MERGE | |
+| `/spf-modules/:id` | DELETE | Delete SPF module from graph | DESIGNER, DIFF_MERGE | |
+| `/data-links` | POST | Add data link between modules (flat view) | DESIGNER, DIFF_MERGE | |
+| `/data-links/with-subsystems` | POST | Add data link (with subsystem hierarchy) | DESIGNER, DIFF_MERGE | |
+| `/data-links/:id` | DELETE | Delete data link | DESIGNER, DIFF_MERGE | |
+| `/control-links` | POST | Add control link between modules (flat view) | DESIGNER, DIFF_MERGE | |
+| `/control-links/with-subsystems` | POST | Add control link (with subsystem hierarchy) | DESIGNER, DIFF_MERGE | |
+| `/control-links/:id/properties` | GET | Get control link properties | DESIGNER, DIFF_MERGE | |
+| `/control-links/:id/properties` | PATCH | Update control link properties | DESIGNER, DIFF_MERGE | |
+| `/control-links/:id` | DELETE | Delete control link | DESIGNER, DIFF_MERGE | |
 
 **Note**: For detailed API specifications, refer to `docs/swagger-api.json`
 
@@ -128,7 +140,7 @@ The modification framework supports multiple session modes, each with specific A
 
 ### E. Discovery wizard APIs
 
-**Base Path**: `/arcapi/v1/projects/:projectId/import`
+**Base Path**: `/arc-api/v1/projects/:projectId/import`
 
 | Endpoint | Method | Description | Supported Modes | Comments |
 |----------|--------|-------------|-----------------|----------|
@@ -140,7 +152,7 @@ The modification framework supports multiple session modes, each with specific A
 
 ### F. Diff/Merge APIs
 
-**Base Path**: `/arcapi/v1/projects/:projectId/diff-merge`
+**Base Path**: `/arc-api/v1/projects/:projectId/diff-merge`
 
 | Endpoint | Method | Description | Supported Modes | Comments |
 |----------|--------|-------------|-----------------|----------|
@@ -203,7 +215,7 @@ sequenceDiagram
     UI->>+API: POST /start-session?mode=DESIGNER
     API->>-UI: 200 OK (session started)
     
-    UI->>+API: POST /modules-instance
+    UI->>+API: POST /spf-modules
     Note over API: Creates changeId1
     API->>-UI: 201 Created (changeId1)
     
@@ -229,6 +241,7 @@ sequenceDiagram
 - `create-usecases` uses routing logic to automatically create usecases from staged changes
 - Changes can be staged/unstaged before commit
 - `end-session` commits only staged changes
+- `preview-changes` is not part of the DESIGNER workflow and is not currently planned for this mode
 
 ---
 
@@ -328,6 +341,7 @@ sequenceDiagram
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-02-24 | Architecture Team | Initial API reference document with session modes, workflows, and endpoint documentation |
+| 1.1 | 2026-07-22 | Architecture Team | Fix base path (arcapi → arc-api); add SIMULATION/CONNECTED/DISCONNECTED session modes; update Section C base path to spf-modules; replace phantom modules-instance rows in Section D with implemented SPF module and link routes (data-links, control-links including with-subsystems and properties); mark preview-changes as not currently planned |
 
 ---
 
