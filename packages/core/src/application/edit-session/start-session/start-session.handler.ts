@@ -54,7 +54,6 @@ export class StartSessionHandler implements CommandHandler<
 
       const sessionId = await sessionRepo.createSession({
         fileSystemId,
-        clientId: cmd.clientId,
         sessionMode: cmd.mode,
         userId: cmd.userId ?? null,
       });

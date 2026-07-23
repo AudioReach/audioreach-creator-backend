@@ -5,9 +5,8 @@
 
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 import {OverlayMergeImpl} from './overlay-merge.js';
-import {FieldPathReducer} from './field-path-reducer.js';
 
-const overlay = new OverlayMergeImpl(new FieldPathReducer());
+const overlay = new OverlayMergeImpl();
 
 /**
  * Applies overlay to a single base row using pre-fetched EditActionRow[],

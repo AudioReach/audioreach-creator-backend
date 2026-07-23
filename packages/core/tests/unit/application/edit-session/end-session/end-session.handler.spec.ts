@@ -12,7 +12,6 @@ import type {UnitOfWork} from '../../../../../src/application/ports/persistence/
 import type {ISessionRepository} from '../../../../../src/application/ports/persistence/repositories/session/session.repository.js';
 
 const PROJECT_ID = 'proj-abc-123';
-const CLIENT_ID = 'client-001';
 const SESSION_ID = 7;
 const FILE_SYSTEM_ID = 42;
 
@@ -69,7 +68,7 @@ describe('EndSessionHandler', () => {
 
     const uow = buildMockUow(sessionRepo);
     const result = await new EndSessionHandler(uow).handle(
-      new EndSessionCommand(PROJECT_ID, CLIENT_ID),
+      new EndSessionCommand(PROJECT_ID),
     );
 
     expect(sessionRepo.wipeUnstagedForSession).toHaveBeenCalledWith(SESSION_ID);
@@ -92,7 +91,7 @@ describe('EndSessionHandler', () => {
 
     const uow = buildMockUow(sessionRepo);
     const result = await new EndSessionHandler(uow).handle(
-      new EndSessionCommand(PROJECT_ID, CLIENT_ID),
+      new EndSessionCommand(PROJECT_ID),
     );
 
     expect(sessionRepo.deleteSession).not.toHaveBeenCalled();
@@ -113,9 +112,7 @@ describe('EndSessionHandler', () => {
 
     const uow = buildMockUow(sessionRepo);
     await expect(
-      new EndSessionHandler(uow).handle(
-        new EndSessionCommand(PROJECT_ID, CLIENT_ID),
-      ),
+      new EndSessionHandler(uow).handle(new EndSessionCommand(PROJECT_ID)),
     ).rejects.toThrow('DB wipe failed');
     expect(uow.rollback).toHaveBeenCalledTimes(1);
     expect(uow.commit).not.toHaveBeenCalled();
@@ -131,9 +128,7 @@ describe('EndSessionHandler', () => {
 
     const uow = buildMockUow(sessionRepo);
     await expect(
-      new EndSessionHandler(uow).handle(
-        new EndSessionCommand(PROJECT_ID, CLIENT_ID),
-      ),
+      new EndSessionHandler(uow).handle(new EndSessionCommand(PROJECT_ID)),
     ).rejects.toThrow('DB update failed');
     expect(uow.rollback).toHaveBeenCalledTimes(1);
   });

@@ -35,11 +35,7 @@ describe('CommandHandlerRegistry', () => {
 
   describe('Session handler registrations', () => {
     it('the StartSessionCommand factory creates a handler', () => {
-      const cmd = new StartSessionCommand(
-        'proj-1',
-        'client-1',
-        SESSION_MODE.Designer,
-      );
+      const cmd = new StartSessionCommand('proj-1', SESSION_MODE.Designer);
       const handler = registry
         .getCommandHandlerFactory(cmd)
         .create(buildMinimalDeps(createMockUnitOfWork()));
@@ -47,7 +43,7 @@ describe('CommandHandlerRegistry', () => {
     });
 
     it('the EndSessionCommand factory creates a handler', () => {
-      const cmd = new EndSessionCommand('proj-1', 'client-1');
+      const cmd = new EndSessionCommand('proj-1');
       const handler = registry
         .getCommandHandlerFactory(cmd)
         .create(buildMinimalDeps(createMockUnitOfWork()));
@@ -55,11 +51,7 @@ describe('CommandHandlerRegistry', () => {
     });
 
     it('creates a new handler instance on each factory.create() call', () => {
-      const cmd = new StartSessionCommand(
-        'proj-1',
-        'client-1',
-        SESSION_MODE.Designer,
-      );
+      const cmd = new StartSessionCommand('proj-1', SESSION_MODE.Designer);
       const factory = registry.getCommandHandlerFactory(cmd);
       const deps = buildMinimalDeps(createMockUnitOfWork());
       expect(factory.create(deps)).not.toBe(factory.create(deps));

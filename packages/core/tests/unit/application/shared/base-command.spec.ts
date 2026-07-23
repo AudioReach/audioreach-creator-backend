@@ -9,7 +9,7 @@ import {SESSION_MODE} from '../../../../src/application/shared/change-vocabulary
 // Concrete subclass with defaults — does NOT override either field.
 class DefaultCommand extends BaseCommand {
   constructor() {
-    super('client-001');
+    super();
   }
 }
 
@@ -18,7 +18,7 @@ class DesignerOnlyCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes = [SESSION_MODE.Designer] as const;
   constructor() {
-    super('client-002');
+    super();
   }
 }
 
@@ -27,7 +27,7 @@ class SessionFreeCommand extends BaseCommand {
   static override readonly requiresSession = false;
   static override readonly allowedModes = [] as const;
   constructor() {
-    super('client-003');
+    super();
   }
 }
 

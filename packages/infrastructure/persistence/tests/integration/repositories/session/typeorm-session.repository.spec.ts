@@ -78,7 +78,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
 
       const sessionId = await repo.createSession({
         fileSystemId,
-        clientId: 'client-1',
         sessionMode: SESSION_MODE.Designer,
         userId: 'user-1',
       });
@@ -131,7 +130,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
       const {fileSystemId, projectSystemId} = await seedProjectAndFile();
       await repo.createSession({
         fileSystemId,
-        clientId: 'c1',
         sessionMode: SESSION_MODE.Tuning,
         userId: null,
       });
@@ -147,7 +145,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
-        clientId: 'c1',
         sessionMode: SESSION_MODE.Designer,
         userId: null,
       });
@@ -206,7 +203,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
-        clientId: 'c1',
         sessionMode: SESSION_MODE.Designer,
         userId: null,
       });
@@ -217,7 +213,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
-        clientId: 'c1',
         sessionMode: SESSION_MODE.Designer,
         userId: null,
       });
@@ -238,7 +233,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
-        clientId: 'c1',
         sessionMode: SESSION_MODE.Designer,
         userId: null,
       });
@@ -275,7 +269,6 @@ describe('TypeOrmSessionRepository (integration)', () => {
       const {fileSystemId} = await seedProjectAndFile();
       const sessionId = await repo.createSession({
         fileSystemId,
-        clientId: 'c1',
         sessionMode: SESSION_MODE.Designer,
         userId: null,
       });

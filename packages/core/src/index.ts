@@ -13,6 +13,10 @@ export * from './application/orchestration/cqrs/exceptions/handler-not-found-exc
 export * from './application/orchestration/cqrs/active-session.js';
 export * from './application/orchestration/cqrs/write-context.js';
 export * from './application/orchestration/cqrs/errors.js';
+// Session lifecycle commands and result type (LLD1 §7b)
+export {StartSessionCommand} from './application/edit-session/start-session/start-session.command.js';
+export {EndSessionCommand} from './application/edit-session/end-session/end-session.command.js';
+export type {SessionResult} from './application/edit-session/session-types.js';
 
 // Shared errors
 export * from './shared/errors/index.js';
@@ -41,6 +45,16 @@ export * from './application/shared/change-vocabulary.js';
 export * from './application/shared/read-model-base.js';
 // Write handler shared result type
 export * from './application/shared/write-result.js';
+export type {EditOptions} from './application/ports/persistence/edit-options.js';
+
+// Module write path — port interfaces (LLD2 PATCH)
+export type {ModuleRepository} from './application/ports/persistence/repositories/module/module.repository.js';
+export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
+export type {ModuleDefinitionRepository} from './application/ports/persistence/repositories/module/module-definition.repository.js';
+export type {DataLinkRepository} from './application/ports/persistence/repositories/data-link/data-link.repository.js';
+export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
+// Module write path — commands (LLD2)
+export {PatchSpfModuleCommand} from './application/usecase-designer/spf-module/patch/patch-spf-module.command.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';
@@ -174,6 +188,7 @@ export * from './domain/entities/usecase-data/module/entities/spf-module-tag-dat
 export * from './domain/entities/usecase-data/node/entities/data-port.js';
 export * from './domain/entities/usecase-data/node/entities/control-port.js';
 export * from './domain/entities/usecase-data/container/container.js';
+export * from './domain/entities/usecase-data/container/value-objects/container-property.js';
 export * from './domain/entities/usecase-data/subgraph/subgraph.js';
 export * from './domain/entities/usecase-data/subgraph/entities/sgkv.js';
 export * from './domain/entities/usecase-data/project/project.js';
@@ -187,6 +202,10 @@ export * from './domain/entities/module-manager/module-manager-data.js';
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
 export * from './domain/entities/definitions/spf-module/spf-module-definition.js';
+export * from './domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
+export * from './domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
+export * from './domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
+export * from './domain/entities/definitions/spf-module/value-objects/dynamic-intent-definition.js';
 export * from './domain/entities/definitions/driver-module/driver-module-definition.js';
 export * from './domain/entities/definitions/driver-module/driver-module-parameter-definition.js';
 export * from './domain/entities/definitions/key-value/key-definition.js';

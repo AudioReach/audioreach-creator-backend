@@ -70,7 +70,7 @@ function makeCommandBus(
 class RequiresSessionAnyModeCommand extends BaseCommand {
   // Inherits requiresSession = true, allowedModes = []
   constructor() {
-    super('client-1');
+    super();
   }
 }
 
@@ -78,7 +78,7 @@ class DesignerOnlyCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes = [SESSION_MODE.Designer] as const;
   constructor() {
-    super('client-2');
+    super();
   }
 }
 
@@ -89,7 +89,7 @@ class MultiModeCommand extends BaseCommand {
     SESSION_MODE.DiffMerge,
   ] as const;
   constructor() {
-    super('client-3');
+    super();
   }
 }
 
@@ -97,7 +97,7 @@ class SessionFreeCommand extends BaseCommand {
   static override readonly requiresSession = false;
   static override readonly allowedModes = [] as const;
   constructor() {
-    super('client-4');
+    super();
   }
 }
 

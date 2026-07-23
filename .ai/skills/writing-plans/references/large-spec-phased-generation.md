@@ -52,6 +52,7 @@ Each subagent prompt must include:
 - **Task number range.** The starting task number so numbering is contiguous when assembled. Example: "Number your tasks starting at Task 12."
 - **Output file path.** A chapter file under the same `plans/` directory as the final plan, in a `chapters/` subdirectory: `docs/<feature>/plans/chapters/<batch>-<chapter>-<slug>.md` (zero-padded, e.g. `01-01-entities.md`). The handoff file's `Plan output` field gives you `<feature>` — use the same value. The subagent writes its tasks to that file. It does not return plan content as text — that would refill the main session's context.
 - **Codebase read budget.** "Read at most 2–3 existing codebase files as patterns. Choose the most similar existing entity, handler, or test. Do not explore the codebase broadly."
+- **Chapter commit block.** After the last task in the chapter, append a `### Commit: [Chapter Name]` block following the "Chapter Completion Commit" format in `plan-format.md`. The chapter name should reflect the work done (e.g. "Entities & Enums", "Command Handlers").
 
 ## Step 4 — Batching rules
 
@@ -72,7 +73,13 @@ Merge adjacent chapters if either has fewer than 3 tasks.
 
 ## Step 5 — Assemble
 
-Once all batches complete, concatenate chapter files. Do not read their content into the session — use a shell command. Substitute `<plan-output-path>` with the `Plan output` field from the handoff file (e.g. `docs/virtual-links/plans/virtual-links-data-links.md`) and `<chapters-dir>` with its sibling `chapters/` directory (e.g. `docs/virtual-links/plans/chapters/`). The header template comes from `plan-format.md`; copy it verbatim and fill in the bracketed fields from the handoff file:
+Once all batches complete, **ask the user** whether to merge all chapter files into a single plan document:
+
+> "All chapters are generated. Do you want to merge them into a single plan file, or keep them as separate chapter files?"
+
+**If the user says yes (merge):**
+
+Concatenate chapter files into one plan. Do not read their content into the session — use a shell command. Substitute `<plan-output-path>` with the `Plan output` field from the handoff file (e.g. `docs/virtual-links/plans/virtual-links-data-links.md`) and `<chapters-dir>` with its sibling `chapters/` directory (e.g. `docs/virtual-links/plans/chapters/`). The header template comes from `plan-format.md`; copy it verbatim and fill in the bracketed fields from the handoff file:
 
 ```bash
 # Write the plan header (template from references/plan-format.md)
@@ -96,6 +103,10 @@ cat <chapters-dir>/*.md >> <plan-output-path>
 # Clean up scaffolding
 rm -rf <chapters-dir>
 ```
+
+**If the user says no (keep separate):**
+
+Leave chapter files in `<chapters-dir>` as-is. List them for the user so they know where to find each chapter. Do not concatenate, do not create a top-level plan file, do not delete the chapter files. Skip the shell command block above entirely.
 
 Then present the three-option execution handoff block from `plan-format.md` to the user. Wait for their selection.
 

@@ -241,6 +241,8 @@ export default [
       'unicorn/prefer-type-error': 'off',
       // Disabled: Allow null where it has semantic meaning (e.g., database NULL, explicit absence)
       'unicorn/no-null': 'off',
+      // Disabled: Negated conditions are often clearer for early-return guard patterns
+      'unicorn/no-negated-condition': 'off',
       // Configure unused vars to ignore parameters/variables prefixed with underscore
       '@typescript-eslint/no-unused-vars': [
         'error',

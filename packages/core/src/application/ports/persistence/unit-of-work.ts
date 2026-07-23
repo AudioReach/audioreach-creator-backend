@@ -9,6 +9,11 @@ import type {ValidationPreferencesRepository} from './repositories/validation/va
 import type {ValidationQueryRepository} from './repositories/validation/validation-query.repository.js';
 import type {WriteContext} from '../../orchestration/cqrs/write-context.js';
 import type {ISessionRepository} from './repositories/session/session.repository.js';
+import type {ModuleRepository} from './repositories/module/module.repository.js';
+import type {ContainerRepository} from './repositories/container/container.repository.js';
+import type {ModuleDefinitionRepository} from './repositories/module/module-definition.repository.js';
+import type {DataLinkRepository} from './repositories/data-link/data-link.repository.js';
+import type {ControlLinkRepository} from './repositories/control-link/control-link.repository.js';
 
 /**
  * Unit of Work pattern for managing database transactions and repository access.
@@ -52,4 +57,11 @@ export interface UnitOfWork {
 
   /** Returns ISessionRepository bound to this UoW's connection. */
   getSessionRepository(): ISessionRepository;
+
+  // ── Module write path (LLD2) ──────────────────────────────────────────────
+  getModuleRepository(): ModuleRepository;
+  getContainerRepository(): ContainerRepository;
+  getModuleDefinitionRepository(): ModuleDefinitionRepository;
+  getDataLinkRepository(): DataLinkRepository;
+  getControlLinkRepository(): ControlLinkRepository;
 }

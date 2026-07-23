@@ -21,11 +21,15 @@ export const NODE_TYPE = {
 
 export type NodeType = (typeof NODE_TYPE)[keyof typeof NODE_TYPE];
 
-export interface NodeRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface NodeBase {
+  systemId: number;
   parentId?: number;
   type: NodeType;
   fileSystemId: number;
+}
 
+export interface NodeRow extends EntityBaseRow, NodeBase {
   // Relations
   dataPorts?: DataPortRow[];
   controlPorts?: ControlPortRow[];

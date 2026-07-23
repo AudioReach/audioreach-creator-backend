@@ -13,10 +13,9 @@ export class StartSessionCommand extends BaseCommand {
 
   constructor(
     public readonly projectId: string,
-    clientId: string,
     public readonly mode: SessionMode,
     public readonly userId?: string,
   ) {
-    super(clientId);
+    super();
   }
 }

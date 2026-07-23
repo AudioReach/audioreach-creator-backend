@@ -151,7 +151,6 @@ export class ControlLinkController extends BaseController {
       createDto.endComponentId,
       createDto.endPortId,
       0,
-      'client-id',
     );
 
     const components =
@@ -203,7 +202,6 @@ export class ControlLinkController extends BaseController {
       createDto.endComponentId,
       createDto.endPortId,
       0,
-      'client-id',
     );
 
     const components =
@@ -335,7 +333,6 @@ export class ControlLinkController extends BaseController {
 
     const command = new DeleteControlLinkCommand(
       Number.parseInt(controlLinkSystemId, 10),
-      'client-id',
     );
 
     const deleted =

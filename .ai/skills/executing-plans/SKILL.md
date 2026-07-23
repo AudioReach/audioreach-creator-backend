@@ -79,9 +79,93 @@ This gate applies even when auto-approve is enabled for other tool uses.
 
 **Don't force through blockers** - stop and ask.
 
+## Code Conventions
+
+Apply these conventions in all code you write or modify during plan execution. They reflect the project's established patterns and keep the codebase consistent.
+
+### 1. Use the Issue Factory for Error/Issue Objects
+
+Never construct issue or validation-result objects inline. The project has a dedicated factory (look for `IssueFactory`, `createIssue`, or a similar factory pattern in the codebase) so that all issues are defined in one place, are easy to audit, and have consistent shape.
+
+**Wrong:**
+```ts
+throw new Error('...');
+// or
+return {
+  code: 'ARC-SESSION-ALREADY-ACTIVE',
+  message: `An active session already exists...`,
+  severity: IssueSeverity.Error,
+};
+```
+
+**Right:**
+```ts
+return IssueFactory.sessionAlreadyActive(cmd.projectId, existing.sessionId, existing.mode);
+```
+
+If the factory doesn't yet have a method for the issue you need, add one to the factory rather than creating the object inline at the call site.
+
+### 2. Derive Types from Existing Object Literals — Don't Repeat String Unions
+
+When a set of valid string values is already captured in a `const` object, enum, or similar structure, derive the type from it. Repeating the values as a string literal union (e.g., `'STAGED' | 'UNSTAGED' | 'PARTIAL'`) creates two sources of truth that can drift.
+
+**Wrong:**
+```ts
+private computeStatus(rows: Row[]): 'STAGED' | 'UNSTAGED' | 'PARTIAL' { ... }
+```
+
+**Right (if a const/enum exists or should exist):**
+```ts
+const PendingChangeStatus = { STAGED: 'STAGED', UNSTAGED: 'UNSTAGED', PARTIAL: 'PARTIAL' } as const;
+type PendingChangeStatus = typeof PendingChangeStatus[keyof typeof PendingChangeStatus];
+
+private computeStatus(rows: Row[]): PendingChangeStatus { ... }
+```
+
+If no such object exists yet and more than two callers would benefit, introduce one.
+
+### 3. Prefer TypeORM Query Builder Over Raw SQL
+
+For all database queries and writes, use TypeORM's `QueryBuilder`, repository methods, or entity manager APIs rather than raw SQL strings — unless profiling shows a measurable performance difference that justifies the trade-off.
+
+**Wrong:**
+```ts
+await dataSource.query(`SELECT * FROM edit_action WHERE workspace_id = $1`, [id]);
+```
+
+**Right:**
+```ts
+await dataSource
+  .getRepository(EditAction)
+  .createQueryBuilder('ea')
+  .where('ea.workspaceId = :id', { id })
+  .getMany();
+```
+
+Raw SQL is acceptable for complex aggregations or queries where the TypeORM abstraction would be significantly harder to read, but note the reason in a comment.
+
+### 4. No Underscore Prefix for Private Members
+
+TypeScript's `private` keyword (or `#` for truly hard-private fields) makes the intent clear. The `_` naming convention adds noise without benefit.
+
+**Wrong:**
+```ts
+private _sessionId: string;
+```
+
+**Right:**
+```ts
+private sessionId: string;
+```
+
+This applies to all new code and to any existing `_`-prefixed members you touch while implementing a plan step.
+
+---
+
 ## Remember
 - Review plan critically first
 - Follow plan steps exactly
+- Apply code conventions above to all code written or modified
 - Don't skip verifications
 - Reference skills when plan says to
 - Stop when blocked, don't guess

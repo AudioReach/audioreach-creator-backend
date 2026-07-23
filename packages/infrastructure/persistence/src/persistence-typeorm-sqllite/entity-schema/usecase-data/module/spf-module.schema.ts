@@ -14,15 +14,18 @@ import {BaseColumnSchemaPart} from '../../entity-base.js';
 import type {EntityBaseRow} from '../../entity-base.js';
 import type {CkvRow} from './spf-module-calibration-data.schema.js';
 
-export interface SpfModuleRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface SpfModuleBase {
+  systemId: number;
   instanceId: number;
   alias: string;
-
-  // FKs(scalar columns you will set directly on writes)
   subgraphSystemId: number;
   containerSystemId: number;
   definitionSystemId: number;
+  fileSystemId: number;
+}
 
+export interface SpfModuleRow extends EntityBaseRow, SpfModuleBase {
   // persistence-only relations (optional)
   subgraph?: SubgraphRow;
   container?: ContainerRow;
@@ -30,7 +33,7 @@ export interface SpfModuleRow extends EntityBaseRow {
   spfModulePropertiesData?: SpfModulePropertiesDataRow[];
 
   // scope to file
-  fileSystemId: number;
+
   file?: ArcDbFileRow;
 
   // one-to-one relation to Node
@@ -45,7 +48,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
   columns: {
     ...BaseColumnSchemaPart,
     instanceId: {name: 'instance_id', type: 'integer'},
-    alias: {type: 'varchar', length: 256},
+    alias: {type: 'varchar', length: 250},
 
     //  scalar FK columns you will set directly
     subgraphSystemId: {name: 'subgraph_system_id', type: 'integer'},

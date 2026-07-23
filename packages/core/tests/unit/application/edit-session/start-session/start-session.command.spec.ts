@@ -10,12 +10,10 @@ describe('StartSessionCommand', () => {
   it('stores all constructor arguments and inherits from BaseCommand', () => {
     const cmd = new StartSessionCommand(
       'proj-123',
-      'client-abc',
       SESSION_MODE.Designer,
       'user-xyz',
     );
     expect(cmd.projectId).toBe('proj-123');
-    expect(cmd.clientId).toBe('client-abc');
     expect(cmd.mode).toBe(SESSION_MODE.Designer);
     expect(cmd.userId).toBe('user-xyz');
     expect(typeof cmd.id).toBe('string');
@@ -23,11 +21,7 @@ describe('StartSessionCommand', () => {
   });
 
   it('allows userId to be omitted', () => {
-    const cmd = new StartSessionCommand(
-      'proj-123',
-      'client-abc',
-      SESSION_MODE.Tuning,
-    );
+    const cmd = new StartSessionCommand('proj-123', SESSION_MODE.Tuning);
     expect(cmd.userId).toBeUndefined();
   });
 });

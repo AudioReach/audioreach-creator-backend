@@ -14,7 +14,6 @@ import type {UnitOfWork} from '../../../../../src/application/ports/persistence/
 import type {ISessionRepository} from '../../../../../src/application/ports/persistence/repositories/session/session.repository.js';
 
 const PROJECT_ID = 'proj-abc-123';
-const CLIENT_ID = 'client-001';
 const FILE_SYSTEM_ID = 42;
 const SESSION_ID = 7;
 
@@ -63,12 +62,11 @@ describe('StartSessionHandler', () => {
 
     const handler = new StartSessionHandler(buildMockUow(sessionRepo));
     const result = await handler.handle(
-      new StartSessionCommand(PROJECT_ID, CLIENT_ID, SESSION_MODE.Designer),
+      new StartSessionCommand(PROJECT_ID, SESSION_MODE.Designer),
     );
 
     expect(sessionRepo.createSession).toHaveBeenCalledWith({
       fileSystemId: FILE_SYSTEM_ID,
-      clientId: CLIENT_ID,
       sessionMode: SESSION_MODE.Designer,
       userId: null,
     });
@@ -87,12 +85,7 @@ describe('StartSessionHandler', () => {
     sessionRepo.createSession.mockResolvedValue(SESSION_ID);
 
     await new StartSessionHandler(buildMockUow(sessionRepo)).handle(
-      new StartSessionCommand(
-        PROJECT_ID,
-        CLIENT_ID,
-        SESSION_MODE.Tuning,
-        'user-99',
-      ),
+      new StartSessionCommand(PROJECT_ID, SESSION_MODE.Tuning, 'user-99'),
     );
 
     expect(sessionRepo.createSession).toHaveBeenCalledWith(
@@ -107,11 +100,7 @@ describe('StartSessionHandler', () => {
 
     await expect(
       new StartSessionHandler(uow).handle(
-        new StartSessionCommand(
-          'unknown-proj',
-          CLIENT_ID,
-          SESSION_MODE.Designer,
-        ),
+        new StartSessionCommand('unknown-proj', SESSION_MODE.Designer),
       ),
     ).rejects.toThrow(ResourceNotFoundException);
 
@@ -132,7 +121,7 @@ describe('StartSessionHandler', () => {
 
     await expect(
       new StartSessionHandler(uow).handle(
-        new StartSessionCommand(PROJECT_ID, CLIENT_ID, SESSION_MODE.Designer),
+        new StartSessionCommand(PROJECT_ID, SESSION_MODE.Designer),
       ),
     ).rejects.toThrow(InvalidOperationException);
 
@@ -149,7 +138,7 @@ describe('StartSessionHandler', () => {
 
     await expect(
       new StartSessionHandler(uow).handle(
-        new StartSessionCommand(PROJECT_ID, CLIENT_ID, SESSION_MODE.Designer),
+        new StartSessionCommand(PROJECT_ID, SESSION_MODE.Designer),
       ),
     ).rejects.toThrow('DB error');
 

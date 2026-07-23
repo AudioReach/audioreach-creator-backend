@@ -10,15 +10,18 @@ import type {SpfModuleRow} from '../module/spf-module.schema.js';
 import type {ContainerPropertyDataRow} from './container-property-data.js';
 import {EntitySchema} from 'typeorm';
 
-export interface ContainerRow extends EntityBaseRow {
-  type: string;
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ContainerBase {
+  systemId: number;
+  containerTypeSystemId: number;
   containerId: number;
+  fileSystemId: number;
+}
 
+export interface ContainerRow extends EntityBaseRow, ContainerBase {
   // inverse relation for convenience (reads)
   modules?: SpfModuleRow[];
   containerPropertyData?: ContainerPropertyDataRow[];
-  // scope to file
-  fileSystemId: number;
   file?: ArcDbFileRow;
 }
 
@@ -27,7 +30,11 @@ export const ContainerSchema = new EntitySchema<ContainerRow>({
   tableName: 'containers',
   columns: {
     ...BaseColumnSchemaPart,
-    type: {name: 'type', type: 'varchar', length: 128},
+    containerTypeSystemId: {
+      name: 'container_type_system_id',
+      type: 'integer',
+      nullable: true,
+    },
     containerId: {name: 'container_id', type: 'integer'},
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
