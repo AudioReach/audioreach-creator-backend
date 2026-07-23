@@ -62,23 +62,40 @@ export function myFunction(input: InputType): OutputType {
 
 Run: `[project test command] -- --testPathPattern="[test file path]"`
 Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-  Use the `commit` skill to draft the commit message. Show the proposed message
-  and the exact commands to the user and **wait for explicit confirmation** before
-  running anything:
-
-  ```bash
-  git add [files changed]
-  git commit -m "feat([scope]): [summary]" \
-             -m "[Body explaining the motivation.]" \
-             -m "Signed-off-by: [Name] <[email]>"
-  ```
-
-  **STOP — do not run `git commit` until the user explicitly approves the message.**
-  Only execute after confirmation.
 ````
+
+## What Makes a Test Worth Writing
+
+Before writing any test step, ask: **"What scenario am I testing — what goes in and what comes out?"** If the answer is "I'm verifying a constant equals its own value" or "I'm checking that TypeScript compiles," that is dead-weight. Skip it.
+
+### Dead-weight patterns — do not write these
+
+TypeScript already enforces these at compile time; a runtime test adds nothing:
+
+| Pattern | Example | Why worthless |
+|---|---|---|
+| Enum/const value equality | `expect(SOURCE.MANUAL).toBe('MANUAL')` | TS guarantees this at compile time |
+| Type shape assertion | `expect(ctx.sessionId).toBe(1)` on an object you just constructed | You're asserting the value you just assigned |
+| Interface mock structural check | Inline mock implementing `IFoo`; asserts it returns the hard-coded value you put in | The production implementation is not under test |
+| Barrel/export smoke test | `expect(SOURCE).toBeDefined()` | A build failure catches this; the test adds no scenario coverage |
+| "Does not throw" on a stub | Call a no-op method and assert it doesn't throw | Trivially passes regardless of what the implementation does |
+| Placeholder | `expect(true).toBe(true)` | Delete, never keep |
+
+### What to use instead
+
+- **Types, enums, plain interfaces, type aliases** → replace the test step with a build check: `pnpm --filter @arc/<package> run build`. TypeScript is your type test.
+- **Barrel exports** → replace with a grep: `grep -E "IFoo|BarEnum" packages/core/src/index.ts`.
+- **Interface contracts** → test the real adapter in its own integration-test task — don't write an inline mock of the thing you just defined.
+
+### A test is worth writing when it has all three
+
+1. A **real production object** under test (not a mock of the thing you just wrote)
+2. A **concrete input** that exercises a specific code path
+3. An **observable outcome** — a return value, a thrown error with a specific message, or a side-effect you can query
+
+Good examples: error messages contain the right field values; accumulator merge produces the correct merged payload; overlay fold gives later-wins determinism; a factory returns the right handler class for each command type; `rollback()` is called before every early `Result.fail` return.
+
+---
 
 ## Bite-Sized Task Granularity
 
@@ -87,7 +104,8 @@ Each step is one action (2-5 minutes):
 - "Run it to make sure it fails" — step
 - "Implement the minimal code to make the test pass" — step
 - "Run the tests and make sure they pass" — step
-- "Commit" — step
+
+Commits are **not** included per task. A single commit is placed at the end of each chapter or logical group of tasks (see [Chapter Completion Commit](#chapter-completion-commit) below).
 
 ## Code Completeness by Task Type
 
@@ -140,6 +158,30 @@ export class CreateSubsystemLinkSegmentHandler implements ICommandHandler<...> {
 ```
 
 The `executing-plans` skill fills in the TypeScript when running the task. An engineer reading the skeleton knows what to implement without guessing.
+
+## Chapter Completion Commit
+
+One commit per chapter (phased plans) or logical group of tasks (standard plans). Do **not** put a commit step inside individual tasks — it fragments history and interrupts flow.
+
+At the end of every chapter or group, append this block:
+
+````markdown
+### Commit: [Chapter/Group Name]
+
+Use the `commit` skill to draft the commit message. Show the proposed message
+and the exact commands to the user and **wait for explicit confirmation** before
+running anything:
+
+```bash
+git add [all files created or modified in this chapter]
+git commit -m "feat([scope]): [summary of what this chapter implements]" \
+           -m "[Body explaining the motivation.]" \
+           -m "Signed-off-by: [Name] <[email]>"
+```
+
+**STOP — do not run `git commit` until the user explicitly approves the message.**
+Only execute after confirmation.
+````
 
 ## No Placeholders
 

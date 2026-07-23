@@ -19,8 +19,6 @@ import {generateUuid} from '../../shared/utilities/uuid.js';
  *   Case 1 — session + specific modes: override both fields.
  *   Case 2 — session + any mode:       inherit defaults (requiresSession = true, allowedModes = []).
  *   Case 3 — no session required:      override requiresSession = false, keep allowedModes = [].
- *
- * Constructor signature is unchanged — always takes clientId.
  */
 export abstract class BaseCommand implements Command {
   /**
@@ -39,7 +37,7 @@ export abstract class BaseCommand implements Command {
   readonly id: string;
   readonly timeStamp: Date = new Date();
 
-  constructor(public readonly clientId: string) {
+  constructor() {
     this.id = generateUuid();
   }
 }

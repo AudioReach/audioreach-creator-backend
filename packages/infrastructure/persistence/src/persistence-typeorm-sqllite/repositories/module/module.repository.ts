@@ -1,0 +1,300 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+import type {EntityManager} from 'typeorm';
+import type {ModuleRepository, UnitOfWork, EditOptions} from '@arc/core';
+import {SpfModule, DataPort, ControlPort} from '@arc/core';
+import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {ModuleNodeOverlayFetcher} from '../../fetchers/module-node-overlay-fetcher.js';
+import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
+import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+
+export class TypeOrmModuleRepository implements ModuleRepository {
+  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
+  private readonly portFetcher: PortOverlayFetcher;
+
+  constructor(
+    private readonly writer: PendingChangeWriter,
+    private readonly manager: EntityManager,
+    private readonly uow: UnitOfWork,
+  ) {
+    const editActionsQs = new EditActionsQueryService(manager);
+    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
+      manager,
+      editActionsQs,
+    );
+    this.portFetcher = new PortOverlayFetcher(manager, editActionsQs);
+  }
+
+  async findModuleForPatch(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModule | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const moduleNode = await this.moduleNodeFetcher.fetchOne(
+      systemId,
+      fileSystemId,
+      sessionId,
+    );
+    if (moduleNode === null) return null;
+    const dataPorts = await this.portFetcher.fetchDataPorts(
+      systemId,
+      fileSystemId,
+      sessionId,
+    );
+    const controlPorts = await this.portFetcher.fetchControlPortsWithIntents(
+      systemId,
+      fileSystemId,
+      sessionId,
+    );
+    return new SpfModule({
+      systemId,
+      fileSystemId,
+      instanceId: moduleNode.instanceId,
+      definitionSystemId: moduleNode.definitionSystemId,
+      containerSystemId: moduleNode.containerSystemId,
+      subgraphSystemId: moduleNode.subgraphSystemId,
+      alias: moduleNode.alias ?? undefined,
+      parentSystemId: moduleNode.parentId ?? undefined,
+      dataPorts: dataPorts.map(
+        dp =>
+          new DataPort({
+            systemId: dp.systemId,
+            dataPortId: dp.dataPortId,
+            portIoType: dp.portIoType,
+            isStatic: dp.isStatic,
+            name: dp.name ?? undefined,
+          }),
+      ),
+      controlPorts: controlPorts.map(
+        cp =>
+          new ControlPort({
+            systemId: cp.systemId,
+            portId: cp.portId,
+            isStatic: cp.isStatic,
+            nodeSystemId: systemId,
+            name: cp.name ?? undefined,
+            intentSystemIds: cp.intents.map(i => i.systemId),
+            intentTypeIds: cp.intents.map(i => i.intentId),
+          }),
+      ),
+    });
+  }
+
+  async renameModule(
+    moduleSystemId: number,
+    alias: string,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: moduleSystemId,
+        aggregateId: moduleSystemId,
+        delta: {alias},
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async changeContainer(
+    moduleSystemId: number,
+    containerSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: moduleSystemId,
+        aggregateId: moduleSystemId,
+        delta: {containerSystemId},
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async addDataPort(
+    port: DataPort,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.DataPort,
+        targetSystemId: port.systemId,
+        aggregateId: moduleSystemId,
+        payload: {
+          dataPortId: port.dataPortId,
+          portIoType: port.portIoType,
+          isStatic: port.isStatic,
+          name: port.name ?? '',
+          nodeSystemId: moduleSystemId,
+          fileSystemId: session.fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async removeDataPort(
+    portSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.DataPort,
+        targetSystemId: portSystemId,
+        aggregateId: moduleSystemId,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async addControlPort(
+    port: ControlPort,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.ControlPort,
+        targetSystemId: port.systemId,
+        aggregateId: moduleSystemId,
+        payload: {
+          portId: port.portId,
+          isStatic: port.isStatic,
+          name: port.name ?? '',
+          nodeSystemId: moduleSystemId,
+          fileSystemId: session.fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async removeControlPort(
+    portSystemId: number,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.ControlPort,
+        targetSystemId: portSystemId,
+        aggregateId: moduleSystemId,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async createModule(module: SpfModule, options?: EditOptions): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const fileSystemId = module.fileSystemId;
+
+    // FK order: Node → SpfModule → DataPorts → ControlPorts (all share ambient groupId)
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.Node,
+        targetSystemId: module.systemId,
+        aggregateId: module.systemId,
+        payload: {
+          type: 'module',
+          parentId: module.parentId ?? null,
+          fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: module.systemId,
+        aggregateId: module.systemId,
+        payload: {
+          instanceId: module.instanceId,
+          alias: module.alias ?? '',
+          subgraphSystemId: module.subgraphSystemId,
+          containerSystemId: module.containerSystemId,
+          definitionSystemId: module.definitionSystemId,
+          fileSystemId,
+        },
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+    for (const dp of module.dataPorts) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.DataPort,
+          targetSystemId: dp.systemId,
+          aggregateId: module.systemId,
+          payload: {
+            dataPortId: dp.dataPortId,
+            portIoType: dp.portIoType,
+            isStatic: dp.isStatic,
+            name: dp.name ?? '',
+            nodeSystemId: module.systemId,
+            fileSystemId,
+          },
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    for (const cp of module.controlPorts) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.ControlPort,
+          targetSystemId: cp.systemId,
+          aggregateId: module.systemId,
+          payload: {
+            portId: cp.portId,
+            isStatic: cp.isStatic,
+            name: cp.name ?? '',
+            nodeSystemId: module.systemId,
+            fileSystemId,
+          },
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+}

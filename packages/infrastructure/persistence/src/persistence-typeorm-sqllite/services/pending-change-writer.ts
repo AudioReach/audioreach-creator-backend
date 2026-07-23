@@ -5,7 +5,7 @@
 
 import {CHANGE_STATUS, CHANGE_OPERATION, SOURCE} from '@arc/core';
 import type {ChangeStatus, Source} from '@arc/core';
-import type {QueryRunner} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import type {EntityName} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {PendingChangeCache} from './pending-change-cache.js';
@@ -71,7 +71,7 @@ export class PendingChangeWriter {
     spec: WriteDeltaSpec,
     sessionId: number,
     groupId: string,
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
     const fieldGroup = spec.fieldGroup ?? null;
 
@@ -86,7 +86,13 @@ export class PendingChangeWriter {
     const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
 
     if (fieldGroup === null) {
-      await this.writeAccumulator(spec, sessionId, groupId, changeStatus, qr);
+      await this.writeAccumulator(
+        spec,
+        sessionId,
+        groupId,
+        changeStatus,
+        manager,
+      );
     } else {
       await this.writePerSlot(
         spec,
@@ -94,7 +100,7 @@ export class PendingChangeWriter {
         sessionId,
         groupId,
         changeStatus,
-        qr,
+        manager,
       );
     }
   }
@@ -103,7 +109,7 @@ export class PendingChangeWriter {
     spec: WriteCreateSpec,
     sessionId: number,
     groupId: string,
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
@@ -125,7 +131,7 @@ export class PendingChangeWriter {
     if (spec.cache === true) {
       this.pendingChangeCache.enqueueRow(row);
     } else {
-      await this.insertRow(row, qr);
+      await this.insertRow(row, manager);
     }
   }
 
@@ -133,12 +139,12 @@ export class PendingChangeWriter {
     spec: WriteDeleteSpec,
     sessionId: number,
     groupId: string,
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source);
 
-    await this.supersedeCurrent(sessionId, spec.targetSystemId, null, qr);
+    await this.supersedeCurrent(sessionId, spec.targetSystemId, null, manager);
 
     const row = {
       sessionId,
@@ -162,9 +168,9 @@ export class PendingChangeWriter {
         sessionId,
         spec.targetTable,
         spec.targetSystemId,
-        qr,
+        manager,
       );
-      await this.insertRow(row, qr);
+      await this.insertRow(row, manager);
     }
   }
 
@@ -196,7 +202,7 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     changeStatus: ChangeStatus,
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
     const existing = await this.queryService.findCurrentRow(
       sessionId,
@@ -209,13 +215,18 @@ export class PendingChangeWriter {
       : {...spec.delta};
 
     if (existing) {
-      await this.supersedeCurrent(sessionId, spec.targetSystemId, null, qr);
+      await this.supersedeCurrent(
+        sessionId,
+        spec.targetSystemId,
+        null,
+        manager,
+      );
     } else {
       await this.captureBaseVersion(
         sessionId,
         spec.targetTable,
         spec.targetSystemId,
-        qr,
+        manager,
       );
     }
 
@@ -233,7 +244,7 @@ export class PendingChangeWriter {
         groupId,
         linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
       },
-      qr,
+      manager,
     );
   }
 
@@ -243,7 +254,7 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     changeStatus: ChangeStatus,
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
     const row = {
       sessionId,
@@ -259,12 +270,17 @@ export class PendingChangeWriter {
       linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
     };
 
-    await this.supersedeCurrent(sessionId, spec.targetSystemId, fieldGroup, qr);
+    await this.supersedeCurrent(
+      sessionId,
+      spec.targetSystemId,
+      fieldGroup,
+      manager,
+    );
 
     if (spec.cache === true) {
       this.pendingChangeCache.enqueueRow(row);
     } else {
-      await this.insertRow(row, qr);
+      await this.insertRow(row, manager);
     }
   }
 
@@ -272,7 +288,7 @@ export class PendingChangeWriter {
     sessionId: number,
     targetSystemId: number,
     fieldPath: string | null,
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
     const fieldPathClause =
       fieldPath === null ? 'field_path IS NULL' : 'field_path = $4';
@@ -281,7 +297,7 @@ export class PendingChangeWriter {
         ? [new Date().toISOString(), sessionId, targetSystemId]
         : [new Date().toISOString(), sessionId, targetSystemId, fieldPath];
     // eslint-disable-next-line custom/no-raw-persistence-queries -- dynamic fieldPath clause (null vs value) cannot be expressed with TypeORM QueryBuilder
-    await qr.query(
+    await manager.query(
       `UPDATE edit_actions SET valid_until = $1 WHERE session_id = $2 AND target_system_id = $3 AND ${fieldPathClause} AND valid_until IS NULL`,
       params,
     );
@@ -291,18 +307,21 @@ export class PendingChangeWriter {
     sessionId: number,
     targetTable: EntityName,
     targetSystemId: number,
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
-    // eslint-disable-next-line custom/no-raw-persistence-queries -- dynamic table name in SELECT prevents using manager.find; used only for base-version capture
-    const versions = (await qr.query(
-      `SELECT version FROM ${targetTable} WHERE system_id = $1`,
-      [targetSystemId],
-    )) as Array<{version: number}>;
-    if (versions.length === 0) return;
+    // Use TypeORM's entity metadata to resolve the actual table name from the entity name.
+    // Directly embedding targetTable in raw SQL would fail because ENTITY_NAMES values are
+    // TypeORM entity names (e.g. 'SpfModule') while SQLite expects physical table names (e.g. 'spf_modules').
+    const row = await manager
+      .createQueryBuilder(targetTable, 'e')
+      .select('e.version', 'version')
+      .where('e.systemId = :id', {id: targetSystemId})
+      .getRawOne<{version: number}>();
+    if (!row) return;
     // eslint-disable-next-line custom/no-raw-persistence-queries -- INSERT OR IGNORE semantics (capture-once) are not supported by TypeORM QueryBuilder
-    await qr.query(
+    await manager.query(
       `INSERT OR IGNORE INTO session_entity_versions (session_id, target_system_id, base_version) VALUES ($1, $2, $3)`,
-      [sessionId, targetSystemId, versions[0].version],
+      [sessionId, targetSystemId, row.version],
     );
   }
 
@@ -320,10 +339,10 @@ export class PendingChangeWriter {
       groupId: string | null;
       linkedEntityGroupId: string | null;
     },
-    qr: QueryRunner,
+    manager: EntityManager,
   ): Promise<void> {
     // eslint-disable-next-line custom/no-raw-persistence-queries -- manual JSON serialization of newValue requires raw INSERT; manager.insert() does not support column-level JSON.stringify
-    await qr.query(
+    await manager.query(
       `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
         row.sessionId,

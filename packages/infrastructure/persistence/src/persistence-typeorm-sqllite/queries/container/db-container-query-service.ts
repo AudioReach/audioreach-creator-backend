@@ -29,16 +29,15 @@ export class DbContainerQueryService implements ContainerQueryService {
    */
   async findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>> {
     try {
-      // Step 1 — baseline load, all containers scoped to this file
+      // Step 1 — baseline load
       const baselineRows = (await this.dataSource
         .getRepository(ENTITY_NAMES.Container)
         .createQueryBuilder('c')
-        .select(['c.systemId', 'c.containerId', 'c.type'])
+        .select(['c.systemId', 'c.containerId', 'c.containerTypeSystemId'])
         .where('c.fileSystemId = :fileSystemId', {fileSystemId})
         .getMany()) as ContainerRow[];
 
-      // Step 2 — Overlay: table-wide query, not one call per container —
-      // this loads ALL containers so there's no fixed id list to scope by
+      // Step 2 — overlay
       const session = await this.editActionsSvc.findActiveSession(fileSystemId);
       const rows = session
         ? applyToCollection(
@@ -50,14 +49,36 @@ export class DbContainerQueryService implements ContainerQueryService {
           )
         : baselineRows;
 
-      // Step 3 — assemble ContainerReadModel[]
+      // Step 3 — resolve container type names in one batch query
+      const typeIds = [
+        ...new Set(
+          rows
+            .map(r => r.containerTypeSystemId)
+            .filter((id): id is number => !!id),
+        ),
+      ];
+      const typeNameMap = new Map<number, string>();
+      if (typeIds.length > 0) {
+        const typeRows = (await this.dataSource
+          .getRepository('ContainerType')
+          .createQueryBuilder('ct')
+          .select(['ct.systemId', 'ct.name'])
+          .whereInIds(typeIds)
+          .getMany()) as Array<{systemId: number; name: string}>;
+        for (const t of typeRows) typeNameMap.set(t.systemId, t.name);
+      }
+
+      // Step 4 — assemble ContainerReadModel[]
       return Result.ok(
         rows.map(
           r =>
             ({
               systemId: r.systemId,
               containerId: r.containerId,
-              type: r.type,
+              containerTypeSystemId: r.containerTypeSystemId ?? null,
+              containerTypeName: r.containerTypeSystemId
+                ? (typeNameMap.get(r.containerTypeSystemId) ?? null)
+                : null,
             }) satisfies ContainerReadModel,
         ),
       );

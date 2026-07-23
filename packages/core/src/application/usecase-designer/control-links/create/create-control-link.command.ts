@@ -12,8 +12,7 @@ export class CreateControlLinkCommand extends BaseCommand {
     public readonly peerNodeBSystemId: number,
     public readonly nodeBPortSystemId: number,
     public readonly heapId: number,
-    clientId: string,
   ) {
-    super(clientId);
+    super();
   }
 }

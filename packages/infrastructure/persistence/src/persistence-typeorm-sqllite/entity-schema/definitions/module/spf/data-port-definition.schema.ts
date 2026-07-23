@@ -11,13 +11,16 @@ import {
 import {EntitySchema} from 'typeorm';
 import type {DataPortGroupRow} from './data-group-definition.schema.js';
 
-export interface DataPortDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — used by overlay fetchers. */
+export interface DataPortDefinitionBase {
+  systemId: number;
   dataPortId: number;
   name?: string;
-
-  // Foreign key relation
   dataPortGroupSystemId: number;
+}
 
+export interface DataPortDefinitionRow
+  extends EntityBaseRow, DataPortDefinitionBase {
   //type orm relation
   dataPortGroup: DataPortGroupRow;
 }

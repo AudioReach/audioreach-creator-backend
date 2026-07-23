@@ -10,6 +10,7 @@ export interface ControlPortInit {
   nodeSystemId: number;
   name?: string;
   intentSystemIds: number[];
+  intentTypeIds?: number[]; // intent TYPE ids (DynamicIntentDefinition.intentId) — needed for FR-CPCA-01
 }
 
 export class ControlPort {
@@ -18,7 +19,8 @@ export class ControlPort {
   readonly isStatic: boolean;
   nodeSystemId: number;
   readonly name?: string;
-  readonly intentIds: number[];
+  readonly intentIds: number[]; // intent instance system_ids
+  readonly intentTypeIds: number[]; // intent type ids — parallel to intentIds
 
   constructor(initParam: ControlPortInit) {
     this.systemId = initParam.systemId;
@@ -27,5 +29,6 @@ export class ControlPort {
     this.nodeSystemId = initParam.nodeSystemId;
     this.name = initParam.name;
     this.intentIds = initParam.intentSystemIds;
+    this.intentTypeIds = initParam.intentTypeIds ?? [];
   }
 }

@@ -12,6 +12,7 @@ import {
   ResourceNotFoundException,
   InvalidOperationException,
   DomainNotImplementedException,
+  DomainRuleViolationException,
 } from '@arc/core';
 
 /**
@@ -90,6 +91,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     details: unknown;
     issues: Issue[] | undefined;
   } {
+    if (exception instanceof DomainRuleViolationException) {
+      return {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errorCode: exception.errorCode,
+        details: undefined,
+        issues: exception.issues as Issue[],
+      };
+    }
     if (exception instanceof DomainException) {
       return {
         status:

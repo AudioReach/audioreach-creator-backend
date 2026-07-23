@@ -44,6 +44,14 @@ jobs:
         run: corepack enable
 
       - name: 🔧 Environment Setup
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+          WORKSPACE: ${{ github.workspace }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           echo "🔧 Setting up build environment..."
           node --version
@@ -51,16 +59,16 @@ jobs:
           pnpm --version
           git --version
           echo ""
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Build: ${{ github.run_number }}"
-          echo "Workspace: ${{ github.workspace }}"
+          echo "Branch: $REF_NAME"
+          echo "Build: $RUN_NUMBER"
+          echo "Workspace: $WORKSPACE"
           echo ""
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "🔀 Pull Request Build: PR-${{ github.event.pull_request.number }}"
-            echo "📝 PR Title: ${{ github.event.pull_request.title }}"
-            echo "🎯 Target: ${{ github.event.pull_request.base.ref }}"
+          if [ "$EVENT_NAME" == "pull_request" ]; then
+            echo "🔀 Pull Request Build: PR-$PR_NUMBER"
+            echo "📝 PR Title: $PR_TITLE"
+            echo "🎯 Target: $PR_BASE_REF"
           else
-            echo "🌿 Branch Build: ${{ github.ref_name }}"
+            echo "🌿 Branch Build: $REF_NAME"
           fi
 
       - name: 📦 Install Dependencies
@@ -130,6 +138,14 @@ jobs:
 
       - name: ✅ Pipeline Summary
         if: always()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          REF_NAME: ${{ github.ref_name }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           echo "## 📊 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -142,13 +158,13 @@ jobs:
           echo "| Build | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test | ${{ steps.test.outcome == 'success' && '✅' || steps.test.outcome == 'failure' && '❌' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "🔀 **PR-${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          if [ "$EVENT_NAME" == "pull_request" ]; then
+            echo "🔀 **PR-${PR_NUMBER}**: ${PR_TITLE}" >> $GITHUB_STEP_SUMMARY
           else
-            echo "🌿 **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+            echo "🌿 **Branch**: ${REF_NAME}" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 [View Full Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Full Logs](${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID})" >> $GITHUB_STEP_SUMMARY
 
       - name: 🧹 Cleanup
         if: always()

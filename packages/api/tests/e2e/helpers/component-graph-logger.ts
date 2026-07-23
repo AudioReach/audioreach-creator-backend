@@ -223,7 +223,7 @@ export class ComponentGraphLogger {
         const containerPrefix = isLastContainer ? '└──' : '├──';
 
         lines.push(
-          `   ${containerPrefix} ${container.type} (ID: ${containerId})`,
+          `   ${containerPrefix} containerType:${container.containerTypeSystemId} (ID: ${containerId})`,
         );
 
         for (let j = 0; j < container.modules.length; j++) {

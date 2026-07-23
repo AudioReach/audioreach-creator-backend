@@ -14,10 +14,9 @@ export class UpdateValidationPreferencesCommand extends BaseCommand {
     public readonly fileSystemId: number,
     /** Global overrides by issue code — merged into existing preferences. */
     public readonly overrides: Record<string, IssuePreference>,
-    clientId: string,
     /** Instance-level suppressions — merged into existing preferences. */
     public readonly suppressions?: Record<string, IssueSuppression>,
   ) {
-    super(clientId);
+    super();
   }
 }

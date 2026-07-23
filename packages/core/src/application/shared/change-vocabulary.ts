@@ -75,6 +75,10 @@ export const SESSION_MODE = {
   Tuning: 'TUNING',
   DiffMerge: 'DIFF_MERGE',
   DiscoveryWizard: 'DISCOVERY_WIZARD',
+  ReadOnly: 'READONLY',
+  Simulation: 'SIMULATION',
+  Connected: 'CONNECTED',
+  Disconnected: 'DISCONNECTED',
 } as const;
 
 export type SessionMode = (typeof SESSION_MODE)[keyof typeof SESSION_MODE];

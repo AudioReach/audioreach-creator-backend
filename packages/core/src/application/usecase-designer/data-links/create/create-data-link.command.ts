@@ -12,8 +12,7 @@ export class CreateDataLinkCommand extends BaseCommand {
     public readonly destinationNodeSystemId: number,
     public readonly destinationPortSystemId: number,
     public readonly type: 'normal' | 'EC' | 'interUsecase',
-    clientId: string,
   ) {
-    super(clientId);
+    super();
   }
 }

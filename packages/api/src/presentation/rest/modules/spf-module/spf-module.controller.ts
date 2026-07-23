@@ -12,12 +12,14 @@ import {
   Delete,
   Body,
   Param,
+  ParseIntPipe,
   Query,
   HttpCode,
   HttpStatus,
   UseInterceptors,
   BadRequestException,
   NotImplementedException,
+  UseGuards,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
@@ -52,7 +54,10 @@ import {
   IssueSeverity,
   ISSUE_CODE,
   Result,
+  RESULT_KIND,
   QueryBus,
+  CommandBus,
+  PatchSpfModuleCommand,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
   PARAMETER_ELEMENT_TYPE,
@@ -71,10 +76,12 @@ import {
   type ConfigElementData,
   type ElementArrayData,
   type StructData,
-  RESULT_KIND,
+  type ActiveSession,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
+import {SessionGuard} from '../../../../guards/session-guard.js';
+import {ArcSession} from '../../../../guards/arc-session.decorator.js';
 import {
   DataPortDto,
   PortIoType,
@@ -148,7 +155,10 @@ import {
   RemoveSpfModuleResponseDto,
 )
 export class SpfModuleController extends BaseController {
-  constructor(private readonly queryBus: QueryBus) {
+  constructor(
+    private readonly queryBus: QueryBus,
+    private readonly commandBus: CommandBus,
+  ) {
     super();
   }
 
@@ -950,14 +960,8 @@ export class SpfModuleController extends BaseController {
         dto: SpfModuleDto,
       },
       {
-        status: HttpStatus.MULTI_STATUS,
-        description:
-          'Partial success — some fields were updated but others failed (see issues array)',
-        dto: SpfModuleDto,
-      },
-      {
         status: HttpStatus.BAD_REQUEST,
-        description: 'No fields provided or invalid request data',
+        description: 'No fields provided',
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -966,30 +970,40 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description:
-          'Business rule violation (e.g., max ports exceeds module definition limit)',
+          'Business rule violation (e.g., max ports exceeds definition limit, container type incompatible)',
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async patchSpfModule(
-    @Param('projectId') projectId: string,
-    @Param('spfModuleSystemId') spfModuleSystemId: string,
-    @Body() request: PatchSpfModuleRequestDto,
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Param('spfModuleSystemId', ParseIntPipe) spfModuleSystemId: number,
+    @Body() dto: PatchSpfModuleRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<SpfModuleDto>> {
-    if (!Object.values(request).some(v => v !== undefined)) {
-      throw new BadRequestException(
-        'At least one field must be provided to patch',
-      );
-    }
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Patching SPF module:',
+    const cmd = new PatchSpfModuleCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      dto.alias,
+      dto.containerId,
+      dto.maxInputPortsSupported,
+      dto.maxOutputPortsSupported,
+      dto.maxControlPortsSupported,
     );
-    throw new NotImplementedException('patchSpfModule is not implemented yet');
+
+    await this.commandBus.execute<{groupId: string}>(cmd, session);
+
+    const query = new SpfModuleQuery(
+      [spfModuleSystemId],
+      projectId,
+      false,
+      false,
+      'api-client',
+    );
+    const readResult =
+      await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
+    return toApiResult(readResult, ({modules}) =>
+      this.mapToSpfModuleDto(modules[0]),
+    );
   }
 
   /**

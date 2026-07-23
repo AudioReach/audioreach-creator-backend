@@ -6,10 +6,7 @@
 import {BaseCommand} from '../../../shared/base-command.js';
 
 export class DeleteDataLinkCommand extends BaseCommand {
-  constructor(
-    public readonly dataLinkSystemId: number,
-    clientId: string,
-  ) {
-    super(clientId);
+  constructor(public readonly dataLinkSystemId: number) {
+    super();
   }
 }

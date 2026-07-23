@@ -145,7 +145,6 @@ export class DataLinkController extends BaseController {
       createDto.destinationNodeSystemId,
       createDto.destinationPortSystemId,
       createDto.type ?? 'normal',
-      'client-id',
     );
 
     const components =
@@ -196,7 +195,6 @@ export class DataLinkController extends BaseController {
       createDto.destinationNodeSystemId,
       createDto.destinationPortSystemId,
       createDto.type ?? 'normal',
-      'client-id',
     );
 
     const components =
@@ -250,7 +248,6 @@ export class DataLinkController extends BaseController {
 
     const command = new DeleteDataLinkCommand(
       Number.parseInt(dataLinkSystemId, 10),
-      'client-id',
     );
 
     const deleted = await this.commandBus.execute<DataLinkReadModel>(command);

@@ -13,11 +13,8 @@ export class TestCommand extends BaseCommand {
   static override readonly requiresSession = false;
   static override readonly allowedModes = [] as const;
 
-  constructor(
-    public readonly testData: string,
-    clientId: string = 'test-client',
-  ) {
-    super(clientId);
+  constructor(public readonly testData: string) {
+    super();
   }
 }
 
@@ -28,8 +25,8 @@ export class UnknownCommand extends BaseCommand {
   static override readonly requiresSession = false;
   static override readonly allowedModes = [] as const;
 
-  constructor(clientId: string = 'test-client') {
-    super(clientId);
+  constructor() {
+    super();
   }
 }
 
