@@ -42,14 +42,12 @@ describe('E2E: POST /projects/:projectId/end-session', () => {
     return res.body.data.projectId as string;
   }
 
-  // TODO(LLD2): Wire StartSessionCommand + EndSessionCommand to controller endpoints.
-  // These tests will pass once both handlers are wired.
-  it.skip('succeeds and deletes the session when there are no commits', async () => {
+  it('succeeds and deletes the session when there are no commits', async () => {
     const projectId = await uploadProject();
     await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/start-session`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({mode: 'DESIGNER', clientId: 'e2e-client'})
+      .send({mode: 'DESIGNER'})
       .expect(201);
     const res = await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/end-session`)
@@ -58,12 +56,12 @@ describe('E2E: POST /projects/:projectId/end-session', () => {
     expect(res.body.data).toBeDefined();
   }, 120_000);
 
-  it.skip('TUNING mode session can be ended (mode-any semantics)', async () => {
+  it('TUNING mode session can be ended (mode-any semantics)', async () => {
     const projectId = await uploadProject();
     await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/start-session`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({mode: 'TUNING', clientId: 'e2e-client'})
+      .send({mode: 'TUNING'})
       .expect(201);
     await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/end-session`)

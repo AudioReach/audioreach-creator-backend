@@ -11,6 +11,10 @@ export const SESSION_MODE = {
   Designer: 'DESIGNER',
   DiscoveryWizard: 'DISCOVERY_WIZARD',
   DiffMerge: 'DIFF_MERGE',
+  ReadOnly: 'READONLY',
+  Simulation: 'SIMULATION',
+  Connected: 'CONNECTED',
+  Disconnected: 'DISCONNECTED',
 } as const;
 export type SessionMode = (typeof SESSION_MODE)[keyof typeof SESSION_MODE];
 
@@ -25,7 +29,6 @@ export interface ProjectSessionRow {
   sessionId: number;
   fileSystemId: number;
   userId: string | null;
-  clientId: string;
   sessionMode: SessionMode;
   status: SessionStatus;
   startedAt: Date;
@@ -53,12 +56,6 @@ export const ProjectSessionSchema = new EntitySchema<ProjectSessionRow>({
       type: 'varchar',
       length: 255,
       nullable: true,
-    },
-    clientId: {
-      name: 'client_id',
-      type: 'varchar',
-      length: 255,
-      nullable: false,
     },
     sessionMode: {
       name: 'session_mode',

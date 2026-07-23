@@ -12,13 +12,15 @@ import type {DataPortDefinitionRow} from './data-port-definition.schema.js';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import {type PortIoType, PORT_IO_TYPE} from '@arc/core';
 
-export interface DataPortGroupRow extends EntityBaseRow {
+/** Scalar columns only — used by overlay fetchers. */
+export interface DataPortGroupBase {
+  systemId: number;
   maxAllowedPortCount: number;
   portIoType: PortIoType;
-
-  // Foreign key relation
   moduleDefinitionSystemId: number;
+}
 
+export interface DataPortGroupRow extends EntityBaseRow, DataPortGroupBase {
   // Relations
   ports?: DataPortDefinitionRow[];
 

@@ -4,17 +4,24 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {IsOptional, IsString, IsInt, Min, MaxLength} from 'class-validator';
+import {Type} from 'class-transformer';
 
 /**
  * Request DTO for partially updating SPF module properties.
  * All fields are optional — only provided fields will be updated.
+ * class-validator decorators are required so ValidationPipe(whitelist:true)
+ * does not strip them from the request body.
  */
 export class PatchSpfModuleRequestDto {
   @ApiProperty({
-    description: 'Module alias. Max 255 characters.',
+    description: 'Module alias. Maximum 250 characters.',
     required: false,
-    maxLength: 255,
+    maxLength: 250,
   })
+  @IsOptional()
+  @IsString()
+  @MaxLength(250)
   alias?: string;
 
   @ApiProperty({
@@ -23,6 +30,9 @@ export class PatchSpfModuleRequestDto {
       'with default properties copied from the current container.',
     required: false,
   })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
   containerId?: number;
 
   @ApiProperty({
@@ -31,6 +41,10 @@ export class PatchSpfModuleRequestDto {
       'Validated against module definition limits.',
     required: false,
   })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
   maxInputPortsSupported?: number;
 
   @ApiProperty({
@@ -39,6 +53,10 @@ export class PatchSpfModuleRequestDto {
       'Validated against module definition limits.',
     required: false,
   })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
   maxOutputPortsSupported?: number;
 
   @ApiProperty({
@@ -47,5 +65,9 @@ export class PatchSpfModuleRequestDto {
       'Validated against module definition limits.',
     required: false,
   })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
   maxControlPortsSupported?: number;
 }

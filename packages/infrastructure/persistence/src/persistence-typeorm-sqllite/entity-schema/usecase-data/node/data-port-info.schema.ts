@@ -8,15 +8,17 @@ import {type PortIoType, PORT_IO_TYPE} from '@arc/core';
 import {EntitySchema} from 'typeorm';
 import type {NodeRow} from './node.schema.js';
 
-export interface DataPortRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface DataPortBase {
+  systemId: number;
   dataPortId: number;
   name?: string;
   portIoType: PortIoType;
   isStatic: boolean;
-
-  // Foreign key relation
   nodeSystemId: number;
+}
 
+export interface DataPortRow extends EntityBaseRow, DataPortBase {
   //type orm relation
   node?: NodeRow;
 }

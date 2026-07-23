@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1784528839947 implements MigrationInterface {
-  name = 'InitialCreate1784528839947';
+export class InitialCreate1785142459052 implements MigrationInterface {
+  name = 'InitialCreate1785142459052';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -181,7 +181,7 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `CREATE UNIQUE INDEX "uk_container_property_data" ON "container_property_data" ("container_system_id", "property_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "type" varchar(128) NOT NULL, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "container_type_system_id" integer, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_containers_container_id_file_system_id" ON "containers" ("container_id", "file_system_id") `,
@@ -289,7 +289,7 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `CREATE TABLE "tkv_values" ("tkv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("tkv_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(256) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE INDEX "ix_spf_modules_subgraph_file_system" ON "spf_modules" ("subgraph_system_id", "file_system_id") `,
@@ -430,7 +430,7 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `CREATE INDEX "idx_restore_points_file" ON "restore_points" ("file_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "client_id" varchar(255) NOT NULL, "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime)`,
+      `CREATE TABLE "project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE','READONLY','SIMULATION','CONNECTED','DISCONNECTED') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime)`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_project_sessions_file" ON "project_sessions" ("file_system_id") `,
@@ -821,10 +821,10 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `DROP INDEX "uq_containers_container_id_file_system_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_containers" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "type" varchar(128) NOT NULL, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_653656dc62acc1aad3344064cd4" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_containers" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "container_type_system_id" integer, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_653656dc62acc1aad3344064cd4" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_containers"("system_id", "created_at", "updated_at", "version", "type", "container_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "type", "container_id", "file_system_id" FROM "containers"`,
+      `INSERT INTO "temporary_containers"("system_id", "created_at", "updated_at", "version", "container_type_system_id", "container_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "container_type_system_id", "container_id", "file_system_id" FROM "containers"`,
     );
     await queryRunner.query(`DROP TABLE "containers"`);
     await queryRunner.query(
@@ -1052,7 +1052,7 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `DROP INDEX "uq_spf_modules_instance_id_file_system_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(256) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_9acec50339165b4a9a5e3a350fb" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1942b4a9c50698203278d65f819" FOREIGN KEY ("container_system_id") REFERENCES "containers" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_331cda97fea725c5926690e4e79" FOREIGN KEY ("definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_aebc03a526b6d7a79a06f23476f" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_093ca4e9af4aa8635301be8face" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_9acec50339165b4a9a5e3a350fb" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_1942b4a9c50698203278d65f819" FOREIGN KEY ("container_system_id") REFERENCES "containers" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_331cda97fea725c5926690e4e79" FOREIGN KEY ("definition_system_id") REFERENCES "spf_module_definitions" ("system_id") ON DELETE RESTRICT ON UPDATE NO ACTION, CONSTRAINT "FK_aebc03a526b6d7a79a06f23476f" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_093ca4e9af4aa8635301be8face" FOREIGN KEY ("system_id") REFERENCES "nodes" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_spf_modules"("system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id" FROM "spf_modules"`,
@@ -1307,8 +1307,8 @@ export class InitialCreate1784528839947 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
     await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
+    await queryRunner.query(`DROP INDEX "uniq_edit_actions_current_null_path"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_agg_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_table_active"`);
     await queryRunner.query(`DROP INDEX "idx_edit_actions_status_active"`);
@@ -1361,10 +1361,10 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `DROP INDEX "uq_project_sessions_one_active_per_file"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "client_id" varchar(255) NOT NULL, "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime, CONSTRAINT "FK_d62028536776bb550ec2985f58c" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE','READONLY','SIMULATION','CONNECTED','DISCONNECTED') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime, CONSTRAINT "FK_d62028536776bb550ec2985f58c" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_project_sessions"("session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at") SELECT "session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at" FROM "project_sessions"`,
+      `INSERT INTO "temporary_project_sessions"("session_id", "file_system_id", "user_id", "session_mode", "status", "started_at", "ended_at") SELECT "session_id", "file_system_id", "user_id", "session_mode", "status", "started_at", "ended_at" FROM "project_sessions"`,
     );
     await queryRunner.query(`DROP TABLE "project_sessions"`);
     await queryRunner.query(
@@ -1455,10 +1455,10 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `ALTER TABLE "project_sessions" RENAME TO "temporary_project_sessions"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "client_id" varchar(255) NOT NULL, "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime)`,
+      `CREATE TABLE "project_sessions" ("session_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "file_system_id" integer NOT NULL, "user_id" varchar(255), "session_mode" varchar CHECK( "session_mode" IN ('TUNING','DESIGNER','DISCOVERY_WIZARD','DIFF_MERGE','READONLY','SIMULATION','CONNECTED','DISCONNECTED') ) NOT NULL, "status" varchar CHECK( "status" IN ('ACTIVE','ENDED') ) NOT NULL DEFAULT ('ACTIVE'), "started_at" datetime NOT NULL DEFAULT (datetime('now')), "ended_at" datetime)`,
     );
     await queryRunner.query(
-      `INSERT INTO "project_sessions"("session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at") SELECT "session_id", "file_system_id", "user_id", "client_id", "session_mode", "status", "started_at", "ended_at" FROM "temporary_project_sessions"`,
+      `INSERT INTO "project_sessions"("session_id", "file_system_id", "user_id", "session_mode", "status", "started_at", "ended_at") SELECT "session_id", "file_system_id", "user_id", "session_mode", "status", "started_at", "ended_at" FROM "temporary_project_sessions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_project_sessions"`);
     await queryRunner.query(
@@ -1513,10 +1513,10 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
     await queryRunner.query(
@@ -1766,7 +1766,7 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `ALTER TABLE "spf_modules" RENAME TO "temporary_spf_modules"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(256) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "spf_modules" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "instance_id" integer NOT NULL, "alias" varchar(250) NOT NULL, "subgraph_system_id" integer NOT NULL, "container_system_id" integer NOT NULL, "definition_system_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `INSERT INTO "spf_modules"("system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "instance_id", "alias", "subgraph_system_id", "container_system_id", "definition_system_id", "file_system_id" FROM "temporary_spf_modules"`,
@@ -2001,10 +2001,10 @@ export class InitialCreate1784528839947 implements MigrationInterface {
       `ALTER TABLE "containers" RENAME TO "temporary_containers"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "type" varchar(128) NOT NULL, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "containers" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "container_type_system_id" integer, "container_id" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "containers"("system_id", "created_at", "updated_at", "version", "type", "container_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "type", "container_id", "file_system_id" FROM "temporary_containers"`,
+      `INSERT INTO "containers"("system_id", "created_at", "updated_at", "version", "container_type_system_id", "container_id", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "container_type_system_id", "container_id", "file_system_id" FROM "temporary_containers"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_containers"`);
     await queryRunner.query(

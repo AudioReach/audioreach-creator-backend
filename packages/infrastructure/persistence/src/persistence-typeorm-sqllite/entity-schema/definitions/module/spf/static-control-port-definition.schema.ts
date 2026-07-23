@@ -11,14 +11,18 @@ import {EntitySchema} from 'typeorm';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import type {StaticIntentDefinitionRow} from './static-intent-definition.schema.js';
 
-export interface StaticControlPortDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — used by overlay fetchers. */
+export interface StaticControlPortDefinitionBase {
+  systemId: number;
   portId: number;
   portName: string;
+  moduleDefinitionSystemId: number;
+}
+
+export interface StaticControlPortDefinitionRow
+  extends EntityBaseRow, StaticControlPortDefinitionBase {
   //relation
   staticIntents: StaticIntentDefinitionRow[];
-
-  // Foreign key relation
-  moduleDefinitionSystemId: number;
 
   //type orm relation
   moduleDefinition: SpfModuleDefinitionRow;

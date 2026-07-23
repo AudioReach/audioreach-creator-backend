@@ -10,10 +10,9 @@ export class UploadFileCommand extends BaseCommand {
   static override readonly requiresSession = false;
 
   constructor(
-    clientId: string,
     public readonly acdb: PathRef,
     public readonly awsp: PathRef,
   ) {
-    super(clientId);
+    super();
   }
 }

@@ -19,11 +19,21 @@ const SESSION_ID = 1;
 const GROUP_ID = 'grp-uuid-1';
 
 function makeQueryRunner(selectImpl?: (sql: string) => unknown[]): QueryRunner {
+  const queryFn = jest.fn(async (sql: string, _params?: unknown[]) => {
+    if (selectImpl && sql.startsWith('SELECT')) return selectImpl(sql);
+    return [];
+  });
+
   return {
-    query: jest.fn(async (sql: string) => {
-      if (selectImpl && sql.startsWith('SELECT')) return selectImpl(sql);
-      return [];
-    }),
+    query: queryFn,
+    createQueryBuilder: jest.fn((_entity: string, _alias: string) => ({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn(async () => {
+        const results = selectImpl ? selectImpl('SELECT version') : [];
+        return (results as {version: number}[])[0] ?? undefined;
+      }),
+    })),
     manager: {query: jest.fn()},
   } as unknown as QueryRunner;
 }

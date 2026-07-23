@@ -5,3 +5,4 @@ export type {
 } from './unit-of-work-factory.js';
 export type {BulkImportRepository} from './repositories/bulk-import/bulk-import.repository.js';
 export type {ProjectRepository} from './repositories/project/project.repository.js';
+export type {EditOptions} from './edit-options.js';

@@ -11,10 +11,7 @@ export class EndSessionCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes: readonly SessionMode[] = [];
 
-  constructor(
-    public readonly projectId: string,
-    clientId: string,
-  ) {
-    super(clientId);
+  constructor(public readonly projectId: string) {
+    super();
   }
 }

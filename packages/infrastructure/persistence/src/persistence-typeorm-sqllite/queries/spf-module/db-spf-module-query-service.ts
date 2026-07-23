@@ -230,9 +230,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
 
         const delta =
           moduleDraft?.operation === 'UPDATE'
-            ? (JSON.parse(
-                moduleDraft.newValue as string,
-              ) as Partial<SpfModuleRow>)
+            ? (moduleDraft.newValue as Partial<SpfModuleRow>)
             : {};
 
         const result: SpfModuleReadModel = {

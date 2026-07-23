@@ -80,7 +80,9 @@ export const UseCaseQueryMappers = {
       container: {
         systemId: spfModule.container!.systemId,
         containerId: spfModule.container!.containerId,
-        type: spfModule.container!.type,
+        containerTypeSystemId:
+          spfModule.container!.containerTypeSystemId ?? null,
+        containerTypeName: null, // resolved separately when needed; usecase mapper does not join container_types
       },
       subgraph: {
         systemId: spfModule.subgraph!.systemId,

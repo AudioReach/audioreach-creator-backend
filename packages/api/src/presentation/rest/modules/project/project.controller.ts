@@ -42,6 +42,8 @@ import {
   DownloadFileQuery,
   ProjectFilePropertiesQuery,
   Result,
+  StartSessionCommand,
+  EndSessionCommand,
 } from '@arc/core';
 import type {
   PathRef,
@@ -49,6 +51,9 @@ import type {
   DownloadFileResult,
   ProjectFilePropertiesResult,
   UploadFileResult,
+  SessionResult,
+  ActiveSession,
+  SessionMode as CoreSessionMode,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -83,6 +88,7 @@ import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
 import {SessionGuard} from '../../../../guards/session-guard.js';
+import {ArcSession} from '../../../../guards/arc-session.decorator.js';
 
 @Controller('arc-api/v1/projects')
 //@UseGuards(AuthGuard('jwt'))
@@ -224,10 +230,6 @@ export class ProjectController {
       timestamp: new Date(),
       tag: 'file-upload',
     });
-    const clientId = '';
-    //TODO: gather from jwt
-    //TODO: client id null throw exception
-
     const acdb = files?.acdbFile?.[0];
     const awsp = files?.workspaceFile?.[0];
 
@@ -273,7 +275,7 @@ export class ProjectController {
 
     // Dispatch command
     const result = await this.commandBus.execute<UploadFileResult>(
-      new UploadFileCommand(clientId, acdbRef, awspRef),
+      new UploadFileCommand(acdbRef, awspRef),
     );
 
     // Cleanup temp files after successful processing
@@ -1278,15 +1280,22 @@ export class ProjectController {
     },
   })
   async startSession(
-    @Param('projectId') _projectId: string,
-    @Body() _startSessionRequest: StartSessionRequestDto,
+    @Param('projectId') projectId: string,
+    @Body() dto: StartSessionRequestDto,
   ): Promise<ApiResult<SessionResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('startSession is not implemented yet');
+    const result = await this.commandBus.execute<Result<SessionResult>>(
+      new StartSessionCommand(projectId, dto.mode as CoreSessionMode),
+    );
+    return toApiResult(result, s => ({
+      projectId: s.projectId,
+      sessionMode: s.sessionMode as unknown as SessionMode,
+      summary: s.summary,
+    }));
   }
 
   @Post('/:projectId/end-session')
   @UseGuards(SessionGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiOperation({
     summary: 'End the current session',
@@ -1349,8 +1358,16 @@ export class ProjectController {
   })
   async endSession(
     @Param('projectId') _projectId: string,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<SessionResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('endSession is not implemented yet');
+    const result = await this.commandBus.execute<Result<SessionResult>>(
+      new EndSessionCommand(session.projectId),
+      session,
+    );
+    return toApiResult(result, s => ({
+      projectId: s.projectId,
+      sessionMode: s.sessionMode as unknown as SessionMode,
+      summary: s.summary,
+    }));
   }
 }

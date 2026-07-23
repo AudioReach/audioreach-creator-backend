@@ -7,23 +7,29 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import type {NodeRow} from './node.schema.js';
 import {EntitySchema} from 'typeorm';
 
-export interface ControlPortRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ControlPortBase {
+  systemId: number;
   portId: number;
   name?: string;
   isStatic: boolean;
-
-  // Foreign key relation
   nodeSystemId: number;
+}
 
+export interface ControlPortRow extends EntityBaseRow, ControlPortBase {
   //type orm relation
   node: NodeRow;
   allocatedIntents?: IntentRow[];
 }
 
-export interface IntentRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface IntentBase {
+  systemId: number;
   intentId: number;
   controlPortSystemId: number;
+}
 
+export interface IntentRow extends EntityBaseRow, IntentBase {
   controlPort?: ControlPortRow;
 }
 

@@ -93,7 +93,6 @@ export class TypeOrmSessionRepository implements ISessionRepository {
 
   async createSession(row: {
     fileSystemId: number;
-    clientId: string;
     sessionMode: SessionMode;
     userId: string | null;
   }): Promise<number> {
@@ -103,7 +102,6 @@ export class TypeOrmSessionRepository implements ISessionRepository {
       .into(ProjectSessionSchema)
       .values({
         fileSystemId: row.fileSystemId,
-        clientId: row.clientId,
         sessionMode: row.sessionMode,
         userId: row.userId,
         status: SESSION_STATUS.Active,

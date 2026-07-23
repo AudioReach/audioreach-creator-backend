@@ -36,6 +36,7 @@ export const ENTITY_NAMES = {
   SpfModuleParameterDefinition: 'SpfModuleParameterDefinition',
   StaticControlPortDefinition: 'StaticControlPortDefinition',
   StaticIntentDefinition: 'StaticIntentDefinition',
+  ModuleDefinitionContainerTypeLink: 'ModuleDefinitionContainerTypeLink',
   SubgraphPropertyDefinition: 'SubgraphProperty',
   VcpmModuleDefinition: 'VcpmModuleDefinition',
   VcpmModuleParameterDefinition: 'VcpmModuleParameterDefinition',

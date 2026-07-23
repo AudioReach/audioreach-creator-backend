@@ -59,7 +59,6 @@ export interface ISessionRepository {
    */
   createSession(row: {
     fileSystemId: number;
-    clientId: string;
     sessionMode: SessionMode;
     userId: string | null;
   }): Promise<number>;

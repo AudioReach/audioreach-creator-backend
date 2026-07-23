@@ -12,6 +12,11 @@ import type {
   ValidationPreferencesRepository,
   ValidationQueryRepository,
   WriteContext,
+  ModuleRepository,
+  ContainerRepository,
+  ModuleDefinitionRepository,
+  DataLinkRepository,
+  ControlLinkRepository,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
 import {
@@ -20,6 +25,13 @@ import {
   TypeOrmValidationPreferencesRepository,
   TypeOrmValidationQueryRepository,
   TypeOrmSessionRepository,
+  TypeOrmModuleRepository,
+  TypeOrmContainerRepository,
+  TypeOrmModuleDefinitionRepository,
+  TypeOrmDataLinkRepository,
+  TypeOrmControlLinkRepository,
+  PendingChangeWriter,
+  EditActionsQueryService,
 } from '@arc/persistence';
 import type {PendingChangeCache} from '@arc/persistence';
 
@@ -109,6 +121,44 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   getSessionRepository(): ISessionRepository {
     return new TypeOrmSessionRepository(this.queryRunner.manager);
+  }
+
+  // ── Module write path (LLD2) ──────────────────────────────────────────────
+
+  private getPendingChangeWriter(): PendingChangeWriter {
+    const queryService = new EditActionsQueryService(this.queryRunner.manager);
+    return new PendingChangeWriter(queryService, this.pendingChangeCache);
+  }
+
+  getModuleRepository(): ModuleRepository {
+    return new TypeOrmModuleRepository(
+      this.getPendingChangeWriter(),
+      this.queryRunner.manager,
+      this,
+    );
+  }
+
+  getContainerRepository(): ContainerRepository {
+    return new TypeOrmContainerRepository(
+      this.getPendingChangeWriter(),
+      this.queryRunner.manager,
+      this,
+    );
+  }
+
+  getModuleDefinitionRepository(): ModuleDefinitionRepository {
+    return new TypeOrmModuleDefinitionRepository(
+      this.queryRunner.manager,
+      this,
+    );
+  }
+
+  getDataLinkRepository(): DataLinkRepository {
+    return new TypeOrmDataLinkRepository(this.queryRunner.manager, this);
+  }
+
+  getControlLinkRepository(): ControlLinkRepository {
+    return new TypeOrmControlLinkRepository(this.queryRunner.manager, this);
   }
 
   // ── Existing repositories ─────────────────────────────────────────────────

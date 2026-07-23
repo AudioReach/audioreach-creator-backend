@@ -18,15 +18,23 @@ import type {SpfModuleRow} from '../../../usecase-data/module/spf-module.schema.
 import type {ModuleDefinitionContainerTypeLinkRow} from './module-definition-container-type-link.schema.js';
 import type {ProcessorDefinitionRow} from '../../common/processor-definition.schema.js';
 
-export interface SpfModuleDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — used by overlay fetchers. */
+export interface SpfModuleDefinitionBase {
+  systemId: number;
   moduleDefinitionId: number;
   name: string;
   displayName?: string;
+  stackSize: number;
+  fileSystemId: number;
+  isLoadedAtBootup: boolean;
+  processorSystemId: number;
+}
+
+export interface SpfModuleDefinitionRow
+  extends EntityBaseRow, SpfModuleDefinitionBase {
   description?: string;
   groupName?: string;
   modSearchKeys?: string;
-  stackSize: number;
-  fileSystemId: number;
   metadata?: string;
   isLoadedAtBootup: boolean;
   processorSystemId: number;

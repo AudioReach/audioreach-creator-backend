@@ -11,7 +11,7 @@ import {
 } from '@arc/core';
 import type {ChangeOperation, PendingChangeStatus} from '@arc/core';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
-import type {DiffEntry, FieldPathReducer} from './field-path-reducer.js';
+import type {DiffEntry} from './field-path-reducer.js';
 import {FieldPathReducer as FieldPathReducerImpl} from './field-path-reducer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
@@ -53,7 +53,7 @@ export interface OverlayMerge {
 // ── Implementation ────────────────────────────────────────────────────────────
 
 export class OverlayMergeImpl implements OverlayMerge {
-  constructor(private readonly fieldPathReducer: FieldPathReducer) {}
+  private readonly fieldPathReducer = new FieldPathReducerImpl();
 
   applyToSingle<T extends {systemId: number}>(
     baseRow: T | null,
@@ -189,7 +189,7 @@ export interface EditActionForOverlay {
   newValue: unknown;
 }
 
-const _compat = new OverlayMergeImpl(new FieldPathReducerImpl());
+const _compat = new OverlayMergeImpl();
 
 // eslint-disable-next-line sonarjs/deprecation -- this IS the deprecated compat shim; EditActionForOverlay is used internally here
 function toEditActionRow(ea: EditActionForOverlay): EditActionRow {

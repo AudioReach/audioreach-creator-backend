@@ -162,7 +162,7 @@ export class ContainerBuilder {
     const container = new Container(
       0, // systemId - Placeholder - will be assigned before insertion
       acdbContainer.containerId, // Use the containerId from the property
-      '', // TODO: insert from property later
+      0, // containerTypeSystemId - TODO: resolve from CONTAINER_PROP_ID_CAPABILITY_LIST → container_types.value lookup
       0, // fileSystemId - Placeholder - will be assigned before insertion
     );
 

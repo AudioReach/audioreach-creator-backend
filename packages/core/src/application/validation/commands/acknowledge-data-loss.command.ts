@@ -6,10 +6,7 @@
 import {BaseCommand} from '../../shared/base-command.js';
 
 export class AcknowledgeDataLossCommand extends BaseCommand {
-  constructor(
-    public readonly fileSystemId: number,
-    clientId: string,
-  ) {
-    super(clientId);
+  constructor(public readonly fileSystemId: number) {
+    super();
   }
 }

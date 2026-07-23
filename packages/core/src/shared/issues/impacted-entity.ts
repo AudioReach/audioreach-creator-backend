@@ -31,6 +31,8 @@ export const ISSUE_ENTITY_TYPE = {
   TagDefinition: 'TagDefinition',
   ProcessorDefinition: 'ProcessorDefinition',
   ContainerType: 'ContainerType',
+  DataPort: 'DataPort',
+  ControlPort: 'ControlPort',
   ModuleManagerData: 'ModuleManagerData',
   SubgraphPropertyDefinition: 'SubgraphPropertyDefinition',
   ContainerPropertyDefinition: 'ContainerPropertyDefinition',

@@ -4854,35 +4854,14 @@
               }
             }
           },
-          "207": {
-            "description": "Partial success — some fields were updated but others failed (see issues array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/SpfModuleDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
           "400": {
-            "description": "No fields provided or invalid request data"
+            "description": "No fields provided"
           },
           "404": {
             "description": "Project or SPF module not found"
           },
           "422": {
-            "description": "Business rule violation (e.g., max ports exceeds module definition limit)"
+            "description": "Business rule violation (e.g., max ports exceeds definition limit, container type incompatible)"
           }
         },
         "summary": "Partially update SPF module properties",
@@ -7830,6 +7809,7 @@
       "IssueEntityType": {
         "type": "string",
         "enum": [
+          "Project",
           "SpfModule",
           "DataLink",
           "ControlLink",
@@ -7845,6 +7825,8 @@
           "TagDefinition",
           "ProcessorDefinition",
           "ContainerType",
+          "DataPort",
+          "ControlPort",
           "ModuleManagerData",
           "SubgraphPropertyDefinition",
           "ContainerPropertyDefinition",
@@ -12409,8 +12391,8 @@
         "properties": {
           "alias": {
             "type": "string",
-            "description": "Module alias. Max 255 characters.",
-            "maxLength": 255
+            "description": "Module alias. Maximum 250 characters.",
+            "maxLength": 250
           },
           "containerId": {
             "type": "number",

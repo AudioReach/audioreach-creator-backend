@@ -10,14 +10,17 @@ import {
 import {EntitySchema} from 'typeorm';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 
-export interface DynamicIntentDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — used by overlay fetchers. */
+export interface DynamicIntentDefinitionBase {
+  systemId: number;
   intentId: number;
   name: string;
   maxPort: number;
-
-  // Foreign key relation
   moduleDefinitionSystemId: number;
+}
 
+export interface DynamicIntentDefinitionRow
+  extends EntityBaseRow, DynamicIntentDefinitionBase {
   //type orm relation
   moduleDefinition: SpfModuleDefinitionRow;
 }
