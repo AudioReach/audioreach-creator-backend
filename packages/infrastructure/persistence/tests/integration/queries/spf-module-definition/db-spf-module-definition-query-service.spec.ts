@@ -655,7 +655,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
   });
 
   describe('getCustomModuleMetadata', () => {
-    it('returns ENTITY_NOT_FOUND when no module_manager_data row exists for the module', async () => {
+    it('returns Result.ok(null) when no module_manager_data row exists for the module', async () => {
       const {fileSystemId} = await createFileDependency();
       const moduleSystemId = await createModuleDefinition(fileSystemId, 0);
 
@@ -664,7 +664,9 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
         fileSystemId,
       );
 
-      expect(result.kind).toBe(RESULT_KIND.Fail);
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data).toBeNull();
     });
 
     it('returns the module_manager_data row mapped to CustomModuleMetadataReadModel', async () => {
@@ -679,6 +681,8 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data).not.toBeNull();
+      if (result.data === null) return;
       expect(result.data.type.name).toBe('Generic');
       expect(result.data.type.value).toBe('2');
       expect(result.data.interface.type.name).toBe('Capi');
@@ -701,7 +705,9 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
         fileSystemId,
       );
 
-      expect(result.kind).toBe(RESULT_KIND.Fail);
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data).toBeNull();
     });
   });
 

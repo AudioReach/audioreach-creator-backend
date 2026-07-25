@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-export const BUILD_TYPE = {
+export const MODULE_BUILT_TYPE = {
   Static: 'STATIC',
   Dynamic: 'DYNAMIC',
   Stub: 'STUB',
 } as const;
 
-export type BuildType = (typeof BUILD_TYPE)[keyof typeof BUILD_TYPE];
+export type ModuleBuildType =
+  (typeof MODULE_BUILT_TYPE)[keyof typeof MODULE_BUILT_TYPE];
