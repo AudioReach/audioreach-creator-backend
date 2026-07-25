@@ -153,7 +153,26 @@ describe('GetSpfCustomModuleMetadataHandler', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('throws ResourceNotFoundException when no module_manager_data row exists for a custom module', async () => {
+  it('returns null when no module_manager_data row exists for a custom module', async () => {
+    const queryServices = createQueryServices({
+      spfModuleDefinitionQueryService: {
+        getSpfModuleDefinitionSummary: jest
+          .fn()
+          .mockResolvedValue(
+            Result.ok(createReadModel({systemId: 123, isCustomModule: true})),
+          ),
+        getCustomModuleMetadata: jest.fn().mockResolvedValue(Result.ok(null)),
+      } as any,
+    });
+    const handler = new GetSpfCustomModuleMetadataHandler(queryServices);
+    const query = new GetSpfCustomModuleMetadataQuery(7, 123, 'client-1');
+
+    const result = await handler.handle(query);
+
+    expect(result).toBeNull();
+  });
+
+  it('throws when the metadata lookup genuinely fails', async () => {
     const queryServices = createQueryServices({
       spfModuleDefinitionQueryService: {
         getSpfModuleDefinitionSummary: jest
@@ -163,9 +182,8 @@ describe('GetSpfCustomModuleMetadataHandler', () => {
           ),
         getCustomModuleMetadata: jest.fn().mockResolvedValue(
           Result.fail({
-            code: 'ERR_4004',
-            message:
-              'No custom module metadata found for module definition systemId=123',
+            code: 'ERR_9001',
+            message: 'DB connection lost',
             severity: 'ERROR' as any,
           }),
         ),
@@ -174,8 +192,6 @@ describe('GetSpfCustomModuleMetadataHandler', () => {
     const handler = new GetSpfCustomModuleMetadataHandler(queryServices);
     const query = new GetSpfCustomModuleMetadataQuery(7, 123, 'client-1');
 
-    await expect(handler.handle(query)).rejects.toBeInstanceOf(
-      ResourceNotFoundException,
-    );
+    await expect(handler.handle(query)).rejects.toThrow('DB connection lost');
   });
 });

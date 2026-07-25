@@ -4,9 +4,9 @@
  */
 
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
-import type {ParameterDefinitionReadModel} from './parameter-definition/parameter-definition-read-model.js';
+import type {ParameterDefinitionReadModel} from '../shared/parameter-definition-read-model.js';
 import type {MajorModuleType} from '../../../../../domain/entities/definitions/common/types/major-module-type.js';
-import type {BuildType} from '../../../../../domain/entities/definitions/common/types/build-type.js';
+import type {ModuleBuildType} from '../../../../../domain/entities/definitions/common/types/build-type.js';
 import type {MdfModuleType} from '../../../../../domain/entities/definitions/common/types/mdf-module-type.js';
 import type {BaseModuleDefinitionSummaryReadModel} from '../shared/module-definition-summary-read-model.js';
 
@@ -88,7 +88,7 @@ export interface ContainerTypeSummaryReadModel {
 
 export interface ModuleTypeInfoReadModel {
   readonly majorModuleType: MajorModuleType;
-  readonly buildType: BuildType;
+  readonly moduleBuildType: ModuleBuildType;
   readonly islandFriendly?: boolean;
 }
 

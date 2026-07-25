@@ -7,7 +7,7 @@ import type {
   SpfModuleDefinitionReadModel,
   SpfModuleDefinitionSummaryReadModel,
 } from './spf-module-definition-read-model.js';
-import type {ParameterDefinitionReadModel} from './parameter-definition/parameter-definition-read-model.js';
+import type {ParameterDefinitionReadModel} from '../shared/parameter-definition-read-model.js';
 import type {CustomModuleMetadataReadModel} from './custom-module-metadata-read-model.js';
 import type {ConfigurationIncludes} from '../configuration-includes.js';
 import type {Result} from '../../../../shared/result/result.js';
@@ -90,12 +90,15 @@ export interface SpfModuleDefinitionQueryService {
   /**
    * Returns FR-3's custom module metadata for one module definition,
    * sourced from module_manager_data (joined by moduleDefinitionSystemId).
-   * Result.fail with ENTITY_NOT_FOUND if no module_manager_data row exists.
+   * A missing module_manager_data row is a valid, expected state (not every
+   * custom module necessarily has metadata populated) — resolves to
+   * Result.ok(null), not Result.fail. Result.fail is reserved for genuine
+   * DB/internal errors.
    */
   getCustomModuleMetadata(
     moduleDefinitionSystemId: number,
     fileSystemId: number,
-  ): Promise<Result<CustomModuleMetadataReadModel>>;
+  ): Promise<Result<CustomModuleMetadataReadModel | null>>;
 
   /**
    * Batched variant of getCustomModuleMetadata for a list of module

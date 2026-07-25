@@ -15,7 +15,9 @@ import type {Result} from '../../../shared/result/result.js';
  * Step 1: Resolve projectId → fileSystemId via ProjectQueryService
  * Step 2: Load all matching module definition summaries, passing filters
  *         through unchanged — no per-row enrichment step exists for driver
- *         modules (unlike SPF's includeCustomData).
+ *         modules (unlike SPF's includeCustomData). The Result (Ok/Partial/
+ *         Fail) from the query service is forwarded unchanged; AllExceptionsFilter
+ *         handles any Fail that reaches toApiResult.
  */
 export class GetAllDriverModuleDefinitionsHandler implements QueryHandler<
   GetAllDriverModuleDefinitionsQuery,

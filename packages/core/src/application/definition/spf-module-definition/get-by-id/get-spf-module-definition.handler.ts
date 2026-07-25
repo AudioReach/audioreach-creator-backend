@@ -53,10 +53,16 @@ export class GetSpfModuleDefinitionHandler implements QueryHandler<
         fileSystemId,
       );
 
+    if (metaResult.kind === RESULT_KIND.Fail) {
+      throw new Error(
+        metaResult.issues[0]?.message ??
+          `Failed to load custom module metadata for module definition ${query.moduleSystemId}`,
+      );
+    }
+
     return {
       ...row,
-      customModuleData:
-        metaResult.kind === RESULT_KIND.Fail ? null : metaResult.data,
+      customModuleData: metaResult.data,
     };
   }
 }

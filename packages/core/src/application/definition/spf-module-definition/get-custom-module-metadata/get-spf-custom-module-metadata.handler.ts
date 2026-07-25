@@ -20,17 +20,19 @@ import {RESULT_KIND} from '../../../shared/result/result.js';
  * 1. Resolve fileSystemId (404 if project missing).
  * 2. Look up the module definition summary — 404 if not found,
  *    400 (InvalidOperationException) if isCustomModule is false.
- * 3. Load custom module metadata — 404 if no module_manager_data row exists.
+ * 3. Load custom module metadata — returns null if no module_manager_data
+ *    row exists (a valid, expected state, not an error); the controller
+ *    decides how to surface that.
  */
 export class GetSpfCustomModuleMetadataHandler implements QueryHandler<
   GetSpfCustomModuleMetadataQuery,
-  Promise<CustomModuleMetadataReadModel>
+  Promise<CustomModuleMetadataReadModel | null>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetSpfCustomModuleMetadataQuery,
-  ): Promise<CustomModuleMetadataReadModel> {
+  ): Promise<CustomModuleMetadataReadModel | null> {
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -62,9 +64,9 @@ export class GetSpfCustomModuleMetadataHandler implements QueryHandler<
       );
 
     if (metaResult.kind === RESULT_KIND.Fail) {
-      throw new ResourceNotFoundException(
+      throw new Error(
         metaResult.issues[0]?.message ??
-          `No custom module metadata found for module definition ${query.moduleSystemId}`,
+          `Failed to load custom module metadata for module definition ${query.moduleSystemId}`,
       );
     }
 

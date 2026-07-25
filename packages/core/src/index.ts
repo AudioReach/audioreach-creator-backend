@@ -77,7 +77,7 @@ export * from './application/ports/persistence/query-services/spf-module/tuning/
 export * from './application/ports/persistence/query-services/spf-module/tuning/spf-tuning-config-service.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/spf-module-definition-query-service.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/spf-module-definition-read-model.js';
-export * from './application/ports/persistence/query-services/spf-module-definition/parameter-definition/parameter-definition-read-model.js';
+export * from './application/ports/persistence/query-services/shared/parameter-definition-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
 export * from './application/ports/persistence/query-services/shared/module-definition-summary-read-model.js';
 export * from './application/ports/persistence/query-services/driver-module-definition/driver-module-definition-query-service.js';
