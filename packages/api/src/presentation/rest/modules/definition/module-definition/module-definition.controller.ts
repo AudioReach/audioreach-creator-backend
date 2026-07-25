@@ -381,9 +381,12 @@ export class ModuleDefinitionController {
     );
 
     const result =
-      await this.queryBus.execute<CustomModuleMetadataReadModel>(query);
+      await this.queryBus.execute<CustomModuleMetadataReadModel | null>(query);
 
-    return {data: this.mapToCustomModuleMetadataDto(result)};
+    return {
+      data:
+        result === null ? undefined : this.mapToCustomModuleMetadataDto(result),
+    };
   }
 
   @Put(

@@ -24,6 +24,7 @@ import type {
 } from '@arc/core';
 import {
   Result,
+  RESULT_KIND,
   ERROR_CODES,
   PORT_IO_TYPE,
   CONFIGURATION_INCLUDES,
@@ -119,8 +120,11 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         {defSystemId},
       );
 
-      const summaries = await this.loadSummaryReadModels(qb, fileSystemId);
-      const summary = summaries.find(s => s.systemId === defSystemId);
+      const result = await this.loadSummaryReadModels(qb, fileSystemId);
+      if (result.kind === RESULT_KIND.Fail)
+        return Result.fail(...result.issues);
+
+      const summary = result.data.find(s => s.systemId === defSystemId);
 
       if (!summary) {
         return Result.fail({
@@ -255,8 +259,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         );
       }
 
-      const data = await this.loadSummaryReadModels(qb, fileSystemId);
-      return Result.ok(data);
+      return await this.loadSummaryReadModels(qb, fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -283,8 +286,11 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         {moduleSystemId},
       );
 
-      const data = await this.loadSummaryReadModels(qb, fileSystemId);
-      const match = data.find(d => d.systemId === moduleSystemId);
+      const result = await this.loadSummaryReadModels(qb, fileSystemId);
+      if (result.kind === RESULT_KIND.Fail)
+        return Result.fail(...result.issues);
+
+      const match = result.data.find(d => d.systemId === moduleSystemId);
       if (!match) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
@@ -309,11 +315,13 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   /**
    * Returns FR-3's custom module metadata for one module definition,
    * sourced from module_manager_data (joined by moduleDefinitionSystemId).
+   * A missing row is a valid, expected state — resolves to Result.ok(null),
+   * not Result.fail (reserved for genuine DB/internal errors).
    */
   async getCustomModuleMetadata(
     moduleDefinitionSystemId: number,
     fileSystemId: number,
-  ): Promise<Result<CustomModuleMetadataReadModel>> {
+  ): Promise<Result<CustomModuleMetadataReadModel | null>> {
     try {
       const row = (await this.dataSource
         .getRepository(ENTITY_NAMES.ModuleManagerData)
@@ -325,11 +333,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         .getOne()) as ModuleManagerDataRow | null;
 
       if (!row) {
-        return Result.fail({
-          code: ERROR_CODES.ENTITY_NOT_FOUND,
-          message: `No custom module metadata found for module definition systemId=${moduleDefinitionSystemId}`,
-          severity: IssueSeverity.Error,
-        });
+        return Result.ok(null);
       }
 
       return Result.ok(this.toCustomModuleMetadataReadModel(row));
@@ -424,16 +428,19 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
    * parameter resolution across all matched rows — see
    * loadOverlaidDefinitionRows / loadParameterDefinitionsForModules —
    * instead of one getEditActionsByAggregateId + one parameter query per
-   * row (O(1) queries total, not O(N)).
+   * row (O(1) queries total, not O(N)). A row whose overlay resolves to a
+   * session DELETE is excluded and reported as a per-row ENTITY_NOT_FOUND
+   * issue via Result.partial, rather than silently falling back to the
+   * stale base row — mirrors DbDriverModuleDefinitionQueryService.
    */
   private async loadSummaryReadModels(
     qb: ReturnType<
       DbSpfModuleDefinitionQueryService['buildSummaryQueryBuilder']
     >,
     fileSystemId: number,
-  ): Promise<SpfModuleDefinitionSummaryReadModel[]> {
+  ): Promise<Result<SpfModuleDefinitionSummaryReadModel[]>> {
     const rows = (await qb.getMany()) as SpfModuleDefinitionRow[];
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return Result.ok([]);
 
     const moduleSystemIds = rows.map(r => r.systemId);
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
@@ -459,8 +466,16 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         })(),
       ]);
 
-    return rows.map(row => {
-      const overlaidRow = overlaidRows.get(row.systemId) ?? row;
+    const data: SpfModuleDefinitionSummaryReadModel[] = [];
+    const missingSystemIds: number[] = [];
+
+    for (const row of rows) {
+      const overlaidRow = overlaidRows.get(row.systemId);
+      if (overlaidRow === undefined) {
+        missingSystemIds.push(row.systemId);
+        continue;
+      }
+
       const parameterDefinitions = (
         parametersByModuleId.get(row.systemId) ?? []
       ).map(p => this.toParameterSummaryReadModel(p));
@@ -472,7 +487,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         name: overlaidRow.processor?.name ?? '',
       };
 
-      return {
+      data.push({
         systemId: overlaidRow.systemId,
         moduleId: overlaidRow.moduleDefinitionId,
         name: overlaidRow.name ?? '',
@@ -489,8 +504,21 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         moduleInfo: this.mapModuleInfoSummary(overlaidRow),
         isLoadedAtBootup: overlaidRow.isLoadedAtBootup,
         isCustomModule: customModuleSystemIds.has(row.systemId),
-      };
-    });
+      });
+    }
+
+    if (missingSystemIds.length > 0) {
+      return Result.partial(
+        data,
+        missingSystemIds.map(id => ({
+          code: ERROR_CODES.ENTITY_NOT_FOUND,
+          message: `SpfModuleDefinition not found for systemId=${id}`,
+          severity: IssueSeverity.Error,
+        })),
+      );
+    }
+
+    return Result.ok(data);
   }
 
   /**
@@ -509,6 +537,10 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
    * count for O(N) with no wasted rows — the right call when N is small
    * (get-by-id, small lists); revisit if list sizes grow large enough that
    * N queries becomes the bottleneck instead.
+   *
+   * A row whose root overlay resolves to a session DELETE is omitted from
+   * the returned map (not fallen back to the stale base row) — callers
+   * detect this via map.has(systemId) and report it as missing.
    */
   private async loadOverlaidDefinitionRows(
     baseRows: SpfModuleDefinitionRow[],
@@ -528,9 +560,16 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
 
     for (const [index, baseRow] of baseRows.entries()) {
       const actions = actionsByRow[index];
+      const overlaidDef = applyTableOverlay(
+        baseRow,
+        actions,
+        ENTITY_NAMES.SpfModuleDefinition,
+      );
+      if (overlaidDef === null) continue;
+
       map.set(
         baseRow.systemId,
-        this.overlayModuleDefinitionTree(baseRow, actions),
+        this.overlayModuleDefinitionTree(overlaidDef, actions),
       );
     }
 

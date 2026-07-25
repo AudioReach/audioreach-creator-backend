@@ -10,7 +10,7 @@ import type {
   BaseModuleDefinitionSummaryReadModel,
   ParameterDefinitionSummaryReadModel,
 } from '@arc/core';
-import {Result, ERROR_CODES, IssueSeverity} from '@arc/core';
+import {Result, RESULT_KIND, ERROR_CODES, IssueSeverity} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {applyToCollection} from '../edit-session/overlay-merge.js';
@@ -67,8 +67,7 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
         );
       }
 
-      const data = await this.loadSummaryReadModels(qb, fileSystemId);
-      return Result.ok(data);
+      return await this.loadSummaryReadModels(qb, fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -91,8 +90,11 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
         {moduleSystemId},
       );
 
-      const data = await this.loadSummaryReadModels(qb, fileSystemId);
-      const match = data.find(d => d.systemId === moduleSystemId);
+      const result = await this.loadSummaryReadModels(qb, fileSystemId);
+      if (result.kind === RESULT_KIND.Fail)
+        return Result.fail(...result.issues);
+
+      const match = result.data.find(d => d.systemId === moduleSystemId);
       if (!match) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
@@ -124,20 +126,31 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
       .leftJoinAndSelect('def.parameters', 'param');
   }
 
+  /**
+   * Runs the given query, overlays each matched row, and maps to summary
+   * read models. A row whose overlay resolves to a session DELETE
+   * (overlayDriverModuleDefinitionRow returns null) is excluded from the
+   * result and reported as a per-row ENTITY_NOT_FOUND issue via
+   * Result.partial — mirrors DbKeyValueDefQueryService.
+   * getKeyValueDefinitionForGivenValues's missing-id tracking, rather than
+   * silently falling back to the stale base row.
+   */
   private async loadSummaryReadModels(
     qb: ReturnType<
       DbDriverModuleDefinitionQueryService['buildBaseQueryBuilder']
     >,
     fileSystemId: number,
-  ): Promise<BaseModuleDefinitionSummaryReadModel[]> {
+  ): Promise<Result<BaseModuleDefinitionSummaryReadModel[]>> {
     const rows = (await qb.getMany()) as DriverModuleDefinitionRow[];
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return Result.ok([]);
 
     const session = await this.editActionsSvc.findActiveSession(fileSystemId);
     const sessionId = session?.sessionId ?? null;
 
     if (sessionId === null) {
-      return rows.map(row => this.mapSummary(row, row.parameters ?? []));
+      return Result.ok(
+        rows.map(row => this.mapSummary(row, row.parameters ?? [])),
+      );
     }
 
     const actionsByRow = await Promise.all(
@@ -146,16 +159,36 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
       ),
     );
 
-    return rows.map((row, index) => {
+    const data: BaseModuleDefinitionSummaryReadModel[] = [];
+    const missingSystemIds: number[] = [];
+
+    for (const [index, row] of rows.entries()) {
       const actions = actionsByRow[index];
       const overlaidDef = this.overlayDriverModuleDefinitionRow(row, actions);
+      if (overlaidDef === null) {
+        missingSystemIds.push(row.systemId);
+        continue;
+      }
+
       const overlaidParams = this.overlayParameters(
         row.parameters ?? [],
         actions,
       );
+      data.push(this.mapSummary(overlaidDef, overlaidParams));
+    }
 
-      return this.mapSummary(overlaidDef, overlaidParams);
-    });
+    if (missingSystemIds.length > 0) {
+      return Result.partial(
+        data,
+        missingSystemIds.map(id => ({
+          code: ERROR_CODES.ENTITY_NOT_FOUND,
+          message: `DriverModuleDefinition not found for systemId=${id}`,
+          severity: IssueSeverity.Error,
+        })),
+      );
+    }
+
+    return Result.ok(data);
   }
 
   // ── Overlay methods (Layer 2 — pure, no DB) ──────────────────────────────
@@ -163,11 +196,8 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
   private overlayDriverModuleDefinitionRow(
     row: DriverModuleDefinitionRow,
     actions: EditActionRow[],
-  ): DriverModuleDefinitionRow {
-    return (
-      applyTableOverlay(row, actions, ENTITY_NAMES.DriverModuleDefinition) ??
-      row
-    );
+  ): DriverModuleDefinitionRow | null {
+    return applyTableOverlay(row, actions, ENTITY_NAMES.DriverModuleDefinition);
   }
 
   private overlayParameters(

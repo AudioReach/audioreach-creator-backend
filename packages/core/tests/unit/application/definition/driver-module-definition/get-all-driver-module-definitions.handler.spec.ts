@@ -98,7 +98,43 @@ describe('GetAllDriverModuleDefinitionsHandler', () => {
     expect(result.data).toEqual([readModel]);
   });
 
-  it('propagates a fail Result from the query service unchanged', async () => {
+  it('returns the Result from the query service unchanged when partial', async () => {
+    const readModel = createReadModel({systemId: 9});
+    const partialResult = Result.partial(
+      [readModel],
+      [
+        {
+          code: 'ERR_4004',
+          message: 'DriverModuleDefinition not found for systemId=13',
+          severity: 'ERROR' as any,
+        },
+      ],
+    );
+    const queryServices = createQueryServices({
+      driverModuleDefinitionQueryService: {
+        getAllDriverModuleDefinitions: jest
+          .fn()
+          .mockResolvedValue(partialResult),
+      } as any,
+    });
+    const handler = new GetAllDriverModuleDefinitionsHandler(queryServices);
+    const query = new GetAllDriverModuleDefinitionsQuery(
+      7,
+      undefined,
+      undefined,
+      'client-1',
+    );
+
+    const result = await handler.handle(query);
+
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    if (result.kind !== RESULT_KIND.Partial) return;
+    expect(result.data).toEqual([readModel]);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].message).toContain('systemId=13');
+  });
+
+  it('returns the Result from the query service unchanged when it fails', async () => {
     const failResult = Result.fail<BaseModuleDefinitionSummaryReadModel[]>({
       code: 'ERR_9001',
       message: 'boom',
