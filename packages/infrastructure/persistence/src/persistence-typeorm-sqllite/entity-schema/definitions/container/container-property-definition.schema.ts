@@ -5,10 +5,14 @@
 
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import type {ContainerPropertyDataRow} from '../../usecase-data/container/container-property-data.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
 export interface ContainerPropertyRow extends EntityBaseRow {
+  // foreign key to arc_db_file
+  fileSystemId: number;
+
   propertyId: number;
   name: string;
   description?: string;
@@ -17,6 +21,7 @@ export interface ContainerPropertyRow extends EntityBaseRow {
   elementsStructure: string; // JSON
 
   // Relations
+  file?: ArcDbFileRow;
   containerPropertyData?: ContainerPropertyDataRow[];
 }
 
@@ -26,6 +31,11 @@ export const ContainerPropertyDefinitionSchema =
     tableName: 'container_property_definitions',
     columns: {
       ...BaseColumnSchemaPart,
+      fileSystemId: {
+        name: 'file_system_id',
+        type: 'integer',
+        nullable: false,
+      },
       propertyId: {
         type: 'integer',
         name: 'property_id',
@@ -57,6 +67,15 @@ export const ContainerPropertyDefinitionSchema =
       },
     },
     relations: {
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {
+          name: 'file_system_id',
+          referencedColumnName: 'systemId',
+        },
+        onDelete: 'CASCADE',
+      },
       containerPropertyData: {
         type: 'one-to-many',
         target: 'ContainerPropertyData',

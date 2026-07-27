@@ -4,10 +4,14 @@
  */
 
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
 export interface SubgraphPropertyRow extends EntityBaseRow {
+  // foreign key to arc_db_file
+  fileSystemId: number;
+
   propertyId: number;
   name: string;
   description?: string;
@@ -17,6 +21,7 @@ export interface SubgraphPropertyRow extends EntityBaseRow {
   isVoice: boolean;
 
   // Relations
+  file?: ArcDbFileRow;
 }
 
 export const SubgraphPropertyDefinitionSchema =
@@ -25,6 +30,11 @@ export const SubgraphPropertyDefinitionSchema =
     tableName: 'subgraph_property_definitions',
     columns: {
       ...BaseColumnSchemaPart,
+      fileSystemId: {
+        name: 'file_system_id',
+        type: 'integer',
+        nullable: false,
+      },
       propertyId: {
         type: 'integer',
         name: 'property_id',
@@ -57,6 +67,17 @@ export const SubgraphPropertyDefinitionSchema =
       isVoice: {
         type: 'boolean',
         name: 'is_voice',
+      },
+    },
+    relations: {
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {
+          name: 'file_system_id',
+          referencedColumnName: 'systemId',
+        },
+        onDelete: 'CASCADE',
       },
     },
   });
