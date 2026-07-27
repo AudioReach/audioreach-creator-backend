@@ -4,6 +4,7 @@
  */
 
 import {
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -21,11 +22,25 @@ import {
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
+import {
+  QueryBus,
+  GetAllContainerPropertyDefinitionsQuery,
+  GetContainerPropertyDefinitionQuery,
+  GetAllSubgraphPropertyDefinitionsQuery,
+  GetSubgraphPropertyDefinitionQuery,
+  type PropertyDefinitionSummaryReadModel,
+  type PropertyDefinitionReadModel,
+  type SubgraphPropertyDefinitionSummaryReadModel,
+  type SubgraphPropertyDefinitionReadModel,
+  type Result,
+} from '@arc/core';
 import {ApiResult} from '../../../common/dto/api-response/api-result.dto.js';
+import {toApiResult} from '../../../common/result/to-api-result.js';
 import {SubgraphPropertyDefinitionDetailResponseDto} from './dto/subgraph-property-definition-detail-response.dto.js';
 import {ContainerPropertyDefinitionDetailResponseDto} from './dto/container-property-definition-detail-response.dto.js';
 import {ContainerPropertyDefinitionSummaryResponseDto} from './dto/container-property-definition-summary-response.dto.js';
 import {SubgraphPropertyDefinitionSummaryResponseDto} from './dto/subgraph-property-definition-summary-response.dto.js';
+import {PropertyType} from './enums/property-type.enum.js';
 
 @ApiTags('property-definition')
 @Controller('arc-api/v1/projects')
@@ -34,6 +49,8 @@ import {SubgraphPropertyDefinitionSummaryResponseDto} from './dto/subgraph-prope
 @ApiExtraModels(ApiResult, ContainerPropertyDefinitionDetailResponseDto)
 @ApiExtraModels(ApiResult, ContainerPropertyDefinitionSummaryResponseDto)
 export class PropertyDefinitionController {
+  constructor(private readonly queryBus: QueryBus) {}
+
   @Get(':projectId/definitions/subgraph/properties')
   @ApiOperation({
     summary: 'Return the list of subgraph property definitions',
@@ -73,12 +90,37 @@ export class PropertyDefinitionController {
     type: ApiResult,
   })
   async getSubgraphPropertyDefinitions(
-    @Param('projectId') _projectId: string,
-    @Query('propertyDefinitionId') _propertyDefinitionId?: string,
+    @Param('projectId') projectId: string,
+    @Query('propertyDefinitionId') propertyDefinitionId?: string,
   ): Promise<ApiResult<SubgraphPropertyDefinitionSummaryResponseDto[]>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'getSubgraphPropertyDefinitions is not implemented yet',
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    let parsedPropertyDefinitionId: number | undefined;
+    if (propertyDefinitionId !== undefined) {
+      parsedPropertyDefinitionId = Number.parseInt(propertyDefinitionId, 10);
+      if (Number.isNaN(parsedPropertyDefinitionId)) {
+        throw new BadRequestException(
+          `Invalid property definition ID: ${propertyDefinitionId}`,
+        );
+      }
+    }
+
+    const query = new GetAllSubgraphPropertyDefinitionsQuery(
+      parsedProjectId,
+      parsedPropertyDefinitionId,
+      'client-id', // TODO: get actual clientId from JWT
+    );
+
+    const result =
+      await this.queryBus.execute<
+        Result<SubgraphPropertyDefinitionSummaryReadModel[]>
+      >(query);
+
+    return toApiResult(result, data =>
+      data.map(p => this.mapToSubgraphSummaryDto(p)),
     );
   }
 
@@ -116,13 +158,31 @@ export class PropertyDefinitionController {
     type: ApiResult,
   })
   async getSubgraphPropertyDefinition(
-    @Param('projectId') _projectId: string,
-    @Param('propertySystemId') _propertySystemId: string,
+    @Param('projectId') projectId: string,
+    @Param('propertySystemId') propertySystemId: string,
   ): Promise<ApiResult<SubgraphPropertyDefinitionDetailResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'getSubgraphPropertyDefinition is not implemented yet',
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    const parsedPropertySystemId = Number.parseInt(propertySystemId, 10);
+    if (Number.isNaN(parsedPropertySystemId)) {
+      throw new BadRequestException(
+        `Invalid property system ID: ${propertySystemId}`,
+      );
+    }
+
+    const query = new GetSubgraphPropertyDefinitionQuery(
+      parsedProjectId,
+      parsedPropertySystemId,
+      'client-id', // TODO: get actual clientId from JWT
     );
+
+    const property =
+      await this.queryBus.execute<SubgraphPropertyDefinitionReadModel>(query);
+
+    return {data: this.mapToSubgraphDetailDto(property)};
   }
 
   @Delete(':projectId/definitions/subgraph/properties/:propertySystemId')
@@ -197,13 +257,36 @@ export class PropertyDefinitionController {
     type: ApiResult,
   })
   async getContainerPropertyDefinitions(
-    @Param('projectId') _projectId: string,
-    @Query('propertyDefinitionId') _propertyDefinitionId?: string,
+    @Param('projectId') projectId: string,
+    @Query('propertyDefinitionId') propertyDefinitionId?: string,
   ): Promise<ApiResult<ContainerPropertyDefinitionSummaryResponseDto[]>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'getContainerPropertyDefinitions is not implemented yet',
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    let parsedPropertyDefinitionId: number | undefined;
+    if (propertyDefinitionId !== undefined) {
+      parsedPropertyDefinitionId = Number.parseInt(propertyDefinitionId, 10);
+      if (Number.isNaN(parsedPropertyDefinitionId)) {
+        throw new BadRequestException(
+          `Invalid property definition ID: ${propertyDefinitionId}`,
+        );
+      }
+    }
+
+    const query = new GetAllContainerPropertyDefinitionsQuery(
+      parsedProjectId,
+      parsedPropertyDefinitionId,
+      'client-id', // TODO: get actual clientId from JWT
     );
+
+    const result =
+      await this.queryBus.execute<Result<PropertyDefinitionSummaryReadModel[]>>(
+        query,
+      );
+
+    return toApiResult(result, data => data.map(p => this.mapToSummaryDto(p)));
   }
 
   @Get(':projectId/definitions/container/properties/:propertySystemId')
@@ -240,13 +323,31 @@ export class PropertyDefinitionController {
     type: ApiResult,
   })
   async getContainerPropertyDefinition(
-    @Param('projectId') _projectId: string,
-    @Param('propertySystemId') _propertySystemId: string,
+    @Param('projectId') projectId: string,
+    @Param('propertySystemId') propertySystemId: string,
   ): Promise<ApiResult<ContainerPropertyDefinitionDetailResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'getContainerPropertyDefinition is not implemented yet',
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    const parsedPropertySystemId = Number.parseInt(propertySystemId, 10);
+    if (Number.isNaN(parsedPropertySystemId)) {
+      throw new BadRequestException(
+        `Invalid property system ID: ${propertySystemId}`,
+      );
+    }
+
+    const query = new GetContainerPropertyDefinitionQuery(
+      parsedProjectId,
+      parsedPropertySystemId,
+      'client-id', // TODO: get actual clientId from JWT
     );
+
+    const property =
+      await this.queryBus.execute<PropertyDefinitionReadModel>(query);
+
+    return {data: this.mapToDetailDto(property)};
   }
 
   @Delete(':projectId/definitions/container/properties/:propertySystemId')
@@ -279,5 +380,57 @@ export class PropertyDefinitionController {
     throw new NotImplementedException(
       'deleteContainerPropertyDefinition is not implemented yet',
     );
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  private mapToSummaryDto(
+    m: PropertyDefinitionSummaryReadModel,
+  ): ContainerPropertyDefinitionSummaryResponseDto {
+    const dto = new ContainerPropertyDefinitionSummaryResponseDto();
+    dto.systemId = String(m.systemId);
+    dto.propertyId = m.propertyId;
+    dto.name = m.name;
+    dto.description = m.description ?? '';
+    dto.type = m.propertyType as unknown as PropertyType;
+    return dto;
+  }
+
+  private mapToDetailDto(
+    m: PropertyDefinitionReadModel,
+  ): ContainerPropertyDefinitionDetailResponseDto {
+    const dto = new ContainerPropertyDefinitionDetailResponseDto();
+    dto.systemId = String(m.systemId);
+    dto.propertyId = m.propertyId;
+    dto.name = m.name;
+    dto.description = m.description ?? '';
+    dto.type = m.propertyType as unknown as PropertyType;
+    return dto;
+  }
+
+  private mapToSubgraphSummaryDto(
+    m: SubgraphPropertyDefinitionSummaryReadModel,
+  ): SubgraphPropertyDefinitionSummaryResponseDto {
+    const dto = new SubgraphPropertyDefinitionSummaryResponseDto();
+    dto.systemId = String(m.systemId);
+    dto.propertyId = m.propertyId;
+    dto.name = m.name;
+    dto.description = m.description ?? '';
+    dto.type = m.propertyType as unknown as PropertyType;
+    dto.isVoice = m.isVoice;
+    return dto;
+  }
+
+  private mapToSubgraphDetailDto(
+    m: SubgraphPropertyDefinitionReadModel,
+  ): SubgraphPropertyDefinitionDetailResponseDto {
+    const dto = new SubgraphPropertyDefinitionDetailResponseDto();
+    dto.systemId = String(m.systemId);
+    dto.propertyId = m.propertyId;
+    dto.name = m.name;
+    dto.description = m.description ?? '';
+    dto.type = m.propertyType as unknown as PropertyType;
+    dto.isVoice = m.isVoice;
+    return dto;
   }
 }

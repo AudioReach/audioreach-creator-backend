@@ -47,6 +47,14 @@ import {GetTagDefinitionQuery} from '../../../definition/tag-definition/get-tag/
 import {GetTagDefinitionHandler} from '../../../definition/tag-definition/get-tag/get-tag-definition.handler.js';
 import {GetCkvCalibrationDataQuery} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 import {GetCkvCalibrationDataHandler} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
+import {GetAllContainerPropertyDefinitionsQuery} from '../../../definition/container-property-definition/get-all/get-all-container-property-definitions.query.js';
+import {GetAllContainerPropertyDefinitionsHandler} from '../../../definition/container-property-definition/get-all/get-all-container-property-definitions.handler.js';
+import {GetContainerPropertyDefinitionQuery} from '../../../definition/container-property-definition/get-property/get-container-property-definition.query.js';
+import {GetContainerPropertyDefinitionHandler} from '../../../definition/container-property-definition/get-property/get-container-property-definition.handler.js';
+import {GetAllSubgraphPropertyDefinitionsQuery} from '../../../definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.query.js';
+import {GetAllSubgraphPropertyDefinitionsHandler} from '../../../definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.handler.js';
+import {GetSubgraphPropertyDefinitionQuery} from '../../../definition/subgraph-property-definition/get-property/get-subgraph-property-definition.query.js';
+import {GetSubgraphPropertyDefinitionHandler} from '../../../definition/subgraph-property-definition/get-property/get-subgraph-property-definition.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -188,6 +196,26 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetCkvCalibrationDataQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetCkvCalibrationDataHandler(deps.queryServices, deps.logger),
+    });
+
+    this.queryHandlerFactories.set(GetAllContainerPropertyDefinitionsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllContainerPropertyDefinitionsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetContainerPropertyDefinitionQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetContainerPropertyDefinitionHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetAllSubgraphPropertyDefinitionsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetAllSubgraphPropertyDefinitionsHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSubgraphPropertyDefinitionQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSubgraphPropertyDefinitionHandler(deps.queryServices),
     });
   }
 }

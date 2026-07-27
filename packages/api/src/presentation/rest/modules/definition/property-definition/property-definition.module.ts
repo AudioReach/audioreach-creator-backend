@@ -5,8 +5,10 @@
 
 import {Module} from '@nestjs/common';
 import {PropertyDefinitionController} from './property-definition.controller.js';
+import {ArcCqrsModule} from '../../../../../infrastructure-wrapper/arc-cqrs.module.js';
 
 @Module({
+  imports: [ArcCqrsModule],
   controllers: [PropertyDefinitionController],
 })
 export class PropertyDefinitionModule {}

@@ -15,6 +15,8 @@ import type {
   TagDefinitionQueryService,
   SpfTuningConfigService,
   ContainerQueryService,
+  ContainerPropertyDefQueryService,
+  SubgraphPropertyDefQueryService,
   DriverModuleDefinitionQueryService,
   Logger,
 } from '@arc/core';
@@ -30,6 +32,9 @@ import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-serv
 import {DbTagDefinitionQueryService} from './tag-definition/db-tag-definition-query-service.js';
 import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
 import {DbContainerQueryService} from './container/db-container-query-service.js';
+import {DbContainerPropertyDefQueryService} from './container-property-definition/db-container-property-def-query-service.js';
+import {DbSubgraphPropertyDefQueryService} from './subgraph-property-definition/db-subgraph-property-def-query-service.js';
+import {TypeOrmSessionRepository} from '../repositories/session/typeorm-session.repository.js';
 import {DbDriverModuleDefinitionQueryService} from './driver-module-definition/db-driver-module-definition-query-service.js';
 
 // Database implementation of ModuleQueryService
@@ -49,12 +54,15 @@ export class DbQueryServices implements QueryServices {
   readonly tagDefinitionQueryService: TagDefinitionQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly containerQueryService: ContainerQueryService;
+  readonly containerPropertyDefQueryService: ContainerPropertyDefQueryService;
+  readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;
   readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;
 
   constructor(dataSource: DataSource, logger?: Logger) {
     const editActionsQueryService = new EditActionsQueryService(
       dataSource.manager,
     );
+    const sessionRepo = new TypeOrmSessionRepository(dataSource.manager);
 
     this.modulesQueryService = new DbModuleQueryService();
     this.useCaseQueryService = new DbUseCaseQueryService(dataSource);
@@ -115,6 +123,20 @@ export class DbQueryServices implements QueryServices {
       new DbDriverModuleDefinitionQueryService(
         dataSource,
         editActionsQueryService,
+      );
+
+    this.containerPropertyDefQueryService =
+      new DbContainerPropertyDefQueryService(
+        dataSource,
+        editActionsQueryService,
+        sessionRepo,
+      );
+
+    this.subgraphPropertyDefQueryService =
+      new DbSubgraphPropertyDefQueryService(
+        dataSource,
+        editActionsQueryService,
+        sessionRepo,
       );
   }
 }

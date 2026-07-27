@@ -89,6 +89,10 @@ export * from './application/ports/persistence/query-services/container/containe
 export * from './application/ports/persistence/query-services/container/container-read-model.js';
 export * from './application/ports/persistence/query-services/tag-definition/tag-definition-read-model.js';
 export * from './application/ports/persistence/query-services/tag-definition/tag-definition-query-service.js';
+export * from './application/ports/persistence/query-services/property-definition/property-definition-read-model.js';
+export * from './application/ports/persistence/query-services/container-property-definition/container-property-def-query-service.js';
+export * from './application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-read-model.js';
+export * from './application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-def-query-service.js';
 
 // Key definition query handlers
 export * from './application/definition/key-definition/get-all/get-all-key-definitions.query.js';
@@ -101,6 +105,18 @@ export * from './application/definition/tag-definition/get-all/get-all-tag-defin
 export * from './application/definition/tag-definition/get-all/get-all-tag-definitions.handler.js';
 export * from './application/definition/tag-definition/get-tag/get-tag-definition.query.js';
 export * from './application/definition/tag-definition/get-tag/get-tag-definition.handler.js';
+
+// Container property definition query handlers
+export * from './application/definition/container-property-definition/get-all/get-all-container-property-definitions.query.js';
+export * from './application/definition/container-property-definition/get-all/get-all-container-property-definitions.handler.js';
+export * from './application/definition/container-property-definition/get-property/get-container-property-definition.query.js';
+export * from './application/definition/container-property-definition/get-property/get-container-property-definition.handler.js';
+
+// Subgraph property definition query handlers
+export * from './application/definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.query.js';
+export * from './application/definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.handler.js';
+export * from './application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.query.js';
+export * from './application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.handler.js';
 
 // SPF module query handlers
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.query.js';
