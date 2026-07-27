@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
+import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
+import type {SubgraphPropertyDefinitionReadModel} from '../../../ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-read-model.js';
+import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {GetSubgraphPropertyDefinitionQuery} from './get-subgraph-property-definition.query.js';
+import {RESULT_KIND} from '../../../shared/result/result.js';
+
+/**
+ * Handler for GetSubgraphPropertyDefinitionQuery
+ * Resolves projectId → fileId, then loads a single subgraph property
+ * definition by system ID.
+ */
+export class GetSubgraphPropertyDefinitionHandler implements QueryHandler<
+  GetSubgraphPropertyDefinitionQuery,
+  Promise<SubgraphPropertyDefinitionReadModel>
+> {
+  constructor(private readonly queryServices: QueryServices) {}
+
+  async handle(
+    query: GetSubgraphPropertyDefinitionQuery,
+  ): Promise<SubgraphPropertyDefinitionReadModel> {
+    const fileId =
+      await this.queryServices.projectQueryService.getFileIdByProjectId(
+        query.projectId,
+      );
+
+    const result =
+      await this.queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyDefinition(
+        query.propertySystemId,
+        fileId,
+      );
+
+    if (result.kind === RESULT_KIND.Fail) {
+      throw new ResourceNotFoundException(
+        result.issues[0]?.message ??
+          `Subgraph property definition with system ID ${query.propertySystemId} not found`,
+      );
+    }
+
+    return result.data;
+  }
+}
