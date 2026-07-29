@@ -99,6 +99,8 @@ import {CreateControlLinkCommand} from '../../../usecase-designer/control-links/
 import {CreateControlLinkHandler} from '../../../usecase-designer/control-links/create/create-control-link.handler.js';
 import {DeleteControlLinkCommand} from '../../../usecase-designer/control-links/delete/delete-control-link.command.js';
 import {DeleteControlLinkHandler} from '../../../usecase-designer/control-links/delete/delete-control-link.handler.js';
+import {PutCkvCalDataCommand} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
+import {PutCkvCalDataHandler} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -254,6 +256,10 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(UpdateContainerPropertyCommand, {
       create: deps => new UpdateContainerPropertyHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(PutCkvCalDataCommand, {
+      create: deps => new PutCkvCalDataHandler(deps.uow, deps.logger),
     });
   }
 }

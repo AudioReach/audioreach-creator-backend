@@ -859,6 +859,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         isReadOnly: false, // ToDO
         description: row.description,
         pidType: row.pidType ?? '',
+        elementsStructure: row.elementsStructure,
       }),
     );
   }

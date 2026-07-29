@@ -25,7 +25,7 @@ import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {SpfModuleResponseDto} from './dto/shared/spf-module-response.dto.js';
 import {CkvCalDataResponseDto} from '../../common/dto/tuning-data/ckv-cal-data-response.dto.js';
-import {UpdateCkvRequestDto} from '../../common/dto/tuning-data/update-ckv-request.dto.js';
+
 import {UpdateTkvRequestDto} from './dto/request/update-tkv-request.dto.js';
 import {TkvCalDataResponseDto} from '../../common/dto/tuning-data/tkv-cal-data-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
@@ -44,19 +44,23 @@ import {
   RemoveTkvParametersRequestDto,
 } from './dto/request/spf-module-request.dto.js';
 import {PatchSpfModuleRequestDto} from './dto/request/patch-spf-module-request.dto.js';
+import {UpdateSpfModuleCalDataRequestDto} from './dto/request/update-spf-module-cal-data-request.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {
   Result,
+  RESULT_KIND,
   QueryBus,
   CommandBus,
   PatchSpfModuleCommand,
   CreateModuleCommand,
+  PutCkvCalDataCommand,
+  type PutCkvCalDataResult,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
   type SpfModuleDto,
-  type CkvCalDataDto,
   type ActiveSession,
+  type ParameterDto,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
@@ -91,7 +95,7 @@ import {
 @ApiExtraModels(
   SpfModuleResponseDto,
   CkvCalDataResponseDto,
-  UpdateCkvRequestDto,
+  UpdateSpfModuleCalDataRequestDto,
   TkvCalDataResponseDto,
   UpdateTkvRequestDto,
   CreateSpfModuleRequestDto,
@@ -372,7 +376,8 @@ export class SpfModuleController extends BaseController {
       clientId,
       paramSystemIds,
     );
-    const result = await this.queryBus.execute<Result<CkvCalDataDto>>(query);
+    const result =
+      await this.queryBus.execute<Result<CkvCalDataResponseDto>>(query);
     return toApiResult(result);
   }
 
@@ -412,7 +417,7 @@ export class SpfModuleController extends BaseController {
       'Returns the updated calibration data in the same format as the GET endpoint.\n\n' +
       '**Batch Updates:**\n' +
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.',
-    requestDto: UpdateCkvRequestDto,
+    requestDto: UpdateSpfModuleCalDataRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -437,26 +442,47 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async updateCalibrationData(
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
-    @Body() updateRequest: UpdateCkvRequestDto,
+    @Body() updateRequest: UpdateSpfModuleCalDataRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Updating calibration data for SPF module:',
+    const command = new PutCkvCalDataCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with CKV system ID:',
       ckvSystemId,
-      'for parameters:',
-      updateRequest.data.map(p => p.systemId).join(', '),
+      updateRequest.parameters as unknown as ParameterDto[],
+      updateRequest.uiPersistence,
     );
-    throw new NotImplementedException(
-      'updateCalibrationData is not implemented yet',
-    );
+
+    const putResult = await this.commandBus.execute<
+      Result<PutCkvCalDataResult>
+    >(command, session);
+    if (putResult.kind === RESULT_KIND.Fail) {
+      return toApiResult(putResult as unknown as Result<CkvCalDataResponseDto>);
+    }
+
+    let data: CkvCalDataResponseDto | undefined;
+    if (putResult.data.succeededParamSystemIds.length > 0) {
+      const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
+      const query = new GetCkvCalibrationDataQuery(
+        projectId,
+        spfModuleSystemId,
+        ckvSystemId,
+        clientId,
+        putResult.data.succeededParamSystemIds.join(','),
+      );
+      const readResult =
+        await this.queryBus.execute<Result<CkvCalDataResponseDto>>(query);
+      data = readResult.kind !== RESULT_KIND.Fail ? readResult.data : undefined;
+    }
+
+    const issues = putResult.issues ?? [];
+    const resultEnvelope =
+      issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
+    return toApiResult(resultEnvelope);
   }
 
   /**

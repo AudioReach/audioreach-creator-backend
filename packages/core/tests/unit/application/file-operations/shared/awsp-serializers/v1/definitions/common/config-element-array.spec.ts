@@ -11,7 +11,7 @@ describe('AwspConfigElementArray - Nested Object Hydration', () => {
   const testData = {
     id: 1,
     name: 'TestArray',
-    elementType: 'CONFIG_ELEMENT_ARRAY',
+    elementType: 'ElementArray',
     dataType: 'UINT32',
     minSize: 1,
     maxSize: 10,
@@ -19,7 +19,7 @@ describe('AwspConfigElementArray - Nested Object Hydration', () => {
     keyConfigElement: {
       id: 2,
       name: 'TestElement',
-      elementType: 'CONFIG_ELEMENT',
+      elementType: 'ConfigElement',
       dataType: 'UINT32',
       defaultValue: '0',
       displayType: 'DECIMAL',

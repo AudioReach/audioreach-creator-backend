@@ -25,7 +25,7 @@ export type DisplayType = (typeof DISPLAY_TYPE)[keyof typeof DISPLAY_TYPE];
 export const PARAMETER_ELEMENT_TYPE = {
   ConfigElement: 'ConfigElement',
   Struct: 'Struct',
-  ElementArray: 'ConfigElementArray',
+  ElementArray: 'ElementArray',
   StructArray: 'StructArray',
 } as const;
 

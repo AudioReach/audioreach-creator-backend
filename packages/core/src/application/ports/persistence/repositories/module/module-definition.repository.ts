@@ -5,9 +5,10 @@
 
 import type {SpfModuleDefinition} from '../../../../../domain/entities/definitions/spf-module/spf-module-definition.js';
 
-export interface CalibrationParameterRecord {
+export interface ParameterDefinitionBase {
   systemId: number;
-  elementsStructure: string;
+  isReadOnly: boolean;
+  elementsStructure: string; // JSON — parsed by serializeParameterData
 }
 
 export interface ModuleDefinitionRepository {
@@ -30,15 +31,8 @@ export interface ModuleDefinitionRepository {
     fileSystemId: number,
   ): Promise<SpfModuleDefinition | null>;
 
-  /**
-   * Returns all calibration parameter definitions for the given module definition.
-   * Used by AddModuleHandler to seed zero-CKV default payloads.
-   *
-   * TODO(add-module-calibration-defaults): implement adapter
-   * See: docs/edit-crud/design/add-module-calibration-defaults-design.md §5
-   */
-  findCalibrationParametersByDefinitionId(
-    definitionSystemId: number,
-    fileSystemId: number,
-  ): Promise<CalibrationParameterRecord[]>;
+  getParameterDefinitions(
+    moduleDefSystemId: number,
+    paramSystemIds?: number[],
+  ): Promise<ParameterDefinitionBase[]>;
 }

@@ -127,8 +127,8 @@ export class CreateModuleHandler implements CommandHandler<
       // Step 10: TODO(add-module-calibration-defaults) — zero CKV with default
       // calibration parameter payloads for this module.
       //
-      //   const calibParams = await defRepo.findCalibrationParametersByDefinitionId(
-      //     definition.systemId, fileSystemId,
+      //   const calibParams = await defRepo.getParameterDefinitions(
+      //     definition.systemId,
       //   );
       //   if (calibParams.length > 0) {
       //     const ckvSystemId = await this.idGeneration.getNextId(fileSystemId);

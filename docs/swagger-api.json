@@ -4242,7 +4242,7 @@
     },
     "/arc-api/v1/projects/{projectId}/driver-modules/{driverModuleSystemId}/cal-data/{ckvSystemId}": {
       "get": {
-        "description": "Returns the calibration data for a given module system ID and CKV system ID.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/driver-modules/driver-mod-001/cal-data/ckv-sys-001\n```\n\n**Response:**\nReturns a `CalDataResponseDto` containing an array of parameter data, one entry per PID. Each entry includes:\n- `systemId`: System identifier\n- `pid`: Parameter ID\n- `name`: Human-readable parameter name\n- `description`: Description of the parameter\n- `elements`: Array of calibration elements (ConfigElement, ConfigElementArray, Struct, StructArray)",
+        "description": "Returns the calibration data for a given module system ID and CKV system ID.\n\n**Example Usage:**\n```\nGET /arc-api/v1/projects/proj-001/driver-modules/driver-mod-001/cal-data/ckv-sys-001\n```\n\n**Response:**\nReturns a `CalDataResponseDto` containing an array of parameter data, one entry per PID. Each entry includes:\n- `systemId`: System identifier\n- `pid`: Parameter ID\n- `name`: Human-readable parameter name\n- `description`: Description of the parameter\n- `elements`: Array of calibration elements (ConfigElement, ElementArray, Struct, StructArray)",
         "operationId": "DriverModuleController_getModuleCalData",
         "parameters": [
           {
@@ -4633,11 +4633,11 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "Request body parameter type: UpdateCkvRequestDto",
+          "description": "Request body parameter type: UpdateSpfModuleCalDataRequestDto",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCkvRequestDto"
+                "$ref": "#/components/schemas/UpdateSpfModuleCalDataRequestDto"
               }
             }
           }
@@ -15659,54 +15659,23 @@
           "Ckv"
         ]
       },
-      "ParameterSummaryDto": {
+      "UpdateSpfModuleCalDataRequestDto": {
         "type": "object",
         "properties": {
-          "elements": {
+          "parameters": {
+            "description": "Array of calibration data updates for multiple parameters",
             "type": "array",
             "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/ConfigElementSummaryDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ElementTemplateArraySummaryDto"
-                },
-                {
-                  "$ref": "#/components/schemas/StructSummaryDto"
-                }
-              ]
-            },
-            "description": "Elements to write"
-          },
-          "systemId": {
-            "type": "string",
-            "description": "System identifier (parameter system ID)"
-          },
-          "name": {
-            "type": "string",
-            "description": "Parameter name"
-          }
-        },
-        "required": [
-          "elements",
-          "systemId",
-          "name"
-        ]
-      },
-      "UpdateCkvRequestDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "description": "Array of parameter data to write, one entry per PID.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ParameterSummaryDto"
+              "$ref": "#/components/schemas/ParameterDto"
             }
+          },
+          "uiPersistence": {
+            "type": "string",
+            "description": "UI persistence string"
           }
         },
         "required": [
-          "data"
+          "parameters"
         ]
       },
       "TkvCalDataResponseDto": {
@@ -16012,6 +15981,41 @@
           "parameters",
           "systemId",
           "Tkv"
+        ]
+      },
+      "ParameterSummaryDto": {
+        "type": "object",
+        "properties": {
+          "elements": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementSummaryDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ElementTemplateArraySummaryDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StructSummaryDto"
+                }
+              ]
+            },
+            "description": "Elements to write"
+          },
+          "systemId": {
+            "type": "string",
+            "description": "System identifier (parameter system ID)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Parameter name"
+          }
+        },
+        "required": [
+          "elements",
+          "systemId",
+          "name"
         ]
       },
       "UpdateTkvRequestDto": {

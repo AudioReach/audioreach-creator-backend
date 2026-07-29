@@ -60,11 +60,15 @@ export type {
 export type {EditOptions} from './application/ports/persistence/edit-options.js';
 
 // Module write path — port interfaces (LLD2 PATCH + AddModule)
-export type {ModuleRepository} from './application/ports/persistence/repositories/module/module.repository.js';
+export type {
+  ModuleRepository,
+  ExistingPayloadRow,
+  CkvPayloadUpdate,
+} from './application/ports/persistence/repositories/module/module.repository.js';
 export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
 export type {
   ModuleDefinitionRepository,
-  CalibrationParameterRecord,
+  ParameterDefinitionBase,
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {DataLinkRepository} from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
@@ -337,6 +341,8 @@ export type {
   StructSummaryDto,
   ParameterElementSummaryDto,
 } from './application/usecase-designer/spf-module/dto/element-dto.js';
+export * from './application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
+export * from './application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data-result.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';

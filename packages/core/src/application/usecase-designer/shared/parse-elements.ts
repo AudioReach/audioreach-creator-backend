@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {PARAMETER_ELEMENT_TYPE} from './element-definition.js';
+import {DATA_TYPE} from '../../../shared/dto/element-data/element-types.js';
 import type {
   ConfigElement,
   StructElement,
@@ -38,7 +39,7 @@ function rawFallback(payload: Uint8Array): ConfigElementData {
     type: PARAMETER_ELEMENT_TYPE.ConfigElement,
     name: 'Failed to parse payload',
     isReadOnly: true,
-    dataType: 'RawData',
+    dataType: DATA_TYPE.RawData,
     value: toHex(payload),
   };
 }
@@ -48,25 +49,28 @@ type OriginalElement = Record<string, unknown>;
 
 /** Parses a min/max string using the same dataType dispatch as readScalar.
  *  Returns undefined for absent, non-finite, or inapplicable (RawData) values. */
-function parseMinMax(
+export function parseMinMax(
   value: string | undefined,
   dataType: string,
 ): number | undefined {
   if (value === undefined) return undefined;
   let n: number;
   switch (dataType) {
-    case 'UInt8':
-    case 'UInt16':
-    case 'UInt32':
-    case 'UInt64':
-    case 'Int8':
-    case 'Int16':
-    case 'Int32':
-    case 'Int64':
-      n = Number.parseInt(value, 10);
+    case DATA_TYPE.UInt8:
+    case DATA_TYPE.UInt16:
+    case DATA_TYPE.UInt32:
+    case DATA_TYPE.UInt64:
+    case DATA_TYPE.Int8:
+    case DATA_TYPE.Int16:
+    case DATA_TYPE.Int32:
+    case DATA_TYPE.Int64: {
+      const isHex = value.startsWith('0x') || value.startsWith('0X');
+      n = isHex ? Number.parseInt(value, 16) : Number.parseInt(value, 10);
+      if (isHex) n = applyHexSignExtension(n, dataType);
       break;
-    case 'Float':
-    case 'Double':
+    }
+    case DATA_TYPE.Float:
+    case DATA_TYPE.Double:
       n = Number.parseFloat(value);
       break;
     default:
@@ -76,13 +80,35 @@ function parseMinMax(
 }
 
 /**
+ * Two's complement sign extension for hex min/max strings.
+ *
+ * Firmware toolchains store constraints as unsigned bit patterns. For signed
+ * types the upper half of the unsigned range represents negative values, so
+ * values above the type's max positive are adjusted by subtracting 2^width.
+ * Int64 note: 2^63 and 2^64 are exact powers of two, so the boundary value
+ * 0x8000000000000000 sign-extends correctly. Values between 2^53 and 2^63-1
+ * lose integer precision (JavaScript Number limit); exact Int64 arithmetic
+ * uses BigInt in the serializer instead.
+ */
+function applyHexSignExtension(n: number, dataType: string): number {
+  if (dataType === DATA_TYPE.Int8 && n > 127) return n - 256;
+  if (dataType === DATA_TYPE.Int16 && n > 32_767) return n - 65_536;
+  if (dataType === DATA_TYPE.Int32 && n > 2_147_483_647)
+    return n - 4_294_967_296;
+  if (dataType === DATA_TYPE.Int64 && n >= 2 ** 63) return n - 2 ** 64;
+  return n;
+}
+
+/**
  * Converts a `paramStructure` JSON string into a normalized `DefinitionElement[]`.
  *
  * Handles special cases where `template` is not stored directly on the element:
  * - `StructArray` with `keyStructureDefinition` → `StructArray` with a `StructElement` template
- * - `ConfigElementArray` → `ElementArray` with a `ConfigElement` template (self-derived)
+ * - `ElementArray` → `ElementArray` with a proper `DefinitionElement` template
  */
-function convertParamDefinition(paramStructure: string): DefinitionElement[] {
+export function convertParamDefinition(
+  paramStructure: string,
+): DefinitionElement[] {
   const original = JSON.parse(paramStructure) as OriginalElement[];
   return original.map(el => normalizeElement(el));
 }
@@ -91,24 +117,23 @@ function convertParamDefinition(paramStructure: string): DefinitionElement[] {
  * Normalizes an original element recursively, routing array and struct types
  * to their respective handlers so that nested arrays always carry a `template`.
  *
- * - `StructArray`        → `normalizeStructArray`
- * - `ConfigElementArray` → `normalizeConfigElementArray`
- * - `Struct`             → `normalizeStructElement` (recurses into its children)
- * - All other types      → passed through unchanged
+ * - `StructArray`  → `normalizeStructArray`
+ * - `ElementArray` → `normalizeConfigElementArray`
+ * - `Struct`       → `normalizeStructElement` (recurses)
+ * - All other types → passed through unchanged
  */
 // eslint-disable-next-line sonarjs/function-return-type
 function normalizeElement(original: OriginalElement): DefinitionElement {
-  const elementType = original.elementType as string;
-  if (elementType === PARAMETER_ELEMENT_TYPE.StructArray) {
-    return normalizeStructArray(original);
+  switch (original.elementType as string) {
+    case PARAMETER_ELEMENT_TYPE.StructArray:
+      return normalizeStructArray(original);
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
+      return normalizeConfigElementArray(original);
+    case PARAMETER_ELEMENT_TYPE.Struct:
+      return normalizeStructElement(original);
+    default:
+      return original as unknown as DefinitionElement;
   }
-  if (elementType === PARAMETER_ELEMENT_TYPE.ElementArray) {
-    return normalizeConfigElementArray(original);
-  }
-  if (elementType === PARAMETER_ELEMENT_TYPE.Struct) {
-    return normalizeStructElement(original);
-  }
-  return original as unknown as DefinitionElement;
 }
 
 function normalizeStructElement(original: OriginalElement): StructElement {
@@ -132,19 +157,28 @@ function normalizeStructElement(original: OriginalElement): StructElement {
  * remapped to `elements` as required by `StructElement`.
  */
 function normalizeStructArray(original: OriginalElement): StructArray {
-  // Destructure keyStructureDefinition out so it is not carried over into the
-  // normalized StructArray — it is converted to `template` instead.
+  type PreNormTemplate = {elementType?: string};
+  const existingTemplate = original.template as PreNormTemplate | undefined;
+
+  // Already-normalized: template carries elementType — pass through unchanged.
+  if (existingTemplate?.elementType) {
+    // eslint-disable-next-line sonarjs/no-unused-vars
+    const {keyStructureDefinition: _, ...rest} = original;
+    return {
+      ...rest,
+      elementType: PARAMETER_ELEMENT_TYPE.StructArray,
+      template: existingTemplate,
+    } as unknown as StructArray;
+  }
+
+  // AWSP format: keyStructureDefinition.children → StructElement template.
   const {keyStructureDefinition, ...rest} = original;
   const keyStructDef = keyStructureDefinition as OriginalElement;
-  // Destructure `children` out of keyStructDef so it does not appear as an
-  // extra field in the StructElement template alongside `elements`.
   const {children, ...keyStructFields} = keyStructDef;
   const rawChildren = (children as OriginalElement[] | undefined) ?? [];
   const template: StructElement = {
     ...keyStructFields,
     elementType: PARAMETER_ELEMENT_TYPE.Struct,
-    // Source JSON uses "children" for child elements; StructElement uses "elements".
-    // Each child is normalized recursively so nested arrays get their `template`.
     elements: rawChildren.map(child => normalizeElement(child)),
   } as unknown as StructElement;
   return {
@@ -155,18 +189,51 @@ function normalizeStructArray(original: OriginalElement): StructArray {
 }
 
 /**
- * Normalizes a raw `ConfigElementArray` element into a typed `ElementArray`.
+ * Normalizes a raw `ElementArray` element into a typed `ElementArray`.
  *
- * The element itself becomes the `ConfigElement` template — same fields,
- * with `elementType` changed to `'ConfigElement'`.
+ * AWSP stores the template elements inside `original.template.elements`:
+ * - 1 element  → use it directly as `template` (simple config-element array)
+ * - N elements → wrap them in a synthetic `StructElement` (struct-like array)
  */
 function normalizeConfigElementArray(original: OriginalElement): ElementArray {
-  const template: ConfigElement = {
-    ...original,
-    elementType: PARAMETER_ELEMENT_TYPE.ConfigElement,
-  } as unknown as ConfigElement;
+  type AwspTemplate = {
+    name?: string;
+    elements?: OriginalElement[];
+    elementType?: string;
+  };
+  const awspTemplate = original.template as AwspTemplate | undefined;
+
+  let template: DefinitionElement;
+
+  // Already-normalized: template carries elementType — pass through unchanged.
+  if (awspTemplate?.elementType) {
+    template = awspTemplate as unknown as DefinitionElement;
+  } else {
+    const templateElements = awspTemplate?.elements;
+    if (templateElements && templateElements.length > 0) {
+      if (templateElements.length === 1) {
+        template = normalizeElement(templateElements[0]);
+      } else {
+        const structName = (awspTemplate?.name ?? original.name) as string;
+        template = {
+          elementType: PARAMETER_ELEMENT_TYPE.Struct,
+          name: structName,
+          structureType: structName,
+          elements: templateElements.map(el => normalizeElement(el)),
+        } as unknown as StructElement;
+      }
+    } else {
+      template = {
+        ...original,
+        elementType: PARAMETER_ELEMENT_TYPE.ConfigElement,
+      } as unknown as DefinitionElement;
+    }
+  }
+
+  // eslint-disable-next-line sonarjs/no-unused-vars
+  const {template: _, ...rest} = original;
   return {
-    ...original,
+    ...rest,
     elementType: PARAMETER_ELEMENT_TYPE.ElementArray,
     template,
   } as unknown as ElementArray;
@@ -235,30 +302,31 @@ function parseElement(
     reader.align(element.alignment);
   }
   switch (element.elementType) {
-    case 'ConfigElement':
+    case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return parseConfigElement(element, reader);
-    case 'Struct':
+    case PARAMETER_ELEMENT_TYPE.Struct:
       return parseStruct(element, reader, parsedSoFar);
-    case 'ConfigElementArray':
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
       return parseArrayElement(element, reader, parsedSoFar);
-    case 'StructArray':
+    case PARAMETER_ELEMENT_TYPE.StructArray:
       return parseArrayElement(element, reader, parsedSoFar);
+    default: {
+      const el = element as unknown as {elementType: string};
+      throw new Error(`Unknown elementType: ${el.elementType}`);
+    }
   }
 }
 
 /**
  * Reads a single scalar value from the binary stream and wraps it in a
  * `ConfigElementData`. The value is stored as a string to match the DTO contract.
- * For `RawData`, all remaining bytes are consumed and stored as a comma-separated
- * decimal string.
  */
 function parseConfigElement(
   element: ConfigElement,
   reader: BinaryDataReader,
 ): ConfigElementData {
   const raw = readScalar(element.dataType, reader);
-  const value =
-    raw instanceof Uint8Array ? [...raw].toString() : raw.toString();
+  const value = raw instanceof Uint8Array ? toHex(raw) : raw.toString();
   return {
     type: PARAMETER_ELEMENT_TYPE.ConfigElement,
     name: element.name ?? '',
@@ -296,27 +364,27 @@ function readScalar(
   reader: BinaryDataReader,
 ): number | bigint | Uint8Array {
   switch (dataType) {
-    case 'UInt8':
+    case DATA_TYPE.UInt8:
       return reader.readUInt8();
-    case 'UInt16':
+    case DATA_TYPE.UInt16:
       return reader.readUInt16();
-    case 'UInt32':
+    case DATA_TYPE.UInt32:
       return reader.readUInt32();
-    case 'UInt64':
+    case DATA_TYPE.UInt64:
       return reader.readUInt64();
-    case 'Int8':
+    case DATA_TYPE.Int8:
       return reader.readInt8();
-    case 'Int16':
+    case DATA_TYPE.Int16:
       return reader.readInt16();
-    case 'Int32':
+    case DATA_TYPE.Int32:
       return reader.readInt32();
-    case 'Int64':
+    case DATA_TYPE.Int64:
       return reader.readInt64();
-    case 'Float':
+    case DATA_TYPE.Float:
       return reader.readFloat();
-    case 'Double':
+    case DATA_TYPE.Double:
       return reader.readDouble();
-    case 'RawData':
+    case DATA_TYPE.RawData:
       return reader.readRawData(reader.getRemainingBytes());
     default:
       throw new Error(`Unknown dataType: ${dataType}`);
@@ -430,7 +498,7 @@ function buildTemplateElement(
 ): ElementData {
   const name = element.name ?? arrayName;
   switch (element.elementType) {
-    case 'ConfigElement':
+    case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return {
         type: PARAMETER_ELEMENT_TYPE.ConfigElement,
         name,
@@ -459,7 +527,7 @@ function buildTemplateElement(
         linkedByForFormula: element.linkedByForFormula,
         defaultDataDepends: element.defaultDataDepends,
       };
-    case 'Struct':
+    case PARAMETER_ELEMENT_TYPE.Struct:
       return {
         type: PARAMETER_ELEMENT_TYPE.Struct,
         name,
@@ -477,7 +545,7 @@ function buildTemplateElement(
           buildTemplateElement(child, child.name ?? name),
         ),
       };
-    case 'ConfigElementArray':
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
       return {
         type: PARAMETER_ELEMENT_TYPE.ElementArray,
         name,
@@ -498,7 +566,7 @@ function buildTemplateElement(
         length: element.arrayLength,
         arrayLenFormulaStr: element.arrayLenFormulaStr,
       };
-    case 'StructArray':
+    case PARAMETER_ELEMENT_TYPE.StructArray:
       return {
         type: PARAMETER_ELEMENT_TYPE.ElementArray,
         name,

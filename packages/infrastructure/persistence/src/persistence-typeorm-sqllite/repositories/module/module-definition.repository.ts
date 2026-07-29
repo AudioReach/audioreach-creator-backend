@@ -7,7 +7,7 @@ import type {EntityManager} from 'typeorm';
 import type {
   ModuleDefinitionRepository,
   UnitOfWork,
-  CalibrationParameterRecord,
+  ParameterDefinitionBase,
 } from '@arc/core';
 import {
   SpfModuleDefinition,
@@ -23,12 +23,14 @@ import {SpfModuleDefinitionRootFetcher} from '../../fetchers/definitions/spf-mod
 import {DataPortGroupFetcher} from '../../fetchers/definitions/spf-module-definitions/data-port-group-fetcher.js';
 import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
 import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
+import {ModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/module-parameter-definition-fetcher.js';
 
 export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionRepository {
   private readonly rootFetcher: SpfModuleDefinitionRootFetcher;
   private readonly portGroupFetcher: DataPortGroupFetcher;
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
+  private readonly paramDefFetcher: ModuleParameterDefinitionFetcher;
 
   constructor(
     private readonly manager: EntityManager,
@@ -45,6 +47,10 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       editActionsQs,
     );
     this.dynamicIntentFetcher = new DynamicIntentDefFetcher(
+      manager,
+      editActionsQs,
+    );
+    this.paramDefFetcher = new ModuleParameterDefinitionFetcher(
       manager,
       editActionsQs,
     );
@@ -142,27 +148,20 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     });
   }
 
-  async findCalibrationParametersByDefinitionId(
-    definitionSystemId: number,
-    _fileSystemId: number,
-  ): Promise<CalibrationParameterRecord[]> {
-    // Calibration parameters are those with isPersistent = false (loaded at
-    // runtime into CKV bins). Verify this filter against the DB if any module
-    // has unexpected missing or extra entries — see design doc §5 for the note
-    // about confirming the exact criterion.
-    // See: docs/edit-crud/design/add-module-calibration-defaults-design.md §5
-    const rows = await this.manager
-      .createQueryBuilder()
-      .select(['p.systemId', 'p.elementsStructure'])
-      .from(ENTITY_NAMES.SpfModuleParameterDefinition, 'p')
-      .where(
-        'p.spfModuleDefinitionSystemId = :definitionSystemId AND p.isPersistent = :isPersistent',
-        {definitionSystemId, isPersistent: false},
-      )
-      .getRawMany<{p_systemId: number; p_elementsStructure: string}>();
+  async getParameterDefinitions(
+    moduleDefSystemId: number,
+    paramSystemIds?: number[],
+  ): Promise<ParameterDefinitionBase[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.paramDefFetcher.fetchParameterDefinitions(
+      moduleDefSystemId,
+      sessionId,
+      paramSystemIds,
+    );
     return rows.map(r => ({
-      systemId: Number(r.p_systemId),
-      elementsStructure: r.p_elementsStructure,
+      systemId: r.systemId,
+      isReadOnly: r.isReadOnly,
+      elementsStructure: r.elementsStructure,
     }));
   }
 }

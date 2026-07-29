@@ -4,10 +4,25 @@
  */
 
 import type {EditOptions} from '../../edit-options.js';
-import type {SpfModule} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
+import type {
+  SpfModule,
+  SpfModuleBase,
+} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
+
+export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
+
+export interface ExistingPayloadRow {
+  systemId: number; // PK of CkvParameterPayload — matches param.systemId from client
+  parameterSystemId: number; // FK → SpfModuleParameterDefinition.systemId
+}
+
+export interface CkvPayloadUpdate {
+  payloadSystemId: number; // PK of CkvParameterPayload — used as targetSystemId in edit_actions
+  payload: Uint8Array;
+}
 
 /**
  * Write-side port for the SpfModule aggregate.
@@ -72,5 +87,24 @@ export interface ModuleRepository {
     kvData: KvData,
     moduleSystemId: number,
     options?: EditOptions,
+  ): Promise<void>;
+
+  getSpfModuleForValidation(
+    spfModuleSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase | null>;
+
+  ckvExists(spfModuleSystemId: number, ckvSystemId: number): Promise<boolean>;
+
+  getExistingCkvPayloads(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+  ): Promise<ExistingPayloadRow[]>;
+
+  setCkvCalData(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+    payloadUpdates: CkvPayloadUpdate[],
+    uiPersistence?: string,
   ): Promise<void>;
 }
