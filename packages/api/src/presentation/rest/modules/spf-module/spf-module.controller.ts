@@ -58,6 +58,7 @@ import {
   QueryBus,
   CommandBus,
   PatchSpfModuleCommand,
+  CreateModuleCommand,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
   PARAMETER_ELEMENT_TYPE,
@@ -303,17 +304,35 @@ export class SpfModuleController extends BaseController {
     ],
   })
   async addSpfModule(
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
     @Body() request: CreateSpfModuleRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<SpfModuleDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'addSpfModule request received for projectId:',
+    const cmd = new CreateModuleCommand(
+      request.moduleDefinitionId,
+      request.processorSystemId,
+      request.parentSystemId ?? null,
+      request.subgraphSystemId ?? null,
+      request.containerSystemId ?? null,
+    );
+
+    const {moduleSystemId} = await this.commandBus.execute<{
+      groupId: string;
+      moduleSystemId: number;
+    }>(cmd, session);
+
+    const query = new SpfModuleQuery(
+      [moduleSystemId],
       projectId,
-      'with request:',
-      request,
-    ); // Placeholder usage to satisfy linter
-    throw new NotImplementedException('addSpfModule is not implemented yet');
+      false,
+      false,
+      'api-client',
+    );
+    const readResult =
+      await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
+    return toApiResult(readResult, ({modules}) =>
+      this.mapToSpfModuleDto(modules[0]),
+    );
   }
 
   /**

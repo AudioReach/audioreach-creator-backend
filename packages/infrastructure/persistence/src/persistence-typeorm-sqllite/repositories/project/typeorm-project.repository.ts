@@ -13,12 +13,14 @@ import {
   type ArcDbFileInit,
   type FileHeaderData,
   type FileOpenStatus,
+  type ModulePortStrategy,
   type ProjectCreationResult,
   type ProjectRepository,
   type ValidationIssue,
 } from '@arc/core';
 import {ProjectSchema} from '../../entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
+import {ConfigurationSchema} from '../../entity-schema/project-data/configuration.schema.js';
 
 export class TypeOrmProjectRepository implements ProjectRepository {
   constructor(private readonly manager: EntityManager) {}
@@ -110,5 +112,14 @@ export class TypeOrmProjectRepository implements ProjectRepository {
         oemInfo: headerData.oemInfo,
       },
     );
+  }
+
+  async getPortStrategy(
+    fileSystemId: number,
+  ): Promise<ModulePortStrategy | null> {
+    const config = await this.manager.findOne(ConfigurationSchema, {
+      where: {fileSystemId},
+    });
+    return config?.portStrategy ?? null;
   }
 }

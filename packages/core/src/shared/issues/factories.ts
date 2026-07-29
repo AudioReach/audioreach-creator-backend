@@ -155,4 +155,23 @@ export const IssueFactory = {
       },
     };
   },
+
+  portCountBelowStaticMinimum(
+    moduleSystemId: number,
+    requested: number,
+    staticCount: number,
+    portEntityType: IssueEntityType,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.MOD_PORT_COUNT_BELOW_STATIC_MINIMUM,
+      message:
+        `Requested port count ${requested} is below the module's static port count ` +
+        `${staticCount}. Static ports are fixed by the module definition and cannot be removed.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: portEntityType,
+        systemId: moduleSystemId,
+      },
+    };
+  },
 } as const;

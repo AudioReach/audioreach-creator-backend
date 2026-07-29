@@ -8,6 +8,10 @@ import type {ProjectSessionRow} from './project-session.schema.js';
 import type {ChangeOperation, ChangeStatus, Source} from '@arc/core';
 import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE} from '@arc/core';
 import type {EntityName} from '../entity-table-names.js';
+import {
+  serializeBlobs,
+  deserializeBlobs,
+} from '../../utils/blob-serialization.js';
 
 export interface EditActionRow {
   changeId: number;
@@ -73,6 +77,10 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       name: 'new_value',
       type: 'simple-json',
       nullable: true,
+      transformer: {
+        to: (value: unknown) => serializeBlobs(value),
+        from: (value: unknown) => deserializeBlobs(value),
+      },
     },
     source: {
       name: 'source',

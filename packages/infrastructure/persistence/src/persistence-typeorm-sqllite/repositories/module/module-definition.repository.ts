@@ -4,7 +4,11 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {ModuleDefinitionRepository, UnitOfWork} from '@arc/core';
+import type {
+  ModuleDefinitionRepository,
+  UnitOfWork,
+  CalibrationParameterRecord,
+} from '@arc/core';
 import {
   SpfModuleDefinition,
   DataPortGroupDefinition,
@@ -136,5 +140,29 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       dynamicIntents: dynamicIntentDomains,
       isLoadedAtBootup: Boolean(root.isLoadedAtBootup),
     });
+  }
+
+  async findCalibrationParametersByDefinitionId(
+    definitionSystemId: number,
+    _fileSystemId: number,
+  ): Promise<CalibrationParameterRecord[]> {
+    // Calibration parameters are those with isPersistent = false (loaded at
+    // runtime into CKV bins). Verify this filter against the DB if any module
+    // has unexpected missing or extra entries — see design doc §5 for the note
+    // about confirming the exact criterion.
+    // See: docs/edit-crud/design/add-module-calibration-defaults-design.md §5
+    const rows = await this.manager
+      .createQueryBuilder()
+      .select(['p.systemId', 'p.elementsStructure'])
+      .from(ENTITY_NAMES.SpfModuleParameterDefinition, 'p')
+      .where(
+        'p.spfModuleDefinitionSystemId = :definitionSystemId AND p.isPersistent = :isPersistent',
+        {definitionSystemId, isPersistent: false},
+      )
+      .getRawMany<{p_systemId: number; p_elementsStructure: string}>();
+    return rows.map(r => ({
+      systemId: Number(r.p_systemId),
+      elementsStructure: r.p_elementsStructure,
+    }));
   }
 }

@@ -14,9 +14,9 @@ export {
 
 export {
   MODULE_PORT_STRATEGIES,
+  type ModulePortStrategy,
   PROCESSOR_DOMAINS,
   ALSA_FILE_TYPES,
-  type ModulePortStrategy,
   type ProcessorDomain,
   type AlsaFileType,
 } from './types.js';

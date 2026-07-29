@@ -14,6 +14,9 @@ import type {ContainerRepository} from './repositories/container/container.repos
 import type {ModuleDefinitionRepository} from './repositories/module/module-definition.repository.js';
 import type {DataLinkRepository} from './repositories/data-link/data-link.repository.js';
 import type {ControlLinkRepository} from './repositories/control-link/control-link.repository.js';
+import type {SubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
+import type {SubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
+import type {PropertyDefinitionsRepository} from './repositories/property-definitions/property-definitions.repository.js';
 
 /**
  * Unit of Work pattern for managing database transactions and repository access.
@@ -64,4 +67,7 @@ export interface UnitOfWork {
   getModuleDefinitionRepository(): ModuleDefinitionRepository;
   getDataLinkRepository(): DataLinkRepository;
   getControlLinkRepository(): ControlLinkRepository;
+  getSubgraphRepository(): SubgraphRepository;
+  getSubsystemRepository(): SubsystemRepository;
+  getPropertyDefinitionsRepository(): PropertyDefinitionsRepository;
 }

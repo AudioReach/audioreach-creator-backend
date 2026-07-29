@@ -3,18 +3,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  UnitOfWork,
-  IdGenerationPort,
-  SpfModule,
-  PortIoType,
-} from '@arc/core';
 import {
+  type UnitOfWork,
+  type IdGenerationPort,
+  type SpfModule,
+  type PortIoType,
   ISSUE_ENTITY_TYPE,
   ResourceNotFoundException,
   InvalidOperationException,
   DomainRuleViolationException,
   PORT_IO_TYPE,
+  MODULE_PORT_STRATEGIES,
+  type ModulePortStrategy,
 } from '@arc/core';
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import {IssueFactory} from '../../../../shared/issues/factories.js';
@@ -24,6 +24,10 @@ import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/d
 import {ControlPort} from '../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import {resolvePortCountChange} from './resolve-port-count-change.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
+import {
+  nextDataPortIds,
+  nextControlPortIds,
+} from '../../../../domain/services/port-id-calculator/port-id-calculator.js';
 import type {PatchSpfModuleCommand} from './patch-spf-module.command.js';
 
 function containerPropertyPayloadsMatch(
@@ -76,6 +80,19 @@ export class PatchSpfModuleHandler implements CommandHandler<
         );
       }
 
+      // Load port strategy once — only when a data port count field is present.
+      // Default to INPUT_EVEN_OUTPUT_ODD when no configuration row exists so
+      // the absence of configuration is explicit at the domain boundary.
+      const needsPortStrategy =
+        command.maxInputPortsSupported !== undefined ||
+        command.maxOutputPortsSupported !== undefined;
+      const portStrategy: ModulePortStrategy = needsPortStrategy
+        ? ((await this.uow
+            .getProjectRepository()
+            .getPortStrategy(fileSystemId)) ??
+          MODULE_PORT_STRATEGIES.INPUT_EVEN_OUTPUT_ODD)
+        : MODULE_PORT_STRATEGIES.INPUT_EVEN_OUTPUT_ODD;
+
       if (command.alias !== undefined) {
         await moduleRepo.renameModule(spfModuleSystemId, command.alias);
       }
@@ -87,6 +104,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
           module,
           PORT_IO_TYPE.Input,
           command.maxInputPortsSupported,
+          portStrategy,
         );
       }
       if (command.maxOutputPortsSupported !== undefined) {
@@ -94,6 +112,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
           module,
           PORT_IO_TYPE.Output,
           command.maxOutputPortsSupported,
+          portStrategy,
         );
       }
       if (command.maxControlPortsSupported !== undefined) {
@@ -185,11 +204,19 @@ export class PatchSpfModuleHandler implements CommandHandler<
 
     await moduleRepo.changeContainer(module.systemId, newContainerId);
 
-    // Add TODO: recalculate stack size for containerID change - set this property
+    // TODO(stack-size): Recalculate the new container's stack size after the module move.
+    // Use the property API once the module's stack size contribution is available:
+    //
+    //   const currentData = await containerRepo.getPropertyData(
+    //     newContainerId, CONTAINER_PROP_ID_STACK_SIZE, fileSystemId,
+    //   );
+    //   const currentStackSize = currentData ? decodeStackSize(currentData) : 0;
+    //   const newStackSize = computeNewStackSize(currentStackSize, module, ...);
+    //   await containerRepo.setPropertyData(
+    //     newContainerId, CONTAINER_PROP_ID_STACK_SIZE, encodeStackSize(newStackSize),
+    //   );
   }
 
-  // TODO: portID should generated based on port strategy defined in workspace file
-  //  and it should re-use freed ports for that module
   private async applyDataPortCountChange(
     module: SpfModule,
     ioType: Extract<
@@ -197,13 +224,30 @@ export class PatchSpfModuleHandler implements CommandHandler<
       typeof PORT_IO_TYPE.Input | typeof PORT_IO_TYPE.Output
     >,
     requested: number,
+    strategy: ModulePortStrategy,
   ): Promise<void> {
     const uow = this.uow;
     const fileSystemId = uow.getWriteContext().session.fileSystemId;
 
     const currentPorts = module.dataPorts.filter(p => p.portIoType === ioType);
+    const staticPorts = currentPorts.filter(p => p.isStatic);
+    const dynamicPorts = currentPorts.filter(p => !p.isStatic);
+
+    if (requested < staticPorts.length) {
+      throw new DomainRuleViolationException([
+        IssueFactory.portCountBelowStaticMinimum(
+          module.systemId,
+          requested,
+          staticPorts.length,
+          ISSUE_ENTITY_TYPE.DataPort,
+        ),
+      ]);
+    }
+
+    const dynamicRequested = requested - staticPorts.length;
+
     const links = await uow.getDataLinkRepository().getLinksByPortSystemIds(
-      currentPorts.map(p => p.systemId),
+      dynamicPorts.map(p => p.systemId),
       fileSystemId,
     );
 
@@ -219,10 +263,12 @@ export class PatchSpfModuleHandler implements CommandHandler<
     const portGroup = definition.dataPortGroups.find(
       g => g.portIoType === ioType,
     );
+    const maxDynamic =
+      (portGroup?.maxAllowedPortCount ?? 0) - staticPorts.length;
     const outcome = resolvePortCountChange(
-      currentPorts,
-      requested,
-      portGroup?.maxAllowedPortCount ?? 0,
+      dynamicPorts,
+      dynamicRequested,
+      maxDynamic,
       links,
       ISSUE_ENTITY_TYPE.DataPort,
       module.systemId,
@@ -233,15 +279,18 @@ export class PatchSpfModuleHandler implements CommandHandler<
 
     const {toAdd, toRemove} = outcome.data;
     const moduleRepo = uow.getModuleRepository();
-    for (let i = 0; i < toAdd; i++) {
-      const portDef = portGroup?.staticPortDefinitions[currentPorts.length + i];
+    const isInput = ioType === PORT_IO_TYPE.Input;
+    // existingIds includes ALL ports (static + dynamic) to prevent ID collision with static ports
+    const existingIds = new Set(currentPorts.map(p => p.dataPortId));
+    const newPortIds = nextDataPortIds(existingIds, isInput, strategy, toAdd);
+    for (const dataPortId of newPortIds) {
       await moduleRepo.addDataPort(
         new DataPort({
           systemId: await this.idGeneration.getNextId(fileSystemId),
-          dataPortId: portDef?.dataPortId ?? 0,
+          dataPortId,
           portIoType: ioType,
-          isStatic: true,
-          name: portDef?.name,
+          isStatic: false,
+          name: `${isInput ? 'Input' : 'Output'}_${dataPortId}`,
         }),
         module.systemId,
       );
@@ -251,7 +300,6 @@ export class PatchSpfModuleHandler implements CommandHandler<
     }
   }
 
-  // TODO: portID should generated based on range defined and it should re-use freed ports for that module
   private async applyControlPortCountChange(
     module: SpfModule,
     requested: number,
@@ -259,8 +307,24 @@ export class PatchSpfModuleHandler implements CommandHandler<
     const uow = this.uow;
     const fileSystemId = uow.getWriteContext().session.fileSystemId;
 
+    const staticControlPorts = module.controlPorts.filter(cp => cp.isStatic);
+    const dynamicControlPorts = module.controlPorts.filter(cp => !cp.isStatic);
+
+    if (requested < staticControlPorts.length) {
+      throw new DomainRuleViolationException([
+        IssueFactory.portCountBelowStaticMinimum(
+          module.systemId,
+          requested,
+          staticControlPorts.length,
+          ISSUE_ENTITY_TYPE.ControlPort,
+        ),
+      ]);
+    }
+
+    const dynamicRequested = requested - staticControlPorts.length;
+
     const links = await uow.getControlLinkRepository().getLinksByPortSystemIds(
-      module.controlPorts.map(p => p.systemId),
+      dynamicControlPorts.map(p => p.systemId),
       fileSystemId,
     );
 
@@ -273,10 +337,17 @@ export class PatchSpfModuleHandler implements CommandHandler<
       );
     }
 
+    // Total dynamic capacity = sum of maxPort across all dynamic intent types.
+    // The intent-availability check below enforces the fine-grained per-type limit.
+    const maxDynamicIntentCapacity = definition.dynamicIntents.reduce(
+      (sum, d) => sum + d.maxPort,
+      0,
+    );
+
     const outcome = resolvePortCountChange(
-      module.controlPorts,
-      requested,
-      definition.staticControlPorts.length,
+      dynamicControlPorts,
+      dynamicRequested,
+      maxDynamicIntentCapacity,
       links,
       ISSUE_ENTITY_TYPE.ControlPort,
       module.systemId,
@@ -287,15 +358,10 @@ export class PatchSpfModuleHandler implements CommandHandler<
 
     const {toAdd, toRemove} = outcome.data;
     if (toAdd > 0) {
-      // only dynamic (non-static) ports consume slots from the dynamic intent pool.
-      // Static ports have their intents assigned from per-port definitions and must not affect CurrentUsage.
-      const dynamicPorts = module.controlPorts.filter(cp => !cp.isStatic);
-
-      // compute CurrentUsage per intent TYPE across all dynamic ports.
-      // intentTypeIds carries the DynamicIntentDefinition.intentId values (type IDs),
-      // which is what we compare against definition.dynamicIntents[n].intentId.
+      // Only dynamic ports consume slots from the dynamic intent pool.
+      // Static ports have their intents assigned from per-port definitions.
       const usageByIntentTypeId = new Map<number, number>();
-      for (const cp of dynamicPorts) {
+      for (const cp of dynamicControlPorts) {
         for (const typeId of cp.intentTypeIds) {
           usageByIntentTypeId.set(
             typeId,
@@ -329,16 +395,18 @@ export class PatchSpfModuleHandler implements CommandHandler<
       }
 
       const moduleRepo = uow.getModuleRepository();
-      for (let i = 0; i < toAdd; i++) {
-        const portDef =
-          definition.staticControlPorts[module.controlPorts.length + i];
+      const existingControlIds = new Set(
+        module.controlPorts.map(p => p.portId),
+      );
+      const newControlPortIds = nextControlPortIds(existingControlIds, toAdd);
+      for (const portId of newControlPortIds) {
         await moduleRepo.addControlPort(
           new ControlPort({
             systemId: await this.idGeneration.getNextId(fileSystemId),
-            portId: portDef?.portId ?? 0,
-            isStatic: true,
+            portId,
+            isStatic: false,
             nodeSystemId: module.systemId,
-            name: portDef?.portName,
+            name: `ControlPort_0x${portId.toString(16)}`,
             intentSystemIds: [],
           }),
           module.systemId,

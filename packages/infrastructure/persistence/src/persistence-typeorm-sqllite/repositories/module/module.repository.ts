@@ -297,4 +297,15 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       );
     }
   }
+
+  createCkv(
+    _kvData: unknown,
+    _moduleSystemId: number,
+    _options?: EditOptions,
+  ): Promise<void> {
+    // TODO(add-module-calibration-defaults): stage CKV CREATE row + all
+    // CkvParameterPayload CREATE rows in FK order.
+    // See: docs/edit-crud/design/add-module-calibration-defaults-design.md §6
+    return Promise.reject(new Error('createCkv: not yet implemented'));
+  }
 }

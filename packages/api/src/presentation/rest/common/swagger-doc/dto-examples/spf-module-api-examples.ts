@@ -16,9 +16,9 @@ export const CreateSpfModuleRequestExample = {
    */
   getExample(): CreateSpfModuleRequestDto {
     return {
-      moduleSystemId: 135_266_313,
-      procSystemId: 2,
-      parentId: 100,
+      moduleDefinitionId: 135_266_313,
+      processorSystemId: 2,
+      parentSystemId: 100,
       subgraphSystemId: 200,
       containerSystemId: 300,
     };

@@ -24,3 +24,6 @@ export {TypeOrmContainerRepository} from './repositories/container/container.rep
 export {TypeOrmModuleDefinitionRepository} from './repositories/module/module-definition.repository.js';
 export {TypeOrmDataLinkRepository} from './repositories/data-link/data-link.repository.js';
 export {TypeOrmControlLinkRepository} from './repositories/control-link/control-link.repository.js';
+export {TypeOrmSubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
+export {TypeOrmSubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
+export {TypeOrmPropertyDefinitionsRepository} from './repositories/property-definitions/property-definitions.repository.js';

@@ -11,6 +11,8 @@ import {
   ResourceNotFoundException,
   InvalidOperationException,
   DomainRuleViolationException,
+  PORT_IO_TYPE,
+  MODULE_PORT_STRATEGIES,
 } from '@arc/core';
 import type {
   UnitOfWork,
@@ -20,6 +22,7 @@ import type {
   DataLinkRepository,
   ControlLinkRepository,
   IdGenerationPort,
+  ProjectRepository,
 } from '@arc/core';
 import {SpfModule} from '../../../../../../src/domain/entities/usecase-data/module/spf-module.js';
 import {DataPort} from '../../../../../../src/domain/entities/usecase-data/node/entities/data-port.js';
@@ -89,6 +92,16 @@ function makeControlLinkRepo(): ControlLinkRepository {
   return {getLinksByPortSystemIds: jest.fn().mockResolvedValue([])};
 }
 
+function makeProjectRepo(strategy: string | null = null): ProjectRepository {
+  return {
+    getPortStrategy: jest.fn().mockResolvedValue(strategy),
+    createOfflineProject: jest.fn(),
+    updateFileStatus: jest.fn(),
+    deleteProject: jest.fn(),
+    updateFileHeader: jest.fn(),
+  } as unknown as ProjectRepository;
+}
+
 function makeUow(
   repos: {
     moduleRepo?: ModuleRepository;
@@ -96,6 +109,7 @@ function makeUow(
     defRepo?: ModuleDefinitionRepository;
     dataLinkRepo?: DataLinkRepository;
     controlLinkRepo?: ControlLinkRepository;
+    projectRepo?: ProjectRepository;
   } = {},
 ): UnitOfWork {
   const startTransaction = jest.fn().mockResolvedValue(undefined);
@@ -135,7 +149,9 @@ function makeUow(
       .fn()
       .mockReturnValue(repos.controlLinkRepo ?? makeControlLinkRepo()),
     getBulkImportRepository: jest.fn(),
-    getProjectRepository: jest.fn(),
+    getProjectRepository: jest
+      .fn()
+      .mockReturnValue(repos.projectRepo ?? makeProjectRepo()),
     getValidationPreferencesRepository: jest.fn(),
     getValidationQueryService: jest.fn(),
   } as unknown as UnitOfWork;
@@ -457,5 +473,205 @@ describe('PatchSpfModuleHandler', () => {
     await handler.handle(cmd);
     expect(uow.commit).toHaveBeenCalledTimes(1);
     expect(uow.rollback).not.toHaveBeenCalled();
+  });
+});
+
+describe('PatchSpfModuleHandler — port ID generation', () => {
+  it('assigns gap-filling dataPortId when adding input ports (SEQUENTIAL)', async () => {
+    // Module has input ports at IDs {1, 4, 5} — gaps at 2 and 3.
+    // Requesting 5 (currently 3) → add 2 → should assign dataPortId 2 then 3.
+    const existingInputPorts = [
+      new DataPort({
+        systemId: 10,
+        dataPortId: 1,
+        portIoType: PORT_IO_TYPE.Input,
+        isStatic: true,
+      }),
+      new DataPort({
+        systemId: 11,
+        dataPortId: 4,
+        portIoType: PORT_IO_TYPE.Input,
+        isStatic: false,
+      }),
+      new DataPort({
+        systemId: 12,
+        dataPortId: 5,
+        portIoType: PORT_IO_TYPE.Input,
+        isStatic: false,
+      }),
+    ];
+    const module = makeModule({dataPorts: existingInputPorts});
+    const moduleRepo = makeModuleRepo({
+      findModuleForPatch: jest.fn().mockResolvedValue(module),
+    });
+    const defRepo = makeDefRepo({
+      findBySystemId: jest.fn().mockResolvedValue({
+        containerTypesSystemIds: new Set<number>(),
+        dataPortGroups: [
+          {
+            portIoType: PORT_IO_TYPE.Input,
+            maxAllowedPortCount: 10,
+            staticPortDefinitions: [],
+          },
+        ],
+        staticControlPorts: [],
+        dynamicIntents: [],
+      }),
+    });
+    const projectRepo = makeProjectRepo(MODULE_PORT_STRATEGIES.SEQUENTIAL);
+    const testUow = makeUow({moduleRepo, defRepo, projectRepo});
+    const testHandler = new PatchSpfModuleHandler(testUow, idGeneration);
+
+    await testHandler.handle(
+      new PatchSpfModuleCommand(MODULE_ID, undefined, undefined, 5),
+    );
+
+    const addCalls = (moduleRepo.addDataPort as ReturnType<typeof jest.fn>).mock
+      .calls;
+    expect(addCalls).toHaveLength(2);
+    const addedIds = addCalls.map(
+      (c: unknown[]) => (c[0] as DataPort).dataPortId,
+    );
+    expect(addedIds).toEqual([2, 3]);
+  });
+
+  it('assigns gap-filling portId when adding control ports (starts at 0x80000000)', async () => {
+    // Module has one dynamic control port at 0x80000000; requesting 2 → add 1 → should be 0x80000001.
+    const existingControlPort = new ControlPort({
+      systemId: 20,
+      portId: 0x80000000,
+      isStatic: false,
+      nodeSystemId: MODULE_ID,
+      name: 'cp0',
+      intentSystemIds: [],
+      intentTypeIds: [],
+    });
+    const module = makeModule({controlPorts: [existingControlPort]});
+    const moduleRepo = makeModuleRepo({
+      findModuleForPatch: jest.fn().mockResolvedValue(module),
+    });
+    const defRepo = makeDefRepo({
+      findBySystemId: jest.fn().mockResolvedValue({
+        containerTypesSystemIds: new Set<number>(),
+        dataPortGroups: [],
+        staticControlPorts: [{portId: 1}, {portId: 2}], // length=2 → maxAllowed=2
+        dynamicIntents: [{intentId: 1, maxPort: 10}], // 10 slots available
+      }),
+    });
+    const testUow = makeUow({moduleRepo, defRepo});
+    const testHandler = new PatchSpfModuleHandler(testUow, idGeneration);
+
+    await testHandler.handle(
+      new PatchSpfModuleCommand(
+        MODULE_ID,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        2,
+      ),
+    );
+
+    const addCalls = (moduleRepo.addControlPort as ReturnType<typeof jest.fn>)
+      .mock.calls;
+    expect(addCalls).toHaveLength(1);
+    expect((addCalls[0][0] as ControlPort).portId).toBe(0x80000001);
+  });
+
+  it('does not call getPortStrategy on alias-only patch', async () => {
+    const projectRepo = makeProjectRepo();
+    const testUow = makeUow({projectRepo});
+    const testHandler = new PatchSpfModuleHandler(testUow, idGeneration);
+
+    await testHandler.handle(new PatchSpfModuleCommand(MODULE_ID, 'new-name'));
+
+    expect(projectRepo.getPortStrategy).not.toHaveBeenCalled();
+  });
+});
+
+describe('PatchSpfModuleHandler — static port protection', () => {
+  it('throws DomainRuleViolationException when requested < static input port count', async () => {
+    // Module has 2 static input ports; requesting 1 is below the static minimum.
+    const staticPort1 = new DataPort({
+      systemId: 1,
+      dataPortId: 2,
+      portIoType: PORT_IO_TYPE.Input,
+      isStatic: true,
+    });
+    const staticPort2 = new DataPort({
+      systemId: 2,
+      dataPortId: 4,
+      portIoType: PORT_IO_TYPE.Input,
+      isStatic: true,
+    });
+    const module = makeModule({dataPorts: [staticPort1, staticPort2]});
+    const moduleRepo = makeModuleRepo({
+      findModuleForPatch: jest.fn().mockResolvedValue(module),
+    });
+    const defRepo = makeDefRepo({
+      findBySystemId: jest.fn().mockResolvedValue({
+        containerTypesSystemIds: new Set<number>(),
+        dataPortGroups: [
+          {
+            portIoType: PORT_IO_TYPE.Input,
+            maxAllowedPortCount: 4,
+            staticPortDefinitions: [],
+          },
+        ],
+        staticControlPorts: [],
+        dynamicIntents: [],
+      }),
+    });
+    const testUow = makeUow({moduleRepo, defRepo});
+    const testHandler = new PatchSpfModuleHandler(testUow, idGeneration);
+
+    await expect(
+      testHandler.handle(
+        new PatchSpfModuleCommand(MODULE_ID, undefined, undefined, 1),
+      ),
+    ).rejects.toThrow(DomainRuleViolationException);
+    expect(testUow.rollback).toHaveBeenCalled();
+    // Static ports must not be removed
+    expect(moduleRepo.removeDataPort).not.toHaveBeenCalled();
+  });
+
+  it('throws DomainRuleViolationException when requested < static control port count', async () => {
+    // Module has 1 static control port; requesting 0 is below the static minimum.
+    const staticCp = new ControlPort({
+      systemId: 10,
+      portId: 1,
+      isStatic: true,
+      nodeSystemId: MODULE_ID,
+      intentSystemIds: [],
+    });
+    const module = makeModule({controlPorts: [staticCp]});
+    const moduleRepo = makeModuleRepo({
+      findModuleForPatch: jest.fn().mockResolvedValue(module),
+    });
+    const defRepo = makeDefRepo({
+      findBySystemId: jest.fn().mockResolvedValue({
+        containerTypesSystemIds: new Set<number>(),
+        dataPortGroups: [],
+        staticControlPorts: [{portId: 1}],
+        dynamicIntents: [],
+      }),
+    });
+    const testUow = makeUow({moduleRepo, defRepo});
+    const testHandler = new PatchSpfModuleHandler(testUow, idGeneration);
+
+    await expect(
+      testHandler.handle(
+        new PatchSpfModuleCommand(
+          MODULE_ID,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          0,
+        ),
+      ),
+    ).rejects.toThrow(DomainRuleViolationException);
+    expect(testUow.rollback).toHaveBeenCalled();
+    expect(moduleRepo.removeControlPort).not.toHaveBeenCalled();
   });
 });

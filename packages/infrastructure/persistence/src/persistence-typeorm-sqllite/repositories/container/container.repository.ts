@@ -110,4 +110,66 @@ export class TypeOrmContainerRepository implements ContainerRepository {
       );
     }
   }
+
+  async getPropertyData(
+    containerSystemId: number,
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Uint8Array | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const overlaid = await this.containerFetcher.fetchOne(
+      containerSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    if (!overlaid) return null;
+    const prop = overlaid.properties.find(
+      p => p.propertySystemId === propertySystemId,
+    );
+    if (!prop || prop.payload == null) return null;
+    return prop.payload as Uint8Array;
+  }
+
+  async setPropertyData(
+    containerSystemId: number,
+    propertySystemId: number,
+    data: Uint8Array,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const fileSystemId = session.fileSystemId;
+    // Use the fetcher only to resolve the property data row's systemId.
+    // The blob (payload) is not read here — only the integer systemId matters.
+    const overlaid = await this.containerFetcher.fetchOne(
+      containerSystemId,
+      fileSystemId,
+      session.sessionId,
+    );
+    if (!overlaid) {
+      throw new Error(
+        `Container ${containerSystemId} not found in file ${fileSystemId}.`,
+      );
+    }
+    const prop = overlaid.properties.find(
+      p => p.propertySystemId === propertySystemId,
+    );
+    if (!prop) {
+      throw new Error(
+        `Container property ${propertySystemId} not found on container ` +
+          `${containerSystemId}. Ensure the property is initialised at container creation.`,
+      );
+    }
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.ContainerPropertyData,
+        targetSystemId: prop.systemId,
+        aggregateId: containerSystemId,
+        delta: {payload: data},
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
 }

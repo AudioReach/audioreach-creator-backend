@@ -4360,9 +4360,9 @@
                 "default": {
                   "summary": "Example CreateSpfModuleRequestDto",
                   "value": {
-                    "moduleSystemId": 135266313,
-                    "procSystemId": 2,
-                    "parentId": 100,
+                    "moduleDefinitionId": 135266313,
+                    "processorSystemId": 2,
+                    "parentSystemId": 100,
                     "subgraphSystemId": 200,
                     "containerSystemId": 300
                   }
@@ -12128,30 +12128,30 @@
       "CreateSpfModuleRequestDto": {
         "type": "object",
         "properties": {
-          "moduleSystemId": {
+          "moduleDefinitionId": {
             "type": "number",
-            "description": "Module system ID (module definition ID)"
+            "description": "Module definition system ID"
           },
-          "procSystemId": {
+          "processorSystemId": {
             "type": "number",
-            "description": "Processor ID"
+            "description": "Processor system ID"
           },
-          "parentId": {
+          "parentSystemId": {
             "type": "number",
-            "description": "Parent ID. Optional."
+            "description": "Parent subsystem system ID. Optional."
           },
           "subgraphSystemId": {
             "type": "number",
-            "description": "Subgraph ID. If not provided, a new subgraph will be created automatically."
+            "description": "Subgraph system ID. If not provided, a new subgraph will be created automatically."
           },
           "containerSystemId": {
             "type": "number",
-            "description": "Container ID. If not provided, a new container will be created automatically."
+            "description": "Container system ID. If not provided, a new container will be created automatically."
           }
         },
         "required": [
-          "moduleSystemId",
-          "procSystemId"
+          "moduleDefinitionId",
+          "processorSystemId"
         ]
       },
       "CloneSpfModuleRequestDto": {

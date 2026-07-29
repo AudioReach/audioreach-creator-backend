@@ -7,11 +7,13 @@ import type {Container} from '../../../domain/entities/usecase-data/container/co
 import {Container as ContainerClass} from '../../../domain/entities/usecase-data/container/container.js';
 import {ContainerPropertyValue} from '../../../domain/entities/usecase-data/container/value-objects/container-property.js';
 import {CONTAINER_PROP_ID_STACK_SIZE} from '../../file-operations/shared/constants/spf-ids.js';
+import {encodeStackSize} from '../../../domain/services/container-property/container-stack-size-codec.js';
 
 /**
- * Creates a new container by copying all properties from the source container,
- * excluding the stack-size property (which is structural and legitimately
- * differs between containers depending on which modules are in them).
+ * Creates a new container by copying all properties from the source container.
+ * Stack size is always initialized to 0 rather than copied — it must be
+ * recalculated by the caller based on the modules that will be placed in
+ * the new container.
  * The containerTypeSystemId is inherited from the source.
  *
  * Used by:
@@ -38,5 +40,13 @@ export function buildContainerCopy(
       new ContainerPropertyValue(propId, propVal.getPayloadCopy()),
     );
   }
+  // Stack size is always initialized to 0 — must be recalculated after module placement.
+  copy.properties.set(
+    CONTAINER_PROP_ID_STACK_SIZE,
+    new ContainerPropertyValue(
+      CONTAINER_PROP_ID_STACK_SIZE,
+      encodeStackSize(0),
+    ),
+  );
   return copy;
 }
