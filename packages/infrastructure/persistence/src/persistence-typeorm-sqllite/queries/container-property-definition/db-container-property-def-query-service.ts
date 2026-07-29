@@ -14,12 +14,11 @@ import {
   IssueSeverity,
 } from '@arc/core';
 import {OverlayMergeImpl} from '../edit-session/overlay-merge.js';
-import {FieldPathReducer} from '../edit-session/field-path-reducer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import type {ContainerPropertyRow} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
 
-const overlay = new OverlayMergeImpl(new FieldPathReducer());
+const overlay = new OverlayMergeImpl();
 
 export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQueryService {
   constructor(
