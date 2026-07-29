@@ -22,31 +22,32 @@ import {Type} from 'class-transformer';
  */
 export class CreateSpfModuleRequestDto {
   @ApiProperty({
-    description: 'Module system ID (module definition ID)',
+    description: 'Module definition system ID',
     required: true,
   })
   @IsNotEmpty()
   @IsNumber()
-  moduleSystemId!: number;
+  moduleDefinitionId!: number;
 
   @ApiProperty({
-    description: 'Processor ID',
+    description: 'Processor system ID',
     required: true,
   })
   @IsNotEmpty()
   @IsNumber()
-  procSystemId!: number;
+  processorSystemId!: number;
+
   @ApiProperty({
-    description: 'Parent ID. Optional.',
+    description: 'Parent subsystem system ID. Optional.',
     required: false,
   })
   @IsOptional()
   @IsNumber()
-  parentId?: number;
+  parentSystemId?: number;
 
   @ApiProperty({
     description:
-      'Subgraph ID. If not provided, a new subgraph will be created automatically.',
+      'Subgraph system ID. If not provided, a new subgraph will be created automatically.',
     required: false,
   })
   @IsOptional()
@@ -55,7 +56,7 @@ export class CreateSpfModuleRequestDto {
 
   @ApiProperty({
     description:
-      'Container ID. If not provided, a new container will be created automatically.',
+      'Container system ID. If not provided, a new container will be created automatically.',
     required: false,
   })
   @IsOptional()

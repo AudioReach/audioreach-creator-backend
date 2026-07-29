@@ -71,6 +71,8 @@ import {EndSessionCommand} from '../../../edit-session/end-session/end-session.c
 import {EndSessionHandler} from '../../../edit-session/end-session/end-session.handler.js';
 import {PatchSpfModuleCommand} from '../../../usecase-designer/spf-module/patch/patch-spf-module.command.js';
 import {PatchSpfModuleHandler} from '../../../usecase-designer/spf-module/patch/patch-spf-module.handler.js';
+import {CreateModuleCommand} from '../../../usecase-designer/spf-module/create-module/create-module.command.js';
+import {CreateModuleHandler} from '../../../usecase-designer/spf-module/create-module/create-module.handler.js';
 import {CreateDataLinkCommand} from '../../../usecase-designer/data-links/create/create-data-link.command.js';
 import {CreateDataLinkHandler} from '../../../usecase-designer/data-links/create/create-data-link.handler.js';
 import {DeleteDataLinkCommand} from '../../../usecase-designer/data-links/delete/delete-data-link.command.js';
@@ -189,6 +191,15 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(PatchSpfModuleCommand, {
       create: deps => new PatchSpfModuleHandler(deps.uow, deps.idGeneration),
+    });
+
+    this.commandHandlerFactories.set(CreateModuleCommand, {
+      create: deps =>
+        new CreateModuleHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.naturalIdGeneration,
+        ),
     });
   }
 }

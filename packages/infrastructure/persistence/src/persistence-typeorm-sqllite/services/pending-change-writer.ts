@@ -9,6 +9,7 @@ import type {EntityManager} from 'typeorm';
 import type {EntityName} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {PendingChangeCache} from './pending-change-cache.js';
+import {serializeBlobs} from '../utils/blob-serialization.js';
 
 // ── Spec types ────────────────────────────────────────────────────────────────
 
@@ -351,7 +352,7 @@ export class PendingChangeWriter {
         row.targetTable,
         row.operation,
         row.fieldPath,
-        JSON.stringify(row.newValue),
+        JSON.stringify(serializeBlobs(row.newValue)),
         row.source,
         row.changeStatus,
         row.groupId,

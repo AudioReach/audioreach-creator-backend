@@ -50,14 +50,25 @@ export * from './application/shared/read-model-base.js';
 export * from './application/shared/write-result.js';
 export type {EditOptions} from './application/ports/persistence/edit-options.js';
 
-// Module write path — port interfaces (LLD2 PATCH)
+// Module write path — port interfaces (LLD2 PATCH + AddModule)
 export type {ModuleRepository} from './application/ports/persistence/repositories/module/module.repository.js';
 export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
-export type {ModuleDefinitionRepository} from './application/ports/persistence/repositories/module/module-definition.repository.js';
+export type {
+  ModuleDefinitionRepository,
+  CalibrationParameterRecord,
+} from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {DataLinkRepository} from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
+export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+export type {SubsystemRepository} from './application/ports/persistence/repositories/subsystem/subsystem.repository.js';
+export type {
+  PropertyDefinitionsRepository,
+  SubgraphPropertyDefinitionRecord,
+  ContainerPropertyDefinitionRecord,
+} from './application/ports/persistence/repositories/property-definitions/property-definitions.repository.js';
 // Module write path — commands (LLD2)
 export {PatchSpfModuleCommand} from './application/usecase-designer/spf-module/patch/patch-spf-module.command.js';
+export {CreateModuleCommand} from './application/usecase-designer/spf-module/create-module/create-module.command.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';
@@ -304,6 +315,19 @@ export * from './application/validation/validation-orchestrator.js';
 // SPF Constants
 export * from './application/file-operations/shared/constants/spf-ids.js';
 
-// TODO: These items should be moved to shared
 // AWSP serializer v1 - configuration types (MODULE_PORT_STRATEGIES, PROCESSOR_DOMAINS, etc.)
+// MODULE_PORT_STRATEGIES canonical source is domain/entities/common/enums/module-port-strategy.ts
 export * from './application/file-operations/shared/awsp-serializers/v1/configuration/index.js';
+
+// Port ID calculator — gap-filling natural ID generation for dynamic ports
+export {
+  nextDataPortIds,
+  nextControlPortIds,
+  MODULE_CONTROL_PORT_START,
+} from './domain/services/port-id-calculator/port-id-calculator.js';
+
+// Container property codecs — encode/decode property blobs (stack size, etc.)
+export {
+  encodeStackSize,
+  decodeStackSize,
+} from './domain/services/container-property/container-stack-size-codec.js';

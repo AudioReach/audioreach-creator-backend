@@ -11,6 +11,7 @@ import type {
 import type {Project} from '../../../../../domain/entities/usecase-data/project/project.js';
 import type {ValidationIssue} from '../../../../../domain/validation/issue.js';
 import type {Result} from '../../../../shared/result/result.js';
+import type {ModulePortStrategy} from '../../../../../domain/entities/common/enums/module-port-strategy.js';
 
 export interface ProjectCreationResult {
   project: Project;
@@ -62,4 +63,12 @@ export interface ProjectRepository {
     fileSystemId: number,
     headerData: FileHeaderData,
   ): Promise<void>;
+
+  /**
+   * Returns the port strategy for the given file, or null when no
+   * configuration row exists. Callers in the core layer apply the
+   * INPUT_EVEN_OUTPUT_ODD default so the absence of configuration is
+   * visible at the domain boundary rather than silently masked in infra.
+   */
+  getPortStrategy(fileSystemId: number): Promise<ModulePortStrategy | null>;
 }

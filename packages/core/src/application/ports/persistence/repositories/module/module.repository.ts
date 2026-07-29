@@ -7,6 +7,7 @@ import type {EditOptions} from '../../edit-options.js';
 import type {SpfModule} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
+import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
 
 /**
  * Write-side port for the SpfModule aggregate.
@@ -56,4 +57,20 @@ export interface ModuleRepository {
     options?: EditOptions,
   ): Promise<void>;
   createModule(module: SpfModule, options?: EditOptions): Promise<void>;
+
+  /**
+   * Stages CREATE rows for a CKV and all its CkvParameterPayload children atomically.
+   * A CKV cannot exist without its parameter payloads — they are one aggregate.
+   *
+   * For the zero-CKV added at module creation time: kvData.valueDefinitionSystemIds
+   * is empty (no key dimensions) and all parameter payloads carry default blobs.
+   *
+   * TODO(add-module-calibration-defaults): implement adapter
+   * See: docs/edit-crud/design/add-module-calibration-defaults-design.md §6
+   */
+  createCkv(
+    kvData: KvData,
+    moduleSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
 }

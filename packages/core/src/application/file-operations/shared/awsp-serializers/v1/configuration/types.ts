@@ -3,30 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-/**
- * Valid port strategy values for module ports.
- * Defines how port IDs are assigned to input and output ports.
- */
-export const MODULE_PORT_STRATEGIES = {
-  /**
-   * Input ports use even IDs (2, 4, 6, 8...)
-   * Output ports use odd IDs (1, 3, 5, 7...)
-   */
-  INPUT_EVEN_OUTPUT_ODD: 'INPUT_EVEN_OUTPUT_ODD',
-
-  /**
-   * Both input and output ports use sequential IDs starting from 1
-   * Input ports: 1, 2, 3, 4...
-   * Output ports: 1, 2, 3, 4...
-   */
-  SEQUENTIAL: 'SEQUENTIAL',
-} as const;
-
-/**
- * Type representing valid port strategy values
- */
-export type ModulePortStrategy =
-  (typeof MODULE_PORT_STRATEGIES)[keyof typeof MODULE_PORT_STRATEGIES];
+// Canonical source moved to domain layer — re-exported here for backwards compatibility.
+export {
+  MODULE_PORT_STRATEGIES,
+  type ModulePortStrategy,
+} from '../../../../../../domain/entities/common/enums/module-port-strategy.js';
 
 /**
  * Valid processor domain values.

@@ -17,6 +17,9 @@ import type {
   ModuleDefinitionRepository,
   DataLinkRepository,
   ControlLinkRepository,
+  SubgraphRepository,
+  SubsystemRepository,
+  PropertyDefinitionsRepository,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
 import {
@@ -30,6 +33,9 @@ import {
   TypeOrmModuleDefinitionRepository,
   TypeOrmDataLinkRepository,
   TypeOrmControlLinkRepository,
+  TypeOrmSubgraphRepository,
+  TypeOrmSubsystemRepository,
+  TypeOrmPropertyDefinitionsRepository,
   PendingChangeWriter,
   EditActionsQueryService,
 } from '@arc/persistence';
@@ -159,6 +165,22 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   getControlLinkRepository(): ControlLinkRepository {
     return new TypeOrmControlLinkRepository(this.queryRunner.manager, this);
+  }
+
+  getSubgraphRepository(): SubgraphRepository {
+    return new TypeOrmSubgraphRepository(
+      this.getPendingChangeWriter(),
+      this.queryRunner.manager,
+      this,
+    );
+  }
+
+  getSubsystemRepository(): SubsystemRepository {
+    return new TypeOrmSubsystemRepository(this.queryRunner.manager);
+  }
+
+  getPropertyDefinitionsRepository(): PropertyDefinitionsRepository {
+    return new TypeOrmPropertyDefinitionsRepository();
   }
 
   // ── Existing repositories ─────────────────────────────────────────────────
