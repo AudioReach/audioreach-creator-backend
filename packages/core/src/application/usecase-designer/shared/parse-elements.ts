@@ -2,21 +2,21 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {PARAMETER_ELEMENT_TYPE} from './types/element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from './element-definition.js';
 import type {
   ConfigElement,
   StructElement,
   ElementArray,
   StructArray,
   DefinitionElement,
-} from './types/element-definition.js';
-import type {Logger} from '../../../../shared/types/logger.interface.js';
+} from './element-definition.js';
+import type {Logger} from '../../../shared/types/logger.interface.js';
 import type {
-  ElementCalData,
+  ElementData,
   ConfigElementData,
   StructData,
   ElementArrayData,
-} from './types/element-cal-data.js';
+} from '../../../domain/entities/definitions/common/types/element-data.js';
 import {BinaryDataReader} from './utils/binary-data-reader.js';
 import {evaluateFormula} from './utils/formular-evaluator.js';
 
@@ -173,7 +173,7 @@ function normalizeConfigElementArray(original: OriginalElement): ElementArray {
 }
 
 /**
- * Parses binary parameter payloads into structured `ElementCalData` trees.
+ * Parses binary parameter payloads into structured `ElementData` trees.
  *
  * Reads `payload` bytes sequentially according to the `paramStructure` JSON schema
  * stored in `SpfModuleParameterDefinitionRow.paramStructure`. `paramStructure` is
@@ -198,11 +198,11 @@ export function parseParameterData(
   payload: Uint8Array,
   paramStructure: string,
   logger?: Logger,
-): ElementCalData[] {
+): ElementData[] {
   try {
     const definitions = convertParamDefinition(paramStructure);
     const reader = new BinaryDataReader(payload);
-    const parsed: ElementCalData[] = [];
+    const parsed: ElementData[] = [];
     for (const element of definitions) {
       parsed.push(parseElement(element, reader, parsed));
     }
@@ -229,8 +229,8 @@ export function parseParameterData(
 function parseElement(
   element: DefinitionElement,
   reader: BinaryDataReader,
-  parsedSoFar: ElementCalData[],
-): ElementCalData {
+  parsedSoFar: ElementData[],
+): ElementData {
   if (element.alignment) {
     reader.align(element.alignment);
   }
@@ -331,10 +331,10 @@ function readScalar(
 function parseStruct(
   element: StructElement,
   reader: BinaryDataReader,
-  parsedSoFar: ElementCalData[],
+  parsedSoFar: ElementData[],
 ): StructData {
-  const context: ElementCalData[] = [...parsedSoFar];
-  const children: ElementCalData[] = [];
+  const context: ElementData[] = [...parsedSoFar];
+  const children: ElementData[] = [];
   for (const child of element.elements) {
     const parsed = parseElement(child, reader, context);
     children.push(parsed);
@@ -365,7 +365,7 @@ function parseStruct(
 function parseArrayElement(
   element: ElementArray | StructArray,
   reader: BinaryDataReader,
-  parsedSoFar: ElementCalData[],
+  parsedSoFar: ElementData[],
 ): ElementArrayData {
   const formulaLength = computeArrayLength(
     element.arrayLenFormulaStr ?? '',
@@ -380,8 +380,8 @@ function parseArrayElement(
       ? element.template.structureType
       : undefined;
 
-  const items: ElementCalData[] = [];
-  const context: ElementCalData[] = [...parsedSoFar];
+  const items: ElementData[] = [];
+  const context: ElementData[] = [...parsedSoFar];
   for (let i = 0; i < length; i++) {
     const parsed = parseTemplateItem(
       element.template,
@@ -418,7 +418,7 @@ function parseArrayElement(
 }
 
 /**
- * Builds a `ElementCalData` descriptor from a single `DefinitionElement`.
+ * Builds a `ElementData` descriptor from a single `DefinitionElement`.
  * Used to populate the `template` field of `ElementArrayData`.
  * For `ConfigElement`, `value` is set to `defaultValue ?? ''`.
  * For `Struct`, `value` is set to `[]` (no binary data to parse for the template).
@@ -427,7 +427,7 @@ function parseArrayElement(
 function buildTemplateElement(
   element: DefinitionElement,
   arrayName: string,
-): ElementCalData {
+): ElementData {
   const name = element.name ?? arrayName;
   switch (element.elementType) {
     case 'ConfigElement':
@@ -530,10 +530,10 @@ function buildTemplateElement(
 function parseTemplateItem(
   template: DefinitionElement,
   reader: BinaryDataReader,
-  parsedSoFar: ElementCalData[],
+  parsedSoFar: ElementData[],
   arrayName: string,
   index: number,
-): ElementCalData {
+): ElementData {
   const namedTemplate: DefinitionElement = {
     ...template,
     name: `${template.name ?? arrayName}[${index}]`,
@@ -548,7 +548,7 @@ function parseTemplateItem(
  */
 function computeArrayLength(
   formula: string,
-  parsedElements: ElementCalData[],
+  parsedElements: ElementData[],
 ): number {
   const trimmed = formula.trim();
   if (!trimmed) return 0;

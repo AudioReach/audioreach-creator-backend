@@ -61,9 +61,7 @@ import {
   CreateModuleCommand,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
-  PARAMETER_ELEMENT_TYPE,
   type Issue,
-  type DisplayType,
   type SpfModuleDetailedReadModel,
   type SpfModuleReadModel,
   type DataPortReadModel,
@@ -73,10 +71,6 @@ import {
   type TagReadModel,
   type CkvCalibrationReadModel,
   type ParameterCalibrationReadModel,
-  type ElementCalData,
-  type ConfigElementData,
-  type ElementArrayData,
-  type StructData,
   type ActiveSession,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -92,12 +86,10 @@ import {
   ControlPortDto,
   ControlPortIntentDto,
 } from '../../common/dto/control-port.dto.js';
-import {NameValuePairDto} from '../../common/dto/element-data/elements/config-element/name-value-pair.dto.js';
-import {DISPLAY_TYPE} from '../../common/dto/element-data/elements/config-element/types/display-type.js';
 import {KeyValueDto, KeyDto, ValueDto} from '../../common/dto/key-value.dto.js';
 import {CkvDto, TkvDto, TagInfoDto} from './dto/shared/tuning-config.dto.js';
+import {transformElements} from '../../common/utils/element-data-mapper.js';
 import {KeyValueInfo, KeyInfo, ValueInfo} from '../../common/dto/kv.dto.js';
-type ElementDtoUnion = ConfigElementDto | ElementTemplateArrayDto | StructDto;
 import {
   AddCkvsResponseDto,
   CkvParameterRemovalResponseDto,
@@ -856,92 +848,7 @@ export class SpfModuleController extends BaseController {
     dto.isHidden = p.isHidden;
     dto.isReadOnly = p.isReadOnly;
     dto.pidType = p.pidType;
-    dto.elements = p.parsedData ? this.transformElements(p.parsedData) : [];
-    return dto;
-  }
-
-  private transformElements(elements: ElementCalData[]): ElementDtoUnion[] {
-    return elements.map(e => this.transformElement(e));
-  }
-
-  private transformElement(element: ElementCalData): ElementDtoUnion {
-    if (element.type === PARAMETER_ELEMENT_TYPE.ConfigElement) {
-      return this.transformConfigElement(element);
-    }
-    if (element.type === PARAMETER_ELEMENT_TYPE.ElementArray) {
-      return this.transformElementArray(element);
-    }
-    return this.transformStruct(element);
-  }
-
-  private mapDisplayType(
-    raw: DisplayType | undefined,
-  ): ConfigElementDto['displayType'] | undefined {
-    if (!raw) return undefined;
-    const map: Record<DisplayType, ConfigElementDto['displayType']> = {
-      TEXTBOX: DISPLAY_TYPE.TextBox,
-      DB_TEXTBOX: DISPLAY_TYPE.DbTextBox,
-      QFORMATTED_VALUE: DISPLAY_TYPE.QFormattedValue,
-      SLIDER: DISPLAY_TYPE.Slider,
-      CHECKBOX: DISPLAY_TYPE.CheckBox,
-      DROPDOWN: DISPLAY_TYPE.DropDown,
-      DUMP: DISPLAY_TYPE.Dump,
-      FILE: DISPLAY_TYPE.File,
-      BITFIELD: DISPLAY_TYPE.BitField,
-      FORMULA: DISPLAY_TYPE.Formula,
-      STRINGFIELD: DISPLAY_TYPE.StringField,
-    };
-    return map[raw];
-  }
-
-  private transformConfigElement(e: ConfigElementData): ConfigElementDto {
-    const dto = new ConfigElementDto();
-    dto.name = e.name;
-    dto.value = e.value;
-    dto.dataType = e.dataType as ConfigElementDto['dataType'];
-    dto.description = e.description;
-    dto.group = e.group;
-    dto.subgroup = e.subgroup;
-    dto.isReadOnly = e.isReadOnly;
-    dto.unit = e.unit;
-    dto.displayType = this.mapDisplayType(e.displayType);
-    dto.policy = e.policy as ConfigElementDto['policy'];
-    dto.qFormat = e.qFormat;
-    dto.precision = e.precision;
-    dto.min = e.min;
-    dto.max = e.max;
-    dto.allowedValues = e.rangeList?.map(r => {
-      const nv = new NameValuePairDto();
-      nv.name = r.name;
-      nv.value = r.value;
-      return nv;
-    });
-    return dto;
-  }
-
-  private transformElementArray(e: ElementArrayData): ElementTemplateArrayDto {
-    const dto = new ElementTemplateArrayDto();
-    dto.name = e.name;
-    dto.isReadOnly = e.isReadOnly;
-    dto.description = e.description;
-    dto.group = e.group;
-    dto.subgroup = e.subgroup;
-    dto.length = e.length;
-    dto.lengthFormula = e.arrayLenFormulaStr;
-    dto.template = this.transformElements(e.template);
-    dto.value = this.transformElements(e.value);
-    return dto;
-  }
-
-  private transformStruct(e: StructData): StructDto {
-    const dto = new StructDto();
-    dto.name = e.name;
-    dto.isReadOnly = e.isReadOnly;
-    dto.description = e.description;
-    dto.group = e.group;
-    dto.subgroup = e.subgroup;
-    dto.structType = e.structType;
-    dto.value = this.transformElements(e.value);
+    dto.elements = p.parsedData ? transformElements(p.parsedData) : [];
     return dto;
   }
 

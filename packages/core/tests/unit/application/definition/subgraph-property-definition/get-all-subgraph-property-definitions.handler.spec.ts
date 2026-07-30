@@ -19,7 +19,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
         getFileIdByProjectId: jest.fn(),
       },
       subgraphPropertyDefQueryService: {
-        getAllSubgraphPropertyDefinitions: jest.fn(),
+        getAllSubgraphPropertyDefinitionsSummary: jest.fn(),
       },
     }) as unknown as jest.Mocked<QueryServices>;
 
@@ -40,7 +40,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
     ];
     (
       queryServices.subgraphPropertyDefQueryService
-        .getAllSubgraphPropertyDefinitions as jest.Mock
+        .getAllSubgraphPropertyDefinitionsSummary as jest.Mock
     ).mockResolvedValue(Result.ok(properties));
 
     const handler = new GetAllSubgraphPropertyDefinitionsHandler(queryServices);
@@ -57,7 +57,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
     ).toHaveBeenCalledWith(7);
     expect(
       queryServices.subgraphPropertyDefQueryService
-        .getAllSubgraphPropertyDefinitions,
+        .getAllSubgraphPropertyDefinitionsSummary,
     ).toHaveBeenCalledWith(42, undefined);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
@@ -71,7 +71,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
     ).mockResolvedValue(42);
     (
       queryServices.subgraphPropertyDefQueryService
-        .getAllSubgraphPropertyDefinitions as jest.Mock
+        .getAllSubgraphPropertyDefinitionsSummary as jest.Mock
     ).mockResolvedValue(Result.ok([]));
 
     const handler = new GetAllSubgraphPropertyDefinitionsHandler(queryServices);
@@ -85,7 +85,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
 
     expect(
       queryServices.subgraphPropertyDefQueryService
-        .getAllSubgraphPropertyDefinitions,
+        .getAllSubgraphPropertyDefinitionsSummary,
     ).toHaveBeenCalledWith(42, 123);
   });
 
@@ -105,7 +105,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
     await expect(handler.handle(query)).rejects.toThrow('Project not found');
     expect(
       queryServices.subgraphPropertyDefQueryService
-        .getAllSubgraphPropertyDefinitions,
+        .getAllSubgraphPropertyDefinitionsSummary,
     ).not.toHaveBeenCalled();
   });
 });

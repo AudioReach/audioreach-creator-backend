@@ -2,13 +2,13 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {parseParameterData} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/parse-elements.js';
+import {parseParameterData} from '../../../../../../src/application/usecase-designer/shared/parse-elements.js';
 import type {
   ConfigElementData,
   ElementArrayData,
   StructData,
-} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-cal-data.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-definition.js';
+} from '../../../../../../src/domain/entities/definitions/common/types/element-data.js';
+import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/shared/element-definition.js';
 
 describe('parseParameterData', () => {
   describe('ConfigElement', () => {

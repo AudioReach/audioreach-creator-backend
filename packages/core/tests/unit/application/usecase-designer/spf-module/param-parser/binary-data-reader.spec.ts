@@ -2,7 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {BinaryDataReader} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/utils/binary-data-reader.js';
+import {BinaryDataReader} from '../../../../../../src/application/usecase-designer/shared/utils/binary-data-reader.js';
 
 function makeReader(...bytes: number[]): BinaryDataReader {
   return new BinaryDataReader(new Uint8Array(bytes));

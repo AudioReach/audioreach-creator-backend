@@ -31,7 +31,7 @@ export class GetAllContainerPropertyDefinitionsHandler implements QueryHandler<
       );
 
     const result =
-      await this.queryServices.containerPropertyDefQueryService.getAllContainerPropertyDefinitions(
+      await this.queryServices.containerPropertyDefQueryService.getAllContainerPropertyDefinitionsSummary(
         fileId,
         query.propertyDefinitionId,
       );

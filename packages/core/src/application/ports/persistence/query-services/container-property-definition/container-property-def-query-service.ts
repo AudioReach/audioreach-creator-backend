@@ -7,6 +7,7 @@ import type {
   PropertyDefinitionSummaryReadModel,
   PropertyDefinitionReadModel,
 } from '../property-definition/property-definition-read-model.js';
+import type {ContainerPropertyDefinitionWithElementsReadModel} from './container-property-definition-with-elements-read-model.js';
 import type {Result} from '../../../../shared/result/result.js';
 
 export interface ContainerPropertyDefQueryService {
@@ -15,7 +16,7 @@ export interface ContainerPropertyDefQueryService {
    * Optional propertyNaturalId filters by natural ACDB property_id.
    * Overlay is always applied.
    */
-  getAllContainerPropertyDefinitions(
+  getAllContainerPropertyDefinitionsSummary(
     fileSystemId: number,
     propertyNaturalId?: number,
   ): Promise<Result<PropertyDefinitionSummaryReadModel[]>>;
@@ -29,4 +30,12 @@ export interface ContainerPropertyDefQueryService {
     propertySystemId: number,
     fileSystemId: number,
   ): Promise<Result<PropertyDefinitionReadModel>>;
+
+  /**
+   * Returns all container property definitions including the `elementsStructure`
+   * binary field needed for parsing calibration payloads. Overlay is applied.
+   */
+  getAllDetailedContainerPropertyDefinitionsWithElements(
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>>;
 }

@@ -118,12 +118,17 @@ export * from './application/ports/persistence/query-services/key-value/key-valu
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-query-service.js';
 export * from './application/ports/persistence/query-services/container/container-query-service.js';
 export * from './application/ports/persistence/query-services/container/container-read-model.js';
+export * from './application/ports/persistence/query-services/subgraph/subgraph-query-service.js';
+export * from './application/ports/persistence/query-services/shared/property-payload-read-model.js';
+export * from './application/ports/persistence/query-services/container-property-definition/container-property-definition-with-elements-read-model.js';
+export * from './application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-with-elements-read-model.js';
 export * from './application/ports/persistence/query-services/tag-definition/tag-definition-read-model.js';
 export * from './application/ports/persistence/query-services/tag-definition/tag-definition-query-service.js';
 export * from './application/ports/persistence/query-services/property-definition/property-definition-read-model.js';
 export * from './application/ports/persistence/query-services/container-property-definition/container-property-def-query-service.js';
 export * from './application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-read-model.js';
 export * from './application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-def-query-service.js';
+export * from './application/usecase-designer/shared/property-definition-with-elements.js';
 
 // Key definition query handlers
 export * from './application/definition/key-definition/get-all/get-all-key-definitions.query.js';
@@ -157,6 +162,15 @@ export * from './application/usecase-designer/spf-module/query/query-spf-modules
 export * from './application/usecase-designer/container/query/query-containers.query.js';
 export * from './application/usecase-designer/container/query/query-containers.handler.js';
 
+// Container properties query handlers
+export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
+export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
+export * from './application/usecase-designer/shared/property-read-model.js';
+
+// Subgraph properties query handlers
+export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';
+export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.handler.js';
+
 // SPF module definition query handlers
 export * from './application/definition/spf-module-definition/get-all/get-all-spf-module-definitions.query.js';
 export * from './application/definition/spf-module-definition/get-all/get-all-spf-module-definitions.handler.js';
@@ -170,7 +184,7 @@ export * from './application/definition/driver-module-definition/get-by-id/get-d
 export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.handler.js';
 
 // Use case designer
-export * from './application/usecase-designer/spf-module/param-parser/index.js';
+export * from './application/usecase-designer/shared/index.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/ckv-calibration-read-model.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';

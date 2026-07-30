@@ -19,7 +19,7 @@ describe('GetAllContainerPropertyDefinitionsHandler', () => {
         getFileIdByProjectId: jest.fn(),
       },
       containerPropertyDefQueryService: {
-        getAllContainerPropertyDefinitions: jest.fn(),
+        getAllContainerPropertyDefinitionsSummary: jest.fn(),
       },
     }) as unknown as jest.Mocked<QueryServices>;
 
@@ -39,7 +39,7 @@ describe('GetAllContainerPropertyDefinitionsHandler', () => {
     ];
     (
       queryServices.containerPropertyDefQueryService
-        .getAllContainerPropertyDefinitions as jest.Mock
+        .getAllContainerPropertyDefinitionsSummary as jest.Mock
     ).mockResolvedValue(Result.ok(properties));
 
     const handler = new GetAllContainerPropertyDefinitionsHandler(
@@ -58,7 +58,7 @@ describe('GetAllContainerPropertyDefinitionsHandler', () => {
     ).toHaveBeenCalledWith(7);
     expect(
       queryServices.containerPropertyDefQueryService
-        .getAllContainerPropertyDefinitions,
+        .getAllContainerPropertyDefinitionsSummary,
     ).toHaveBeenCalledWith(42, undefined);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
@@ -72,7 +72,7 @@ describe('GetAllContainerPropertyDefinitionsHandler', () => {
     ).mockResolvedValue(42);
     (
       queryServices.containerPropertyDefQueryService
-        .getAllContainerPropertyDefinitions as jest.Mock
+        .getAllContainerPropertyDefinitionsSummary as jest.Mock
     ).mockResolvedValue(Result.ok([]));
 
     const handler = new GetAllContainerPropertyDefinitionsHandler(
@@ -88,7 +88,7 @@ describe('GetAllContainerPropertyDefinitionsHandler', () => {
 
     expect(
       queryServices.containerPropertyDefQueryService
-        .getAllContainerPropertyDefinitions,
+        .getAllContainerPropertyDefinitionsSummary,
     ).toHaveBeenCalledWith(42, 123);
   });
 
@@ -110,7 +110,7 @@ describe('GetAllContainerPropertyDefinitionsHandler', () => {
     await expect(handler.handle(query)).rejects.toThrow('Project not found');
     expect(
       queryServices.containerPropertyDefQueryService
-        .getAllContainerPropertyDefinitions,
+        .getAllContainerPropertyDefinitionsSummary,
     ).not.toHaveBeenCalled();
   });
 });

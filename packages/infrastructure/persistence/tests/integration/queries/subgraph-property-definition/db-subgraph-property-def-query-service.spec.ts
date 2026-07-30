@@ -120,12 +120,12 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
     });
   }
 
-  describe('getAllSubgraphPropertyDefinitions', () => {
+  describe('getAllSubgraphPropertyDefinitionsSummary', () => {
     it('returns an empty array when the file has no subgraph property definitions (Tier 1 — no session)', async () => {
       const {fileSystemId} = await createFileDependency();
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -147,7 +147,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -184,7 +184,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
         isVoice: false,
       });
 
-      const result = await service.getAllSubgraphPropertyDefinitions(
+      const result = await service.getAllSubgraphPropertyDefinitionsSummary(
         fileSystemId,
         200,
       );
@@ -211,7 +211,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -249,7 +249,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -335,6 +335,85 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
       expect(result.data.name).toBe('UpdatedName');
+    });
+  });
+
+  describe('getAllDetailedSubgraphPropertyDefinitionsWithElements', () => {
+    it('returns empty array when no definitions exist', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const result =
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data).toEqual([]);
+    });
+
+    it('maps elementsStructure and isVoice from base row (no session)', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await subgraphPropertyRepository.save({
+        systemId: 10,
+        fileSystemId,
+        propertyId: 1,
+        name: 'gain',
+        description: 'Gain property',
+        maxSize: 4,
+        propertyType: 'SPF',
+        elementsStructure: '{"elements":[]}',
+        isVoice: false,
+      });
+      const result =
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data).toHaveLength(1);
+      const def = result.data![0];
+      expect(def.systemId).toBe(10);
+      expect(def.elementsStructure).toBe('{"elements":[]}');
+      expect(def.isVoice).toBe(false);
+    });
+
+    it('maps isVoice=true from base row', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await subgraphPropertyRepository.save({
+        systemId: 11,
+        fileSystemId,
+        propertyId: 2,
+        name: 'voice-gain',
+        description: null,
+        maxSize: 4,
+        propertyType: 'SPF',
+        elementsStructure: '{}',
+        isVoice: true,
+      });
+      const result =
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+      expect(result.data![0].isVoice).toBe(true);
+    });
+
+    it('returns empty elementsStructure as empty string when column is null', async () => {
+      const {fileSystemId} = await createFileDependency();
+      await subgraphPropertyRepository.save({
+        systemId: 12,
+        fileSystemId,
+        propertyId: 3,
+        name: 'def-no-elements',
+        description: null,
+        maxSize: 4,
+        propertyType: 'SPF',
+        elementsStructure: null as unknown as string,
+        isVoice: false,
+      });
+      const result =
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+      expect(result.data![0].elementsStructure).toBe('');
     });
   });
 });

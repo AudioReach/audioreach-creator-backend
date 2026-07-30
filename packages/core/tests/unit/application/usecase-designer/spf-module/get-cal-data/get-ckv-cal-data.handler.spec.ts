@@ -9,7 +9,7 @@ import type {QueryServices} from '../../../../../../src/application/ports/persis
 import type {ParameterPayloadReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
 import type {CkvReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 import type {ParameterDefinitionReadModel} from '../../../../../../src/application/ports/persistence/query-services/shared/parameter-definition-read-model.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/shared/element-definition.js';
 import {
   NullPayloadError,
   ParameterDefinitionMissingError,

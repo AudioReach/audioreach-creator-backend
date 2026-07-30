@@ -19,9 +19,6 @@ export class PropertyDto {
   @ApiProperty({description: 'Property name'})
   readonly propertyName!: string;
 
-  @ApiProperty({description: 'Has definition or not'})
-  readonly hasDefinition!: boolean;
-
   @ApiProperty({
     description:
       'Array of calibration elements for this property.\n\n' +
@@ -49,25 +46,16 @@ export class PropertyDto {
   @ApiProperty({description: 'Definition link', required: false})
   definitionLink?: EndPointLink;
 
-  constructor(
-    systemId: string,
-    propertyId: number,
-    propertyName: string,
-    hasDefinition: boolean = false,
-  ) {
+  constructor(systemId: string, propertyId: number, propertyName: string) {
     this.systemId = systemId;
     this.propertyId = propertyId;
     this.propertyName = propertyName;
-    this.hasDefinition = hasDefinition;
     this.elements = [];
 
-    // Only create definition link for property types that have definitions
-    if (hasDefinition) {
-      const link = new EndPointLink();
-      link.hypertextRef = `/definition/properties/${hasDefinition}/${this.systemId}`;
-      link.method = 'GET';
-      link.description = 'Get property definition.';
-      this.definitionLink = link;
-    }
+    const link = new EndPointLink();
+    link.hypertextRef = `/definition/properties/${this.systemId}`;
+    link.method = 'GET';
+    link.description = 'Get property definition.';
+    this.definitionLink = link;
   }
 }

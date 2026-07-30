@@ -11,20 +11,21 @@ import type {VcpmInstanceRow} from './subgraph-vcpm-data.js';
 import type {SgkvRow} from './subgraph-sgkv-data.js';
 import {EntitySchema} from 'typeorm';
 
-export interface SubgraphRow extends EntityBaseRow {
-  name: string;
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface SubgraphBase {
+  systemId: number;
   subgraphId: number;
-
-  // true: if subgraph is exported from another acdb file
+  name: string;
   isExported: boolean;
+  fileSystemId: number;
+}
 
+export interface SubgraphRow extends EntityBaseRow, SubgraphBase {
+  // true: if subgraph is exported from another acdb file — kept on Row, not Base
   // inverse relation for convenience (reads/cascade)
   modules?: SpfModuleRow[];
   vcpmInstances?: VcpmInstanceRow[];
   sgkvs?: SgkvRow[];
-
-  // scope to file
-  fileSystemId: number;
   file?: ArcDbFileRow;
 }
 

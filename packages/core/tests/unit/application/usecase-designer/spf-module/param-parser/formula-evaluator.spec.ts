@@ -2,7 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {evaluateFormula} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/utils/formular-evaluator.js';
+import {evaluateFormula} from '../../../../../../src/application/usecase-designer/shared/utils/formular-evaluator.js';
 
 function evaluate(formula: string, vars: Record<string, number> = {}): number {
   return evaluateFormula(formula, new Map(Object.entries(vars)));

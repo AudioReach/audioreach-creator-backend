@@ -120,12 +120,12 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
     });
   }
 
-  describe('getAllContainerPropertyDefinitions', () => {
+  describe('getAllContainerPropertyDefinitionsSummary', () => {
     it('returns an empty array when the file has no container property definitions (Tier 1 — no session)', async () => {
       const {fileSystemId} = await createFileDependency();
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -146,7 +146,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -180,7 +180,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
         elementsStructure: '[]',
       });
 
-      const result = await service.getAllContainerPropertyDefinitions(
+      const result = await service.getAllContainerPropertyDefinitionsSummary(
         fileSystemId,
         200,
       );
@@ -206,7 +206,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -243,7 +243,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -326,6 +326,108 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
       expect(result.data.name).toBe('UpdatedName');
+    });
+  });
+
+  describe('getAllDetailedContainerPropertyDefinitionsWithElements', () => {
+    it('returns an empty array when the file has no container property definitions (Tier 1 — no session)', async () => {
+      const {fileSystemId} = await createFileDependency();
+
+      const result =
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data).toEqual([]);
+    });
+
+    it('includes elementsStructure in the read model (Tier 1 — no session)', async () => {
+      const {fileSystemId} = await createFileDependency();
+
+      await containerPropertyRepository.save({
+        systemId: 1,
+        fileSystemId,
+        propertyId: 100,
+        name: 'MyProperty',
+        maxSize: 4,
+        propertyType: 'SPF',
+        elementsStructure: '[{"tag":1}]',
+      });
+
+      const result =
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].elementsStructure).toBe('[{"tag":1}]');
+      expect(result.data[0].maxSize).toBe(4);
+    });
+
+    it('falls back to empty string when elementsStructure is null (Tier 1 — no session)', async () => {
+      const {fileSystemId} = await createFileDependency();
+
+      await containerPropertyRepository.save({
+        systemId: 1,
+        fileSystemId,
+        propertyId: 100,
+        name: 'NullStructProp',
+        maxSize: 0,
+        propertyType: 'SPF',
+        elementsStructure: null as unknown as string,
+      });
+
+      const result =
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data[0].elementsStructure).toBe('');
+    });
+
+    it('reflects a pending UPDATE edit action on elementsStructure (Tier 3)', async () => {
+      const {fileSystemId} = await createFileDependency();
+      const session = await createSession(fileSystemId);
+
+      await containerPropertyRepository.save({
+        systemId: 1,
+        fileSystemId,
+        propertyId: 100,
+        name: 'MyProperty',
+        maxSize: 4,
+        propertyType: 'SPF',
+        elementsStructure: '[{"tag":1}]',
+      });
+
+      await editActionRepository.save({
+        sessionId: session.sessionId,
+        targetTable: ENTITY_NAMES.ContainerProperty,
+        targetSystemId: 1,
+        aggregateId: 1,
+        operation: CHANGE_OPERATION.Update,
+        changeStatus: CHANGE_STATUS.Staged,
+        source: SOURCE.Manual,
+        fieldPath: 'elementsStructure',
+        newValue: {elementsStructure: '[{"tag":2}]'},
+        groupId: null,
+        linkedEntityGroupId: null,
+        validUntil: null,
+      });
+
+      const result =
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
+          fileSystemId,
+        );
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind !== RESULT_KIND.Ok) return;
+      expect(result.data[0].elementsStructure).toBe('[{"tag":2}]');
     });
   });
 });

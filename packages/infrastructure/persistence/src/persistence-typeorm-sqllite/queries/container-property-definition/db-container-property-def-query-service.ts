@@ -8,57 +8,49 @@ import {
   type ContainerPropertyDefQueryService,
   type PropertyDefinitionSummaryReadModel,
   type PropertyDefinitionReadModel,
+  type ContainerPropertyDefinitionWithElementsReadModel,
   type ISessionRepository,
   Result,
   ERROR_CODES,
   IssueSeverity,
 } from '@arc/core';
+import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
+import type {
+  ContainerPropertyBase,
+  ContainerPropertyRow,
+} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
+import {ContainerPropertyDefinitionFetcher} from '../../fetchers/definitions/container-property-definition-fetcher.js';
 import {OverlayMergeImpl} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {ContainerPropertyRow} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
 
 const overlay = new OverlayMergeImpl();
 
 export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQueryService {
+  private readonly fetcher: ContainerPropertyDefinitionFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
     private readonly sessionRepo: ISessionRepository,
-  ) {}
+  ) {
+    this.fetcher = new ContainerPropertyDefinitionFetcher(
+      dataSource,
+      editActionsSvc,
+      sessionRepo,
+    );
+  }
 
   /**
    * Returns every container property definition for the given fileSystemId.
    * Overlay always applied — no applyOverlay flag, matching DbContainerQueryService.findAll.
    */
-  async getAllContainerPropertyDefinitions(
+  async getAllContainerPropertyDefinitionsSummary(
     fileSystemId: number,
     propertyNaturalId?: number,
   ): Promise<Result<PropertyDefinitionSummaryReadModel[]>> {
     try {
-      // Step 1 — baseline load, all container property definitions scoped to this file
-      const baselineRows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.ContainerProperty)
-        .createQueryBuilder('cp')
-        .where('cp.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany()) as ContainerPropertyRow[];
+      const rows = await this.fetcher.fetchAll(fileSystemId);
 
-      // Step 2 — Overlay: table-wide query, not one call per row
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const rows = session
-        ? overlay
-            .applyToCollection(
-              baselineRows,
-              await this.editActionsSvc.getByTable(
-                session.sessionId,
-                ENTITY_NAMES.ContainerProperty,
-              ),
-            )
-            .map(r => r.effective)
-        : baselineRows;
-
-      // Step 3 — in-memory filter by natural id, after overlay merge
       const filtered =
         propertyNaturalId === undefined
           ? rows
@@ -130,7 +122,7 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
   }
 
   private toSummaryReadModel(
-    row: ContainerPropertyRow,
+    row: ContainerPropertyBase,
   ): PropertyDefinitionSummaryReadModel {
     return {
       systemId: row.systemId,
@@ -142,11 +134,43 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
   }
 
   private toDetailReadModel(
-    row: ContainerPropertyRow,
+    row: ContainerPropertyBase,
   ): PropertyDefinitionReadModel {
     return {
       ...this.toSummaryReadModel(row),
       maxSize: row.maxSize,
+    };
+  }
+
+  async getAllDetailedContainerPropertyDefinitionsWithElements(
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>> {
+    try {
+      const rows = await this.fetcher.fetchAll(fileSystemId);
+      return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load container property definitions',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  private toDetailWithElementsReadModel(
+    row: ContainerPropertyBase,
+  ): ContainerPropertyDefinitionWithElementsReadModel {
+    return {
+      systemId: row.systemId,
+      propertyId: row.propertyId,
+      name: row.name,
+      description: row.description,
+      propertyType: row.propertyType,
+      maxSize: row.maxSize,
+      elementsStructure: row.elementsStructure ?? '',
     };
   }
 }
