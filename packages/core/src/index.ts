@@ -180,8 +180,10 @@ export * from './application/file-operations/upload-file/services/acdb-chunk-par
 export * from './application/file-operations/upload-file/services/acdb-chunk-parsers/tagged-module-map-chunk-parser.js';
 export * from './application/file-operations/upload-file/services/acdb-parser.js';
 export * from './application/file-operations/upload-file/services/acdb-file-orchestrator.js';
+export * from './application/file-operations/upload-file/services/acdb-buffer-comparator.js';
 export * from './application/file-operations/upload-file/services/awsp-parser.js';
 export * from './application/file-operations/upload-file/services/awsp-file-orchestrator.js';
+export * from './application/file-operations/upload-file/services/awsp-file-comparator.js';
 export * from './application/file-operations/upload-file/upload-file.command.js';
 export * from './application/file-operations/upload-file/upload-file.handler.js';
 

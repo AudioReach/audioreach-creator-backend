@@ -24,7 +24,7 @@ export class AcdbFileOrchestrator {
   private readonly chunkParser: AcdbParser;
 
   constructor(
-    private readonly fileSystem: FileSystemPort,
+    private readonly fileSystem?: FileSystemPort,
     //private readonly workerPool?: WorkerPoolPort,
     private readonly logger?: Logger,
   ) {
@@ -104,13 +104,26 @@ export class AcdbFileOrchestrator {
   }
 
   /**
-   * Parse an ACDB file from raw bytes
+   * Parse an ACDB file referenced on disk (or via any FileSystemPort adapter).
+   * @throws {Error} If fileSystem was not provided to the constructor. Use parseACDBBytes() for in-memory parsing.
    */
   async parseACDB(acdbRef: PathRef): Promise<ParsedAcdb> {
-    const startTime = Date.now();
-
-    // Read files
+    if (!this.fileSystem) {
+      throw new Error(
+        'AcdbFileOrchestrator: fileSystem is required to parse from a PathRef. Use parseACDBBytes() to parse an in-memory buffer instead.',
+      );
+    }
     const bytes = await this.fileSystem.readAll(acdbRef);
+    return this.parseACDBBytes(bytes);
+  }
+
+  /**
+   * Parse an ACDB file from an in-memory buffer, bypassing FileSystemPort.
+   * Useful for comparing two buffers (e.g. upload vs. re-download) without
+   * writing either to disk first.
+   */
+  parseACDBBytes(bytes: Uint8Array): Promise<ParsedAcdb> {
+    const startTime = Date.now();
 
     this.logger?.logInfo({
       msg: 'ACDB parsing started',
@@ -162,7 +175,7 @@ export class AcdbFileOrchestrator {
         timestamp: new Date(),
       });
 
-      return result;
+      return Promise.resolve(result);
     } catch (error) {
       this.logger?.logError({
         msg: 'ACDB parsing failed',

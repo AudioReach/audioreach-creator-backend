@@ -47,6 +47,9 @@ importers:
       eslint-plugin-unicorn:
         specifier: ^60.0.0
         version: 60.0.0(eslint@9.39.4)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@22.19.15)(ts-node@10.9.2(@types/node@22.19.15)(typescript@5.9.3))
       nyc:
         specifier: ^17.1.0
         version: 17.1.0

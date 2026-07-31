@@ -8,11 +8,95 @@ import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import {promises as fs} from 'fs';
 import {INestApplication} from '@nestjs/common';
+import {
+  compareAcdbBuffers,
+  compareAwspFiles,
+  type AcdbComparisonMismatch,
+  type AwspComparisonMismatch,
+} from '@arc/core';
+import {NodeFileSystemAdapter} from '@arc/fs';
 import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 import {parseMultipartResponse} from '../helpers/multipart-parser.helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+/**
+ * Group mismatches by `domain` and render a "count per domain" summary line
+ * plus a full "domain -> every detail" breakdown, sorted by count descending
+ * so the biggest offender is always first.
+ */
+function summarizeMismatchesByDomain(
+  mismatches: ReadonlyArray<{domain: string; detail: string}>,
+): {summary: string; groups: string} {
+  const byDomain = new Map<string, string[]>();
+  for (const m of mismatches) {
+    const details = byDomain.get(m.domain) ?? [];
+    details.push(m.detail);
+    byDomain.set(m.domain, details);
+  }
+
+  const sorted = [...byDomain.entries()].sort(
+    ([, a], [, b]) => b.length - a.length,
+  );
+
+  const summary = sorted
+    .map(([domain, details]) => `  ${domain}: ${details.length}`)
+    .join('\n');
+
+  const groups = sorted
+    .map(
+      ([domain, details]) =>
+        `[${domain}] (${details.length})\n` +
+        details.map(detail => `  - ${detail}`).join('\n'),
+    )
+    .join('\n\n');
+
+  return {summary, groups};
+}
+
+async function downloadFilesFromProject(
+  httpServer: any,
+  authToken: string,
+  projectId: string,
+): Promise<{acdbFile: Buffer; workspaceFile: Buffer}> {
+  const downloadResponse = await request(httpServer)
+    .get(`/arc-api/v1/projects/${projectId}/download-files`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(3000000)
+    .buffer(true)
+    .parse((res, callback) => {
+      const chunks: Buffer[] = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => {
+        try {
+          const body = Buffer.concat(chunks);
+          const contentType = res.headers['content-type'] || '';
+          const boundaryMatch = contentType.match(/boundary=(.+)/);
+
+          if (!boundaryMatch) {
+            return callback(
+              new Error('No boundary found in Content-Type header'),
+              null,
+            );
+          }
+
+          const boundary = boundaryMatch[1];
+          const files = parseMultipartResponse(body, boundary);
+          callback(null, files);
+        } catch (error) {
+          callback(error as Error, null);
+        }
+      });
+      res.on('error', error => callback(error, null));
+    })
+    .expect(200);
+
+  return {
+    acdbFile: downloadResponse.body.acdbFile,
+    workspaceFile: downloadResponse.body.workspaceFile,
+  };
+}
 
 describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)', () => {
   let app: INestApplication;
@@ -46,22 +130,16 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
 
   afterEach(async () => {
     // Clean up downloaded files after each test
-    if (downloadedAcdbPath) {
+    for (const path of [downloadedAcdbPath, downloadedAwspPath]) {
+      if (!path) continue;
       try {
-        await fs.unlink(downloadedAcdbPath);
+        await fs.unlink(path);
       } catch (error) {
         // Ignore if file doesn't exist
       }
-      downloadedAcdbPath = '';
     }
-    if (downloadedAwspPath) {
-      try {
-        await fs.unlink(downloadedAwspPath);
-      } catch (error) {
-        // Ignore if file doesn't exist
-      }
-      downloadedAwspPath = '';
-    }
+    downloadedAcdbPath = '';
+    downloadedAwspPath = '';
   });
 
   it('should download file, re-upload, and verify header consistency', async () => {
@@ -104,46 +182,13 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     expect(originalHeader.oemInfo).toBeDefined();
 
     // STEP 3: Download files as multipart
-    const downloadResponse = await request(httpServer)
-      .get(`/arc-api/v1/projects/${originalProjectId}/download-files`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .timeout(3000000)
-      .buffer(true)
-      .parse((res, callback) => {
-        const chunks: Buffer[] = [];
-        res.on('data', chunk => chunks.push(chunk));
-        res.on('end', () => {
-          try {
-            const body = Buffer.concat(chunks);
-            const contentType = res.headers['content-type'] || '';
-            const boundaryMatch = contentType.match(/boundary=(.+)/);
+    const {acdbFile: acdbContent, workspaceFile: awspContent} =
+      await downloadFilesFromProject(httpServer, authToken, originalProjectId);
 
-            if (!boundaryMatch) {
-              return callback(
-                new Error('No boundary found in Content-Type header'),
-                null,
-              );
-            }
+    expect(acdbContent).toBeDefined();
+    expect(awspContent).toBeDefined();
 
-            const boundary = boundaryMatch[1];
-            const files = parseMultipartResponse(body, boundary);
-            callback(null, files);
-          } catch (error) {
-            callback(error as Error, null);
-          }
-        });
-        res.on('error', error => callback(error, null));
-      })
-      .expect(200);
-
-    // Extract files from multipart response
-    expect(downloadResponse.body.acdbFile).toBeDefined();
-    expect(downloadResponse.body.workspaceFile).toBeDefined();
-
-    const acdbContent = downloadResponse.body.acdbFile;
-    const awspContent = downloadResponse.body.workspaceFile;
     const timestamp = Date.now();
-
     downloadedAcdbPath = join(tempDir, `downloaded-${timestamp}.acdb`);
     downloadedAwspPath = join(tempDir, `downloaded-${timestamp}.awsp`);
     await fs.writeFile(downloadedAcdbPath, acdbContent);
@@ -166,9 +211,8 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     }
 
     // Verify files were written
-    const stats = await fs.stat(downloadedAcdbPath);
-    expect(stats.size).toBeGreaterThan(0);
-
+    const acdbStats = await fs.stat(downloadedAcdbPath);
+    expect(acdbStats.size).toBeGreaterThan(0);
     const awspStats = await fs.stat(downloadedAwspPath);
     expect(awspStats.size).toBeGreaterThan(0);
 
@@ -228,5 +272,127 @@ describe('Download File E2E (GET /arc-api/v1/projects/:projectId/download-files)
     expect(newHeader.oemInfo).toBe(originalHeader.oemInfo);
 
     console.log('✓ Header consistency verified - all fields match');
-  }, 400000); // 400 seconds Jest timeout for complete workflow
+  }, 400000);
+
+  it.skip('should verify round-trip byte-level fidelity (acdb + awsp)', async () => {
+    const acdbPath = join(__dirname, '../fixtures/acdb_cal.acdb');
+    const awspPath = join(__dirname, '../fixtures/workspaceFileXml.awsp');
+
+    // Upload original files
+    const uploadResponse = await request(httpServer)
+      .post('/arc-api/v1/projects/offline/upload-files')
+      .set('Authorization', `Bearer ${authToken}`)
+      .attach('acdbFile', acdbPath)
+      .attach('workspaceFile', awspPath)
+      .timeout(300000)
+      .expect(201);
+
+    const projectId = uploadResponse.body.data.projectId;
+
+    // Download files
+    const {acdbFile: acdbContent, workspaceFile: awspContent} =
+      await downloadFilesFromProject(httpServer, authToken, projectId);
+
+    expect(acdbContent).toBeDefined();
+    expect(awspContent).toBeDefined();
+
+    const timestamp = Date.now();
+    const tempAcdbPath = join(tempDir, `comparison-${timestamp}.acdb`);
+    const tempAwspPath = join(tempDir, `comparison-${timestamp}.awsp`);
+    await fs.writeFile(tempAcdbPath, acdbContent);
+    await fs.writeFile(tempAwspPath, awspContent);
+
+    try {
+      // Compare ACDB chunk data and AWSP JSON content between the
+      // originally uploaded files and the freshly downloaded files.
+      //
+      // ACDB: raw byte comparison is not meaningful — the download serializer
+      // rebuilds the datapool and reassigns every offset from scratch — so both
+      // buffers are parsed and compared at the semantic (dereferenced) chunk
+      // level instead: offsets are resolved to their actual values (keyIds,
+      // valueIds, module/parameter pairs, payload bytes) on both sides before
+      // comparing.
+      //
+      // AWSP: compared as raw JSON (definitions.json / configuration.json)
+      // rather than through the typed AwspParser/Configuration.fromJSON() path,
+      // since those run data through zod schemas that can silently coerce
+      // types or drop unrecognized fields — which would hide a real
+      // round-trip regression instead of catching it.
+      const originalAcdbBytes = new Uint8Array(await fs.readFile(acdbPath));
+      const downloadedAcdbBytes = new Uint8Array(acdbContent);
+
+      const acdbComparisonResult = await compareAcdbBuffers(
+        originalAcdbBytes,
+        downloadedAcdbBytes,
+      );
+
+      const fileSystem = new NodeFileSystemAdapter();
+      const awspComparisonResult = await compareAwspFiles(
+        fileSystem,
+        {kind: 'path', name: 'original.awsp', uri: awspPath},
+        {kind: 'path', name: 'downloaded.awsp', uri: tempAwspPath},
+      );
+
+      const allMismatches: Array<
+        AcdbComparisonMismatch | AwspComparisonMismatch
+      > = [
+        ...acdbComparisonResult.mismatches,
+        ...awspComparisonResult.mismatches,
+      ];
+      const allUnsupportedDomainNotes = [
+        ...acdbComparisonResult.unsupportedDomainNotes,
+        ...awspComparisonResult.unsupportedDomainNotes,
+      ];
+
+      if (allMismatches.length > 0) {
+        const {summary, groups} = summarizeMismatchesByDomain(allMismatches);
+
+        const reportLines = [
+          `ACDB + AWSP comparison report — ${new Date().toISOString()}`,
+          `Total mismatches: ${allMismatches.length} ` +
+            `(acdb: ${acdbComparisonResult.mismatches.length}, ` +
+            `awsp: ${awspComparisonResult.mismatches.length})`,
+          '',
+          'Summary by domain:',
+          summary,
+          '',
+          'Details by domain:',
+          groups,
+        ];
+
+        if (allUnsupportedDomainNotes.length > 0) {
+          reportLines.push(
+            '',
+            'Known gaps (not failures):',
+            allUnsupportedDomainNotes.map(n => `  ${n}`).join('\n'),
+          );
+        }
+
+        const reportsDir = join(
+          __dirname,
+          '../../../logs/acdb-comparison-reports',
+        );
+        await fs.mkdir(reportsDir, {recursive: true});
+        const reportPath = join(reportsDir, `comparison-${Date.now()}.txt`);
+        await fs.writeFile(reportPath, reportLines.join('\n'));
+
+        console.log(`✗ ACDB/AWSP mismatches written to: ${reportPath}`);
+        console.log(`  Total: ${allMismatches.length}`);
+        console.log(summary);
+      } else if (allUnsupportedDomainNotes.length > 0) {
+        console.log(
+          'ℹ ACDB/AWSP known gaps (not failures):\n' +
+            allUnsupportedDomainNotes.map(n => `  ${n}`).join('\n'),
+        );
+      }
+
+      expect(acdbComparisonResult.mismatches).toEqual([]);
+      expect(acdbComparisonResult.equal).toBe(true);
+      expect(awspComparisonResult.mismatches).toEqual([]);
+      expect(awspComparisonResult.equal).toBe(true);
+    } finally {
+      await fs.unlink(tempAcdbPath).catch(() => {});
+      await fs.unlink(tempAwspPath).catch(() => {});
+    }
+  }, 400000);
 });
