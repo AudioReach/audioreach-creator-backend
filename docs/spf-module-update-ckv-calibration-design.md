@@ -12,8 +12,8 @@
   - [2.2 DTO Changes — UpdateSpfModuleCalDataRequest](#22-dto-changes--updatespfmodulecaldatarequest)
   - [2.3 Response Assembly](#23-response-assembly)
 - [Section 3: Core Layer](#section-3-core-layer)
-  - [3.1 UpdateCkvCalDataCommand](#31-updateckvcaldatacommand)
-  - [3.2 UpdateCkvCalDataHandler](#32-updateckvcaldatahandler)
+  - [3.1 PutCkvCalDataCommand](#31-putckvcaldatacommand)
+  - [3.2 PutCkvCalDataHandler](#32-putckvcaldatahandler)
   - [3.3 ModuleRepository Extensions and ModuleDefinitionRepository Extension](#33-modulerepository-extensions-and-moduledefinitionrepository-extension)
   - [3.4 Binary Parameter Serializer](#34-binary-parameter-serializer)
     - [3.4.1 BinaryDataWriter](#341-binarydatawriter)
@@ -123,12 +123,12 @@ packages/core/src/application/
 │           ├── module.repository.ts                      (modified) # add getSpfModuleForValidation(), getCkvForValidation(), getExistingCkvPayloads(), setCkvCalData()
 │           └── module-definition.repository.ts           (modified) # add getParameterDefinitions()
 ├── orchestration/cqrs/registries/
-│   └── command-handler-registry.ts                       (modified) # register UpdateCkvCalDataHandler
+│   └── command-handler-registry.ts                       (modified) # register PutCkvCalDataHandler
 └── usecase-designer/spf-module/
-    ├── update-cal-data/
-    │   ├── update-ckv-cal-data.command.ts                (new)      # UpdateCkvCalDataCommand
-    │   ├── update-ckv-cal-data.handler.ts                (new)      # UpdateCkvCalDataHandler
-    │   └── update-ckv-cal-data-result.ts                 (new)      # handler return type (successes + failures)
+    ├── put-cal-data/
+    │   ├── put-ckv-cal-data.command.ts                (new)      # PutCkvCalDataCommand
+    │   ├── put-ckv-cal-data.handler.ts                (new)      # PutCkvCalDataHandler
+    │   └── put-ckv-cal-data-result.ts                 (new)      # handler return type (successes + failures)
     └── param-parser/
         ├── serialize-elements.ts                         (new)      # serializeParameterData() entry point
         └── utils/
@@ -160,17 +160,17 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 Presentation (API)
   Controller receives PUT request
   → @UseGuards(SessionGuard): resolves active session for project; no session → HTTP 403 (guard never reaches CommandBus)
-  → passes raw path param strings to UpdateCkvCalDataCommand constructor
+  → passes raw path param strings to PutCkvCalDataCommand constructor
   → Command constructor parses IDs (same parseId() pattern as GetCkvCalibrationDataQuery)
   → CommandBus.execute(command, session):
        1. Reads command.constructor.requiresSession — no session passed → throws SessionRequiredError (→ HTTP 403)
        2. Reads command.constructor.allowedModes — session mode not in [Designer, DiffMerge] → throws SessionModeNotAllowedError (→ HTTP 403)
        3. Stamps groupId = UUID on WriteContext — shared by every edit_actions row written in this call
        4. Calls uow.setWriteContext({ session, groupId }) so handler reads fileSystemId/sessionId/mode/groupId via uow.getWriteContext()
-       5. Routes to UpdateCkvCalDataHandler (handler runs only after steps 1–2 pass)
+       5. Routes to PutCkvCalDataHandler (handler runs only after steps 1–2 pass)
 
 Core (Application)
-  UpdateCkvCalDataHandler:
+  PutCkvCalDataHandler:
     constructor(uow: UnitOfWork, logger?: Logger)
 
     fileSystemId = uow.getWriteContext().session.fileSystemId  (same pattern as PatchSpfModuleHandler)
@@ -269,7 +269,7 @@ async updateCalibrationData(
   @Body() body: UpdateSpfModuleCalDataRequest,
   @ArcSession() session: ActiveSession,
 ): Promise<ApiResult<CalDataDto>> {
-  const command = new UpdateCkvCalDataCommand(
+  const command = new PutCkvCalDataCommand(
     spfModuleSystemId, ckvSystemId,
     body.parameters, body.uiPersistence,
   );
@@ -334,9 +334,9 @@ HTTP status:
 
 ## Section 3: Core Layer
 
-### 3.1 UpdateCkvCalDataCommand
+### 3.1 PutCkvCalDataCommand
 
-**File:** `packages/core/src/application/usecase-designer/spf-module/update-cal-data/update-ckv-cal-data.command.ts` (new)
+**File:** `packages/core/src/application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.ts` (new)
 
 Same `parseId()` pattern as `GetCkvCalibrationDataQuery` — IDs parsed in constructor, not controller (FR12).
 
@@ -352,7 +352,7 @@ export interface ParameterCalDataInput {
   elements: ElementCalData[];
 }
 
-export class UpdateCkvCalDataCommand extends BaseCommand {
+export class PutCkvCalDataCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes: readonly SessionMode[] = [
     SESSION_MODE.Designer,
@@ -382,11 +382,11 @@ export class UpdateCkvCalDataCommand extends BaseCommand {
 }
 ```
 
-### 3.2 UpdateCkvCalDataHandler
+### 3.2 PutCkvCalDataHandler
 
 **Files:**
-- `packages/core/src/application/usecase-designer/spf-module/update-cal-data/update-ckv-cal-data.handler.ts` (new)
-- `packages/core/src/application/usecase-designer/spf-module/update-cal-data/update-ckv-cal-data-result.ts` (new)
+- `packages/core/src/application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.ts` (new)
+- `packages/core/src/application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data-result.ts` (new)
 - `packages/core/src/application/orchestration/cqrs/registries/command-handler-registry.ts` (modified — register handler)
 
 Constructor takes only `UnitOfWork` — same as `PatchSpfModuleHandler`. No separate read port is injected; cross-aggregate reads go through the existing UoW repository accessors, consistent with the established pattern in this codebase.
@@ -405,16 +405,16 @@ Constructor takes only `UnitOfWork` — same as `PatchSpfModuleHandler`. No sepa
 **Handler pseudocode:**
 
 ```typescript
-export class UpdateCkvCalDataHandler implements CommandHandler<
-  UpdateCkvCalDataCommand,
-  UpdateCkvCalDataResult
+export class PutCkvCalDataHandler implements CommandHandler<
+  PutCkvCalDataCommand,
+  PutCkvCalDataResult
 > {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly logger?: Logger,
   ) {}
 
-  async handle(command: UpdateCkvCalDataCommand): Promise<UpdateCkvCalDataResult> {
+  async handle(command: PutCkvCalDataCommand): Promise<PutCkvCalDataResult> {
     const fileSystemId = this.uow.getWriteContext().session.fileSystemId;
 
     // ── Step 1: validate SpfModule exists ────────────────────────────────────
@@ -492,7 +492,7 @@ export class UpdateCkvCalDataHandler implements CommandHandler<
     }
 
     this.logger?.log(
-      `UpdateCkvCalDataHandler: ${succeededParamSystemIds.length} succeeded, ` +
+      `PutCkvCalDataHandler: ${succeededParamSystemIds.length} succeeded, ` +
       `${failures.length} failed for ckvSystemId=${command.ckvSystemId}`,
     );
 
@@ -505,7 +505,7 @@ export class UpdateCkvCalDataHandler implements CommandHandler<
 }
 ```
 
-**Handler return type** (`update-ckv-cal-data-result.ts`):
+**Handler return type** (`put-ckv-cal-data-result.ts`):
 
 ```typescript
 export interface ParameterFailure {
@@ -513,7 +513,7 @@ export interface ParameterFailure {
   reason: string;
 }
 
-export interface UpdateCkvCalDataResult {
+export interface PutCkvCalDataResult {
   groupId: string;
   succeededParamSystemIds: number[];
   failures: ParameterFailure[];
@@ -841,7 +841,7 @@ export class CkvOverlayFetcher {
 
 No new UoW accessor is required. `TypeOrmModuleRepository` already has a `getModuleRepository()` accessor in `TypeOrmUnitOfWork`. The new CKV methods are added to the existing adapter.
 
-`UpdateCkvCalDataHandler` is constructed with only `UnitOfWork` at registration time in `command-handler-registry.ts` — no additional read port needed.
+`PutCkvCalDataHandler` is constructed with only `UnitOfWork` at registration time in `command-handler-registry.ts` — no additional read port needed.
 
 ---
 
@@ -851,9 +851,9 @@ No new UoW accessor is required. `TypeOrmModuleRepository` already has a `getMod
 
 Unit tests run in-process with no database. All dependencies are mocked/stubbed.
 
-#### UpdateCkvCalDataHandler
+#### PutCkvCalDataHandler
 
-**File:** `packages/core/tests/unit/application/usecase-designer/spf-module/update-cal-data/update-ckv-cal-data.handler.spec.ts` (new)
+**File:** `packages/core/tests/unit/application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.spec.ts` (new)
 
 | Scenario | Expected outcome |
 |---|---|
@@ -947,7 +947,7 @@ These tests cover the shared Layers 1+2 logic in isolation so that `TypeOrmModul
 
 E2E tests send real HTTP requests to a running NestJS app with an in-memory SQLite database. These tests verify the full request/response cycle including HTTP status codes and response body shape.
 
-**File:** `packages/api/tests/e2e/modules/spf-module/update-ckv-cal-data.e2e-spec.ts` (new)
+**File:** `packages/api/tests/e2e/modules/spf-module/put-ckv-cal-data.e2e-spec.ts` (new)
 
 | Scenario | HTTP status | Response |
 |---|---|---|
