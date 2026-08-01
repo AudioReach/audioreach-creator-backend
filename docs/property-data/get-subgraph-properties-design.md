@@ -8,61 +8,70 @@
 
 ## Relationship to Get Container Properties
 
-This feature is structurally identical to **Get Container Properties** (`docs/container/design/get-container-properties-design.md`). The same CQRS pattern, three-tier session overlay, binary parsing, and read model shapes apply. Differences are called out explicitly below.
+This feature is structurally identical to **Get Container Properties** (`docs/container/design/get-container-properties-design.md`). The same CQRS pattern, fetcher-based overlay, binary parsing, and read model shapes apply. Differences are called out explicitly below.
 
 ### Key differences from container
 
 | Aspect | Container | Subgraph |
 |---|---|---|
+| Overlay fetcher | `ContainerOverlayFetcher` (existing) | `SubgraphOverlayFetcher` (new — to be created) |
 | Payload table | `container_property_data` | `subgraph_property_data` |
 | Payload FK column | `propertySystemId` | `subgraphPropertySystemId` |
 | Entity name | `ContainerPropertyData` | `SubgraphPropertyData` |
 | Definition service | `ContainerPropertyDefQueryService` | `SubgraphPropertyDefQueryService` |
 | Definition read model base | `PropertyDefinitionReadModel` | `SubgraphPropertyDefinitionReadModel` (adds `isVoice`) |
-| Existence check service | `ContainerQueryService.findOne` | new `SubgraphQueryService.findOne` |
 | Response DTO | `ContainerPropertiesDto` | `SubgraphPropertiesDto` |
 | Controller | `ContainerController` | `SubgraphController` |
 
 ### Shared types (no duplication)
 
-`PropertyPayloadReadModel`, `PropertyReadModel`, and `SubgraphPropertyDefinitionWithElementsReadModel` follow the same shapes. `PropertyPayloadReadModel` normalises the FK to `propertySystemId` regardless of the DB column name, so it can be shared.
+`PropertyReadModel` is reused directly from `usecase-designer/container/get-properties/property-read-model.ts` — no new file needed.
 
 ---
 
 ## File and Folder Organization
+
+### Core Layer (rename — part of this PR)
+
+See `get-container-properties-design.md` — `ElementCalData` → `ElementData` rename and move to `domain/entities/definitions/common/types/element-data.ts` applies to this feature too. Import paths in `GetSubgraphPropertiesHandler` use `ElementData` from the new location.
 
 ### Core Layer
 
 ```
 packages/core/src/application/
 ├── ports/persistence/query-services/
+│   ├── shared/
+│   │   └── property-payload-read-model.ts                              (existing — defined in get-container-properties, reused here)
 │   ├── subgraph/
-│   │   └── subgraph-query-service.ts                                   (new — add findOne)
+│   │   └── subgraph-query-service.ts                                   (new — SubgraphQueryService with findOne)
 │   └── subgraph-property-definition/
 │       ├── subgraph-property-def-query-service.ts                      (existing — add getAllSubgraphPropertyDefinitionsWithElements)
 │       ├── subgraph-property-definition-read-model.ts                  (existing — unchanged)
-│       ├── subgraph-property-definition-with-elements-read-model.ts    (new — extends SubgraphPropertyDefinitionReadModel + elementsStructure)
-│       └── subgraph-property-data/
-│           ├── subgraph-property-data-query-service.ts                 (new — SubgraphPropertyDataQueryService)
-│           └── subgraph-property-payload-read-model.ts                 (new — SubgraphPropertyPayloadReadModel, mirrors PropertyPayloadReadModel)
-└── usecase-designer/subgraph/
-    └── get-properties/
-        ├── get-subgraph-properties.query.ts                            (new)
-        └── get-subgraph-properties.handler.ts                          (new — returns PropertyReadModel[])
+│       └── subgraph-property-definition-with-elements-read-model.ts    (new — extends SubgraphPropertyDefinitionReadModel + PropertyDefinitionWithElements)
+└── usecase-designer/
+    ├── shared/
+    │   ├── property-definition-with-elements.ts                        (existing — defined in get-container-properties, reused here)
+    │   └── build-property-models.ts                                    (existing — defined in get-container-properties, reused here)
+    └── subgraph/
+        └── get-properties/
+            ├── get-subgraph-properties.query.ts                        (new)
+            └── get-subgraph-properties.handler.ts                      (new — returns PropertyReadModel[])
 ```
 
-> **Note:** `PropertyReadModel` (defined in `usecase-designer/container/get-properties/property-read-model.ts`) is reused directly — no new read model needed for the handler output.
+> `PropertyReadModel` and the `shared/` utilities are defined in `get-container-properties` — reused directly here.
 
 ### Infrastructure Layer
 
 ```
-packages/infrastructure/persistence/src/persistence-typeorm-sqllite/queries/
-├── subgraph/
-│   └── db-subgraph-query-service.ts                                    (new — SubgraphQueryService impl with findOne)
-└── subgraph-property-definition/
-    ├── db-subgraph-property-def-query-service.ts                       (existing — add getAllSubgraphPropertyDefinitionsWithElements)
-    └── db-subgraph-property-data-query-service.ts                      (new)
+packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
+├── fetchers/
+│   └── subgraph-overlay-fetcher.ts                                     (new — mirrors ContainerOverlayFetcher)
+└── queries/subgraph/
+    ├── db-subgraph-query-service.ts                                    (new — delegates findOne to SubgraphOverlayFetcher)
+    └── db-subgraph-property-def-query-service.ts                       (existing — add getAllSubgraphPropertyDefinitionsWithElements)
 ```
+
+> No `DbSubgraphPropertyDataQueryService` is needed — `SubgraphOverlayFetcher` handles both existence check and payload fetch in one call, exactly as `ContainerOverlayFetcher` does for container.
 
 ### Presentation Layer
 
@@ -75,18 +84,24 @@ packages/api/src/presentation/rest/modules/subgraph/
 
 ```
 packages/core/src/application/ports/persistence/query-services/
-└── query-services.ts                                                   (existing — add subgraphQueryService + subgraphPropertyDataQueryService)
+└── query-services.ts                                                   (existing — add subgraphQueryService)
 
 packages/core/src/application/orchestration/cqrs/registries/
 └── query-handler-registry.ts                                           (existing — register GetSubgraphPropertiesQuery + handler)
 
 packages/infrastructure/persistence/src/persistence-typeorm-sqllite/queries/
-└── typeorm-query-services.ts                                           (existing — wire DbSubgraphQueryService + DbSubgraphPropertyDataQueryService)
+└── typeorm-query-services.ts                                           (existing — wire DbSubgraphQueryService)
 ```
 
 ---
 
 ## End-to-End Workflow
+
+### Key design decision — `SubgraphOverlayFetcher`
+
+No `SubgraphOverlayFetcher` exists yet. Following the same pattern as `ContainerOverlayFetcher`, it is created in `fetchers/subgraph-overlay-fetcher.ts`. It fetches the subgraph row and all its `SubgraphPropertyData` rows in a single call, applying session overlay via `getByAggregateId(sessionId, subgraphSystemId)` — the correct aggregate-scoped overlay that handles CREATE/UPDATE/DELETE for both the subgraph and its property rows.
+
+`DbSubgraphQueryService.findOne` delegates to this fetcher, returning `OverlaidSubgraph | null`. The handler uses the `properties[]` already on the `OverlaidSubgraph` — no separate payload query service needed.
 
 ### Sequence
 
@@ -96,18 +111,17 @@ Client
   → GetSubgraphPropertiesQuery
   → GetSubgraphPropertiesHandler
       Step 1: projectQueryService.getFileIdByProjectId(projectId) → fileSystemId
-      Step 2: subgraphQueryService.findOne(subgraphSystemId, fileSystemId)
-              → ResourceNotFoundException if null → 404
-      Step 3: Promise.all([
-                subgraphPropertyDefQueryService.getAllSubgraphPropertyDefinitionsWithElements(fileSystemId),
-                subgraphPropertyDataQueryService.getPropertyPayloads(fileSystemId, subgraphSystemId),
-              ])
-      Step 4: defMap = Map<subgraphPropertySystemId, SubgraphPropertyDefinitionWithElementsReadModel>
-              for each SubgraphPropertyPayloadReadModel:
-                def = defMap.get(payload.propertySystemId)
+      Step 2+3 combined: subgraphQueryService.findOne(subgraphSystemId, fileSystemId)
+              → null → ResourceNotFoundException → 404
+              → OverlaidSubgraph (subgraph exists + properties[] already available)
+      Step 4: getAllSubgraphPropertyDefinitionsWithElements(fileSystemId)
+              → SubgraphPropertyDefinitionWithElementsReadModel[]
+      Step 5: defMap = Map<systemId, SubgraphPropertyDefinitionWithElementsReadModel>
+              for each OverlaidSubgraphProperty in overlaidSubgraph.properties:
+                def = defMap.get(property.propertySystemId)
                 hasDefinition = def !== undefined
-                elements = payload.payload && def
-                  ? parseParameterData(payload.payload, def.elementsStructure)
+                elements = property.payload && def
+                  ? parseParameterData(property.payload as Uint8Array, def.elementsStructure)
                   : []
                 → PropertyReadModel
       returns PropertyReadModel[]
@@ -124,27 +138,16 @@ Client
 **File:** `packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-with-elements-read-model.ts` (new)
 
 ```typescript
-import type { SubgraphPropertyDefinitionReadModel } from './subgraph-property-definition-read-model.js';
+import type { SubgraphPropertyDefinitionSummaryReadModel } from './subgraph-property-definition-read-model.js';
+import type { PropertyDefinitionWithElements } from '../../../../usecase-designer/shared/property-definition-with-elements.js';
 
 export interface SubgraphPropertyDefinitionWithElementsReadModel
-  extends SubgraphPropertyDefinitionReadModel {
-  readonly elementsStructure: string;
-}
+  extends SubgraphPropertyDefinitionSummaryReadModel, PropertyDefinitionWithElements {}
 ```
 
-Extends `SubgraphPropertyDefinitionReadModel` (which already adds `isVoice: boolean` on top of `PropertyDefinitionReadModel`) and adds `elementsStructure` for use by the handler during binary parsing.
+Extends `SubgraphPropertyDefinitionSummaryReadModel` (adds `isVoice: boolean`) and `PropertyDefinitionWithElements` (which already extends `PropertyDefinitionReadModel` and adds `elementsStructure`).
 
-**File:** `packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-data/subgraph-property-payload-read-model.ts` (new)
-
-```typescript
-export interface SubgraphPropertyPayloadReadModel {
-  readonly systemId: number;
-  readonly propertySystemId: number;   // normalised from subgraphPropertySystemId in DB
-  readonly payload: Uint8Array | null;
-}
-```
-
-**Handler output:** reuses `PropertyReadModel` from `usecase-designer/container/get-properties/property-read-model.ts` — no new type needed.
+**Handler output:** reuses `PropertyReadModel` from `usecase-designer/container/get-properties/property-read-model.ts`.
 
 ### 2. Core Layer — Ports
 
@@ -152,9 +155,11 @@ export interface SubgraphPropertyPayloadReadModel {
 
 ```typescript
 export interface SubgraphQueryService {
-  findOne(subgraphSystemId: number, fileSystemId: number): Promise<SubgraphReadModel | null>;
+  findOne(subgraphSystemId: number, fileSystemId: number): Promise<OverlaidSubgraph | null>;
 }
 ```
+
+> Same cross-layer dependency note as container: `findOne` returns `OverlaidSubgraph` (defined in the infrastructure fetcher) so the handler has access to `properties[]`. If this is undesirable a mirror type can be defined in core — to be decided at implementation.
 
 **File:** `packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-def-query-service.ts` (existing — add new method)
 
@@ -165,19 +170,6 @@ getSubgraphPropertyDefinition(propertySystemId: number, fileSystemId: number): P
 
 // new
 getAllSubgraphPropertyDefinitionsWithElements(fileSystemId: number): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>>;
-```
-
-**File:** `packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-data/subgraph-property-data-query-service.ts` (new)
-
-```typescript
-import type { SubgraphPropertyPayloadReadModel } from './subgraph-property-payload-read-model.js';
-
-export interface SubgraphPropertyDataQueryService {
-  getPropertyPayloads(
-    fileSystemId: number,
-    subgraphSystemId: number,
-  ): Promise<SubgraphPropertyPayloadReadModel[]>;
-}
 ```
 
 ### 3. Core Layer — CQRS
@@ -210,104 +202,239 @@ export class GetSubgraphPropertiesHandler
     const fileSystemId = await this.queryServices.projectQueryService
       .getFileIdByProjectId(query.projectId);
 
-    // Step 2: validate subgraph exists
-    const subgraph = await this.queryServices.subgraphQueryService
+    // Step 2+3 combined: existence check + payload fetch via SubgraphOverlayFetcher
+    const overlaidSubgraph = await this.queryServices.subgraphQueryService
       .findOne(query.subgraphSystemId, fileSystemId);
-    if (!subgraph) {
+    if (!overlaidSubgraph) {
       throw new ResourceNotFoundException(
         `Subgraph with systemId ${query.subgraphSystemId} not found`,
       );
     }
 
-    // Step 3: fetch definitions and payloads in parallel
-    const [definitionsResult, payloads] = await Promise.all([
-      this.queryServices.subgraphPropertyDefQueryService
-        .getAllSubgraphPropertyDefinitionsWithElements(fileSystemId),
-      this.queryServices.subgraphPropertyDataQueryService
-        .getPropertyPayloads(fileSystemId, query.subgraphSystemId),
-    ]);
+    // Step 4: fetch definitions with elementsStructure
+    const definitionsResult = await this.queryServices.subgraphPropertyDefQueryService
+      .getAllSubgraphPropertyDefinitionsWithElements(fileSystemId);
 
     if (definitionsResult.kind === RESULT_KIND.Fail) {
       throw new Error(definitionsResult.issues[0]?.message ?? 'Failed to load subgraph property definitions');
     }
 
-    // Step 4: join + parse
+    // Step 5: join + parse
     const defMap = new Map(definitionsResult.data.map(d => [d.systemId, d]));
-    return this.buildPropertyModels(payloads, defMap);
-  }
-
-  private buildPropertyModels(
-    payloads: SubgraphPropertyPayloadReadModel[],
-    defMap: Map<number, SubgraphPropertyDefinitionWithElementsReadModel>,
-  ): PropertyReadModel[] {
-    return payloads.map(p => {
-      const def = defMap.get(p.propertySystemId);
-      const hasDefinition = def !== undefined;
-      const elements: ElementCalData[] =
-        p.payload !== null && def !== undefined
-          ? parseParameterData(p.payload, def.elementsStructure)
-          : [];
-      return {
-        systemId: p.systemId,
-        propertyId: def?.propertyId ?? 0,
-        propertyName: def?.name ?? '',
-        hasDefinition,
-        elements,
-      };
-    });
+    return buildPropertyModels(overlaidSubgraph.properties, defMap);
   }
 }
 ```
 
 ### 4. Infrastructure Layer
 
-**`DbSubgraphQueryService`** (new) — `findOne`:
+#### 4.1 `SubgraphOverlayFetcher` (new) — mirrors `ContainerOverlayFetcher`
+
+**File:** `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/fetchers/subgraph-overlay-fetcher.ts`
 
 ```typescript
-const overlay = new OverlayMergeImpl();
+export interface OverlaidSubgraphProperty {
+  systemId: number;
+  subgraphSystemId: number;
+  propertySystemId: number;  // normalised from subgraphPropertySystemId
+  payload: unknown;
+}
 
-export class DbSubgraphQueryService implements SubgraphQueryService {
+export interface OverlaidSubgraph {
+  systemId: number;
+  subgraphId: number;
+  name: string;
+  isExported: boolean;
+  fileSystemId: number;
+  properties: OverlaidSubgraphProperty[];
+}
+
+export class SubgraphOverlayFetcher {
+  private readonly overlay = new OverlayMergeImpl();
+
   constructor(
-    private readonly dataSource: DataSource,
-    private readonly editActionsQueryService: EditActionsQueryService,
-    private readonly sessionRepo: ISessionRepository,
+    private readonly manager: EntityManager,
+    private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
-  async findOne(subgraphSystemId: number, fileSystemId: number): Promise<SubgraphReadModel | null> {
-    const baseRow = await this.dataSource
+  async fetchOne(
+    subgraphSystemId: number,
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<OverlaidSubgraph | null> {
+    // Load base subgraph row
+    const baseRow = (await this.manager
       .getRepository(ENTITY_NAMES.Subgraph)
       .createQueryBuilder('s')
+      .select(['s.systemId', 's.subgraphId', 's.name', 's.isExported', 's.fileSystemId'])
       .where('s.systemId = :subgraphSystemId AND s.fileSystemId = :fileSystemId', { subgraphSystemId, fileSystemId })
-      .getOne() as SubgraphRow | null;
+      .getOne()) as unknown as SubgraphBase | null;
 
-    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-    const rows = session
-      ? overlay
-          .applyToCollection(
-            baseRow ? [baseRow] : [],
-            await this.editActionsQueryService.getByTable(session.sessionId, ENTITY_NAMES.Subgraph),
-          )
-          .map(r => r.effective)
-      : baseRow ? [baseRow] : [];
+    // Load base property rows (only if subgraph exists)
+    let basePropRows: SubgraphPropertyDataBase[] = [];
+    if (baseRow !== null) {
+      basePropRows = (await this.manager
+        .getRepository(ENTITY_NAMES.SubgraphPropertyData)
+        .createQueryBuilder('spd')
+        .select(['spd.systemId', 'spd.subgraphSystemId', 'spd.subgraphPropertySystemId', 'spd.payload'])
+        .where('spd.subgraphSystemId = :subgraphSystemId', { subgraphSystemId })
+        .getMany()) as unknown as SubgraphPropertyDataBase[];
+    }
 
-    const row = rows[0];
-    return row ? this.toReadModel(row as SubgraphRow) : null;
+    if (sessionId === null) {
+      if (baseRow === null) return null;
+      return this.assembleSubgraph(baseRow, basePropRows.map(p => this.toOverlaidProperty(p)));
+    }
+
+    // Aggregate-scoped overlay — same pattern as ContainerOverlayFetcher
+    const actions = await this.editActionsSvc.getByAggregateId(sessionId, subgraphSystemId);
+    const subgraphActions = actions.filter(a => a.targetTable === ENTITY_NAMES.Subgraph);
+    const propActions = actions.filter(a => a.targetTable === ENTITY_NAMES.SubgraphPropertyData);
+
+    // Handle CREATE (no base row yet)
+    const createAction = subgraphActions.find(a => a.operation === CHANGE_OPERATION.Create);
+    if (baseRow === null) {
+      if (!createAction) return null;
+      const payload = createAction.newValue as Partial<SubgraphBase>;
+      const createdSubgraph: SubgraphBase = {
+        systemId: createAction.targetSystemId,
+        subgraphId: payload.subgraphId ?? 0,
+        name: payload.name ?? '',
+        isExported: payload.isExported ?? false,
+        fileSystemId: payload.fileSystemId ?? fileSystemId,
+      };
+      return this.assembleSubgraph(createdSubgraph, this.buildCreatedProperties(propActions, subgraphSystemId));
+    }
+
+    // Apply overlay to subgraph row
+    const overlaidSubgraph = applyTableOverlay(
+      baseRow as unknown as { systemId: number },
+      subgraphActions,
+      ENTITY_NAMES.Subgraph,
+    ) as SubgraphBase | null;
+    if (overlaidSubgraph === null) return null;
+
+    // Apply overlay to property rows
+    const overlaidProps = this.overlay.applyToCollection(
+      basePropRows as unknown as Array<{ systemId: number }>,
+      propActions,
+    );
+
+    // Handle CREATE-staged properties not yet in base
+    const basePropIds = new Set(basePropRows.map(p => p.systemId));
+    const createdProps = this.buildCreatedProperties(
+      propActions.filter(a => !basePropIds.has(a.targetSystemId)),
+      subgraphSystemId,
+    );
+
+    const survivingProps: OverlaidSubgraphProperty[] = [
+      ...overlaidProps.map(r => this.toOverlaidProperty(r.effective as unknown as SubgraphPropertyDataBase)),
+      ...createdProps,
+    ];
+
+    return this.assembleSubgraph(overlaidSubgraph, survivingProps);
   }
 
-  private toReadModel(row: SubgraphRow): SubgraphReadModel {
-    return { systemId: row.systemId, name: row.name };
+  private toOverlaidProperty(p: SubgraphPropertyDataBase): OverlaidSubgraphProperty {
+    return {
+      systemId: p.systemId,
+      subgraphSystemId: p.subgraphSystemId,
+      propertySystemId: p.subgraphPropertySystemId,  // normalise FK name
+      payload: p.payload,
+    };
+  }
+
+  private buildCreatedProperties(
+    propActions: EditActionRow[],
+    subgraphSystemId: number,
+  ): OverlaidSubgraphProperty[] {
+    return propActions
+      .filter(a => a.operation === CHANGE_OPERATION.Create)
+      .map(a => {
+        const payload = a.newValue as Partial<SubgraphPropertyDataBase>;
+        return {
+          systemId: a.targetSystemId,
+          subgraphSystemId: payload.subgraphSystemId ?? subgraphSystemId,
+          propertySystemId: payload.subgraphPropertySystemId ?? 0,
+          payload: payload.payload ?? null,
+        };
+      });
+  }
+
+  private assembleSubgraph(
+    subgraph: SubgraphBase,
+    props: OverlaidSubgraphProperty[],
+  ): OverlaidSubgraph {
+    return {
+      systemId: subgraph.systemId,
+      subgraphId: subgraph.subgraphId,
+      name: subgraph.name,
+      isExported: subgraph.isExported,
+      fileSystemId: subgraph.fileSystemId,
+      properties: props,
+    };
   }
 }
 ```
 
-**`DbSubgraphPropertyDefQueryService`** — add `getAllSubgraphPropertyDefinitionsWithElements`:
+#### 4.2 `DbSubgraphQueryService` (new) — delegates to fetcher
+
+```typescript
+export class DbSubgraphQueryService implements SubgraphQueryService {
+  private readonly subgraphFetcher: SubgraphOverlayFetcher;
+
+  constructor(
+    private readonly manager: EntityManager,
+    private readonly editActionsSvc: EditActionsQueryService,
+  ) {
+    this.subgraphFetcher = new SubgraphOverlayFetcher(manager, editActionsSvc);
+  }
+
+  async findOne(subgraphSystemId: number, fileSystemId: number): Promise<OverlaidSubgraph | null> {
+    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+    return this.subgraphFetcher.fetchOne(
+      subgraphSystemId,
+      fileSystemId,
+      session?.sessionId ?? null,
+    );
+  }
+}
+```
+
+#### 4.3 `DbSubgraphPropertyDefQueryService` (existing) — add `getAllSubgraphPropertyDefinitionsWithElements`
 
 ```typescript
 async getAllSubgraphPropertyDefinitionsWithElements(
   fileSystemId: number,
 ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
-  // same query as getAllSubgraphPropertyDefinitions
-  // mapper includes elementsStructure field
+  try {
+    const baselineRows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
+      .createQueryBuilder('sp')
+      .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as SubgraphPropertyRow[];
+
+    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+    const rows = session
+      ? overlay
+          .applyToCollection(
+            baselineRows,
+            await this.editActionsSvc.getByTable(
+              session.sessionId,
+              ENTITY_NAMES.SubgraphPropertyDefinition,
+            ),
+          )
+          .map(r => r.effective)
+      : baselineRows;
+
+    return Result.ok((rows as SubgraphPropertyRow[]).map(r => this.toDetailWithElementsReadModel(r)));
+  } catch (error) {
+    return Result.fail({
+      code: ERROR_CODES.INTERNAL_ERROR,
+      message: error instanceof Error ? error.message : 'Failed to load subgraph property definitions',
+      severity: IssueSeverity.Error,
+    });
+  }
 }
 
 private toDetailWithElementsReadModel(row: SubgraphPropertyRow): SubgraphPropertyDefinitionWithElementsReadModel {
@@ -323,63 +450,6 @@ private toDetailWithElementsReadModel(row: SubgraphPropertyRow): SubgraphPropert
   };
 }
 ```
-
-**`DbSubgraphPropertyDataQueryService`** (new) — follows same pattern as `DbContainerPropertyDefQueryService.getAllContainerPropertyDefinitions`:
-
-```typescript
-const overlay = new OverlayMergeImpl();
-
-export class DbSubgraphPropertyDataQueryService implements SubgraphPropertyDataQueryService {
-  constructor(
-    private readonly dataSource: DataSource,
-    private readonly editActionsQueryService: EditActionsQueryService,
-    private readonly sessionRepo: ISessionRepository,
-  ) {}
-
-  async getPropertyPayloads(
-    fileSystemId: number,
-    subgraphSystemId: number,
-  ): Promise<SubgraphPropertyPayloadReadModel[]> {
-    // Step 1 — baseline load
-    const baseRows = await this.queryPayloadsRaw(subgraphSystemId);
-
-    // Step 2 — overlay
-    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-    const rows = session
-      ? overlay
-          .applyToCollection(
-            baseRows,
-            await this.editActionsQueryService.getByTable(
-              session.sessionId,
-              ENTITY_NAMES.SubgraphPropertyData,
-            ),
-          )
-          .map(r => r.effective)
-      : baseRows;
-
-    return rows.map(r => this.toReadModel(r));
-  }
-
-  private async queryPayloadsRaw(subgraphSystemId: number): Promise<SubgraphPropertyDataRow[]> {
-    return this.dataSource
-      .getRepository(ENTITY_NAMES.SubgraphPropertyData)
-      .createQueryBuilder('spd')
-      .where('spd.subgraphSystemId = :subgraphSystemId', { subgraphSystemId })
-      .getMany() as Promise<SubgraphPropertyDataRow[]>;
-  }
-
-  private toReadModel(row: SubgraphPropertyDataRow): SubgraphPropertyPayloadReadModel {
-    return {
-      systemId: row.systemId,
-      propertySystemId: row.subgraphPropertySystemId,  // normalise FK name
-      payload: row.payload ?? null,
-    };
-  }
-}
-```
-
-> **Open question — aggregate ID for session overlay:**
-> `subgraphSystemId` is assumed to be the aggregate ID for `SubgraphPropertyData` edit actions, by analogy with the container pattern where `container.repository.ts` sets `aggregateId: container.systemId`. However, no subgraph write repository currently exists in the codebase to confirm this. Additionally, `SubgraphPropertyRow` (the definition schema) does not have a `subgraphPropertyData[]` inverse relation, unlike `ContainerPropertyRow` which has `containerPropertyData?: ContainerPropertyDataRow[]`. This means the two schemas are not fully symmetric. Both the aggregate ID assumption and the missing inverse relation should be verified before the overlay logic is considered complete.
 
 ### 5. Presentation Layer
 
@@ -413,7 +483,7 @@ private toPropertyDto(model: PropertyReadModel): PropertyDto {
 }
 ```
 
-The `transformElement` private methods are duplicated from `SpfModuleController` for now — extraction to a shared mapper is deferred (see **Refactoring** in `get-container-properties-design.md`).
+The `transformElement` private methods are duplicated from `SpfModuleController` for now — extraction to a shared mapper is tracked in the **Refactoring** section of `get-container-properties-design.md`.
 
 ---
 
@@ -425,7 +495,7 @@ The `transformElement` private methods are duplicated from `SpfModuleController`
 
 | Test case | Description |
 |---|---|
-| Happy path | Payloads and definitions joined correctly; `elements` populated |
+| Happy path | `findOne` returns overlaid subgraph; payloads and definitions joined; `elements` populated |
 | Subgraph not found | `findOne` returns null → throws `ResourceNotFoundException` |
 | Payload null | `elements` is empty `[]` |
 | No matching definition | `hasDefinition=false`, `elements=[]`, `propertyName=''` |
@@ -433,13 +503,15 @@ The `transformElement` private methods are duplicated from `SpfModuleController`
 
 ### Integration Tests
 
-**`DbSubgraphPropertyDataQueryService`** — `db-subgraph-property-data-query-service.spec.ts`
+**`DbSubgraphQueryService.findOne`** — `db-subgraph-query-service.spec.ts`
 
 | Tier | Test case |
 |---|---|
-| Tier 1 (no session) | Returns all payloads for subgraph |
-| Tier 2 (session, no changes) | Same as Tier 1 |
-| Tier 3 (session + UPDATE) | Payload reflects pending edit |
+| No session | Returns `OverlaidSubgraph` with correct `properties[]` |
+| No session | Returns null when `subgraphSystemId` does not exist |
+| Session + UPDATE on property | `payload` in `properties[]` reflects pending edit |
+| Session + CREATE subgraph | Subgraph assembled from CREATE action payload |
+| Session + DELETE subgraph | Returns null |
 
 ### E2E Tests
 
