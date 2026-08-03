@@ -25,7 +25,7 @@ packages/core/src/application/
 │   ├── shared/
 │   │   └── property-payload-read-model.ts                          (new — PropertyPayloadReadModel, shared by container + subgraph)
 │   ├── container/
-│   │   └── container-query-service.ts                              (existing — add findOne returning OverlaidContainer shape via fetcher)
+│   │   └── container-query-service.ts                              (existing — add findPropertyPayloads returning Result<PropertyPayloadReadModel[] | null>)
 │   └── container-property-definition/
 │       ├── container-property-def-query-service.ts                 (existing — add getAllContainerPropertyDefinitionsWithElements)
 │       └── container-property-definition-with-elements-read-model.ts  (new — ContainerPropertyDefinitionWithElementsReadModel extends PropertyDefinitionWithElements)
@@ -47,7 +47,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 ├── fetchers/
 │   └── container-overlay-fetcher.ts                               (existing — used as-is, no changes)
 └── queries/container/
-    └── db-container-query-service.ts                              (existing — add findOne delegating to ContainerOverlayFetcher)
+    └── db-container-query-service.ts                              (existing — add findPropertyPayloads delegating to ContainerOverlayFetcher)
     └── db-container-property-def-query-service.ts                 (existing — add getAllContainerPropertyDefinitionsWithElements)
 ```
 
@@ -86,13 +86,14 @@ Client
   → GetContainerPropertiesQuery
   → GetContainerPropertiesHandler
       Step 1: projectQueryService.getFileIdByProjectId(projectId) → fileSystemId
-      Step 2+3 combined: containerQueryService.findOne(containerSystemId, fileSystemId)
-              → null → ResourceNotFoundException → 404
-              → OverlaidContainer (container exists + properties[] already available)
+      Step 2+3 combined: containerQueryService.findPropertyPayloads(containerSystemId, fileSystemId)
+              → Result.fail → throws
+              → Result.ok(null) → ResourceNotFoundException → 404
+              → Result.ok(PropertyPayloadReadModel[]) → container exists + property payloads
       Step 4: getAllContainerPropertyDefinitionsWithElements(fileSystemId)
               → ContainerPropertyDefinitionWithElementsReadModel[]
       Step 5: defMap = Map<propertySystemId, ContainerPropertyDefinitionWithElementsReadModel>
-              for each OverlaidContainerProperty in overlaidContainer.properties:
+              for each PropertyPayloadReadModel in payloads:
                 def = defMap.get(property.propertySystemId)
                 hasDefinition = def !== undefined
                 elements = property.payload && def
@@ -178,18 +179,16 @@ export interface PropertyReadModel {
 
 ### 2. Core Layer — Ports
 
-**File:** `packages/core/src/application/ports/persistence/query-services/container/container-query-service.ts` (existing — add `findOne`)
+**File:** `packages/core/src/application/ports/persistence/query-services/container/container-query-service.ts` (existing — add `findPropertyPayloads`)
 
 ```typescript
-import type { OverlaidContainer } from '../../../../../infrastructure/.../container-overlay-fetcher.js';
-
 export interface ContainerQueryService {
   findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>>;
-  findOne(containerSystemId: number, fileSystemId: number): Promise<OverlaidContainer | null>;
+  findPropertyPayloads(containerSystemId: number, fileSystemId: number): Promise<Result<PropertyPayloadReadModel[] | null>>;
 }
 ```
 
-> **Note:** `findOne` returns `OverlaidContainer` (from the fetcher) rather than `ContainerReadModel` — it carries `properties[]` which the handler needs. The core port depends on the `OverlaidContainer` type which is defined in the infrastructure layer. If this cross-layer dependency is undesirable, a mirror type can be defined in core — to be decided at implementation.
+`findPropertyPayloads` returns `Result<PropertyPayloadReadModel[] | null>` — `Result.fail` on DB error, `Result.ok(null)` when the container does not exist (→ 404), `Result.ok(PropertyPayloadReadModel[])` on success.
 
 **File:** `packages/core/src/application/ports/persistence/query-services/container-property-definition/container-property-def-query-service.ts` (existing — add new method)
 
@@ -233,13 +232,17 @@ export class GetContainerPropertiesHandler
       .getFileIdByProjectId(query.projectId);
 
     // Step 2+3 combined: existence check + payload fetch via ContainerOverlayFetcher
-    const overlaidContainer = await this.queryServices.containerQueryService
-      .findOne(query.containerSystemId, fileSystemId);
-    if (!overlaidContainer) {
+    const payloadsResult = await this.queryServices.containerQueryService
+      .findPropertyPayloads(query.containerSystemId, fileSystemId);
+    if (payloadsResult.kind === RESULT_KIND.Fail) {
+      throw new Error(payloadsResult.issues[0]?.message ?? 'Failed to load container properties');
+    }
+    if (payloadsResult.data === null) {
       throw new ResourceNotFoundException(
         `Container with systemId ${query.containerSystemId} not found`,
       );
     }
+    const payloads = payloadsResult.data;
 
     // Step 4: fetch definitions with elementsStructure
     const definitionsResult = await this.queryServices.containerPropertyDefQueryService
@@ -251,26 +254,38 @@ export class GetContainerPropertiesHandler
 
     // Step 5: join + parse
     const defMap = new Map(definitionsResult.data.map(d => [d.systemId, d]));
-    return buildPropertyModels(overlaidContainer.properties, defMap);
+    return buildPropertyModels(payloads, defMap);
   }
 }
 ```
 
 ### 4. Infrastructure Layer
 
-**`DbContainerQueryService`** (existing) — add `findOne`. Constructs a `ContainerOverlayFetcher` (same pattern as `TypeOrmContainerRepository`) and delegates to it after resolving the active session:
+**`DbContainerQueryService`** (existing) — add `findPropertyPayloads`. Constructs a `ContainerOverlayFetcher`, delegates to it, then maps the result to `PropertyPayloadReadModel[]`:
 
 ```typescript
-async findOne(containerSystemId: number, fileSystemId: number): Promise<OverlaidContainer | null> {
-  const fetcher = new ContainerOverlayFetcher(this.dataSource.manager, this.editActionsSvc);
-  const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-  return fetcher.fetchOne(
-    containerSystemId,
-    fileSystemId,
-    session?.sessionId ?? null,
-  );
+async findPropertyPayloads(containerSystemId: number, fileSystemId: number): Promise<Result<PropertyPayloadReadModel[] | null>> {
+  try {
+    const fetcher = new ContainerOverlayFetcher(this.dataSource.manager, this.editActionsSvc);
+    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+    const overlaid = await fetcher.fetchOne(containerSystemId, fileSystemId, session?.sessionId ?? null);
+    if (!overlaid) return Result.ok(null);
+    return Result.ok(overlaid.properties.map(p => ({
+      systemId: p.systemId,
+      propertySystemId: p.propertySystemId,
+      payload: p.payload as Uint8Array | null,
+    })));
+  } catch (error) {
+    return Result.fail({
+      code: ERROR_CODES.INTERNAL_ERROR,
+      message: error instanceof Error ? error.message : 'Failed to load container properties',
+      severity: IssueSeverity.Error,
+    });
+  }
 }
 ```
+
+`OverlaidContainer` stays internal to the infrastructure layer — core only sees `Result<PropertyPayloadReadModel[] | null>`.
 
 **`DbContainerPropertyDefQueryService`** (existing) — add `getAllContainerPropertyDefinitionsWithElements`:
 
@@ -365,22 +380,22 @@ The `transformElement` private methods are duplicated from `SpfModuleController`
 
 | Test case | Description |
 |---|---|
-| Happy path | `findOne` returns overlaid container; payloads and definitions joined; `elements` populated |
-| Container not found | `findOne` returns null → throws `ResourceNotFoundException` |
+| Happy path | `findPropertyPayloads` returns `PropertyPayloadReadModel[]`; definitions joined; `elements` populated |
+| Container not found | `findPropertyPayloads` returns null → throws `ResourceNotFoundException` |
 | Payload null | `elements` is empty `[]` |
 | No matching definition | `hasDefinition=false`, `elements=[]`, `propertyName=''` |
 | Definitions fetch fails | `Result.fail` → throws |
 
 ### Integration Tests
 
-**`DbContainerQueryService.findOne`** — `db-container-query-service.spec.ts`
+**`DbContainerQueryService.findPropertyPayloads`** — `db-container-query-service.spec.ts`
 
 | Tier | Test case |
 |---|---|
-| No session | Returns `OverlaidContainer` with correct `properties[]` |
+| No session | Returns `PropertyPayloadReadModel[]` with correct payloads |
 | No session | Returns null when `containerSystemId` does not exist |
-| Session + UPDATE on property | `payload` in `properties[]` reflects pending edit |
-| Session + CREATE container | Container assembled from CREATE action payload |
+| Session + UPDATE on property | `payload` in returned array reflects pending edit |
+| Session + CREATE container | Returns property payloads assembled from CREATE action |
 | Session + DELETE container | Returns null |
 
 ### E2E Tests

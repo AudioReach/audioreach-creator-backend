@@ -43,7 +43,7 @@ packages/core/src/application/
 │   ├── shared/
 │   │   └── property-payload-read-model.ts                              (existing — defined in get-container-properties, reused here)
 │   ├── subgraph/
-│   │   └── subgraph-query-service.ts                                   (new — SubgraphQueryService with findOne)
+│   │   └── subgraph-query-service.ts                                   (new — SubgraphQueryService with findPropertyPayloads returning Result<PropertyPayloadReadModel[] | null>)
 │   └── subgraph-property-definition/
 │       ├── subgraph-property-def-query-service.ts                      (existing — add getAllSubgraphPropertyDefinitionsWithElements)
 │       ├── subgraph-property-definition-read-model.ts                  (existing — unchanged)
@@ -67,7 +67,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 ├── fetchers/
 │   └── subgraph-overlay-fetcher.ts                                     (new — mirrors ContainerOverlayFetcher)
 └── queries/subgraph/
-    ├── db-subgraph-query-service.ts                                    (new — delegates findOne to SubgraphOverlayFetcher)
+    ├── db-subgraph-query-service.ts                                    (new — implements findPropertyPayloads delegating to SubgraphOverlayFetcher)
     └── db-subgraph-property-def-query-service.ts                       (existing — add getAllSubgraphPropertyDefinitionsWithElements)
 ```
 
@@ -101,7 +101,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/queries/
 
 No `SubgraphOverlayFetcher` exists yet. Following the same pattern as `ContainerOverlayFetcher`, it is created in `fetchers/subgraph-overlay-fetcher.ts`. It fetches the subgraph row and all its `SubgraphPropertyData` rows in a single call, applying session overlay via `getByAggregateId(sessionId, subgraphSystemId)` — the correct aggregate-scoped overlay that handles CREATE/UPDATE/DELETE for both the subgraph and its property rows.
 
-`DbSubgraphQueryService.findOne` delegates to this fetcher, returning `OverlaidSubgraph | null`. The handler uses the `properties[]` already on the `OverlaidSubgraph` — no separate payload query service needed.
+`DbSubgraphQueryService.findPropertyPayloads` delegates to this fetcher, maps the result to `Result<PropertyPayloadReadModel[] | null>`, keeping `OverlaidSubgraph` internal to the infrastructure layer.
 
 ### Sequence
 
@@ -111,13 +111,14 @@ Client
   → GetSubgraphPropertiesQuery
   → GetSubgraphPropertiesHandler
       Step 1: projectQueryService.getFileIdByProjectId(projectId) → fileSystemId
-      Step 2+3 combined: subgraphQueryService.findOne(subgraphSystemId, fileSystemId)
-              → null → ResourceNotFoundException → 404
-              → OverlaidSubgraph (subgraph exists + properties[] already available)
+      Step 2+3 combined: subgraphQueryService.findPropertyPayloads(subgraphSystemId, fileSystemId)
+              → Result.fail → throws
+              → Result.ok(null) → ResourceNotFoundException → 404
+              → Result.ok(PropertyPayloadReadModel[]) → subgraph exists + property payloads
       Step 4: getAllSubgraphPropertyDefinitionsWithElements(fileSystemId)
               → SubgraphPropertyDefinitionWithElementsReadModel[]
       Step 5: defMap = Map<systemId, SubgraphPropertyDefinitionWithElementsReadModel>
-              for each OverlaidSubgraphProperty in overlaidSubgraph.properties:
+              for each PropertyPayloadReadModel in payloads:
                 def = defMap.get(property.propertySystemId)
                 hasDefinition = def !== undefined
                 elements = property.payload && def
@@ -155,11 +156,9 @@ Extends `SubgraphPropertyDefinitionSummaryReadModel` (adds `isVoice: boolean`) a
 
 ```typescript
 export interface SubgraphQueryService {
-  findOne(subgraphSystemId: number, fileSystemId: number): Promise<OverlaidSubgraph | null>;
+  findPropertyPayloads(subgraphSystemId: number, fileSystemId: number): Promise<Result<PropertyPayloadReadModel[] | null>>;
 }
 ```
-
-> Same cross-layer dependency note as container: `findOne` returns `OverlaidSubgraph` (defined in the infrastructure fetcher) so the handler has access to `properties[]`. If this is undesirable a mirror type can be defined in core — to be decided at implementation.
 
 **File:** `packages/core/src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-def-query-service.ts` (existing — add new method)
 
@@ -203,13 +202,17 @@ export class GetSubgraphPropertiesHandler
       .getFileIdByProjectId(query.projectId);
 
     // Step 2+3 combined: existence check + payload fetch via SubgraphOverlayFetcher
-    const overlaidSubgraph = await this.queryServices.subgraphQueryService
-      .findOne(query.subgraphSystemId, fileSystemId);
-    if (!overlaidSubgraph) {
+    const payloadsResult = await this.queryServices.subgraphQueryService
+      .findPropertyPayloads(query.subgraphSystemId, fileSystemId);
+    if (payloadsResult.kind === RESULT_KIND.Fail) {
+      throw new Error(payloadsResult.issues[0]?.message ?? 'Failed to load subgraph properties');
+    }
+    if (payloadsResult.data === null) {
       throw new ResourceNotFoundException(
         `Subgraph with systemId ${query.subgraphSystemId} not found`,
       );
     }
+    const payloads = payloadsResult.data;
 
     // Step 4: fetch definitions with elementsStructure
     const definitionsResult = await this.queryServices.subgraphPropertyDefQueryService
@@ -221,7 +224,7 @@ export class GetSubgraphPropertiesHandler
 
     // Step 5: join + parse
     const defMap = new Map(definitionsResult.data.map(d => [d.systemId, d]));
-    return buildPropertyModels(overlaidSubgraph.properties, defMap);
+    return buildPropertyModels(payloads, defMap);
   }
 }
 ```
@@ -377,7 +380,7 @@ export class SubgraphOverlayFetcher {
 }
 ```
 
-#### 4.2 `DbSubgraphQueryService` (new) — delegates to fetcher
+#### 4.2 `DbSubgraphQueryService` (new) — delegates to fetcher, maps to `PropertyPayloadReadModel[]`
 
 ```typescript
 export class DbSubgraphQueryService implements SubgraphQueryService {
@@ -390,16 +393,32 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
     this.subgraphFetcher = new SubgraphOverlayFetcher(manager, editActionsSvc);
   }
 
-  async findOne(subgraphSystemId: number, fileSystemId: number): Promise<OverlaidSubgraph | null> {
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    return this.subgraphFetcher.fetchOne(
-      subgraphSystemId,
-      fileSystemId,
-      session?.sessionId ?? null,
-    );
+  async findPropertyPayloads(subgraphSystemId: number, fileSystemId: number): Promise<Result<PropertyPayloadReadModel[] | null>> {
+    try {
+      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      const overlaid = await this.subgraphFetcher.fetchOne(
+        subgraphSystemId,
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      if (!overlaid) return Result.ok(null);
+      return Result.ok(overlaid.properties.map(p => ({
+        systemId: p.systemId,
+        propertySystemId: p.propertySystemId,
+        payload: p.payload as Uint8Array | null,
+      })));
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message: error instanceof Error ? error.message : 'Failed to load subgraph properties',
+        severity: IssueSeverity.Error,
+      });
+    }
   }
 }
 ```
+
+`OverlaidSubgraph` stays internal to the infrastructure layer — core only sees `PropertyPayloadReadModel[]`.
 
 #### 4.3 `DbSubgraphPropertyDefQueryService` (existing) — add `getAllSubgraphPropertyDefinitionsWithElements`
 
@@ -495,22 +514,22 @@ The `transformElement` private methods are duplicated from `SpfModuleController`
 
 | Test case | Description |
 |---|---|
-| Happy path | `findOne` returns overlaid subgraph; payloads and definitions joined; `elements` populated |
-| Subgraph not found | `findOne` returns null → throws `ResourceNotFoundException` |
+| Happy path | `findPropertyPayloads` returns `PropertyPayloadReadModel[]`; definitions joined; `elements` populated |
+| Subgraph not found | `findPropertyPayloads` returns null → throws `ResourceNotFoundException` |
 | Payload null | `elements` is empty `[]` |
 | No matching definition | `hasDefinition=false`, `elements=[]`, `propertyName=''` |
 | Definitions fetch fails | `Result.fail` → throws |
 
 ### Integration Tests
 
-**`DbSubgraphQueryService.findOne`** — `db-subgraph-query-service.spec.ts`
+**`DbSubgraphQueryService.findPropertyPayloads`** — `db-subgraph-query-service.spec.ts`
 
 | Tier | Test case |
 |---|---|
-| No session | Returns `OverlaidSubgraph` with correct `properties[]` |
+| No session | Returns `PropertyPayloadReadModel[]` with correct payloads |
 | No session | Returns null when `subgraphSystemId` does not exist |
-| Session + UPDATE on property | `payload` in `properties[]` reflects pending edit |
-| Session + CREATE subgraph | Subgraph assembled from CREATE action payload |
+| Session + UPDATE on property | `payload` in returned array reflects pending edit |
+| Session + CREATE subgraph | Returns property payloads assembled from CREATE action |
 | Session + DELETE subgraph | Returns null |
 
 ### E2E Tests
