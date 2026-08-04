@@ -7,7 +7,7 @@ import type {
   ConfigElementData,
   ElementArrayData,
   StructData,
-} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-cal-data.js';
+} from '../../../../../../src/domain/entities/definitions/common/types/element-data.js';
 import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-definition.js';
 
 describe('parseParameterData', () => {

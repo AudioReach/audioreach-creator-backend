@@ -8,6 +8,7 @@ import {
   type SubgraphPropertyDefQueryService,
   type SubgraphPropertyDefinitionSummaryReadModel,
   type SubgraphPropertyDefinitionReadModel,
+  type SubgraphPropertyDefinitionWithElementsReadModel,
   type ISessionRepository,
   Result,
   ERROR_CODES,
@@ -148,6 +149,60 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
     return {
       ...this.toSummaryReadModel(row),
       maxSize: row.maxSize,
+    };
+  }
+
+  async getAllSubgraphPropertyDefinitionsWithElements(
+    fileSystemId: number,
+  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
+    try {
+      // Step 1 — baseline load, all subgraph property definitions scoped to this file
+      const baselineRows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
+        .createQueryBuilder('sp')
+        .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
+        .getMany()) as SubgraphPropertyRow[];
+
+      // Step 2 — Overlay: table-wide query, not one call per row
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = session
+        ? overlay
+            .applyToCollection(
+              baselineRows,
+              await this.editActionsSvc.getByTable(
+                session.sessionId,
+                ENTITY_NAMES.SubgraphPropertyDefinition,
+              ),
+            )
+            .map(r => r.effective)
+        : baselineRows;
+
+      return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subgraph property definitions with elements',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  private toDetailWithElementsReadModel(
+    row: SubgraphPropertyRow,
+  ): SubgraphPropertyDefinitionWithElementsReadModel {
+    return {
+      systemId: row.systemId,
+      propertyId: row.propertyId,
+      name: row.name,
+      description: row.description,
+      propertyType: row.propertyType,
+      maxSize: row.maxSize,
+      isVoice: row.isVoice ?? false,
+      elementsStructure: row.elementsStructure ?? '',
     };
   }
 }

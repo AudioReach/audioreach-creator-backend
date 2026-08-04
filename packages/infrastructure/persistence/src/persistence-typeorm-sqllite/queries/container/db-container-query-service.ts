@@ -8,6 +8,8 @@ import type {DataSource} from 'typeorm';
 import {
   type ContainerQueryService,
   type ContainerReadModel,
+  type PropertyPayloadReadModel,
+  type ISessionRepository,
   Result,
   ERROR_CODES,
   IssueSeverity,
@@ -16,11 +18,13 @@ import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import type {ContainerRow} from '../../entity-schema/usecase-data/container/container.schema.js';
+import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
 
 export class DbContainerQueryService implements ContainerQueryService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
+    private readonly sessionRepo: ISessionRepository,
   ) {}
 
   /**
@@ -87,6 +91,42 @@ export class DbContainerQueryService implements ContainerQueryService {
         code: ERROR_CODES.INTERNAL_ERROR,
         message:
           error instanceof Error ? error.message : 'Failed to query containers',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  async findPropertyPayloads(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<PropertyPayloadReadModel[] | null>> {
+    try {
+      const fetcher = new ContainerOverlayFetcher(
+        this.dataSource.manager,
+        this.editActionsSvc,
+      );
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const overlaid = await fetcher.fetchOne(
+        containerSystemId,
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      if (!overlaid) return Result.ok(null);
+      return Result.ok(
+        overlaid.properties.map(p => ({
+          systemId: p.systemId,
+          propertySystemId: p.propertySystemId,
+          payload: p.payload as Uint8Array | null,
+        })),
+      );
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load container properties',
         severity: IssueSeverity.Error,
       });
     }

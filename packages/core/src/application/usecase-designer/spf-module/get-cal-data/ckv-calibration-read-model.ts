@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import type {CkvReadModel} from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
-import type {ElementCalData} from '../param-parser/types/element-cal-data.js';
+import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
 import type {ParamType} from '../../../../domain/entities/definitions/common/types/param-type.js';
 
 export interface ParameterCalibrationReadModel {
@@ -14,7 +14,7 @@ export interface ParameterCalibrationReadModel {
   isReadOnly: boolean;
   isHidden?: boolean;
   pidType: ParamType;
-  parsedData: ElementCalData[] | null;
+  parsedData: ElementData[] | null;
 }
 
 export interface CkvCalibrationReadModel {

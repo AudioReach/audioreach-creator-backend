@@ -44,11 +44,13 @@ import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 import {
   QueryBus,
   GetComponentsQuery,
+  GetSubgraphPropertiesQuery,
   type Result,
   type ComponentsReadModel,
+  type PropertyReadModel,
   COMPONENT_SCOPE_TYPE,
 } from '@arc/core';
-
+import {mapPropertyToDto} from '../../common/utils/element-data-mapper.js';
 /**
  * Controller to support all subgraph related APIs for usecase design.
  * Provides subgraph related APIs for usecase design.
@@ -178,13 +180,15 @@ export class SubgraphController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
   ): Promise<ApiResult<SubgraphPropertiesDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting properties in project ${projectId} for subgraph ${subgraphSystemId}`,
+    const query = new GetSubgraphPropertiesQuery(
+      Number.parseInt(projectId, 10),
+      Number.parseInt(subgraphSystemId, 10),
+      'client-id',
     );
-    throw new NotImplementedException(
-      'getSubgraphProperties is not implemented yet',
-    );
+    const properties = await this.queryBus.execute<PropertyReadModel[]>(query);
+    return {
+      data: new SubgraphPropertiesDto(properties.map(p => mapPropertyToDto(p))),
+    };
   }
 
   /**

@@ -2,15 +2,15 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import type {DataType} from '../../../../file-operations/shared/awsp-serializers/v1/definitions/common/type/data-type.js';
+import type {DataType} from '../../../../../application/file-operations/shared/awsp-serializers/v1/definitions/common/type/data-type.js';
 import {
   PARAMETER_ELEMENT_TYPE,
   type DisplayType,
-} from './element-definition.js';
+} from '../../../../../application/usecase-designer/spf-module/param-parser/types/element-definition.js';
 
 // ── Shared base fields present on every element variant ───────────────────────
 
-export interface ElementCalDataBase {
+export interface ElementDataBase {
   name: string;
   description?: string;
   group?: string;
@@ -23,9 +23,9 @@ export interface ElementCalDataBase {
   copySrc?: string;
 }
 
-// ── Element cal-data types (GET output and PUT input) ─────────────────────────
+// ── Element data types (GET output and PUT input) ─────────────────────────────
 
-export interface ConfigElementData extends ElementCalDataBase {
+export interface ConfigElementData extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.ConfigElement;
   dataType: DataType;
   value: string;
@@ -44,17 +44,17 @@ export interface ConfigElementData extends ElementCalDataBase {
   defaultDataDepends?: string[];
 }
 
-export interface StructData extends ElementCalDataBase {
+export interface StructData extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.Struct;
   structType: string;
-  value: ElementCalData[];
+  value: ElementData[];
 }
 
-export interface ElementArrayData extends ElementCalDataBase {
+export interface ElementArrayData extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.ElementArray;
-  template: ElementCalData[];
+  template: ElementData[];
   structType?: string;
-  value: ElementCalData[];
+  value: ElementData[];
   length?: number;
   arrayLenFormulaStr?: string;
   copySrcInfoList?: string[];
@@ -62,4 +62,4 @@ export interface ElementArrayData extends ElementCalDataBase {
   policy?: string;
 }
 
-export type ElementCalData = ConfigElementData | StructData | ElementArrayData;
+export type ElementData = ConfigElementData | StructData | ElementArrayData;

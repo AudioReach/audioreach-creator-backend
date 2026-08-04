@@ -7,6 +7,7 @@ import type {
   SubgraphPropertyDefinitionSummaryReadModel,
   SubgraphPropertyDefinitionReadModel,
 } from './subgraph-property-definition-read-model.js';
+import type {SubgraphPropertyDefinitionWithElementsReadModel} from './subgraph-property-definition-with-elements-read-model.js';
 import type {Result} from '../../../../shared/result/result.js';
 
 export interface SubgraphPropertyDefQueryService {
@@ -29,4 +30,12 @@ export interface SubgraphPropertyDefQueryService {
     propertySystemId: number,
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionReadModel>>;
+
+  /**
+   * Returns all subgraph property definitions including the `elementsStructure`
+   * binary field needed for parsing calibration payloads. Overlay is applied.
+   */
+  getAllSubgraphPropertyDefinitionsWithElements(
+    fileSystemId: number,
+  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>>;
 }

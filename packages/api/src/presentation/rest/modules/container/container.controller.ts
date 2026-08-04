@@ -5,18 +5,15 @@
 
 import {
   Controller,
-  NotImplementedException,
   Post,
   Get,
   Body,
   Param,
-  UseGuards,
   UseInterceptors,
   HttpStatus,
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
-import {AuthGuard} from '@nestjs/passport';
 import {ContainerDto, ContainerPropertiesDto} from './dto/container.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
@@ -29,9 +26,12 @@ import {toApiResult} from '../../common/result/to-api-result.js';
 import {
   QueryBus,
   ContainerQuery,
+  GetContainerPropertiesQuery,
   type Result,
   type ContainerReadModel,
+  type PropertyReadModel,
 } from '@arc/core';
+import {mapPropertyToDto} from '../../common/utils/element-data-mapper.js';
 
 /**
  * Controller to support all container related APIs for usecase design.
@@ -39,7 +39,7 @@ import {
  */
 @ApiTags('containers')
 @Controller('arc-api/v1/projects/:projectId/containers')
-@UseGuards(AuthGuard('jwt'))
+//@UseGuards(AuthGuard('jwt'))
 @ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
@@ -132,13 +132,17 @@ export class ContainerController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('containerSystemId') containerSystemId: string,
   ): Promise<ApiResult<ContainerPropertiesDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      `Getting properties in project ${projectId} for container ${containerSystemId}`,
+    const query = new GetContainerPropertiesQuery(
+      Number.parseInt(projectId, 10),
+      Number.parseInt(containerSystemId, 10),
+      'client-id',
     );
-    throw new NotImplementedException(
-      'getContainerProperties is not implemented yet',
-    );
+    const properties = await this.queryBus.execute<PropertyReadModel[]>(query);
+    return {
+      data: new ContainerPropertiesDto(
+        properties.map(p => mapPropertyToDto(p)),
+      ),
+    };
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ import type {
   SpfTuningConfigService,
   ContainerQueryService,
   ContainerPropertyDefQueryService,
+  SubgraphQueryService,
   SubgraphPropertyDefQueryService,
   DriverModuleDefinitionQueryService,
   DataLinkQueryService,
@@ -35,6 +36,7 @@ import {DbKeyValueDefQueryService} from './key-value/db-key-value-def-query-serv
 import {DbTagDefinitionQueryService} from './tag-definition/db-tag-definition-query-service.js';
 import {DbSpfTuningConfigService} from './spf-module/db-spf-tuning-config-service.js';
 import {DbContainerQueryService} from './container/db-container-query-service.js';
+import {DbSubgraphQueryService} from './subgraph/db-subgraph-query-service.js';
 import {DbContainerPropertyDefQueryService} from './container-property-definition/db-container-property-def-query-service.js';
 import {DbSubgraphPropertyDefQueryService} from './subgraph-property-definition/db-subgraph-property-def-query-service.js';
 import {TypeOrmSessionRepository} from '../repositories/session/typeorm-session.repository.js';
@@ -58,6 +60,7 @@ export class DbQueryServices implements QueryServices {
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly containerQueryService: ContainerQueryService;
   readonly containerPropertyDefQueryService: ContainerPropertyDefQueryService;
+  readonly subgraphQueryService: SubgraphQueryService;
   readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;
   readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;
   readonly dataLinkQueryService: DataLinkQueryService;
@@ -120,6 +123,13 @@ export class DbQueryServices implements QueryServices {
     this.containerQueryService = new DbContainerQueryService(
       dataSource,
       editActionsQueryService,
+      sessionRepo,
+    );
+
+    this.subgraphQueryService = new DbSubgraphQueryService(
+      dataSource,
+      editActionsQueryService,
+      sessionRepo,
     );
 
     this.driverModuleDefinitionQueryService =

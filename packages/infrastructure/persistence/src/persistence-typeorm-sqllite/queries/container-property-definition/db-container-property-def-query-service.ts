@@ -8,6 +8,7 @@ import {
   type ContainerPropertyDefQueryService,
   type PropertyDefinitionSummaryReadModel,
   type PropertyDefinitionReadModel,
+  type ContainerPropertyDefinitionWithElementsReadModel,
   type ISessionRepository,
   Result,
   ERROR_CODES,
@@ -147,6 +148,59 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
     return {
       ...this.toSummaryReadModel(row),
       maxSize: row.maxSize,
+    };
+  }
+
+  async getAllContainerPropertyDefinitionsWithElements(
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>> {
+    try {
+      // Step 1 — baseline load
+      const baselineRows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.ContainerProperty)
+        .createQueryBuilder('cp')
+        .where('cp.fileSystemId = :fileSystemId', {fileSystemId})
+        .getMany()) as ContainerPropertyRow[];
+
+      // Step 2 — overlay
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = session
+        ? overlay
+            .applyToCollection(
+              baselineRows,
+              await this.editActionsSvc.getByTable(
+                session.sessionId,
+                ENTITY_NAMES.ContainerProperty,
+              ),
+            )
+            .map(r => r.effective)
+        : baselineRows;
+
+      return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load container property definitions',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  private toDetailWithElementsReadModel(
+    row: ContainerPropertyRow,
+  ): ContainerPropertyDefinitionWithElementsReadModel {
+    return {
+      systemId: row.systemId,
+      propertyId: row.propertyId,
+      name: row.name,
+      description: row.description,
+      propertyType: row.propertyType,
+      maxSize: row.maxSize,
+      elementsStructure: row.elementsStructure ?? '',
     };
   }
 }
