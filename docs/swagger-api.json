@@ -2159,6 +2159,30 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success — some custom module data could not be retrieved (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SpfModuleDefinitionResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project, processor, module definition or parameter does not exist",
             "content": {
@@ -7846,7 +7870,7 @@
             ]
           },
           "systemId": {
-            "type": "number",
+            "type": "string",
             "description": "System-level identifier of the impacted entity."
           },
           "displayName": {
@@ -8064,7 +8088,10 @@
               "TUNING",
               "DISCOVERY_WIZARD",
               "DIFF_MERGE",
-              "DESIGNER"
+              "DESIGNER",
+              "SIMULATION",
+              "CONNECTED",
+              "DISCONNECTED"
             ],
             "description": "Current session mode for the project"
           }
@@ -8629,7 +8656,10 @@
           "TUNING",
           "DISCOVERY_WIZARD",
           "DIFF_MERGE",
-          "DESIGNER"
+          "DESIGNER",
+          "SIMULATION",
+          "CONNECTED",
+          "DISCONNECTED"
         ],
         "description": "Current session mode"
       },
@@ -9055,26 +9085,6 @@
           "isVoice": {
             "type": "boolean",
             "description": "Indicates if the property is voice"
-          },
-          "elements": {
-            "type": "array",
-            "description": "Property structure elements",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/DefinitionConfigElementDto"
-                },
-                {
-                  "$ref": "#/components/schemas/DefinitionConfigElementArrayDto"
-                },
-                {
-                  "$ref": "#/components/schemas/DefinitionStructDto"
-                },
-                {
-                  "$ref": "#/components/schemas/DefinitionStructArrayDto"
-                }
-              ]
-            }
           }
         },
         "required": [
@@ -9083,8 +9093,7 @@
           "name",
           "description",
           "type",
-          "isVoice",
-          "elements"
+          "isVoice"
         ]
       },
       "DefinitionConfigElementDto": {
@@ -10691,7 +10700,7 @@
         "type": "object",
         "properties": {
           "systemId": {
-            "type": "number",
+            "type": "string",
             "description": "Tag system ID"
           },
           "tagId": {
