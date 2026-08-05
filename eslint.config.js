@@ -80,6 +80,7 @@ export default [
         project: [
           './packages/core/tsconfig.eslint.json',
           './packages/infrastructure/fs/tsconfig.eslint.json',
+          './packages/infrastructure/logger/tsconfig.eslint.json',
           './packages/infrastructure/persistence/tsconfig.eslint.json',
           './packages/api/tsconfig.eslint.json',
         ],

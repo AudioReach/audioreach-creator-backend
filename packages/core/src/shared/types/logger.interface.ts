@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {LogEntryBase} from './log-entry-base.js';
+
 export interface Logger {
   logVerbose(data: LogData): void;
   logDebug(data: LogData): void;
@@ -42,3 +44,24 @@ export const LogLevel = {
 } as const;
 
 export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
+
+export const LogSource = {Server: 'Server'} as const;
+export type LogSource = (typeof LogSource)[keyof typeof LogSource];
+
+/** New log data interface used by PinoLogService and all new logging code.
+ * Future: once all LogData call sites are migrated, delete LogData/Logger and rename these. */
+export interface LogData1 extends LogEntryBase {
+  /** Timestamp when the log event occurred */
+  timestamp: Date;
+}
+
+/** New logger interface backed by PinoLogService.
+ * Future: once Logger is fully replaced, delete Logger and rename this to Logger. */
+export interface Logger1 {
+  logVerbose(data: LogData1): void;
+  logDebug(data: LogData1): void;
+  logInfo(data: LogData1): void;
+  logWarn(data: LogData1): void;
+  logError(data: LogData1): void;
+  logCritical(data: LogData1): void;
+}

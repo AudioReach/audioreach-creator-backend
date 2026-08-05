@@ -7,6 +7,7 @@
     "paths": {
       "@arc/core": ["../../core/src/index.ts"],
       "@arc/fs": ["../../infrastructure/fs/src/index.ts"],
+      "@arc/logger": ["../../infrastructure/logger/src/index.ts"],
       "@arc/persistence": ["../../infrastructure/persistence/src/index.ts"]
     }
   }

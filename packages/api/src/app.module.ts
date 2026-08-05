@@ -23,6 +23,7 @@ import {PropertyDefinitionModule} from './presentation/rest/modules/definition/p
 import {ModuleDefinitionModule} from './presentation/rest/modules/definition/module-definition/module-definition.module.js';
 import {SpfCustomModuleSchemaModule} from './presentation/rest/modules/definition/spf-custom-module-schema/spf-custom-module-schema.module.js';
 import {RequestLoggerMiddleware} from './infrastructure-wrapper/middleware/request-logger.middleware.js';
+import {LogModule} from './presentation/rest/modules/logging/logging.module.js';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import {RequestLoggerMiddleware} from './infrastructure-wrapper/middleware/reque
     ContainerModule,
     DataLinkModule,
     ControlLinkModule,
+    LogModule,
   ],
 
   controllers: [],

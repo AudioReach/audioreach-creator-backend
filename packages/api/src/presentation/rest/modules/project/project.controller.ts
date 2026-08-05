@@ -750,6 +750,7 @@ export class ProjectController {
     },
   })
   async deleteProject(@Param('projectId') _projectId: string): Promise<void> {
+    // ToDo: Add Code to delete Project Logs
     await Promise.resolve();
     throw new NotImplementedException('deleteProject is not implemented yet');
   }

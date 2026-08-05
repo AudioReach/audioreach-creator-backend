@@ -170,6 +170,50 @@ pnpm run migration:show
 - Always delete the old migration file before generating — there is only ever one migration file.
 - If you hand-wrote a migration file by mistake, delete it and follow this workflow instead.
 
+### Logging DB migration workflow (`@arc/logger`)
+
+The same single-migration rule applies to `logging.db`. Use `pnpm run migration:gen:logging` — never hand-write.
+
+**Steps every time `LogEntrySchema` changes:**
+
+1. **Update the schema** in `packages/infrastructure/logger/src/entity-schema/log-entry.schema.ts`.
+
+2. **Build:**
+   ```bash
+   pnpm run build
+   ```
+
+3. **Delete the current migration file** (there is always exactly one, named `create-log-entries`):
+   ```bash
+   rm packages/infrastructure/logger/src/migrations/<timestamp>-create-log-entries.ts
+   ```
+
+4. **Generate a new migration:**
+   ```bash
+   pnpm run migration:gen:logging ./packages/infrastructure/logger/src/migrations/create-log-entries
+   ```
+   TypeORM will create `<new-timestamp>-create-log-entries.ts` automatically.
+
+5. **Post-process the generated file** — two edits always required:
+   - Add the Qualcomm copyright header at the top:
+     ```typescript
+     /*
+      * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+      * SPDX-License-Identifier: BSD-3-Clause
+      */
+     ```
+   - Change the import to use `type`:
+     ```typescript
+     import type {MigrationInterface, QueryRunner} from 'typeorm';
+     ```
+
+6. **Update `logging-migration-index.ts`** to point to the new timestamp:
+   ```typescript
+   // packages/infrastructure/logger/src/migrations/logging-migration-index.ts
+   import {CreateLogEntries<new-timestamp>} from './<new-timestamp>-create-log-entries.js';
+   export const loggingMigrations = [CreateLogEntries<new-timestamp>];
+   ```
+
 
 ## Test Structure
 
