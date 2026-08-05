@@ -13,7 +13,7 @@ import {DataSource} from 'typeorm';
 
 @Injectable()
 export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
-  private static instance: DataSource | null = null;
+  private instance: DataSource | null = null;
 
   constructor(
     /*private configService: ConfigService,*/
@@ -25,20 +25,20 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
   }
 
   async getDataSource(): Promise<DataSource> {
-    if (DataSourceProvider.instance) {
-      return DataSourceProvider.instance;
+    if (this.instance) {
+      return this.instance;
     }
 
     this.logInfo('Creating and initializing DataSource...');
 
-    DataSourceProvider.instance = this.createDataSource();
-    await DataSourceProvider.instance.initialize();
+    this.instance = this.createDataSource();
+    await this.instance.initialize();
 
-    await this.runMigrations(DataSourceProvider.instance);
+    await this.runMigrations(this.instance);
 
     this.logInfo('DataSource initialized successfully');
 
-    return DataSourceProvider.instance;
+    return this.instance;
   }
 
   private createDataSource(): DataSource {
@@ -47,7 +47,7 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
 
     return new DataSource({
       type: 'sqlite',
-      database: getDatabasePath(/*this.configService*/),
+      database: getDatabasePath('database.db'),
       ...base,
       extra: {
         connectionLimit: 10,
@@ -79,10 +79,10 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    if (DataSourceProvider.instance) {
+    if (this.instance) {
       this.logInfo('Closing DataSource connection...');
-      await DataSourceProvider.instance.destroy();
-      DataSourceProvider.instance = null;
+      await this.instance.destroy();
+      this.instance = null;
     }
   }
 

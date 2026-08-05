@@ -21,6 +21,7 @@ import type {
   IdGenerationPort,
   NaturalIdGenerationPort,
   ISessionRepository,
+  LogQueryService,
 } from '@arc/core';
 import {DataSourceProvider} from './database/providers/data-source-provider.js';
 import {createTypeOrmUnitOfWorkFactory} from './persistence/unit-of-work/typeorm-unit-of-work.factory.js';
@@ -38,8 +39,10 @@ import {
 } from '@arc/fs';
 import {ConsoleLoggerService} from './logger/index.js';
 import {SessionGuard} from '../guards/session-guard.js';
+import {LoggingModule} from './logging.module.js';
 
 @Module({
+  imports: [LoggingModule],
   providers: [
     DataSourceProvider,
     {
@@ -70,9 +73,12 @@ import {SessionGuard} from '../guards/session-guard.js';
     },
     {
       provide: 'QUERY_SERVICES',
-      useFactory: (dataSource: DataSource, logger: Logger) =>
-        new DbQueryServices(dataSource, logger),
-      inject: ['DATA_SOURCE', 'LOGGER'],
+      useFactory: (
+        dataSource: DataSource,
+        logQueryService: LogQueryService,
+        logger: Logger,
+      ) => new DbQueryServices(dataSource, logQueryService, logger),
+      inject: ['DATA_SOURCE', 'LOG_QUERY_SERVICE', 'LOGGER'],
     },
     {
       provide: 'UNIT_OF_WORK_FACTORY',
@@ -194,6 +200,7 @@ import {SessionGuard} from '../guards/session-guard.js';
     'QUERY_HANDLER_REGISTRY',
     'DATA_SOURCE',
     'LOGGER',
+    LoggingModule,
     'PROFILER',
     'WORKER_POOL',
     'NATURAL_ID_GENERATION',

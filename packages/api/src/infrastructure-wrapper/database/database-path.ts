@@ -6,7 +6,7 @@
 import * as os from 'node:os';
 import path from 'node:path';
 
-export function getDatabasePath(/*configService: ConfigService*/): string {
+export function getDatabasePath(filename: string): string {
   // ToDo: Use config service to get DB path so that it is configurable
 
   // Cross-platform default paths
@@ -15,13 +15,7 @@ export function getDatabasePath(/*configService: ConfigService*/): string {
 
   switch (platform) {
     case 'win32': {
-      return path.join(
-        os.homedir(),
-        'AppData',
-        'Local',
-        appName,
-        'database.db',
-      );
+      return path.join(os.homedir(), 'AppData', 'Local', appName, filename);
     }
     case 'darwin': {
       return path.join(
@@ -29,12 +23,12 @@ export function getDatabasePath(/*configService: ConfigService*/): string {
         'Library',
         'Application Support',
         appName,
-        'database.db',
+        filename,
       );
     }
     default: {
       // linux
-      return path.join(os.homedir(), '.local', 'share', appName, 'database.db');
+      return path.join(os.homedir(), '.local', 'share', appName, filename);
     }
   }
 }

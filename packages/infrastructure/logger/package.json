@@ -1,0 +1,59 @@
+{
+  "name": "@arc/logger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pino-based logging infrastructure for ARC API",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "shx rm -rf dist *.tsbuildinfo",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests"
+  },
+  "keywords": [
+    "arc-api-logger",
+    "audioreach-api-logger"
+  ],
+  "peerDependencies": {
+    "@arc/core": "workspace:*",
+    "typeorm": "^0.3.28"
+  },
+  "dependencies": {
+    "pino": "^9.0.0",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@arc/core": "workspace:*",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^22.10.2",
+    "cross-env": "^10.1.0",
+    "jest": "^29.7.0",
+    "jest-junit": "^16.0.0",
+    "jest-resolve": "^29.7.0",
+    "jest-ts-webcompat-resolver": "^1.0.1",
+    "prettier": "^3.6.2",
+    "shx": "^0.3.4",
+    "sqlite3": "^5.1.7",
+    "ts-jest": "^29.4.6",
+    "typeorm": "^0.3.28",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "license": "BSD-3-Clause"
+}
