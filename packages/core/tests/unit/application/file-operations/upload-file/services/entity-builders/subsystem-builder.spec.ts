@@ -360,7 +360,7 @@ describe('SubsystemBuilder — boundary ports', () => {
       expect(output.paths[0]).toBeNull();
     });
 
-    it('returns a path for cross-subsystem links', () => {
+    it('returns descriptors for cross-subsystem links', () => {
       const output = SubsystemBuilder.computePaths({
         links: [{systemId: 1, nodeANaturalId: 100, nodeBNaturalId: 200}],
         nodeParentMapEntries: [
@@ -372,7 +372,21 @@ describe('SubsystemBuilder — boundary ports', () => {
       });
       const path = output.paths[0];
       expect(path).not.toBeNull();
-      expect(path!.nodeSequence).toEqual([100, 10, 20, 200]);
+      expect(path).toEqual({
+        linkSystemId: 1,
+        segments: expect.arrayContaining([
+          expect.objectContaining({
+            sourceNodeSystemId: 100,
+            destinationNodeSystemId: 10,
+            position: 0,
+          }),
+          expect.objectContaining({
+            sourceNodeSystemId: 20,
+            destinationNodeSystemId: 200,
+            position: 2,
+          }),
+        ]),
+      });
     });
 
     it('reconstructs nodeParentMap from entries correctly for multi-hop', () => {
@@ -388,7 +402,8 @@ describe('SubsystemBuilder — boundary ports', () => {
       });
       const path = output.paths[0];
       expect(path).not.toBeNull();
-      expect(path!.nodeSequence).toHaveLength(5);
+      // nodeSequence would be [100, 10, 20, 30, 200] → 4 segments
+      expect(path!.segments).toHaveLength(4);
     });
   });
 });

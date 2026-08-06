@@ -24,13 +24,16 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
+import {CreateDataLinkWithSubsystemsRequest} from './dto/request/create-data-link-with-subsystems-request.dto.js';
 import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,
   CreateDataLinkCommand,
+  CreateDataLinkWithSubsystemsCommand,
   DeleteDataLinkCommand,
   Result,
+  type ComponentCollectionWithSubsystemsDto as ComponentCollectionWithSubsystemsDtoType,
 } from '@arc/core';
 
 /**
@@ -96,12 +99,12 @@ export class DataLinkController extends BaseController {
   }
 
   /**
-   * Create a new data link (flat / collapsed view).
+   * Create a new data link (collapsed view, module endpoints only).
    * Stores all link segments in DB; returns ComponentsResponseDto.
    */
   @Post()
   @ApiDocumentationWithExample({
-    summary: 'Create a new data link (flat view)',
+    summary: 'Create a new data link',
     description:
       'Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. ' +
       'Returns a flat ComponentsResponseDto with the created link.',
@@ -137,11 +140,12 @@ export class DataLinkController extends BaseController {
     );
 
     const command = new CreateDataLinkCommand(
-      Number(createDto.sourceNodeSystemId),
-      Number(createDto.sourcePortSystemId),
-      Number(createDto.destinationNodeSystemId),
-      Number(createDto.destinationPortSystemId),
-      createDto.type ?? 'normal',
+      createDto.sourceModuleSystemId,
+      createDto.sourcePortSystemId,
+      createDto.destinationModuleSystemId,
+      createDto.destinationPortSystemId,
+      createDto.isInterUsecase,
+      createDto.isEc,
     );
 
     const components =
@@ -160,7 +164,7 @@ export class DataLinkController extends BaseController {
     description:
       'Creates a data link — SAME DB write as POST /data-links. ' +
       'Returns ComponentsWithSubsystemsResponseDto with the created link and subsystem structure.',
-    requestDto: CreateDataLinkRequest,
+    requestDto: CreateDataLinkWithSubsystemsRequest,
     requestDtoDescription: 'Data link creation parameters',
     responses: [
       {
@@ -182,21 +186,24 @@ export class DataLinkController extends BaseController {
   })
   async createDataLinkWithSubsystems(
     @Param('projectId') projectId: string,
-    @Body() createDto: CreateDataLinkRequest,
+    @Body() createDto: CreateDataLinkWithSubsystemsRequest,
   ): Promise<ApiResult<ComponentsWithSubsystemsResponseDto>> {
     console.log('Creating data link (with-subsystems) for project:', projectId);
 
-    const command = new CreateDataLinkCommand(
-      Number(createDto.sourceNodeSystemId),
-      Number(createDto.sourcePortSystemId),
-      Number(createDto.destinationNodeSystemId),
-      Number(createDto.destinationPortSystemId),
-      createDto.type ?? 'normal',
+    const command = new CreateDataLinkWithSubsystemsCommand(
+      createDto.sourceNodeSystemId,
+      createDto.sourcePortSystemId,
+      createDto.destinationNodeSystemId,
+      createDto.destinationPortSystemId,
+      createDto.isInterUsecase,
+      createDto.isEc,
     );
 
     const components =
-      await this.commandBus.execute<ComponentsResponseDto>(command);
-    return toApiResult(Result.ok({...components, subsystems: []}));
+      await this.commandBus.execute<ComponentCollectionWithSubsystemsDtoType>(
+        command,
+      );
+    return toApiResult(Result.ok(components));
   }
 
   /**
@@ -244,7 +251,6 @@ export class DataLinkController extends BaseController {
     const command = new DeleteDataLinkCommand(
       Number.parseInt(dataLinkSystemId, 10),
     );
-
     const deleted = await this.commandBus.execute<DataLinkResponseDto>(command);
     return toApiResult(Result.ok(deleted));
   }
