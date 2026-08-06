@@ -103,6 +103,7 @@ export class ControlLinkInserter {
           nodeBPortSystemId: scl.nodeBPortSystemId,
           controlLinkSystemId: scl.controlLinkSystemId!,
           fileSystemId: scl.fileSystemId,
+          linkType: scl.linkType,
         };
       }),
     );

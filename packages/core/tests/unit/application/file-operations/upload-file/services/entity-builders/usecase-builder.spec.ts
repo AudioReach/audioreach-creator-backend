@@ -503,7 +503,7 @@ describe('UsecaseBuilder', () => {
     });
   });
 
-  describe('UsecaseBuilder isEc from ui-metadata', () => {
+  describe('UsecaseBuilder isEcLink from ui-metadata', () => {
     it('should assign type=Ec when GKV set matches a ui-metadata usecase entry with type Ec', async () => {
       mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(999));
       mockForeignKeyMapper.getSubgraphSystemId.mockReturnValue(asSystemId(100));

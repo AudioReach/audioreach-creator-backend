@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {LinkType} from '../../../../../domain/entities/usecase-data/links/link-type.js';
+import type {DataLinkType} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 
 export interface DataLinkReadModel {
   readonly systemId: number;
@@ -11,6 +11,5 @@ export interface DataLinkReadModel {
   readonly destinationNodeSystemId: number;
   readonly sourcePortSystemId: number;
   readonly destinationPortSystemId: number;
-  readonly linkType: LinkType;
-  readonly isEc: boolean | null;
+  readonly linkType: DataLinkType;
 }

@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-export const LINK_TYPE = {
-  IntraSubgraph: 'INTRA_SUBGRAPH',
-  IntraUsecase: 'INTRA_USECASE',
+export const DATA_LINK_TYPE = {
+  Normal: 'NORMAL',
   InterUsecase: 'INTER_USECASE',
+  Ec: 'EC',
 } as const;
 
-export type LinkType = (typeof LINK_TYPE)[keyof typeof LINK_TYPE];
+export type DataLinkType = (typeof DATA_LINK_TYPE)[keyof typeof DATA_LINK_TYPE];

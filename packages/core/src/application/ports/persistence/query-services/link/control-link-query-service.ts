@@ -9,7 +9,7 @@ import type {ControlLinkReadModel} from './control-link-read-model.js';
 export interface ControlLinkQueryService {
   /**
    * Returns control links for the given usecase system IDs.
-   * Includes INTRA_SUBGRAPH and INTRA_USECASE links.
+   * Includes NORMAL and INTER_USECASE links.
    * Deduplicated across usecases. Overlay applied.
    */
   findByUsecaseIds(
@@ -18,7 +18,7 @@ export interface ControlLinkQueryService {
   ): Promise<Result<ControlLinkReadModel[]>>;
 
   /**
-   * Returns INTRA_SUBGRAPH control links for a single subgraph.
+   * Returns NORMAL control links for a single subgraph.
    * Cross-subgraph links are excluded. Overlay applied.
    */
   findBySubgraphId(

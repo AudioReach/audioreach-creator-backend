@@ -5,9 +5,11 @@
 
 import {invariant} from '../../../../shared/assertions/index.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
+import type {DataLinkType} from './data-link-type.js';
 
 export interface SubsystemDataLinkInit {
   systemId: number;
+  linkType: DataLinkType;
   sourceNodeSystemId: number;
   destinationNodeSystemId: number;
   sourcePortSystemId: number;
@@ -18,6 +20,7 @@ export interface SubsystemDataLinkInit {
 
 export class SubsystemDataLink {
   readonly systemId: number;
+  readonly linkType: DataLinkType;
   readonly sourceNodeSystemId: number;
   readonly destinationNodeSystemId: number;
   readonly sourcePortSystemId: number;
@@ -27,6 +30,7 @@ export class SubsystemDataLink {
 
   constructor(initParam: SubsystemDataLinkInit) {
     this.systemId = initParam.systemId;
+    this.linkType = initParam.linkType;
     this.sourceNodeSystemId = initParam.sourceNodeSystemId;
     this.destinationNodeSystemId = initParam.destinationNodeSystemId;
     this.sourcePortSystemId = initParam.sourcePortSystemId;

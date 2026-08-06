@@ -113,7 +113,7 @@ async function seedDataLink(
   dstPort: number,
 ) {
   await ds.query(
-    `INSERT INTO data_links (system_id, source_node_system_id, destination_node_system_id, source_port_system_id, destination_port_system_id, link_type, source_subgraph_system_id, dest_subgraph_system_id, file_system_id) VALUES (?, ?, ?, ?, ?, 'INTRA_SUBGRAPH', ?, ?, ?)`,
+    `INSERT INTO data_links (system_id, source_node_system_id, destination_node_system_id, source_port_system_id, destination_port_system_id, link_type, source_subgraph_system_id, dest_subgraph_system_id, file_system_id) VALUES (?, ?, ?, ?, ?, 'NORMAL', ?, ?, ?)`,
     [
       systemId,
       NODE_A,
@@ -134,7 +134,7 @@ async function seedControlLink(
   portB: number,
 ) {
   await ds.query(
-    `INSERT INTO control_links (system_id, file_system_id, peer_nodeA_system_id, peer_nodeB_system_id, nodeA_port_system_id, nodeB_port_system_id, heap_id, link_type, source_subgraph_system_id, dest_subgraph_system_id) VALUES (?, ?, ?, ?, ?, ?, 0, 'INTRA_SUBGRAPH', ?, ?)`,
+    `INSERT INTO control_links (system_id, file_system_id, peer_nodeA_system_id, peer_nodeB_system_id, nodeA_port_system_id, nodeB_port_system_id, heap_id, link_type, source_subgraph_system_id, dest_subgraph_system_id) VALUES (?, ?, ?, ?, ?, ?, 0, 'NORMAL', ?, ?)`,
     [systemId, FILE_ID, NODE_A, NODE_B, portA, portB, SUBGRAPH_ID, SUBGRAPH_ID],
   );
 }

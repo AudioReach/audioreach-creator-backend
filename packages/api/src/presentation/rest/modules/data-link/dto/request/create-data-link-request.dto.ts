@@ -3,35 +3,21 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {IsIn, IsNotEmpty, IsOptional, IsString} from 'class-validator';
+import {IsEnum, IsNotEmpty, IsString} from 'class-validator';
 import {ApiProperty} from '@nestjs/swagger';
+import {DATA_LINK_TYPE, type DataLinkType} from '@arc/core';
 
-/**
- * DTO for creating a new data link
- */
 export class CreateDataLinkRequest {
   @ApiProperty({
-    description: 'Type of data link',
-    type: 'string',
-    enum: ['normal', 'EC', 'interUsecase'],
-    default: 'normal',
-    required: false,
-  })
-  @IsString()
-  @IsIn(['normal', 'EC', 'interUsecase'])
-  @IsOptional()
-  type?: 'normal' | 'EC' | 'interUsecase' = 'normal';
-
-  @ApiProperty({
-    description: 'System ID of the source node/module',
+    description: 'System ID of the source module node',
     type: 'string',
   })
   @IsNotEmpty()
   @IsString()
-  sourceNodeSystemId!: string;
+  sourceModuleSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the source port',
+    description: 'System ID of the source port (must be OUTPUT)',
     type: 'string',
   })
   @IsNotEmpty()
@@ -39,18 +25,25 @@ export class CreateDataLinkRequest {
   sourcePortSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the destination node/module',
+    description: 'System ID of the destination module node',
     type: 'string',
   })
   @IsNotEmpty()
   @IsString()
-  destinationNodeSystemId!: string;
+  destinationModuleSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the destination port',
+    description: 'System ID of the destination port (must be INPUT)',
     type: 'string',
   })
   @IsNotEmpty()
   @IsString()
   destinationPortSystemId!: string;
+
+  @ApiProperty({
+    description: 'Topology classification of the link',
+    enum: DATA_LINK_TYPE,
+  })
+  @IsEnum(DATA_LINK_TYPE)
+  linkType!: DataLinkType;
 }

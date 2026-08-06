@@ -12,7 +12,7 @@ import type {
 } from '@arc/core';
 import {
   ControlLink,
-  LINK_TYPE,
+  CONTROL_LINK_TYPE,
   NodeType,
   SubsystemControlLink,
 } from '@arc/core';
@@ -35,6 +35,7 @@ function baseToSubsystemControlLink(
     r.nodeBPortSystemId,
     r.controlLinkSystemId,
     r.fileSystemId,
+    r.linkType,
     r.version,
   );
 }
@@ -353,7 +354,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
       fileSystemId,
       sessionId,
       {
-        linkType: LINK_TYPE.IntraUsecase,
+        linkType: CONTROL_LINK_TYPE.Normal,
         $or: [
           {
             sourceSubgraphSystemId: peerASystemId,
@@ -374,7 +375,7 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     const rows = await this.linkFetcher.loadControlLinkRows(
       fileSystemId,
       sessionId,
-      {linkType: LINK_TYPE.IntraUsecase},
+      {linkType: CONTROL_LINK_TYPE.Normal},
     );
     return rows.map(row => baseToControlLink(row));
   }

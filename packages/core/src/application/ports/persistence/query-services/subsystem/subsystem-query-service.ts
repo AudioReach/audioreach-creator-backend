@@ -6,7 +6,7 @@
 import type {Result} from '../../../../shared/result/result.js';
 import type {SubsystemReadModel} from './subsystem-read-model.js';
 import type {ControlLinkReadModel} from '../link/control-link-read-model.js';
-import type {DataLinkReadModel} from '../link/data-link-read-model.js';
+import type {SubsystemDataLinkReadModel} from '../usecase/query-models/subsystem-data-link-read-model.js';
 
 export interface SubsystemQueryService {
   /**
@@ -42,5 +42,5 @@ export interface SubsystemQueryService {
   findDataLinkSegmentsByUsecaseIds(
     usecaseSystemIds: number[],
     fileSystemId: number,
-  ): Promise<Result<DataLinkReadModel[]>>;
+  ): Promise<Result<SubsystemDataLinkReadModel[]>>;
 }

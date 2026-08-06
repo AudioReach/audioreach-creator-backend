@@ -61,7 +61,7 @@ export interface ControlLinkRepository {
   ): Promise<{linkSystemId: number; portSystemId: number}[]>;
 
   /**
-   * Returns INTRA_USECASE control links between the two peer SGs
+   * Returns NORMAL control links between the two peer SGs
    * (`peerASystemId`, `peerBSystemId`) — order-independent. Control links
    * are undirected in the routing domain; the `source_sg` / `dest_sg`
    * columns in the DB are a storage artifact canonicalized by port-ID
@@ -79,7 +79,7 @@ export interface ControlLinkRepository {
   ): Promise<ControlLink[]>;
 
   /**
-   * Returns ALL INTRA_USECASE control links in the file with session
+   * Returns ALL NORMAL control links in the file with session
    * overlay applied — session-created links included, session-deleted
    * links excluded.
    *

@@ -296,7 +296,7 @@ export const UsecaseComponentsExample = {
       totalLinksAtPort: 0,
       relatedEndPointLinks: [] as EndPointLink[],
     });
-    spfModule1.dataPorts = [inputPort1, outputPort1];
+    Object.assign(spfModule1, {dataPorts: [inputPort1, outputPort1]});
 
     const inputPort2 = Object.assign(new DataPortResponseDto(), {
       systemId: '2003',
@@ -316,7 +316,7 @@ export const UsecaseComponentsExample = {
       totalLinksAtPort: 0,
       relatedEndPointLinks: [] as EndPointLink[],
     });
-    spfModule2.dataPorts = [inputPort2, outputPort2];
+    Object.assign(spfModule2, {dataPorts: [inputPort2, outputPort2]});
 
     // Add control ports to modules
     const controlPort1 = Object.assign(new ControlPortResponseDto(), {
@@ -327,7 +327,7 @@ export const UsecaseComponentsExample = {
       intents: [],
       relatedEndPointLinks: [] as EndPointLink[],
     });
-    spfModule1.controlPorts = [controlPort1];
+    Object.assign(spfModule1, {controlPorts: [controlPort1]});
 
     const controlPort2 = Object.assign(new ControlPortResponseDto(), {
       systemId: '3002',
@@ -345,7 +345,7 @@ export const UsecaseComponentsExample = {
       intents: [],
       relatedEndPointLinks: [] as EndPointLink[],
     });
-    spfModule2.controlPorts = [controlPort2, controlPort3];
+    Object.assign(spfModule2, {controlPorts: [controlPort2, controlPort3]});
 
     componentCollection.spfModules = [
       spfModule1,
@@ -359,7 +359,7 @@ export const UsecaseComponentsExample = {
       sourcePortSystemId: '2002', // outputPort1
       destinationSystemId: '1002', // spfModule2
       destinationPortSystemId: '2003', // inputPort2
-      isInterUsecase: false,
+      linkType: 'NORMAL',
     });
 
     componentCollection.dataLinks = [
@@ -373,7 +373,7 @@ export const UsecaseComponentsExample = {
       sourcePortSystemId: '3001', // controlPort1
       destinationSystemId: '1002', // spfModule2
       destinationPortSystemId: '3002', // controlPort2
-      isInterUsecase: false,
+      linkType: 'INTER_USECASE',
     });
 
     componentCollection.controlLinks = [
