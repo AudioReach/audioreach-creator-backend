@@ -8,6 +8,7 @@ import type {
   ModuleRepository,
   UnitOfWork,
   EditOptions,
+  PortIoType,
   SpfModuleBase,
   ExistingPayloadRow,
   CkvPayloadUpdate,
@@ -92,6 +93,34 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           }),
       ),
     });
+  }
+
+  async findModulePortsForLink(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    subgraphSystemId: number;
+    ports: {systemId: number; portIoType: PortIoType}[];
+  } | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const moduleNode = await this.moduleNodeFetcher.fetchOne(
+      moduleSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    if (moduleNode === null) return null;
+    const dataPorts = await this.portFetcher.fetchDataPorts(
+      moduleSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    return {
+      subgraphSystemId: moduleNode.subgraphSystemId,
+      ports: dataPorts.map(dp => ({
+        systemId: dp.systemId,
+        portIoType: dp.portIoType,
+      })),
+    };
   }
 
   async renameModule(

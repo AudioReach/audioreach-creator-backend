@@ -14,6 +14,7 @@ import {
   DomainNotImplementedException,
   DomainRuleViolationException,
   StagedChangesExistException,
+  ConflictException,
 } from '@arc/core';
 
 /**
@@ -102,6 +103,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         errorCode: exception.errorCode,
         details: undefined,
         issues: exception.issues as Issue[],
+      };
+    }
+    if (exception instanceof ConflictException) {
+      return {
+        status: HttpStatus.CONFLICT,
+        errorCode: exception.errorCode,
+        details: exception.details,
+        issues: undefined,
       };
     }
     if (exception instanceof DomainException) {

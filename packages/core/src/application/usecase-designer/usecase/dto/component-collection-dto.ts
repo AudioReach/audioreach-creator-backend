@@ -17,6 +17,7 @@ import type {
   ComponentsWithSubsystemsReadModel,
   SubsystemNodeReadModel,
 } from '../get-component-with-subsystem/components-with-subsystems-read-model.js';
+import type {SubsystemDataLink} from '../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
 
 export const DataLinkDtoSchema = z.object({
   systemId: z.string().describe('Data link system ID'),
@@ -43,6 +44,22 @@ export const ControlLinkDtoSchema = z.object({
 export type DataLinkDto = z.infer<typeof DataLinkDtoSchema>;
 export type ControlLinkDto = z.infer<typeof ControlLinkDtoSchema>;
 
+export const SubsystemDataLinkDtoSchema = z.object({
+  systemId: z.string().describe('SLS system ID'),
+  id: z.number().int().describe('SLS system ID (numeric)'),
+  sourceNodeId: z.number().int().describe('Source node system ID'),
+  destinationNodeId: z.number().int().describe('Destination node system ID'),
+  sourcePortId: z.number().int().describe('Source port system ID'),
+  destinationPortId: z.number().int().describe('Destination port system ID'),
+  dataLinkId: z
+    .number()
+    .int()
+    .nullable()
+    .describe('Parent DataLink system ID, null if unresolved'),
+});
+
+export type SubsystemDataLinkDto = z.infer<typeof SubsystemDataLinkDtoSchema>;
+
 export const ComponentCollectionDtoSchema = z.object({
   spfModules: z
     .array(SpfModuleDtoSchema.omit({properties: true}))
@@ -65,7 +82,7 @@ const FilteredKeyDtoSchema = z.object({
 });
 
 // Forward-declared type for mutual recursion in the subsystem tree
-export type SubsystemNodeDto = {
+export type SubsystemComponentsDto = {
   systemId: string;
   name: string;
   filteredKeys: z.infer<typeof FilteredKeyDtoSchema>[];
@@ -73,25 +90,26 @@ export type SubsystemNodeDto = {
 };
 
 export type ComponentCollectionWithSubsystemsDto = ComponentCollectionDto & {
-  subsystems: SubsystemNodeDto[];
+  subsystems: SubsystemComponentsDto[];
 };
 
-export const SubsystemNodeDtoSchema: z.ZodType<SubsystemNodeDto> = z.lazy(() =>
-  z.object({
-    systemId: z.string().describe('Subsystem system ID'),
-    name: z.string().describe('Subsystem name'),
-    filteredKeys: z
-      .array(FilteredKeyDtoSchema)
-      .describe('Keys filtered by this subsystem'),
-    children: ComponentCollectionWithSubsystemsDtoSchema,
-  }),
-);
+export const SubsystemComponentsDtoSchema: z.ZodType<SubsystemComponentsDto> =
+  z.lazy(() =>
+    z.object({
+      systemId: z.string().describe('Subsystem system ID'),
+      name: z.string().describe('Subsystem name'),
+      filteredKeys: z
+        .array(FilteredKeyDtoSchema)
+        .describe('Keys filtered by this subsystem'),
+      children: ComponentCollectionWithSubsystemsDtoSchema,
+    }),
+  );
 
 export const ComponentCollectionWithSubsystemsDtoSchema: z.ZodType<ComponentCollectionWithSubsystemsDto> =
   z.lazy(() =>
     ComponentCollectionDtoSchema.extend({
       subsystems: z
-        .array(SubsystemNodeDtoSchema)
+        .array(SubsystemComponentsDtoSchema)
         .describe('Subsystem hierarchy'),
     }),
   );
@@ -154,7 +172,7 @@ export function mapComponentCollection(
   };
 }
 
-function mapSubsystemNode(sub: SubsystemNodeReadModel): SubsystemNodeDto {
+function mapSubsystemNode(sub: SubsystemNodeReadModel): SubsystemComponentsDto {
   return {
     systemId: String(sub.systemId),
     name: sub.name,
@@ -172,7 +190,40 @@ export function mapComponentCollectionWithSubsystems(
   c: ComponentsWithSubsystemsReadModel,
 ): ComponentCollectionWithSubsystemsDto {
   return {
-    ...mapComponentCollection(c),
+    spfModules: c.modules.map(m => mapSpfModuleForCollection(m)),
+    dataLinks: [
+      ...c.dataLinks.map(l => mapDataLink(l)),
+      ...c.subsystemDataLinks.map(sls => mapSlsToDataLinkDto(sls)),
+    ],
+    controlLinks: c.controlLinks.map(l => mapControlLink(l)),
     subsystems: c.subsystems.map(sub => mapSubsystemNode(sub)),
   };
+}
+
+type SubsystemDataLinkLike = {
+  systemId: number;
+  sourceNodeSystemId: number;
+  destinationNodeSystemId: number;
+  sourcePortSystemId: number;
+  destinationPortSystemId: number;
+  dataLinkSystemId: number | null;
+};
+
+export function mapSlsToDataLinkDto(
+  sls: SubsystemDataLinkLike,
+): z.infer<typeof DataLinkDtoSchema> {
+  return {
+    systemId: String(sls.systemId),
+    sourceSystemId: String(sls.sourceNodeSystemId),
+    sourcePortSystemId: String(sls.sourcePortSystemId),
+    destinationSystemId: String(sls.destinationNodeSystemId),
+    destinationPortSystemId: String(sls.destinationPortSystemId),
+    isInterUsecase: false,
+  };
+}
+
+export function mapSubsystemDataLink(
+  sls: SubsystemDataLink,
+): z.infer<typeof DataLinkDtoSchema> {
+  return mapSlsToDataLinkDto(sls);
 }

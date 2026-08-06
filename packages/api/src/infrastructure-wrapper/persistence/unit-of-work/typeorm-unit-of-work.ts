@@ -162,7 +162,11 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getDataLinkRepository(): DataLinkRepository {
-    return new TypeOrmDataLinkRepository(this.queryRunner.manager, this);
+    return new TypeOrmDataLinkRepository(
+      this.queryRunner.manager,
+      this,
+      this.getPendingChangeWriter(),
+    );
   }
 
   getControlLinkRepository(): ControlLinkRepository {
@@ -178,7 +182,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getSubsystemRepository(): SubsystemRepository {
-    return new TypeOrmSubsystemRepository(this.queryRunner.manager);
+    return new TypeOrmSubsystemRepository(this.queryRunner.manager, this);
   }
 
   getUsecaseRepository(): UsecaseRepository {

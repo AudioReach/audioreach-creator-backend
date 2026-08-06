@@ -5,6 +5,7 @@
 
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
 import type {KeyDefinitionSummaryReadModel} from '../../../ports/persistence/query-services/key-value/key-value-definition-read-model.js';
+import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
 
 /**
  * One node in the subsystem tree.
@@ -32,4 +33,5 @@ export interface SubsystemNodeReadModel {
  */
 export interface ComponentsWithSubsystemsReadModel extends ComponentsReadModel {
   readonly subsystems: SubsystemNodeReadModel[];
+  readonly subsystemDataLinks: SubsystemDataLinkReadModel[];
 }

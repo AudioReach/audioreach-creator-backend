@@ -7,8 +7,8 @@ import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handl
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {ComponentsWithSubsystemsReadModel} from './components-with-subsystems-read-model.js';
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
-import type {DataLinkReadModel} from '../../../ports/persistence/query-services/link/data-link-read-model.js';
 import type {ControlLinkReadModel} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
+import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {GetComponentsWithSubsystemsQuery} from './get-components-with-subsystems.query.js';
 import {buildSubsystemTree} from './build-subsystem-tree.js';
@@ -85,9 +85,11 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
     // Boundary-crossing raw links are naturally dropped by levelNodeIds in buildSubsystemTree.
     const subsystemIds = new Set(subsystemsResult.data.map(s => s.systemId));
 
-    // Pass 2b: when subsystems exist, load virtual boundary segments and add to combined list.
+    // Pass 2b: when subsystems exist, load virtual boundary segments separately.
+    // SLS segments (SubsystemDataLinkReadModel) are kept distinct from raw mod-mod dataLinks
+    // so buildSubsystemTree can route them to the correct tree level.
     // Serial dependency on hasSubsystems is intentional — cannot be known before Pass 1.
-    const extraDataLinks: DataLinkReadModel[] = [];
+    let slsSegments: SubsystemDataLinkReadModel[] = [];
     const extraControlLinks: ControlLinkReadModel[] = [];
 
     if (hasSubsystems) {
@@ -111,13 +113,8 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
             'Failed to load virtual control links',
         );
 
-      extraDataLinks.push(
-        ...vDataResult.data.filter(
-          dl =>
-            subsystemIds.has(dl.sourceNodeSystemId) ||
-            subsystemIds.has(dl.destinationNodeSystemId),
-        ),
-      );
+      slsSegments = vDataResult.data;
+
       extraControlLinks.push(
         ...vControlResult.data.filter(
           cl =>
@@ -129,12 +126,13 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
 
     const flat: ComponentsReadModel = {
       modules: modulesResult.data,
-      dataLinks: [...rawDataLinksResult.data, ...extraDataLinks],
+      dataLinks: rawDataLinksResult.data,
       controlLinks: [...rawControlLinksResult.data, ...extraControlLinks],
     };
     const tree: ComponentsWithSubsystemsReadModel = buildSubsystemTree(
       flat,
       subsystemsResult.data,
+      slsSegments,
     );
 
     return Result.ok(mapComponentCollectionWithSubsystems(tree));

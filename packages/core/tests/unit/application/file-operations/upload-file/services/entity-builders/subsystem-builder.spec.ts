@@ -372,7 +372,10 @@ describe('SubsystemBuilder — boundary ports', () => {
       });
       const path = output.paths[0];
       expect(path).not.toBeNull();
-      expect(path!.nodeSequence).toEqual([100, 10, 20, 200]);
+      // 3 segments: 100→10, 10→20, 20→200
+      expect(path!.segments).toHaveLength(3);
+      expect(path!.segments[0].sourceNodeId).toBe(100);
+      expect(path!.segments[2].destNodeId).toBe(200);
     });
 
     it('reconstructs nodeParentMap from entries correctly for multi-hop', () => {
@@ -388,7 +391,8 @@ describe('SubsystemBuilder — boundary ports', () => {
       });
       const path = output.paths[0];
       expect(path).not.toBeNull();
-      expect(path!.nodeSequence).toHaveLength(5);
+      // nodeSequence would be [100, 10, 20, 30, 200] → 4 segments
+      expect(path!.segments).toHaveLength(4);
     });
   });
 });

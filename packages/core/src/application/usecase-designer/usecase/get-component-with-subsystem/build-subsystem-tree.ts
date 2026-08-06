@@ -6,6 +6,7 @@
 import type {SubsystemReadModel} from '../../../ports/persistence/query-services/subsystem/subsystem-read-model.js';
 import type {ComponentsReadModel} from '../../../ports/persistence/query-services/usecase/query-models/components-read-model.js';
 import type {ComponentsWithSubsystemsReadModel} from '../get-component-with-subsystem/components-with-subsystems-read-model.js';
+import type {SubsystemDataLinkReadModel} from '../../../ports/persistence/query-services/usecase/query-models/subsystem-data-link-read-model.js';
 
 /**
  * Builds a recursive subsystem tree from flat loaded data.
@@ -26,6 +27,7 @@ import type {ComponentsWithSubsystemsReadModel} from '../get-component-with-subs
 export function buildSubsystemTree(
   flat: ComponentsReadModel,
   subsystems: SubsystemReadModel[],
+  slsSegments: SubsystemDataLinkReadModel[],
 ): ComponentsWithSubsystemsReadModel {
   const {modules, dataLinks, controlLinks} = flat;
 
@@ -90,6 +92,12 @@ export function buildSubsystemTree(
         levelNodeIds.has(cl.peerNodeBSystemId),
     );
 
+    const levelSubsystemDataLinks = slsSegments.filter(
+      sls =>
+        levelNodeIds.has(sls.sourceNodeSystemId) &&
+        levelNodeIds.has(sls.destinationNodeSystemId),
+    );
+
     const subsystemNodes = directChildIds.flatMap(id => {
       if (visited.has(id)) return []; // skip cycles
       const sub = subsystemById.get(id);
@@ -111,6 +119,7 @@ export function buildSubsystemTree(
       dataLinks: levelDataLinks,
       controlLinks: levelControlLinks,
       subsystems: subsystemNodes,
+      subsystemDataLinks: levelSubsystemDataLinks,
     };
   };
 
