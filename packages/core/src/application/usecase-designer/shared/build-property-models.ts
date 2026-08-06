@@ -4,27 +4,34 @@
  */
 import type {PropertyPayloadReadModel} from '../../ports/persistence/query-services/shared/property-payload-read-model.js';
 import type {PropertyDefinitionWithElements} from './property-definition-with-elements.js';
-import type {PropertyReadModel} from '../container/get-properties/property-read-model.js';
+import type {PropertyDataDto} from './property-read-model.js';
 import type {ElementData} from '../../../domain/entities/definitions/common/types/element-data.js';
-import {parseParameterData} from '../spf-module/param-parser/parse-elements.js';
+import {parseParameterData} from './parse-elements.js';
+import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 
 export function buildPropertyModels(
   payloads: PropertyPayloadReadModel[],
   defMap: Map<number, PropertyDefinitionWithElements>,
-): PropertyReadModel[] {
-  return payloads.map(p => {
-    const def = defMap.get(p.propertySystemId);
-    const hasDefinition = def !== undefined;
+): PropertyDataDto[] {
+  const payloadMap = new Map(payloads.map(p => [p.propertySystemId, p]));
+  const result: PropertyDataDto[] = [];
+  for (const def of defMap.values()) {
+    const p = payloadMap.get(def.systemId);
+    if (p === undefined) {
+      throw new ResourceNotFoundException(
+        `No payload found for property definition with systemId ${def.systemId} (propertyId ${def.propertyId})`,
+      );
+    }
     const elements: ElementData[] =
-      p.payload !== null && def !== undefined
+      p.payload !== null
         ? parseParameterData(p.payload, def.elementsStructure)
         : [];
-    return {
+    result.push({
       systemId: p.systemId,
-      propertyId: def?.propertyId ?? 0,
-      propertyName: def?.name ?? '',
-      hasDefinition,
+      propertyId: def.propertyId,
+      propertyName: def.name,
       elements,
-    };
-  });
+    });
+  }
+  return result;
 }

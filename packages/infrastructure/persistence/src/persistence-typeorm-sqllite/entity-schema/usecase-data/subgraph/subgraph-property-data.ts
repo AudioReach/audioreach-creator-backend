@@ -11,12 +11,17 @@ import type {BlobBytesConverter} from '../module/helper/blob-unit8array.converte
 import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
 import {EntitySchema} from 'typeorm';
 
-export interface SubgraphPropertyDataRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface SubgraphPropertyDataBase {
+  systemId: number;
   subgraphSystemId: number;
   subgraphPropertySystemId: number;
-  payload: Uint8Array;
+  payload: Uint8Array | null;
+}
 
-  subgraph?: SubgraphRow;
+export interface SubgraphPropertyDataRow
+  extends EntityBaseRow, SubgraphPropertyDataBase {
+  subgraph: SubgraphRow;
   subgraphPropertyDefinition: SubgraphPropertyRow;
 }
 

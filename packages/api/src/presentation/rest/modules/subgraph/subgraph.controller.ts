@@ -47,7 +47,7 @@ import {
   GetSubgraphPropertiesQuery,
   type Result,
   type ComponentsReadModel,
-  type PropertyReadModel,
+  type PropertyDataDto,
   COMPONENT_SCOPE_TYPE,
 } from '@arc/core';
 import {mapPropertyToDto} from '../../common/utils/element-data-mapper.js';
@@ -185,7 +185,7 @@ export class SubgraphController extends BaseController {
       Number.parseInt(subgraphSystemId, 10),
       'client-id',
     );
-    const properties = await this.queryBus.execute<PropertyReadModel[]>(query);
+    const properties = await this.queryBus.execute<PropertyDataDto[]>(query);
     return {
       data: new SubgraphPropertiesDto(properties.map(p => mapPropertyToDto(p))),
     };

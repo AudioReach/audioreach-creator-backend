@@ -10,23 +10,8 @@ import {applyTableOverlay} from '../queries/edit-session/overlay-utils.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
-
-/** Scalar columns only — no relations, no audit fields. Used by overlay fetcher. */
-interface SubgraphBase {
-  systemId: number;
-  subgraphId: number;
-  name: string;
-  isExported: boolean;
-  fileSystemId: number;
-}
-
-/** Scalar columns from subgraph_property_data. Used by overlay fetcher. */
-interface SubgraphPropertyDataBase {
-  systemId: number;
-  subgraphSystemId: number;
-  subgraphPropertySystemId: number;
-  payload: Uint8Array | null;
-}
+import type {SubgraphBase} from '../entity-schema/usecase-data/subgraph/subgraph.schema.js';
+import type {SubgraphPropertyDataBase} from '../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
 
 // Query-ready superset types.
 export interface OverlaidSubgraphProperty {

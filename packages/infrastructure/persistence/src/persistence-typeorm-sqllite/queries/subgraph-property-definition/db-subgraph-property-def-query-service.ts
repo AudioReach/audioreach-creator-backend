@@ -17,49 +17,40 @@ import {
 import {OverlayMergeImpl} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {SubgraphPropertyRow} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
+import type {
+  SubgraphPropertyBase,
+  SubgraphPropertyRow,
+} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
+import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
 
 const overlay = new OverlayMergeImpl();
 
 export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQueryService {
+  private readonly fetcher: SubgraphPropertyDefinitionFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
     private readonly sessionRepo: ISessionRepository,
-  ) {}
+  ) {
+    this.fetcher = new SubgraphPropertyDefinitionFetcher(
+      dataSource,
+      editActionsSvc,
+      sessionRepo,
+    );
+  }
 
   /**
    * Returns every subgraph property definition for the given fileSystemId.
    * Overlay always applied — no applyOverlay flag, matching DbContainerPropertyDefQueryService.
    */
-  async getAllSubgraphPropertyDefinitions(
+  async getAllSubgraphPropertyDefinitionsSummary(
     fileSystemId: number,
     propertyNaturalId?: number,
   ): Promise<Result<SubgraphPropertyDefinitionSummaryReadModel[]>> {
     try {
-      // Step 1 — baseline load, all subgraph property definitions scoped to this file
-      const baselineRows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
-        .createQueryBuilder('sp')
-        .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany()) as SubgraphPropertyRow[];
+      const rows = await this.fetcher.fetchAll(fileSystemId);
 
-      // Step 2 — Overlay: table-wide query, not one call per row
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const rows = session
-        ? overlay
-            .applyToCollection(
-              baselineRows,
-              await this.editActionsSvc.getByTable(
-                session.sessionId,
-                ENTITY_NAMES.SubgraphPropertyDefinition,
-              ),
-            )
-            .map(r => r.effective)
-        : baselineRows;
-
-      // Step 3 — in-memory filter by natural id, after overlay merge
       const filtered =
         propertyNaturalId === undefined
           ? rows
@@ -131,7 +122,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
   }
 
   private toSummaryReadModel(
-    row: SubgraphPropertyRow,
+    row: SubgraphPropertyBase,
   ): SubgraphPropertyDefinitionSummaryReadModel {
     return {
       systemId: row.systemId,
@@ -144,7 +135,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
   }
 
   private toDetailReadModel(
-    row: SubgraphPropertyRow,
+    row: SubgraphPropertyBase,
   ): SubgraphPropertyDefinitionReadModel {
     return {
       ...this.toSummaryReadModel(row),
@@ -152,32 +143,11 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
     };
   }
 
-  async getAllSubgraphPropertyDefinitionsWithElements(
+  async getAllDetailedSubgraphPropertyDefinitionsWithElements(
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
     try {
-      // Step 1 — baseline load, all subgraph property definitions scoped to this file
-      const baselineRows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
-        .createQueryBuilder('sp')
-        .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany()) as SubgraphPropertyRow[];
-
-      // Step 2 — Overlay: table-wide query, not one call per row
-      const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const rows = session
-        ? overlay
-            .applyToCollection(
-              baselineRows,
-              await this.editActionsSvc.getByTable(
-                session.sessionId,
-                ENTITY_NAMES.SubgraphPropertyDefinition,
-              ),
-            )
-            .map(r => r.effective)
-        : baselineRows;
-
+      const rows = await this.fetcher.fetchAll(fileSystemId);
       return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
     } catch (error) {
       return Result.fail({
@@ -192,7 +162,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
   }
 
   private toDetailWithElementsReadModel(
-    row: SubgraphPropertyRow,
+    row: SubgraphPropertyBase,
   ): SubgraphPropertyDefinitionWithElementsReadModel {
     return {
       systemId: row.systemId,

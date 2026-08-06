@@ -120,12 +120,12 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
     });
   }
 
-  describe('getAllSubgraphPropertyDefinitions', () => {
+  describe('getAllSubgraphPropertyDefinitionsSummary', () => {
     it('returns an empty array when the file has no subgraph property definitions (Tier 1 — no session)', async () => {
       const {fileSystemId} = await createFileDependency();
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -147,7 +147,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -184,7 +184,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
         isVoice: false,
       });
 
-      const result = await service.getAllSubgraphPropertyDefinitions(
+      const result = await service.getAllSubgraphPropertyDefinitionsSummary(
         fileSystemId,
         200,
       );
@@ -211,7 +211,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -249,7 +249,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllSubgraphPropertyDefinitions(fileSystemId);
+        await service.getAllSubgraphPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -338,11 +338,11 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
     });
   });
 
-  describe('getAllSubgraphPropertyDefinitionsWithElements', () => {
+  describe('getAllDetailedSubgraphPropertyDefinitionsWithElements', () => {
     it('returns empty array when no definitions exist', async () => {
       const {fileSystemId} = await createFileDependency();
       const result =
-        await service.getAllSubgraphPropertyDefinitionsWithElements(
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
           fileSystemId,
         );
       expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -364,7 +364,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
         isVoice: false,
       });
       const result =
-        await service.getAllSubgraphPropertyDefinitionsWithElements(
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
           fileSystemId,
         );
       expect(result.kind).toBe(RESULT_KIND.Ok);
@@ -390,7 +390,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
         isVoice: true,
       });
       const result =
-        await service.getAllSubgraphPropertyDefinitionsWithElements(
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
           fileSystemId,
         );
       expect(result.data![0].isVoice).toBe(true);
@@ -410,7 +410,7 @@ describe('DbSubgraphPropertyDefQueryService Integration Tests', () => {
         isVoice: false,
       });
       const result =
-        await service.getAllSubgraphPropertyDefinitionsWithElements(
+        await service.getAllDetailedSubgraphPropertyDefinitionsWithElements(
           fileSystemId,
         );
       expect(result.data![0].elementsStructure).toBe('');

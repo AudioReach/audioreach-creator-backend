@@ -8,7 +8,9 @@ import type {ContainerPropertyDataRow} from '../../usecase-data/container/contai
 import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
-export interface ContainerPropertyRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ContainerPropertyBase {
+  systemId: number;
   fileSystemId: number;
   propertyId: number;
   name: string;
@@ -16,7 +18,10 @@ export interface ContainerPropertyRow extends EntityBaseRow {
   maxSize: number;
   propertyType: PropertyType;
   elementsStructure: string; // JSON
+}
 
+export interface ContainerPropertyRow
+  extends EntityBaseRow, ContainerPropertyBase {
   // Relations
   containerPropertyData?: ContainerPropertyDataRow[];
 }

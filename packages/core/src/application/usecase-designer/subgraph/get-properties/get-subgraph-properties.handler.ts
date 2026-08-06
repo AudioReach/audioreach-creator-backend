@@ -5,20 +5,18 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetSubgraphPropertiesQuery} from './get-subgraph-properties.query.js';
-import type {PropertyReadModel} from '../../container/get-properties/property-read-model.js';
+import type {PropertyDataDto} from '../../shared/property-read-model.js';
 import {buildPropertyModels} from '../../shared/build-property-models.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 
 export class GetSubgraphPropertiesHandler implements QueryHandler<
   GetSubgraphPropertiesQuery,
-  Promise<PropertyReadModel[]>
+  Promise<PropertyDataDto[]>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(
-    query: GetSubgraphPropertiesQuery,
-  ): Promise<PropertyReadModel[]> {
+  async handle(query: GetSubgraphPropertiesQuery): Promise<PropertyDataDto[]> {
     // Step 1: resolve fileSystemId from projectId
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
@@ -47,7 +45,7 @@ export class GetSubgraphPropertiesHandler implements QueryHandler<
 
     // Step 4: fetch definitions with elementsStructure
     const definitionsResult =
-      await this.queryServices.subgraphPropertyDefQueryService.getAllSubgraphPropertyDefinitionsWithElements(
+      await this.queryServices.subgraphPropertyDefQueryService.getAllDetailedSubgraphPropertyDefinitionsWithElements(
         fileSystemId,
       );
 

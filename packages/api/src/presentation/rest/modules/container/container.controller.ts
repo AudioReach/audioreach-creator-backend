@@ -29,7 +29,7 @@ import {
   GetContainerPropertiesQuery,
   type Result,
   type ContainerReadModel,
-  type PropertyReadModel,
+  type PropertyDataDto,
 } from '@arc/core';
 import {mapPropertyToDto} from '../../common/utils/element-data-mapper.js';
 
@@ -137,7 +137,7 @@ export class ContainerController extends BaseController {
       Number.parseInt(containerSystemId, 10),
       'client-id',
     );
-    const properties = await this.queryBus.execute<PropertyReadModel[]>(query);
+    const properties = await this.queryBus.execute<PropertyDataDto[]>(query);
     return {
       data: new ContainerPropertiesDto(
         properties.map(p => mapPropertyToDto(p)),

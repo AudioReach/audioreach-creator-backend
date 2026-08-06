@@ -87,7 +87,6 @@ describe('Get Container Properties E2E (GET /arc-api/v1/projects/{projectId}/con
       expect(typeof prop.systemId).toBe('string');
       expect(typeof prop.propertyId).toBe('number');
       expect(typeof prop.propertyName).toBe('string');
-      expect(typeof prop.hasDefinition).toBe('boolean');
       expect(Array.isArray(prop.elements)).toBe(true);
     }
   });

@@ -165,7 +165,7 @@ export * from './application/usecase-designer/container/query/query-containers.h
 // Container properties query handlers
 export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
-export * from './application/usecase-designer/container/get-properties/property-read-model.js';
+export * from './application/usecase-designer/shared/property-read-model.js';
 
 // Subgraph properties query handlers
 export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';

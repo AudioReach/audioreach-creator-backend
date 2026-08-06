@@ -7,7 +7,9 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
 
-export interface SubgraphPropertyRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface SubgraphPropertyBase {
+  systemId: number;
   fileSystemId: number;
   propertyId: number;
   name: string;
@@ -16,7 +18,10 @@ export interface SubgraphPropertyRow extends EntityBaseRow {
   propertyType: PropertyType;
   elementsStructure: string; // JSON
   isVoice: boolean;
+}
 
+export interface SubgraphPropertyRow
+  extends EntityBaseRow, SubgraphPropertyBase {
   // Relations
 }
 

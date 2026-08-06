@@ -10695,10 +10695,6 @@
             "type": "string",
             "description": "Property name"
           },
-          "hasDefinition": {
-            "type": "boolean",
-            "description": "Has definition or not"
-          },
           "elements": {
             "type": "array",
             "description": "Array of calibration elements for this property.\n\nThis array can contain three different types of calibration elements:\n\n**1. ConfigElement (Simple Parameters):**\n   - Single configuration values (volume, gain, frequency)\n   - Rendered as UI controls like sliders, text boxes, dropdowns\n\n**2. ElementTemplateArray (Parameter Arrays):**\n   - Arrays of configuration values of the same type\n   - Contains template defining the structure of each array item\n\n**3. Struct (Grouped Parameters):**\n   - Complex structured data grouping related parameters\n   - Contains nested elements of any calibration type",
@@ -10729,7 +10725,6 @@
           "systemId",
           "propertyId",
           "propertyName",
-          "hasDefinition",
           "elements"
         ]
       },

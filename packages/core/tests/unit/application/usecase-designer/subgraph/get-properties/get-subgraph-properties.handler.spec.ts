@@ -49,7 +49,7 @@ function makeServices(
     >;
     definitionsResult?: Awaited<
       ReturnType<
-        QueryServices['subgraphPropertyDefQueryService']['getAllSubgraphPropertyDefinitionsWithElements']
+        QueryServices['subgraphPropertyDefQueryService']['getAllDetailedSubgraphPropertyDefinitionsWithElements']
       >
     >;
   } = {},
@@ -68,7 +68,7 @@ function makeServices(
       findPropertyPayloads: jest.fn().mockResolvedValue(payloadsResult),
     },
     subgraphPropertyDefQueryService: {
-      getAllSubgraphPropertyDefinitionsWithElements: jest
+      getAllDetailedSubgraphPropertyDefinitionsWithElements: jest
         .fn()
         .mockResolvedValue(definitionsResult),
     },
@@ -92,7 +92,6 @@ describe('GetSubgraphPropertiesHandler', () => {
     expect(result[0].systemId).toBe(201);
     expect(result[0].propertyId).toBe(55);
     expect(result[0].propertyName).toBe('gain');
-    expect(result[0].hasDefinition).toBe(true);
     expect(result[0].elements).not.toHaveLength(0);
   });
 
@@ -122,21 +121,16 @@ describe('GetSubgraphPropertiesHandler', () => {
     expect(result[0].elements).toEqual([]);
   });
 
-  it('no matching definition — hasDefinition=false, elements=[], propertyName=empty string', async () => {
-    const unmatchedPayload: PropertyPayloadReadModel = {
-      systemId: 301,
-      propertySystemId: 999, // no matching def
-      payload: new Uint8Array([0x01]),
-    };
+  it('no payload for definition — throws ResourceNotFoundException', async () => {
     const handler = new GetSubgraphPropertiesHandler(
-      makeServices({payloadsResult: Result.ok([unmatchedPayload])}),
+      makeServices({
+        payloadsResult: Result.ok([]),
+        definitionsResult: Result.ok([mockDef]),
+      }),
     );
-    const result = await handler.handle(makeQuery());
-
-    expect(result).toHaveLength(1);
-    expect(result[0].hasDefinition).toBe(false);
-    expect(result[0].elements).toEqual([]);
-    expect(result[0].propertyName).toBe('');
+    await expect(handler.handle(makeQuery())).rejects.toThrow(
+      ResourceNotFoundException,
+    );
   });
 
   it('definitions fetch fails — throws Error', async () => {

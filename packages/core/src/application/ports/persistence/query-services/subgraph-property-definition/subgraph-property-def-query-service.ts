@@ -16,7 +16,7 @@ export interface SubgraphPropertyDefQueryService {
    * Optional propertyNaturalId filters by natural ACDB property_id.
    * Overlay is always applied.
    */
-  getAllSubgraphPropertyDefinitions(
+  getAllSubgraphPropertyDefinitionsSummary(
     fileSystemId: number,
     propertyNaturalId?: number,
   ): Promise<Result<SubgraphPropertyDefinitionSummaryReadModel[]>>;
@@ -35,7 +35,7 @@ export interface SubgraphPropertyDefQueryService {
    * Returns all subgraph property definitions including the `elementsStructure`
    * binary field needed for parsing calibration payloads. Overlay is applied.
    */
-  getAllSubgraphPropertyDefinitionsWithElements(
+  getAllDetailedSubgraphPropertyDefinitionsWithElements(
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>>;
 }

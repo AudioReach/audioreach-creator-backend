@@ -31,7 +31,7 @@ export class GetAllSubgraphPropertyDefinitionsHandler implements QueryHandler<
       );
 
     const result =
-      await this.queryServices.subgraphPropertyDefQueryService.getAllSubgraphPropertyDefinitions(
+      await this.queryServices.subgraphPropertyDefQueryService.getAllSubgraphPropertyDefinitionsSummary(
         fileId,
         query.propertyDefinitionId,
       );

@@ -479,7 +479,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       Array<{propertyId: number; payload: Uint8Array}>
     >();
     for (const row of rows) {
-      const sgId = row.subgraph!.subgraphId;
+      if (row.subgraph == null || row.payload == null) continue;
+      const sgId = row.subgraph.subgraphId;
       if (!map.has(sgId)) map.set(sgId, []);
       map.get(sgId)!.push({
         propertyId: row.subgraphPropertyDefinition.propertyId,

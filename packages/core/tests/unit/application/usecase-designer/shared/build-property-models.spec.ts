@@ -5,8 +5,8 @@
 import {buildPropertyModels} from '../../../../../src/application/usecase-designer/shared/build-property-models.js';
 import type {PropertyPayloadReadModel} from '../../../../../src/application/ports/persistence/query-services/shared/property-payload-read-model.js';
 import type {PropertyDefinitionWithElements} from '../../../../../src/application/usecase-designer/shared/property-definition-with-elements.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-definition.js';
 import {PROPERTY_TYPE} from '../../../../../src/domain/entities/definitions/common/entities/property-definition.js';
+import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
 
 // parseParameterData is the real binary parser — tests below use null payloads
 // to exercise the mapping logic without needing a valid binary blob.
@@ -30,6 +30,16 @@ describe('buildPropertyModels', () => {
     expect(result).toEqual([]);
   });
 
+  it('returns an empty array when defMap is empty', () => {
+    const payload: PropertyPayloadReadModel = {
+      systemId: 42,
+      propertySystemId: 1,
+      payload: null,
+    };
+    const result = buildPropertyModels([payload], new Map());
+    expect(result).toEqual([]);
+  });
+
   it('maps systemId and propertyId from payload and definition', () => {
     const payload: PropertyPayloadReadModel = {
       systemId: 42,
@@ -44,7 +54,6 @@ describe('buildPropertyModels', () => {
     expect(model.systemId).toBe(42);
     expect(model.propertyId).toBe(100);
     expect(model.propertyName).toBe('volume');
-    expect(model.hasDefinition).toBe(true);
   });
 
   it('sets elements to [] when payload is null', () => {
@@ -60,19 +69,11 @@ describe('buildPropertyModels', () => {
     expect(model.elements).toEqual([]);
   });
 
-  it('sets hasDefinition=false and uses fallback values when no matching definition', () => {
-    const payload: PropertyPayloadReadModel = {
-      systemId: 7,
-      propertySystemId: 99,
-      payload: null,
-    };
-
-    const [model] = buildPropertyModels([payload], new Map());
-
-    expect(model.hasDefinition).toBe(false);
-    expect(model.propertyId).toBe(0);
-    expect(model.propertyName).toBe('');
-    expect(model.elements).toEqual([]);
+  it('throws ResourceNotFoundException when definition has no matching payload', () => {
+    const def = makeDef({systemId: 2, propertyId: 200});
+    expect(() => buildPropertyModels([], new Map([[2, def]]))).toThrow(
+      ResourceNotFoundException,
+    );
   });
 
   it('sets elements to [] when payload is null even when definition exists', () => {

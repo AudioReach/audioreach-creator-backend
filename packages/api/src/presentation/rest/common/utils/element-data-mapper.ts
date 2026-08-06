@@ -8,7 +8,7 @@ import {
   type ElementArrayData,
   type StructData,
   type DisplayType,
-  type PropertyReadModel,
+  type PropertyDataDto,
   PARAMETER_ELEMENT_TYPE,
 } from '@arc/core';
 import {ConfigElementDto} from '../dto/element-data/elements/config-element/config-element.dto.js';
@@ -23,12 +23,11 @@ export type ElementDtoUnion =
   | ElementTemplateArrayDto
   | StructDto;
 
-export function mapPropertyToDto(model: PropertyReadModel): PropertyDto {
+export function mapPropertyToDto(model: PropertyDataDto): PropertyDto {
   const dto = new PropertyDto(
     String(model.systemId),
     model.propertyId,
     model.propertyName,
-    model.hasDefinition,
   );
   dto.elements = model.elements.map(e => transformElement(e));
   return dto;

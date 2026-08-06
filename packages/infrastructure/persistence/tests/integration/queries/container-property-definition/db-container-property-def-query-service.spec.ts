@@ -120,12 +120,12 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
     });
   }
 
-  describe('getAllContainerPropertyDefinitions', () => {
+  describe('getAllContainerPropertyDefinitionsSummary', () => {
     it('returns an empty array when the file has no container property definitions (Tier 1 — no session)', async () => {
       const {fileSystemId} = await createFileDependency();
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -146,7 +146,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -180,7 +180,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
         elementsStructure: '[]',
       });
 
-      const result = await service.getAllContainerPropertyDefinitions(
+      const result = await service.getAllContainerPropertyDefinitionsSummary(
         fileSystemId,
         200,
       );
@@ -206,7 +206,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -243,7 +243,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitions(fileSystemId);
+        await service.getAllContainerPropertyDefinitionsSummary(fileSystemId);
 
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
@@ -329,12 +329,12 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
     });
   });
 
-  describe('getAllContainerPropertyDefinitionsWithElements', () => {
+  describe('getAllDetailedContainerPropertyDefinitionsWithElements', () => {
     it('returns an empty array when the file has no container property definitions (Tier 1 — no session)', async () => {
       const {fileSystemId} = await createFileDependency();
 
       const result =
-        await service.getAllContainerPropertyDefinitionsWithElements(
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
           fileSystemId,
         );
 
@@ -357,7 +357,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitionsWithElements(
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
           fileSystemId,
         );
 
@@ -382,7 +382,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitionsWithElements(
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
           fileSystemId,
         );
 
@@ -421,7 +421,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       });
 
       const result =
-        await service.getAllContainerPropertyDefinitionsWithElements(
+        await service.getAllDetailedContainerPropertyDefinitionsWithElements(
           fileSystemId,
         );
 

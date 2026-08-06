@@ -16,7 +16,7 @@ export interface ContainerPropertyDefQueryService {
    * Optional propertyNaturalId filters by natural ACDB property_id.
    * Overlay is always applied.
    */
-  getAllContainerPropertyDefinitions(
+  getAllContainerPropertyDefinitionsSummary(
     fileSystemId: number,
     propertyNaturalId?: number,
   ): Promise<Result<PropertyDefinitionSummaryReadModel[]>>;
@@ -35,7 +35,7 @@ export interface ContainerPropertyDefQueryService {
    * Returns all container property definitions including the `elementsStructure`
    * binary field needed for parsing calibration payloads. Overlay is applied.
    */
-  getAllContainerPropertyDefinitionsWithElements(
+  getAllDetailedContainerPropertyDefinitionsWithElements(
     fileSystemId: number,
   ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>>;
 }
