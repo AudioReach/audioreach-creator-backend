@@ -9,8 +9,8 @@ import type {NodeRow} from '../node/node.schema.js';
 import type {DataPortRow} from '../node/data-port-info.schema.js';
 import type {SubgraphRow} from '../subgraph/subgraph.schema.js';
 import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
-import type {LinkType} from '@arc/core';
-import {LINK_TYPE} from '@arc/core';
+import type {DataLinkType} from '@arc/core';
+import {DATA_LINK_TYPE} from '@arc/core';
 import {EntitySchema} from 'typeorm';
 
 /** Minimal link-port pair returned by port-level link counting overlay. */
@@ -26,10 +26,9 @@ export interface DataLinkBase {
   destinationNodeSystemId: number;
   sourcePortSystemId: number;
   destinationPortSystemId: number;
-  linkType: LinkType;
+  linkType: DataLinkType;
   sourceSubgraphSystemId: number;
   destSubgraphSystemId: number;
-  isEc: boolean | null;
   fileSystemId: number;
 }
 
@@ -67,7 +66,7 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
     linkType: {
       type: 'simple-enum',
       name: 'link_type',
-      enum: Object.values(LINK_TYPE),
+      enum: Object.values(DATA_LINK_TYPE),
       nullable: false,
     },
     sourceSubgraphSystemId: {
@@ -79,11 +78,6 @@ export const DataLinkSchema = new EntitySchema<DataLinkRow>({
       type: 'integer',
       name: 'dest_subgraph_system_id',
       nullable: false,
-    },
-    isEc: {
-      type: 'integer',
-      name: 'is_ec',
-      nullable: true,
     },
     fileSystemId: {
       name: 'file_system_id',

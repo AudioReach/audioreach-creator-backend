@@ -108,7 +108,7 @@ async function seedDataLink(
   dstPort: number,
 ) {
   await ds.query(
-    `INSERT INTO data_links (system_id, source_node_system_id, destination_node_system_id, source_port_system_id, destination_port_system_id, link_type, source_subgraph_system_id, dest_subgraph_system_id, file_system_id) VALUES (?, ?, ?, ?, ?, 'INTRA_SUBGRAPH', ?, ?, ?)`,
+    `INSERT INTO data_links (system_id, source_node_system_id, destination_node_system_id, source_port_system_id, destination_port_system_id, link_type, source_subgraph_system_id, dest_subgraph_system_id, file_system_id) VALUES (?, ?, ?, ?, ?, 'NORMAL', ?, ?, ?)`,
     [
       systemId,
       NODE_A,

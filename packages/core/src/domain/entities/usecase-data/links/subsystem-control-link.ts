@@ -14,6 +14,8 @@
  *
  * Spec: §11.2.
  */
+import type {ControlLinkType} from './control-link-type.js';
+
 export class SubsystemControlLink {
   public systemId: number;
   public peerNodeASystemId: number;
@@ -22,6 +24,7 @@ export class SubsystemControlLink {
   public nodeBPortSystemId: number;
   public controlLinkSystemId: number | null;
   public fileSystemId: number;
+  public linkType: ControlLinkType;
   public version: number;
 
   constructor(
@@ -32,6 +35,7 @@ export class SubsystemControlLink {
     nodeBPortSystemId: number,
     controlLinkSystemId: number | null,
     fileSystemId: number,
+    linkType: ControlLinkType,
     version: number,
   ) {
     this.systemId = systemId;
@@ -41,6 +45,7 @@ export class SubsystemControlLink {
     this.nodeBPortSystemId = nodeBPortSystemId;
     this.controlLinkSystemId = controlLinkSystemId;
     this.fileSystemId = fileSystemId;
+    this.linkType = linkType;
     this.version = version;
   }
 }

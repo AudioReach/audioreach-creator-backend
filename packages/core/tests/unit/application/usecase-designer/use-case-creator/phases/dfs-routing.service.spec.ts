@@ -11,7 +11,7 @@ import {
   ROUTING_MODE,
   type RoutingGraphSnapshot,
 } from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
-import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {RoutingContext} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-context.js';
 import {
   PATH_TERMINATION,
@@ -36,7 +36,7 @@ function makeDataLink(
   systemId: number,
   sourceSubgraphSystemId: number,
   destSubgraphSystemId: number,
-  linkType: DataLink['linkType'] = LINK_TYPE.IntraUsecase,
+  linkType: DataLink['linkType'] = DATA_LINK_TYPE.Normal,
 ): DataLink {
   return {
     systemId,
@@ -160,8 +160,8 @@ describe('DfsRoutingService', () => {
       [1],
       [
         makeDataLink(1, 1, 2),
-        makeDataLink(2, 2, 3, 'inter_usecase' as DataLink['linkType']),
-        makeDataLink(3, 3, 4, 'intra_subgraph' as DataLink['linkType']),
+        makeDataLink(2, 2, 3, DATA_LINK_TYPE.InterUsecase),
+        makeDataLink(3, 3, 4, DATA_LINK_TYPE.Ec),
       ],
     );
 

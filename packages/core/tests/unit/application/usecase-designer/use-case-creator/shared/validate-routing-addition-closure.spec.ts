@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 import type {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {emptyGraphEdits} from '../../../../../../src/application/usecase-designer/use-case-creator/contracts/routing-input.js';
@@ -25,7 +25,7 @@ describe('validateRoutingAdditionClosure', () => {
         addedDataLinks: [
           {
             systemId: 100,
-            linkType: LINK_TYPE.IntraUsecase,
+            linkType: DATA_LINK_TYPE.Normal,
             sourceSubgraphSystemId: 10,
             destSubgraphSystemId: 30,
           },

@@ -3414,7 +3414,7 @@
                           "sourcePortSystemId": "2002",
                           "destinationSystemId": "1002",
                           "destinationPortSystemId": "2003",
-                          "isInterUsecase": false
+                          "linkType": "NORMAL"
                         }
                       ],
                       "controlLinks": [
@@ -3424,7 +3424,7 @@
                           "sourcePortSystemId": "3001",
                           "destinationSystemId": "1002",
                           "destinationPortSystemId": "3002",
-                          "isInterUsecase": false
+                          "linkType": "INTER_USECASE"
                         }
                       ]
                     }
@@ -3645,7 +3645,7 @@
                           "sourcePortSystemId": "2002",
                           "destinationSystemId": "1002",
                           "destinationPortSystemId": "2003",
-                          "isInterUsecase": false
+                          "linkType": "NORMAL"
                         }
                       ],
                       "controlLinks": [
@@ -3655,7 +3655,7 @@
                           "sourcePortSystemId": "3001",
                           "destinationSystemId": "1002",
                           "destinationPortSystemId": "3002",
-                          "isInterUsecase": false
+                          "linkType": "INTER_USECASE"
                         }
                       ]
                     }
@@ -8097,7 +8097,7 @@
             "description": "Failed to create data link"
           }
         },
-        "summary": "Create a new data link (flat view)",
+        "summary": "Create a new data link",
         "tags": [
           "data-links"
         ]
@@ -8125,7 +8125,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateDataLinkRequest"
+                "$ref": "#/components/schemas/CreateDataLinkWithSubsystemsRequest"
               }
             }
           }
@@ -12197,9 +12197,9 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -12208,7 +12208,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             },
             "description": "Data links"
@@ -12238,9 +12238,9 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -12249,7 +12249,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             },
             "description": "Control links"
@@ -12261,167 +12261,6 @@
           "controlLinks"
         ]
       },
-      "SubsystemResponseDto": {
-        "type": "object",
-        "properties": {
-          "systemId": {
-            "type": "string",
-            "description": "System ID"
-          },
-          "naturalId": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Component ID"
-          },
-          "name": {
-            "description": "Subsystem name",
-            "type": "string"
-          },
-          "parentSystemId": {
-            "description": "System ID of the parent subsystem, if nested",
-            "type": "string"
-          },
-          "dataPorts": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "Port system ID"
-                },
-                "naturalId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Port definition natural ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Port name"
-                },
-                "portIoType": {
-                  "type": "string",
-                  "enum": [
-                    "Input",
-                    "Output"
-                  ],
-                  "description": "Port IO type"
-                },
-                "portType": {
-                  "type": "string",
-                  "enum": [
-                    "Static",
-                    "Dynamic"
-                  ],
-                  "description": "Port type"
-                },
-                "totalLinksAtPort": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Number of active data links at this port"
-                }
-              },
-              "required": [
-                "systemId",
-                "naturalId",
-                "name",
-                "portIoType",
-                "portType",
-                "totalLinksAtPort"
-              ]
-            },
-            "description": "Data ports"
-          },
-          "controlPorts": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "Control port system ID"
-                },
-                "naturalId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Control port definition natural ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Component name"
-                },
-                "portType": {
-                  "type": "string",
-                  "enum": [
-                    "Static",
-                    "Dynamic"
-                  ],
-                  "description": "Port type"
-                },
-                "controlPortName": {
-                  "description": "Control port name",
-                  "type": "string"
-                },
-                "totalLinksAtPort": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Number of active control links at this port"
-                },
-                "intents": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "naturalId": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Intent natural ID"
-                      },
-                      "name": {
-                        "description": "Intent name",
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "naturalId"
-                    ]
-                  },
-                  "description": "Control port intents"
-                }
-              },
-              "required": [
-                "systemId",
-                "naturalId",
-                "name",
-                "portType",
-                "totalLinksAtPort",
-                "intents"
-              ]
-            },
-            "description": "Control ports"
-          },
-          "filteredKeys": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/KeyInfoDto"
-            },
-            "description": "Filtered keys assigned to the subsystem"
-          }
-        },
-        "required": [
-          "systemId",
-          "naturalId",
-          "dataPorts",
-          "controlPorts",
-          "filteredKeys"
-        ]
-      },
       "ComponentsWithSubsystemsResponseDto": {
         "type": "object",
         "properties": {
@@ -12429,7 +12268,7 @@
             "description": "Hierarchical subsystem structure with nested components",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SubsystemResponseDto"
+              "$ref": "#/components/schemas/SubsystemComponentsResponseDto"
             }
           },
           "spfModules": {
@@ -12795,9 +12634,9 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -12806,7 +12645,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             },
             "description": "Data links"
@@ -12836,9 +12675,9 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -12847,7 +12686,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             },
             "description": "Control links"
@@ -12857,6 +12696,494 @@
           "spfModules",
           "dataLinks",
           "controlLinks"
+        ]
+      },
+      "SubsystemComponentsResponseDto": {
+        "type": "object",
+        "properties": {
+          "children": {
+            "properties": {
+              "spfModules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string",
+                      "description": "SPF module system ID"
+                    },
+                    "naturalId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Module instance ID"
+                    },
+                    "moduleDefinitionSystemId": {
+                      "type": "string",
+                      "description": "Module definition system ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Module name"
+                    },
+                    "alias": {
+                      "type": "string",
+                      "description": "Module alias (user-defined label)"
+                    },
+                    "parentSystemId": {
+                      "description": "Parent subsystem system ID (for hierarchical modules)",
+                      "type": "string"
+                    },
+                    "subgraphSystemId": {
+                      "type": "string",
+                      "description": "Subgraph this module belongs to"
+                    },
+                    "containerSystemId": {
+                      "type": "string",
+                      "description": "Container this module belongs to"
+                    },
+                    "maxInputPortsSupported": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Maximum input data ports"
+                    },
+                    "maxOutputPortsSupported": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Maximum output data ports"
+                    },
+                    "maxControlPortsSupported": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Maximum control ports"
+                    },
+                    "dataPorts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string",
+                            "description": "Port system ID"
+                          },
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Port definition natural ID"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Port name"
+                          },
+                          "portIoType": {
+                            "type": "string",
+                            "enum": [
+                              "Input",
+                              "Output"
+                            ],
+                            "description": "Port IO type"
+                          },
+                          "portType": {
+                            "type": "string",
+                            "enum": [
+                              "Static",
+                              "Dynamic"
+                            ],
+                            "description": "Port type"
+                          },
+                          "totalLinksAtPort": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Number of active data links at this port"
+                          }
+                        },
+                        "required": [
+                          "systemId",
+                          "naturalId",
+                          "name",
+                          "portIoType",
+                          "portType",
+                          "totalLinksAtPort"
+                        ]
+                      },
+                      "description": "Data port list"
+                    },
+                    "controlPorts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string",
+                            "description": "Control port system ID"
+                          },
+                          "naturalId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Control port definition natural ID"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Component name"
+                          },
+                          "portType": {
+                            "type": "string",
+                            "enum": [
+                              "Static",
+                              "Dynamic"
+                            ],
+                            "description": "Port type"
+                          },
+                          "controlPortName": {
+                            "description": "Control port name",
+                            "type": "string"
+                          },
+                          "totalLinksAtPort": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Number of active control links at this port"
+                          },
+                          "intents": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "naturalId": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "Intent natural ID"
+                                },
+                                "name": {
+                                  "description": "Intent name",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "naturalId"
+                              ]
+                            },
+                            "description": "Control port intents"
+                          }
+                        },
+                        "required": [
+                          "systemId",
+                          "naturalId",
+                          "name",
+                          "portType",
+                          "totalLinksAtPort",
+                          "intents"
+                        ]
+                      },
+                      "description": "Control port list"
+                    },
+                    "ckvs": {
+                      "description": "Calibration key-values (present when include=ckvs)",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "keyValuePairs": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/$defs/KeyValueInfoDto"
+                            },
+                            "description": "Collection of key-value pairs"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "CKV system ID"
+                          },
+                          "supportedParameters": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "naturalId": {
+                                  "type": "number",
+                                  "description": "Parameter ID"
+                                },
+                                "systemId": {
+                                  "type": "string",
+                                  "description": "Parameter system ID"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "Parameter name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "description": "Parameter description"
+                                }
+                              },
+                              "required": [
+                                "naturalId",
+                                "systemId",
+                                "name",
+                                "description"
+                              ]
+                            },
+                            "description": "Supported parameters for this CKV"
+                          }
+                        },
+                        "required": [
+                          "keyValuePairs",
+                          "systemId",
+                          "supportedParameters"
+                        ]
+                      }
+                    },
+                    "tags": {
+                      "description": "Tag info (present when include=tags)",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string",
+                            "description": "Tag system ID"
+                          },
+                          "naturalId": {
+                            "type": "number",
+                            "description": "Tag ID"
+                          },
+                          "tagName": {
+                            "type": "string",
+                            "description": "Tag name"
+                          },
+                          "tkvs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "keyValuePairs": {
+                                  "type": "array",
+                                  "items": {
+                                    "$ref": "#/$defs/KeyValueInfoDto"
+                                  },
+                                  "description": "Collection of key-value pairs"
+                                },
+                                "systemId": {
+                                  "type": "string",
+                                  "description": "TKV system ID"
+                                },
+                                "supportedParameters": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "naturalId": {
+                                        "type": "number",
+                                        "description": "Parameter ID"
+                                      },
+                                      "systemId": {
+                                        "type": "string",
+                                        "description": "Parameter system ID"
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "Parameter name"
+                                      },
+                                      "description": {
+                                        "type": "string",
+                                        "description": "Parameter description"
+                                      }
+                                    },
+                                    "required": [
+                                      "naturalId",
+                                      "systemId",
+                                      "name",
+                                      "description"
+                                    ]
+                                  },
+                                  "description": "Supported parameters for this TKV"
+                                }
+                              },
+                              "required": [
+                                "keyValuePairs",
+                                "systemId",
+                                "supportedParameters"
+                              ]
+                            },
+                            "description": "Tag key-values configuration"
+                          }
+                        },
+                        "required": [
+                          "systemId",
+                          "naturalId",
+                          "tagName",
+                          "tkvs"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "systemId",
+                    "naturalId",
+                    "moduleDefinitionSystemId",
+                    "name",
+                    "alias",
+                    "subgraphSystemId",
+                    "containerSystemId",
+                    "maxInputPortsSupported",
+                    "maxOutputPortsSupported",
+                    "maxControlPortsSupported",
+                    "dataPorts",
+                    "controlPorts"
+                  ]
+                },
+                "description": "SPF modules in the collection"
+              },
+              "dataLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string",
+                      "description": "Data link system ID"
+                    },
+                    "sourceSystemId": {
+                      "type": "string",
+                      "description": "Source component system ID"
+                    },
+                    "sourcePortSystemId": {
+                      "type": "string",
+                      "description": "Source port system ID"
+                    },
+                    "destinationSystemId": {
+                      "type": "string",
+                      "description": "Destination component system ID"
+                    },
+                    "destinationPortSystemId": {
+                      "type": "string",
+                      "description": "Destination port system ID"
+                    },
+                    "linkType": {
+                      "type": "string",
+                      "description": "Topology classification of the link"
+                    }
+                  },
+                  "required": [
+                    "systemId",
+                    "sourceSystemId",
+                    "sourcePortSystemId",
+                    "destinationSystemId",
+                    "destinationPortSystemId",
+                    "linkType"
+                  ]
+                },
+                "description": "Data links"
+              },
+              "controlLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string",
+                      "description": "Control link system ID"
+                    },
+                    "sourceSystemId": {
+                      "type": "string",
+                      "description": "Source (peer A) component system ID"
+                    },
+                    "sourcePortSystemId": {
+                      "type": "string",
+                      "description": "Source (peer A) port system ID"
+                    },
+                    "destinationSystemId": {
+                      "type": "string",
+                      "description": "Destination (peer B) component system ID"
+                    },
+                    "destinationPortSystemId": {
+                      "type": "string",
+                      "description": "Destination (peer B) port system ID"
+                    },
+                    "linkType": {
+                      "type": "string",
+                      "description": "Topology classification of the link"
+                    }
+                  },
+                  "required": [
+                    "systemId",
+                    "sourceSystemId",
+                    "sourcePortSystemId",
+                    "destinationSystemId",
+                    "destinationPortSystemId",
+                    "linkType"
+                  ]
+                },
+                "description": "Control links"
+              },
+              "subsystems": {
+                "type": "array",
+                "items": {
+                  "$ref": "#"
+                },
+                "description": "Subsystem hierarchy"
+              }
+            },
+            "description": "Child components within this subsystem (spfModules, dataLinks, controlLinks, nested subsystems)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComponentsWithSubsystemsResponseDto"
+              }
+            ]
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Subsystem system ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Subsystem name"
+          },
+          "filteredKeys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Key system ID"
+                },
+                "naturalId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Key definition ID"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Key name"
+                },
+                "description": {
+                  "description": "Key description",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "systemId",
+                "naturalId",
+                "name"
+              ]
+            },
+            "description": "Keys filtered by this subsystem"
+          }
+        },
+        "required": [
+          "children",
+          "systemId",
+          "name",
+          "filteredKeys"
         ]
       },
       "DataLinkWithUsecasesResponseDto": {
@@ -12885,9 +13212,9 @@
                 "type": "string",
                 "description": "Destination port system ID"
               },
-              "isInterUsecase": {
-                "type": "boolean",
-                "description": "Whether the link is inter-usecase"
+              "linkType": {
+                "type": "string",
+                "description": "Topology classification of the link"
               }
             },
             "required": [
@@ -12896,7 +13223,7 @@
               "sourcePortSystemId",
               "destinationSystemId",
               "destinationPortSystemId",
-              "isInterUsecase"
+              "linkType"
             ],
             "description": "The data link"
           },
@@ -13032,9 +13359,9 @@
                 "type": "string",
                 "description": "Destination (peer B) port system ID"
               },
-              "isInterUsecase": {
-                "type": "boolean",
-                "description": "Whether the link is inter-usecase"
+              "linkType": {
+                "type": "string",
+                "description": "Topology classification of the link"
               }
             },
             "required": [
@@ -13043,7 +13370,7 @@
               "sourcePortSystemId",
               "destinationSystemId",
               "destinationPortSystemId",
-              "isInterUsecase"
+              "linkType"
             ],
             "description": "The control link"
           },
@@ -13330,9 +13657,6 @@
             "type": "string",
             "description": "Type of the usecase",
             "enum": [
-              "EC",
-              "LINKED",
-              "ISLAND"
               "EC",
               "LINKED",
               "ISLAND"
@@ -16997,9 +17321,9 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -17008,7 +17332,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             },
             "description": "Data links between the subgraph pair"
@@ -17038,9 +17362,9 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -17049,7 +17373,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             },
             "description": "Control links between the subgraph pair"
@@ -17062,6 +17386,167 @@
           "controlLinks"
         ],
         "description": "Subgraph pair"
+      },
+      "SubsystemResponseDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System ID"
+          },
+          "naturalId": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Component ID"
+          },
+          "name": {
+            "description": "Subsystem name",
+            "type": "string"
+          },
+          "parentSystemId": {
+            "description": "System ID of the parent subsystem, if nested",
+            "type": "string"
+          },
+          "dataPorts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Port system ID"
+                },
+                "naturalId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Port definition natural ID"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Port name"
+                },
+                "portIoType": {
+                  "type": "string",
+                  "enum": [
+                    "Input",
+                    "Output"
+                  ],
+                  "description": "Port IO type"
+                },
+                "portType": {
+                  "type": "string",
+                  "enum": [
+                    "Static",
+                    "Dynamic"
+                  ],
+                  "description": "Port type"
+                },
+                "totalLinksAtPort": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Number of active data links at this port"
+                }
+              },
+              "required": [
+                "systemId",
+                "naturalId",
+                "name",
+                "portIoType",
+                "portType",
+                "totalLinksAtPort"
+              ]
+            },
+            "description": "Data ports"
+          },
+          "controlPorts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Control port system ID"
+                },
+                "naturalId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Control port definition natural ID"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Component name"
+                },
+                "portType": {
+                  "type": "string",
+                  "enum": [
+                    "Static",
+                    "Dynamic"
+                  ],
+                  "description": "Port type"
+                },
+                "controlPortName": {
+                  "description": "Control port name",
+                  "type": "string"
+                },
+                "totalLinksAtPort": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Number of active control links at this port"
+                },
+                "intents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "naturalId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Intent natural ID"
+                      },
+                      "name": {
+                        "description": "Intent name",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "naturalId"
+                    ]
+                  },
+                  "description": "Control port intents"
+                }
+              },
+              "required": [
+                "systemId",
+                "naturalId",
+                "name",
+                "portType",
+                "totalLinksAtPort",
+                "intents"
+              ]
+            },
+            "description": "Control ports"
+          },
+          "filteredKeys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyInfoDto"
+            },
+            "description": "Filtered keys assigned to the subsystem"
+          }
+        },
+        "required": [
+          "systemId",
+          "naturalId",
+          "dataPorts",
+          "controlPorts",
+          "filteredKeys"
+        ]
       },
       "CreateSubsystemRequestDto": {
         "type": "object",
@@ -17202,9 +17687,9 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -17213,7 +17698,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             }
           },
@@ -17250,9 +17735,9 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
+                "linkType": {
+                  "type": "string",
+                  "description": "Topology classification of the link"
                 }
               },
               "required": [
@@ -17261,7 +17746,7 @@
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isInterUsecase"
+                "linkType"
               ]
             }
           },
@@ -17594,9 +18079,9 @@
             "type": "string",
             "description": "Destination port system ID"
           },
-          "isInterUsecase": {
-            "type": "boolean",
-            "description": "Whether the link is inter-usecase"
+          "linkType": {
+            "type": "string",
+            "description": "Topology classification of the link"
           }
         },
         "required": [
@@ -17605,25 +18090,52 @@
           "sourcePortSystemId",
           "destinationSystemId",
           "destinationPortSystemId",
-          "isInterUsecase"
+          "linkType"
         ]
       },
       "CreateDataLinkRequest": {
         "type": "object",
         "properties": {
-          "type": {
+          "sourceModuleSystemId": {
             "type": "string",
-            "description": "Type of data link",
-            "enum": [
-              "normal",
-              "EC",
-              "interUsecase"
-            ],
-            "default": "normal"
+            "description": "System ID of the source module node"
           },
+          "sourcePortSystemId": {
+            "type": "string",
+            "description": "System ID of the source port (must be OUTPUT)"
+          },
+          "destinationModuleSystemId": {
+            "type": "string",
+            "description": "System ID of the destination module node"
+          },
+          "destinationPortSystemId": {
+            "type": "string",
+            "description": "System ID of the destination port (must be INPUT)"
+          },
+          "linkType": {
+            "type": "string",
+            "description": "Topology classification of the link",
+            "enum": [
+              "NORMAL",
+              "INTER_USECASE",
+              "EC"
+            ]
+          }
+        },
+        "required": [
+          "sourceModuleSystemId",
+          "sourcePortSystemId",
+          "destinationModuleSystemId",
+          "destinationPortSystemId",
+          "linkType"
+        ]
+      },
+      "CreateDataLinkWithSubsystemsRequest": {
+        "type": "object",
+        "properties": {
           "sourceNodeSystemId": {
             "type": "string",
-            "description": "System ID of the source node/module"
+            "description": "System ID of the source node (module or subsystem)"
           },
           "sourcePortSystemId": {
             "type": "string",
@@ -17631,18 +18143,28 @@
           },
           "destinationNodeSystemId": {
             "type": "string",
-            "description": "System ID of the destination node/module"
+            "description": "System ID of the destination node (module or subsystem)"
           },
           "destinationPortSystemId": {
             "type": "string",
             "description": "System ID of the destination port"
+          },
+          "linkType": {
+            "type": "string",
+            "description": "Topology classification of the link",
+            "enum": [
+              "NORMAL",
+              "INTER_USECASE",
+              "EC"
+            ]
           }
         },
         "required": [
           "sourceNodeSystemId",
           "sourcePortSystemId",
           "destinationNodeSystemId",
-          "destinationPortSystemId"
+          "destinationPortSystemId",
+          "linkType"
         ]
       },
       "ControlLinkResponseDto": {
@@ -17675,9 +18197,9 @@
             "type": "string",
             "description": "Destination (peer B) port system ID"
           },
-          "isInterUsecase": {
-            "type": "boolean",
-            "description": "Whether the link is inter-usecase"
+          "linkType": {
+            "type": "string",
+            "description": "Topology classification of the link"
           }
         },
         "required": [
@@ -17686,7 +18208,7 @@
           "sourcePortSystemId",
           "destinationSystemId",
           "destinationPortSystemId",
-          "isInterUsecase"
+          "linkType"
         ]
       },
       "CreateControlLinkRequest": {
@@ -17712,10 +18234,13 @@
             "type": "string",
             "description": "System ID of the parent component"
           },
-          "isInterUsecase": {
-            "type": "boolean",
-            "description": "Is inter-usecase",
-            "default": false
+          "linkType": {
+            "type": "string",
+            "description": "Topology classification of the link",
+            "enum": [
+              "NORMAL",
+              "INTER_USECASE"
+            ]
           }
         },
         "required": [
@@ -17723,7 +18248,7 @@
           "startPortSystemId",
           "endComponentSystemId",
           "endPortSystemId",
-          "isInterUsecase"
+          "linkType"
         ]
       },
       "ControlLinkPropertiesResponseDto": {

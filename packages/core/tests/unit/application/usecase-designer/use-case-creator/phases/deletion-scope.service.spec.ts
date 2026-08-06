@@ -19,6 +19,7 @@ import {DeletionScopeService} from '../../../../../../src/application/usecase-de
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import type {
   SgkvEntry,
   SubgraphRepository,
@@ -78,6 +79,7 @@ function dataLink(
     systemId,
     sourceSubgraphSystemId,
     destSubgraphSystemId,
+    linkType: isEc ? DATA_LINK_TYPE.Ec : DATA_LINK_TYPE.Normal,
     isEc,
   } as DataLink;
 }

@@ -4,7 +4,12 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {DataLink, SubsystemDataLink, LINK_TYPE, PORT_IO_TYPE} from '@arc/core';
+import {
+  DataLink,
+  SubsystemDataLink,
+  DATA_LINK_TYPE,
+  PORT_IO_TYPE,
+} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -128,7 +133,7 @@ function buildDataLink(
     destinationNodeSystemId: NODE_B_ID,
     sourcePortSystemId: srcPortSystemId,
     destinationPortSystemId: dstPortSystemId,
-    linkType: LINK_TYPE.IntraSubgraph,
+    linkType: DATA_LINK_TYPE.Normal,
     sourceSubgraphSystemId: SUBGRAPH_ID,
     destSubgraphSystemId: SUBGRAPH_ID,
     fileSystemId: FILE_ID,
@@ -152,6 +157,7 @@ function buildSls(
     destinationPortSystemId: dstPortId,
     dataLinkSystemId,
     fileSystemId: FILE_ID,
+    linkType: DATA_LINK_TYPE.Normal,
   });
 }
 
@@ -197,7 +203,7 @@ describe('DataLinkInserter', () => {
     expect(rows[0].source_port_system_id).toBe(SRC_PORT_ID);
     expect(rows[0].destination_port_system_id).toBe(DST_PORT_ID);
     expect(rows[0].file_system_id).toBe(FILE_ID);
-    expect(rows[0].link_type).toBe('INTRA_SUBGRAPH');
+    expect(rows[0].link_type).toBe('NORMAL');
   });
 
   it('inserts multiple data links', async () => {
@@ -236,7 +242,7 @@ describe('DataLinkInserter', () => {
       destinationNodeSystemId: NODE_B_ID,
       sourcePortSystemId: SRC_PORT_ID,
       destinationPortSystemId: DST_PORT_ID,
-      linkType: LINK_TYPE.IntraSubgraph,
+      linkType: DATA_LINK_TYPE.Normal,
       sourceSubgraphSystemId: SUBGRAPH_ID,
       destSubgraphSystemId: SUBGRAPH_ID,
       fileSystemId: FILE_ID,
@@ -247,7 +253,7 @@ describe('DataLinkInserter', () => {
       destinationNodeSystemId: 203,
       sourcePortSystemId: 302,
       destinationPortSystemId: 303,
-      linkType: LINK_TYPE.InterUsecase,
+      linkType: DATA_LINK_TYPE.InterUsecase,
       sourceSubgraphSystemId: SUBGRAPH_ID,
       destSubgraphSystemId: SUBGRAPH_ID,
       fileSystemId: FILE_ID,
@@ -262,7 +268,7 @@ describe('DataLinkInserter', () => {
     );
     expect(rows).toHaveLength(2);
     expect(rows[0].system_id).toBe(1001);
-    expect(rows[0].link_type).toBe('INTRA_SUBGRAPH');
+    expect(rows[0].link_type).toBe('NORMAL');
     expect(rows[1].system_id).toBe(1002);
     expect(rows[1].link_type).toBe('INTER_USECASE');
   });
@@ -318,7 +324,7 @@ describe('DataLinkInserter', () => {
       destinationNodeSystemId: 205,
       sourcePortSystemId: 304,
       destinationPortSystemId: 305,
-      linkType: LINK_TYPE.IntraSubgraph,
+      linkType: DATA_LINK_TYPE.Normal,
       sourceSubgraphSystemId: SUBGRAPH_ID,
       destSubgraphSystemId: SUBGRAPH_ID,
       fileSystemId: FILE_ID,

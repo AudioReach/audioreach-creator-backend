@@ -104,7 +104,7 @@ async function seedUsecaseGraph(ds: DataSource): Promise<void> {
        (system_id, file_system_id, peer_nodeA_system_id, peer_nodeB_system_id,
         nodeA_port_system_id, nodeB_port_system_id, heap_id, link_type,
         source_subgraph_system_id, dest_subgraph_system_id)
-     VALUES (?, ?, ?, ?, ?, ?, 0, 'INTRA_USECASE', ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, 0, 'INTER_USECASE', ?, ?)`,
     [
       CONTROL_LINK_ID,
       FILE_ID,
@@ -121,7 +121,7 @@ async function seedUsecaseGraph(ds: DataSource): Promise<void> {
        (system_id, source_node_system_id, destination_node_system_id,
         source_port_system_id, destination_port_system_id, link_type,
         source_subgraph_system_id, dest_subgraph_system_id, file_system_id)
-     VALUES (?, ?, ?, ?, ?, 'INTRA_USECASE', ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, 'INTER_USECASE', ?, ?, ?)`,
     [
       DATA_LINK_ID,
       SOURCE_NODE_ID,

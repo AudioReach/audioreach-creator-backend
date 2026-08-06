@@ -6,7 +6,7 @@
 import {jest} from '@jest/globals';
 import {ControlLinkBuilder} from '../../../../../../../src/application/file-operations/upload-file/services/entity-builders/control-link-builder.js';
 import {ControlLink} from '../../../../../../../src/domain/entities/usecase-data/links/control-link.js';
-import {LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/link-type.js';
+import {CONTROL_LINK_TYPE} from '../../../../../../../src/domain/entities/usecase-data/links/control-link-type.js';
 import type {ControlLink as ControlLinkProperty} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/spf-properties/types.js';
 import type {Logger} from '../../../../../../../src/shared/types/logger.interface.js';
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
@@ -104,12 +104,14 @@ describe('ControlLinkBuilder', () => {
         expect(result.controlLinks[0].nodeAPortSystemId).toBe(10); // peer1PortId(1) * 10
         expect(result.controlLinks[0].nodeBPortSystemId).toBe(20); // peer2PortId(2) * 10
         expect(result.controlLinks[0].heapId).toBe(5);
-        expect(result.controlLinks[0].linkType).toBe(LINK_TYPE.IntraUsecase);
+        expect(result.controlLinks[0].linkType).toBe(CONTROL_LINK_TYPE.Normal);
 
         // Verify second control link
         expect(result.controlLinks[1].systemId).toBeGreaterThan(0);
         expect(result.controlLinks[1].heapId).toBe(6);
-        expect(result.controlLinks[1].linkType).toBe(LINK_TYPE.InterUsecase);
+        expect(result.controlLinks[1].linkType).toBe(
+          CONTROL_LINK_TYPE.InterUsecase,
+        );
 
         // Verify ID generation was called
         expect(mockIdGenerator.getNextId).toHaveBeenCalledTimes(2);
@@ -663,7 +665,9 @@ describe('ControlLinkBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
-        expect(result.controlLinks[0].linkType).toBe(LINK_TYPE.InterUsecase);
+        expect(result.controlLinks[0].linkType).toBe(
+          CONTROL_LINK_TYPE.InterUsecase,
+        );
       });
 
       it('should preserve heapId', async () => {

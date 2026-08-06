@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
-import {LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/link-type.js';
-import type {LinkType} from '../../../../../domain/entities/usecase-data/links/link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
+import type {DataLinkType} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 import type {DataLink as DataLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
@@ -245,21 +245,18 @@ export class DataLinkBuilder {
         return null;
       }
 
-      let linkType: LinkType;
-      if (property.isInterGraph) {
-        linkType = LINK_TYPE.InterUsecase;
-      } else if (sourceSgId === destSgId) {
-        linkType = LINK_TYPE.IntraSubgraph;
-      } else {
-        linkType = LINK_TYPE.IntraUsecase;
-      }
-
       const isEc =
-        linkType === LINK_TYPE.IntraUsecase
-          ? (ecLookup.get(
-              `${property.sourceInstanceId}:${property.sourcePortId}:${property.destinationInstanceId}:${property.destinationPortId}`,
-            ) ?? false)
-          : undefined;
+        ecLookup.get(
+          `${property.sourceInstanceId}:${property.sourcePortId}:${property.destinationInstanceId}:${property.destinationPortId}`,
+        ) ?? false;
+      let linkType: DataLinkType;
+      if (isEc) {
+        linkType = DATA_LINK_TYPE.Ec;
+      } else if (property.isInterGraph) {
+        linkType = DATA_LINK_TYPE.InterUsecase;
+      } else {
+        linkType = DATA_LINK_TYPE.Normal;
+      }
 
       return new DataLink({
         systemId: 0, // Will be generated during insertion
@@ -271,7 +268,6 @@ export class DataLinkBuilder {
         sourceSubgraphSystemId: sourceSgId,
         destSubgraphSystemId: destSgId,
         fileSystemId,
-        isEc,
       });
     } catch (error) {
       this.logger?.logWarn({

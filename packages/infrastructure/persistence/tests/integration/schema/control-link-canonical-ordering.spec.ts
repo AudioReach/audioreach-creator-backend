@@ -65,7 +65,7 @@ describe('control_links schema — canonical ordering (spec §11.1)', () => {
         `INSERT INTO control_links (system_id, file_system_id, peer_nodeA_system_id, peer_nodeB_system_id,
                                     nodeA_port_system_id, nodeB_port_system_id, heap_id, link_type,
                                     source_subgraph_system_id, dest_subgraph_system_id)
-         VALUES (9001, 1, 10, 20, 200, 100, 0, 'INTRA_SUBGRAPH', 1, 1)`,
+         VALUES (9001, 1, 10, 20, 200, 100, 0, 'NORMAL', 1, 1)`,
       );
       await expect(insert).rejects.toThrow(/CHECK constraint failed/i);
     } finally {
@@ -82,13 +82,13 @@ describe('control_links schema — canonical ordering (spec §11.1)', () => {
         `INSERT INTO control_links (system_id, file_system_id, peer_nodeA_system_id, peer_nodeB_system_id,
                                     nodeA_port_system_id, nodeB_port_system_id, heap_id, link_type,
                                     source_subgraph_system_id, dest_subgraph_system_id)
-         VALUES (9002, 1, 10, 20, 100, 200, 0, 'INTRA_SUBGRAPH', 1, 1)`,
+         VALUES (9002, 1, 10, 20, 100, 200, 0, 'NORMAL', 1, 1)`,
       );
       const dupe = ds.query(
         `INSERT INTO control_links (system_id, file_system_id, peer_nodeA_system_id, peer_nodeB_system_id,
                                     nodeA_port_system_id, nodeB_port_system_id, heap_id, link_type,
                                     source_subgraph_system_id, dest_subgraph_system_id)
-         VALUES (9003, 1, 11, 21, 100, 200, 0, 'INTRA_SUBGRAPH', 1, 1)`,
+         VALUES (9003, 1, 11, 21, 100, 200, 0, 'NORMAL', 1, 1)`,
       );
       await expect(dupe).rejects.toThrow(
         /UNIQUE constraint failed|uk_control_link_unique/i,

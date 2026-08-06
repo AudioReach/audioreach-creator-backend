@@ -5,6 +5,7 @@
 
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
 import type {SubsystemDataLink} from '../../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
+import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
 import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
 import type {EditOptions} from '../../edit-options.js';
 import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
@@ -13,6 +14,15 @@ import type {SessionChanged} from '../shared/session-changed.js';
 export interface SubsystemDataRouteContext {
   subsystemDataLinks: SubsystemDataLink[];
   nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
+}
+
+export interface BoundaryPortPayload {
+  portSystemId: number;
+  nodeSystemId: number;
+  nodeParentId: number | null;
+  portIoType: PortIoType;
+  dataPortId: number;
+  fileSystemId: number;
 }
 
 export interface DataLinkRepository {
@@ -62,7 +72,7 @@ export interface DataLinkRepository {
   ): Promise<{linkSystemId: number; portSystemId: number}[]>;
 
   /**
-   * Returns INTRA_USECASE data links matching the given `pairs` — batched,
+   * Returns NORMAL data links matching the given `pairs` — batched,
    * strictly directional. One `LinksForPair<DataLink>` entry per input pair,
    * in the same order as the input; `entry.links` is empty when no data
    * links match that specific `(source_sg, dest_sg)` direction.
@@ -78,7 +88,7 @@ export interface DataLinkRepository {
   ): Promise<LinksForPair<DataLink>[]>;
 
   /**
-   * Returns ALL INTRA_USECASE data links in the file with session overlay
+   * Returns ALL NORMAL data links in the file with session overlay
    * applied — session-created links included, session-deleted links
    * excluded, session-updated links reflect their post-update state.
    *
@@ -106,4 +116,67 @@ export interface DataLinkRepository {
    * deletedDataLinks).
    */
   findChangedInSession(fileSystemId: number): Promise<SessionChanged<DataLink>>;
+
+  /**
+   * Writes CREATE edit_action rows for the DataLink, all its SubsystemDataLinks,
+   * and all auto-created boundary DataPorts. FK order: DataPort(s) → DataLink →
+   * SubsystemDataLink(s). Boundary ports attach to subsystem nodes that already
+   * exist, so no Node row is written. All rows share the groupId from WriteContext.
+   */
+  createDataLink(
+    dataLink: DataLink,
+    boundaryPortPayloads: BoundaryPortPayload[],
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Writes CREATE edit_action rows for boundary DataPorts and SubsystemDataLink
+   * segments only, attaching them to an already-persisted DataLink identified
+   * by `dataLinkSystemId`. Used on the soft-delete re-activation path
+   * (FR-DL-07a) after `reactivateDataLink()` has already written the DataLink
+   * CREATE row itself — this method must not re-issue that row.
+   */
+  attachTraversalEntities(
+    dataLinkSystemId: number,
+    subsystemDataLinks: SubsystemDataLink[],
+    boundaryPortPayloads: BoundaryPortPayload[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Looks up a DataLink by (sourcePortSystemId, destinationPortSystemId) in the
+   * session overlay (base data_links table + active edit_actions).
+   *
+   * Returns null if not found. Returns { systemId, isDeleted: true } if soft-deleted.
+   */
+  findByPortPair(
+    sourcePortSystemId: number,
+    destPortSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    systemId: number;
+    isDeleted: boolean;
+    payload: Record<string, unknown>;
+  } | null>;
+
+  /**
+   * Re-activates a soft-deleted DataLink (FR-DL-07a).
+   * Supersedes the existing DELETE edit_action row, then inserts a new CREATE row.
+   */
+  reactivateDataLink(
+    systemId: number,
+    aggregateId: number,
+    payload: Record<string, unknown>,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Writes a single unresolved SLS (dataLinkSystemId = null) CREATE row to
+   * edit_actions. Used for FR-DLS-11 Branch B where no parent DataLink exists.
+   */
+  createSubsystemDataLink(
+    sls: SubsystemDataLink,
+    options?: EditOptions,
+  ): Promise<void>;
 }

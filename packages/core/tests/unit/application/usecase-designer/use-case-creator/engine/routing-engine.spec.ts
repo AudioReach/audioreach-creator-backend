@@ -17,7 +17,7 @@ import type {RoutingContext} from '../../../../../../src/application/usecase-des
 import {RoutingEngine} from '../../../../../../src/application/usecase-designer/use-case-creator/engine/routing-engine.js';
 import {DfsRoutingService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
 import {CombinationExpansionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion.service.js';
-import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 
 const input = createAutoRoutingInput({
   fileSystemId: 7,
@@ -99,7 +99,7 @@ describe('RoutingEngine', () => {
         routableDataLinks: [
           {
             systemId: 1,
-            linkType: LINK_TYPE.IntraUsecase,
+            linkType: DATA_LINK_TYPE.Normal,
             sourceSubgraphSystemId: 1,
             destSubgraphSystemId: 2,
           } as never,
