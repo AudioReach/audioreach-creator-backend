@@ -19,7 +19,7 @@ import {
 import {ConeComputationService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/cone-computation.service.js';
 import {DfsRoutingService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/dfs-routing.service.js';
 import {CombinationExpansionService} from '../../../../../../src/application/usecase-designer/use-case-creator/phases/combination-expansion.service.js';
-import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
 
 const FILE_ID = 1;
@@ -41,7 +41,7 @@ function makeDataLink(
 ): DataLink {
   return {
     systemId,
-    linkType: LINK_TYPE.IntraUsecase,
+    linkType: DATA_LINK_TYPE.Normal,
     sourceSubgraphSystemId,
     destSubgraphSystemId,
   } as DataLink;

@@ -4,7 +4,7 @@
  */
 
 import {describe, it, expect} from '@jest/globals';
-import {SubsystemControlLink} from '@arc/core';
+import {CONTROL_LINK_TYPE, SubsystemControlLink} from '@arc/core';
 
 describe('SubsystemControlLink (spec §11.2)', () => {
   it('exposes all eight fields from the spec via the constructor in order', () => {
@@ -16,6 +16,7 @@ describe('SubsystemControlLink (spec §11.2)', () => {
       /* nodeBPortSystemId   */ 200,
       /* controlLinkSystemId */ 5000,
       /* fileSystemId        */ 1,
+      /* linkType            */ CONTROL_LINK_TYPE.Normal,
       /* version             */ 1,
     );
     expect(scl.systemId).toBe(9001);
@@ -29,7 +30,17 @@ describe('SubsystemControlLink (spec §11.2)', () => {
   });
 
   it('accepts null controlLinkSystemId (unresolved edit_actions payload, spec §11.2)', () => {
-    const scl = new SubsystemControlLink(9002, 10, 20, 100, 200, null, 1, 1);
+    const scl = new SubsystemControlLink(
+      9002,
+      10,
+      20,
+      100,
+      200,
+      null,
+      1,
+      CONTROL_LINK_TYPE.Normal,
+      1,
+    );
     expect(scl.controlLinkSystemId).toBeNull();
   });
 });

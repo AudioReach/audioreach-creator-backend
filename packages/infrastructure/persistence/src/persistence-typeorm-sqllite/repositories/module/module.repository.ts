@@ -8,6 +8,7 @@ import type {
   ModuleRepository,
   UnitOfWork,
   EditOptions,
+  PortIoType,
   SpfModuleBase,
   PayloadUpdate,
 } from '@arc/core';
@@ -301,6 +302,35 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           }),
       ),
     });
+  }
+
+  async findModulePortsForLink(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    subgraphSystemId: number;
+    ports: {systemId: number; portIoType: PortIoType}[];
+  } | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const modules = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      sessionId,
+      {systemId: moduleSystemId},
+    );
+    const module = modules.at(0);
+    if (module === undefined) return null;
+    const dataPorts = await this.portFetcher.fetchDataPorts(
+      moduleSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    return {
+      subgraphSystemId: module.subgraphSystemId,
+      ports: dataPorts.map(dp => ({
+        systemId: dp.systemId,
+        portIoType: dp.portIoType,
+      })),
+    };
   }
 
   async renameModule(

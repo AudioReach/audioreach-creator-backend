@@ -53,8 +53,7 @@ const details = [
           destinationNodeSystemId: 43,
           sourcePortSystemId: 44,
           destinationPortSystemId: 45,
-          linkType: 'INTRA_USECASE',
-          isEc: true,
+          linkType: 'EC',
         },
       ],
       controlLinks: [
@@ -121,8 +120,7 @@ describe('ProjectController create usecases', () => {
         sourcePortSystemId: '44',
         destinationSystemId: '43',
         destinationPortSystemId: '45',
-        isInterUsecase: false,
-        isEc: true,
+        linkType: 'EC',
       },
     ]);
     expect(response.data.changes[0]?.after?.controlLinks).toEqual([
@@ -132,7 +130,7 @@ describe('ProjectController create usecases', () => {
         sourcePortSystemId: '54',
         destinationSystemId: '53',
         destinationPortSystemId: '55',
-        isInterUsecase: false,
+        linkType: 'INTRA_USECASE',
       },
     ]);
     expect(response.data.changes[0]?.after?.subgraphSystemIds).toEqual([

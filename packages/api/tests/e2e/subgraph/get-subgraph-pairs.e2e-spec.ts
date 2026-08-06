@@ -167,7 +167,7 @@ describe.skip('Get Subgraph Pairs E2E (GET /arc-api/v1/projects/{projectId}/subg
         expect(typeof link.sourcePortSystemId).toBe('string');
         expect(typeof link.destinationSystemId).toBe('string');
         expect(typeof link.destinationPortSystemId).toBe('string');
-        expect(typeof link.isInterUsecase).toBe('boolean');
+        expect(typeof link.linkType).toBe('string');
       }
     }
   });

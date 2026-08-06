@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {LINK_TYPE} from '../../../../domain/entities/usecase-data/links/link-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import {
   RoutingIssueFactory,
@@ -13,6 +12,7 @@ import type {
   ActiveSubgraphSelection,
   GraphEditSummary,
 } from '../contracts/routing-input.js';
+import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 
 export interface RoutingAdditionClosureInput {
   readonly activeSubgraphs: readonly ActiveSubgraphSelection[];
@@ -62,7 +62,7 @@ export function validateRoutingAdditionClosure(
     graphEdits.addedSgs.map(subgraph => subgraph.systemId),
   );
   const addedDataLinks = graphEdits.addedDataLinks.filter(
-    link => link.linkType === LINK_TYPE.IntraUsecase,
+    link => link.linkType === DATA_LINK_TYPE.Normal,
   );
   const addedDataLinkIds = new Set(addedDataLinks.map(link => link.systemId));
   const addedControlLinkIds = new Set(

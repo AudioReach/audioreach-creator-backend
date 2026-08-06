@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {LinkType} from './link-type.js';
+import type {DataLinkType} from './data-link-type.js';
 import type {SubsystemDataLink} from './subsystem-data-link.js';
 import {assertNonNull, invariant} from '../../../../shared/assertions/index.js';
 import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
@@ -14,11 +14,10 @@ export interface DataLinkInit {
   destinationNodeSystemId: number;
   sourcePortSystemId: number;
   destinationPortSystemId: number;
-  linkType: LinkType;
+  linkType: DataLinkType;
   sourceSubgraphSystemId: number;
   destSubgraphSystemId: number;
   fileSystemId: number;
-  isEc?: boolean;
   subsystemDataLinks?: SubsystemDataLink[];
 }
 
@@ -28,10 +27,9 @@ export class DataLink {
   readonly destinationNodeSystemId: number;
   readonly sourcePortSystemId: number;
   readonly destinationPortSystemId: number;
-  readonly linkType: LinkType;
+  readonly linkType: DataLinkType;
   readonly sourceSubgraphSystemId: number;
   readonly destSubgraphSystemId: number;
-  readonly isEc?: boolean;
   readonly fileSystemId: number;
   readonly subsystemDataLinks: SubsystemDataLink[] = [];
 
@@ -48,7 +46,6 @@ export class DataLink {
     this.sourceSubgraphSystemId = initParam.sourceSubgraphSystemId;
     this.destSubgraphSystemId = initParam.destSubgraphSystemId;
     this.fileSystemId = initParam.fileSystemId;
-    this.isEc = initParam.isEc;
     invariant(
       initParam.sourceNodeSystemId !== initParam.destinationNodeSystemId,
       `DataLink cannot connect a node to itself: ${BinaryUtils.toHexString(initParam.sourceNodeSystemId)}`,

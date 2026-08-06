@@ -28,6 +28,7 @@ import type {
   UsecaseDeletionMark,
 } from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
+import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 
 interface StoredTopology {
   readonly kind: 'single-path' | 'multi-path';
@@ -227,7 +228,7 @@ function buildDirectedAdjacency(
       new Map<number, DirectedAdjacencyEdge>();
     destinations.set(link.destSubgraphSystemId, {
       destSubgraphSystemId: link.destSubgraphSystemId,
-      isEc: link.isEc === true,
+      isEc: link.linkType === DATA_LINK_TYPE.Ec,
     });
     adjacencyBySourceSubgraphId.set(link.sourceSubgraphSystemId, destinations);
   }
@@ -766,7 +767,10 @@ function legacyEcBoundaries(
       dataLink.sourceSubgraphSystemId,
       dataLink.destSubgraphSystemId,
     );
-    if (dataLink.isEc === true && usecasePairKeys.has(pairKey)) {
+    if (
+      dataLink.linkType === DATA_LINK_TYPE.Ec &&
+      usecasePairKeys.has(pairKey)
+    ) {
       boundaries.set(pairKey, {
         pairKey,
         sourceSubgraphSystemId: dataLink.sourceSubgraphSystemId,

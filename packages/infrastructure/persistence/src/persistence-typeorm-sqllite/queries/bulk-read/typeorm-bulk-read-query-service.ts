@@ -46,7 +46,8 @@ import type {
 } from '@arc/core';
 import {
   compareNumberArrays,
-  LINK_TYPE,
+  DATA_LINK_TYPE,
+  CONTROL_LINK_TYPE,
   PORT_IO_TYPE,
   SPF_VCPM_MODULE_ID,
 } from '@arc/core';
@@ -467,7 +468,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('dl.destinationPort', 'dest_port')
       .where('dl.fileSystemId = :fileSystemId', {fileSystemId})
       .andWhere('dl.linkType IN (:...types)', {
-        types: [LINK_TYPE.IntraSubgraph, LINK_TYPE.InterUsecase],
+        types: Object.values(DATA_LINK_TYPE),
       })
       .orderBy('sg.naturalId', 'ASC')
       .addOrderBy('src_mod.naturalId', 'ASC')
@@ -491,7 +492,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('peer2_port.allocatedIntents', 'i2')
       .where('cl.fileSystemId = :fileSystemId', {fileSystemId})
       .andWhere('cl.linkType IN (:...types)', {
-        types: [LINK_TYPE.IntraSubgraph, LINK_TYPE.InterUsecase],
+        types: Object.values(CONTROL_LINK_TYPE),
       })
       .orderBy('sg.naturalId', 'ASC')
       .addOrderBy('peer1_mod.naturalId', 'ASC')
@@ -613,7 +614,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         sourcePortNaturalId: dl.sourcePort!.naturalId,
         destinationInstanceNaturalId: dl.destinationNode!.spfModule!.naturalId,
         destinationPortNaturalId: dl.destinationPort!.naturalId,
-        isInterGraph: dl.linkType === LINK_TYPE.InterUsecase,
+        isInterGraph: dl.linkType === DATA_LINK_TYPE.InterUsecase,
       });
     }
     return map;
@@ -662,7 +663,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         peer1PortNaturalId: cl.nodeAPort!.naturalId,
         peer2InstanceNaturalId: cl.peerNodeB!.spfModule!.naturalId,
         peer2PortNaturalId: cl.nodeBPort!.naturalId,
-        isInterGraph: cl.linkType === LINK_TYPE.InterUsecase,
+        isInterGraph: cl.linkType === CONTROL_LINK_TYPE.InterUsecase,
         heapId: cl.heapId ?? undefined,
         intentIds,
       });
@@ -2042,7 +2043,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           .where('n.fileSystemId = :fileSystemId', {fileSystemId})
           .getMany() as Promise<SubsystemRow[]>,
 
-        // Data links (inter-subgraph + intra) with isEc
+        // Data links with canonical classification
         this.dataSource
           .getRepository(ENTITY_NAMES.DataLink)
           .createQueryBuilder('dl')
@@ -2247,7 +2248,6 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           sourcePort?: {naturalId?: number};
           destinationNode?: {spfModule?: {naturalId?: number}};
           destinationPort?: {naturalId?: number};
-          isEc?: boolean;
         }
       >
     ).map(dl => ({
@@ -2256,7 +2256,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       destinationInstanceNaturalId:
         dl.destinationNode?.spfModule?.naturalId ?? 0,
       destinationPortNaturalId: dl.destinationPort?.naturalId ?? 0,
-      isEc: dl.isEc ?? undefined,
+      linkType: dl.linkType,
     }));
 
     const uiFileExtras: UiFileExtrasDownloadModel = {

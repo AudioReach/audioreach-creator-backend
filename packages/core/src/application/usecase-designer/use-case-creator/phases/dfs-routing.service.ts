@@ -8,8 +8,8 @@ import type {RoutingContext} from '../contracts/routing-context.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
 import {PATH_TERMINATION, type DfsPath} from '../contracts/routing-state.js';
 import {RoutingIssueFactory} from '../issues/routing-issue-factory.js';
-import {LINK_TYPE} from '../../../../domain/entities/usecase-data/links/link-type.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
+import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 
 /** Compares two SG paths lexicographically for stable reconstruction ordering. */
 function comparePathIds(
@@ -68,7 +68,7 @@ export class DfsRoutingService {
     // Build topology from the immutable snapshot. Phase 7 must not reload graph state.
     for (const dataLink of context.input.graphSnapshot.routableDataLinks) {
       if (
-        dataLink.linkType !== LINK_TYPE.IntraUsecase ||
+        dataLink.linkType !== DATA_LINK_TYPE.Normal ||
         !coneSubgraphSystemIds.has(dataLink.sourceSubgraphSystemId) ||
         !coneSubgraphSystemIds.has(dataLink.destSubgraphSystemId)
       ) {

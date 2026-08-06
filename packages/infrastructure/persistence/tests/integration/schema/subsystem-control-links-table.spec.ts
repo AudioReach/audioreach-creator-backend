@@ -88,7 +88,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     nodeAPortSystemId: PORT_A_ID,
     nodeBPortSystemId: PORT_B_ID,
     heapId: 0,
-    linkType: 'INTRA_SUBGRAPH',
+    linkType: 'NORMAL',
     sourceSubgraphSystemId: SUBGRAPH_ID,
     destSubgraphSystemId: SUBGRAPH_ID,
     version: 1,

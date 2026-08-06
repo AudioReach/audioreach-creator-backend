@@ -9,8 +9,8 @@ import type {NodeRow} from '../node/node.schema.js';
 import type {SubgraphRow} from '../subgraph/subgraph.schema.js';
 import type {ControlPortRow} from '../node/control-port.js';
 import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
-import type {LinkType} from '@arc/core';
-import {LINK_TYPE} from '@arc/core';
+import type {ControlLinkType} from '@arc/core';
+import {CONTROL_LINK_TYPE} from '@arc/core';
 import {EntitySchema} from 'typeorm';
 
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
@@ -22,7 +22,7 @@ export interface ControlLinkBase {
   nodeAPortSystemId: number;
   nodeBPortSystemId: number;
   heapId: number;
-  linkType: LinkType;
+  linkType: ControlLinkType;
   sourceSubgraphSystemId: number;
   destSubgraphSystemId: number;
 }
@@ -70,7 +70,7 @@ export const ControlLinkSchema = new EntitySchema<ControlLinkRow>({
     linkType: {
       type: 'simple-enum',
       name: 'link_type',
-      enum: Object.values(LINK_TYPE),
+      enum: Object.values(CONTROL_LINK_TYPE),
       nullable: false,
     },
     sourceSubgraphSystemId: {

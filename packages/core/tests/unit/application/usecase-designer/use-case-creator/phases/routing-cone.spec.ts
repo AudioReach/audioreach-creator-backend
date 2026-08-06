@@ -7,7 +7,7 @@ import {jest} from '@jest/globals';
 import {UseCase} from '../../../../../../src/domain/entities/usecase-data/usecase/usecase.js';
 import type {ControlLink} from '../../../../../../src/domain/entities/usecase-data/links/control-link.js';
 import type {DataLink} from '../../../../../../src/domain/entities/usecase-data/links/data-link.js';
-import {LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/link-type.js';
+import {DATA_LINK_TYPE} from '../../../../../../src/domain/entities/usecase-data/links/data-link-type.js';
 import {Subgraph} from '../../../../../../src/domain/entities/usecase-data/subgraph/subgraph.js';
 import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
 import type {SubgraphRepository} from '../../../../../../src/application/ports/persistence/repositories/subgraph/subgraph.repository.js';
@@ -92,7 +92,7 @@ function makeDataLink(
 ): DataLink {
   return {
     systemId,
-    linkType: LINK_TYPE.IntraUsecase,
+    linkType: DATA_LINK_TYPE.Normal,
     sourceSubgraphSystemId,
     destSubgraphSystemId,
   } as DataLink;
@@ -105,7 +105,7 @@ function makeControlLink(
 ): ControlLink {
   return {
     systemId,
-    linkType: LINK_TYPE.IntraUsecase,
+    linkType: DATA_LINK_TYPE.Normal,
     sourceSubgraphSystemId,
     destSubgraphSystemId,
   } as ControlLink;

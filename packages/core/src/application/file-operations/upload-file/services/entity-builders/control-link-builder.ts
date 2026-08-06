@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
-import {LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/link-type.js';
-import type {LinkType} from '../../../../../domain/entities/usecase-data/links/link-type.js';
+import {CONTROL_LINK_TYPE} from '../../../../../domain/entities/usecase-data/links/control-link-type.js';
+import type {ControlLinkType} from '../../../../../domain/entities/usecase-data/links/control-link-type.js';
 import type {ControlLink as ControlLinkProperty} from '../../../shared/acdb-chunks/spf-properties/types.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
 import type {Logger} from '../../../../../shared/types/logger.interface.js';
@@ -340,13 +340,11 @@ export class ControlLinkBuilder {
       return null;
     }
 
-    let linkType: LinkType;
+    let linkType: ControlLinkType;
     if (property.isInterGraph) {
-      linkType = LINK_TYPE.InterUsecase;
-    } else if (sourceSgId === destSgId) {
-      linkType = LINK_TYPE.IntraSubgraph;
+      linkType = CONTROL_LINK_TYPE.InterUsecase;
     } else {
-      linkType = LINK_TYPE.IntraUsecase;
+      linkType = CONTROL_LINK_TYPE.Normal;
     }
 
     // Enforce canonical order required by ck_control_link_port_canonical_order:

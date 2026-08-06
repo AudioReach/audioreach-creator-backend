@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {DATA_LINK_TYPE} from '../../../../domain/entities/usecase-data/links/data-link-type.js';
 import {Result} from '../../../../application/shared/result/result.js';
 import type {Result as ResultType} from '../../../../application/shared/result/result.js';
 import type {RoutingContext} from '../contracts/routing-context.js';
 import {ROUTING_MODE} from '../contracts/routing-input.js';
-import {LINK_TYPE} from '../../../../domain/entities/usecase-data/links/link-type.js';
 import {
   SEED_REASON,
   type SgkvInstance,
@@ -98,7 +98,7 @@ function addLinkSeeds(
     context.input.graphSnapshot.sessionEdits;
   for (const link of addedDataLinks) {
     if (
-      link.linkType === LINK_TYPE.IntraUsecase &&
+      link.linkType === DATA_LINK_TYPE.Normal &&
       effectiveScope.has(link.sourceSubgraphSystemId) &&
       effectiveScope.has(link.destSubgraphSystemId)
     ) {
@@ -107,7 +107,7 @@ function addLinkSeeds(
     }
   }
   for (const link of deletedDataLinks) {
-    if (link.linkType !== LINK_TYPE.IntraUsecase) continue;
+    if (link.linkType !== DATA_LINK_TYPE.Normal) continue;
     if (effectiveScope.has(link.sourceSubgraphSystemId))
       addSeed(
         accumulator,

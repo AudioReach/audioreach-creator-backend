@@ -9,6 +9,7 @@ import type {
 } from '../../../../file-operations/shared/acdb-chunks/header-chunk.js';
 import type {ModulePortStrategy} from '../../../../file-operations/shared/awsp-serializers/v1/configuration/types.js';
 import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import type {DataLinkType} from '../../../../../domain/entities/usecase-data/links/data-link-type.js';
 
 /**
  * ACDB project header metadata from database.
@@ -559,7 +560,7 @@ export interface UiDataLinkDownloadModel {
   sourcePortNaturalId: number;
   destinationInstanceNaturalId: number;
   destinationPortNaturalId: number;
-  isEc?: boolean;
+  linkType: DataLinkType;
 }
 
 /** File-level extras for ui-metadata passthrough. */

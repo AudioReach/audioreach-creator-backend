@@ -4,7 +4,7 @@
  */
 
 import {SameNodeException} from './exceptions.js';
-import type {LinkType} from './link-type.js';
+import type {ControlLinkType} from './control-link-type.js';
 import type {SubsystemControlLink} from './subsystem-control-link.js';
 
 export class ControlLink {
@@ -15,7 +15,7 @@ export class ControlLink {
   public nodeAPortSystemId: number;
   public nodeBPortSystemId: number;
   public heapId: number;
-  public linkType: LinkType;
+  public linkType: ControlLinkType;
   public sourceSubgraphSystemId: number;
   public destSubgraphSystemId: number;
   public subsystemControlLinks: SubsystemControlLink[];
@@ -28,7 +28,7 @@ export class ControlLink {
     nodeAPortSystemId: number,
     nodeBPortSystemId: number,
     heapId: number,
-    linkType: LinkType,
+    linkType: ControlLinkType,
     sourceSubgraphSystemId: number,
     destSubgraphSystemId: number,
     subsystemControlLinks: SubsystemControlLink[] = [],
