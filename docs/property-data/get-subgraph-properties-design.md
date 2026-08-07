@@ -2,7 +2,13 @@
 
 ## Endpoint
 
-`GET /arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/properties` — returns HTTP 200 with `ApiResult<SubgraphPropertiesDto>`
+`GET /arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/properties`
+
+| Status | Condition |
+|---|---|
+| 200 | All property payloads resolved successfully |
+| 207 | One or more property payloads missing — partial data returned with `issues[]` |
+| 404 | Project or subgraph not found |
 
 ---
 
@@ -25,7 +31,7 @@ This feature is structurally identical to **Get Container Properties** (`docs/co
 
 ### Shared types (no duplication)
 
-`PropertyReadModel` is reused directly from `usecase-designer/container/get-properties/property-read-model.ts` — no new file needed.
+`PropertyDataDto` is reused directly from `usecase-designer/shared/property-read-model.ts` — no new file needed.
 
 ---
 
@@ -55,7 +61,7 @@ packages/core/src/application/
     └── subgraph/
         └── get-properties/
             ├── get-subgraph-properties.query.ts                        (new)
-            └── get-subgraph-properties.handler.ts                      (new — returns PropertyReadModel[])
+            └── get-subgraph-properties.handler.ts                      (new — returns Result<PropertyDataDto[]>)
 ```
 
 > `PropertyReadModel` and the `shared/` utilities are defined in `get-container-properties` — reused directly here.
@@ -115,19 +121,18 @@ Client
               → Result.fail → throws
               → Result.ok(null) → ResourceNotFoundException → 404
               → Result.ok(PropertyPayloadReadModel[]) → subgraph exists + property payloads
-      Step 4: getAllSubgraphPropertyDefinitionsWithElements(fileSystemId)
+      Step 4: getAllDetailedSubgraphPropertyDefinitionsWithElements(fileSystemId)
               → SubgraphPropertyDefinitionWithElementsReadModel[]
       Step 5: defMap = Map<systemId, SubgraphPropertyDefinitionWithElementsReadModel>
-              for each PropertyPayloadReadModel in payloads:
-                def = defMap.get(property.propertySystemId)
-                hasDefinition = def !== undefined
-                elements = property.payload && def
-                  ? parseParameterData(property.payload as Uint8Array, def.elementsStructure)
-                  : []
-                → PropertyReadModel
-      returns PropertyReadModel[]
-  → SubgraphController maps to SubgraphPropertiesDto
-  → HTTP 200
+              buildPropertyModels(payloads, defMap)
+                for each def in defMap:
+                  payload found → parse elements → PropertyDataDto
+                  payload missing → Issue(PROPERTY_PAYLOAD_NOT_FOUND) accumulated
+                issues.length > 0 → Result.partial(data, issues)
+                issues.length = 0 → Result.ok(data)
+      returns Result<PropertyDataDto[]>
+  → SubgraphController: toApiResult(result, data => new SubgraphPropertiesDto(...))
+  → HTTP 200 (all payloads present) or 207 (one or more payloads missing)
 ```
 
 ---
@@ -148,7 +153,7 @@ export interface SubgraphPropertyDefinitionWithElementsReadModel
 
 Extends `SubgraphPropertyDefinitionSummaryReadModel` (adds `isVoice: boolean`) and `PropertyDefinitionWithElements` (which already extends `PropertyDefinitionReadModel` and adds `elementsStructure`).
 
-**Handler output:** reuses `PropertyReadModel` from `usecase-designer/container/get-properties/property-read-model.ts`.
+**Handler output:** reuses `PropertyDataDto` from `usecase-designer/shared/property-read-model.ts`.
 
 ### 2. Core Layer — Ports
 
@@ -192,11 +197,11 @@ export class GetSubgraphPropertiesQuery extends BaseQuery {
 
 ```typescript
 export class GetSubgraphPropertiesHandler
-  implements QueryHandler<GetSubgraphPropertiesQuery, Promise<PropertyReadModel[]>> {
+  implements QueryHandler<GetSubgraphPropertiesQuery, Promise<Result<PropertyDataDto[]>>> {
 
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(query: GetSubgraphPropertiesQuery): Promise<PropertyReadModel[]> {
+  async handle(query: GetSubgraphPropertiesQuery): Promise<Result<PropertyDataDto[]>> {
     // Step 1: resolve fileSystemId
     const fileSystemId = await this.queryServices.projectQueryService
       .getFileIdByProjectId(query.projectId);
@@ -216,13 +221,12 @@ export class GetSubgraphPropertiesHandler
 
     // Step 4: fetch definitions with elementsStructure
     const definitionsResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getAllSubgraphPropertyDefinitionsWithElements(fileSystemId);
-
+      .getAllDetailedSubgraphPropertyDefinitionsWithElements(fileSystemId);
     if (definitionsResult.kind === RESULT_KIND.Fail) {
       throw new Error(definitionsResult.issues[0]?.message ?? 'Failed to load subgraph property definitions');
     }
 
-    // Step 5: join + parse
+    // Step 5: join + parse — missing payloads become issues, not exceptions
     const defMap = new Map(definitionsResult.data.map(d => [d.systemId, d]));
     return buildPropertyModels(payloads, defMap);
   }
@@ -484,25 +488,14 @@ async getSubgraphProperties(
     Number.parseInt(subgraphSystemId, 10),
     'client-id',
   );
-  const properties = await this.queryBus.execute<PropertyReadModel[]>(query);
-  return ApiResult.ok(
-    new SubgraphPropertiesDto(properties.map(p => this.toPropertyDto(p))),
+  const result = await this.queryBus.execute<Result<PropertyDataDto[]>>(query);
+  return toApiResult(result, properties =>
+    new SubgraphPropertiesDto(properties.map(p => mapPropertyToDto(p))),
   );
-}
-
-private toPropertyDto(model: PropertyReadModel): PropertyDto {
-  const dto = new PropertyDto(
-    String(model.systemId),
-    model.propertyId,
-    model.propertyName,
-    model.hasDefinition,
-  );
-  dto.elements = model.elements.map(e => this.transformElement(e));
-  return dto;
 }
 ```
 
-The `transformElement` private methods are duplicated from `SpfModuleController` for now — extraction to a shared mapper is tracked in the **Refactoring** section of `get-container-properties-design.md`.
+`toApiResult` propagates `Result.partial` issues into `ApiResult.issues`, which `PartialSuccessInterceptor` then upgrades to HTTP 207.
 
 ---
 
@@ -514,10 +507,10 @@ The `transformElement` private methods are duplicated from `SpfModuleController`
 
 | Test case | Description |
 |---|---|
-| Happy path | `findPropertyPayloads` returns `PropertyPayloadReadModel[]`; definitions joined; `elements` populated |
-| Subgraph not found | `findPropertyPayloads` returns null → throws `ResourceNotFoundException` |
-| Payload null | `elements` is empty `[]` |
-| No matching definition | `hasDefinition=false`, `elements=[]`, `propertyName=''` |
+| Happy path | Returns `Result.ok` with `PropertyDataDto[]`; definitions joined; `elements` populated |
+| Subgraph not found | `findPropertyPayloads` returns `ok(null)` → throws `ResourceNotFoundException` |
+| Payload null | `elements` is empty `[]`, result is `Result.ok` |
+| No payload for definition | Returns `Result.partial` with `PROPERTY_PAYLOAD_NOT_FOUND` issue |
 | Definitions fetch fails | `Result.fail` → throws |
 
 ### Integration Tests
@@ -540,5 +533,4 @@ The `transformElement` private methods are duplicated from `SpfModuleController`
 |---|---|
 | Happy path | 200 |
 | Subgraph not found | 404 |
-| Project not found | 404 |
-| Unauthenticated | 401 |
+| Missing payload row (DB row deleted after upload) | 207 — `issues[0].code === 'PROPERTY_PAYLOAD_NOT_FOUND'` |

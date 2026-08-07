@@ -5930,11 +5930,29 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success — one or more property payloads missing (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SubgraphPropertiesDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project or subgraph not found"
-          },
-          "422": {
-            "description": "Failed to get subgraph properties"
           }
         },
         "summary": "Get all property data for a subgraph",
@@ -7035,11 +7053,29 @@
               }
             }
           },
+          "207": {
+            "description": "Partial success — one or more property payloads missing (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ContainerPropertiesDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": {
             "description": "Project or container not found"
-          },
-          "422": {
-            "description": "Failed to get container properties"
           }
         },
         "summary": "Get all property data for a container",

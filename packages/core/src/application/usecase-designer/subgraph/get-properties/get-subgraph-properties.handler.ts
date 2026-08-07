@@ -8,15 +8,17 @@ import type {GetSubgraphPropertiesQuery} from './get-subgraph-properties.query.j
 import type {PropertyDataDto} from '../../shared/property-read-model.js';
 import {buildPropertyModels} from '../../shared/build-property-models.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
-import {RESULT_KIND} from '../../../shared/result/result.js';
+import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 
 export class GetSubgraphPropertiesHandler implements QueryHandler<
   GetSubgraphPropertiesQuery,
-  Promise<PropertyDataDto[]>
+  Promise<Result<PropertyDataDto[]>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(query: GetSubgraphPropertiesQuery): Promise<PropertyDataDto[]> {
+  async handle(
+    query: GetSubgraphPropertiesQuery,
+  ): Promise<Result<PropertyDataDto[]>> {
     // Step 1: resolve fileSystemId from projectId
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(

@@ -7,6 +7,7 @@ import request from 'supertest';
 import {join, dirname} from 'path';
 import {fileURLToPath} from 'url';
 import {INestApplication} from '@nestjs/common';
+import {DataSource} from 'typeorm';
 import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -116,5 +117,41 @@ describe('Get Subgraph Properties E2E (GET /arc-api/v1/projects/{projectId}/subg
       .timeout(30000);
 
     expect(response.status).toBe(404);
+  });
+
+  it('returns 207 with issues when a property payload row is missing', async () => {
+    if (!projectId || !sampleSubgraphSystemId) {
+      console.warn('No projectId or sampleSubgraphSystemId — skipping');
+      return;
+    }
+
+    // Delete one SubgraphPropertyData row to simulate a missing payload
+    const dataSource = app.get(DataSource);
+    const deleted = await dataSource.manager
+      .createQueryBuilder()
+      .delete()
+      .from('SubgraphPropertyData')
+      .where('subgraphSystemId = :id', {id: Number(sampleSubgraphSystemId)})
+      .limit(1)
+      .execute();
+
+    if (deleted.affected === 0) {
+      console.warn(
+        'No SubgraphPropertyData rows to delete — skipping 207 test',
+      );
+      return;
+    }
+
+    const response = await request(httpServer)
+      .get(
+        `/arc-api/v1/projects/${projectId}/subgraphs/${sampleSubgraphSystemId}/properties`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .timeout(30000);
+
+    expect(response.status).toBe(207);
+    expect(Array.isArray(response.body.issues)).toBe(true);
+    expect(response.body.issues.length).toBeGreaterThan(0);
+    expect(response.body.issues[0].code).toBe('PROPERTY_PAYLOAD_NOT_FOUND');
   });
 });

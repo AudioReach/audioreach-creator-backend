@@ -167,12 +167,14 @@ export class SubgraphController extends BaseController {
         dto: SubgraphPropertiesDto,
       },
       {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project or subgraph not found',
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — one or more property payloads missing (see issues array)',
+        dto: SubgraphPropertiesDto,
       },
       {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get subgraph properties',
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or subgraph not found',
       },
     ],
   })
@@ -185,10 +187,13 @@ export class SubgraphController extends BaseController {
       Number.parseInt(subgraphSystemId, 10),
       'client-id',
     );
-    const properties = await this.queryBus.execute<PropertyDataDto[]>(query);
-    return {
-      data: new SubgraphPropertiesDto(properties.map(p => mapPropertyToDto(p))),
-    };
+    const result =
+      await this.queryBus.execute<Result<PropertyDataDto[]>>(query);
+    return toApiResult(
+      result,
+      properties =>
+        new SubgraphPropertiesDto(properties.map(p => mapPropertyToDto(p))),
+    );
   }
 
   /**

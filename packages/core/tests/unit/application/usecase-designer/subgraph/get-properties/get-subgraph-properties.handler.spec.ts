@@ -9,7 +9,11 @@ import type {QueryServices} from '../../../../../../src/application/ports/persis
 import type {PropertyPayloadReadModel} from '../../../../../../src/application/ports/persistence/query-services/shared/property-payload-read-model.js';
 import type {SubgraphPropertyDefinitionWithElementsReadModel} from '../../../../../../src/application/ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-with-elements-read-model.js';
 import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
-import {Result} from '../../../../../../src/application/shared/result/result.js';
+import {
+  Result,
+  RESULT_KIND,
+} from '../../../../../../src/application/shared/result/result.js';
+import {ISSUE_CODE} from '../../../../../../src/shared/issues/operational-codes.js';
 
 const FILE_SYSTEM_ID = 7;
 const SUBGRAPH_SYSTEM_ID = 20;
@@ -84,15 +88,16 @@ function makeQuery(): GetSubgraphPropertiesQuery {
 }
 
 describe('GetSubgraphPropertiesHandler', () => {
-  it('happy path — returns PropertyReadModel[] with joined definitions and parsed elements', async () => {
+  it('happy path — returns ok Result with PropertyReadModel[] with joined definitions and parsed elements', async () => {
     const handler = new GetSubgraphPropertiesHandler(makeServices());
     const result = await handler.handle(makeQuery());
 
-    expect(result).toHaveLength(1);
-    expect(result[0].systemId).toBe(201);
-    expect(result[0].propertyId).toBe(55);
-    expect(result[0].propertyName).toBe('gain');
-    expect(result[0].elements).not.toHaveLength(0);
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0].systemId).toBe(201);
+    expect(result.data![0].propertyId).toBe(55);
+    expect(result.data![0].propertyName).toBe('gain');
+    expect(result.data![0].elements).not.toHaveLength(0);
   });
 
   it('subgraph not found — throws ResourceNotFoundException when findPropertyPayloads returns ok(null)', async () => {
@@ -117,20 +122,24 @@ describe('GetSubgraphPropertiesHandler', () => {
     );
     const result = await handler.handle(makeQuery());
 
-    expect(result).toHaveLength(1);
-    expect(result[0].elements).toEqual([]);
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0].elements).toEqual([]);
   });
 
-  it('no payload for definition — throws ResourceNotFoundException', async () => {
+  it('no payload for definition — returns partial result with PROPERTY_PAYLOAD_NOT_FOUND issue', async () => {
     const handler = new GetSubgraphPropertiesHandler(
       makeServices({
         payloadsResult: Result.ok([]),
         definitionsResult: Result.ok([mockDef]),
       }),
     );
-    await expect(handler.handle(makeQuery())).rejects.toThrow(
-      ResourceNotFoundException,
-    );
+    const result = await handler.handle(makeQuery());
+
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    expect(result.data).toEqual([]);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].code).toBe(ISSUE_CODE.PROPERTY_PAYLOAD_NOT_FOUND);
   });
 
   it('definitions fetch fails — throws Error', async () => {

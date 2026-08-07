@@ -119,12 +119,14 @@ export class ContainerController extends BaseController {
         dto: ContainerPropertiesDto,
       },
       {
-        status: HttpStatus.NOT_FOUND,
-        description: 'Project or container not found',
+        status: HttpStatus.MULTI_STATUS,
+        description:
+          'Partial success — one or more property payloads missing (see issues array)',
+        dto: ContainerPropertiesDto,
       },
       {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to get container properties',
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project or container not found',
       },
     ],
   })
@@ -137,12 +139,13 @@ export class ContainerController extends BaseController {
       Number.parseInt(containerSystemId, 10),
       'client-id',
     );
-    const properties = await this.queryBus.execute<PropertyDataDto[]>(query);
-    return {
-      data: new ContainerPropertiesDto(
-        properties.map(p => mapPropertyToDto(p)),
-      ),
-    };
+    const result =
+      await this.queryBus.execute<Result<PropertyDataDto[]>>(query);
+    return toApiResult(
+      result,
+      properties =>
+        new ContainerPropertiesDto(properties.map(p => mapPropertyToDto(p))),
+    );
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────

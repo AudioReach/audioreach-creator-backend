@@ -6,7 +6,8 @@ import {buildPropertyModels} from '../../../../../src/application/usecase-design
 import type {PropertyPayloadReadModel} from '../../../../../src/application/ports/persistence/query-services/shared/property-payload-read-model.js';
 import type {PropertyDefinitionWithElements} from '../../../../../src/application/usecase-designer/shared/property-definition-with-elements.js';
 import {PROPERTY_TYPE} from '../../../../../src/domain/entities/definitions/common/entities/property-definition.js';
-import {ResourceNotFoundException} from '../../../../../src/shared/exceptions/resource-not-found.exception.js';
+import {RESULT_KIND} from '../../../../../src/application/shared/result/result.js';
+import {ISSUE_CODE} from '../../../../../src/shared/issues/operational-codes.js';
 
 // parseParameterData is the real binary parser — tests below use null payloads
 // to exercise the mapping logic without needing a valid binary blob.
@@ -25,19 +26,21 @@ const makeDef = (
 });
 
 describe('buildPropertyModels', () => {
-  it('returns an empty array when payloads is empty', () => {
+  it('returns an empty ok result when payloads is empty', () => {
     const result = buildPropertyModels([], new Map());
-    expect(result).toEqual([]);
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(result.data).toEqual([]);
   });
 
-  it('returns an empty array when defMap is empty', () => {
+  it('returns an empty ok result when defMap is empty', () => {
     const payload: PropertyPayloadReadModel = {
       systemId: 42,
       propertySystemId: 1,
       payload: null,
     };
     const result = buildPropertyModels([payload], new Map());
-    expect(result).toEqual([]);
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(result.data).toEqual([]);
   });
 
   it('maps systemId and propertyId from payload and definition', () => {
@@ -49,8 +52,10 @@ describe('buildPropertyModels', () => {
     const def = makeDef({systemId: 1, propertyId: 100, name: 'volume'});
     const defMap = new Map([[1, def]]);
 
-    const [model] = buildPropertyModels([payload], defMap);
+    const result = buildPropertyModels([payload], defMap);
 
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    const [model] = result.data!;
     expect(model.systemId).toBe(42);
     expect(model.propertyId).toBe(100);
     expect(model.propertyName).toBe('volume');
@@ -64,16 +69,20 @@ describe('buildPropertyModels', () => {
     };
     const defMap = new Map([[1, makeDef()]]);
 
-    const [model] = buildPropertyModels([payload], defMap);
+    const result = buildPropertyModels([payload], defMap);
 
-    expect(model.elements).toEqual([]);
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(result.data![0].elements).toEqual([]);
   });
 
-  it('throws ResourceNotFoundException when definition has no matching payload', () => {
+  it('returns partial result with PROPERTY_PAYLOAD_NOT_FOUND issue when definition has no matching payload', () => {
     const def = makeDef({systemId: 2, propertyId: 200});
-    expect(() => buildPropertyModels([], new Map([[2, def]]))).toThrow(
-      ResourceNotFoundException,
-    );
+    const result = buildPropertyModels([], new Map([[2, def]]));
+
+    expect(result.kind).toBe(RESULT_KIND.Partial);
+    expect(result.data).toEqual([]);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].code).toBe(ISSUE_CODE.PROPERTY_PAYLOAD_NOT_FOUND);
   });
 
   it('sets elements to [] when payload is null even when definition exists', () => {
@@ -82,7 +91,9 @@ describe('buildPropertyModels', () => {
       propertySystemId: 1,
       payload: null,
     };
-    const [model] = buildPropertyModels([payload], new Map([[1, makeDef()]]));
-    expect(model.elements).toEqual([]);
+    const result = buildPropertyModels([payload], new Map([[1, makeDef()]]));
+
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    expect(result.data![0].elements).toEqual([]);
   });
 });
