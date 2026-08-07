@@ -17,8 +17,8 @@ import type {
   StructData,
   ElementArrayData,
 } from '../../../domain/entities/definitions/common/types/element-data.js';
-import {BinaryDataReader} from '../spf-module/param-parser/utils/binary-data-reader.js';
-import {evaluateFormula} from '../spf-module/param-parser/utils/formular-evaluator.js';
+import {BinaryDataReader} from './utils/binary-data-reader.js';
+import {evaluateFormula} from './utils/formular-evaluator.js';
 
 /**
  * Converts a `Uint8Array` to a lowercase hex string (e.g. `[0x0a, 0xff]` → `"0aff"`).

@@ -11,7 +11,7 @@ import type {
 } from './ckv-calibration-read-model.js';
 import type {ParameterPayloadReadModel} from '../../../ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
 import type {ParameterDefinitionReadModel} from '../../../ports/persistence/query-services/shared/parameter-definition-read-model.js';
-import {parseParameterData} from '../param-parser/parse-elements.js';
+import {parseParameterData} from '../../shared/parse-elements.js';
 import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {
