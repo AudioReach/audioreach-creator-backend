@@ -2,14 +2,14 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {PARAMETER_ELEMENT_TYPE} from '../spf-module/param-parser/types/element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from './element-definition.js';
 import type {
   ConfigElement,
   StructElement,
   ElementArray,
   StructArray,
   DefinitionElement,
-} from '../spf-module/param-parser/types/element-definition.js';
+} from './element-definition.js';
 import type {Logger} from '../../../shared/types/logger.interface.js';
 import type {
   ElementData,

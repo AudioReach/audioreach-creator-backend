@@ -2,7 +2,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import type {DataType} from '../../../../file-operations/shared/awsp-serializers/v1/definitions/common/type/data-type.js';
+import type {DataType} from '../../file-operations/shared/awsp-serializers/v1/definitions/common/type/data-type.js';
 
 /** Display widget type for a parameter element (DB layer). */
 export const DISPLAY_TYPE = {

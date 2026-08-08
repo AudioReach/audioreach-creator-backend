@@ -8,7 +8,7 @@ import type {
   ElementArrayData,
   StructData,
 } from '../../../../../../src/domain/entities/definitions/common/types/element-data.js';
-import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/spf-module/param-parser/types/element-definition.js';
+import {PARAMETER_ELEMENT_TYPE} from '../../../../../../src/application/usecase-designer/shared/element-definition.js';
 
 describe('parseParameterData', () => {
   describe('ConfigElement', () => {

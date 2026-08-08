@@ -6,7 +6,7 @@ import type {DataType} from '../../../../../application/file-operations/shared/a
 import {
   PARAMETER_ELEMENT_TYPE,
   type DisplayType,
-} from '../../../../../application/usecase-designer/spf-module/param-parser/types/element-definition.js';
+} from '../../../../../application/usecase-designer/shared/element-definition.js';
 
 // ── Shared base fields present on every element variant ───────────────────────
 

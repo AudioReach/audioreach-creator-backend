@@ -184,7 +184,7 @@ export * from './application/definition/driver-module-definition/get-by-id/get-d
 export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.handler.js';
 
 // Use case designer
-export * from './application/usecase-designer/spf-module/param-parser/index.js';
+export * from './application/usecase-designer/shared/index.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/ckv-calibration-read-model.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
