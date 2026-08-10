@@ -4,7 +4,10 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {CkvDto, ParamInfo} from '../shared/tuning-config.dto.js';
+import {
+  CkvResponseDto,
+  ParamInfoResponseDto,
+} from '../shared/tuning-config.dto.js';
 
 /**
  * Response DTO for CKV parameter operations.
@@ -13,9 +16,9 @@ import {CkvDto, ParamInfo} from '../shared/tuning-config.dto.js';
 export class CkvParametersResponseDto {
   @ApiProperty({
     description: 'Array of parameters that support CALIBRATION for this module',
-    type: [ParamInfo],
+    type: [ParamInfoResponseDto],
   })
-  parameters!: ParamInfo[];
+  parameters!: ParamInfoResponseDto[];
 }
 
 /**
@@ -30,9 +33,9 @@ export class TkvParameterItem {
 
   @ApiProperty({
     description: 'Parameters supported by this TKV',
-    type: [ParamInfo],
+    type: [ParamInfoResponseDto],
   })
-  parameters!: ParamInfo[];
+  parameters!: ParamInfoResponseDto[];
 }
 
 /**
@@ -112,9 +115,9 @@ export class TkvParameterRemovalResponseDto {
 export class AddCkvsResponseDto {
   @ApiProperty({
     description: 'Array of CKVs that were created',
-    type: [CkvDto],
+    type: [CkvResponseDto],
   })
-  addedCkvs!: CkvDto[];
+  addedCkvs!: CkvResponseDto[];
 
   @ApiProperty({
     description:

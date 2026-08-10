@@ -3,79 +3,34 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {createZodDto} from 'nestjs-zod';
+import {
+  SpfModuleDtoSchema,
+  DataPortDtoSchema,
+  ControlPortDtoSchema,
+  type PropertyDto as CorePropertyDto,
+} from '@arc/core';
 import {ApiProperty} from '@nestjs/swagger';
-import {BaseConnectableComponentDto} from '../../../../common/dto/component.dto.js';
-import {PropertyDto} from '../../../../common/dto/index.js';
-import {CkvDto, TagInfoDto} from './tuning-config.dto.js';
+import {EndPointLink} from '../../../../common/utils/utilities.js';
 
-/**
- * DTO for SPF module properties
- */
-export class SpfModulePropertiesDto {
-  @ApiProperty({
-    description: 'Array of module instance properties',
-    type: [PropertyDto],
-  })
-  properties: PropertyDto[];
+export class DataPortResponseDto extends createZodDto(DataPortDtoSchema) {}
 
-  constructor(properties: PropertyDto[]) {
-    this.properties = properties;
-  }
+export class ControlPortResponseDto extends createZodDto(
+  ControlPortDtoSchema,
+) {}
+
+// properties is omitted because its element union uses z.lazy(), which nestjs-zod
+// cannot resolve to a stable $ref — it is re-declared manually below.
+export class SpfModuleResponseDto extends createZodDto(
+  SpfModuleDtoSchema.omit({properties: true}),
+) {
+  @ApiProperty({description: 'Related endpoint links', type: [EndPointLink]})
+  relatedEndPointLinks!: EndPointLink[];
+
+  @ApiProperty({description: 'Module instance properties', required: false})
+  properties?: CorePropertyDto[];
 }
 
-export class SpfModuleDto extends BaseConnectableComponentDto {
-  @ApiProperty({description: 'Module alias'})
-  alias!: string;
-
-  @ApiProperty({description: 'Module ID'})
-  moduleId: number;
-
-  @ApiProperty({description: 'Subgraph ID'})
-  subgraphId!: number;
-
-  @ApiProperty({description: 'Container ID'})
-  containerId!: number;
-
-  @ApiProperty({description: 'Maximum number of input ports supported'})
-  maxInputPortsSupported!: number;
-
-  @ApiProperty({description: 'Maximum number of output ports supported'})
-  maxOutputPortsSupported!: number;
-
-  @ApiProperty({description: 'Maximum number of control ports supported'})
-  maxControlPortsSupported!: number;
-
-  @ApiProperty({
-    description: 'Calibration key-values configuration',
-    type: [CkvDto],
-    required: false,
-  })
-  ckvs?: CkvDto[];
-
-  @ApiProperty({
-    description: 'Tag information containing tag key-values',
-    type: [TagInfoDto],
-    required: false,
-  })
-  tags?: TagInfoDto[];
-
-  @ApiProperty({
-    description: 'Module instance properties',
-    type: [PropertyDto],
-    required: false,
-  })
-  properties?: PropertyDto[];
-
-  constructor(
-    systemId: string,
-    id: number,
-    moduleId: number,
-    name: string,
-    parentId?: number,
-  ) {
-    super(systemId, id);
-    this.moduleId = moduleId;
-    this.name = name;
-    this.parentId = parentId;
-  }
-}
+export class SpfModulePropertiesResponseDto extends createZodDto(
+  SpfModuleDtoSchema.pick({properties: true}),
+) {}

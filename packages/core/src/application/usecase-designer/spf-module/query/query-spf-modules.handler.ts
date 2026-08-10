@@ -11,47 +11,23 @@ import type {
   TagReadModel,
 } from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 import type {SpfModulesQuery as SpfModuleQuery} from './query-spf-modules.query.js';
+import type {SpfModuleDto} from './spf-module-dto.js';
+import {mapSpfModule} from './spf-module-dto.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
 
-export interface SpfModuleDetailedReadModel {
-  modules: SpfModuleReadModel[];
-  // Present when includeCkvs/includeTags=true — one entry per requested module,
-  // regardless of outcome. `kind === 'ok'` with data `[]` means the module
-  // genuinely has none; `kind === 'fail'` means loading that module's data
-  // errored. Callers must switch on `.kind` per entry rather than inferring
-  // from absence.
-  ckvsByModule?: Map<number, Result<CkvReadModel[]>>;
-  tagsByModule?: Map<number, Result<TagReadModel[]>>;
-}
-
-/**
- * Handles SpfModulesQuery.
- *
- * Step 1: Resolve projectId → fileSystemId via ProjectQueryService
- * Step 2: Load SPF modules via SpfModuleQueryService.findMany()
- * Step 3: Load CKVs and tags in parallel across all modules — one call per module per concern
- *
- * Unknown systemIds are silently omitted — partial result.
- * Per-module CKV/tag failures are captured as Result.fail entries in
- * ckvsByModule/tagsByModule — every requested module gets an entry either way.
- */
 export class SpfModuleQueryHandler implements QueryHandler<
   SpfModuleQuery,
-  Promise<Result<SpfModuleDetailedReadModel>>
+  Promise<Result<SpfModuleDto[]>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(
-    query: SpfModuleQuery,
-  ): Promise<Result<SpfModuleDetailedReadModel>> {
-    // Step 1 — resolve projectId → fileSystemId
+  async handle(query: SpfModuleQuery): Promise<Result<SpfModuleDto[]>> {
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
 
-    // Step 2 — load modules
     const modulesResult =
       await this.queryServices.spfModuleQueryService.findMany(
         query.systemIds,
@@ -65,11 +41,13 @@ export class SpfModuleQueryHandler implements QueryHandler<
     const modules = modulesResult.data;
 
     if (modules.length === 0 || (!query.includeCkvs && !query.includeTags)) {
-      return Result.ok({modules});
+      const dtos = modules.map(m => mapSpfModule(m));
+      if (modulesResult.kind === RESULT_KIND.Partial) {
+        return Result.partial(dtos, modulesResult.issues);
+      }
+      return Result.ok(dtos, modulesResult.issues);
     }
 
-    // Step 3 — load CKVs and tags in parallel across all modules
-    // Independent collections — each loads and fails independently per module
     const [ckvsByModule, tagsByModule] = await Promise.all([
       query.includeCkvs
         ? this.loadCkvsForModules(modules, fileSystemId)
@@ -79,7 +57,18 @@ export class SpfModuleQueryHandler implements QueryHandler<
         : undefined,
     ]);
 
-    return Result.ok({modules, ckvsByModule, tagsByModule});
+    const dtos = modules.map(m =>
+      mapSpfModule(
+        m,
+        ckvsByModule?.get(m.systemId),
+        tagsByModule?.get(m.systemId),
+      ),
+    );
+
+    if (modulesResult.kind === RESULT_KIND.Partial) {
+      return Result.partial(dtos, modulesResult.issues);
+    }
+    return Result.ok(dtos, modulesResult.issues);
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────
