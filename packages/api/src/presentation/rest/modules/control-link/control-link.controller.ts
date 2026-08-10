@@ -22,24 +22,21 @@ import {AuthGuard} from '@nestjs/passport';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {CreateControlLinkRequest} from './dto/control-link-request.dto.js';
 import {
-  ControlLinkDto,
-  ControlLinkPropertiesDto,
+  ControlLinkResponseDto,
+  ControlLinkPropertiesResponseDto,
 } from './dto/control-link.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
-import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
+import {ComponentCollectionResponseDto} from '../../common/dto/component-collection.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,
   CreateControlLinkCommand,
   DeleteControlLinkCommand,
   Result,
-  type ComponentsReadModel,
-  type ControlLinkReadModel,
 } from '@arc/core';
-import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 
 /**
  * Controller to support all control link related APIs for usecase design.
@@ -72,13 +69,13 @@ export class ControlLinkController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'All control-links found successfully',
-        dto: [ControlLinkDto],
+        dto: [ControlLinkResponseDto],
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some control-links could not be retrieved (see errors array)',
-        dto: [ControlLinkDto],
+        dto: [ControlLinkResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -93,7 +90,7 @@ export class ControlLinkController extends BaseController {
   async queryControlLinks(
     @Param('projectId') projectId: string,
     @Body() controlLinkSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<ControlLinkDto[]>> {
+  ): Promise<ApiResult<ControlLinkResponseDto[]>> {
     await Promise.resolve();
     console.log(
       'Getting control-links in project:',
@@ -107,20 +104,20 @@ export class ControlLinkController extends BaseController {
 
   /**
    * Create a new control link (flat view).
-   * Stores all segments in DB; returns ComponentCollectionDto.
+   * Stores all segments in DB; returns ComponentCollectionResponseDto.
    */
   @Post()
   @ApiDocumentationWithExample({
     summary: 'Create a new control link (flat view)',
     description:
       'Creates a control link between two modules. Stores all segments in DB. ' +
-      'Returns flat ComponentCollectionDto with the created link.',
+      'Returns flat ComponentCollectionResponseDto with the created link.',
     requestDto: CreateControlLinkRequest,
     responses: [
       {
         status: HttpStatus.CREATED,
         description: 'Control link created successfully',
-        dto: ComponentCollectionDto,
+        dto: ComponentCollectionResponseDto,
       },
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
@@ -137,7 +134,7 @@ export class ControlLinkController extends BaseController {
   async createControlLink(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateControlLinkRequest,
-  ): Promise<ApiResult<ComponentCollectionDto>> {
+  ): Promise<ApiResult<ComponentCollectionResponseDto>> {
     console.log(
       'Creating control link for project:',
       projectId,
@@ -154,8 +151,8 @@ export class ControlLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentsReadModel>(command);
-    return toApiResult(Result.ok(this.toComponentCollectionDto(components)));
+      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+    return toApiResult(Result.ok(components));
   }
 
   /**
@@ -205,10 +202,8 @@ export class ControlLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentsReadModel>(command);
-    return toApiResult(
-      Result.ok(this.toComponentCollectionWithSubsystemsDto(components)),
-    );
+      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+    return toApiResult(Result.ok({...components, subsystems: []}));
   }
 
   /**
@@ -217,9 +212,13 @@ export class ControlLinkController extends BaseController {
   @Patch('/:controlLinkSystemId/properties')
   @ApiDocumentationWithExample({
     summary: 'Update control link properties',
-    requestDto: ControlLinkPropertiesDto,
+    requestDto: ControlLinkPropertiesResponseDto,
     responses: [
-      {status: HttpStatus.OK, description: 'Success', dto: [ControlLinkDto]},
+      {
+        status: HttpStatus.OK,
+        description: 'Success',
+        dto: [ControlLinkResponseDto],
+      },
       {
         status: HttpStatus.NOT_FOUND,
         description: 'Project or control link not found',
@@ -232,8 +231,8 @@ export class ControlLinkController extends BaseController {
   })
   async updateControlLinkProperties(
     @Param('controlLinkSystemId') controlLinkSystemId: string,
-    @Body() properties: ControlLinkPropertiesDto,
-  ): Promise<ApiResult<ControlLinkDto[]>> {
+    @Body() properties: ControlLinkPropertiesResponseDto,
+  ): Promise<ApiResult<ControlLinkResponseDto[]>> {
     console.log(
       'Updating control link with properties:',
       controlLinkSystemId,
@@ -261,7 +260,7 @@ export class ControlLinkController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Success',
-        dto: ControlLinkPropertiesDto,
+        dto: ControlLinkPropertiesResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -276,7 +275,7 @@ export class ControlLinkController extends BaseController {
   async getControlLinkProperties(
     @Param('projectId') projectId: string,
     @Param('controlLinkSystemId') controlLinkSystemId: string,
-  ): Promise<ApiResult<ControlLinkPropertiesDto>> {
+  ): Promise<ApiResult<ControlLinkPropertiesResponseDto>> {
     await Promise.resolve();
     console.log(
       'Getting properties in project:',
@@ -308,7 +307,7 @@ export class ControlLinkController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Control link deleted successfully',
-        dto: ControlLinkDto,
+        dto: ControlLinkResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -323,7 +322,7 @@ export class ControlLinkController extends BaseController {
   async deleteControlLink(
     @Param('projectId') projectId: string,
     @Param('controlLinkSystemId') controlLinkSystemId: string,
-  ): Promise<ApiResult<ControlLinkDto>> {
+  ): Promise<ApiResult<ControlLinkResponseDto>> {
     console.log(
       'Deleting control link:',
       controlLinkSystemId,
@@ -336,64 +335,7 @@ export class ControlLinkController extends BaseController {
     );
 
     const deleted =
-      await this.commandBus.execute<ControlLinkReadModel>(command);
-    return toApiResult(
-      Result.ok(
-        new ControlLinkDto(
-          deleted.systemId.toString(),
-          deleted.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          deleted.peerNodeASystemId,
-          deleted.nodeAPortSystemId,
-          deleted.peerNodeBSystemId,
-          deleted.nodeBPortSystemId,
-          false,
-          undefined,
-        ),
-      ),
-    );
-  }
-
-  private toComponentCollectionDto(
-    components: ComponentsReadModel,
-  ): ComponentCollectionDto {
-    const dto = new ComponentCollectionDto();
-    dto.controlLinks = components.controlLinks.map(
-      link =>
-        new ControlLinkDto(
-          link.systemId.toString(),
-          link.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          link.peerNodeASystemId,
-          link.nodeAPortSystemId,
-          link.peerNodeBSystemId,
-          link.nodeBPortSystemId,
-          false,
-          undefined,
-        ),
-    );
-    return dto;
-  }
-
-  private toComponentCollectionWithSubsystemsDto(
-    components: ComponentsReadModel,
-  ): ComponentCollectionWithSubsystemsDto {
-    const dto = new ComponentCollectionWithSubsystemsDto();
-    dto.controlLinks = components.controlLinks.map(
-      link =>
-        new ControlLinkDto(
-          link.systemId.toString(),
-          link.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          link.peerNodeASystemId,
-          link.nodeAPortSystemId,
-          link.peerNodeBSystemId,
-          link.nodeBPortSystemId,
-          false,
-          undefined,
-        ),
-    );
-    dto.subsystems = [];
-    return dto;
+      await this.commandBus.execute<ControlLinkResponseDto>(command);
+    return toApiResult(Result.ok(deleted));
   }
 }

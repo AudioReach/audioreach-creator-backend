@@ -93,11 +93,11 @@ describe('GetContainerPropertiesHandler', () => {
     const result = await handler.handle(makeQuery());
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toHaveLength(1);
-    expect(result.data![0].systemId).toBe(200);
-    expect(result.data![0].propertyId).toBe(42);
-    expect(result.data![0].propertyName).toBe('volume');
-    expect(result.data![0].elements).not.toHaveLength(0);
+    expect(result.data!.properties).toHaveLength(1);
+    expect(result.data!.properties[0].systemId).toBe('200');
+    expect(result.data!.properties[0].propertyId).toBe(42);
+    expect(result.data!.properties[0].propertyName).toBe('volume');
+    expect(result.data!.properties[0].elements).not.toHaveLength(0);
   });
 
   it('container not found — throws ResourceNotFoundException when findPropertyPayloads returns ok(null)', async () => {
@@ -123,8 +123,8 @@ describe('GetContainerPropertiesHandler', () => {
     const result = await handler.handle(makeQuery());
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(result.data).toHaveLength(1);
-    expect(result.data![0].elements).toEqual([]);
+    expect(result.data!.properties).toHaveLength(1);
+    expect(result.data!.properties[0].elements).toEqual([]);
   });
 
   it('no payload for definition — returns partial result with PROPERTY_PAYLOAD_NOT_FOUND issue', async () => {
@@ -137,7 +137,7 @@ describe('GetContainerPropertiesHandler', () => {
     const result = await handler.handle(makeQuery());
 
     expect(result.kind).toBe(RESULT_KIND.Partial);
-    expect(result.data).toEqual([]);
+    expect(result.data!.properties).toEqual([]);
     expect(result.issues).toHaveLength(1);
     expect(result.issues[0].code).toBe(ISSUE_CODE.PROPERTY_PAYLOAD_NOT_FOUND);
   });
