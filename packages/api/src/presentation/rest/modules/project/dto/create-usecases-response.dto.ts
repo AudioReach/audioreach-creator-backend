@@ -4,32 +4,15 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {
-  UsecaseIdentifierDto,
-  UsecaseType,
-} from '../../usecase/dto/usecase.dto.js';
+import {UsecaseResponseDto} from '../../usecase/dto/usecase.dto.js';
 import {ApiIssueItem} from '../../../common/dto/api-response/api-issue-item.dto.js';
-import {type KeyValuePairsInfo} from '../../../common/dto/kv.dto.js';
 
-export class UsecaseIdentifierWithChangeInfoDto extends UsecaseIdentifierDto {
+export class UsecaseIdentifierWithChangeInfoDto extends UsecaseResponseDto {
   @ApiProperty({
     description: 'The changeId for this usecase',
     type: String,
   })
   changeId!: string;
-
-  constructor(
-    systemId: string,
-    usecaseType: UsecaseType,
-    kvInfo: KeyValuePairsInfo,
-    changeId: string,
-    aliasId?: number,
-    aliasName?: string,
-    category?: string,
-  ) {
-    super(systemId, usecaseType, kvInfo, aliasId, aliasName, category);
-    this.changeId = changeId;
-  }
 }
 
 export class CreateUsecasesResponseDto {
