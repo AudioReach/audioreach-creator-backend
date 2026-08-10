@@ -135,41 +135,129 @@ export * from './application/definition/key-definition/get-all/get-all-key-defin
 export * from './application/definition/key-definition/get-all/get-all-key-definitions.handler.js';
 export * from './application/definition/key-definition/get-key/get-key-definition.query.js';
 export * from './application/definition/key-definition/get-key/get-key-definition.handler.js';
+export {
+  KeyDefinitionDtoSchema,
+  ValueDefinitionDtoSchema,
+} from './application/definition/key-definition/dto/key-definition-dto.js';
+export type {
+  KeyDefinitionDto,
+  ValueDefinitionDto,
+} from './application/definition/key-definition/dto/key-definition-dto.js';
 
 // Tag definition query handlers
 export * from './application/definition/tag-definition/get-all/get-all-tag-definitions.query.js';
 export * from './application/definition/tag-definition/get-all/get-all-tag-definitions.handler.js';
 export * from './application/definition/tag-definition/get-tag/get-tag-definition.query.js';
 export * from './application/definition/tag-definition/get-tag/get-tag-definition.handler.js';
+export {
+  TagDefinitionDtoSchema,
+  TagKeyDefinitionDtoSchema,
+  TagValueDefinitionDtoSchema,
+} from './application/definition/tag-definition/dto/tag-definition-dto.js';
+export type {TagDefinitionDto} from './application/definition/tag-definition/dto/tag-definition-dto.js';
 
 // Container property definition query handlers
 export * from './application/definition/container-property-definition/get-all/get-all-container-property-definitions.query.js';
 export * from './application/definition/container-property-definition/get-all/get-all-container-property-definitions.handler.js';
 export * from './application/definition/container-property-definition/get-property/get-container-property-definition.query.js';
 export * from './application/definition/container-property-definition/get-property/get-container-property-definition.handler.js';
+export {
+  ContainerPropertyDefinitionSummaryDtoSchema,
+  ContainerPropertyDefinitionDtoSchema,
+  mapContainerPropertyDefinitionSummary,
+  mapContainerPropertyDefinition,
+} from './application/definition/container-property-definition/dto/container-property-definition-dto.js';
+export type {
+  ContainerPropertyDefinitionSummaryDto,
+  ContainerPropertyDefinitionDto,
+} from './application/definition/container-property-definition/dto/container-property-definition-dto.js';
 
 // Subgraph property definition query handlers
 export * from './application/definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.query.js';
 export * from './application/definition/subgraph-property-definition/get-all/get-all-subgraph-property-definitions.handler.js';
 export * from './application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.query.js';
 export * from './application/definition/subgraph-property-definition/get-property/get-subgraph-property-definition.handler.js';
+export {
+  SubgraphPropertyDefinitionSummaryDtoSchema,
+  SubgraphPropertyDefinitionDtoSchema,
+  mapSubgraphPropertyDefinitionSummary,
+  mapSubgraphPropertyDefinition,
+} from './application/definition/subgraph-property-definition/dto/subgraph-property-definition-dto.js';
+export type {
+  SubgraphPropertyDefinitionSummaryDto,
+  SubgraphPropertyDefinitionDto,
+} from './application/definition/subgraph-property-definition/dto/subgraph-property-definition-dto.js';
 
 // SPF module query handlers
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.query.js';
 export * from './application/usecase-designer/spf-module/query/query-spf-modules.handler.js';
+export {
+  SpfModuleDtoSchema,
+  CkvDtoSchema,
+  TkvDtoSchema,
+  TagInfoDtoSchema,
+  DataPortDtoSchema,
+  ControlPortDtoSchema,
+  KeyValueInfoDtoSchema,
+  KeyInfoDtoSchema,
+  ValueInfoDtoSchema,
+  KeyValuePairsInfoDtoSchema,
+  SubsystemFilteredKeyValuePairsInfoDtoSchema,
+  ParamInfoDtoSchema,
+} from './application/usecase-designer/spf-module/query/spf-module-dto.js';
+export type {
+  SpfModuleDto,
+  CkvDto,
+  TkvDto,
+  TagInfoDto,
+  DataPortDto,
+  ControlPortDto,
+  KeyValueInfoDto,
+  KeyInfoDto,
+  ValueInfoDto,
+  KeyValuePairsInfoDto,
+  SubsystemFilteredKeyValuePairsInfoDto,
+  ParamInfoDto,
+} from './application/usecase-designer/spf-module/query/spf-module-dto.js';
+
+// Shared element-data schemas
+export {
+  ELEMENT_TYPE,
+  DATA_TYPE,
+  ELEMENT_POLICY,
+  ALLOWED_VALUES_ITEM_TYPE,
+} from './shared/dto/element-data/element-types.js';
+export type {
+  ElementType,
+  DataType,
+  ElementPolicy,
+  AllowedValuesItemType,
+} from './shared/dto/element-data/element-types.js';
+// Note: DISPLAY_TYPE / DisplayType intentionally omitted — param-parser exports a different DISPLAY_TYPE variant
+export {NameValuePairDtoSchema} from './shared/dto/element-data/name-value-pair-dto.js';
+export type {NameValuePairDto} from './shared/dto/element-data/name-value-pair-dto.js';
+export {BitFieldDtoSchema} from './shared/dto/element-data/bit-field-dto.js';
+export type {BitFieldDto} from './shared/dto/element-data/bit-field-dto.js';
+export {ConfigElementDtoSchema} from './shared/dto/element-data/config-element-dto.js';
+export type {ConfigElementDto} from './shared/dto/element-data/config-element-dto.js';
+export {
+  ElementUnionSchema,
+  ElementTemplateArrayDtoSchema,
+  StructDtoSchema,
+} from './shared/dto/element-data/element-union.js';
+export type {
+  ElementUnion,
+  ElementTemplateArrayDto,
+  StructDto,
+} from './shared/dto/element-data/element-union.js';
+export {PropertyDtoSchema} from './shared/dto/property-dto.js';
+export type {PropertyDto} from './shared/dto/property-dto.js';
 
 // Container query handlers
 export * from './application/usecase-designer/container/query/query-containers.query.js';
 export * from './application/usecase-designer/container/query/query-containers.handler.js';
-
-// Container properties query handlers
-export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
-export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
-export * from './application/usecase-designer/shared/property-read-model.js';
-
-// Subgraph properties query handlers
-export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';
-export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.handler.js';
+export {ContainerDtoSchema} from './application/usecase-designer/container/dto/container-dto.js';
+export type {ContainerDto} from './application/usecase-designer/container/dto/container-dto.js';
 
 // SPF module definition query handlers
 export * from './application/definition/spf-module-definition/get-all/get-all-spf-module-definitions.query.js';
@@ -178,25 +266,106 @@ export * from './application/definition/spf-module-definition/get-by-id/get-spf-
 export * from './application/definition/spf-module-definition/get-by-id/get-spf-module-definition.handler.js';
 export * from './application/definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.query.js';
 export * from './application/definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.handler.js';
+export {
+  CustomModuleMetadataDtoSchema,
+  mapCustomModuleMetadata,
+} from './application/definition/spf-module-definition/get-custom-module-metadata/custom-module-metadata-dto.js';
+export type {CustomModuleMetadataDto} from './application/definition/spf-module-definition/get-custom-module-metadata/custom-module-metadata-dto.js';
+export {
+  SpfModuleDefinitionDtoSchema,
+  mapSpfModuleDefinition,
+} from './application/definition/spf-module-definition/dto/spf-module-definition-dto.js';
+export type {SpfModuleDefinitionDto} from './application/definition/spf-module-definition/dto/spf-module-definition-dto.js';
 export * from './application/definition/driver-module-definition/get-all/get-all-driver-module-definitions.query.js';
 export * from './application/definition/driver-module-definition/get-all/get-all-driver-module-definitions.handler.js';
 export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.query.js';
 export * from './application/definition/driver-module-definition/get-by-id/get-driver-module-definition.handler.js';
+export {
+  DriverModuleDefinitionDtoSchema,
+  mapDriverModuleDefinition,
+} from './application/definition/driver-module-definition/dto/driver-module-definition-dto.js';
+export type {DriverModuleDefinitionDto} from './application/definition/driver-module-definition/dto/driver-module-definition-dto.js';
 
 // Use case designer
 export * from './application/usecase-designer/shared/index.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/ckv-calibration-read-model.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 export * from './application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
+export {CkvCalDataDtoSchema} from './application/usecase-designer/spf-module/get-cal-data/ckv-cal-data-dto.js';
+export type {CkvCalDataDto} from './application/usecase-designer/spf-module/get-cal-data/ckv-cal-data-dto.js';
+export {TkvCalDataDtoSchema} from './application/usecase-designer/spf-module/get-tag-data/tkv-cal-data-dto.js';
+export type {TkvCalDataDto} from './application/usecase-designer/spf-module/get-tag-data/tkv-cal-data-dto.js';
+export {ParameterDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export type {ParameterDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export {
+  ParameterElementDtoSchema,
+  ConfigElementSchema,
+  ElementTemplateArraySchema,
+  StructSchema,
+  mapConfigElement,
+  mapElements,
+  mapElement,
+  mapElementArray,
+  mapStruct,
+} from './application/usecase-designer/spf-module/dto/element-dto.js';
+export type {ParameterElementDto} from './application/usecase-designer/spf-module/dto/element-dto.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
-export * from './application/usecase-designer/usecase/get-all/get-all-usecases.handler.js';
-export * from './application/usecase-designer/usecase/get-all/get-all-usecases.query.js';
-export * from './application/usecase-designer/usecase/get-components/get-components.query.js';
-export * from './application/usecase-designer/usecase/get-components/get-components.handler.js';
+export * from './application/usecase-designer/usecase/get-all/index.js';
+export * from './application/usecase-designer/usecase/get-components/index.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';
-export * from './application/usecase-designer/usecase/get-component-with-subsystem/build-subsystem-tree.js';
+export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';
+export * from './application/usecase-designer/subgraph/get-properties/get-subgraph-properties.handler.js';
+export {SubgraphPropertiesDtoSchema} from './application/usecase-designer/subgraph/dto/subgraph-properties-dto.js';
+export type {SubgraphPropertiesDto} from './application/usecase-designer/subgraph/dto/subgraph-properties-dto.js';
+export {SubgraphDtoSchema} from './application/usecase-designer/subgraph/dto/subgraph-dto.js';
+export type {SubgraphDto} from './application/usecase-designer/subgraph/dto/subgraph-dto.js';
+export {
+  SubgraphPairDtoSchema,
+  DataLinkWithUsecasesDtoSchema,
+  ControlLinkWithUsecasesDtoSchema,
+} from './application/usecase-designer/subgraph/dto/subgraph-pair-dto.js';
+export type {
+  SubgraphPairDto,
+  DataLinkWithUsecasesDto,
+  ControlLinkWithUsecasesDto,
+} from './application/usecase-designer/subgraph/dto/subgraph-pair-dto.js';
+export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
+export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
+export {ContainerPropertiesDtoSchema} from './application/usecase-designer/container/dto/container-properties-dto.js';
+export type {ContainerPropertiesDto} from './application/usecase-designer/container/dto/container-properties-dto.js';
+export {SubsystemDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
+export type {SubsystemDto} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
+export {MoveSubsystemComponentsDtoSchema} from './application/usecase-designer/subsystem/dto/move-subsystem-components-dto.js';
+export type {MoveSubsystemComponentsDto} from './application/usecase-designer/subsystem/dto/move-subsystem-components-dto.js';
+export {UseCaseDtoSchema} from './application/usecase-designer/usecase/dto/usecase-dto.js';
+export type {UseCaseDto} from './application/usecase-designer/usecase/dto/usecase-dto.js';
+export {
+  UsecaseCategoryDtoSchema,
+  DeleteUsecaseCategoryDtoSchema,
+} from './application/usecase-designer/usecase/dto/usecase-category-dto.js';
+export type {
+  UsecaseCategoryDto,
+  DeleteUsecaseCategoryDto,
+} from './application/usecase-designer/usecase/dto/usecase-category-dto.js';
+export {
+  ComponentCollectionDtoSchema,
+  ComponentCollectionWithSubsystemsDtoSchema,
+  DataLinkDtoSchema,
+  ControlLinkDtoSchema,
+  mapComponentCollection,
+  mapComponentCollectionWithSubsystems,
+  mapSpfModuleForCollection,
+  mapDataLink,
+  mapControlLink,
+} from './application/usecase-designer/usecase/dto/component-collection-dto.js';
+export type {
+  ComponentCollectionDto,
+  ComponentCollectionWithSubsystemsDto,
+  DataLinkDto,
+  ControlLinkDto,
+} from './application/usecase-designer/usecase/dto/component-collection-dto.js';
 export * from './application/usecase-designer/data-links/create/create-data-link.command.js';
 export * from './application/usecase-designer/data-links/create/create-data-link.handler.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.command.js';
@@ -205,6 +374,8 @@ export * from './application/usecase-designer/control-links/create/create-contro
 export * from './application/usecase-designer/control-links/create/create-control-link.handler.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.command.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.handler.js';
+export {ControlLinkPropertiesDtoSchema} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
+export type {ControlLinkPropertiesDto} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
 // Generic Worker Abstractions
 export * from './application/ports/worker/worker-pool.port.js';
 export * from './application/ports/worker/handler-registry.port.js';
