@@ -4,16 +4,10 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {createZodDto} from 'nestjs-zod';
 import {BaseDto} from './base.dto.js';
-import {ConfigElementDto} from './element-data/elements/config-element/config-element.dto.js';
-import {ElementTemplateArrayDto} from './element-data/elements/element-template-array.dto.js';
-import {StructDto} from './element-data/elements/struct.dto.js';
-import {PARAM_TYPE, type ParamType} from '@arc/core';
+import {ParameterDtoSchema, type ParameterElementDto} from '@arc/core';
 
-/**
- * Summary DTO containing essential parameter identification fields.
- * Used for list views and lightweight parameter representations.
- */
 export class ParameterSummaryDto extends BaseDto {
   @ApiProperty({
     description: 'Unique identifier for the system containing this parameter',
@@ -31,76 +25,7 @@ export class ParameterSummaryDto extends BaseDto {
   name!: string;
 }
 
-/**
- * Base DTO carrying the identity fields common to all parameter-level data.
- * Identifies a specific Parameter ID (PID) within a system and provides
- * human-readable metadata.
- */
-export class ParameterDto extends ParameterSummaryDto {
-  @ApiProperty({
-    description: 'Description of what this Parameter ID represents',
-    required: false,
-  })
-  description?: string;
-
-  @ApiProperty({
-    description:
-      'When true, this parameter should be hidden from the UI. ' +
-      'Hidden parameters are typically used for internal system configuration.',
-    required: false,
-  })
-  isHidden?: boolean;
-
-  @ApiProperty({
-    description:
-      'When true, this parameter cannot be modified by the user. ' +
-      'The UI should render all elements of this parameter in a read-only state.',
-    required: false,
-  })
-  isReadOnly?: boolean;
-
-  @ApiProperty({
-    description:
-      'Indicates whether this parameter is deprecated. ' +
-      'When true, the UI may show a deprecation warning. ' +
-      'When false or undefined, the parameter is not deprecated.',
-    required: false,
-  })
-  deprecated?: boolean;
-
-  @ApiProperty({
-    description:
-      'When true, indicates this parameter is related to neural network processing. ' +
-      'Neural network parameters may require special handling or processing in the UI.',
-    required: false,
-  })
-  isNeuralNet?: boolean;
-
-  @ApiProperty({
-    description:
-      'When true, indicates this parameter processing is offloaded to a separate processor or accelerator. ' +
-      'Offloaded parameters may have different performance characteristics or constraints.',
-    required: false,
-  })
-  isOffloaded?: boolean;
-
-  @ApiProperty({
-    description:
-      'PID type of the parameter. Indicates the sharing scope of the parameter ID:\n' +
-      '- `NONE`: Not shared (default)\n' +
-      '- `SHARED`: Shared across module instances\n' +
-      '- `GLOBAL_SHARED`: Globally shared across all modules',
-    enum: PARAM_TYPE,
-    required: false,
-  })
-  pidType?: ParamType;
-}
-
-/**
- * Detail DTO extending base parameter with full calibration elements.
- * Used for detailed parameter views that include all configuration data.
- */
-export class ParameterDetailDto extends ParameterDto {
+export class ParameterResponseDto extends createZodDto(ParameterDtoSchema) {
   @ApiProperty({
     description:
       'Array of calibration elements for this Parameter ID.\n\n' +
@@ -118,11 +43,11 @@ export class ParameterDetailDto extends ParameterDto {
     type: 'array',
     items: {
       oneOf: [
-        {$ref: '#/components/schemas/ConfigElementDto'},
-        {$ref: '#/components/schemas/ElementTemplateArrayDto'},
-        {$ref: '#/components/schemas/StructDto'},
+        {$ref: '#/components/schemas/ConfigElementResponseDto'},
+        {$ref: '#/components/schemas/ElementTemplateArrayResponseDto'},
+        {$ref: '#/components/schemas/StructResponseDto'},
       ],
     },
   })
-  elements!: (ConfigElementDto | ElementTemplateArrayDto | StructDto)[];
+  elements!: ParameterElementDto[];
 }
