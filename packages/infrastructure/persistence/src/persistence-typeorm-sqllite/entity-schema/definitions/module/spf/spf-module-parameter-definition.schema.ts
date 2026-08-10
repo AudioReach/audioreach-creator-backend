@@ -12,22 +12,25 @@ import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 import type {ModuleAttributeRow} from './module-attribute.schema.js';
 import type {CkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-calibration-data.schema.js';
 import type {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-tag-data.schema.js';
-export interface SpfModuleParameterDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface SpfModuleParameterDefinitionBase {
+  systemId: number;
   paramId: number;
   name?: string;
   description?: string;
   maxSize: number;
   pidType: string;
   isPersistent: boolean;
-  attributes?: ModuleAttributeRow[];
-  elementsStructure: string; // JSON
+  elementsStructure: string;
   isReadOnly: boolean;
   toolPolicies?: string;
-
-  // Foreign key relation
   spfModuleDefinitionSystemId: number;
+  attributes?: ModuleAttributeRow[];
+}
 
-  //type orm relation
+export interface SpfModuleParameterDefinitionRow
+  extends EntityBaseRow, SpfModuleParameterDefinitionBase {
+  attributes?: ModuleAttributeRow[];
   spfModuleDefinition: SpfModuleDefinitionRow;
   ckvParameterPayloads?: CkvParameterPayloadRow[];
   tkvParameterPayloads?: TkvParameterPayloadRow[];

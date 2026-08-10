@@ -107,7 +107,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       systemId: s.systemId,
       subgraphId: s.subgraphId,
       name: s.name,
-      isExported: s.isExported,
+      isImported: s.isExported,
       fileSystemId: s.fileSystemId,
     }));
 

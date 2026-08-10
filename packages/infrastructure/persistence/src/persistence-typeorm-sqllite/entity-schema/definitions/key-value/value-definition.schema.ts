@@ -7,7 +7,8 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import type {KeyDefinitionRow} from './key-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
-export interface ValueDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ValueDefinitionBase {
   systemId: number;
   keySystemId: number;
   valueId: number;
@@ -15,6 +16,9 @@ export interface ValueDefinitionRow extends EntityBaseRow {
   description?: string;
   enumMember?: string;
   specialValue?: string;
+}
+
+export interface ValueDefinitionRow extends EntityBaseRow, ValueDefinitionBase {
   keys: KeyDefinitionRow;
 }
 

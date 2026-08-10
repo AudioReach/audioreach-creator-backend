@@ -2,7 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -12,60 +11,62 @@ import type {
   KeyValueDefQueryService,
 } from '@arc/core';
 import {Result, ERROR_CODES, IssueSeverity, RESULT_KIND} from '@arc/core';
-import {applyToCollection} from '../edit-session/overlay-merge.js';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {ProjectSessionRow} from '../../entity-schema/index.js';
-import type {TagDefinitionRow} from '../../entity-schema/definitions/tag-key-value/tag-definition.schema.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {
+  TagDefinitionFetcher,
+  type OverlaidTagDefinition,
+} from '../../fetchers/definitions/tag-key-value/tag-definition-fetcher.js';
 
-type OverlaidTagDefinitionRow = TagDefinitionRow & {
-  overlaidLinks: TagKeyDefinitionReadModel[];
-};
-
+/**
+ * Database implementation of TagDefinitionQueryService.
+ *
+ * All overlay delegated to TagDefinitionFetcher (FR-3):
+ *   fetchAll         — all tag_definitions + tag_key_def_links with session overlay
+ *   fetchBySystemIds — scoped to specific tag system IDs
+ *
+ * Key definition resolution (keyReferenceSystemId → name/values) is
+ * cross-aggregate enrichment delegated to KeyValueDefQueryService (FR-4).
+ * This must happen after the link overlay is finalized — the set of referenced
+ * key system IDs is only known after overlay, so it cannot be parallelised with it.
+ */
 export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
+  private readonly tagFetcher: TagDefinitionFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
+    editActionsSvc: EditActionsQueryService,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
-  ) {}
+  ) {
+    this.tagFetcher = new TagDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
 
   async getAllTagDefinitions(
     fileSystemId: number,
     tagNaturalId?: number,
   ): Promise<Result<TagDefinitionReadModel[]>> {
     try {
-      // Step 1 — QueryBuilder: all tags for the file + linked keys (key/value
-      // resolution is delegated to KeyValueDefQueryService, so no nested joins here)
-      const rows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.TagDefinition)
-        .createQueryBuilder('t')
-        .leftJoinAndSelect('t.keys', 'l')
-        .where('t.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany()) as TagDefinitionRow[];
-
-      // Step 2 — Overlay + key/value resolution, session may be null
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const overlaidResult = await this.overlayTagDefinitionRows(
-        rows,
-        session,
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
         fileSystemId,
       );
-      if (overlaidResult.kind === RESULT_KIND.Fail)
-        return Result.fail(...overlaidResult.issues);
 
-      // Step 3 — Filter by tagId after overlay so session-added/updated tags stay filterable
+      // Overlay applied by fetcher (FR-3).
+      const overlaidTags = await this.tagFetcher.fetchAll(
+        fileSystemId,
+        sessionId,
+      );
+
+      // Filter by tagId after overlay so session-added/updated tags are filterable.
       const filtered =
         tagNaturalId === undefined
-          ? overlaidResult.data
-          : overlaidResult.data.filter(t => t.tagId === tagNaturalId);
+          ? overlaidTags
+          : overlaidTags.filter(t => t.tagId === tagNaturalId);
 
-      // Step 4 — Map to TagDefinitionReadModel
-      const mapped = filtered.map(t => this.toTagDefinitionReadModel(t));
-
-      const issues = overlaidResult.issues;
-      return issues && issues.length > 0
-        ? Result.partial(mapped, issues)
-        : Result.ok(mapped);
+      return this.resolveAndMap(filtered, fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -82,36 +83,30 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
     fileSystemId: number,
     tagSystemId: number,
   ): Promise<TagDefinitionReadModel | null> {
-    // Step 1 — QueryBuilder: tag + linked keys
-    const row = (await this.dataSource
-      .getRepository(ENTITY_NAMES.TagDefinition)
-      .createQueryBuilder('t')
-      .leftJoinAndSelect('t.keys', 'l')
-      .where('t.systemId = :id', {id: tagSystemId})
-      .andWhere('t.fileSystemId = :fileSystemId', {fileSystemId})
-      .getOne()) as TagDefinitionRow | null;
-
-    // Step 2 — Overlay + key/value resolution. A null row is still passed
-    // through (as an empty base list) so a session-only CREATE can resolve.
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    const baseRows = row ? [row] : [];
-    const overlaidResult = await this.overlayTagDefinitionRows(
-      baseRows,
-      session,
+    const sessionId = await resolveActiveSessionId(
+      this.dataSource,
       fileSystemId,
     );
-    if (overlaidResult.kind === RESULT_KIND.Fail) {
+
+    // fetchBySystemIds handles the session-only CREATE case — an empty base
+    // list is passed through overlay and session CREATEs are still appended.
+    const overlaidTags = await this.tagFetcher.fetchBySystemIds(
+      [tagSystemId],
+      fileSystemId,
+      sessionId,
+    );
+
+    const overlaid = overlaidTags.find(t => t.systemId === tagSystemId);
+    if (!overlaid) return null;
+
+    const result = await this.resolveAndMap([overlaid], fileSystemId);
+    if (result.kind === RESULT_KIND.Fail) {
       throw new Error(
-        overlaidResult.issues[0]?.message ??
-          'Failed to load key definitions for tag',
+        result.issues[0]?.message ?? 'Failed to load key definitions for tag',
       );
     }
 
-    const overlaid = overlaidResult.data.find(t => t.systemId === tagSystemId);
-    if (!overlaid) return null;
-
-    // Step 3 — Map to TagDefinitionReadModel
-    return this.toTagDefinitionReadModel(overlaid);
+    return result.data[0] ?? null;
   }
 
   async getTagDefinitionsBySystemIds(
@@ -120,31 +115,16 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
   ): Promise<Result<TagDefinitionReadModel[]>> {
     if (tagSystemIds.length === 0) return Result.ok([]);
     try {
-      const rows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.TagDefinition)
-        .createQueryBuilder('t')
-        .leftJoinAndSelect('t.keys', 'l')
-        .where('t.systemId IN (:...ids)', {ids: tagSystemIds})
-        .andWhere('t.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany()) as TagDefinitionRow[];
-
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const overlaidResult = await this.overlayTagDefinitionRows(
-        rows,
-        session,
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
         fileSystemId,
       );
-      if (overlaidResult.kind === RESULT_KIND.Fail)
-        return Result.fail(...overlaidResult.issues);
-
-      const mapped = overlaidResult.data.map(t =>
-        this.toTagDefinitionReadModel(t),
+      const overlaidTags = await this.tagFetcher.fetchBySystemIds(
+        tagSystemIds,
+        fileSystemId,
+        sessionId,
       );
-
-      const issues = overlaidResult.issues;
-      return issues && issues.length > 0
-        ? Result.partial(mapped, issues)
-        : Result.ok(mapped);
+      return this.resolveAndMap(overlaidTags, fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -157,60 +137,35 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
     }
   }
 
-  // ── private overlay methods ──────────────────────────────────────────────
+  // ── Private helpers ───────────────────────────────────────────────────────
 
   /**
-   * Applies overlay to TagDefinition rows and their TagKeyDefLink rows —
-   * one table-wide getByTable query per table (two total when a
-   * session is active), not one per row/link. Those two table-wide fetches
-   * are independent of each other and run concurrently.
+   * Returns the active session ID for the given file, or null.
+   * project_sessions is not session-mutable — direct query is correct here.
    *
-   * Key/value resolution is delegated to
-   * KeyValueDefQueryService.getKeyDefinitionsBySystemIds, scoped to only
-   * the key systemIds these tags' overlaid links actually reference — not
-   * every key in the file. This must run after the link overlay is known
-   * (the scope is derived from it), so it can't join the two-way Promise.all
-   * above.
+   * Resolves key definitions for the given overlaid tags and maps to
+   * TagDefinitionReadModel[].
    *
-   * session may be null (no active edit session) — getByTable
-   * calls are skipped in that case and base rows pass through unchanged.
+   * KeyValueDefQueryService is used rather than KeyValueDefinitionFetcher
+   * directly (FR-4): the service's read model has all the needed fields and
+   * assembling the key-value read model here would duplicate logic that
+   * belongs to the KeyValueDefQueryService (FR-6: read model ownership).
    *
-   * Links whose key definition resolves to nothing (deleted in session, or
-   * failed to resolve) are dropped — a tag can never point at a nonexistent key.
+   * Key IDs are scoped to only those referenced by these tags' links — not
+   * every key in the file — to avoid loading unnecessary data.
    */
-  private async overlayTagDefinitionRows(
-    baseRows: TagDefinitionRow[],
-    session: ProjectSessionRow | null,
+  private async resolveAndMap(
+    tags: OverlaidTagDefinition[],
     fileSystemId: number,
-  ): Promise<Result<OverlaidTagDefinitionRow[]>> {
-    const baseLinks = baseRows.flatMap(t => t.keys ?? []);
-
-    const [linkActions, tagActions] = await Promise.all([
-      session
-        ? this.editActionsSvc.getByTable(
-            session.sessionId,
-            ENTITY_NAMES.TagKeyDefLink,
-          )
-        : Promise.resolve([]),
-      session
-        ? this.editActionsSvc.getByTable(
-            session.sessionId,
-            ENTITY_NAMES.TagDefinition,
-          )
-        : Promise.resolve([]),
-    ]);
-
-    const overlaidLinkRows = applyToCollection(baseLinks, linkActions);
-    const overlaidTags = applyToCollection(baseRows, tagActions);
-
-    // Scope the key fetch to only the keys these tags' links reference,
-    // not every key in the file.
-    const tagSystemIdSet = new Set(overlaidTags.map(t => t.systemId));
-    const relevantLinkRows = overlaidLinkRows.filter(l =>
-      tagSystemIdSet.has(l.tagDefinitionSystemId),
-    );
+  ): Promise<Result<TagDefinitionReadModel[]>> {
+    const tagSystemIdSet = new Set(tags.map(t => t.systemId));
     const distinctKeyIds = [
-      ...new Set(relevantLinkRows.map(l => l.keyReferenceSystemId)),
+      ...new Set(
+        tags
+          .flatMap(t => t.links)
+          .filter(l => tagSystemIdSet.has(l.tagDefinitionSystemId))
+          .map(l => l.keyReferenceSystemId),
+      ),
     ];
 
     const allKeysResult =
@@ -220,43 +175,32 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
       );
     if (allKeysResult.kind === RESULT_KIND.Fail)
       return Result.fail(...allKeysResult.issues);
+
     const keyMap = new Map(allKeysResult.data.map(k => [k.systemId, k]));
 
-    const linksByTagSystemId = new Map<number, TagKeyDefinitionReadModel[]>();
-    for (const l of overlaidLinkRows) {
-      const keyDefinition = keyMap.get(l.keyReferenceSystemId);
-      if (!keyDefinition) continue;
-      const bucket = linksByTagSystemId.get(l.tagDefinitionSystemId) ?? [];
-      bucket.push({
-        cHeaderTagEnumMemberName: l.tagEnumValue,
-        keyDefinition,
+    const mapped = tags.map(t => {
+      // flatMap: skip links whose key was not resolved (deleted in session or missing)
+      const keys: TagKeyDefinitionReadModel[] = t.links.flatMap(l => {
+        const keyDefinition = keyMap.get(l.keyReferenceSystemId);
+        if (!keyDefinition) return [];
+        return [{cHeaderTagEnumMemberName: l.tagEnumValue, keyDefinition}];
       });
-      linksByTagSystemId.set(l.tagDefinitionSystemId, bucket);
-    }
 
-    const data = overlaidTags.map(t => ({
-      ...t,
-      overlaidLinks: linksByTagSystemId.get(t.systemId) ?? [],
-    }));
+      return {
+        systemId: t.systemId,
+        tagId: t.tagId,
+        name: t.name,
+        description: t.description,
+        isVoice: t.isVoice,
+        cHeaderEnumName: t.cHeaderEnumName,
+        cHeaderEnumMember: t.cHeaderEnumValue,
+        keys,
+      } satisfies TagDefinitionReadModel;
+    });
 
     const issues = allKeysResult.issues;
     return issues && issues.length > 0
-      ? Result.partial(data, issues)
-      : Result.ok(data);
-  }
-
-  private toTagDefinitionReadModel(
-    row: OverlaidTagDefinitionRow,
-  ): TagDefinitionReadModel {
-    return {
-      systemId: row.systemId,
-      tagId: row.tagId,
-      name: row.name,
-      description: row.description,
-      isVoice: row.isVoice,
-      cHeaderEnumName: row.cHeaderEnumName,
-      cHeaderEnumMember: row.cHeaderEnumValue,
-      keys: row.overlaidLinks,
-    };
+      ? Result.partial(mapped, issues)
+      : Result.ok(mapped);
   }
 }

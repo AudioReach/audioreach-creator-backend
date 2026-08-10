@@ -13,7 +13,15 @@ import type {LinkType} from '@arc/core';
 import {LINK_TYPE} from '@arc/core';
 import {EntitySchema} from 'typeorm';
 
-export interface DataLinkRow extends EntityBaseRow {
+/** Minimal link-port pair returned by port-level link counting overlay. */
+export interface LinkOverlayEntry {
+  linkSystemId: number;
+  portSystemId: number;
+}
+
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface DataLinkBase {
+  systemId: number;
   sourceNodeSystemId: number;
   destinationNodeSystemId: number;
   sourcePortSystemId: number;
@@ -23,7 +31,9 @@ export interface DataLinkRow extends EntityBaseRow {
   destSubgraphSystemId: number;
   isEc: boolean | null;
   fileSystemId: number;
+}
 
+export interface DataLinkRow extends EntityBaseRow, DataLinkBase {
   sourceNode?: NodeRow;
   destinationNode?: NodeRow;
   sourcePort?: DataPortRow;

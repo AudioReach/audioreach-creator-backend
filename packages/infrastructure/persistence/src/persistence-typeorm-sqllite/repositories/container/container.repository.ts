@@ -59,10 +59,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     for (const prop of overlaid.properties) {
       container.properties.set(
         prop.propertySystemId,
-        new ContainerPropertyValue(
-          prop.propertySystemId,
-          prop.payload as Uint8Array | null,
-        ),
+        new ContainerPropertyValue(prop.propertySystemId, prop.payload),
       );
     }
     return container;
@@ -127,7 +124,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
       p => p.propertySystemId === propertySystemId,
     );
     if (!prop || prop.payload == null) return null;
-    return prop.payload as Uint8Array;
+    return prop.payload;
   }
 
   async setPropertyData(

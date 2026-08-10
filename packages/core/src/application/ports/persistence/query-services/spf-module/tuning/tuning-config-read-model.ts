@@ -3,35 +3,22 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {
-  KeyDefinitionSummaryReadModel,
-  ValueDefinitionSummaryReadModel,
-} from '../../key-value/key-value-definition-read-model.js';
+import type {KeyValuePairListReadModel} from '../../usecase/query-models/key-vector-read-model.js';
 
 /**
  * Result for one CKV bin — systemId + key-value pairs that identify the bin.
  * Key-value pairs resolved via KeyValueDefQueryService (KeyDefinitionSummaryReadModel + ValueDefinitionSummaryReadModel).
  */
-export interface CkvReadModel {
-  readonly systemId: number;
+export interface CkvReadModel extends KeyValuePairListReadModel {
   /** UI persistence binary data for a given CKV. */
   readonly uiPersistence?: Uint8Array | null;
-  readonly keyValuePairs: ReadonlyArray<{
-    readonly key: KeyDefinitionSummaryReadModel;
-    readonly value: ValueDefinitionSummaryReadModel;
-  }>;
 }
 
 /**
  * Result for one TKV bin — mirrors CkvReadModel plus its parent tag reference.
  */
-export interface TkvReadModel {
-  readonly systemId: number;
+export interface TkvReadModel extends KeyValuePairListReadModel {
   readonly moduleTagIdMapSystemId: number;
-  readonly keyValuePairs: ReadonlyArray<{
-    readonly key: KeyDefinitionSummaryReadModel;
-    readonly value: ValueDefinitionSummaryReadModel;
-  }>;
 }
 
 /**

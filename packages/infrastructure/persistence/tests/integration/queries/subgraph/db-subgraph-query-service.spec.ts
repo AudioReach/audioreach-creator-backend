@@ -4,7 +4,13 @@
  */
 
 import type {DataSource} from 'typeorm';
-import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE, RESULT_KIND} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  SOURCE,
+  RESULT_KIND,
+  Result,
+} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -68,7 +74,7 @@ async function seedSession(ds: DataSource): Promise<number> {
 
 async function seedSubgraph(ds: DataSource) {
   await ds.query(
-    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_exported, file_system_id) VALUES (?, 1, 'sg', 0, ?)`,
+    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, 1, 'sg', 0, ?)`,
     [SUBGRAPH_SYSTEM_ID, FILE_ID],
   );
 }
@@ -144,6 +150,7 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
       ds,
       new EditActionsQueryService(ds.manager),
       new TypeOrmSessionRepository(ds.manager),
+      {getKeyValueSummaryForGivenValues: async () => Result.ok([])} as any,
     );
   });
 
@@ -221,7 +228,7 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
       newValue: JSON.stringify({
         subgraphId: 1,
         name: 'sg-new',
-        isExported: false,
+        isImported: false,
         fileSystemId: FILE_ID,
       }),
     });

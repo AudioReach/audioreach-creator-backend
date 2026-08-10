@@ -10,17 +10,19 @@ import {
 import {EntitySchema} from 'typeorm';
 import type {DriverModuleDefinitionRow} from './driver-module-definition.schema.js';
 
-export interface DriverModuleParameterDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface DriverModuleParameterDefinitionBase {
+  systemId: number;
   parameterId: number;
   name?: string;
   description?: string;
   maxSize: number;
-  paramStructure: string; // JSON
-
-  // Foreign key relation
+  paramStructure: string;
   driverModuleDefinitionSystemId: number;
+}
 
-  //type orm relation
+export interface DriverModuleParameterDefinitionRow
+  extends EntityBaseRow, DriverModuleParameterDefinitionBase {
   driverModuleDefinition: DriverModuleDefinitionRow;
 }
 

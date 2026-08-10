@@ -13,37 +13,53 @@ import type {ValueDefinitionRow} from '../../definitions/key-value/value-definit
 import type {TagDefinitionRow} from '../../definitions/tag-key-value/tag-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
-export interface ModuleTagIdMapRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ModuleTagIdMapBase {
+  systemId: number;
   spfModuleSystemId: number;
   tagDefinitionSystemId: number;
+}
 
+export interface ModuleTagIdMapRow extends EntityBaseRow, ModuleTagIdMapBase {
   module?: SpfModuleRow;
   tagDefinition?: TagDefinitionRow;
   tkvs?: TkvRow[];
 }
 
-export interface TkvRow extends EntityBaseRow {
-  moduleTagIdMapSystemId: number; // FK to ModuleTagIdMapRow
-  uiPersistence?: Uint8Array | null;
-
-  moduleTagIdMapRow?: ModuleTagIdMapRow; // many-one to ModuleTagIdMapRow table
-  payloadCollection: TkvParameterPayloadRow[]; // one-many
-  values?: TkvValuesRow[]; // one-many — the key-value combination that identifies this tag bin
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface TkvBase {
+  systemId: number;
+  moduleTagIdMapSystemId: number;
+  uiPersistence: Uint8Array | null;
 }
 
-export interface TkvParameterPayloadRow extends EntityBaseRow {
+export interface TkvRow extends EntityBaseRow, TkvBase {
+  moduleTagIdMapRow?: ModuleTagIdMapRow;
+  payloadCollection: TkvParameterPayloadRow[];
+  values?: TkvValuesRow[];
+}
+
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface TkvParameterPayloadBase {
+  systemId: number;
   parameterSystemId: number;
   payload: Uint8Array | null;
-
-  tkvSystemId: number; // FK
-  tkv?: TkvRow; // relation
-  spfParameter?: SpfModuleParameterDefinitionRow; // relation
+  tkvSystemId: number;
 }
 
-export interface TkvValuesRow {
+export interface TkvParameterPayloadRow
+  extends EntityBaseRow, TkvParameterPayloadBase {
+  tkv?: TkvRow;
+  spfParameter?: SpfModuleParameterDefinitionRow;
+}
+
+/** Composite-PK join table scalars — no systemId, not overlaid. */
+export interface TkvValuesBase {
   tkvSystemId: number;
   valueDefSystemId: number;
+}
 
+export interface TkvValuesRow extends TkvValuesBase {
   tkv?: TkvRow;
   valueDef?: ValueDefinitionRow;
 }

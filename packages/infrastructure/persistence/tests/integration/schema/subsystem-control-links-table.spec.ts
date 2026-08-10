@@ -50,7 +50,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     systemId: SUBGRAPH_ID,
     subgraphId: 1,
     name: 'sg',
-    isExported: 0,
+    isImported: 0,
     fileSystemId: FILE_ID,
     version: 1,
   });

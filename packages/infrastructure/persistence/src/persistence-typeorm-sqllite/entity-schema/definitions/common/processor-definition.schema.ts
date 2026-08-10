@@ -7,10 +7,16 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {SpfModuleDefinitionRow} from '../module/spf/spf-module-definition.schema.js';
 
-export interface ProcessorDefinitionRow extends EntityBaseRow {
-  name: string;
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ProcessorDefinitionBase {
+  systemId: number;
   processorDefinitionId: number;
+  name: string;
   fileSystemId: number;
+}
+
+export interface ProcessorDefinitionRow
+  extends EntityBaseRow, ProcessorDefinitionBase {
   moduleDefinitions?: SpfModuleDefinitionRow[];
 }
 

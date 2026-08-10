@@ -24,6 +24,8 @@ export interface SpfModuleDefinitionBase {
   moduleDefinitionId: number;
   name: string;
   displayName?: string;
+  description?: string;
+  modSearchKeys?: string;
   stackSize: number;
   fileSystemId: number;
   isLoadedAtBootup: boolean;

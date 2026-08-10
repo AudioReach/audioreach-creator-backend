@@ -12,7 +12,7 @@ export interface ContainerQueryService {
    * Returns every ContainerReadModel for the given fileSystemId.
    * Overlay is always applied internally — no applyOverlay flag.
    */
-  findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>>;
+  getAllContainers(fileSystemId: number): Promise<Result<ContainerReadModel[]>>;
 
   /**
    * Returns property payloads for the specified container, with session overlay applied.

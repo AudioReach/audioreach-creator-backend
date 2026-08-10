@@ -7,9 +7,14 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {ModuleDefinitionContainerTypeLinkRow} from '../module/spf/module-definition-container-type-link.schema.js';
 
-export interface ContainerTypeRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ContainerTypeBase {
+  systemId: number;
   name: string;
   value: number;
+}
+
+export interface ContainerTypeRow extends EntityBaseRow, ContainerTypeBase {
   moduleDefinitionLinks?: ModuleDefinitionContainerTypeLinkRow[];
 }
 

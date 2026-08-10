@@ -8,11 +8,15 @@ import {EntitySchema} from 'typeorm';
 import type {TagDefinitionRow} from './tag-definition.schema.js';
 import type {KeyDefinitionRow} from '../key-value/key-definition.schema.js';
 
-export interface TagKeyDefLinkRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface TagKeyDefLinkBase {
+  systemId: number;
   tagDefinitionSystemId: number;
   keyReferenceSystemId: number;
   tagEnumValue?: string;
+}
 
+export interface TagKeyDefLinkRow extends EntityBaseRow, TagKeyDefLinkBase {
   // Relations
   tagDefinition: TagDefinitionRow;
   keyDefinition?: KeyDefinitionRow;

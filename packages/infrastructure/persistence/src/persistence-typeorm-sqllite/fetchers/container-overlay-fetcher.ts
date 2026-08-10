@@ -13,20 +13,8 @@ import type {EditActionRow} from '../entity-schema/edit-session/edit-action.sche
 import type {ContainerBase} from '../entity-schema/usecase-data/container/container.schema.js';
 import type {ContainerPropertyDataBase} from '../entity-schema/usecase-data/container/container-property-data.js';
 
-// Query-ready superset types.
-export interface OverlaidContainerProperty {
-  systemId: number;
-  containerSystemId: number;
-  propertySystemId: number;
-  payload: unknown;
-}
-
-export interface OverlaidContainer {
-  systemId: number;
-  containerId: number;
-  containerTypeSystemId: number;
-  fileSystemId: number;
-  properties: OverlaidContainerProperty[];
+export interface OverlaidContainer extends ContainerBase {
+  properties: ContainerPropertyDataBase[];
 }
 
 export class ContainerOverlayFetcher {
@@ -45,12 +33,6 @@ export class ContainerOverlayFetcher {
     const baseRow = (await this.manager
       .getRepository(ENTITY_NAMES.Container)
       .createQueryBuilder('c')
-      .select([
-        'c.systemId',
-        'c.containerId',
-        'c.containerTypeSystemId',
-        'c.fileSystemId',
-      ])
       .where(
         'c.systemId = :containerSystemId AND c.fileSystemId = :fileSystemId',
         {containerSystemId, fileSystemId},
@@ -63,12 +45,6 @@ export class ContainerOverlayFetcher {
       basePropRows = (await this.manager
         .getRepository(ENTITY_NAMES.ContainerPropertyData)
         .createQueryBuilder('cpd')
-        .select([
-          'cpd.systemId',
-          'cpd.containerSystemId',
-          'cpd.propertySystemId',
-          'cpd.payload',
-        ])
         .where('cpd.containerSystemId = :containerSystemId', {
           containerSystemId,
         })
@@ -77,15 +53,7 @@ export class ContainerOverlayFetcher {
 
     if (sessionId === null) {
       if (baseRow === null) return null;
-      return this.assembleContainer(
-        baseRow,
-        basePropRows.map(p => ({
-          systemId: p.systemId,
-          containerSystemId: p.containerSystemId,
-          propertySystemId: p.propertySystemId,
-          payload: p.payload,
-        })),
-      );
+      return {...baseRow, properties: basePropRows};
     }
 
     const actions = await this.editActionsSvc.getByAggregateId(
@@ -118,7 +86,7 @@ export class ContainerOverlayFetcher {
         propActions,
         containerSystemId,
       );
-      return this.assembleContainer(createdContainer, createdProps);
+      return {...createdContainer, properties: createdProps};
     }
 
     // Apply overlay to the existing container row
@@ -132,7 +100,7 @@ export class ContainerOverlayFetcher {
 
     // Apply overlay to properties (CREATE, UPDATE, DELETE)
     const overlaidProps = this.overlay.applyToCollection(
-      basePropRows as unknown as Array<{systemId: number}>,
+      basePropRows,
       propActions,
     );
 
@@ -143,32 +111,18 @@ export class ContainerOverlayFetcher {
       containerSystemId,
     );
 
-    const survivingProps: OverlaidContainerProperty[] = [
-      ...overlaidProps.map(r => {
-        const p = r.effective as unknown as ContainerPropertyDataBase;
-        return {
-          systemId: p.systemId,
-          containerSystemId: p.containerSystemId,
-          propertySystemId: p.propertySystemId,
-          payload: p.payload,
-        };
-      }),
+    const survivingProps: ContainerPropertyDataBase[] = [
+      ...overlaidProps.map(r => r.effective),
       ...createdProps,
     ];
 
-    return {
-      systemId: overlaidContainer.systemId,
-      containerId: overlaidContainer.containerId,
-      containerTypeSystemId: overlaidContainer.containerTypeSystemId,
-      fileSystemId: overlaidContainer.fileSystemId,
-      properties: survivingProps,
-    };
+    return {...overlaidContainer, properties: survivingProps};
   }
 
   private buildCreatedProperties(
     propActions: EditActionRow[],
     containerSystemId: number,
-  ): OverlaidContainerProperty[] {
+  ): ContainerPropertyDataBase[] {
     return propActions
       .filter(a => a.operation === CHANGE_OPERATION.Create)
       .map(a => {
@@ -182,16 +136,48 @@ export class ContainerOverlayFetcher {
       });
   }
 
-  private assembleContainer(
-    container: ContainerBase,
-    props: OverlaidContainerProperty[],
-  ): OverlaidContainer {
-    return {
-      systemId: container.systemId,
-      containerId: container.containerId,
-      containerTypeSystemId: container.containerTypeSystemId,
-      fileSystemId: container.fileSystemId,
-      properties: props,
-    };
+  async fetchMany(
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<ContainerBase[]> {
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.Container)
+      .createQueryBuilder('c')
+      .where('c.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as unknown as ContainerBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.Container,
+    );
+    if (actions.length === 0) return baseRows;
+
+    const updateDeleteActions = actions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
+    const overlaid = this.overlay
+      .applyToCollection(baseRows, updateDeleteActions)
+      .map(r => r.effective);
+
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+    const created: ContainerBase[] = actions
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId),
+      )
+      .map(a => {
+        const p = a.newValue as Partial<ContainerBase>;
+        return {
+          systemId: a.targetSystemId,
+          containerId: p.containerId ?? 0,
+          containerTypeSystemId: p.containerTypeSystemId ?? 0,
+          fileSystemId: p.fileSystemId ?? fileSystemId,
+        };
+      });
+
+    return [...overlaid, ...created];
   }
 }

@@ -316,12 +316,13 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       name: 'SomeKey',
     });
 
-    // loadOverlaidKeysWithValues batches all values in one query — there's
-    // no per-key isolation left to test at this layer. A thrown DB error
-    // fails the whole call rather than dropping the offending key.
-    const realGetRepository = dataSource.getRepository.bind(dataSource);
+    // The KeyValueDefinitionFetcher uses manager.getRepository (EntityManager),
+    // so the spy must target dataSource.manager rather than dataSource itself.
+    const realGetRepository = dataSource.manager.getRepository.bind(
+      dataSource.manager,
+    );
     const spy = jest
-      .spyOn(dataSource, 'getRepository')
+      .spyOn(dataSource.manager, 'getRepository')
       .mockImplementation((entity: string) => {
         if (entity === ENTITY_NAMES.ValueDefinition) {
           throw new Error('Simulated DB failure');

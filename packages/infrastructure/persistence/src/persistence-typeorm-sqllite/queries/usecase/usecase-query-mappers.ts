@@ -13,12 +13,9 @@ import type {
   ControlLinkReadModel,
 } from '@arc/core';
 import {PORT_IO_TYPE} from '@arc/core';
-import type {
-  ValueDefinitionRow,
-  NodeRow,
-  DataLinkRow,
-  ControlLinkRow,
-} from '../../entity-schema/index.js';
+import type {ValueDefinitionRow, NodeRow} from '../../entity-schema/index.js';
+import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
+import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 
 export const UseCaseQueryMappers = {
   mapValueToKeyVector(value: ValueDefinitionRow): KeyValuePairReadModel {
@@ -49,7 +46,7 @@ export const UseCaseQueryMappers = {
       systemId: node.systemId,
       parentId: node.parentId,
       instanceId: spfModule.instanceId,
-      alias: spfModule.alias,
+      alias: spfModule.alias ?? '',
       name: definition.name,
       moduleId: definition.moduleDefinitionId,
       definitionSystemId: spfModule.definitionSystemId,
@@ -69,7 +66,7 @@ export const UseCaseQueryMappers = {
 
   // ── Link mappers ──────────────────────────────────────────────────────────────
 
-  mapToComponentDataLinkReadModel(dl: DataLinkRow): DataLinkReadModel {
+  mapToComponentDataLinkReadModel(dl: DataLinkBase): DataLinkReadModel {
     return {
       systemId: dl.systemId,
       sourceNodeSystemId: dl.sourceNodeSystemId,
@@ -81,7 +78,9 @@ export const UseCaseQueryMappers = {
     };
   },
 
-  mapToComponentControlLinkReadModel(cl: ControlLinkRow): ControlLinkReadModel {
+  mapToComponentControlLinkReadModel(
+    cl: ControlLinkBase,
+  ): ControlLinkReadModel {
     return {
       systemId: cl.systemId,
       peerNodeASystemId: cl.peerNodeASystemId,

@@ -77,7 +77,7 @@ async function seedHelperSubgraph(manager: EntityManager): Promise<void> {
     fileSystemId: FILE_ID,
     name: 'HelperSubgraph',
     subgraphId: 99,
-    isExported: 0,
+    isImported: 0,
     version: 1,
   });
 }

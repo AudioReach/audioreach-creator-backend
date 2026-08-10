@@ -20,7 +20,7 @@ describe('ContainerQueryHandler', () => {
         getFileIdByProjectId: jest.fn().mockResolvedValue(fileSystemId),
       },
       containerQueryService: {
-        findAll: jest.fn().mockResolvedValue(
+        getAllContainers: jest.fn().mockResolvedValue(
           fail
             ? Result.fail({
                 code: 'NOT_FOUND',
@@ -110,6 +110,8 @@ describe('ContainerQueryHandler', () => {
     expect(qs.projectQueryService.getFileIdByProjectId).toHaveBeenCalledWith(
       99,
     );
-    expect(qs.containerQueryService.findAll).toHaveBeenCalledWith(fileSystemId);
+    expect(qs.containerQueryService.getAllContainers).toHaveBeenCalledWith(
+      fileSystemId,
+    );
   });
 });

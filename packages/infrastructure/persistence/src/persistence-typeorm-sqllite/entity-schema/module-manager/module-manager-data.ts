@@ -16,18 +16,20 @@ import {EntitySchema} from 'typeorm';
 import type {SpfModuleDefinitionRow} from '../definitions/module/spf/spf-module-definition.schema.js';
 import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 
-export interface ModuleManagerDataRow extends EntityBaseRow {
-  // Foreign Keys
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ModuleManagerDataBase {
+  systemId: number;
   moduleDefinitionSystemId: number;
   fileSystemId: number;
-
-  // CAPI Registration Data
   moduleType: ModuleTypeValue;
   interfaceType: InterfaceTypeValue;
   interfaceVersion: InterfaceVersionValue;
   fileName: string;
   tag: string;
+}
 
+export interface ModuleManagerDataRow
+  extends EntityBaseRow, ModuleManagerDataBase {
   // Relations (optional, for TypeORM)
   moduleDefinition?: SpfModuleDefinitionRow;
   file?: ArcDbFileRow;
