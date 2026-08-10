@@ -219,8 +219,10 @@ function makeQuery(
 }
 
 /** Extracts all dataLink systemIds from a tree node (flat helper for assertions). */
-function collectDataLinkIds(node: {dataLinks: DataLinkReadModel[]}): number[] {
-  return node.dataLinks.map(l => l.systemId).sort((a, b) => a - b);
+function collectDataLinkIds(node: {
+  dataLinks: Array<{systemId: string | number}>;
+}): number[] {
+  return node.dataLinks.map(l => Number(l.systemId)).sort((a, b) => a - b);
 }
 
 // =============================================================================
@@ -342,7 +344,9 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       ).handle(makeQuery());
       if (result.kind === RESULT_KIND.Ok) {
         expect(
-          result.data.modules.map(m => m.systemId).sort((a, b) => a - b),
+          result.data.spfModules
+            .map(m => Number(m.systemId))
+            .sort((a, b) => a - b),
         ).toEqual([M1, M2, M3, M4]);
       }
     });
@@ -531,7 +535,9 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       const ss = result.data.subsystems.find(s => s.systemId === SS)!;
       const ss1 = ss.children.subsystems.find(s => s.systemId === SS1)!;
       expect(
-        ss1.children.modules.map(m => m.systemId).sort((a, b) => a - b),
+        ss1.children.spfModules
+          .map(m => Number(m.systemId))
+          .sort((a, b) => a - b),
       ).toEqual([M5, M6]);
     });
 
@@ -630,7 +636,9 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
       const ss = result.data.subsystems.find(s => s.systemId === SS)!;
       expect(
-        ss.children.modules.map(m => m.systemId).sort((a, b) => a - b),
+        ss.children.spfModules
+          .map(m => Number(m.systemId))
+          .sort((a, b) => a - b),
       ).toEqual([M3, M4]);
     });
 
@@ -654,8 +662,8 @@ describe('GetComponentsWithSubsystemsHandler', () => {
     it('m5 and m6 are not present anywhere in the tree', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
       const ss = result.data.subsystems.find(s => s.systemId === SS)!;
-      const allModules = [...result.data.modules, ...ss.children.modules];
-      const moduleIds = allModules.map(m => m.systemId);
+      const allModules = [...result.data.spfModules, ...ss.children.spfModules];
+      const moduleIds = allModules.map(m => Number(m.systemId));
       expect(moduleIds).not.toContain(M5);
       expect(moduleIds).not.toContain(M6);
     });

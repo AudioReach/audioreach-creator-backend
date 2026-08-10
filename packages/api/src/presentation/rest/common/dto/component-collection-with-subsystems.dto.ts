@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ComponentCollectionDto} from './component-collection.dto.js';
+import {ComponentCollectionResponseDto} from './component-collection.dto.js';
 import {SubsystemDto} from '../../modules/subsystem/dto/subsystem.dto.js';
 
 /**
@@ -12,7 +12,7 @@ import {SubsystemDto} from '../../modules/subsystem/dto/subsystem.dto.js';
  * Extends ComponentCollectionDto to include subsystem structure.
  * Used when hierarchical organization of components by subsystems is needed.
  */
-export class ComponentCollectionWithSubsystemsDto extends ComponentCollectionDto {
+export class ComponentCollectionWithSubsystemsDto extends ComponentCollectionResponseDto {
   @ApiProperty({
     description: 'Hierarchical subsystem structure with nested components',
     type: () => SubsystemDto,

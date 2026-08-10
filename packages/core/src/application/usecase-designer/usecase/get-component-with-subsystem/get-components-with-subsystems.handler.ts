@@ -12,16 +12,18 @@ import type {ControlLinkReadModel} from '../../../ports/persistence/query-servic
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {GetComponentsWithSubsystemsQuery} from './get-components-with-subsystems.query.js';
 import {buildSubsystemTree} from './build-subsystem-tree.js';
+import type {ComponentCollectionWithSubsystemsDto} from '../dto/component-collection-dto.js';
+import {mapComponentCollectionWithSubsystems} from '../dto/component-collection-dto.js';
 
 export class GetComponentsWithSubsystemsHandler implements QueryHandler<
   GetComponentsWithSubsystemsQuery,
-  Promise<Result<ComponentsWithSubsystemsReadModel>>
+  Promise<Result<ComponentCollectionWithSubsystemsDto>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetComponentsWithSubsystemsQuery,
-  ): Promise<Result<ComponentsWithSubsystemsReadModel>> {
+  ): Promise<Result<ComponentCollectionWithSubsystemsDto>> {
     const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -130,8 +132,11 @@ export class GetComponentsWithSubsystemsHandler implements QueryHandler<
       dataLinks: [...rawDataLinksResult.data, ...extraDataLinks],
       controlLinks: [...rawControlLinksResult.data, ...extraControlLinks],
     };
-    const tree = buildSubsystemTree(flat, subsystemsResult.data);
+    const tree: ComponentsWithSubsystemsReadModel = buildSubsystemTree(
+      flat,
+      subsystemsResult.data,
+    );
 
-    return Result.ok(tree);
+    return Result.ok(mapComponentCollectionWithSubsystems(tree));
   }
 }

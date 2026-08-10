@@ -22,55 +22,34 @@ import {ApiTags, ApiQuery, ApiExtraModels, ApiParam} from '@nestjs/swagger';
 import {SubsystemDto} from '../subsystem/dto/subsystem.dto.js';
 import {BaseController} from '../base/base.controller.js';
 import {
-  UsecaseIdentifierDto,
-  UsecaseDto,
+  UsecaseResponseDto,
   SubsystemFilteredUsecasesDto,
-  UsecaseType,
 } from './dto/usecase.dto.js';
-import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
+import {ComponentCollectionResponseDto} from '../../common/dto/component-collection.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {UpdateUsecaseRequestDto} from './dto/request/update-usecase-request.dto.js';
-import {UsecaseResponseDto} from './dto/response/usecase-response.dto.js';
-import {SpfModuleDto} from '../spf-module/dto/shared/spf-module.dto.js';
-import {DataLinkDto} from '../data-link/dto/data-link.dto.js';
-import {ControlLinkDto} from '../control-link/dto/control-link.dto.js';
-import {DataLinkWithUsecasesDto} from './dto/data-link-with-usecases.dto.js';
-import {ControlLinkWithUsecasesDto} from './dto/control-link-with-usecases.dto.js';
+import {UpdateUsecaseResponseDto} from '../../common/dto/usecase/update-usecase-response.dto.js';
+import {DataLinkWithUsecasesResponseDto} from './dto/data-link-with-usecases.dto.js';
+import {ControlLinkWithUsecasesResponseDto} from './dto/control-link-with-usecases.dto.js';
 import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
-import {
-  DataPortDto,
-  PortIoType,
-  PortType,
-} from '../../common/dto/data-port.dto.js';
-import {
-  ControlPortDto,
-  ControlPortIntentDto,
-} from '../../common/dto/control-port.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
+import {EndPointLink} from '../../common/utils/index.js';
 import {
   QueryBus,
   GetAllUseCasesQuery,
   GetComponentsQuery,
   GetComponentsWithSubsystemsQuery,
   type Result,
-  UseCaseReadModel,
-  type KeyValuePairReadModel,
-  type ComponentsReadModel,
-  type ComponentsWithSubsystemsReadModel,
+  type UseCaseDto as CoreUseCaseDto,
+  type ComponentCollectionDto as CoreComponentCollectionDto,
+  type ComponentCollectionWithSubsystemsDto as CoreComponentCollectionWithSubsystemsDto,
   COMPONENT_SCOPE_TYPE,
   FilterParser,
   validateFilterFields,
 } from '@arc/core';
-import {
-  KeyValuePairsInfo,
-  KeyValueInfo,
-  KeyInfo,
-  ValueInfo,
-} from '../../common/dto/kv.dto.js';
-import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 
 /**
  * Valid filter fields for GET /usecases.
@@ -96,13 +75,11 @@ const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
   example: '12345',
 })
 @ApiExtraModels(
-  UsecaseIdentifierDto,
-  UsecaseDto,
+  UsecaseResponseDto,
   SubsystemFilteredUsecasesDto,
   BaseComponentDto,
-  SpfModuleDto,
   SubsystemDto,
-  ComponentCollectionDto,
+  ComponentCollectionResponseDto,
   ComponentCollectionWithSubsystemsDto,
 )
 export class UseCaseController extends BaseController {
@@ -171,7 +148,7 @@ export class UseCaseController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Usecases returned successfully with raw GKV information',
-        dto: [UsecaseDto],
+        dto: [UsecaseResponseDto],
         example: {
           className: 'UseCaseIdentifierCollectionExample',
         },
@@ -189,7 +166,7 @@ export class UseCaseController extends BaseController {
   async getAllUsecases(
     @Param('projectId') projectId: string,
     @Query('filter') filterExpression?: string,
-  ): Promise<ApiResult<UsecaseDto[]>> {
+  ): Promise<ApiResult<UsecaseResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
@@ -220,10 +197,17 @@ export class UseCaseController extends BaseController {
       expression,
     );
 
-    const result =
-      await this.queryBus.execute<Result<UseCaseReadModel[]>>(query);
+    const result = await this.queryBus.execute<Result<CoreUseCaseDto[]>>(query);
 
-    return toApiResult(result, data => this.transformToUsecaseDtos(data));
+    return toApiResult(result, data =>
+      data.map(uc => {
+        const link = new EndPointLink();
+        link.hypertextRef = `/usecases/components/get`;
+        link.method = 'POST';
+        link.description = 'Get all components of usecase.';
+        return {...uc, relatedEndPointLinks: [link]};
+      }),
+    );
   }
 
   //#endregion
@@ -346,7 +330,7 @@ export class UseCaseController extends BaseController {
         status: HttpStatus.OK,
         description:
           'ACDB data links with their usecases returned successfully',
-        dto: [DataLinkWithUsecasesDto],
+        dto: [DataLinkWithUsecasesResponseDto],
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -378,7 +362,7 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Query('componentSystemId') componentSystemId: string,
     @Query('portSystemId') portSystemId: string,
-  ): Promise<ApiResult<DataLinkWithUsecasesDto[]>> {
+  ): Promise<ApiResult<DataLinkWithUsecasesResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Getting ACDB data links for component+port in project:',
@@ -438,7 +422,7 @@ export class UseCaseController extends BaseController {
         status: HttpStatus.OK,
         description:
           'ACDB control links with their usecases returned successfully',
-        dto: [ControlLinkWithUsecasesDto],
+        dto: [ControlLinkWithUsecasesResponseDto],
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -470,7 +454,7 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Query('componentSystemId') componentSystemId: string,
     @Query('portSystemId') portSystemId: string,
-  ): Promise<ApiResult<ControlLinkWithUsecasesDto[]>> {
+  ): Promise<ApiResult<ControlLinkWithUsecasesResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Getting ACDB control links for component+port in project:',
@@ -535,7 +519,7 @@ export class UseCaseController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'All components returned successfully',
-        dto: ComponentCollectionDto,
+        dto: ComponentCollectionResponseDto,
         example: {
           className: 'UsecaseComponentsExample',
         },
@@ -544,7 +528,7 @@ export class UseCaseController extends BaseController {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some usecases could not be retrieved (see errors array)',
-        dto: ComponentCollectionDto,
+        dto: ComponentCollectionResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -559,7 +543,7 @@ export class UseCaseController extends BaseController {
   async queryUsecaseComponents(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<ComponentCollectionDto>> {
+  ): Promise<ApiResult<ComponentCollectionResponseDto>> {
     if (
       !usecaseSystemIds?.systemIds ||
       usecaseSystemIds.systemIds.length === 0
@@ -589,11 +573,9 @@ export class UseCaseController extends BaseController {
     );
 
     const result =
-      await this.queryBus.execute<Result<ComponentsReadModel>>(query);
+      await this.queryBus.execute<Result<CoreComponentCollectionDto>>(query);
 
-    return toApiResult(result, data =>
-      this.transformToComponentCollectionDto(data),
-    );
+    return toApiResult(result);
   }
 
   //#endregion
@@ -685,12 +667,10 @@ export class UseCaseController extends BaseController {
     );
 
     const result =
-      await this.queryBus.execute<Result<ComponentsWithSubsystemsReadModel>>(
-        query,
-      );
-    return toApiResult(result, data =>
-      this.transformToComponentCollectionWithSubsystemsDto(data),
-    );
+      await this.queryBus.execute<
+        Result<CoreComponentCollectionWithSubsystemsDto>
+      >(query);
+    return toApiResult(result);
   }
 
   //#endregion
@@ -723,7 +703,7 @@ export class UseCaseController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Usecase updated successfully',
-        dto: UsecaseResponseDto,
+        dto: UpdateUsecaseResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -753,7 +733,7 @@ export class UseCaseController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('usecaseSystemId') usecaseSystemId: string,
     @Body() updateUsecaseDto: UpdateUsecaseRequestDto,
-  ): Promise<ApiResult<UsecaseResponseDto>> {
+  ): Promise<ApiResult<UpdateUsecaseResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Updating usecase:',
@@ -807,7 +787,7 @@ export class UseCaseController extends BaseController {
   async deleteUsecases(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<UsecaseDto[]>> {
+  ): Promise<ApiResult<UsecaseResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Deleting usecases for project:',
@@ -819,164 +799,6 @@ export class UseCaseController extends BaseController {
   }
 
   //#endregion
-
-  //#endregion
-
-  //#region Helper Methods
-
-  /**
-   * Transform UseCaseReadModel[] to UsecaseDto[]
-   * Converts each usecase to a simple UsecaseDto (extends UsecaseIdentifierDto)
-   */
-  private transformToUsecaseDtos(usecases: UseCaseReadModel[]): UsecaseDto[] {
-    return usecases.map(usecase => {
-      // Transform KeyValuePairReadModel[] to KeyValueInfo[]
-      const keyValueCollection = this.transformKeyVectors(usecase.gkv);
-
-      // Create KeyValuePairsInfo from the key-value collection
-      const kvInfo = new KeyValuePairsInfo(keyValueCollection);
-      kvInfo.systemId = usecase.systemId.toString();
-
-      // Create UsecaseDto (which extends UsecaseIdentifier)
-      const usecaseDto = new UsecaseDto(
-        usecase.systemId.toString(),
-        UsecaseType.Regular, // Default type, could be determined from data
-        kvInfo,
-        usecase.aliasId,
-        usecase.alias,
-        usecase.categories?.join(','), // Convert array to string if needed
-      );
-
-      return usecaseDto;
-    });
-  }
-
-  /**
-   * Transform KeyValuePairReadModel[] to KeyValueInfo[]
-   */
-  private transformKeyVectors(
-    keyVectors: KeyValuePairReadModel[],
-  ): KeyValueInfo[] {
-    return keyVectors.map(
-      kv =>
-        new KeyValueInfo(
-          new KeyInfo(kv.key.keyId, kv.key.name, `key_${kv.key.keyId}`),
-          new ValueInfo(
-            kv.value.valueId,
-            kv.value.name,
-            `val_${kv.value.valueId}`,
-          ),
-        ),
-    );
-  }
-
-  /**
-   * Transform UseCaseComponentsReadModel to ComponentCollectionDto
-   */
-  private transformToComponentCollectionDto(
-    components: ComponentsReadModel,
-  ): ComponentCollectionDto {
-    const dto = new ComponentCollectionDto();
-
-    dto.spfModules = components.modules.map(module => {
-      const moduleDto = new SpfModuleDto(
-        module.systemId.toString(),
-        module.instanceId,
-        module.definitionSystemId,
-        module.name,
-      );
-      // SpfModuleReadModel has subgraphId + containerId directly (no nested objects)
-      moduleDto.subgraphId = module.subgraphId;
-      moduleDto.containerId = module.containerId;
-
-      moduleDto.dataPorts = module.dataPorts.map(
-        port =>
-          new DataPortDto(
-            port.systemId.toString(),
-            port.portId,
-            port.name ?? '',
-            port.portIoType === 'Input' ? PortIoType.Input : PortIoType.Output,
-            port.isStatic ? PortType.Static : PortType.Dynamic,
-          ),
-      );
-
-      moduleDto.controlPorts = module.controlPorts.map(port => {
-        const intents = port.allocatedIntents.map(
-          intent => new ControlPortIntentDto(intent.intentId, intent.name),
-        );
-        return new ControlPortDto(
-          port.systemId.toString(),
-          port.portId,
-          port.name ?? '',
-          port.isStatic ? PortType.Static : PortType.Dynamic,
-          intents,
-        );
-      });
-
-      return moduleDto;
-    });
-
-    dto.dataLinks = components.dataLinks.map(
-      link =>
-        new DataLinkDto(
-          link.systemId.toString(),
-          link.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          link.sourceNodeSystemId,
-          link.sourcePortSystemId,
-          link.destinationNodeSystemId,
-          link.destinationPortSystemId,
-          false,
-        ),
-    );
-
-    dto.controlLinks = components.controlLinks.map(
-      link =>
-        new ControlLinkDto(
-          link.systemId.toString(),
-          link.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          link.peerNodeASystemId,
-          link.nodeAPortSystemId,
-          link.peerNodeBSystemId,
-          link.nodeBPortSystemId,
-          false,
-          undefined,
-        ),
-    );
-
-    return dto;
-  }
-
-  private transformToComponentCollectionWithSubsystemsDto(
-    tree: ComponentsWithSubsystemsReadModel,
-  ): ComponentCollectionWithSubsystemsDto {
-    const dto = new ComponentCollectionWithSubsystemsDto();
-    // Reuse flat mapper for modules + links at this level
-    const flat = this.transformToComponentCollectionDto(tree);
-    dto.spfModules = flat.spfModules;
-    dto.dataLinks = flat.dataLinks;
-    dto.controlLinks = flat.controlLinks;
-
-    // Map each subsystem recursively — same shape as root
-    dto.subsystems = tree.subsystems.map(sub => {
-      const subDto = new SubsystemDto(
-        String(sub.systemId),
-        sub.systemId, // id — use systemId as the numeric id
-        sub.name,
-      );
-      subDto.filteredKeys = sub.filteredKeys.map(
-        k => new KeyInfo(k.keyId, k.name, String(k.systemId)),
-      );
-      // children has the same ComponentsWithSubsystemsReadModel shape — recurse
-      subDto.children = this.transformToComponentCollectionWithSubsystemsDto(
-        sub.children,
-      );
-      return subDto;
-    });
-
-    return dto;
-  }
 
   //#endregion
 }

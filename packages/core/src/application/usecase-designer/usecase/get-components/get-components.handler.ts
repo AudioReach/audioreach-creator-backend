@@ -11,16 +11,18 @@ import {
   GetComponentsQuery,
   COMPONENT_SCOPE_TYPE,
 } from './get-components.query.js';
+import type {ComponentCollectionDto} from '../dto/component-collection-dto.js';
+import {mapComponentCollection} from '../dto/component-collection-dto.js';
 
 export class GetComponentsHandler implements QueryHandler<
   GetComponentsQuery,
-  Promise<Result<ComponentsReadModel>>
+  Promise<Result<ComponentCollectionDto>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetComponentsQuery,
-  ): Promise<Result<ComponentsReadModel>> {
+  ): Promise<Result<ComponentCollectionDto>> {
     const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -43,7 +45,7 @@ export class GetComponentsHandler implements QueryHandler<
 
     switch (query.scope.type) {
       case COMPONENT_SCOPE_TYPE.Usecase:
-        return this.loadComponents(
+        return this.loadAndMapComponents(
           svc.spfModuleQueryService.findByUsecaseIds(
             query.scope.systemIds,
             fileId,
@@ -59,7 +61,7 @@ export class GetComponentsHandler implements QueryHandler<
         );
 
       case COMPONENT_SCOPE_TYPE.Subgraph:
-        return this.loadComponents(
+        return this.loadAndMapComponents(
           svc.spfModuleQueryService.findBySubgraphId(
             query.scope.systemId,
             fileId,
@@ -87,11 +89,11 @@ export class GetComponentsHandler implements QueryHandler<
     return Result.ok(systemIds.find(id => !knownIds.has(id)));
   }
 
-  private async loadComponents(
+  private async loadAndMapComponents(
     modulesPromise: Promise<Result<ComponentsReadModel['modules']>>,
     dataLinksPromise: Promise<Result<ComponentsReadModel['dataLinks']>>,
     controlLinksPromise: Promise<Result<ComponentsReadModel['controlLinks']>>,
-  ): Promise<Result<ComponentsReadModel>> {
+  ): Promise<Result<ComponentCollectionDto>> {
     const [modulesResult, dataLinksResult, controlLinksResult] =
       await Promise.all([
         modulesPromise,
@@ -110,10 +112,11 @@ export class GetComponentsHandler implements QueryHandler<
       throw new Error(
         controlLinksResult.issues[0]?.message ?? 'Failed to load control links',
       );
-    return Result.ok({
+    const flat: ComponentsReadModel = {
       modules: modulesResult.data,
       dataLinks: dataLinksResult.data,
       controlLinks: controlLinksResult.data,
-    });
+    };
+    return Result.ok(mapComponentCollection(flat));
   }
 }
