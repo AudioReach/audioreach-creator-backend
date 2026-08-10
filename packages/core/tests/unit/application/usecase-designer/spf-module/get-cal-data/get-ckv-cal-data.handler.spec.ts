@@ -5,6 +5,7 @@
 import {jest} from '@jest/globals';
 import {GetCkvCalibrationDataHandler} from '../../../../../../src/application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
 import {GetCkvCalibrationDataQuery} from '../../../../../../src/application/usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
+import {CkvCalDataDtoSchema} from '../../../../../../src/application/usecase-designer/spf-module/get-cal-data/ckv-cal-data-dto.js';
 import type {QueryServices} from '../../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {ParameterPayloadReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
 import type {CkvReadModel} from '../../../../../../src/application/ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
@@ -79,21 +80,26 @@ function makeServices(
   } as unknown as QueryServices;
 }
 
+import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
+
 describe('GetCkvCalibrationDataHandler', () => {
-  it('returns CkvCalibrationReadModel with parsed parameters', async () => {
+  it('returns Result<CkvCalDataDto> with parsed parameters', async () => {
     const handler = new GetCkvCalibrationDataHandler(makeServices());
     const query = new GetCkvCalibrationDataQuery('1', '2', '10', 'client-id');
     const result = await handler.handle(query);
 
-    expect(result.ckv).toBe(mockCkv);
-    expect(result.parameters).toHaveLength(1);
-    expect(result.parameters[0].name).toBe('gain');
-    expect(result.parameters[0].parsedData).not.toBeNull();
-    expect(result.parameters[0].parsedData![0]).toMatchObject({
-      type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data.systemId).toBe('10');
+    expect(result.data.parameters).toHaveLength(1);
+    expect(result.data.parameters[0].name).toBe('gain');
+    expect(result.data.parameters[0].elements).not.toHaveLength(0);
+    expect(result.data.parameters[0].elements[0]).toMatchObject({
+      type: 'ConfigElement',
       name: 'gain',
       value: '5',
     });
+    expect(CkvCalDataDtoSchema.safeParse(result.data).success).toBe(true);
   });
 
   it('throws NullPayloadError when payload is null', async () => {
@@ -131,6 +137,8 @@ describe('GetCkvCalibrationDataHandler', () => {
       new GetCkvCalibrationDataQuery('1', '2', '10', 'client-id'),
     );
     // mockPayload.parameterSystemId = 100, mockDef.systemId = 100 → should match
-    expect(result.parameters[0].parameterId).toBe(42);
+    expect(result.kind).toBe(RESULT_KIND.Ok);
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data.parameters[0].parameterId).toBe('42');
   });
 });

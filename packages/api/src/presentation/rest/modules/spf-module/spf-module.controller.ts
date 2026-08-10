@@ -23,15 +23,11 @@ import {
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
-import {SpfModuleDto} from './dto/shared/spf-module.dto.js';
-import {CalDataDto} from '../../common/dto/tuning-data/cal-data.dto.js';
+import {SpfModuleResponseDto} from './dto/shared/spf-module.dto.js';
+import {CkvCalDataResponseDto} from '../../common/dto/tuning-data/cal-data.dto.js';
 import {UpdateSpfModuleCalDataRequestDto} from './dto/request/update-spf-module-cal-data-request.dto.js';
 import {UpdateSpfModuleTagDataRequestDto} from './dto/request/update-spf-module-tag-data-request.dto.js';
-import {TagDataDto} from '../../common/dto/tuning-data/tag-data.dto.js';
-import {ParameterDetailDto} from '../../common/dto/parameter.dto.js';
-import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
-import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
-import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
+import {TkvCalDataResponseDto} from '../../common/dto/tuning-data/tag-data.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
   CreateSpfModuleRequestDto,
@@ -51,26 +47,15 @@ import {PatchSpfModuleRequestDto} from './dto/request/patch-spf-module-request.d
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {
-  IssueSeverity,
-  ISSUE_CODE,
   Result,
-  RESULT_KIND,
   QueryBus,
   CommandBus,
   PatchSpfModuleCommand,
   CreateModuleCommand,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
-  type Issue,
-  type SpfModuleDetailedReadModel,
-  type SpfModuleReadModel,
-  type DataPortReadModel,
-  type ControlPortReadModel,
-  type CkvReadModel,
-  type TkvReadModel,
-  type TagReadModel,
-  type CkvCalibrationReadModel,
-  type ParameterCalibrationReadModel,
+  type SpfModuleDto,
+  type CkvCalDataDto,
   type ActiveSession,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -78,18 +63,10 @@ import {toApiResult} from '../../common/result/to-api-result.js';
 import {SessionGuard} from '../../../../guards/session-guard.js';
 import {ArcSession} from '../../../../guards/arc-session.decorator.js';
 import {
-  DataPortDto,
-  PortIoType,
-  PortType,
-} from '../../common/dto/data-port.dto.js';
-import {
-  ControlPortDto,
-  ControlPortIntentDto,
-} from '../../common/dto/control-port.dto.js';
-import {KeyValueDto, KeyDto, ValueDto} from '../../common/dto/key-value.dto.js';
-import {CkvDto, TkvDto, TagInfoDto} from './dto/shared/tuning-config.dto.js';
-import {transformElements} from '../../common/utils/element-data-mapper.js';
-import {KeyValueInfo, KeyInfo, ValueInfo} from '../../common/dto/kv.dto.js';
+  CkvResponseDto,
+  TkvResponseDto,
+  TagInfoResponseDto,
+} from './dto/shared/tuning-config.dto.js';
 import {
   AddCkvsResponseDto,
   CkvParameterRemovalResponseDto,
@@ -114,15 +91,11 @@ import {
   example: '12345',
 })
 @ApiExtraModels(
-  SpfModuleDto,
-  CalDataDto,
+  SpfModuleResponseDto,
+  CkvCalDataResponseDto,
   UpdateSpfModuleCalDataRequestDto,
-  TagDataDto,
+  TkvCalDataResponseDto,
   UpdateSpfModuleTagDataRequestDto,
-  ParameterDetailDto,
-  ConfigElementDto,
-  ElementTemplateArrayDto,
-  StructDto,
   CreateSpfModuleRequestDto,
   CloneSpfModuleRequestDto,
   CreateCkvsRequestDto,
@@ -136,9 +109,9 @@ import {
   CreateTkvParametersRequestDto,
   RemoveTkvParametersRequestDto,
   PatchSpfModuleRequestDto,
-  CkvDto,
-  TagInfoDto,
-  TkvDto,
+  CkvResponseDto,
+  TagInfoResponseDto,
+  TkvResponseDto,
   CkvParametersResponseDto,
   TkvParametersResponseDto,
   CkvParameterRemovalResponseDto,
@@ -190,13 +163,13 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'All SPF modules found successfully',
-        dto: [SpfModuleDto],
+        dto: [SpfModuleResponseDto],
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some SPF modules could not be retrieved (see errors array)',
-        dto: [SpfModuleDto],
+        dto: [SpfModuleResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -212,7 +185,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Body() spfModuleSystemIds: SystemIdsRequestDto,
     @Query('include') include?: string,
-  ): Promise<ApiResult<SpfModuleDto[]>> {
+  ): Promise<ApiResult<SpfModuleResponseDto[]>> {
     const includeOptions = new Set(
       include?.split(',').map(s => s.trim().toLowerCase()) ?? [],
     );
@@ -234,18 +207,9 @@ export class SpfModuleController extends BaseController {
       'client-id', // TODO: extract real clientId from JWT once auth wiring is done
     );
 
-    const result =
-      await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
+    const result = await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
 
-    return toApiResult(result, ({modules, ckvsByModule, tagsByModule}) =>
-      modules.map(m =>
-        this.mapToSpfModuleDto(
-          m,
-          ckvsByModule?.get(m.systemId),
-          tagsByModule?.get(m.systemId),
-        ),
-      ),
-    );
+    return toApiResult(result, data => data.map(m => this.addLinks(m)));
   }
 
   /**
@@ -275,7 +239,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'SPF module created successfully',
-        dto: SpfModuleDto,
+        dto: SpfModuleResponseDto,
         example: {
           className: 'SpfModuleDTOExample',
         },
@@ -299,7 +263,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId', ParseIntPipe) projectId: number,
     @Body() request: CreateSpfModuleRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<SpfModuleDto>> {
+  ): Promise<ApiResult<SpfModuleResponseDto>> {
     const cmd = new CreateModuleCommand(
       request.moduleDefinitionId,
       request.processorSystemId,
@@ -321,10 +285,8 @@ export class SpfModuleController extends BaseController {
       'api-client',
     );
     const readResult =
-      await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
-    return toApiResult(readResult, ({modules}) =>
-      this.mapToSpfModuleDto(modules[0]),
-    );
+      await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
+    return toApiResult(readResult, data => this.addLinks(data[0]));
   }
 
   /**
@@ -378,7 +340,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Calibration data retrieved successfully',
-        dto: CalDataDto,
+        dto: CkvCalDataResponseDto,
       },
       {
         status: HttpStatus.FORBIDDEN,
@@ -399,7 +361,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
-  ): Promise<ApiResult<CalDataDto>> {
+  ): Promise<ApiResult<CkvCalDataResponseDto>> {
     const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
     const query = new GetCkvCalibrationDataQuery(
       projectId,
@@ -408,18 +370,8 @@ export class SpfModuleController extends BaseController {
       clientId,
       paramSystemIds,
     );
-    const model = await this.queryBus.execute<CkvCalibrationReadModel>(query);
-
-    const issues: Issue[] = (model.missingParamSystemIds ?? []).map(id => ({
-      code: ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND,
-      message: `No calibration payload found for parameter system ID ${id}`,
-      severity: IssueSeverity.Error,
-    }));
-
-    const calData = this.transformToCalDataDto(model);
-    const resultEnvelope =
-      issues.length > 0 ? Result.partial(calData, issues) : Result.ok(calData);
-    return toApiResult(resultEnvelope);
+    const result = await this.queryBus.execute<Result<CkvCalDataDto>>(query);
+    return toApiResult(result);
   }
 
   /**
@@ -463,7 +415,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Calibration data updated successfully',
-        dto: CalDataDto,
+        dto: CkvCalDataResponseDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -488,7 +440,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
     @Body() updateRequest: UpdateSpfModuleCalDataRequestDto,
-  ): Promise<ApiResult<CalDataDto>> {
+  ): Promise<ApiResult<CkvCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Updating calibration data for SPF module:',
@@ -564,7 +516,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tag data retrieved successfully',
-        dto: TagDataDto,
+        dto: TkvCalDataResponseDto,
       },
       {
         status: HttpStatus.FORBIDDEN,
@@ -587,7 +539,7 @@ export class SpfModuleController extends BaseController {
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
-  ): Promise<ApiResult<TagDataDto>> {
+  ): Promise<ApiResult<TkvCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Getting tag data for SPF module:',
@@ -658,7 +610,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tag data updated successfully',
-        dto: TagDataDto,
+        dto: TkvCalDataResponseDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -685,7 +637,7 @@ export class SpfModuleController extends BaseController {
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
     @Body() updateRequest: UpdateSpfModuleTagDataRequestDto,
-  ): Promise<ApiResult<TagDataDto>> {
+  ): Promise<ApiResult<TkvCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Updating tag data for SPF module:',
@@ -704,152 +656,19 @@ export class SpfModuleController extends BaseController {
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
-  /**
-   * Maps SpfModuleReadModel → SpfModuleDto.
-   * SpfModuleReadModel uses number systemIds and typed PortIoType/PortType enums.
-   * SpfModuleDto uses string systemIds and the API-layer enum values.
-   *
-   * ckvsResult/tagsResult are per-module Results — undefined when not requested,
-   * Result.fail(...) when that module's load errored (dto field left unset),
-   * Result.ok([]) when the module genuinely has none.
-   */
-  private mapToSpfModuleDto(
-    m: SpfModuleReadModel,
-    ckvsResult?: Result<CkvReadModel[]>,
-    tagsResult?: Result<TagReadModel[]>,
-  ): SpfModuleDto {
-    const dto = new SpfModuleDto(
-      String(m.systemId),
-      m.instanceId,
-      m.moduleId,
-      m.name,
-      m.parentId,
-    );
-    dto.alias = m.alias;
-    dto.subgraphId = m.subgraphId;
-    dto.containerId = m.containerId;
-    dto.maxInputPortsSupported = m.maxInputPortsSupported;
-    dto.maxOutputPortsSupported = m.maxOutputPortsSupported;
-    dto.maxControlPortsSupported = m.maxControlPortsSupported;
-    dto.dataPorts = m.dataPorts.map(p => this.mapDataPortToDto(p));
-    dto.controlPorts = m.controlPorts.map(p => this.mapControlPortToDto(p));
-
-    if (ckvsResult?.kind === RESULT_KIND.Ok)
-      dto.ckvs = ckvsResult.data.map(c => this.mapCkvToDto(c));
-    if (tagsResult?.kind === RESULT_KIND.Ok)
-      dto.tags = tagsResult.data.map(t => this.mapTagToDto(t));
-
-    return dto;
-  }
-
-  private mapCkvToDto(c: CkvReadModel): CkvDto {
-    const keyValueCollection = (c.keyValuePairs ?? [])
-      .filter(kv => kv?.key && kv?.value)
-      .map(
-        kv =>
-          new KeyValueInfo(
-            new KeyInfo(kv.key.keyId, kv.key.name, String(kv.key.systemId)),
-            new ValueInfo(
-              kv.value.valueId,
-              kv.value.name,
-              String(kv.value.systemId),
-            ),
-          ),
-      );
-    return new CkvDto(String(c.systemId), keyValueCollection, []);
-  }
-
-  private mapTkvToDto(t: TkvReadModel): TkvDto {
-    const keyValueCollection = (t.keyValuePairs ?? [])
-      .filter(kv => kv?.key && kv?.value)
-      .map(
-        kv =>
-          new KeyValueInfo(
-            new KeyInfo(kv.key.keyId, kv.key.name, String(kv.key.systemId)),
-            new ValueInfo(
-              kv.value.valueId,
-              kv.value.name,
-              String(kv.value.systemId),
-            ),
-          ),
-      );
-    return new TkvDto(String(t.systemId), keyValueCollection, []);
-  }
-
-  private mapTagToDto(t: TagReadModel): TagInfoDto {
-    return new TagInfoDto(
-      String(t.systemId),
-      t.tagId,
-      t.tagName,
-      t.tkvs.map(tkv => this.mapTkvToDto(tkv)),
-    );
-  }
-
-  /**
-   * Maps DataPortReadModel → DataPortDto.
-   * portIoType: domain PortIoType string → API PortIoType enum.
-   * isStatic: boolean → API PortType enum (Static | Dynamic).
-   */
-  private mapDataPortToDto(p: DataPortReadModel): DataPortDto {
-    const dto = new DataPortDto(
-      String(p.systemId),
-      p.portId,
-      p.name ?? '',
-      p.portIoType === 'Input' ? PortIoType.Input : PortIoType.Output,
-      p.isStatic ? PortType.Static : PortType.Dynamic,
-    );
-    dto.totalLinksAtPort = p.totalLinksAtPort;
-    return dto;
-  }
-
-  /**
-   * Maps ControlPortReadModel → ControlPortDto.
-   * Includes allocated intents — each intent has an intentId and a generated name.
-   */
-  private mapControlPortToDto(p: ControlPortReadModel): ControlPortDto {
-    return new ControlPortDto(
-      String(p.systemId),
-      p.portId,
-      p.name ?? '',
-      p.isStatic ? PortType.Static : PortType.Dynamic,
-      p.allocatedIntents.map(i => new ControlPortIntentDto(i.intentId, i.name)),
-    );
-  }
-
-  private transformToCalDataDto(model: CkvCalibrationReadModel): CalDataDto {
-    const dto = new CalDataDto();
-    dto.systemId = model.ckv.systemId.toString();
-    dto.Ckv = model.ckv.keyValuePairs.map(kv => {
-      const kvDto = new KeyValueDto();
-      const keyDto = new KeyDto();
-      keyDto.keyId = kv.key.keyId;
-      keyDto.name = kv.key.name;
-      keyDto.systemId = kv.key.systemId.toString();
-      const valueDto = new ValueDto();
-      valueDto.valueId = kv.value.valueId;
-      valueDto.name = kv.value.name;
-      valueDto.systemId = kv.value.systemId.toString();
-      kvDto.key = keyDto;
-      kvDto.value = valueDto;
-      return kvDto;
-    });
-    dto.parameters = model.parameters.map(p => this.transformParameterDto(p));
-    return dto;
-  }
-
-  private transformParameterDto(
-    p: ParameterCalibrationReadModel,
-  ): ParameterDetailDto {
-    const dto = new ParameterDetailDto();
-    dto.systemId = p.systemId.toString();
-    dto.parameterId = p.parameterId.toString();
-    dto.name = p.name;
-    dto.description = p.description;
-    dto.isHidden = p.isHidden;
-    dto.isReadOnly = p.isReadOnly;
-    dto.pidType = p.pidType;
-    dto.elements = p.parsedData ? transformElements(p.parsedData) : [];
-    return dto;
+  private addLinks(m: SpfModuleDto) {
+    return {
+      ...m,
+      relatedEndPointLinks: [
+        {
+          hypertextRef: `/components/${m.systemId}/properties`,
+          method: 'GET',
+          description: 'Get properties for this module instance.',
+        },
+      ],
+      dataPorts: m.dataPorts.map(p => ({...p, relatedEndPointLinks: []})),
+      controlPorts: m.controlPorts.map(p => ({...p, relatedEndPointLinks: []})),
+    };
   }
 
   /**
@@ -883,7 +702,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'SPF module updated successfully',
-        dto: SpfModuleDto,
+        dto: SpfModuleResponseDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -906,7 +725,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId', ParseIntPipe) spfModuleSystemId: number,
     @Body() dto: PatchSpfModuleRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<SpfModuleDto>> {
+  ): Promise<ApiResult<SpfModuleResponseDto>> {
     const cmd = new PatchSpfModuleCommand(
       spfModuleSystemId,
       dto.alias,
@@ -926,10 +745,8 @@ export class SpfModuleController extends BaseController {
       'api-client',
     );
     const readResult =
-      await this.queryBus.execute<Result<SpfModuleDetailedReadModel>>(query);
-    return toApiResult(readResult, ({modules}) =>
-      this.mapToSpfModuleDto(modules[0]),
-    );
+      await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
+    return toApiResult(readResult, data => this.addLinks(data[0]));
   }
 
   /**
@@ -1002,7 +819,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'CKVs removed successfully',
-        dto: [CkvDto],
+        dto: [CkvResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -1018,7 +835,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteCkvsRequestDto,
-  ): Promise<ApiResult<CkvDto[]>> {
+  ): Promise<ApiResult<CkvResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Removing CKVs from SPF module:',
@@ -1052,7 +869,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tags added successfully',
-        dto: [TagInfoDto],
+        dto: [TagInfoResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -1068,7 +885,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateTagsRequestDto,
-  ): Promise<ApiResult<TagInfoDto[]>> {
+  ): Promise<ApiResult<TagInfoResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Adding tags to SPF module:',
@@ -1102,7 +919,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Tags removed successfully',
-        dto: [TagInfoDto],
+        dto: [TagInfoResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -1118,7 +935,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteTagsRequestDto,
-  ): Promise<ApiResult<TagInfoDto[]>> {
+  ): Promise<ApiResult<TagInfoResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Removing tags from SPF module:',
@@ -1159,7 +976,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'TKVs added successfully',
-        dto: [TkvDto],
+        dto: [TkvResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -1176,7 +993,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Body() request: CreateTkvsRequestDto,
-  ): Promise<ApiResult<TkvDto[]>> {
+  ): Promise<ApiResult<TkvResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Adding TKVs to tag:',
@@ -1219,7 +1036,7 @@ export class SpfModuleController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'TKVs removed successfully',
-        dto: [TkvDto],
+        dto: [TkvResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -1236,7 +1053,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Body() request: DeleteTkvsRequestDto,
-  ): Promise<ApiResult<TkvDto[]>> {
+  ): Promise<ApiResult<TkvResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       'Removing TKVs from tag:',
