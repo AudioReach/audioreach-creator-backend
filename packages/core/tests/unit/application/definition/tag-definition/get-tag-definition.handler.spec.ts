@@ -49,7 +49,11 @@ describe('GetTagDefinitionHandler', () => {
     expect(
       queryServices.tagDefinitionQueryService.getTagDefinition,
     ).toHaveBeenCalledWith(42, 1);
-    expect(result).toBe(tag);
+    expect(result.data).toMatchObject({
+      systemId: '1',
+      tagId: 100,
+      name: 'MyTag',
+    });
   });
 
   it('throws ResourceNotFoundException when the tag definition is not found', async () => {

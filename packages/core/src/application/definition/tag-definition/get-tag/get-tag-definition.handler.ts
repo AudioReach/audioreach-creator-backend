@@ -5,22 +5,21 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {TagDefinitionReadModel} from '../../../ports/persistence/query-services/tag-definition/tag-definition-read-model.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {GetTagDefinitionQuery} from './get-tag-definition.query.js';
+import {Result} from '../../../shared/result/result.js';
+import type {TagDefinitionDto} from '../dto/tag-definition-dto.js';
+import {mapTagDefinition} from '../dto/tag-definition-dto.js';
 
-/**
- * Handler for GetTagDefinitionQuery
- * Resolves projectId → fileId, then loads a single tag definition (with
- * associated key definitions and their values) by system ID
- */
 export class GetTagDefinitionHandler implements QueryHandler<
   GetTagDefinitionQuery,
-  Promise<TagDefinitionReadModel>
+  Promise<Result<TagDefinitionDto>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(query: GetTagDefinitionQuery): Promise<TagDefinitionReadModel> {
+  async handle(
+    query: GetTagDefinitionQuery,
+  ): Promise<Result<TagDefinitionDto>> {
     const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -38,6 +37,6 @@ export class GetTagDefinitionHandler implements QueryHandler<
       );
     }
 
-    return result;
+    return Result.ok(mapTagDefinition(result));
   }
 }

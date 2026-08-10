@@ -50,7 +50,12 @@ describe('GetKeyDefinitionHandler', () => {
     expect(
       queryServices.keyValueDefQueryService.getByKeyDefinition,
     ).toHaveBeenCalledWith(1, 42);
-    expect(result).toBe(key);
+    expect(result.data).toMatchObject({
+      systemId: '1',
+      keyId: 100,
+      name: 'MyKey',
+      values: [],
+    });
   });
 
   it('throws ResourceNotFoundException when the key definition is not found', async () => {
