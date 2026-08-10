@@ -8,10 +8,14 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {NodeRow} from '../node/node.schema.js';
 
-export interface SubsystemRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface SubsystemBase {
+  systemId: number;
   name: string;
   subsystemId?: number;
+}
 
+export interface SubsystemRow extends EntityBaseRow, SubsystemBase {
   // one-to-one relation to Node
   node?: NodeRow;
 }

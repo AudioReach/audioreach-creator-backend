@@ -15,41 +15,49 @@ import {
   IssueSeverity,
 } from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {
-  ContainerPropertyBase,
-  ContainerPropertyRow,
-} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
+import type {ContainerPropertyBase} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
 import {ContainerPropertyDefinitionFetcher} from '../../fetchers/definitions/container-property-definition-fetcher.js';
-import {OverlayMergeImpl} from '../edit-session/overlay-merge.js';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
-const overlay = new OverlayMergeImpl();
-
+/**
+ * Query service for container property definitions.
+ *
+ * All overlay is delegated to ContainerPropertyDefinitionFetcher (FR-3).
+ * Previously, getContainerPropertyDefinition applied applyToCollection and
+ * queried edit_actions inline — this violated FR-3 by bypassing the fetcher.
+ * Now, every method resolves the session once and passes sessionId to the
+ * fetcher, keeping overlay logic out of the service layer.
+ */
 export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQueryService {
   private readonly fetcher: ContainerPropertyDefinitionFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
+    dataSource: DataSource,
+    editActionsSvc: EditActionsQueryService,
     private readonly sessionRepo: ISessionRepository,
   ) {
+    // Pass dataSource.manager to match the standard fetcher constructor pattern
+    // (EntityManager + EditActionsQueryService — no DataSource, no sessionRepo).
     this.fetcher = new ContainerPropertyDefinitionFetcher(
-      dataSource,
+      dataSource.manager,
       editActionsSvc,
-      sessionRepo,
     );
   }
 
   /**
    * Returns every container property definition for the given fileSystemId.
-   * Overlay always applied — no applyOverlay flag, matching DbContainerQueryService.findAll.
+   * Overlay always applied via fetcher. Optionally filtered by natural propertyId.
    */
   async getAllContainerPropertyDefinitionsSummary(
     fileSystemId: number,
     propertyNaturalId?: number,
   ): Promise<Result<PropertyDefinitionSummaryReadModel[]>> {
     try {
-      const rows = await this.fetcher.fetchAll(fileSystemId);
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
 
       const filtered =
         propertyNaturalId === undefined
@@ -71,37 +79,27 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
 
   /**
    * Returns a single container property definition by systemId.
-   * Resolution order: DB row first, then session overlay.
+   *
+   * Delegates overlay to fetcher and filters the result in memory (FR-3).
+   * Previously applied applyToCollection and queried edit_actions inline —
+   * that path is replaced by fetchAll + in-memory find.
    */
   async getContainerPropertyDefinition(
     propertySystemId: number,
     fileSystemId: number,
   ): Promise<Result<PropertyDefinitionReadModel>> {
     try {
-      const baseRow = (await this.dataSource
-        .getRepository(ENTITY_NAMES.ContainerProperty)
-        .createQueryBuilder('cp')
-        .where('cp.systemId = :propertySystemId', {propertySystemId})
-        .getOne()) as ContainerPropertyRow | null;
-
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const baseRows = baseRow ? [baseRow] : [];
-      let rows = baseRows;
-      if (session) {
-        const actions = await this.editActionsSvc.getByTable(
-          session.sessionId,
-          ENTITY_NAMES.ContainerProperty,
-        );
-        rows = overlay
-          .applyToCollection(
-            baseRows,
-            actions.filter(a => a.targetSystemId === propertySystemId),
-          )
-          .map(r => r.effective);
-      }
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
 
-      const match = rows[0];
+      // fetchAll already applies overlay for the whole file — filter in memory
+      // rather than issuing a separate targeted query.
+      const match = rows.find(r => r.systemId === propertySystemId);
+
       return match
         ? Result.ok(this.toDetailReadModel(match))
         : Result.fail({
@@ -120,6 +118,35 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
       });
     }
   }
+
+  /**
+   * Returns all container property definitions with their full element
+   * structure included.
+   */
+  async getAllDetailedContainerPropertyDefinitionsWithElements(
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load container property definitions',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  // ── Private read model mappers ─────────────────────────────────────────────
 
   private toSummaryReadModel(
     row: ContainerPropertyBase,
@@ -142,34 +169,11 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
     };
   }
 
-  async getAllDetailedContainerPropertyDefinitionsWithElements(
-    fileSystemId: number,
-  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>> {
-    try {
-      const rows = await this.fetcher.fetchAll(fileSystemId);
-      return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load container property definitions',
-        severity: IssueSeverity.Error,
-      });
-    }
-  }
-
   private toDetailWithElementsReadModel(
     row: ContainerPropertyBase,
   ): ContainerPropertyDefinitionWithElementsReadModel {
     return {
-      systemId: row.systemId,
-      propertyId: row.propertyId,
-      name: row.name,
-      description: row.description,
-      propertyType: row.propertyType,
-      maxSize: row.maxSize,
+      ...this.toDetailReadModel(row),
       elementsStructure: row.elementsStructure ?? '',
     };
   }

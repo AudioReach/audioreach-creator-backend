@@ -51,7 +51,7 @@ async function createBaseDependencies(manager: EntityManager): Promise<void> {
       systemId,
       subgraphId: sgId,
       name: `subgraph-${sgId}`,
-      isExported: 0,
+      isImported: 0,
       fileSystemId: FILE_ID,
       version: 1,
     });

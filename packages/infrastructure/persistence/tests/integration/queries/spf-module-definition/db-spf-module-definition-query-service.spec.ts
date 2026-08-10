@@ -591,8 +591,8 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
     });
   });
 
-  describe('aggregate-scoped overlay — one getEditActionsByAggregateId call per module', () => {
-    it('issues exactly one getEditActionsByAggregateId call per module in a 50-module list', async () => {
+  describe('aggregate-scoped overlay — four getEditActionsByAggregateId calls per definition', () => {
+    it('issues exactly four getEditActionsByAggregateId calls per definition in a 50-module list', async () => {
       const {fileSystemId} = await createFileDependency();
       const moduleCount = 50;
       await Promise.all(
@@ -619,11 +619,11 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
         if (result.kind !== RESULT_KIND.Ok) return;
         expect(result.data).toHaveLength(moduleCount);
 
-        // One getEditActionsByAggregateId call per module — aggregate-scoped
-        // fetching trades the previous fixed 7-query O(1) shape for O(N)
-        // queries, each scoped to exactly one module's own actions (no
-        // session-wide over-fetch).
-        expect(spy).toHaveBeenCalledTimes(moduleCount);
+        // Four getEditActionsByAggregateId calls per module — one per fetcher
+        // (SpfModuleDefinitionFetcher, DataPortGroupFetcher,
+        // StaticControlPortDefFetcher, DynamicIntentDefFetcher), each scoped
+        // to exactly one module's own actions.
+        expect(spy).toHaveBeenCalledTimes(moduleCount * 4);
       } finally {
         spy.mockRestore();
       }

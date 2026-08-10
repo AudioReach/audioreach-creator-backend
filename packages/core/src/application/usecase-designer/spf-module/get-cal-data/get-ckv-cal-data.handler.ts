@@ -16,7 +16,7 @@ import {
   ParameterDefinitionMissingError,
 } from '../../../../shared/errors/parameter.errors.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
-import {Result} from '../../../shared/result/result.js';
+import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
 import {IssueSeverity} from '../../../../shared/issues/severity.js';
 import type {CkvCalDataDto} from './ckv-cal-data-dto.js';
@@ -40,10 +40,18 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
         query.projectId,
       );
 
-    const spfModule = await this.queryServices.spfModuleQueryService.findOne(
-      query.spfModuleSystemId,
-      fileSystemId,
-    );
+    const spfModuleResult =
+      await this.queryServices.spfModuleQueryService.getSpfModule(
+        query.spfModuleSystemId,
+        fileSystemId,
+      );
+    if (spfModuleResult.kind === RESULT_KIND.Fail) {
+      throw new ResourceNotFoundException(
+        `SpfModule ${query.spfModuleSystemId} not found`,
+        spfModuleResult.issues,
+      );
+    }
+    const spfModule = spfModuleResult.data;
 
     const [ckv, payloads] = await Promise.all([
       this.queryServices.spfModuleQueryService.ckvQueryService.getCkv(

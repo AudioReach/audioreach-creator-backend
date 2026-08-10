@@ -5,18 +5,33 @@
 
 import type {DataSource} from 'typeorm';
 import type {DataLinkQueryService, Result, DataLinkReadModel} from '@arc/core';
-import {Result as R, IssueFactory, LINK_TYPE} from '@arc/core';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {Result as R, IssueFactory} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
-import {applyLinkOverlayAndMap} from '../shared/link-overlay-utils.js';
-import type {DataLinkRow} from '../../entity-schema/index.js';
+import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 
+/**
+ * Database implementation of DataLinkQueryService.
+ *
+ * All overlay delegated to LinkOverlayFetcher (FR-3):
+ *   fetchDataLinksByUsecaseIds — INTRA_SUBGRAPH + INTRA_USECASE links for
+ *     the given usecases (two parallel baseline queries, one overlay pass)
+ *   fetchDataLinksBySubgraphId — all links where the subgraph is source OR
+ *     destination (covers links from/to other usecases)
+ */
 export class DbDataLinkQueryService implements DataLinkQueryService {
+  private readonly linkFetcher: LinkOverlayFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsQuerySvc: EditActionsQueryService,
-  ) {}
+    editActionsQuerySvc: EditActionsQueryService,
+  ) {
+    this.linkFetcher = new LinkOverlayFetcher(
+      dataSource.manager,
+      editActionsQuerySvc,
+    );
+  }
 
   async findByUsecaseIds(
     usecaseSystemIds: number[],
@@ -25,45 +40,18 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
     if (usecaseSystemIds.length === 0) return R.ok([]);
 
     try {
-      // Resolve session once — passed to applyLinkOverlayAndMap to avoid a second fetch
-      const session =
-        // eslint-disable-next-line sonarjs/deprecation
-        await this.editActionsQuerySvc.findActiveSession(fileSystemId);
-
-      const [intraSubgraph, intraUsecase] = await Promise.all([
-        this.dataSource
-          .getRepository(ENTITY_NAMES.DataLink)
-          .createQueryBuilder('dl')
-          .innerJoin(
-            ENTITY_NAMES.UseCaseSubgraph,
-            'ucs',
-            'ucs.subgraph_system_id = dl.sourceSubgraphSystemId AND ucs.usecase_system_id IN (:...ids)',
-            {ids: usecaseSystemIds},
-          )
-          .where('dl.linkType = :type', {type: LINK_TYPE.IntraSubgraph})
-          .andWhere('dl.fileSystemId = :fileSystemId', {fileSystemId})
-          .getMany(),
-        this.dataSource
-          .getRepository(ENTITY_NAMES.DataLink)
-          .createQueryBuilder('dl')
-          .innerJoin(
-            ENTITY_NAMES.UseCaseSubgraphPair,
-            'ucsp',
-            'ucsp.source_subgraph_system_id = dl.sourceSubgraphSystemId AND ucsp.dest_subgraph_system_id = dl.destSubgraphSystemId AND ucsp.usecase_system_id IN (:...ids)',
-            {ids: usecaseSystemIds},
-          )
-          .where('dl.linkType = :type', {type: LINK_TYPE.IntraUsecase})
-          .andWhere('dl.fileSystemId = :fileSystemId', {fileSystemId})
-          .getMany(),
-      ]);
-
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+      const links = await this.linkFetcher.fetchDataLinksByUsecaseIds(
+        usecaseSystemIds,
+        fileSystemId,
+        sessionId,
+      );
       return R.ok(
-        await applyLinkOverlayAndMap(
-          [...intraSubgraph, ...intraUsecase] as DataLinkRow[],
-          ENTITY_NAMES.DataLink,
-          session,
-          this.editActionsQuerySvc,
-          dl => UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
+        links.map(dl =>
+          UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
         ),
       );
     } catch (error) {
@@ -82,25 +70,18 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
     fileSystemId: number,
   ): Promise<Result<DataLinkReadModel[]>> {
     try {
-      const session =
-        // eslint-disable-next-line sonarjs/deprecation
-        await this.editActionsQuerySvc.findActiveSession(fileSystemId);
-
-      const links = await this.dataSource
-        .getRepository(ENTITY_NAMES.DataLink)
-        .createQueryBuilder('dl')
-        .where('dl.linkType = :type', {type: LINK_TYPE.IntraSubgraph})
-        .andWhere('dl.sourceSubgraphSystemId = :subgraphId', {subgraphId})
-        .andWhere('dl.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany();
-
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+      const links = await this.linkFetcher.fetchDataLinksBySubgraphId(
+        subgraphId,
+        fileSystemId,
+        sessionId,
+      );
       return R.ok(
-        await applyLinkOverlayAndMap(
-          links as DataLinkRow[],
-          ENTITY_NAMES.DataLink,
-          session,
-          this.editActionsQuerySvc,
-          dl => UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
+        links.map(dl =>
+          UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
         ),
       );
     } catch (error) {
@@ -113,4 +94,6 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
       );
     }
   }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
 }

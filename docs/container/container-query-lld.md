@@ -7,8 +7,8 @@
 
 ## Document Information
 
-- **Version**: 2.0
-- **Date**: July 2026
+- **Version**: 3.0
+- **Date**: August 2026
 - **Status**: Current
 - **Endpoint**: `POST /arc-api/v1/projects/{projectId}/containers/query`
 - **Related Documents**:
@@ -86,7 +86,7 @@ This is a deliberate divergence from the original v1.0 draft of this doc (which 
 
 ### 1.5 Non-functional requirements
 
-**NFR-CQ-01:** Maximum 3 DB queries per request. No N+1 patterns — `getEditActionsByTable` is one table-wide query, not one per container.
+**NFR-CQ-01:** Maximum 4 DB queries per request. No N+1 patterns — `getByTable` inside `ContainerOverlayFetcher.applyToContainers` is one table-wide query, not one per container.
 
 ---
 
@@ -171,20 +171,16 @@ POST /arc-api/v1/projects/{projectId}/containers/query
   ──────────────────────────────────────────────────────
   try/catch wraps all steps → Result.fail(INTERNAL_ERROR) on exception
 
-  Step 1: SELECT system_id, container_id, type FROM containers
-            WHERE file_system_id = ?
-            → ContainerRow[] (baseline, ALL containers for this file)
+  Step 1+2: sessionRepo.findActiveSessionByFileSystemId(fileSystemId)
+              → session | null
+            containerFetcher.applyToContainers(fileSystemId, session?.sessionId ?? null)
+              → ContainerBase[]  (baseline load + overlay applied inside fetcher)
 
-  Step 2: findActiveSession(fileSystemId) → session | null
-            null → return Result.ok(baseline as ContainerReadModel[])
+  Step 3:   batch-query container_types WHERE system_id IN (overlaid typeSystemIds)
+              → Map<typeSystemId, typeName>
 
-  Step 3: getEditActionsByTable(session.sessionId, 'Container')
-            → EditActionRow[]  (table-wide — every Container draft in the session)
-
-  Step 4: applyToCollection(baselineRows, editActions) → merged ContainerRow[]
-
-  Step 5: map merged rows → ContainerReadModel[]
-          return Result.ok(ContainerReadModel[])
+  Step 4:   map ContainerBase[] + typeNameMap → ContainerReadModel[]
+            return Result.ok(ContainerReadModel[])
 
   ──────────────────────────────────────────────────────
   SQLite via TypeORM DataSource
@@ -194,23 +190,30 @@ POST /arc-api/v1/projects/{projectId}/containers/query
 ### 3.2 DB queries per request
 
 ```
-Query 1 (always):
-  SELECT system_id, container_id, type
+Query 1 (always — inside ContainerOverlayFetcher.applyToContainers):
+  SELECT system_id, container_id, container_type_system_id, file_system_id
   FROM containers
   WHERE file_system_id = ?
 
-Query 2 (always):
-  SELECT * FROM project_sessions
-  WHERE file_system_id = ? AND status = 'ACTIVE'
+Query 2 (always — ISessionRepository.findActiveSessionByFileSystemId):
+  SELECT session_id, session_mode, file_system_id, p.system_id AS project_system_id
+  FROM project_sessions ps
+  JOIN arc_db_files f ON f.system_id = ps.file_system_id
+  JOIN projects p ON p.system_id = f.project_system_id
+  WHERE ps.file_system_id = ? AND ps.status = 'ACTIVE'
 
-Query 3 (only when active session found):
+Query 3 (only when active session found — inside applyToContainers):
   SELECT * FROM edit_actions
   WHERE session_id = ?
     AND table_name = 'Container'
     AND valid_until IS NULL
+
+Query 4 (only when containerTypeSystemId is non-null after overlay):
+  SELECT system_id, name FROM container_types
+  WHERE system_id IN (...)
 ```
 
-Maximum **3 queries** per request, regardless of how many containers exist for the project — Query 1 has no `IN (...)` id list (there's nothing to scope it by), and Query 3 is one table-wide lookup, not one per container. Query 3 is skipped when no active session exists.
+Maximum **4 queries** per request: 2 always, 1 when a session is active, 1 when container types exist. Queries 1 and 3 are owned by `ContainerOverlayFetcher.applyToContainers()` — the query service only drives Query 2 (via `sessionRepo`) and Query 4 (type name resolution).
 
 ### 3.3 Result propagation
 
@@ -227,25 +230,46 @@ There is no `Result.partial` path in this flow — `findAll` has nothing to part
 
 ## 4. Edit Session Overlay
 
-### 4.1 Three-tier pattern
+### 4.1 Three-tier pattern via `ContainerOverlayFetcher`
+
+Session lookup and overlay are split between the query service and the fetcher:
 
 ```typescript
-// Tier 1 — always attempt; no flag exposed to callers
-const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-
-// Tier 2 — no session: return baseline unchanged
-if (!session) return Result.ok(baselineRows.map(toReadModel));
-
-const editActions = await this.editActionsSvc
-  .getEditActionsByTable(session.sessionId, ENTITY_NAMES.Container);
-
-// Tier 3 — apply drafts (skipped implicitly if editActions is empty —
-// applyToCollection is a no-op over an empty actions array)
-const merged = applyToCollection(baselineRows, editActions);
-return Result.ok(merged.map(toReadModel));
+// In DbContainerQueryService.findAll() — session lookup via ISessionRepository
+const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+const rows = await this.containerFetcher.applyToContainers(
+  fileSystemId,
+  session?.sessionId ?? null,   // null → fetcher returns baseline rows directly
+);
 ```
 
-`getEditActionsByTable` is used here rather than `getEditActionsByAggregateId` (the per-id method `SpfModuleQueryService` and others use) — `findAll` has no fixed id list to loop over, so the table-wide query is the only fit. This matches the batching principle from `spf-module-query-lld.md` §1.5 ("bounded number of DB queries, not one query per item") even though the shape here is simpler: one query, no dedup or per-id map needed.
+Inside `ContainerOverlayFetcher.applyToContainers()`:
+
+```typescript
+// Tier 1 — always load baseline (scalar ContainerBase rows, no relations)
+const baseRows = ... // SELECT scalar columns FROM containers WHERE fileSystemId = ?
+
+if (sessionId === null) return baseRows;   // Tier 2 — no session: baseline unchanged
+
+// Tier 2b — session active: fetch all Container actions in one table-wide query
+const actions = await this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Container);
+if (actions.length === 0) return baseRows;
+
+// Tier 3 — apply UPDATE+DELETE via OverlayMergeImpl (CREATEs handled separately)
+const updateDeleteActions = actions.filter(a => a.operation !== CHANGE_OPERATION.Create);
+const overlaid = this.overlay.applyToCollection(baseRows, updateDeleteActions).map(r => r.effective);
+
+// Inject session-staged CREATEs — systemId always from a.targetSystemId, not newValue
+const created = actions
+  .filter(a => a.operation === CHANGE_OPERATION.Create && !baseIds.has(a.targetSystemId))
+  .map(a => ({ systemId: a.targetSystemId, ...defaults from a.newValue }));
+
+return [...overlaid, ...created];
+```
+
+`getByTable` is used (not `getByAggregateId`) because `findAll` has no fixed id list — the table-wide query is the only fit. This matches the one-query-for-the-whole-table batching principle from NFR-CQ-01.
+
+`OverlayMergeImpl` (not the deprecated `applyToCollection` compat shim) handles UPDATE/DELETE. CREATE actions are handled separately so that `a.targetSystemId` is always the authoritative `systemId` for new entities.
 
 ### 4.2 What gets overlaid
 
@@ -341,45 +365,60 @@ export interface ContainerQueryService {
 //   db-container-query-service.ts
 
 export class DbContainerQueryService implements ContainerQueryService {
+  private readonly containerFetcher: ContainerOverlayFetcher;
+
   constructor(
-    private readonly dataSource:     DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
-  ) {}
+    private readonly dataSource: DataSource,
+    editActionsSvc:  EditActionsQueryService,
+    private readonly sessionRepo: ISessionRepository,
+  ) {
+    this.containerFetcher = new ContainerOverlayFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
 
   async findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>> {
     try {
-      // Step 1 — baseline load, all containers scoped to this file
-      const baselineRows = await this.dataSource
-        .getRepository(ENTITY_NAMES.Container)
-        .createQueryBuilder('c')
-        .select(['c.systemId', 'c.containerId', 'c.type'])
-        .where('c.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany() as ContainerRow[];
+      // Step 1+2 — baseline load + overlay via fetcher
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.containerFetcher.applyToContainers(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
 
-      // Step 2 — three-tier overlay, table-wide (no fixed id list)
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const rows = session
-        ? applyToCollection(
-            baselineRows,
-            await this.editActionsSvc.getEditActionsByTable(
-              session.sessionId,
-              ENTITY_NAMES.Container,
-            ),
-          )
-        : baselineRows;
+      // Step 3 — resolve container type names in one batch query
+      const typeIds = [...new Set(
+        rows.map(r => r.containerTypeSystemId).filter((id): id is number => !!id),
+      )];
+      const typeNameMap = new Map<number, string>();
+      if (typeIds.length > 0) {
+        const typeRows = await this.dataSource
+          .getRepository('ContainerType')
+          .createQueryBuilder('ct')
+          .select(['ct.systemId', 'ct.name'])
+          .whereInIds(typeIds)
+          .getMany() as Array<{systemId: number; name: string}>;
+        for (const t of typeRows) typeNameMap.set(t.systemId, t.name);
+      }
 
-      // Step 3 — assemble ContainerReadModel[]
+      // Step 4 — assemble ContainerReadModel[]
       return Result.ok(
         rows.map(r => ({
-          systemId:    r.systemId,
-          containerId: r.containerId,
-          type:        r.type,
-        } satisfies ContainerReadModel)),
+          systemId:             r.systemId,
+          containerId:          r.containerId,
+          containerTypeSystemId: r.containerTypeSystemId ?? null,
+          containerTypeName:    r.containerTypeSystemId
+            ? (typeNameMap.get(r.containerTypeSystemId) ?? null)
+            : null,
+        }) satisfies ContainerReadModel),
       );
     } catch (error) {
       return Result.fail({
         code:    ERROR_CODES.INTERNAL_ERROR,
         message: error instanceof Error ? error.message : 'Failed to query containers',
+        severity: IssueSeverity.Error,
       });
     }
   }
@@ -430,12 +469,13 @@ export class DbQueryServices implements QueryServices {
     this.containerQueryService = new DbContainerQueryService(
       dataSource,
       editActionsQueryService,
+      sessionRepo,             // already instantiated earlier in DbQueryServices constructor
     );
   }
 }
 ```
 
-No dependency on any other query service — same "leaf" category-service shape as `KeyValueDefQueryService`.
+No dependency on any other query service — same "leaf" category-service shape as `KeyValueDefQueryService`. `ContainerOverlayFetcher` is constructed internally by `DbContainerQueryService` (not shared with other services).
 
 ### 7.3 `ContainerModule` — `ArcCqrsModule` import required
 
@@ -524,7 +564,13 @@ packages/core/src/application/
 
 packages/infrastructure/persistence/src/.../queries/
   container/
-    db-container-query-service.ts           ← DbContainerQueryService
+    db-container-query-service.ts           ← DbContainerQueryService; delegates overlay to
+                                                ContainerOverlayFetcher; injects ISessionRepository
+
+packages/infrastructure/persistence/src/.../fetchers/
+  container-overlay-fetcher.ts              ← fetchOne (single container with properties) +
+                                                applyToContainers (batch — all containers for a file,
+                                                containers table only, no property overlay)
 ```
 
 ### Modified files
@@ -544,7 +590,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/queries/
   usecase/usecase-query-mappers.ts                ← added containerId to the inline ContainerReadModel literal
                                                       built for ModuleReadModel.container (unrelated call site,
                                                       broke once containerId became a required field)
-  typeorm-query-services.ts                       ← wired DbContainerQueryService
+  typeorm-query-services.ts                       ← wired DbContainerQueryService (now passes sessionRepo)
 
 packages/api/src/presentation/rest/modules/container/
   container.controller.ts                        ← implemented queryContainers; injects QueryBus;

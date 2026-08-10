@@ -13,16 +13,8 @@ import type {
   SpfModuleDefinitionBase,
 } from '../../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
 
-/** Fields from the definition root + overlaid container type system IDs. */
-export interface OverlaidDefinitionRoot {
-  systemId: number;
-  moduleDefinitionId: number;
-  name: string;
-  displayName: string | null;
-  stackSize: number;
-  processorSystemId: number;
-  fileSystemId: number;
-  isLoadedAtBootup: boolean;
+/** Overlaid scalar fields from the spf_module_definitions root row. */
+export interface OverlaidSpfModuleDefinition extends SpfModuleDefinitionBase {
   /** Overlay-aware list of allowed container type system IDs. */
   containerTypeSystemIds: number[];
 }
@@ -30,8 +22,11 @@ export interface OverlaidDefinitionRoot {
 /**
  * Fetches the SpfModuleDefinition root row and its container-type links with
  * session edit_actions overlay applied.
+ *
+ * Child tables (data_port_groups, static_control_port_definitions, etc.) are
+ * owned by their respective fetchers and are NOT loaded here.
  */
-export class SpfModuleDefinitionRootFetcher {
+export class SpfModuleDefinitionFetcher {
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
@@ -41,20 +36,10 @@ export class SpfModuleDefinitionRootFetcher {
     defSystemId: number,
     fileSystemId: number,
     sessionId: number | null,
-  ): Promise<OverlaidDefinitionRoot | null> {
+  ): Promise<OverlaidSpfModuleDefinition | null> {
     const baseDefRow = (await this.manager
       .getRepository<SpfModuleDefinitionRow>(ENTITY_NAMES.SpfModuleDefinition)
       .createQueryBuilder('smd')
-      .select([
-        'smd.systemId',
-        'smd.moduleDefinitionId',
-        'smd.name',
-        'smd.displayName',
-        'smd.stackSize',
-        'smd.processorSystemId',
-        'smd.fileSystemId',
-        'smd.isLoadedAtBootup',
-      ])
       .where(
         'smd.systemId = :defSystemId AND smd.fileSystemId = :fileSystemId',
         {defSystemId, fileSystemId},
@@ -117,18 +102,62 @@ export class SpfModuleDefinitionRootFetcher {
     return this.buildResult(overlaidDef, containerTypeSystemIds);
   }
 
+  /**
+   * Returns the system IDs of SpfModuleDefinitions matching the given filters
+   * from the baseline table. Used by list query methods to scope subsequent
+   * fetcher calls — same pattern as ModuleNodeOverlayFetcher.loadBaselineNodeIdsForSubgraph.
+   *
+   * JOINs for processorNaturalId and parameterNaturalId are for filtering only;
+   * no data is returned from those tables.
+   */
+  async getBaseDefinitionIds(
+    fileSystemId: number,
+    filters: {
+      moduleDefinitionNaturalId?: number;
+      processorNaturalId?: number;
+      parameterNaturalId?: number;
+    },
+  ): Promise<number[]> {
+    const qb = this.manager
+      .getRepository<SpfModuleDefinitionRow>(ENTITY_NAMES.SpfModuleDefinition)
+      .createQueryBuilder('def')
+      .select('def.systemId')
+      .where('def.fileSystemId = :fileSystemId', {fileSystemId});
+
+    if (filters.moduleDefinitionNaturalId !== undefined) {
+      qb.andWhere('def.moduleDefinitionId = :moduleDefinitionId', {
+        moduleDefinitionId: filters.moduleDefinitionNaturalId,
+      });
+    }
+    if (filters.processorNaturalId !== undefined) {
+      qb.leftJoin('def.processor', 'processor').andWhere(
+        'processor.processorDefinitionId = :processorId',
+        {processorId: filters.processorNaturalId},
+      );
+    }
+    if (filters.parameterNaturalId !== undefined) {
+      qb.andWhere(
+        `EXISTS (${qb
+          .subQuery()
+          .select('1')
+          .from(ENTITY_NAMES.SpfModuleParameterDefinition, 'p2')
+          .where('p2.spfModuleDefinitionSystemId = def.systemId')
+          .andWhere('p2.paramId = :parameterId')
+          .getQuery()})`,
+        {parameterId: filters.parameterNaturalId},
+      );
+    }
+
+    const rows = (await qb.getMany()) as Array<{systemId: number}>;
+    return rows.map(r => r.systemId);
+  }
+
   private buildResult(
     def: SpfModuleDefinitionBase,
     containerTypeSystemIds: number[],
-  ): OverlaidDefinitionRoot {
+  ): OverlaidSpfModuleDefinition {
     return {
-      systemId: def.systemId,
-      moduleDefinitionId: def.moduleDefinitionId,
-      name: def.name,
-      displayName: def.displayName ?? null,
-      stackSize: def.stackSize,
-      processorSystemId: def.processorSystemId,
-      fileSystemId: def.fileSystemId,
+      ...def,
       isLoadedAtBootup: Boolean(def.isLoadedAtBootup),
       containerTypeSystemIds,
     };

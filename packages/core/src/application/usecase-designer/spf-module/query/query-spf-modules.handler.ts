@@ -29,7 +29,7 @@ export class SpfModuleQueryHandler implements QueryHandler<
       );
 
     const modulesResult =
-      await this.queryServices.spfModuleQueryService.findMany(
+      await this.queryServices.spfModuleQueryService.getSpfModules(
         query.systemIds,
         fileSystemId,
       );

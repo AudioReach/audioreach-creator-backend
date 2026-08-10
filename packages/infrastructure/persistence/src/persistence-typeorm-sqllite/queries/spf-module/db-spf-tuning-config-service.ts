@@ -2,7 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -14,8 +13,7 @@ import type {
   KeyValueDefQueryService,
   TagDefinitionQueryService,
   ConfigurationIncludes,
-  KeyDefinitionSummaryReadModel,
-  ValueDefinitionSummaryReadModel,
+  KeyValuePairReadModel,
   Issue,
   TagDefinitionReadModel,
 } from '@arc/core';
@@ -26,28 +24,62 @@ import {
   IssueSeverity,
   RESULT_KIND,
 } from '@arc/core';
-import {applyTableOverlay} from '../edit-session/overlay-utils.js';
-import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {ProjectSessionRow} from '../../entity-schema/index.js';
-import type {
-  CkvRow,
-  CkvParameterPayloadRow,
-} from '../../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
-import type {
-  ModuleTagIdMapRow,
-  TkvRow,
-  TkvParameterPayloadRow,
-} from '../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {
+  CkvOverlayFetcher,
+  type OverlaidCkv,
+  type OverlaidCkvParameterPayload,
+} from '../../fetchers/ckv-overlay-fetcher.js';
+import {
+  TkvOverlayFetcher,
+  type OverlaidModuleTagIdMap,
+  type OverlaidTkv,
+} from '../../fetchers/tkv-overlay-fetcher.js';
+import {ModuleNodeOverlayFetcher} from '../../fetchers/module-node-overlay-fetcher.js';
+import {SpfModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
+import type {SpfModuleParameterDefinitionBase} from '../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
 
+/**
+ * Database implementation of SpfTuningConfigService.
+ *
+ * All overlay delegated to fetchers (FR-3):
+ *   ModuleNodeOverlayFetcher   — existence check for the SpfModule root
+ *   CkvOverlayFetcher          — Ckv rows and CkvParameterPayload rows
+ *   TkvOverlayFetcher          — ModuleTagIdMap + Tkv rows
+ *   SpfModuleParameterDefinitionFetcher — parameter definitions for CkvParamReadModel
+ *
+ * Public methods verify the SpfModule exists (with session overlay) before
+ * loading their data — a deleted or non-existent module returns ENTITY_NOT_FOUND
+ * rather than an empty result (FR-8 Rule 1).
+ *
+ * Key-value pair resolution is cross-aggregate enrichment delegated to
+ * KeyValueDefQueryService (FR-4).
+ */
 export class DbSpfTuningConfigService implements SpfTuningConfigService {
+  private readonly ckvFetcher: CkvOverlayFetcher;
+  private readonly tkvFetcher: TkvOverlayFetcher;
+  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
+  private readonly paramFetcher: SpfModuleParameterDefinitionFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
+    editActionsSvc: EditActionsQueryService,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
     private readonly tagDefinitionSvc: TagDefinitionQueryService,
-  ) {}
+  ) {
+    this.ckvFetcher = new CkvOverlayFetcher(dataSource.manager, editActionsSvc);
+    this.tkvFetcher = new TkvOverlayFetcher(dataSource.manager, editActionsSvc);
+    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.paramFetcher = new SpfModuleParameterDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
 
   // ── Public methods ───────────────────────────────────────────────────────
 
@@ -56,26 +88,33 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     fileSystemId: number,
   ): Promise<Result<CkvReadModel[]>> {
     try {
-      // Step 1 — QueryBuilder: ckv + ckv_values (valueDefIds needed for key-value pairs)
-      const rows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.Ckv)
-        .createQueryBuilder('ckv')
-        .leftJoinAndSelect('ckv.values', 'ckvVal')
-        .where('ckv.spfModuleSystemId = :id', {id: spfModuleSystemId})
-        .getMany()) as CkvRow[];
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
 
-      // Step 2 — Overlay at module aggregate level
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const overlaidRows = session
-        ? await this.overlayCkvRows(rows, spfModuleSystemId, session)
-        : rows;
+      // Verify the SpfModule exists with session overlay — deleted module = not found.
+      const module = await this.moduleNodeFetcher.fetchOne(
+        spfModuleSystemId,
+        fileSystemId,
+        sessionId,
+      );
+      if (module === null) {
+        return Result.fail({
+          code: ERROR_CODES.ENTITY_NOT_FOUND,
+          message: `SpfModule not found for systemId=${spfModuleSystemId}`,
+          severity: IssueSeverity.Error,
+        });
+      }
 
-      // Step 3 — Per CKV, delegate key-value pairs to KeyValueDefQueryService.
-      // Each CKV builds independently — a thrown exception, or a Result.fail
-      // from buildCkvReadModel, is captured as an error for that CKV and
-      // processing continues for the rest. If any CKV failed, the Result is
-      // partial (isSuccess=true, errors non-empty) rather than dropping the
-      // whole array.
+      // All Ckvs for the module with session overlay applied via fetcher (FR-3).
+      const overlaidRows = await this.ckvFetcher.fetchForModule(
+        spfModuleSystemId,
+        sessionId,
+      );
+
+      // Per CKV, resolve key-value pairs via KeyValueDefQueryService (FR-4).
+      // Each CKV builds independently — failures captured per-item (FR-8 Rule 3).
       const itemErrors: Issue[] = [];
       const results = await Promise.all(
         overlaidRows.map(async row => {
@@ -120,28 +159,46 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     includes: ConfigurationIncludes,
   ): Promise<Result<CkvParamReadModel[]>> {
     try {
-      // Step 1 — QueryBuilder: payload + param definition
-      const rows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.CkvParameterPayload)
-        .createQueryBuilder('p')
-        .leftJoinAndSelect('p.spfParameter', 'param')
-        .where('p.ckvSystemId = :id', {id: ckvSystemId})
-        .getMany()) as CkvParameterPayloadRow[];
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
 
-      // Step 2 — Overlay per payload aggregate
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const overlaid = session
-        ? await this.overlayPayloadRows(
-            rows,
-            session,
-            ENTITY_NAMES.CkvParameterPayload,
-          )
-        : rows;
+      // Resolve the owning module so we can call the fetchers (aggregateId = moduleSystemId).
+      const moduleSystemId = await this.resolveCkvModuleSystemId(ckvSystemId);
+      if (moduleSystemId === null) return Result.ok([]);
 
-      // Step 3 — Map based on ConfigurationIncludes
-      const results = overlaid
-        .filter(p => p.spfParameter)
-        .map(p => this.buildParamReadModel(p, includes));
+      // Step 1 — overlaid payload rows via fetcher (FR-3).
+      const payloads = await this.ckvFetcher.fetchCkvPayloads(
+        ckvSystemId,
+        moduleSystemId,
+        sessionId,
+      );
+      if (payloads.length === 0) return Result.ok([]);
+
+      // Step 2 — load parameter definitions for the module's definition (FR-3).
+      // resolveDefinitionSystemId returns null if the module was deleted in session.
+      const defSystemId = await this.moduleNodeFetcher.getDefinitionSystemId(
+        moduleSystemId,
+        sessionId,
+      );
+      if (defSystemId === null) return Result.ok([]);
+
+      const paramDefs =
+        await this.paramFetcher.fetchSpfModuleParameterDefinition(
+          defSystemId,
+          sessionId,
+        );
+      const paramDefMap = new Map(paramDefs.map(d => [d.systemId, d]));
+
+      // Step 3 — assemble CkvParamReadModel (skip payloads with missing definitions).
+      const results = payloads
+        .map(payload => {
+          const param = paramDefMap.get(payload.parameterSystemId);
+          if (!param) return null;
+          return this.buildParamReadModel(payload, param, includes);
+        })
+        .filter((r): r is CkvParamReadModel => r !== null);
 
       return Result.ok(results);
     } catch (error) {
@@ -162,37 +219,35 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     includes: ConfigurationIncludes,
   ): Promise<Result<TagReadModel[]>> {
     try {
-      // Step 1 — QueryBuilder: tkvs + tkv_values always joined; payload
-      // + param definition only when fullDetails is requested
-      let qb = this.dataSource
-        .getRepository(ENTITY_NAMES.ModuleTagIdMap)
-        .createQueryBuilder('tagMap')
-        .leftJoinAndSelect('tagMap.tkvs', 'tkv')
-        .leftJoinAndSelect('tkv.values', 'tkvVal')
-        .where('tagMap.spfModuleSystemId = :id', {id: spfModuleSystemId});
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
 
-      if (includes === CONFIGURATION_INCLUDES.FullDetails) {
-        qb = qb
-          .leftJoinAndSelect('tkv.payloadCollection', 'payload')
-          .leftJoinAndSelect('payload.spfParameter', 'param');
+      // Verify the SpfModule exists with session overlay — deleted module = not found.
+      const module = await this.moduleNodeFetcher.fetchOne(
+        spfModuleSystemId,
+        fileSystemId,
+        sessionId,
+      );
+      if (module === null) {
+        return Result.fail({
+          code: ERROR_CODES.ENTITY_NOT_FOUND,
+          message: `SpfModule not found for systemId=${spfModuleSystemId}`,
+          severity: IssueSeverity.Error,
+        });
       }
 
-      const rows = (await qb.getMany()) as ModuleTagIdMapRow[];
+      // All ModuleTagIdMap+Tkv rows with session overlay applied via fetcher (FR-3).
+      const overlaidTagMaps = await this.tkvFetcher.fetchForModule(
+        spfModuleSystemId,
+        sessionId,
+        includes,
+      );
 
-      // Step 2 — Overlay at module aggregate level
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const overlaidRows = session
-        ? await this.overlayTagMapRows(rows, spfModuleSystemId, session)
-        : rows;
-
-      // Step 3 — Load tag definitions for tagId + tagName, routed through
-      // TagDefinitionQueryService so session-renamed tags show the same
-      // fresh name here as via GET /definitions/tags/:id. A lookup failure
-      // is treated as "no tag defs resolved" (empty map) rather than
-      // failing the whole call — consistent with this method's existing
-      // per-item-tolerant style (tagId: 0, tagName: '' fallbacks below).
+      // Load tag definitions for tagId + tagName (cross-aggregate, FR-4).
       const tagDefIds = [
-        ...new Set(overlaidRows.map(r => r.tagDefinitionSystemId)),
+        ...new Set(overlaidTagMaps.map(r => r.tagDefinitionSystemId)),
       ];
       const tagDefsResult =
         await this.tagDefinitionSvc.getTagDefinitionsBySystemIds(
@@ -205,17 +260,15 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         ),
       );
 
-      // Step 4 — Per tag map, build TKV read models inline.
-      // buildTagTkvReadModels isolates per-TKV failures internally and
-      // always resolves to a Result — its errors are merged in here.
+      // Per tag map, build TKV read models.
+      // Per-item failures captured without blocking the rest (FR-8 Rule 3).
       const itemErrors: Issue[] = [];
       const results = await Promise.all(
-        overlaidRows.map(async r => {
-          const tagDef = tagDefMap.get(r.tagDefinitionSystemId);
+        overlaidTagMaps.map(async tagMap => {
+          const tagDef = tagDefMap.get(tagMap.tagDefinitionSystemId);
 
           const tkvResult = await this.buildTagTkvReadModels(
-            r,
-            session,
+            tagMap,
             fileSystemId,
           );
           const tkvs =
@@ -223,8 +276,8 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
           itemErrors.push(...(tkvResult.issues ?? []));
 
           return {
-            systemId: r.systemId,
-            tagDefinitionSystemId: r.tagDefinitionSystemId,
+            systemId: tagMap.systemId,
+            tagDefinitionSystemId: tagMap.tagDefinitionSystemId,
             tagId: tagDef?.tagId ?? 0,
             tagName: tagDef?.name ?? '',
             tkvs,
@@ -247,117 +300,32 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
     }
   }
 
-  // ── Overlay methods ──────────────────────────────────────────────────────
+  // ── Private helpers ───────────────────────────────────────────────────────
 
   /**
-   * Overlays CKV rows at the module aggregate level.
-   * One getByAggregateId call — filters to Ckv actions.
+   * Resolves the owning SpfModule system ID from a Ckv system ID.
+   * getModuleCkvParams receives ckvSystemId but fetchers require moduleSystemId.
+   * Returns null when the Ckv row does not exist in the baseline.
    */
-  private async overlayCkvRows(
-    rows: CkvRow[],
-    spfModuleSystemId: number,
-    session: ProjectSessionRow,
-  ): Promise<CkvRow[]> {
-    const actions = await this.editActionsSvc.getByAggregateId(
-      session.sessionId,
-      spfModuleSystemId,
-    );
-    const ckvActions = actions.filter(a => a.targetTable === ENTITY_NAMES.Ckv);
-    return ckvActions.length > 0 ? applyToCollection(rows, ckvActions) : rows;
-  }
-
-  /**
-   * Overlays ModuleTagIdMap rows at the module aggregate level.
-   */
-  private async overlayTagMapRows(
-    rows: ModuleTagIdMapRow[],
-    spfModuleSystemId: number,
-    session: ProjectSessionRow,
-  ): Promise<ModuleTagIdMapRow[]> {
-    const actions = await this.editActionsSvc.getByAggregateId(
-      session.sessionId,
-      spfModuleSystemId,
-    );
-    const tagMapActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.ModuleTagIdMap,
-    );
-    return tagMapActions.length > 0
-      ? applyToCollection(rows, tagMapActions)
-      : rows;
-  }
-
-  /**
-   * Overlays all TKV rows under one tag map using a single
-   * getByAggregateId call, instead of one call per TKV.
-   * Previously overlayTkvRow was called once per TKV with the same
-   * moduleTagIdMapSystemId, issuing an identical query for every TKV
-   * under the same tag map (N+1 for a tag with many TKVs).
-   */
-  private async overlayTkvRows(
-    rows: TkvRow[],
-    moduleTagIdMapSystemId: number,
-    session: ProjectSessionRow,
-  ): Promise<TkvRow[]> {
-    const actions = await this.editActionsSvc.getByAggregateId(
-      session.sessionId,
-      moduleTagIdMapSystemId,
-    );
-    const tkvActions = actions.filter(a => a.targetTable === ENTITY_NAMES.Tkv);
-    return tkvActions.length > 0 ? applyToCollection(rows, tkvActions) : rows;
-  }
-
-  private async overlayPayloadRows(
-    payloads: Array<CkvParameterPayloadRow | TkvParameterPayloadRow>,
-    session: ProjectSessionRow,
-    payloadTableName: string,
-  ): Promise<Array<CkvParameterPayloadRow | TkvParameterPayloadRow>> {
-    const results = await Promise.all(
-      payloads.map(async payload => {
-        const actions = await this.editActionsSvc.getByAggregateId(
-          session.sessionId,
-          payload.systemId,
-        );
-        const overlaidPayload = applyTableOverlay(
-          payload,
-          actions,
-          payloadTableName,
-        );
-        if (!overlaidPayload) return null;
-
-        const overlaidParam = payload.spfParameter
-          ? applyTableOverlay(
-              payload.spfParameter,
-              actions,
-              ENTITY_NAMES.SpfModuleParameterDefinition,
-            )
-          : null;
-
-        return {
-          ...overlaidPayload,
-          spfParameter: overlaidParam ?? payload.spfParameter,
-        } as CkvParameterPayloadRow | TkvParameterPayloadRow;
-      }),
-    );
-    return results.filter(Boolean) as Array<
-      CkvParameterPayloadRow | TkvParameterPayloadRow
-    >;
+  private async resolveCkvModuleSystemId(
+    ckvSystemId: number,
+  ): Promise<number | null> {
+    const row = (await this.dataSource
+      .getRepository(ENTITY_NAMES.Ckv)
+      .createQueryBuilder('ckv')
+      .select('ckv.spfModuleSystemId')
+      .where('ckv.systemId = :ckvSystemId', {ckvSystemId})
+      .getOne()) as {spfModuleSystemId: number} | null;
+    return row?.spfModuleSystemId ?? null;
   }
 
   // ── Assembly methods ─────────────────────────────────────────────────────
 
-  /**
-   * Builds CkvReadModel — delegates key-value pair resolution to
-   * KeyValueDefQueryService.getKeyValueDefinitionForGivenValues in one
-   * batched call, instead of one getKeyValueDefinitionForGivenValue call
-   * per valueDefId (N+1).
-   * A valueDefId that fails to resolve is dropped from keyValuePairs and
-   * surfaced as an item error via Result.partial.
-   */
   private async buildCkvReadModel(
-    row: CkvRow,
+    row: OverlaidCkv,
     fileSystemId: number,
   ): Promise<Result<CkvReadModel>> {
-    const valueDefIds = (row.values ?? []).map(v => v.valueDefSystemId);
+    const valueDefIds = row.values.map(v => v.valueDefSystemId);
     const pairsResult = await this.resolveKeyValuePairs(
       valueDefIds,
       fileSystemId,
@@ -375,14 +343,11 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       : Result.ok(model);
   }
 
-  /**
-   * Builds TkvReadModel — same batched pattern as buildCkvReadModel.
-   */
   private async buildTkvReadModel(
-    row: TkvRow,
+    row: OverlaidTkv,
     fileSystemId: number,
   ): Promise<Result<TkvReadModel>> {
-    const valueDefIds = (row.values ?? []).map(v => v.valueDefSystemId);
+    const valueDefIds = row.values.map(v => v.valueDefSystemId);
     const pairsResult = await this.resolveKeyValuePairs(
       valueDefIds,
       fileSystemId,
@@ -402,55 +367,16 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   }
 
   /**
-   * Resolves valueDefIds to {key, value} pairs via one batched
-   * getKeyValueDefinitionForGivenValues call. The batch call dedupes by
-   * parent key and silently omits ids that don't resolve, so this flattens
-   * the returned KeyDefinitionReadModel[] into a per-valueDefId lookup and
-   * reconstructs a not-found item error for any id absent from it — shared
-   * by buildCkvReadModel and buildTkvReadModel.
-   */
-  private async resolveKeyValuePairs(
-    valueDefIds: number[],
-    fileSystemId: number,
-  ): Promise<
-    Result<
-      Array<{
-        key: KeyDefinitionSummaryReadModel;
-        value: ValueDefinitionSummaryReadModel;
-      }>
-    >
-  > {
-    const keysResult =
-      await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
-        valueDefIds,
-        fileSystemId,
-      );
-    if (keysResult.kind === RESULT_KIND.Fail)
-      return Result.fail(...keysResult.issues);
-
-    return keysResult;
-  }
-
-  /**
-   * Builds TkvReadModel[] for all TKVs under one tag map — overlays them
-   * in a single batch (overlayTkvRows) instead of once per TKV. Each TKV
-   * builds independently — a thrown exception, or a Result.fail from
-   * buildTkvReadModel, is captured as an error for that TKV and processing
-   * continues for the rest.
+   * Builds TkvReadModel[] for all TKVs under one tag map.
+   * Per-TKV failures captured without blocking the rest (FR-8 Rule 3).
    */
   private async buildTagTkvReadModels(
-    tagMap: ModuleTagIdMapRow,
-    session: ProjectSessionRow | null,
+    tagMap: OverlaidModuleTagIdMap,
     fileSystemId: number,
   ): Promise<Result<TkvReadModel[]>> {
-    const baseTkvs = tagMap.tkvs ?? [];
-    const overlaidTkvs = session
-      ? await this.overlayTkvRows(baseTkvs, tagMap.systemId, session)
-      : baseTkvs;
-
     const itemErrors: Issue[] = [];
     const results = await Promise.all(
-      overlaidTkvs.map(async tkv => {
+      tagMap.tkvs.map(async tkv => {
         try {
           const result = await this.buildTkvReadModel(tkv, fileSystemId);
           if (result.kind === RESULT_KIND.Fail) {
@@ -477,21 +403,39 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   }
 
   /**
-   * Builds CkvParamReadModel from an overlaid payload row.
-   * summary:     identity fields only (systemId, parameterId, name, description, pidType)
+   * Resolves valueDefIds to {key, value} summary pairs.
+   * Delegates to KeyValueDefQueryService (FR-4 + FR-6 — read model ownership).
+   */
+  private async resolveKeyValuePairs(
+    valueDefIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<KeyValuePairReadModel[]>> {
+    const keysResult =
+      await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
+        valueDefIds,
+        fileSystemId,
+      );
+    if (keysResult.kind === RESULT_KIND.Fail)
+      return Result.fail(...keysResult.issues);
+    return keysResult;
+  }
+
+  /**
+   * Builds CkvParamReadModel from overlaid payload + overlaid parameter definition.
+   * summary:     identity fields only
    * fullDetails: all fields + optional payload bytes
    */
   private buildParamReadModel(
-    payload: CkvParameterPayloadRow | TkvParameterPayloadRow,
+    payload: OverlaidCkvParameterPayload,
+    param: SpfModuleParameterDefinitionBase,
     includes: ConfigurationIncludes,
   ): CkvParamReadModel {
-    const param = payload.spfParameter!;
     const base = {
       systemId: param.systemId,
       parameterId: param.paramId,
-      name: param.name,
+      name: param.name ?? '',
       description: param.description,
-      pidType: param.pidType ?? '',
+      pidType: param.pidType,
     };
 
     return {

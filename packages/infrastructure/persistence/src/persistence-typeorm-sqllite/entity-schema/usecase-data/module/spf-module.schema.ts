@@ -18,7 +18,7 @@ import type {CkvRow} from './spf-module-calibration-data.schema.js';
 export interface SpfModuleBase {
   systemId: number;
   instanceId: number;
-  alias: string;
+  alias: string | null;
   subgraphSystemId: number;
   containerSystemId: number;
   definitionSystemId: number;

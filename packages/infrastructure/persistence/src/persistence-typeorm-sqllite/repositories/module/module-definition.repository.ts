@@ -19,14 +19,14 @@ import {
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {SpfModuleDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {SpfModuleDefinitionRootFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-root-fetcher.js';
+import {SpfModuleDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-fetcher.js';
 import {DataPortGroupFetcher} from '../../fetchers/definitions/spf-module-definitions/data-port-group-fetcher.js';
 import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
 import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
 import {ModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/module-parameter-definition-fetcher.js';
 
 export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionRepository {
-  private readonly rootFetcher: SpfModuleDefinitionRootFetcher;
+  private readonly rootFetcher: SpfModuleDefinitionFetcher;
   private readonly portGroupFetcher: DataPortGroupFetcher;
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
@@ -37,10 +37,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     private readonly uow: UnitOfWork,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
-    this.rootFetcher = new SpfModuleDefinitionRootFetcher(
-      manager,
-      editActionsQs,
-    );
+    this.rootFetcher = new SpfModuleDefinitionFetcher(manager, editActionsQs);
     this.portGroupFetcher = new DataPortGroupFetcher(manager, editActionsQs);
     this.staticPortFetcher = new StaticControlPortDefFetcher(
       manager,
@@ -91,9 +88,18 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
 
     const [root, portGroups, staticPorts, dynamicIntents] = await Promise.all([
       this.rootFetcher.fetchOne(defSystemId, fileSystemId, sessionId),
-      this.portGroupFetcher.fetchForDefinition(defSystemId, sessionId),
-      this.staticPortFetcher.fetchForDefinition(defSystemId, sessionId),
-      this.dynamicIntentFetcher.fetchForDefinition(defSystemId, sessionId),
+      this.portGroupFetcher.fetchDataPortGroupDefinition(
+        defSystemId,
+        sessionId,
+      ),
+      this.staticPortFetcher.fetchStaticControlPortDefinition(
+        defSystemId,
+        sessionId,
+      ),
+      this.dynamicIntentFetcher.fetchDynamicIntentDefinition(
+        defSystemId,
+        sessionId,
+      ),
     ]);
 
     if (root === null) return null;

@@ -4,7 +4,6 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {PortIoType} from '@arc/core';
 import {CHANGE_OPERATION, PORT_IO_TYPE} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
@@ -15,31 +14,13 @@ import type {
   IntentBase,
 } from '../entity-schema/usecase-data/node/control-port.js';
 
-// Query-ready superset types — all DB columns included for future query-side migration.
-export interface OverlaidDataPort {
-  systemId: number;
-  dataPortId: number;
-  portIoType: PortIoType;
-  isStatic: boolean;
-  nodeSystemId: number;
+export interface OverlaidDataPort extends DataPortBase {
   fileSystemId: number;
-  name: string | null;
 }
 
-export interface OverlaidIntent {
-  systemId: number;
-  controlPortSystemId: number;
-  intentId: number; // intent TYPE id — needed for FR-CPCA-01 CurrentUsage computation
-}
-
-export interface OverlaidControlPort {
-  systemId: number;
-  portId: number;
-  isStatic: boolean;
-  nodeSystemId: number;
+export interface OverlaidControlPort extends ControlPortBase {
   fileSystemId: number;
-  name: string | null;
-  intents: OverlaidIntent[];
+  intents: IntentBase[];
 }
 
 export class PortOverlayFetcher {
@@ -58,25 +39,13 @@ export class PortOverlayFetcher {
     const baseRows = (await this.manager
       .getRepository(ENTITY_NAMES.DataPort)
       .createQueryBuilder('dp')
-      .select([
-        'dp.systemId',
-        'dp.dataPortId',
-        'dp.portIoType',
-        'dp.isStatic',
-        'dp.nodeSystemId',
-        'dp.name',
-      ])
       .where('dp.nodeSystemId = :nodeSystemId', {nodeSystemId})
       .getMany()) as unknown as DataPortBase[];
 
     const base: OverlaidDataPort[] = baseRows.map(r => ({
-      systemId: r.systemId,
-      dataPortId: r.dataPortId,
-      portIoType: r.portIoType,
+      ...r,
       isStatic: Boolean(r.isStatic),
-      nodeSystemId: r.nodeSystemId,
       fileSystemId,
-      name: r.name ?? null,
     }));
 
     if (sessionId === null) return base;
@@ -91,8 +60,11 @@ export class PortOverlayFetcher {
 
     // Apply UPDATE/DELETE overlay to committed ports
     const overlayBase = base.map(dp => ({...dp}));
+    const nonCreateDpActions = dpActions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
     const overlaid = this.overlay
-      .applyToCollection(overlayBase, dpActions)
+      .applyToCollection(overlayBase, nonCreateDpActions)
       .map(r => r.effective as OverlaidDataPort);
 
     // Handle CREATE actions separately — overlay doesn't inject systemId from targetSystemId
@@ -112,7 +84,7 @@ export class PortOverlayFetcher {
           isStatic: Boolean(payload.isStatic),
           nodeSystemId: payload.nodeSystemId ?? nodeSystemId,
           fileSystemId: payload.fileSystemId ?? fileSystemId,
-          name: payload.name ?? null,
+          name: payload.name,
         };
       });
 
@@ -127,23 +99,13 @@ export class PortOverlayFetcher {
     const basePortRows = (await this.manager
       .getRepository(ENTITY_NAMES.ControlPort)
       .createQueryBuilder('cp')
-      .select([
-        'cp.systemId',
-        'cp.portId',
-        'cp.isStatic',
-        'cp.nodeSystemId',
-        'cp.name',
-      ])
       .where('cp.nodeSystemId = :nodeSystemId', {nodeSystemId})
       .getMany()) as unknown as ControlPortBase[];
 
     const basePorts = basePortRows.map(r => ({
-      systemId: r.systemId,
-      portId: r.portId,
+      ...r,
       isStatic: Boolean(r.isStatic),
-      nodeSystemId: r.nodeSystemId,
       fileSystemId,
-      name: r.name ?? null,
     }));
 
     // Load base intents for all control ports
@@ -153,7 +115,6 @@ export class PortOverlayFetcher {
       const intentRows = (await this.manager
         .getRepository(ENTITY_NAMES.Intent)
         .createQueryBuilder('i')
-        .select(['i.systemId', 'i.controlPortSystemId', 'i.intentId'])
         .where('i.controlPortSystemId IN (:...cpIds)', {cpIds})
         .getMany()) as unknown as IntentBase[];
       baseIntents = intentRows;
@@ -162,13 +123,7 @@ export class PortOverlayFetcher {
     if (sessionId === null) {
       return basePorts.map(cp => ({
         ...cp,
-        intents: baseIntents
-          .filter(i => i.controlPortSystemId === cp.systemId)
-          .map(i => ({
-            systemId: i.systemId,
-            controlPortSystemId: i.controlPortSystemId,
-            intentId: i.intentId,
-          })),
+        intents: baseIntents.filter(i => i.controlPortSystemId === cp.systemId),
       }));
     }
 
@@ -185,8 +140,11 @@ export class PortOverlayFetcher {
 
     // Apply UPDATE/DELETE overlay to committed ports
     const overlayBase = basePorts.map(cp => ({...cp}));
+    const nonCreateCpActions = cpActions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
     const overlaidExisting = this.overlay
-      .applyToCollection(overlayBase, cpActions)
+      .applyToCollection(overlayBase, nonCreateCpActions)
       .map(r => r.effective as (typeof basePorts)[0]);
 
     // Handle CREATE'd control ports separately
@@ -205,7 +163,7 @@ export class PortOverlayFetcher {
           isStatic: Boolean(payload.isStatic),
           nodeSystemId: payload.nodeSystemId ?? nodeSystemId,
           fileSystemId: payload.fileSystemId ?? fileSystemId,
-          name: payload.name ?? null,
+          name: payload.name,
         };
       });
 
@@ -213,16 +171,12 @@ export class PortOverlayFetcher {
 
     // For each surviving control port, compute its overlaid intents
     return allSurvivingPorts.map(cp => {
-      const basePortIntents: OverlaidIntent[] = baseIntents
-        .filter(i => i.controlPortSystemId === cp.systemId)
-        .map(i => ({
-          systemId: i.systemId,
-          controlPortSystemId: i.controlPortSystemId,
-          intentId: i.intentId,
-        }));
+      const basePortIntents = baseIntents.filter(
+        i => i.controlPortSystemId === cp.systemId,
+      );
 
       const intents = this.overlay
-        .applyToCollection<OverlaidIntent>(
+        .applyToCollection<IntentBase>(
           basePortIntents,
           intentActions,
           newValue =>

@@ -2,7 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -10,34 +9,41 @@ import type {
   BaseModuleDefinitionSummaryReadModel,
   ParameterDefinitionSummaryReadModel,
 } from '@arc/core';
-import {Result, RESULT_KIND, ERROR_CODES, IssueSeverity} from '@arc/core';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {Result, ERROR_CODES, IssueSeverity} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import {applyToCollection} from '../edit-session/overlay-merge.js';
-import {applyTableOverlay} from '../edit-session/overlay-utils.js';
-import type {DriverModuleDefinitionRow} from '../../entity-schema/definitions/module/driver/driver-module-definition.schema.js';
-import type {DriverModuleParameterDefinitionRow} from '../../entity-schema/definitions/module/driver/driver-module-parameter-definition.schema.js';
-import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import {DriverModuleDefinitionFetcher} from '../../fetchers/definitions/driver-module-definitions/driver-module-definition-fetcher.js';
+import type {DriverModuleDefinitionBase} from '../../entity-schema/definitions/module/driver/driver-module-definition.schema.js';
+import {DriverModuleParameterDefinitionFetcher} from '../../fetchers/definitions/driver-module-definitions/driver-module-parameter-definition-fetcher.js';
+import type {DriverModuleParameterDefinitionBase} from '../../entity-schema/definitions/module/driver/driver-module-parameter-definition.schema.js';
 
 /**
  * Database implementation of DriverModuleDefinitionQueryService.
  *
- * Three-layer overlay pattern (docs/superpowers/specs/query-service-overlay-pattern.md):
- * DB Query (buildBaseQueryBuilder) → Overlay (overlayDriverModuleDefinitionRow /
- * overlayParameters, pure, no DB) → Mapping (mapSummary /
- * toParameterSummaryReadModel, pure, no DB, no overlay).
+ * All overlay delegated to two fetchers (FR-3):
+ *   DriverModuleDefinitionFetcher          — root scalars with session overlay
+ *   DriverModuleParameterDefinitionFetcher — parameters with session overlay
  *
- * loadSummaryReadModels issues one getByAggregateId call per module, run
- * concurrently — aggregate-scoped rather than table-scoped, mirroring
- * DbSpfModuleDefinitionQueryService's loadOverlaidDefinitionRows. Trades a
- * fixed O(1) query count for O(N), each call scoped to exactly one module's
- * own actions with no session-wide over-fetch.
+ * DriverModuleDefinitionFetcher.fetchOne returning null is treated as a fatal
+ * failure for that definition — parameters are not loaded (FR-8 Rule 1).
  */
 export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinitionQueryService {
+  private readonly defFetcher: DriverModuleDefinitionFetcher;
+  private readonly paramFetcher: DriverModuleParameterDefinitionFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
-  ) {}
+    editActionsSvc: EditActionsQueryService,
+  ) {
+    this.defFetcher = new DriverModuleDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.paramFetcher = new DriverModuleParameterDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
 
   async getAllDriverModuleDefinitions(
     fileSystemId: number,
@@ -47,27 +53,57 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
     },
   ): Promise<Result<BaseModuleDefinitionSummaryReadModel[]>> {
     try {
-      const qb = this.buildBaseQueryBuilder(fileSystemId);
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
 
-      if (filters.moduleDefinitionNaturalId !== undefined) {
-        qb.andWhere('def.moduleDefinitionId = :moduleDefinitionId', {
-          moduleDefinitionId: filters.moduleDefinitionNaturalId,
-        });
+      // Step 1 — resolve matching definition IDs via lean baseline scan (FR-3)
+      const defSystemIds = await this.defFetcher.getBaseDefinitionIds(
+        fileSystemId,
+        filters,
+      );
+      if (defSystemIds.length === 0) return Result.ok([]);
+
+      // Step 2 — bulk-load parameters for all definitions in one query (FR-5)
+      const paramsByDef = await this.paramFetcher.fetchDriverModuleDefinitions(
+        defSystemIds,
+        sessionId,
+      );
+
+      // Step 3 — per-definition root fetch + assemble (FR-8 Rule 1 + Rule 3)
+      const data: BaseModuleDefinitionSummaryReadModel[] = [];
+      const missingSystemIds: number[] = [];
+
+      for (const defId of defSystemIds) {
+        const root = await this.defFetcher.fetchOne(
+          defId,
+          fileSystemId,
+          sessionId,
+        );
+
+        // null = definition deleted in session (FR-8 Rule 1 — skip children)
+        if (root === null) {
+          missingSystemIds.push(defId);
+          continue;
+        }
+
+        const params = paramsByDef.get(defId) ?? [];
+        data.push(this.mapSummary(root, params));
       }
-      if (filters.parameterNaturalId !== undefined) {
-        qb.andWhere(
-          `EXISTS ${qb
-            .subQuery()
-            .select('1')
-            .from(ENTITY_NAMES.DriverModuleParameterDefinition, 'p2')
-            .where('p2.driverModuleDefinitionSystemId = def.systemId')
-            .andWhere('p2.parameterId = :parameterId')
-            .getQuery()}`,
-          {parameterId: filters.parameterNaturalId},
+
+      if (missingSystemIds.length > 0) {
+        return Result.partial(
+          data,
+          missingSystemIds.map(id => ({
+            code: ERROR_CODES.ENTITY_NOT_FOUND,
+            message: `DriverModuleDefinition not found for systemId=${id}`,
+            severity: IssueSeverity.Error,
+          })),
         );
       }
 
-      return await this.loadSummaryReadModels(qb, fileSystemId);
+      return Result.ok(data);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -85,17 +121,18 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
     fileSystemId: number,
   ): Promise<Result<BaseModuleDefinitionSummaryReadModel>> {
     try {
-      const qb = this.buildBaseQueryBuilder(fileSystemId).andWhere(
-        'def.systemId = :moduleSystemId',
-        {moduleSystemId},
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
       );
 
-      const result = await this.loadSummaryReadModels(qb, fileSystemId);
-      if (result.kind === RESULT_KIND.Fail)
-        return Result.fail(...result.issues);
-
-      const match = result.data.find(d => d.systemId === moduleSystemId);
-      if (!match) {
+      // Root first — if absent, do not load parameters (FR-8 Rule 1)
+      const root = await this.defFetcher.fetchOne(
+        moduleSystemId,
+        fileSystemId,
+        sessionId,
+      );
+      if (root === null) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `DriverModuleDefinition not found for systemId=${moduleSystemId}`,
@@ -103,7 +140,12 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
         });
       }
 
-      return Result.ok(match);
+      const params = await this.paramFetcher.fetchDriverModuleDefinition(
+        moduleSystemId,
+        sessionId,
+      );
+
+      return Result.ok(this.mapSummary(root, params));
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -116,114 +158,20 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
     }
   }
 
-  // ── private helpers ──────────────────────────────────────────────────────
+  // ── Private helpers ────────────────────────────────────────────────────────
 
-  private buildBaseQueryBuilder(fileSystemId: number) {
-    return this.dataSource
-      .getRepository(ENTITY_NAMES.DriverModuleDefinition)
-      .createQueryBuilder('def')
-      .where('def.fileSystemId = :fileSystemId', {fileSystemId})
-      .leftJoinAndSelect('def.parameters', 'param');
-  }
-
-  /**
-   * Runs the given query, overlays each matched row, and maps to summary
-   * read models. A row whose overlay resolves to a session DELETE
-   * (overlayDriverModuleDefinitionRow returns null) is excluded from the
-   * result and reported as a per-row ENTITY_NOT_FOUND issue via
-   * Result.partial — mirrors DbKeyValueDefQueryService.
-   * getKeyValueDefinitionForGivenValues's missing-id tracking, rather than
-   * silently falling back to the stale base row.
-   */
-  private async loadSummaryReadModels(
-    qb: ReturnType<
-      DbDriverModuleDefinitionQueryService['buildBaseQueryBuilder']
-    >,
-    fileSystemId: number,
-  ): Promise<Result<BaseModuleDefinitionSummaryReadModel[]>> {
-    const rows = (await qb.getMany()) as DriverModuleDefinitionRow[];
-    if (rows.length === 0) return Result.ok([]);
-
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    const sessionId = session?.sessionId ?? null;
-
-    if (sessionId === null) {
-      return Result.ok(
-        rows.map(row => this.mapSummary(row, row.parameters ?? [])),
-      );
-    }
-
-    const actionsByRow = await Promise.all(
-      rows.map(row =>
-        this.editActionsSvc.getByAggregateId(sessionId, row.systemId),
-      ),
-    );
-
-    const data: BaseModuleDefinitionSummaryReadModel[] = [];
-    const missingSystemIds: number[] = [];
-
-    for (const [index, row] of rows.entries()) {
-      const actions = actionsByRow[index];
-      const overlaidDef = this.overlayDriverModuleDefinitionRow(row, actions);
-      if (overlaidDef === null) {
-        missingSystemIds.push(row.systemId);
-        continue;
-      }
-
-      const overlaidParams = this.overlayParameters(
-        row.parameters ?? [],
-        actions,
-      );
-      data.push(this.mapSummary(overlaidDef, overlaidParams));
-    }
-
-    if (missingSystemIds.length > 0) {
-      return Result.partial(
-        data,
-        missingSystemIds.map(id => ({
-          code: ERROR_CODES.ENTITY_NOT_FOUND,
-          message: `DriverModuleDefinition not found for systemId=${id}`,
-          severity: IssueSeverity.Error,
-        })),
-      );
-    }
-
-    return Result.ok(data);
-  }
-
-  // ── Overlay methods (Layer 2 — pure, no DB) ──────────────────────────────
-
-  private overlayDriverModuleDefinitionRow(
-    row: DriverModuleDefinitionRow,
-    actions: EditActionRow[],
-  ): DriverModuleDefinitionRow | null {
-    return applyTableOverlay(row, actions, ENTITY_NAMES.DriverModuleDefinition);
-  }
-
-  private overlayParameters(
-    rows: DriverModuleParameterDefinitionRow[],
-    actions: EditActionRow[],
-  ): DriverModuleParameterDefinitionRow[] {
-    return applyToCollection(
-      rows,
-      actions.filter(
-        a => a.targetTable === ENTITY_NAMES.DriverModuleParameterDefinition,
-      ),
-    );
-  }
-
-  // ── Mapping methods (Layer 3 — pure, no DB, no overlay) ──────────────────
+  // ── Read model mappers ────────────────────────────────────────────────────
 
   private mapSummary(
-    row: DriverModuleDefinitionRow,
-    params: DriverModuleParameterDefinitionRow[],
+    root: DriverModuleDefinitionBase,
+    params: DriverModuleParameterDefinitionBase[],
   ): BaseModuleDefinitionSummaryReadModel {
     return {
-      systemId: row.systemId,
-      moduleId: row.moduleDefinitionId,
-      name: row.name ?? '',
+      systemId: root.systemId,
+      moduleId: root.moduleDefinitionId,
+      name: root.name,
       displayName: undefined, // no column yet — LLD §6.1
-      description: row.description,
+      description: root.description,
       parameterDefinitions: params.map(p =>
         this.toParameterSummaryReadModel(p),
       ),
@@ -232,13 +180,13 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
   }
 
   private toParameterSummaryReadModel(
-    row: DriverModuleParameterDefinitionRow,
+    p: DriverModuleParameterDefinitionBase,
   ): ParameterDefinitionSummaryReadModel {
     return {
-      systemId: row.systemId,
-      paramId: row.parameterId,
-      name: row.name,
-      description: row.description,
+      systemId: p.systemId,
+      paramId: p.parameterId,
+      name: p.name ?? '',
+      description: p.description,
       isHidden: false, // no DTO field yet — LLD §6.2
       isReadOnly: false, // no column yet — LLD §6.2
       deprecated: false, // no DTO field yet — LLD §6.2

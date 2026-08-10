@@ -5,6 +5,8 @@
 
 import type {PropertyPayloadReadModel} from '../shared/property-payload-read-model.js';
 import type {Result} from '../../../../shared/result/result.js';
+import type {ConfigurationIncludes} from '../configuration-includes.js';
+import type {SubgraphReadModel} from './subgraph-read-model.js';
 
 export interface SubgraphQueryService {
   /**
@@ -18,4 +20,15 @@ export interface SubgraphQueryService {
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<Result<PropertyPayloadReadModel[] | null>>;
+
+  /**
+   * Returns all subgraphs for the given file, with session overlay applied.
+   *
+   * - Summary: scalar fields only; `sgkvs` is `null`.
+   * - FullDetails: scalar fields + SGKVs resolved to key-value pairs.
+   */
+  getAllSubgraphs(
+    fileSystemId: number,
+    includes: ConfigurationIncludes,
+  ): Promise<Result<SubgraphReadModel[]>>;
 }

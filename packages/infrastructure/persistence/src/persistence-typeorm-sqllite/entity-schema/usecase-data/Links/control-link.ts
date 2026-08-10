@@ -13,7 +13,9 @@ import type {LinkType} from '@arc/core';
 import {LINK_TYPE} from '@arc/core';
 import {EntitySchema} from 'typeorm';
 
-export interface ControlLinkRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface ControlLinkBase {
+  systemId: number;
   fileSystemId: number;
   peerNodeASystemId: number;
   peerNodeBSystemId: number;
@@ -23,7 +25,9 @@ export interface ControlLinkRow extends EntityBaseRow {
   linkType: LinkType;
   sourceSubgraphSystemId: number;
   destSubgraphSystemId: number;
+}
 
+export interface ControlLinkRow extends EntityBaseRow, ControlLinkBase {
   peerNodeA?: NodeRow;
   peerNodeB?: NodeRow;
   nodeAPort?: ControlPortRow;

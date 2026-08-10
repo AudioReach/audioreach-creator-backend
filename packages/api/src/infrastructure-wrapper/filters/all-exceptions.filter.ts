@@ -23,7 +23,7 @@ import {
 
 type DomainExceptionClass = new (
   message: string,
-  details?: unknown,
+  ...args: unknown[]
 ) => DomainException;
 
 const DOMAIN_STATUS_MAP = new Map<DomainExceptionClass, number>([
@@ -112,7 +112,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ) ?? HttpStatus.INTERNAL_SERVER_ERROR,
         errorCode: exception.errorCode,
         details: exception.details,
-        issues: undefined,
+        issues: exception.issues as Issue[] | undefined,
       };
     }
     if (exception instanceof HttpException) {

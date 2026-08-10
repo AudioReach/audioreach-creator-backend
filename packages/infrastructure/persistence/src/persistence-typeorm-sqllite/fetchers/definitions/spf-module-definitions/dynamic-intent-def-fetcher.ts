@@ -10,14 +10,6 @@ import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
 import type {DynamicIntentDefinitionBase} from '../../../entity-schema/definitions/module/spf/dynamic-intent-definition.schema.js';
 
-export interface OverlaidDynamicIntentDefinition {
-  systemId: number;
-  intentId: number;
-  name: string;
-  maxPort: number;
-  moduleDefinitionSystemId: number;
-}
-
 export class DynamicIntentDefFetcher {
   private readonly overlay = new OverlayMergeImpl();
 
@@ -26,32 +18,17 @@ export class DynamicIntentDefFetcher {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
-  async fetchForDefinition(
+  async fetchDynamicIntentDefinition(
     defSystemId: number,
     sessionId: number | null,
-  ): Promise<OverlaidDynamicIntentDefinition[]> {
+  ): Promise<DynamicIntentDefinitionBase[]> {
     const baseRows = (await this.manager
       .getRepository(ENTITY_NAMES.DynamicIntentDefinition)
       .createQueryBuilder('did')
-      .select([
-        'did.systemId',
-        'did.intentId',
-        'did.name',
-        'did.maxPort',
-        'did.moduleDefinitionSystemId',
-      ])
       .where('did.moduleDefinitionSystemId = :defSystemId', {defSystemId})
       .getMany()) as unknown as DynamicIntentDefinitionBase[];
 
-    const base: OverlaidDynamicIntentDefinition[] = baseRows.map(r => ({
-      systemId: r.systemId,
-      intentId: r.intentId,
-      name: r.name,
-      maxPort: r.maxPort,
-      moduleDefinitionSystemId: r.moduleDefinitionSystemId,
-    }));
-
-    if (sessionId === null) return base;
+    if (sessionId === null) return baseRows;
 
     const actions = await this.editActionsSvc.getByAggregateId(
       sessionId,
@@ -61,20 +38,22 @@ export class DynamicIntentDefFetcher {
       a => a.targetTable === ENTITY_NAMES.DynamicIntentDefinition,
     );
 
-    const overlayBase = base.map(r => ({...r}));
     const overlaid = this.overlay
-      .applyToCollection(overlayBase, didActions)
-      .map(r => r.effective as OverlaidDynamicIntentDefinition);
+      .applyToCollection(
+        baseRows.map(r => ({...r})),
+        didActions,
+      )
+      .map(r => r.effective as DynamicIntentDefinitionBase);
 
-    const baseIds = new Set(base.map(r => r.systemId));
-    const created: OverlaidDynamicIntentDefinition[] = didActions
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+    const created: DynamicIntentDefinitionBase[] = didActions
       .filter(
         a =>
           a.operation === CHANGE_OPERATION.Create &&
           !baseIds.has(a.targetSystemId),
       )
       .map(a => {
-        const payload = a.newValue as Partial<OverlaidDynamicIntentDefinition>;
+        const payload = a.newValue as Partial<DynamicIntentDefinitionBase>;
         return {
           systemId: a.targetSystemId,
           intentId: payload.intentId ?? 0,

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {Issue} from '../issues/issue.js';
+
 /**
  * Abstract base class for all domain exceptions.
  * Framework-agnostic — does NOT depend on NestJS or any HTTP library.
@@ -21,9 +23,21 @@ export abstract class DomainException extends Error {
    */
   readonly details?: unknown;
 
-  constructor(message: string, details?: unknown) {
-    super(message);
+  /**
+   * Optional structured issues carried from a Result.fail — surfaced as-is
+   * in the API error response so callers receive the full diagnostic list.
+   */
+  readonly issues?: readonly Issue[];
+
+  constructor(message: string, details?: unknown, issues?: readonly Issue[]) {
+    const issueLines = issues?.map((issue, i) => `${i + 1}. ${issue.message}`);
+    const formattedMessage =
+      issueLines && issueLines.length > 0
+        ? `${message}:\n${issueLines.join('\n')}`
+        : message;
+    super(formattedMessage);
     this.name = this.constructor.name;
     this.details = details;
+    this.issues = issues;
   }
 }

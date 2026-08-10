@@ -9,36 +9,28 @@ import type {ValueDefinitionRow} from './value-definition.schema.js';
 import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 import {EntitySchema} from 'typeorm';
 
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface KeyDefinitionBase {
+  systemId: number;
+  fileSystemId: number;
+  keyId: number;
+  name: string;
+  description?: string;
+  isCalibrationKey?: boolean;
+  isGraphKey?: boolean;
+  isVoice?: boolean;
+  isDynamic?: boolean;
+  specialityKeyValue?: string;
+  enumMember?: string;
+  enumName?: string;
+  calKeyEnumMember?: string;
+  graphKeyEnumMember?: string;
+}
+
 /*
 	Aggregate entity for key-definition
 */
-export interface KeyDefinitionRow extends EntityBaseRow {
-  // primary key
-  systemId: number;
-
-  // foreign key to arc_db_file
-  fileSystemId: number;
-
-  // member of key entity
-  keyId: number;
-  name: string;
-
-  // used for generating C header files
-  enumMember?: string;
-  enumName?: string;
-  description?: string;
-  isVoice?: boolean;
-  isDynamic?: boolean;
-  isCalibrationKey?: boolean;
-  isGraphKey?: boolean;
-  specialityKeyValue?: string;
-  calKeyEnumMember?: string;
-  graphKeyEnumMember?: string;
-
-  // base entity
-  creationDate: Date;
-  updateDate: Date;
-
+export interface KeyDefinitionRow extends EntityBaseRow, KeyDefinitionBase {
   // Relations
   file?: ArcDbFileRow;
   values: ValueDefinitionRow[];

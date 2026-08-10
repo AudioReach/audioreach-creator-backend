@@ -71,7 +71,7 @@ async function seedSubgraph(
   opts: {systemId: number; fileSystemId: number},
 ) {
   await ds.query(
-    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_exported, file_system_id) VALUES (?, 1, 'sg', 0, ?)`,
+    `INSERT INTO subgraphs (system_id, subgraph_id, name, is_imported, file_system_id) VALUES (?, 1, 'sg', 0, ?)`,
     [opts.systemId, opts.fileSystemId],
   );
 }
@@ -194,7 +194,7 @@ describe('SubgraphOverlayFetcher (integration)', () => {
       newValue: JSON.stringify({
         subgraphId: 1,
         name: 'sg-new',
-        isExported: false,
+        isImported: false,
         fileSystemId: FILE_ID,
       }),
     });

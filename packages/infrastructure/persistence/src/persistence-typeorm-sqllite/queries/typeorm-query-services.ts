@@ -115,9 +115,9 @@ export class DbQueryServices implements QueryServices {
     this.spfModuleQueryService = new DbSpfModuleQueryService(
       dataSource,
       editActionsQueryService,
-      this.spfModuleDefinitionQueryService,
       this.spfTuningConfigService,
       this.keyValueDefQueryService,
+      sessionRepo,
     );
 
     this.containerQueryService = new DbContainerQueryService(
@@ -130,6 +130,7 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
       sessionRepo,
+      this.keyValueDefQueryService,
     );
 
     this.driverModuleDefinitionQueryService =
@@ -156,6 +157,8 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
       this.keyValueDefQueryService,
+      this.spfModuleQueryService,
+      sessionRepo,
     );
 
     // Individual link + subsystem query services

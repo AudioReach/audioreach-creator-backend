@@ -69,7 +69,7 @@ async function seedSession(ds: DataSource): Promise<number> {
 
 async function seedFkDependencies(ds: DataSource) {
   await ds.query(
-    `INSERT INTO subgraphs (system_id, name, subgraph_id, is_exported, file_system_id) VALUES (?, 'sg', 1, 0, ?)`,
+    `INSERT INTO subgraphs (system_id, name, subgraph_id, is_imported, file_system_id) VALUES (?, 'sg', 1, 0, ?)`,
     [SUBGRAPH_ID, FILE_ID],
   );
   await ds.query(

@@ -5,26 +5,14 @@
 
 import type {EntityManager} from 'typeorm';
 import {CHANGE_OPERATION, PORT_IO_TYPE} from '@arc/core';
-import type {PortIoType} from '@arc/core';
 import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
 import type {DataPortGroupBase} from '../../../entity-schema/definitions/module/spf/data-group-definition.schema.js';
 import type {DataPortDefinitionBase} from '../../../entity-schema/definitions/module/spf/data-port-definition.schema.js';
 
-export interface OverlaidDataPortDefinition {
-  systemId: number;
-  dataPortId: number;
-  name: string | undefined;
-  dataPortGroupSystemId: number;
-}
-
-export interface OverlaidDataPortGroup {
-  systemId: number;
-  maxAllowedPortCount: number;
-  portIoType: PortIoType;
-  moduleDefinitionSystemId: number;
-  portDefinitions: OverlaidDataPortDefinition[];
+export interface OverlaidDataPortGroup extends DataPortGroupBase {
+  portDefinitions: DataPortDefinitionBase[];
 }
 
 export class DataPortGroupFetcher {
@@ -35,29 +23,20 @@ export class DataPortGroupFetcher {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
-  async fetchForDefinition(
+  async fetchDataPortGroupDefinition(
     defSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidDataPortGroup[]> {
     const baseGroupRows = (await this.manager
       .getRepository(ENTITY_NAMES.DataPortGroup)
       .createQueryBuilder('dpg')
-      .select([
-        'dpg.systemId',
-        'dpg.maxAllowedPortCount',
-        'dpg.portIoType',
-        'dpg.moduleDefinitionSystemId',
-      ])
       .where('dpg.moduleDefinitionSystemId = :defSystemId', {defSystemId})
       .getMany()) as unknown as DataPortGroupBase[];
 
     if (baseGroupRows.length === 0 && sessionId === null) return [];
 
     const baseGroups: OverlaidDataPortGroup[] = baseGroupRows.map(r => ({
-      systemId: r.systemId,
-      maxAllowedPortCount: r.maxAllowedPortCount,
-      portIoType: r.portIoType,
-      moduleDefinitionSystemId: r.moduleDefinitionSystemId,
+      ...r,
       portDefinitions: [],
     }));
 
@@ -68,26 +47,12 @@ export class DataPortGroupFetcher {
       basePortDefRows = (await this.manager
         .getRepository(ENTITY_NAMES.DataPortDefinition)
         .createQueryBuilder('dpd')
-        .select([
-          'dpd.systemId',
-          'dpd.dataPortId',
-          'dpd.name',
-          'dpd.dataPortGroupSystemId',
-        ])
         .where('dpd.dataPortGroupSystemId IN (:...groupIds)', {groupIds})
         .getMany()) as unknown as DataPortDefinitionBase[];
     }
 
     if (sessionId === null) {
-      return this.buildResult(
-        baseGroups,
-        basePortDefRows.map(p => ({
-          systemId: p.systemId,
-          dataPortId: p.dataPortId,
-          name: p.name,
-          dataPortGroupSystemId: p.dataPortGroupSystemId,
-        })),
-      );
+      return this.buildResult(baseGroups, basePortDefRows);
     }
 
     const actions = await this.editActionsSvc.getByAggregateId(
@@ -134,30 +99,24 @@ export class DataPortGroupFetcher {
     const allGroups = [...overlaidGroups, ...createdGroups];
 
     // Overlay port definitions
-    const overlayPortBase = basePortDefRows.map(p => ({
-      systemId: p.systemId,
-      dataPortId: p.dataPortId,
-      name: p.name,
-      dataPortGroupSystemId: p.dataPortGroupSystemId,
-    }));
     const overlaidPortRecords = this.overlay.applyToCollection(
-      overlayPortBase,
+      basePortDefRows.map(p => ({...p})),
       portDefActions,
     );
     const overlaidPorts = overlaidPortRecords.map(
-      r => r.effective as OverlaidDataPortDefinition,
+      r => r.effective as DataPortDefinitionBase,
     );
 
     // Handle CREATE'd port definitions
     const basePortIds = new Set(basePortDefRows.map(p => p.systemId));
-    const createdPorts: OverlaidDataPortDefinition[] = portDefActions
+    const createdPorts: DataPortDefinitionBase[] = portDefActions
       .filter(
         a =>
           a.operation === CHANGE_OPERATION.Create &&
           !basePortIds.has(a.targetSystemId),
       )
       .map(a => {
-        const payload = a.newValue as Partial<OverlaidDataPortDefinition>;
+        const payload = a.newValue as Partial<DataPortDefinitionBase>;
         return {
           systemId: a.targetSystemId,
           dataPortId: payload.dataPortId ?? 0,
@@ -171,9 +130,9 @@ export class DataPortGroupFetcher {
 
   private buildResult(
     groups: OverlaidDataPortGroup[],
-    allPorts: OverlaidDataPortDefinition[],
+    allPorts: DataPortDefinitionBase[],
   ): OverlaidDataPortGroup[] {
-    const portsByGroup = new Map<number, OverlaidDataPortDefinition[]>();
+    const portsByGroup = new Map<number, DataPortDefinitionBase[]>();
     for (const port of allPorts) {
       const existing = portsByGroup.get(port.dataPortGroupSystemId) ?? [];
       existing.push(port);

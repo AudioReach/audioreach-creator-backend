@@ -10,14 +10,16 @@ import {
 import {EntitySchema} from 'typeorm';
 import type {StaticControlPortDefinitionRow} from './static-control-port-definition.schema.js';
 
-export interface StaticIntentDefinitionRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface StaticIntentDefinitionBase {
+  systemId: number;
   intentId: number;
   name: string;
-
-  // Foreign key relation
   staticControlPortDefinitionSystemId: number;
+}
 
-  //type orm relation
+export interface StaticIntentDefinitionRow
+  extends EntityBaseRow, StaticIntentDefinitionBase {
   staticControlPortDefinition: StaticControlPortDefinitionRow;
 }
 

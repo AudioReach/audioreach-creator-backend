@@ -123,7 +123,7 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
       fileSystemId: testFileSystemId,
       subgraphId: 5000,
       name: 'Subgraph5000',
-      isExported: false,
+      isImported: false,
     });
 
     // Create usecase
@@ -276,14 +276,14 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
       fileSystemId: testFileSystemId,
       subgraphId: 5000,
       name: 'Subgraph5000',
-      isExported: false,
+      isImported: false,
     });
     const subgraph2 = await subgraphRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
       subgraphId: 5001,
       name: 'Subgraph5001',
-      isExported: false,
+      isImported: false,
     });
 
     // Create usecase
