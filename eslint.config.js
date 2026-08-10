@@ -108,6 +108,7 @@ export default [
     rules: {
       'custom/no-banned-keywords': 'error',
       'custom/no-api-property-example': 'error',
+      'custom/enforce-createzodto-naming': 'error',
 
       // Error handling enforcement rules
       'custom/no-manual-status-codes': [
@@ -212,9 +213,9 @@ export default [
     },
   },
 
-  // Main entry files
+  // Main entry files and CLI scripts
   {
-    files: ['**/main.ts', '**/index.ts'],
+    files: ['**/main.ts', '**/index.ts', '**/scripts/**/*.ts'],
     rules: {
       'unicorn/no-process-exit': 'off',
       'n/no-process-exit': 'off',
