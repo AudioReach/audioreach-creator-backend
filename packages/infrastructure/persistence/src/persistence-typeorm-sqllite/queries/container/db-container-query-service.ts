@@ -2,30 +2,33 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import {
   type ContainerQueryService,
   type ContainerReadModel,
-  type PropertyPayloadReadModel,
   type ISessionRepository,
+  type PropertyPayloadReadModel,
   Result,
   ERROR_CODES,
   IssueSeverity,
 } from '@arc/core';
-import {applyToCollection} from '../edit-session/overlay-merge.js';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {ContainerRow} from '../../entity-schema/usecase-data/container/container.schema.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
 
 export class DbContainerQueryService implements ContainerQueryService {
+  private readonly containerFetcher: ContainerOverlayFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
+    editActionsSvc: EditActionsQueryService,
     private readonly sessionRepo: ISessionRepository,
-  ) {}
+  ) {
+    this.containerFetcher = new ContainerOverlayFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
 
   /**
    * Returns every container for the given fileSystemId.
@@ -33,25 +36,13 @@ export class DbContainerQueryService implements ContainerQueryService {
    */
   async findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>> {
     try {
-      // Step 1 — baseline load
-      const baselineRows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.Container)
-        .createQueryBuilder('c')
-        .select(['c.systemId', 'c.containerId', 'c.containerTypeSystemId'])
-        .where('c.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany()) as ContainerRow[];
-
-      // Step 2 — overlay
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const rows = session
-        ? applyToCollection(
-            baselineRows,
-            await this.editActionsSvc.getByTable(
-              session.sessionId,
-              ENTITY_NAMES.Container,
-            ),
-          )
-        : baselineRows;
+      // Step 1+2 — load baseline and apply overlay via fetcher
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.containerFetcher.applyToContainers(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
 
       // Step 3 — resolve container type names in one batch query
       const typeIds = [
@@ -101,13 +92,9 @@ export class DbContainerQueryService implements ContainerQueryService {
     fileSystemId: number,
   ): Promise<Result<PropertyPayloadReadModel[] | null>> {
     try {
-      const fetcher = new ContainerOverlayFetcher(
-        this.dataSource.manager,
-        this.editActionsSvc,
-      );
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const overlaid = await fetcher.fetchOne(
+      const overlaid = await this.containerFetcher.fetchOne(
         containerSystemId,
         fileSystemId,
         session?.sessionId ?? null,

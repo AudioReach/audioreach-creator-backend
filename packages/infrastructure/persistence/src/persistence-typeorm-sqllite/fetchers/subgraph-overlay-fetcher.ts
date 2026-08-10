@@ -13,12 +13,17 @@ import type {EditActionRow} from '../entity-schema/edit-session/edit-action.sche
 import type {SubgraphBase} from '../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {SubgraphPropertyDataBase} from '../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
 
-// Query-ready superset types.
 export interface OverlaidSubgraphProperty {
   systemId: number;
   subgraphSystemId: number;
-  propertySystemId: number; // normalised from subgraphPropertySystemId
+  propertySystemId: number;
   payload: unknown;
+}
+
+export interface OverlaidSgkv {
+  systemId: number;
+  subgraphSystemId: number;
+  values: {valueDefSystemId: number}[];
 }
 
 export interface OverlaidSubgraph {
@@ -155,7 +160,7 @@ export class SubgraphOverlayFetcher {
     return {
       systemId: p.systemId,
       subgraphSystemId: p.subgraphSystemId,
-      propertySystemId: p.subgraphPropertySystemId, // normalise FK name
+      propertySystemId: p.subgraphPropertySystemId,
       payload: p.payload,
     };
   }
@@ -189,5 +194,120 @@ export class SubgraphOverlayFetcher {
       fileSystemId: subgraph.fileSystemId,
       properties: props,
     };
+  }
+
+  async applyToSubgraphs(
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<SubgraphBase[]> {
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.Subgraph)
+      .createQueryBuilder('s')
+      .select([
+        's.systemId',
+        's.subgraphId',
+        's.name',
+        's.isExported',
+        's.fileSystemId',
+      ])
+      .where('s.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as unknown as SubgraphBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.Subgraph,
+    );
+    if (actions.length === 0) return baseRows;
+
+    const updateDeleteActions = actions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
+    const overlaid = this.overlay
+      .applyToCollection(baseRows, updateDeleteActions)
+      .map(r => r.effective);
+
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+    const created: SubgraphBase[] = actions
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId),
+      )
+      .map(a => {
+        const p = a.newValue as Partial<SubgraphBase>;
+        return {
+          systemId: a.targetSystemId,
+          subgraphId: p.subgraphId ?? 0,
+          name: p.name ?? '',
+          isExported: p.isExported ?? false,
+          fileSystemId: p.fileSystemId ?? fileSystemId,
+        };
+      });
+
+    return [...overlaid, ...created];
+  }
+
+  async applyToSgkvs(
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<OverlaidSgkv[]> {
+    type SgkvBaseRow = {
+      systemId: number;
+      subgraphSystemId: number;
+      values?: {valueDefSystemId: number}[];
+    };
+
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.Sgkv)
+      .createQueryBuilder('sgkv')
+      .innerJoin('sgkv.subgraph', 's', 's.fileSystemId = :fileSystemId', {
+        fileSystemId,
+      })
+      .leftJoinAndSelect('sgkv.values', 'vals')
+      .getMany()) as unknown as SgkvBaseRow[];
+
+    const toOverlaid = (r: SgkvBaseRow): OverlaidSgkv => ({
+      systemId: r.systemId,
+      subgraphSystemId: r.subgraphSystemId,
+      values: (r.values ?? []).map(v => ({
+        valueDefSystemId: v.valueDefSystemId,
+      })),
+    });
+
+    if (sessionId === null) return baseRows.map(r => toOverlaid(r));
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.Sgkv,
+    );
+    if (actions.length === 0) return baseRows.map(r => toOverlaid(r));
+
+    const updateDeleteActions = actions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+
+    const overlaid = this.overlay
+      .applyToCollection(baseRows, updateDeleteActions)
+      .map(r => toOverlaid(r.effective));
+
+    const created: OverlaidSgkv[] = actions
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId),
+      )
+      .map(a => {
+        const p = a.newValue as Partial<{subgraphSystemId: number}>;
+        return {
+          systemId: a.targetSystemId,
+          subgraphSystemId: p.subgraphSystemId ?? 0,
+          values: [],
+        };
+      });
+
+    return [...overlaid, ...created];
   }
 }

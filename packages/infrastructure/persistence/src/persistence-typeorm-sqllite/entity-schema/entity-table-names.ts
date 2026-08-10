@@ -66,6 +66,8 @@ export const ENTITY_NAMES = {
   // ── Subgraph data ─────────────────────────────────────────────────────────
   Subgraph: 'Subgraph',
   SubgraphPropertyData: 'SubgraphPropertyData',
+  Sgkv: 'Sgkv',
+  SgkvValues: 'SgkvValues',
   VcpmInstance: 'VcpmInstance',
   VcpmCkv: 'VcpmCkv',
   VcpmCkvValues: 'VcpmCkvValues',

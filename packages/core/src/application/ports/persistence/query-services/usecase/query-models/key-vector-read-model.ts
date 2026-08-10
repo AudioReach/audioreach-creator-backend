@@ -16,3 +16,11 @@ export interface KeyValuePairReadModel {
   readonly key: KeyDefinitionSummaryReadModel;
   readonly value: ValueDefinitionSummaryReadModel;
 }
+
+/**
+ * A named collection of key-value pairs — one bin (SGKV/GKV/CKV/TKV entry).
+ */
+export interface KeyValuePairListReadModel {
+  readonly systemId: number;
+  readonly keyValuePairs: readonly KeyValuePairReadModel[];
+}

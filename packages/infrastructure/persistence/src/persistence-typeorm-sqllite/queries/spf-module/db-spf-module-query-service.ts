@@ -2,7 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import {
@@ -13,6 +12,7 @@ import {
   type SpfModuleDefinitionQueryService,
   type CkvQueryService,
   type KeyValueDefQueryService,
+  type ISessionRepository,
   type Issue,
   Result,
   ResourceNotFoundException,
@@ -23,12 +23,12 @@ import {
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import {applyToCollection} from '../edit-session/overlay-merge.js';
+import {
+  ModuleNodeOverlayFetcher,
+  type OverlaidSpfModule,
+} from '../../fetchers/module-node-overlay-fetcher.js';
 import {DbNodeQueryService} from '../node/db-node-query-service.js';
 import {DbCkvCalibrationQueryService} from '../module-calibration/db-ckv-calibration-query-service.js';
-import type {NodeRow} from '../../entity-schema/usecase-data/node/node.schema.js';
-import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
-import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 import type {SubgraphRow} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {ContainerRow} from '../../entity-schema/usecase-data/container/container.schema.js';
 
@@ -56,27 +56,28 @@ interface DefinitionCapabilityData {
  * Database implementation of SpfModuleQueryService.
  *
  * Assembles SpfModuleReadModel from:
- *   Step 1: Node JOIN SpfModule (module root data)
+ *   Step 1: ModuleNodeOverlayFetcher (Node + SpfModule scalars with session overlay)
  *   Step 2: SpfModuleDefinition JOIN subgraphs JOIN containers
  *           JOIN data_port_groups JOIN static_control_port_definitions
  *           (definition capabilities + business keys)
  *   Step 3: DataPortQueryService.loadDataPorts (ports + link counts)
  *   Step 4: ControlPortQueryService.loadControlPorts (control ports + intents)
- *   Step 5: edit_actions overlay (three-tier pattern)
- *   Step 6: assemble in memory
+ *   Step 5: assemble in memory
  */
 export class DbSpfModuleQueryService implements SpfModuleQueryService {
   readonly nodeQueryService: NodeQueryService;
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly spfModuleDefinitionQuerySvc: SpfModuleDefinitionQueryService;
   readonly ckvQueryService: CkvQueryService;
+  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
 
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
+    editActionsSvc: EditActionsQueryService,
     definitionQuerySvc: SpfModuleDefinitionQueryService,
     tuningConfigSvc: SpfTuningConfigService,
     keyValueDefQuerySvc: KeyValueDefQueryService,
+    private readonly sessionRepo: ISessionRepository,
   ) {
     this.nodeQueryService = new DbNodeQueryService(dataSource, editActionsSvc);
     this.spfTuningConfigService = tuningConfigSvc;
@@ -85,6 +86,10 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       dataSource,
       editActionsSvc,
       keyValueDefQuerySvc,
+    );
+    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
+      dataSource.manager,
+      editActionsSvc,
     );
   }
 
@@ -117,37 +122,17 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     if (usecaseSystemIds.length === 0) return Result.ok([]);
 
     try {
-      // Step 1 — One query: get nodeIds AND subgraphIds in one shot
-      // Path: Node → SpfModule (subgraphSystemId) → UseCaseSubgraph (usecase filter)
-      interface NodeSubgraphRaw {
-        node_system_id: number;
-        sm_subgraph_system_id: number;
-      }
-      const baseRows: NodeSubgraphRaw[] = await this.dataSource
-        .getRepository(ENTITY_NAMES.Node)
-        .createQueryBuilder('node')
-        .select(['node.systemId', 'sm.subgraphSystemId'])
-        .innerJoin(
-          ENTITY_NAMES.SpfModule,
-          'sm',
-          'sm.system_id = node.system_id',
-        )
-        .innerJoin(
-          ENTITY_NAMES.UseCaseSubgraph,
-          'ucs',
-          'ucs.subgraph_system_id = sm.subgraph_system_id AND ucs.usecase_system_id IN (:...ids)',
-          {ids: usecaseSystemIds},
-        )
-        .where('node.fileSystemId = :fileSystemId', {fileSystemId})
-        .getRawMany();
-
-      const nodeIds = new Set(baseRows.map(r => r.node_system_id));
-      const subgraphIds = new Set(baseRows.map(r => r.sm_subgraph_system_id));
+      const {nodeIds, subgraphIds} =
+        await this.moduleNodeFetcher.resolveBaseNodeIdsForUsecases(
+          usecaseSystemIds,
+          fileSystemId,
+        );
 
       // Step 2 — Overlay: check BOTH main table and edit_actions
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
       if (session) {
-        await this.applyUsecaseSubgraphOverlay(
+        await this.moduleNodeFetcher.resolveNodeIdsForUsecases(
           usecaseSystemIds,
           subgraphIds,
           nodeIds,
@@ -171,95 +156,27 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     }
   }
 
-  /** Applies session overlay to subgraph membership + new/deleted modules. */
-  private async applyUsecaseSubgraphOverlay(
-    usecaseSystemIds: number[],
-    subgraphIds: Set<number>,
-    nodeIds: Set<number>,
-    sessionId: number,
-  ): Promise<void> {
-    const [ucsActions, spfCreates, nodeDeletes] = await Promise.all([
-      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.UseCaseSubgraph),
-      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.SpfModule, {
-        operations: ['CREATE'],
-      }),
-      this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Node, {
-        operations: ['DELETE'],
-      }),
-    ]);
-
-    for (const a of ucsActions) {
-      const p = a.newValue as {
-        usecaseSystemId?: number;
-        subgraphSystemId?: number;
-      };
-      if (!p.subgraphSystemId || !usecaseSystemIds.includes(p.usecaseSystemId!))
-        continue;
-      if (a.operation === 'CREATE') subgraphIds.add(p.subgraphSystemId);
-      if (a.operation === 'DELETE') subgraphIds.delete(p.subgraphSystemId);
-    }
-
-    for (const a of spfCreates) {
-      const p = a.newValue as {systemId?: number; subgraphSystemId?: number};
-      if (
-        p.systemId &&
-        p.subgraphSystemId &&
-        subgraphIds.has(p.subgraphSystemId)
-      ) {
-        nodeIds.add(p.systemId);
-      }
-    }
-
-    for (const a of nodeDeletes) {
-      nodeIds.delete(a.targetSystemId);
-    }
-  }
-
   async findBySubgraphId(
     subgraphId: number,
     fileSystemId: number,
   ): Promise<Result<SpfModuleReadModel[]>> {
     try {
-      // Step 1 — baseline modules for this subgraph from main table
-      const baseRows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.Node)
-        .createQueryBuilder('node')
-        .select('node.systemId')
-        .innerJoin(
-          ENTITY_NAMES.SpfModule,
-          'sm',
-          'sm.system_id = node.system_id AND sm.subgraph_system_id = :subgraphId',
-          {subgraphId},
-        )
-        .where('node.fileSystemId = :fileSystemId', {fileSystemId})
-        .getMany()) as Array<{systemId: number}>;
-
-      const nodeIds = new Set(baseRows.map(r => r.systemId));
+      const nodeIds =
+        await this.moduleNodeFetcher.resolveBaseNodeIdsForSubgraph(
+          subgraphId,
+          fileSystemId,
+        );
 
       // Step 2 — Overlay: session-created/deleted modules for this subgraph
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
 
       if (session) {
-        const spfCreates = await this.editActionsSvc.getByTable(
+        await this.moduleNodeFetcher.resolveNodeIdsForSubgraph(
+          subgraphId,
+          nodeIds,
           session.sessionId,
-          ENTITY_NAMES.SpfModule,
-          {operations: ['CREATE']},
         );
-        for (const a of spfCreates) {
-          const p = a.newValue as {
-            systemId?: number;
-            subgraphSystemId?: number;
-          };
-          if (p.systemId && p.subgraphSystemId === subgraphId)
-            nodeIds.add(p.systemId);
-        }
-
-        const nodeDeletes = await this.editActionsSvc.getByTable(
-          session.sessionId,
-          ENTITY_NAMES.Node,
-          {operations: ['DELETE']},
-        );
-        for (const a of nodeDeletes) nodeIds.delete(a.targetSystemId);
       }
 
       if (nodeIds.size === 0) return Result.ok([]);
@@ -289,16 +206,13 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         });
       const uniqueIds = [...new Set(systemIds)];
 
-      // Step 1 — module roots (overlay always applied)
+      // Step 1 — module roots (overlay always applied via fetcher)
       const rootsResult = await this.loadModuleRoots(uniqueIds, fileSystemId);
       if (rootsResult.kind === RESULT_KIND.Fail)
         return Result.fail(...rootsResult.issues);
       const roots = rootsResult.data;
 
       // Step 2 — definition capabilities (deduped by definitionSystemId, overlay always applied)
-      // loadDefinitionCapabilities is keyed by defSystemId — each entry is a Result<DefinitionCapabilityData>
-      // so individual definition failures are captured without failing the whole query.
-      // Re-key to nodeSystemId here since one definition may serve multiple module instances.
       const defIds = [
         ...new Set(roots.map((r: ModuleRootData) => r.definitionSystemId)),
       ];
@@ -317,8 +231,6 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       }
 
       // Steps 3+4 — ports per module (parallel per module)
-      // Result failures on individual ports become warnings — the module is still
-      // returned with empty ports rather than dropping it entirely.
       const warnings: Issue[] = [];
       const portResults = await Promise.all(
         uniqueIds.map(async nodeId => {
@@ -362,15 +274,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         portResults.map(r => [r.nodeId, r.controlPorts]),
       );
 
-      // Step 5 — module-level draft overlay (three-tier)
-      const tableDataMap = await this.loadSpfModuleTableData(
-        uniqueIds,
-        fileSystemId,
-      );
-
-      // Step 6 — assemble
-      // Collect definition capability errors first — a failed definition means the module
-      // cannot be assembled and is treated as a hard error, not a warning.
+      // Step 5 — assemble (overlay already applied in loadModuleRoots via fetcher)
       const capabilityErrors = roots
         .map(root => capabilityMap.get(root.systemId))
         .filter(
@@ -386,24 +290,16 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       if (capabilityErrors.length > 0) return Result.fail(...capabilityErrors);
 
       const assembled: (SpfModuleReadModel | null)[] = roots.map(root => {
-        const moduleDraft = tableDataMap.get(root.systemId);
-        if (moduleDraft?.operation === 'DELETE') return null;
-
         const capabilityResult = capabilityMap.get(root.systemId);
         if (!capabilityResult || capabilityResult.kind === RESULT_KIND.Fail)
           return null;
         const capability = capabilityResult.data;
 
-        const delta =
-          moduleDraft?.operation === 'UPDATE'
-            ? (moduleDraft.newValue as Partial<SpfModuleRow>)
-            : {};
-
-        const result: SpfModuleReadModel = {
+        return {
           systemId: root.systemId,
           parentId: root.parentId,
           instanceId: root.instanceId,
-          alias: delta.alias ?? root.alias,
+          alias: root.alias,
           definitionSystemId: root.definitionSystemId,
           name: capability.name,
           moduleId: capability.moduleId,
@@ -415,7 +311,6 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           dataPorts: dataPortMap.get(root.systemId) ?? [],
           controlPorts: controlPortMap.get(root.systemId) ?? [],
         };
-        return result;
       });
       return Result.ok(
         assembled.filter((m): m is SpfModuleReadModel => m !== null),
@@ -440,47 +335,23 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     fileSystemId: number,
   ): Promise<Result<ModuleRootData[]>> {
     try {
-      const baseRows = await this.dataSource
-        .getRepository(ENTITY_NAMES.Node)
-        .createQueryBuilder('node')
-        .innerJoinAndSelect('node.spfModule', 'spfModule')
-        .where('node.systemId IN (:...ids)', {ids: nodeSystemIds})
-        .andWhere('node.type = :type', {type: 'module'})
-        .getMany();
-
-      // Three-tier overlay — apply drafts on nodes + spf_modules rows
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-
-      let rows = baseRows;
-      if (session) {
-        const actionArrays = await Promise.all(
-          nodeSystemIds.map(id =>
-            this.editActionsSvc.getByAggregateId(session.sessionId, id),
-          ),
-        );
-        const allActions = actionArrays.flat();
-
-        const nodeActions = allActions.filter(
-          a => a.targetTable === ENTITY_NAMES.Node,
-        );
-        const spfActions = allActions.filter(
-          a => a.targetTable === ENTITY_NAMES.SpfModule,
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const overlaidModules: OverlaidSpfModule[] =
+        await this.moduleNodeFetcher.applyToModuleNodes(
+          nodeSystemIds,
+          fileSystemId,
+          session?.sessionId ?? null,
         );
 
-        if (nodeActions.length > 0 || spfActions.length > 0) {
-          rows = applyToCollection(baseRows as NodeRow[], [
-            ...nodeActions,
-            ...spfActions,
-          ]) as typeof baseRows;
-        }
-      }
+      if (overlaidModules.length === 0) return Result.ok([]);
 
-      // Resolve subgraph/container business keys for all roots in two batch queries
+      // Batch-resolve subgraph/container business keys from overlaid FK ids
       const subgraphSystemIds = [
-        ...new Set(rows.map(n => (n as NodeRow).spfModule!.subgraphSystemId)),
+        ...new Set(overlaidModules.map(m => m.subgraphSystemId)),
       ];
       const containerSystemIds = [
-        ...new Set(rows.map(n => (n as NodeRow).spfModule!.containerSystemId)),
+        ...new Set(overlaidModules.map(m => m.containerSystemId)),
       ];
 
       const [subgraphRows, containerRows] = await Promise.all([
@@ -506,24 +377,18 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       );
 
       return Result.ok(
-        rows.map(node => {
-          const n = node as NodeRow;
-          return {
-            systemId: n.systemId,
-            parentId: n.parentId,
-            instanceId: n.spfModule!.instanceId,
-            alias: n.spfModule!.alias,
-            definitionSystemId: n.spfModule!.definitionSystemId,
-            subgraphSystemId: n.spfModule!.subgraphSystemId,
-            containerSystemId: n.spfModule!.containerSystemId,
-            subgraphId:
-              subgraphMap.get(n.spfModule!.subgraphSystemId) ??
-              n.spfModule!.subgraphSystemId,
-            containerId:
-              containerMap.get(n.spfModule!.containerSystemId) ??
-              n.spfModule!.containerSystemId,
-          };
-        }),
+        overlaidModules.map(m => ({
+          systemId: m.systemId,
+          parentId: m.parentId ?? undefined,
+          instanceId: m.instanceId,
+          alias: m.alias ?? '',
+          definitionSystemId: m.definitionSystemId,
+          subgraphSystemId: m.subgraphSystemId,
+          containerSystemId: m.containerSystemId,
+          subgraphId: subgraphMap.get(m.subgraphSystemId) ?? m.subgraphSystemId,
+          containerId:
+            containerMap.get(m.containerSystemId) ?? m.containerSystemId,
+        })),
       );
     } catch (error) {
       return Result.fail({
@@ -599,26 +464,5 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
         severity: IssueSeverity.Error,
       });
     }
-  }
-
-  private async loadSpfModuleTableData(
-    nodeSystemIds: number[],
-    fileSystemId: number,
-  ): Promise<Map<number, EditActionRow>> {
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    if (!session) return new Map();
-
-    const draftMap = new Map<number, EditActionRow>();
-    for (const nodeId of nodeSystemIds) {
-      const drafts = await this.editActionsSvc.getByAggregateId(
-        session.sessionId,
-        nodeId,
-      );
-      const spfDraft = drafts.find(
-        d => d.targetTable === ENTITY_NAMES.SpfModule,
-      );
-      if (spfDraft) draftMap.set(nodeId, spfDraft);
-    }
-    return draftMap;
   }
 }

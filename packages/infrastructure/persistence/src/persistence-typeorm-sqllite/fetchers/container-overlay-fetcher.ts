@@ -194,4 +194,55 @@ export class ContainerOverlayFetcher {
       properties: props,
     };
   }
+
+  async applyToContainers(
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<ContainerBase[]> {
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.Container)
+      .createQueryBuilder('c')
+      .select([
+        'c.systemId',
+        'c.containerId',
+        'c.containerTypeSystemId',
+        'c.fileSystemId',
+      ])
+      .where('c.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as unknown as ContainerBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.Container,
+    );
+    if (actions.length === 0) return baseRows;
+
+    const updateDeleteActions = actions.filter(
+      a => a.operation !== CHANGE_OPERATION.Create,
+    );
+    const overlaid = this.overlay
+      .applyToCollection(baseRows, updateDeleteActions)
+      .map(r => r.effective);
+
+    const baseIds = new Set(baseRows.map(r => r.systemId));
+    const created: ContainerBase[] = actions
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId),
+      )
+      .map(a => {
+        const p = a.newValue as Partial<ContainerBase>;
+        return {
+          systemId: a.targetSystemId,
+          containerId: p.containerId ?? 0,
+          containerTypeSystemId: p.containerTypeSystemId ?? 0,
+          fileSystemId: p.fileSystemId ?? fileSystemId,
+        };
+      });
+
+    return [...overlaid, ...created];
+  }
 }

@@ -7,8 +7,8 @@
 
 ## Document Information
 
-- **Version**: 8.0
-- **Date**: July 2026
+- **Version**: 9.0
+- **Date**: August 2026
 - **Status**: Current
 - **Endpoints**:
   - `POST /arc-api/v1/projects/{projectId}/spf-modules/query`
@@ -74,6 +74,8 @@ Every public method on every query service port returns `Result<T>`. Private hel
 ### 1.4 Three-tier overlay at persistence layer
 
 Overlay is applied entirely at `@arc/persistence`. Read models carry only entity data — no change state propagates upward. Overlay is always applied — there is no `applyOverlay` flag; every service consults the active edit session on every call. Definition tables are overlaid the same way as instance tables since definitions can be modified within a session.
+
+Module instance overlay (nodes + spf_modules) is applied via `ModuleNodeOverlayFetcher.applyToModuleNodes()` — a dedicated batch fetcher that loads scalar Base rows (no TypeORM relation joins) and applies `OverlayMergeImpl` directly. This replaced the deprecated `applyToCollection` compat shim and the redundant `loadSpfModuleTableData` second-pass overlay that previously existed alongside it.
 
 ### 1.5 Batched overlay to avoid N+1
 
@@ -221,13 +223,13 @@ POST /arc-api/v1/projects/{projectId}/spf-modules/query
   try/catch wraps all steps → Result.fail(INTERNAL_ERROR) on exception
 
   Step 1: loadModuleRoots(systemIds, fileSystemId)
+            → delegates to ModuleNodeOverlayFetcher.applyToModuleNodes()
             → Result<ModuleRootData[]>  — fatal if DB error
   Step 2: loadDefinitionCapabilities(defIds, fileSystemId)
             → Result<Map<defSystemId, Result<DefinitionCapabilityData>>>
   Step 3+4: nodeQueryService.getDataPorts/getControlPorts(nodeId, ...)
             per module in parallel — isFailure → warning added, empty ports returned (partial)
-  Step 5: loadSpfModuleTableData → overlay spf_modules rows
-  Step 6: assemble in memory → SpfModuleReadModel[]
+  Step 5: assemble in memory → SpfModuleReadModel[] (overlay already applied in Step 1)
   return Result.ok(assembled, warnings)
 
   ──────────────────────────────────────────────────────────────
@@ -282,40 +284,46 @@ POST /arc-api/v1/projects/{projectId}/spf-modules/query
 ### DB queries issued per request (session active, `include=ckvs,tags`)
 
 ```
-Query 1:  Node JOIN spf_modules WHERE system_id IN (?)
-           + subgraphs WHERE system_id IN (?)
-           + containers WHERE system_id IN (?)
-           ← module roots with business keys
+Module roots — ModuleNodeOverlayFetcher.applyToModuleNodes():
+  Query 1a: spf_modules WHERE system_id IN (?) AND file_system_id = ?   ← scalar Base rows, no joins
+  Query 1b: nodes WHERE system_id IN (?) AND file_system_id = ?         ← scalar Base rows, no joins
+  Query 1c: edit_actions WHERE session_id = ? AND table_name = 'SpfModule'  ← table-wide, filtered in-memory to requested ids
+  Query 1d: edit_actions WHERE session_id = ? AND table_name = 'Node'       ← table-wide, filtered in-memory to requested ids
+  (4 queries total for overlay, regardless of how many modules — replaces N pairs of getByAggregateId calls)
+
+Business keys (resolved from overlaid FK ids):
+  Query 2a: subgraphs WHERE system_id IN (?)     ← batch, overlaid subgraphSystemIds
+  Query 2b: containers WHERE system_id IN (?)    ← batch, overlaid containerSystemIds
 
 Per unique definition (deduped):
-  Query 2a: spf_module_definitions WHERE system_id = ?         ← identity + overlay
-  Query 2b: data_port_groups WHERE module_definition_system_id = ?
-  Query 2c: static_control_port_definitions WHERE module_definition_system_id = ?
-  Query 2d: edit_actions WHERE aggregate_id = ? (definitionSystemId)
+  Query 3a: spf_module_definitions WHERE system_id = ?         ← identity + overlay
+  Query 3b: data_port_groups WHERE module_definition_system_id = ?
+  Query 3c: static_control_port_definitions WHERE module_definition_system_id = ?
+  Query 3d: edit_actions WHERE aggregate_id = ? (definitionSystemId)
 
 Per module node:
-  Query 3-9: data ports / control ports + link counts + name resolution (see §9)
+  Query 4-10: data ports / control ports + link counts + name resolution (see §9)
 
 Per module, for CKVs (getModuleCkvs):
-  Query 10: ckv LEFT JOIN ckv_values WHERE spf_module_system_id = ?
-  Query 11: edit_actions WHERE aggregate_id = ? (spfModuleSystemId)          ← CKV-level overlay
-  Query 12: arc_values WHERE system_id IN (:...allValueDefIdsAcrossAllCkvs) ← ONE query, not one per CKV
+  Query 11: ckv LEFT JOIN ckv_values WHERE spf_module_system_id = ?
+  Query 12: edit_actions WHERE aggregate_id = ? (spfModuleSystemId)          ← CKV-level overlay
+  Query 13: arc_values WHERE system_id IN (:...allValueDefIdsAcrossAllCkvs) ← ONE query, not one per CKV
              LEFT JOIN arc_keys                                             ← resolves requested ids → distinct parent key ids
-  Query 13: edit_actions WHERE session_id = ? AND table_name = 'ValueDefinition'  ← table-wide, scoped to Query 12's rows
-  Query 14: edit_actions WHERE session_id = ? AND table_name = 'KeyDefinition'    ← table-wide, scoped to Query 12's rows
-  Query 15: arc_values WHERE key_system_id IN (:...distinctKeyIdsFromQuery12)     ← ONE query, loads ALL values
+  Query 14: edit_actions WHERE session_id = ? AND table_name = 'ValueDefinition'  ← table-wide, scoped to Query 13's rows
+  Query 15: edit_actions WHERE session_id = ? AND table_name = 'KeyDefinition'    ← table-wide, scoped to Query 13's rows
+  Query 16: arc_values WHERE key_system_id IN (:...distinctKeyIdsFromQuery13)     ← ONE query, loads ALL values
              LEFT JOIN arc_keys                                                    under those keys, not just the requested ones
-  Query 16: edit_actions WHERE session_id = ? AND table_name = 'ValueDefinition'  ← table-wide, scoped to Query 15's rows
-  Query 17: edit_actions WHERE session_id = ? AND table_name = 'KeyDefinition'    ← table-wide, scoped to Query 15's rows
+  Query 17: edit_actions WHERE session_id = ? AND table_name = 'ValueDefinition'  ← table-wide, scoped to Query 16's rows
+  Query 18: edit_actions WHERE session_id = ? AND table_name = 'KeyDefinition'    ← table-wide, scoped to Query 16's rows
 
 Per module, for tags (getModuleTags):
-  Query 18: module_tag_id_map LEFT JOIN tkv LEFT JOIN tkv_values WHERE spf_module_system_id = ?
-  Query 19: edit_actions WHERE aggregate_id = ? (spfModuleSystemId)          ← tag-map-level overlay
-  Query 20: tag_definitions WHERE system_id IN (:...tagDefIds)
+  Query 19: module_tag_id_map LEFT JOIN tkv LEFT JOIN tkv_values WHERE spf_module_system_id = ?
+  Query 20: edit_actions WHERE aggregate_id = ? (spfModuleSystemId)          ← tag-map-level overlay
+  Query 21: tag_definitions WHERE system_id IN (:...tagDefIds)
   Per tag map:
-    Query 21: edit_actions WHERE aggregate_id = ? (tagMapSystemId)           ← ALL TKVs under this
+    Query 22: edit_actions WHERE aggregate_id = ? (tagMapSystemId)           ← ALL TKVs under this
               tag overlaid from this ONE call, not one call per TKV
-    Query 22-28: same two-step arc_values/arc_keys pattern as CKVs (Queries 12-17), scoped to this tag's TKVs
+    Query 23-29: same two-step arc_values/arc_keys pattern as CKVs (Queries 13-18), scoped to this tag's TKVs
 ```
 
 When no active session exists: all `edit_actions` queries skipped.
@@ -461,23 +469,61 @@ interface CkvParamReadModel {
 
 ### Three-tier pattern — always applied, no flag
 
+Module instance overlay (nodes + spf_modules) flows through `ModuleNodeOverlayFetcher.applyToModuleNodes()`:
+
 ```typescript
-const session = await this.editActionsSvc.findActiveSession(fileSystemId);  // Tier 1
-
-if (!session) return baselineData;                                          // Tier 2: no session
-
-const editActions = await this.editActionsSvc
-  .getEditActionsByAggregateId(session.sessionId, aggregateId);
-
-if (!editActions.length) return baselineData;                               // Tier 2: no drafts
-
-return applyToCollection(baselineData, editActions);                        // Tier 3: merge
+// In loadModuleRoots — single fetcher call replaces the two-pass overlay that used to exist
+const session = await this.editActionsSvc.findActiveSession(fileSystemId);
+const overlaidModules = await this.moduleNodeFetcher.applyToModuleNodes(
+  nodeSystemIds,
+  fileSystemId,
+  session?.sessionId ?? null,   // null → fetcher returns baseline rows directly
+);
+// DELETE-staged modules are absent from overlaidModules; alias and other scalar
+// fields already carry the overlaid values — no second pass needed.
 ```
 
+Inside the fetcher (`ModuleNodeOverlayFetcher.applyToModuleNodes`):
+
+```typescript
+// 1. Load scalar Base rows — no TypeORM relation joins
+const baseSpfRows = ... // SELECT scalar columns FROM spf_modules WHERE systemId IN (?)
+const baseNodeRows = ... // SELECT systemId, parentId FROM nodes WHERE systemId IN (?)
+
+if (sessionId === null) return baseSpfRows.map(...);  // no session — baseline only
+
+// 2. Two table-wide queries (not N aggregate-scoped queries)
+const [allSpfActions, allNodeActions] = await Promise.all([
+  editActionsSvc.getByTable(sessionId, ENTITY_NAMES.SpfModule),
+  editActionsSvc.getByTable(sessionId, ENTITY_NAMES.Node),
+]);
+
+// 3. Filter to requested modules in memory
+const spfActions  = allSpfActions.filter(a => moduleIdSet.has(a.targetSystemId));
+const nodeActions = allNodeActions.filter(a => moduleIdSet.has(a.targetSystemId));
+
+// 4. Apply UPDATE+DELETE via OverlayMergeImpl (CREATEs handled separately)
+const overlaidSpf  = overlay.applyToCollection(baseSpfRows,  spfUpdateDelete).map(r => r.effective);
+const overlaidNode = overlay.applyToCollection(baseNodeRows, nodeUpdateDelete).map(r => r.effective);
+
+// 5. Inject session-staged CREATEs — systemId comes from a.targetSystemId, never newValue.systemId
+const createdSpf  = spfActions.filter(CREATE && !baseSpfIds.has(targetSystemId))
+  .map(a => ({ systemId: a.targetSystemId, ...a.newValue defaults }));
+const createdNode = nodeActions.filter(CREATE && !baseNodeIds.has(targetSystemId))
+  .map(a => ({ systemId: a.targetSystemId, ...a.newValue defaults }));
+
+return [...overlaidSpf, ...createdSpf].map(sm => ({...sm, parentId: nodeMap.get(sm.systemId)?.parentId}));
+```
+
+**Key properties:**
+- `OverlayMergeImpl` (not the deprecated `applyToCollection` shim) handles UPDATE+DELETE
+- CREATE actions are processed separately — `a.targetSystemId` is always the authoritative `systemId` for new entities
+- 4 queries total for module overlay regardless of how many modules (2 scalar loads + 2 `getByTable`)
+
 **Effects:**
-- `DELETE` draft → row excluded from result
+- `DELETE` draft → row absent from `applyToModuleNodes` result
 - `UPDATE` draft → payload fields merged onto baseline row
-- `CREATE` draft → row injected (no baseline row exists)
+- `CREATE` draft → row injected (no baseline row exists yet)
 
 ### Batched overlay — the N+1 fix
 
@@ -622,25 +668,31 @@ constructor(
   editActionsSvc: EditActionsQueryService,
   definitionQuerySvc: SpfModuleDefinitionQueryService,
   tuningConfigSvc: SpfTuningConfigService,   // ← injected, shared single instance
+  keyValueDefQuerySvc: KeyValueDefQueryService,
 ) {
   this.nodeQueryService = new DbNodeQueryService(dataSource, editActionsSvc);
   this.spfTuningConfigService = tuningConfigSvc;   // NOT `new DbSpfTuningConfigService(...)`
   this.spfModuleDefinitionQuerySvc = definitionQuerySvc;
+  this.ckvQueryService = new DbCkvCalibrationQueryService(dataSource, editActionsSvc, keyValueDefQuerySvc);
+  this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(dataSource.manager, editActionsSvc);
 }
 ```
 
-`DbSpfTuningConfigService` is constructed exactly once, in `DbQueryServices`, and passed in here. Earlier revisions had `DbSpfModuleQueryService` construct its own separate `DbSpfTuningConfigService` internally — that created two divergent instances of the same logical service and has been removed.
+`DbSpfTuningConfigService` is constructed exactly once in `DbQueryServices` and passed in. `ModuleNodeOverlayFetcher` is constructed internally — it is not shared with other services.
 
 ### findMany assembly pipeline
 
 ```
 try {
-  Step 1: loadModuleRoots(uniqueIds, fileSystemId) → Result<ModuleRootData[]>
+  Step 1: loadModuleRoots(uniqueIds, fileSystemId)
+            → moduleNodeFetcher.applyToModuleNodes(ids, fileSystemId, session?.sessionId ?? null)
+            → batch-resolve subgraph/container business keys from overlaid FK ids
+            → Result<ModuleRootData[]>  — fatal if DB error
   Step 2: loadDefinitionCapabilities(defIds, fileSystemId) → Result<Map<defSystemId, Result<...>>>
   Step 3+4: nodeQueryService.getDataPorts/getControlPorts(nodeId, ...) per module in parallel
             isFailure → warning added, empty array used (partial — module kept)
-  Step 5: loadSpfModuleTableData → Map<nodeSystemId, EditActionRow>
-  Step 6: assemble SpfModuleReadModel[] from roots + capabilities + ports
+  Step 5: assemble SpfModuleReadModel[] from roots + capabilities + ports
+          (DELETE filtering and alias overlay already applied by fetcher in Step 1)
           return Result.ok(assembled, warnings)
 } catch (err) {
   return Result.fail({code: INTERNAL_ERROR, message: err.message})
@@ -868,6 +920,7 @@ DbQueryServices
   ├── DbSpfTuningConfigService           ← spf-module/ — CKV/TKV/tag catalogue
   │     └── delegates to DbKeyValueDefQueryService (injected, shared instance)
   └── DbSpfModuleQueryService            ← spf-module/ — module instance + ports
+        ├── ModuleNodeOverlayFetcher     ← fetchers/ — scalar Base overlay for Node + SpfModule
         ├── DbNodeQueryService           ← node/ — data+control ports, definition name resolution
         └── receives DbSpfTuningConfigService (injected, SAME shared instance — not self-constructed)
 ```
@@ -919,13 +972,19 @@ packages/infrastructure/persistence/src/.../queries/
   node/
     db-node-query-service.ts                  ← getDataPorts + getControlPorts
   spf-module/
-    db-spf-module-query-service.ts            ← findOne/findMany; receives spfTuningConfigService by injection
+    db-spf-module-query-service.ts            ← findOne/findMany; delegates module overlay to ModuleNodeOverlayFetcher;
+                                                  receives spfTuningConfigService by injection
     db-spf-tuning-config-service.ts           ← getModuleCkvs/getModuleTags — Result.partial per-item isolation,
                                                   resolveKeyValuePairs (shared flatten + not-found reconstruction),
                                                   buildTagTkvReadModels (batched TKV overlay + per-TKV isolation)
   spf-module-definition/
     db-spf-module-definition-query-service.ts
   typeorm-query-services.ts                   ← DbQueryServices — constructs spfTuningConfigService ONCE
+
+packages/infrastructure/persistence/src/.../fetchers/
+  module-node-overlay-fetcher.ts              ← fetchOne (single module) + applyToModuleNodes (batch);
+                                                  loads scalar SpfModuleBase + NodeBase rows, applies OverlayMergeImpl,
+                                                  injects a.targetSystemId for CREATE-staged modules
 
 packages/api/src/presentation/rest/modules/spf-module/
   spf-module.controller.ts   ← unwraps Result<T> per-module; isSuccess check (true for ok AND partial)

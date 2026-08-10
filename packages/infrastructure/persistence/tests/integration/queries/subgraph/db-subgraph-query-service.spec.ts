@@ -4,7 +4,13 @@
  */
 
 import type {DataSource} from 'typeorm';
-import {CHANGE_OPERATION, CHANGE_STATUS, SOURCE, RESULT_KIND} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  CHANGE_STATUS,
+  SOURCE,
+  RESULT_KIND,
+  Result,
+} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -144,6 +150,7 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
       ds,
       new EditActionsQueryService(ds.manager),
       new TypeOrmSessionRepository(ds.manager),
+      {getKeyValueSummaryForGivenValues: async () => Result.ok([])} as any,
     );
   });
 
