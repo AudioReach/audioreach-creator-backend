@@ -61,7 +61,13 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
     ).toHaveBeenCalledWith(42, undefined);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toBe(properties);
+    // Result is now mapped DTOs — verify count and key field mapping
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].systemId).toBe('1');
+    expect(result.data[0].propertyId).toBe(100);
+    expect(result.data[0].name).toBe('MyProperty');
+    expect(result.data[0].type).toBe('SPF');
+    expect(result.data[0].isVoice).toBe(true);
   });
 
   it('passes the propertyDefinitionId filter through to the query service', async () => {

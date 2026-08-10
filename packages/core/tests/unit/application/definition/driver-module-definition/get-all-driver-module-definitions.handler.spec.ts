@@ -95,7 +95,11 @@ describe('GetAllDriverModuleDefinitionsHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toEqual([readModel]);
+    // Result is now a mapped DTO — verify key fields
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].systemId).toBe('9');
+    expect(result.data[0].moduleId).toBe(readModel.moduleId);
+    expect(result.data[0].name).toBe(readModel.name);
   });
 
   it('returns the Result from the query service unchanged when partial', async () => {
@@ -129,7 +133,9 @@ describe('GetAllDriverModuleDefinitionsHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Partial);
     if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.data).toEqual([readModel]);
+    // Result is now a mapped DTO — verify key fields and issues preserved
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].systemId).toBe('9');
     expect(result.issues).toHaveLength(1);
     expect(result.issues[0].message).toContain('systemId=13');
   });

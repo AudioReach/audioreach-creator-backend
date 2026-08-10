@@ -28,25 +28,24 @@ import {
   GetContainerPropertyDefinitionQuery,
   GetAllSubgraphPropertyDefinitionsQuery,
   GetSubgraphPropertyDefinitionQuery,
-  type PropertyDefinitionSummaryReadModel,
-  type PropertyDefinitionReadModel,
-  type SubgraphPropertyDefinitionSummaryReadModel,
-  type SubgraphPropertyDefinitionReadModel,
+  type ContainerPropertyDefinitionDto,
+  type ContainerPropertyDefinitionSummaryDto,
+  type SubgraphPropertyDefinitionDto,
+  type SubgraphPropertyDefinitionSummaryDto,
   type Result,
 } from '@arc/core';
 import {ApiResult} from '../../../common/dto/api-response/api-result.dto.js';
 import {toApiResult} from '../../../common/result/to-api-result.js';
-import {SubgraphPropertyDefinitionDetailResponseDto} from './dto/subgraph-property-definition-detail-response.dto.js';
-import {ContainerPropertyDefinitionDetailResponseDto} from './dto/container-property-definition-detail-response.dto.js';
+import {SubgraphPropertyDefinitionResponseDto} from './dto/subgraph-property-definition-response.dto.js';
+import {ContainerPropertyDefinitionResponseDto} from './dto/container-property-definition-response.dto.js';
 import {ContainerPropertyDefinitionSummaryResponseDto} from './dto/container-property-definition-summary-response.dto.js';
 import {SubgraphPropertyDefinitionSummaryResponseDto} from './dto/subgraph-property-definition-summary-response.dto.js';
-import {PropertyType} from './enums/property-type.enum.js';
 
 @ApiTags('property-definition')
 @Controller('arc-api/v1/projects')
-@ApiExtraModels(ApiResult, SubgraphPropertyDefinitionDetailResponseDto)
+@ApiExtraModels(ApiResult, SubgraphPropertyDefinitionResponseDto)
 @ApiExtraModels(ApiResult, SubgraphPropertyDefinitionSummaryResponseDto)
-@ApiExtraModels(ApiResult, ContainerPropertyDefinitionDetailResponseDto)
+@ApiExtraModels(ApiResult, ContainerPropertyDefinitionResponseDto)
 @ApiExtraModels(ApiResult, ContainerPropertyDefinitionSummaryResponseDto)
 export class PropertyDefinitionController {
   constructor(private readonly queryBus: QueryBus) {}
@@ -116,12 +115,10 @@ export class PropertyDefinitionController {
 
     const result =
       await this.queryBus.execute<
-        Result<SubgraphPropertyDefinitionSummaryReadModel[]>
+        Result<SubgraphPropertyDefinitionSummaryDto[]>
       >(query);
 
-    return toApiResult(result, data =>
-      data.map(p => this.mapToSubgraphSummaryDto(p)),
-    );
+    return toApiResult(result);
   }
 
   @Get(':projectId/definitions/subgraph/properties/:propertySystemId')
@@ -145,7 +142,7 @@ export class PropertyDefinitionController {
         {
           properties: {
             data: {
-              $ref: getSchemaPath(SubgraphPropertyDefinitionDetailResponseDto),
+              $ref: getSchemaPath(SubgraphPropertyDefinitionResponseDto),
             },
           },
         },
@@ -160,7 +157,7 @@ export class PropertyDefinitionController {
   async getSubgraphPropertyDefinition(
     @Param('projectId') projectId: string,
     @Param('propertySystemId') propertySystemId: string,
-  ): Promise<ApiResult<SubgraphPropertyDefinitionDetailResponseDto>> {
+  ): Promise<ApiResult<SubgraphPropertyDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
@@ -180,9 +177,9 @@ export class PropertyDefinitionController {
     );
 
     const property =
-      await this.queryBus.execute<SubgraphPropertyDefinitionReadModel>(query);
+      await this.queryBus.execute<SubgraphPropertyDefinitionDto>(query);
 
-    return {data: this.mapToSubgraphDetailDto(property)};
+    return {data: property};
   }
 
   @Delete(':projectId/definitions/subgraph/properties/:propertySystemId')
@@ -210,7 +207,7 @@ export class PropertyDefinitionController {
   async deleteSpfSubgraphPropertyDefinition(
     @Param('projectId') _projectId: string,
     @Param('propertySystemId') _propertySystemId: string,
-  ): Promise<ApiResult<SubgraphPropertyDefinitionDetailResponseDto>> {
+  ): Promise<ApiResult<SubgraphPropertyDefinitionResponseDto>> {
     // implement logic here
     await Promise.resolve();
     throw new NotImplementedException(
@@ -282,11 +279,11 @@ export class PropertyDefinitionController {
     );
 
     const result =
-      await this.queryBus.execute<Result<PropertyDefinitionSummaryReadModel[]>>(
-        query,
-      );
+      await this.queryBus.execute<
+        Result<ContainerPropertyDefinitionSummaryDto[]>
+      >(query);
 
-    return toApiResult(result, data => data.map(p => this.mapToSummaryDto(p)));
+    return toApiResult(result);
   }
 
   @Get(':projectId/definitions/container/properties/:propertySystemId')
@@ -310,7 +307,7 @@ export class PropertyDefinitionController {
         {
           properties: {
             data: {
-              $ref: getSchemaPath(ContainerPropertyDefinitionDetailResponseDto),
+              $ref: getSchemaPath(ContainerPropertyDefinitionResponseDto),
             },
           },
         },
@@ -325,7 +322,7 @@ export class PropertyDefinitionController {
   async getContainerPropertyDefinition(
     @Param('projectId') projectId: string,
     @Param('propertySystemId') propertySystemId: string,
-  ): Promise<ApiResult<ContainerPropertyDefinitionDetailResponseDto>> {
+  ): Promise<ApiResult<ContainerPropertyDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
@@ -345,9 +342,9 @@ export class PropertyDefinitionController {
     );
 
     const property =
-      await this.queryBus.execute<PropertyDefinitionReadModel>(query);
+      await this.queryBus.execute<ContainerPropertyDefinitionDto>(query);
 
-    return {data: this.mapToDetailDto(property)};
+    return {data: property};
   }
 
   @Delete(':projectId/definitions/container/properties/:propertySystemId')
@@ -375,62 +372,10 @@ export class PropertyDefinitionController {
   async deleteContainerPropertyDefinition(
     @Param('projectId') _projectId: string,
     @Param('propertySystemId') _propertySystemId: string,
-  ): Promise<ApiResult<ContainerPropertyDefinitionDetailResponseDto>> {
+  ): Promise<ApiResult<ContainerPropertyDefinitionResponseDto>> {
     await Promise.resolve();
     throw new NotImplementedException(
       'deleteContainerPropertyDefinition is not implemented yet',
     );
-  }
-
-  // ── Private helpers ───────────────────────────────────────────────────────
-
-  private mapToSummaryDto(
-    m: PropertyDefinitionSummaryReadModel,
-  ): ContainerPropertyDefinitionSummaryResponseDto {
-    const dto = new ContainerPropertyDefinitionSummaryResponseDto();
-    dto.systemId = String(m.systemId);
-    dto.propertyId = m.propertyId;
-    dto.name = m.name;
-    dto.description = m.description ?? '';
-    dto.type = m.propertyType as unknown as PropertyType;
-    return dto;
-  }
-
-  private mapToDetailDto(
-    m: PropertyDefinitionReadModel,
-  ): ContainerPropertyDefinitionDetailResponseDto {
-    const dto = new ContainerPropertyDefinitionDetailResponseDto();
-    dto.systemId = String(m.systemId);
-    dto.propertyId = m.propertyId;
-    dto.name = m.name;
-    dto.description = m.description ?? '';
-    dto.type = m.propertyType as unknown as PropertyType;
-    return dto;
-  }
-
-  private mapToSubgraphSummaryDto(
-    m: SubgraphPropertyDefinitionSummaryReadModel,
-  ): SubgraphPropertyDefinitionSummaryResponseDto {
-    const dto = new SubgraphPropertyDefinitionSummaryResponseDto();
-    dto.systemId = String(m.systemId);
-    dto.propertyId = m.propertyId;
-    dto.name = m.name;
-    dto.description = m.description ?? '';
-    dto.type = m.propertyType as unknown as PropertyType;
-    dto.isVoice = m.isVoice;
-    return dto;
-  }
-
-  private mapToSubgraphDetailDto(
-    m: SubgraphPropertyDefinitionReadModel,
-  ): SubgraphPropertyDefinitionDetailResponseDto {
-    const dto = new SubgraphPropertyDefinitionDetailResponseDto();
-    dto.systemId = String(m.systemId);
-    dto.propertyId = m.propertyId;
-    dto.name = m.name;
-    dto.description = m.description ?? '';
-    dto.type = m.propertyType as unknown as PropertyType;
-    dto.isVoice = m.isVoice;
-    return dto;
   }
 }

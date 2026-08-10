@@ -6,6 +6,7 @@
 import {jest} from '@jest/globals';
 import {GetSpfCustomModuleMetadataHandler} from '../../../../../src/application/definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.handler.js';
 import {GetSpfCustomModuleMetadataQuery} from '../../../../../src/application/definition/spf-module-definition/get-custom-module-metadata/get-spf-custom-module-metadata.query.js';
+import {CustomModuleMetadataDtoSchema} from '../../../../../src/application/definition/spf-module-definition/get-custom-module-metadata/custom-module-metadata-dto.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import type {SpfModuleDefinitionSummaryReadModel} from '../../../../../src/application/ports/persistence/query-services/spf-module-definition/spf-module-definition-read-model.js';
 import type {CustomModuleMetadataReadModel} from '../../../../../src/application/ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
@@ -84,8 +85,7 @@ describe('GetSpfCustomModuleMetadataHandler', () => {
     ).toHaveBeenCalledWith(123, 42);
   });
 
-  it('returns the custom module metadata on success', async () => {
-    const customModuleData = createCustomModuleMetadata();
+  it('returns the custom module metadata as a DTO on success', async () => {
     const queryServices = createQueryServices({
       spfModuleDefinitionQueryService: {
         getSpfModuleDefinitionSummary: jest
@@ -93,7 +93,7 @@ describe('GetSpfCustomModuleMetadataHandler', () => {
           .mockResolvedValue(Result.ok(createReadModel({systemId: 123}))),
         getCustomModuleMetadata: jest
           .fn()
-          .mockResolvedValue(Result.ok(customModuleData)),
+          .mockResolvedValue(Result.ok(createCustomModuleMetadata())),
       } as any,
     });
     const handler = new GetSpfCustomModuleMetadataHandler(queryServices);
@@ -101,7 +101,15 @@ describe('GetSpfCustomModuleMetadataHandler', () => {
 
     const result = await handler.handle(query);
 
-    expect(result).toEqual(customModuleData);
+    expect(result).not.toBeNull();
+    expect(result?.fileName).toBe('file.so');
+    expect(result?.endPointFunctionTag).toBe('tag');
+    expect(result?.type.name).toBe('Type');
+    expect(result?.type.value).toBe('1');
+    expect(result?.type.valueDataType.typeName).toBe('UINT32');
+    expect(result?.interface.type.valueDataType.typeName).toBe('UINT16');
+    expect(result?.interface.version.valueDataType.typeName).toBe('UINT16');
+    expect(CustomModuleMetadataDtoSchema.safeParse(result).success).toBe(true);
     expect(
       queryServices.spfModuleDefinitionQueryService.getCustomModuleMetadata,
     ).toHaveBeenCalledWith(123, 42);

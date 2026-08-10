@@ -201,7 +201,14 @@ describe('GetAllSpfModuleDefinitionsHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data[0].customModuleData).toEqual(customModuleData);
+    // customModuleData is now a mapped DTO — verify it's populated (not undefined)
+    expect(result.data[0].customModuleData).toBeDefined();
+    expect(result.data[0].customModuleData?.fileName).toBe(
+      customModuleData.fileName,
+    );
+    expect(result.data[0].customModuleData?.endPointFunctionTag).toBe(
+      customModuleData.endPointFunctionTag,
+    );
   });
 
   it('resolves customModuleData to null with no issue when a custom module is missing from the batched metadata result', async () => {
@@ -223,7 +230,8 @@ describe('GetAllSpfModuleDefinitionsHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data[0].customModuleData).toBeNull();
+    // customModuleData is undefined when the module_manager_data row is missing
+    expect(result.data[0].customModuleData).toBeUndefined();
   });
 
   it('throws ResourceNotFoundException when the query service returns a fail Result', async () => {

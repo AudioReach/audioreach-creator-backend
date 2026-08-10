@@ -5,10 +5,13 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {SubgraphPropertyDefinitionReadModel} from '../../../ports/persistence/query-services/subgraph-property-definition/subgraph-property-definition-read-model.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {GetSubgraphPropertyDefinitionQuery} from './get-subgraph-property-definition.query.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
+import {
+  mapSubgraphPropertyDefinition,
+  type SubgraphPropertyDefinitionDto,
+} from '../dto/subgraph-property-definition-dto.js';
 
 /**
  * Handler for GetSubgraphPropertyDefinitionQuery
@@ -17,13 +20,13 @@ import {RESULT_KIND} from '../../../shared/result/result.js';
  */
 export class GetSubgraphPropertyDefinitionHandler implements QueryHandler<
   GetSubgraphPropertyDefinitionQuery,
-  Promise<SubgraphPropertyDefinitionReadModel>
+  Promise<SubgraphPropertyDefinitionDto>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetSubgraphPropertyDefinitionQuery,
-  ): Promise<SubgraphPropertyDefinitionReadModel> {
+  ): Promise<SubgraphPropertyDefinitionDto> {
     const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -42,6 +45,6 @@ export class GetSubgraphPropertyDefinitionHandler implements QueryHandler<
       );
     }
 
-    return result.data;
+    return mapSubgraphPropertyDefinition(result.data);
   }
 }

@@ -5,10 +5,13 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {PropertyDefinitionSummaryReadModel} from '../../../ports/persistence/query-services/property-definition/property-definition-read-model.js';
 import {GetAllContainerPropertyDefinitionsQuery} from './get-all-container-property-definitions.query.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {
+  mapContainerPropertyDefinitionSummary,
+  type ContainerPropertyDefinitionSummaryDto,
+} from '../dto/container-property-definition-dto.js';
 
 /**
  * Handler for GetAllContainerPropertyDefinitionsQuery
@@ -18,13 +21,13 @@ import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-
  */
 export class GetAllContainerPropertyDefinitionsHandler implements QueryHandler<
   GetAllContainerPropertyDefinitionsQuery,
-  Promise<Result<PropertyDefinitionSummaryReadModel[]>>
+  Promise<Result<ContainerPropertyDefinitionSummaryDto[]>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetAllContainerPropertyDefinitionsQuery,
-  ): Promise<Result<PropertyDefinitionSummaryReadModel[]>> {
+  ): Promise<Result<ContainerPropertyDefinitionSummaryDto[]>> {
     const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -43,6 +46,11 @@ export class GetAllContainerPropertyDefinitionsHandler implements QueryHandler<
       );
     }
 
-    return result;
+    const mapped = result.data.map(m =>
+      mapContainerPropertyDefinitionSummary(m),
+    );
+    return result.issues?.length
+      ? Result.partial(mapped, result.issues)
+      : Result.ok(mapped);
   }
 }

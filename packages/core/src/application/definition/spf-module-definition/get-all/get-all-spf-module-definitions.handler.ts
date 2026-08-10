@@ -10,6 +10,10 @@ import type {CustomModuleMetadataReadModel} from '../../../ports/persistence/que
 import type {GetAllSpfModuleDefinitionsQuery} from './get-all-spf-module-definitions.query.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
+import {
+  mapSpfModuleDefinition,
+  type SpfModuleDefinitionDto,
+} from '../dto/spf-module-definition-dto.js';
 
 /**
  * Read model for a module definition summary enriched with resolved
@@ -37,13 +41,13 @@ export interface SpfModuleDefinitionSummaryWithCustomData extends SpfModuleDefin
  */
 export class GetAllSpfModuleDefinitionsHandler implements QueryHandler<
   GetAllSpfModuleDefinitionsQuery,
-  Promise<Result<SpfModuleDefinitionSummaryWithCustomData[]>>
+  Promise<Result<SpfModuleDefinitionDto[]>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetAllSpfModuleDefinitionsQuery,
-  ): Promise<Result<SpfModuleDefinitionSummaryWithCustomData[]>> {
+  ): Promise<Result<SpfModuleDefinitionDto[]>> {
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -61,27 +65,30 @@ export class GetAllSpfModuleDefinitionsHandler implements QueryHandler<
           `Failed to load SPF module definitions for project ${query.projectId}`,
       );
     }
-    if (!query.includeCustomData) return result;
 
-    const customModuleSystemIds = result.data
-      .filter(row => row.isCustomModule)
-      .map(row => row.systemId);
+    let enriched: SpfModuleDefinitionSummaryWithCustomData[] = result.data;
 
-    const metadataBySystemId =
-      await this.queryServices.spfModuleDefinitionQueryService.getCustomModuleMetadataBySystemIds(
-        customModuleSystemIds,
-        fileSystemId,
-      );
+    if (query.includeCustomData) {
+      const customModuleSystemIds = result.data
+        .filter(row => row.isCustomModule)
+        .map(row => row.systemId);
 
-    const enriched = result.data.map(row => {
-      if (!row.isCustomModule) return row;
+      const metadataBySystemId =
+        await this.queryServices.spfModuleDefinitionQueryService.getCustomModuleMetadataBySystemIds(
+          customModuleSystemIds,
+          fileSystemId,
+        );
 
-      const customModuleData = metadataBySystemId.get(row.systemId);
-      return {...row, customModuleData: customModuleData ?? null};
-    });
+      enriched = result.data.map(row => {
+        if (!row.isCustomModule) return row;
+        const customModuleData = metadataBySystemId.get(row.systemId);
+        return {...row, customModuleData: customModuleData ?? null};
+      });
+    }
 
+    const mapped = enriched.map(row => mapSpfModuleDefinition(row));
     return result.issues?.length
-      ? Result.partial(enriched, result.issues)
-      : Result.ok(enriched);
+      ? Result.partial(mapped, result.issues)
+      : Result.ok(mapped);
   }
 }

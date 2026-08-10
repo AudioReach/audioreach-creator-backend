@@ -9,6 +9,11 @@ import type {GetSpfModuleDefinitionQuery} from './get-spf-module-definition.quer
 import type {SpfModuleDefinitionSummaryWithCustomData} from '../get-all/get-all-spf-module-definitions.handler.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
+import {
+  mapSpfModuleDefinition,
+  type SpfModuleDefinitionDto,
+} from '../dto/spf-module-definition-dto.js';
+
 /**
  * Handles GetSpfModuleDefinitionQuery.
  *
@@ -19,13 +24,13 @@ import {RESULT_KIND} from '../../../shared/result/result.js';
  */
 export class GetSpfModuleDefinitionHandler implements QueryHandler<
   GetSpfModuleDefinitionQuery,
-  Promise<SpfModuleDefinitionSummaryWithCustomData>
+  Promise<SpfModuleDefinitionDto>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetSpfModuleDefinitionQuery,
-  ): Promise<SpfModuleDefinitionSummaryWithCustomData> {
+  ): Promise<SpfModuleDefinitionDto> {
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -45,24 +50,25 @@ export class GetSpfModuleDefinitionHandler implements QueryHandler<
     }
 
     const row = result.data;
-    if (!query.includeCustomData || !row.isCustomModule) return row;
+    let enriched: SpfModuleDefinitionSummaryWithCustomData = row;
 
-    const metaResult =
-      await this.queryServices.spfModuleDefinitionQueryService.getCustomModuleMetadata(
-        query.moduleSystemId,
-        fileSystemId,
-      );
+    if (query.includeCustomData && row.isCustomModule) {
+      const metaResult =
+        await this.queryServices.spfModuleDefinitionQueryService.getCustomModuleMetadata(
+          query.moduleSystemId,
+          fileSystemId,
+        );
 
-    if (metaResult.kind === RESULT_KIND.Fail) {
-      throw new Error(
-        metaResult.issues[0]?.message ??
-          `Failed to load custom module metadata for module definition ${query.moduleSystemId}`,
-      );
+      if (metaResult.kind === RESULT_KIND.Fail) {
+        throw new Error(
+          metaResult.issues[0]?.message ??
+            `Failed to load custom module metadata for module definition ${query.moduleSystemId}`,
+        );
+      }
+
+      enriched = {...row, customModuleData: metaResult.data};
     }
 
-    return {
-      ...row,
-      customModuleData: metaResult.data,
-    };
+    return mapSpfModuleDefinition(enriched);
   }
 }
