@@ -63,7 +63,7 @@ describe('QueryBus', () => {
       // Then: Should execute successfully
       expect(result).toBeDefined();
       expect(result).toEqual({
-        systemId: -1,
+        systemId: '-1',
         name: 'Placeholder Module',
         alias: 'placeholder',
         isEnabled: false,

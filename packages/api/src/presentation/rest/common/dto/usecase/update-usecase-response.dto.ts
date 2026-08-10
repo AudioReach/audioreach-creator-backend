@@ -8,11 +8,7 @@ import {UsecaseSummaryDto} from './usecase-summary.dto.js';
 import {UsecaseCategorySummaryDto} from './usecase-category-summary.dto.js';
 import {USECASE_TYPE, type UsecaseType} from './types/usecase-type.js';
 
-/**
- * Detail DTO extending base usecase with additional information.
- * Used for detailed usecase views that include full configuration data.
- */
-export class UsecaseDetailDto extends UsecaseSummaryDto {
+export class UpdateUsecaseResponseDto extends UsecaseSummaryDto {
   @ApiProperty({
     description: 'Type of the usecase',
     enum: Object.values(USECASE_TYPE),

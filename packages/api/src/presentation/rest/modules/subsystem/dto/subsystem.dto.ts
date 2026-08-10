@@ -5,7 +5,7 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseConnectableComponentDto} from '../../../common/dto/component.dto.js';
-import {KeyInfo} from '../../../common/dto/kv.dto.js';
+import {KeyInfoResponseDto} from '../../../common/dto/kv.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../../common/dto/component-collection-with-subsystems.dto.js';
 
 /**
@@ -14,9 +14,9 @@ import {ComponentCollectionWithSubsystemsDto} from '../../../common/dto/componen
 export class SubsystemDto extends BaseConnectableComponentDto {
   @ApiProperty({
     description: 'Filtered keys assigned to the subsystem',
-    type: [KeyInfo],
+    type: [KeyInfoResponseDto],
   })
-  filteredKeys!: KeyInfo[];
+  filteredKeys!: KeyInfoResponseDto[];
 
   @ApiProperty({
     description:
