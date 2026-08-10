@@ -81,7 +81,7 @@ describe('GetSpfModuleDefinitionHandler', () => {
     ).toHaveBeenCalledWith(123, 42);
   });
 
-  it('returns the read model on success', async () => {
+  it('returns the dto on success', async () => {
     const readModel = createReadModel({systemId: 123});
     const queryServices = createQueryServices({
       spfModuleDefinitionQueryService: {
@@ -96,7 +96,10 @@ describe('GetSpfModuleDefinitionHandler', () => {
 
     const result = await handler.handle(query);
 
-    expect(result).toEqual(readModel);
+    // Result is a mapped DTO — verify key fields are present and mapped
+    expect(result.systemId).toBe('123');
+    expect(result.moduleId).toBe(readModel.moduleId);
+    expect(result.name).toBe(readModel.name);
   });
 
   it('throws ResourceNotFoundException when the query service returns fail', async () => {
@@ -186,10 +189,15 @@ describe('GetSpfModuleDefinitionHandler', () => {
     expect(
       queryServices.spfModuleDefinitionQueryService.getCustomModuleMetadata,
     ).toHaveBeenCalledWith(123, 42);
-    expect(result.customModuleData).toEqual(customModuleData);
+    // customModuleData is now a mapped DTO — verify key fields
+    expect(result.customModuleData).toBeDefined();
+    expect(result.customModuleData?.fileName).toBe(customModuleData.fileName);
+    expect(result.customModuleData?.endPointFunctionTag).toBe(
+      customModuleData.endPointFunctionTag,
+    );
   });
 
-  it('sets customModuleData to null when no module_manager_data row exists', async () => {
+  it('sets customModuleData to undefined when no module_manager_data row exists', async () => {
     const queryServices = createQueryServices({
       spfModuleDefinitionQueryService: {
         getSpfModuleDefinitionSummary: jest
@@ -205,7 +213,8 @@ describe('GetSpfModuleDefinitionHandler', () => {
 
     const result = await handler.handle(query);
 
-    expect(result.customModuleData).toBeNull();
+    // null customModuleData maps to undefined in the DTO
+    expect(result.customModuleData).toBeUndefined();
   });
 
   it('throws when the metadata lookup genuinely fails', async () => {

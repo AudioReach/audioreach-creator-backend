@@ -7,7 +7,7 @@ import {ApiProperty} from '@nestjs/swagger';
 import {ParameterDefinitionSummaryInfo} from './parameter-definition-summary-info.js';
 import type {DefinitionElementDto} from '../dto/definition-element.dto.js';
 
-export class ParameterDefinitionDetailInfo extends ParameterDefinitionSummaryInfo {
+export class ParameterDefinitionInfo extends ParameterDefinitionSummaryInfo {
   @ApiProperty({
     description: 'Parameter structure elements',
     type: 'array',

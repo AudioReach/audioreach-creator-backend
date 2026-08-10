@@ -55,7 +55,12 @@ describe('GetSubgraphPropertyDefinitionHandler', () => {
       queryServices.subgraphPropertyDefQueryService
         .getSubgraphPropertyDefinition,
     ).toHaveBeenCalledWith(1, 42);
-    expect(result).toBe(property);
+    // Result is now a mapped DTO — verify key fields
+    expect(result.systemId).toBe('1');
+    expect(result.propertyId).toBe(100);
+    expect(result.name).toBe('MyProperty');
+    expect(result.type).toBe('SPF');
+    expect(result.isVoice).toBe(true);
   });
 
   it('throws ResourceNotFoundException when the property definition is not found', async () => {

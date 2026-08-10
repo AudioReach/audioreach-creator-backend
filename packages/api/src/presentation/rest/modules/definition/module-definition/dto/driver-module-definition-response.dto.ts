@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseModuleDefinitionDto} from './base-module-definition.dto.js';
+import {createZodDto} from 'nestjs-zod';
+import {DriverModuleDefinitionDtoSchema} from '@arc/core';
 
-export class DriverModuleDefinitionResponseDto extends BaseModuleDefinitionDto {}
+export class DriverModuleDefinitionResponseDto extends createZodDto(
+  DriverModuleDefinitionDtoSchema,
+) {}

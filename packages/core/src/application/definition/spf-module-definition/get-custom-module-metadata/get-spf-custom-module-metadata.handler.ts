@@ -5,13 +5,16 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {CustomModuleMetadataReadModel} from '../../../ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
 import type {GetSpfCustomModuleMetadataQuery} from './get-spf-custom-module-metadata.query.js';
 import {
   ResourceNotFoundException,
   InvalidOperationException,
 } from '../../../../shared/exceptions/index.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
+import {
+  mapCustomModuleMetadata,
+  type CustomModuleMetadataDto,
+} from './custom-module-metadata-dto.js';
 
 /**
  * Handles GetSpfCustomModuleMetadataQuery.
@@ -26,13 +29,13 @@ import {RESULT_KIND} from '../../../shared/result/result.js';
  */
 export class GetSpfCustomModuleMetadataHandler implements QueryHandler<
   GetSpfCustomModuleMetadataQuery,
-  Promise<CustomModuleMetadataReadModel | null>
+  Promise<CustomModuleMetadataDto | null>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetSpfCustomModuleMetadataQuery,
-  ): Promise<CustomModuleMetadataReadModel | null> {
+  ): Promise<CustomModuleMetadataDto | null> {
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -70,6 +73,6 @@ export class GetSpfCustomModuleMetadataHandler implements QueryHandler<
       );
     }
 
-    return metaResult.data;
+    return metaResult.data ? mapCustomModuleMetadata(metaResult.data) : null;
   }
 }

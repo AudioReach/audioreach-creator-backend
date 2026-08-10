@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BasePropertyDescriptionResponseDto} from './base-property-definition-response.dto.js';
+import {createZodDto} from 'nestjs-zod';
+import {ContainerPropertyDefinitionSummaryDtoSchema} from '@arc/core';
 
-export class ContainerPropertyDefinitionSummaryResponseDto extends BasePropertyDescriptionResponseDto {}
+export class ContainerPropertyDefinitionSummaryResponseDto extends createZodDto(
+  ContainerPropertyDefinitionSummaryDtoSchema,
+) {}

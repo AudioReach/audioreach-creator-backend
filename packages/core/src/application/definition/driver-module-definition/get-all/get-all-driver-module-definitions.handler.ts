@@ -5,9 +5,12 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {BaseModuleDefinitionSummaryReadModel} from '../../../ports/persistence/query-services/shared/module-definition-summary-read-model.js';
 import type {GetAllDriverModuleDefinitionsQuery} from './get-all-driver-module-definitions.query.js';
-import type {Result} from '../../../shared/result/result.js';
+import {type Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {
+  mapDriverModuleDefinition,
+  type DriverModuleDefinitionDto,
+} from '../dto/driver-module-definition-dto.js';
 
 /**
  * Handles GetAllDriverModuleDefinitionsQuery.
@@ -21,24 +24,32 @@ import type {Result} from '../../../shared/result/result.js';
  */
 export class GetAllDriverModuleDefinitionsHandler implements QueryHandler<
   GetAllDriverModuleDefinitionsQuery,
-  Promise<Result<BaseModuleDefinitionSummaryReadModel[]>>
+  Promise<Result<DriverModuleDefinitionDto[]>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetAllDriverModuleDefinitionsQuery,
-  ): Promise<Result<BaseModuleDefinitionSummaryReadModel[]>> {
+  ): Promise<Result<DriverModuleDefinitionDto[]>> {
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
 
-    return this.queryServices.driverModuleDefinitionQueryService.getAllDriverModuleDefinitions(
-      fileSystemId,
-      {
-        moduleDefinitionNaturalId: query.moduleDefinitionId,
-        parameterNaturalId: query.parameterId,
-      },
-    );
+    const result =
+      await this.queryServices.driverModuleDefinitionQueryService.getAllDriverModuleDefinitions(
+        fileSystemId,
+        {
+          moduleDefinitionNaturalId: query.moduleDefinitionId,
+          parameterNaturalId: query.parameterId,
+        },
+      );
+
+    if (result.kind === RESULT_KIND.Fail) return result;
+
+    const mapped = result.data.map(row => mapDriverModuleDefinition(row));
+    return result.kind === RESULT_KIND.Partial
+      ? {kind: RESULT_KIND.Partial, data: mapped, issues: result.issues}
+      : {kind: RESULT_KIND.Ok, data: mapped, issues: result.issues};
   }
 }
