@@ -57,7 +57,12 @@ describe('GetAllTagDefinitionsHandler', () => {
     ).toHaveBeenCalledWith(42, undefined);
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data).toBe(tags);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({
+      systemId: '1',
+      tagId: 100,
+      name: 'MyTag',
+    });
   });
 
   it('passes the tagId filter through to the query service', async () => {
@@ -106,7 +111,8 @@ describe('GetAllTagDefinitionsHandler', () => {
 
     expect(result.kind).toBe(RESULT_KIND.Partial);
     if (result.kind !== RESULT_KIND.Partial) return;
-    expect(result.data).toBe(tags);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].systemId).toBe('1');
     expect(result.issues).toHaveLength(1);
   });
 

@@ -30,19 +30,14 @@ import {ApiResult} from '../../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../../common/result/to-api-result.js';
 import {KeyDefinitionResponseDto} from './dto/key-definition-response.dto.js';
-import {ValueDefinitionInfo} from './info/value-definition-info.js';
-import {TagKeyDefinitionInfo} from './info/tag-key-definition-info.js';
-import {TagValueDefinitionInfo} from './info/tag-value-definition-info.js';
-import {SpecialKey} from './enums/special-key.enum.js';
 import {
   QueryBus,
   GetAllKeyDefinitionsQuery,
   GetKeyDefinitionQuery,
   GetAllTagDefinitionsQuery,
   GetTagDefinitionQuery,
-  type KeyDefinitionReadModel,
-  type ValueDefinitionReadModel,
-  type TagDefinitionReadModel,
+  type KeyDefinitionDto,
+  type TagDefinitionDto,
   type Result,
 } from '@arc/core';
 
@@ -132,9 +127,8 @@ export class KeyDefinitionController {
     );
 
     const result =
-      await this.queryBus.execute<Result<KeyDefinitionReadModel[]>>(query);
-
-    return toApiResult(result, data => data.map(k => this.mapKeyToDto(k)));
+      await this.queryBus.execute<Result<KeyDefinitionDto[]>>(query);
+    return toApiResult(result);
   }
 
   @Get(':projectId/definitions/keys/:keySystemId')
@@ -190,9 +184,8 @@ export class KeyDefinitionController {
       'client-id', // TODO: get actual clientId from JWT
     );
 
-    const key = await this.queryBus.execute<KeyDefinitionReadModel>(query);
-
-    return {data: this.mapKeyToDto(key)};
+    const result = await this.queryBus.execute<Result<KeyDefinitionDto>>(query);
+    return toApiResult(result);
   }
 
   @Delete(':projectId/definitions/keys/:keySystemId')
@@ -308,9 +301,8 @@ export class KeyDefinitionController {
     );
 
     const result =
-      await this.queryBus.execute<Result<TagDefinitionReadModel[]>>(query);
-
-    return toApiResult(result, data => data.map(t => this.mapTagToDto(t)));
+      await this.queryBus.execute<Result<TagDefinitionDto[]>>(query);
+    return toApiResult(result);
   }
 
   @Get(':projectId/definitions/tags/:tagSystemId')
@@ -366,9 +358,8 @@ export class KeyDefinitionController {
       'client-id', // TODO: get actual clientId from JWT
     );
 
-    const tag = await this.queryBus.execute<TagDefinitionReadModel>(query);
-
-    return {data: this.mapTagToDto(tag)};
+    const result = await this.queryBus.execute<Result<TagDefinitionDto>>(query);
+    return toApiResult(result);
   }
 
   @Delete(':projectId/definitions/tags/:tagSystemId')
@@ -401,90 +392,5 @@ export class KeyDefinitionController {
     throw new NotImplementedException(
       'deleteTagKeyDefinition is not implemented yet',
     );
-  }
-
-  // ── Private helpers ───────────────────────────────────────────────────────
-
-  /**
-   * Maps KeyDefinitionReadModel (key fields + embedded values) → KeyDefinitionResponseDto.
-   */
-  private mapKeyToDto(key: KeyDefinitionReadModel): KeyDefinitionResponseDto {
-    const dto = new KeyDefinitionResponseDto();
-    dto.systemId = String(key.systemId);
-    dto.keyId = key.keyId;
-    dto.name = key.name;
-    dto.description = key.description;
-    dto.enumMember = key.cHeaderAttributes?.enumMember ?? '';
-    dto.enumName = key.cHeaderAttributes?.enumName ?? '';
-    dto.isVoice = key.isVoice ?? false;
-    dto.isDynamic = key.isDynamic ?? false;
-    dto.isCalibrationKey = key.isCalibrationKey ?? false;
-    dto.isGraphKey = key.isGraphKey ?? false;
-    dto.specialKey = key.specialityKeyValue as SpecialKey | undefined;
-    dto.calKeyEnumMember = key.cHeaderAttributes?.calKeyEnumMember;
-    dto.graphKeyEnumMember = key.cHeaderAttributes?.graphKeyEnumMember;
-    dto.values = key.values.map(v => this.mapValueToDto(v));
-    return dto;
-  }
-
-  /**
-   * Maps ValueDefinitionReadModel → ValueDefinitionInfo.
-   */
-  private mapValueToDto(value: ValueDefinitionReadModel): ValueDefinitionInfo {
-    const dto = new ValueDefinitionInfo();
-    dto.systemId = String(value.systemId);
-    dto.valueId = value.valueId;
-    dto.name = value.name;
-    dto.description = value.description;
-    dto.enumMember = value.enumMember ?? '';
-    dto.specialValue = value.specialValue;
-    return dto;
-  }
-
-  /**
-   * Maps TagDefinitionReadModel (tag fields + embedded key definitions) → TagDefinitionResponseDto.
-   */
-  private mapTagToDto(tag: TagDefinitionReadModel): TagDefinitionResponseDto {
-    const dto = new TagDefinitionResponseDto();
-    dto.systemId = String(tag.systemId);
-    dto.tagId = tag.tagId;
-    dto.name = tag.name;
-    dto.enumMember = tag.cHeaderEnumMember;
-    dto.enumName = tag.cHeaderEnumName;
-    dto.keyDefinitions = tag.keys.map(k => this.mapTagKeyToDto(k));
-    return dto;
-  }
-
-  /**
-   * Maps TagKeyDefinitionReadModel (link + embedded key definition) → TagKeyDefinitionInfo.
-   */
-  private mapTagKeyToDto(
-    tagKey: TagDefinitionReadModel['keys'][number],
-  ): TagKeyDefinitionInfo {
-    const dto = new TagKeyDefinitionInfo();
-    dto.systemId = String(tagKey.keyDefinition.systemId);
-    dto.keyId = tagKey.keyDefinition.keyId;
-    dto.name = tagKey.keyDefinition.name;
-    dto.description = tagKey.keyDefinition.description;
-    dto.cHeaderEnumValue = tagKey.cHeaderTagEnumMemberName ?? '';
-    dto.values = tagKey.keyDefinition.values.map(v =>
-      this.mapValueToTagValueDto(v),
-    );
-    return dto;
-  }
-
-  /**
-   * Maps ValueDefinitionReadModel → TagValueDefinitionInfo (reduced shape — no
-   * enumMember/specialValue, matching the existing TagValueDefinitionInfo DTO).
-   */
-  private mapValueToTagValueDto(
-    value: ValueDefinitionReadModel,
-  ): TagValueDefinitionInfo {
-    const dto = new TagValueDefinitionInfo();
-    dto.systemId = String(value.systemId);
-    dto.valueId = value.valueId;
-    dto.name = value.name;
-    dto.description = value.description;
-    return dto;
   }
 }

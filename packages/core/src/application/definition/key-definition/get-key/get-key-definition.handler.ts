@@ -5,23 +5,21 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {KeyDefinitionReadModel} from '../../../ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {GetKeyDefinitionQuery} from './get-key-definition.query.js';
-import {RESULT_KIND} from '../../../shared/result/result.js';
+import {RESULT_KIND, Result} from '../../../shared/result/result.js';
+import type {KeyDefinitionDto} from '../dto/key-definition-dto.js';
+import {mapKeyDefinition} from '../dto/key-definition-dto.js';
 
-/**
- * Handler for GetKeyDefinitionQuery
- * Resolves projectId → fileId, then loads a single key definition (with
- * embedded values) by system ID
- */
 export class GetKeyDefinitionHandler implements QueryHandler<
   GetKeyDefinitionQuery,
-  Promise<KeyDefinitionReadModel>
+  Promise<Result<KeyDefinitionDto>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(query: GetKeyDefinitionQuery): Promise<KeyDefinitionReadModel> {
+  async handle(
+    query: GetKeyDefinitionQuery,
+  ): Promise<Result<KeyDefinitionDto>> {
     const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
@@ -40,6 +38,6 @@ export class GetKeyDefinitionHandler implements QueryHandler<
       );
     }
 
-    return result.data;
+    return Result.ok(mapKeyDefinition(result.data));
   }
 }

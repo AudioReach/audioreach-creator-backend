@@ -5,33 +5,42 @@
 
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
-import type {KeyDefinitionReadModel} from '../../../ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 import {GetAllKeyDefinitionsQuery} from './get-all-key-definitions.query.js';
 import type {Result} from '../../../shared/result/result.js';
+import {
+  RESULT_KIND,
+  Result as ResultClass,
+} from '../../../shared/result/result.js';
+import type {KeyDefinitionDto} from '../dto/key-definition-dto.js';
+import {mapKeyDefinition} from '../dto/key-definition-dto.js';
 
-/**
- * Handler for GetAllKeyDefinitionsQuery
- * Resolves projectId → fileId, then lists key definitions (with values) for that file.
- * Forwards the Result straight through — a per-key failure surfaces as
- * Result.partial, not an exception; the controller decides the HTTP status.
- */
 export class GetAllKeyDefinitionsHandler implements QueryHandler<
   GetAllKeyDefinitionsQuery,
-  Promise<Result<KeyDefinitionReadModel[]>>
+  Promise<Result<KeyDefinitionDto[]>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetAllKeyDefinitionsQuery,
-  ): Promise<Result<KeyDefinitionReadModel[]>> {
+  ): Promise<Result<KeyDefinitionDto[]>> {
     const fileId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
 
-    return this.queryServices.keyValueDefQueryService.getAllKeyDefinitions(
-      fileId,
-      query.keyId,
-    );
+    const result =
+      await this.queryServices.keyValueDefQueryService.getAllKeyDefinitions(
+        fileId,
+        query.keyId,
+      );
+
+    if (result.kind === RESULT_KIND.Fail) return result;
+
+    const dtos = result.data.map(k => mapKeyDefinition(k));
+
+    if (result.kind === RESULT_KIND.Partial) {
+      return ResultClass.partial(dtos, result.issues);
+    }
+    return ResultClass.ok(dtos, result.issues);
   }
 }
