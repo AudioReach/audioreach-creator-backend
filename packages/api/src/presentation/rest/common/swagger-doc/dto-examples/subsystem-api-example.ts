@@ -4,7 +4,7 @@
  */
 
 import {SubsystemDto} from '../../../modules/subsystem/dto/subsystem.dto.js';
-import {KeyInfo} from '../../dto/kv.dto.js';
+import {KeyInfoResponseDto} from '../../dto/kv.dto.js';
 
 export const subsystemApiExample = new SubsystemDto(
   '1',
@@ -14,5 +14,9 @@ export const subsystemApiExample = new SubsystemDto(
 );
 
 subsystemApiExample.filteredKeys = [
-  new KeyInfo(0xa2_00_00_00, 'DeviceRX', '1'),
+  Object.assign(new KeyInfoResponseDto(), {
+    keyId: 0xa2_00_00_00,
+    keyLabel: 'DeviceRX',
+    keySystemId: '1',
+  }),
 ];

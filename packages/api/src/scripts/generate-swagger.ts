@@ -6,6 +6,7 @@
 import {NestFactory} from '@nestjs/core';
 import {DocumentBuilder, SwaggerModule} from '@nestjs/swagger';
 import {writeFileSync, mkdirSync} from 'node:fs';
+import {cleanupOpenApiDoc} from 'nestjs-zod';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {AppModule} from '../app.module.js';
@@ -50,7 +51,9 @@ async function generateSwaggerJson(): Promise<void> {
       .build();
 
     // Generate the Swagger document
-    const document = SwaggerModule.createDocument(app, config);
+    const document = cleanupOpenApiDoc(
+      SwaggerModule.createDocument(app, config),
+    );
 
     // Determine output path (project root/docs/swagger-api.json)
     const projectRoot = path.join(__dirname, '../../../..');
@@ -86,9 +89,10 @@ if (isMainModule) {
   try {
     await generateSwaggerJson();
     console.log('🎉 Swagger generation process completed!');
+    process.exit(0);
   } catch (error) {
     console.error('💥 Fatal error during Swagger generation:', error);
-    throw error;
+    process.exit(1);
   }
 }
 

@@ -6,6 +6,7 @@
 import type {INestApplication} from '@nestjs/common';
 import {DocumentBuilder, SwaggerModule} from '@nestjs/swagger';
 import type {Request, Response} from 'express';
+import {cleanupOpenApiDoc} from 'nestjs-zod';
 
 export function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
@@ -25,7 +26,7 @@ export function setupSwagger(app: INestApplication): void {
     )
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = cleanupOpenApiDoc(SwaggerModule.createDocument(app, config));
 
   SwaggerModule.setup('api/docs', app, document, {
     customSiteTitle: 'AudioReach Creator API Documentation',
