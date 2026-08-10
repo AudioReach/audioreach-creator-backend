@@ -4,7 +4,7 @@
  */
 
 import {EndPointLink} from '../../utils/index.js';
-import {SpfModuleDto} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
+import {SpfModuleResponseDto} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
 import {CreateSpfModuleRequestDto} from '../../../modules/spf-module/dto/request/spf-module-request.dto.js';
 
 /**
@@ -29,29 +29,27 @@ export const CreateSpfModuleRequestExample = {
  * Example provider for SpfModuleDTO
  */
 export const SpfModuleDTOExample = {
-  getExample(): SpfModuleDto {
-    const spfModule = new SpfModuleDto('1', 1, 123, 'Example Module');
-
-    // Set all required properties
-    spfModule.alias = 'ExampleAlias';
-    spfModule.subgraphId = 456;
-    spfModule.containerId = 789;
-    spfModule.maxInputPortsSupported = 5;
-    spfModule.maxOutputPortsSupported = 3;
-    spfModule.maxControlPortsSupported = 2;
-    spfModule.parentId = 202;
-
-    // Set inherited properties
-    spfModule.dataPorts = [];
-    spfModule.controlPorts = [];
-
-    // Add a related endpoint link
+  getExample(): SpfModuleResponseDto {
     const endPointLink = new EndPointLink();
     endPointLink.hypertextRef = `/components/1/properties`;
     endPointLink.method = 'GET';
     endPointLink.description = 'Get properties for this module instance.';
-    spfModule.relatedEndPointLinks = [endPointLink];
 
-    return spfModule;
+    return Object.assign(new SpfModuleResponseDto(), {
+      systemId: '1',
+      id: 1,
+      moduleId: 123,
+      name: 'Example Module',
+      alias: 'ExampleAlias',
+      subgraphId: 456,
+      containerId: 789,
+      maxInputPortsSupported: 5,
+      maxOutputPortsSupported: 3,
+      maxControlPortsSupported: 2,
+      parentId: 202,
+      dataPorts: [],
+      controlPorts: [],
+      relatedEndPointLinks: [endPointLink],
+    });
   },
 };
