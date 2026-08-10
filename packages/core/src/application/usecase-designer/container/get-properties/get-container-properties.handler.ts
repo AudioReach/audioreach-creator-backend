@@ -5,27 +5,29 @@
 import type {QueryHandler} from '../../../orchestration/cqrs/queries/query-handler.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {GetContainerPropertiesQuery} from './get-container-properties.query.js';
-import type {PropertyDataDto} from '../../shared/property-read-model.js';
 import {buildPropertyModels} from '../../shared/build-property-models.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/resource-not-found.exception.js';
 import {Result, RESULT_KIND} from '../../../shared/result/result.js';
+import {mapPropertyToDto} from '../../../../shared/dto/property-dto.js';
+import {
+  mapContainerProperties,
+  type ContainerPropertiesDto,
+} from '../dto/container-properties-dto.js';
 
 export class GetContainerPropertiesHandler implements QueryHandler<
   GetContainerPropertiesQuery,
-  Promise<Result<PropertyDataDto[]>>
+  Promise<Result<ContainerPropertiesDto>>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
   async handle(
     query: GetContainerPropertiesQuery,
-  ): Promise<Result<PropertyDataDto[]>> {
-    // Step 1: resolve fileSystemId from projectId
+  ): Promise<Result<ContainerPropertiesDto>> {
     const fileSystemId =
       await this.queryServices.projectQueryService.getFileIdByProjectId(
         query.projectId,
       );
 
-    // Step 2+3: existence check + payload fetch via ContainerOverlayFetcher
     const payloadsResult =
       await this.queryServices.containerQueryService.findPropertyPayloads(
         query.containerSystemId,
@@ -45,7 +47,6 @@ export class GetContainerPropertiesHandler implements QueryHandler<
     }
     const payloads = payloadsResult.data;
 
-    // Step 4: fetch definitions with elementsStructure
     const definitionsResult =
       await this.queryServices.containerPropertyDefQueryService.getAllDetailedContainerPropertyDefinitionsWithElements(
         fileSystemId,
@@ -58,8 +59,15 @@ export class GetContainerPropertiesHandler implements QueryHandler<
       );
     }
 
-    // Step 5: build defMap and delegate to shared utility
     const defMap = new Map(definitionsResult.data.map(d => [d.systemId, d]));
-    return buildPropertyModels(payloads, defMap);
+    const rawResult = buildPropertyModels(payloads, defMap);
+
+    if (rawResult.kind === RESULT_KIND.Fail) return rawResult;
+
+    const dtos = rawResult.data.map(p => mapPropertyToDto(p));
+
+    if (rawResult.kind === RESULT_KIND.Partial)
+      return Result.partial(mapContainerProperties(dtos), rawResult.issues);
+    return Result.ok(mapContainerProperties(dtos), rawResult.issues);
   }
 }

@@ -3,26 +3,16 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {BaseComponentDto, PropertyDto} from '../../../common/dto/index.js';
+import {createZodDto} from 'nestjs-zod';
+import {ContainerPropertiesDtoSchema, ContainerDtoSchema} from '@arc/core';
+import {EndPointLink} from '../../../common/utils/utilities.js';
 import {ApiProperty} from '@nestjs/swagger';
 
-/**
- * DTO for container properties
- */
-export class ContainerPropertiesDto {
-  @ApiProperty({
-    description: 'Array of container properties',
-    type: [PropertyDto],
-  })
-  properties: PropertyDto[];
+export class ContainerPropertiesResponseDto extends createZodDto(
+  ContainerPropertiesDtoSchema,
+) {}
 
-  constructor(properties: PropertyDto[]) {
-    this.properties = properties;
-  }
-}
-
-export class ContainerDto extends BaseComponentDto<number> {
-  constructor(sysemId: string, id: number) {
-    super(sysemId, id);
-  }
+export class ContainerResponseDto extends createZodDto(ContainerDtoSchema) {
+  @ApiProperty({description: 'Related endpoint links', type: [EndPointLink]})
+  relatedEndPointLinks!: EndPointLink[];
 }

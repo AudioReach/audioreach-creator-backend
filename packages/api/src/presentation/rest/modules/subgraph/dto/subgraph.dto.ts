@@ -4,44 +4,18 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {createZodDto} from 'nestjs-zod';
 import {IsNotEmpty, IsOptional, IsNumber} from 'class-validator';
-import {BaseComponentDto, PropertyDto} from '../../../common/dto/index.js';
-import {KeyValuePairsInfo} from '../../../common/dto/kv.dto.js';
-import {SharedType} from '../../../common/utils/index.js';
+import {SubgraphPropertiesDtoSchema, SubgraphDtoSchema} from '@arc/core';
 
 /**
  * DTO for subgraph properties
  */
-export class SubgraphPropertiesDto {
-  @ApiProperty({
-    description: 'Array of subgraph properties',
-    type: [PropertyDto],
-  })
-  properties: PropertyDto[];
+export class SubgraphPropertiesResponseDto extends createZodDto(
+  SubgraphPropertiesDtoSchema,
+) {}
 
-  constructor(properties: PropertyDto[]) {
-    this.properties = properties;
-  }
-}
-
-export class SubgraphDto extends BaseComponentDto<number> {
-  @ApiProperty({
-    description: 'Subgraph shared type',
-    enum: SharedType,
-    default: SharedType.None,
-  })
-  subGraphSharedType: SharedType = SharedType.None;
-
-  @ApiProperty({
-    description: 'SGKV - List of KV information',
-    type: [KeyValuePairsInfo],
-  })
-  SGKV: KeyValuePairsInfo[] = [];
-
-  constructor(systemId: string, id: number) {
-    super(systemId, id);
-  }
-}
+export class SubgraphResponseDto extends createZodDto(SubgraphDtoSchema) {}
 
 /**
  * Request DTO for cloning a subgraph

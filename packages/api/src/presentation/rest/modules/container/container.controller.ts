@@ -14,11 +14,14 @@ import {
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
-import {ContainerDto, ContainerPropertiesDto} from './dto/container.dto.js';
+import {
+  ContainerPropertiesResponseDto,
+  ContainerResponseDto,
+} from './dto/container.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
-import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
-import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
-import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
+import {ConfigElementResponseDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
+import {ElementTemplateArrayResponseDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
+import {StructResponseDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -28,10 +31,8 @@ import {
   ContainerQuery,
   GetContainerPropertiesQuery,
   type Result,
-  type ContainerReadModel,
-  type PropertyDataDto,
+  type ContainerDto,
 } from '@arc/core';
-import {mapPropertyToDto} from '../../common/utils/element-data-mapper.js';
 
 /**
  * Controller to support all container related APIs for usecase design.
@@ -40,7 +41,11 @@ import {mapPropertyToDto} from '../../common/utils/element-data-mapper.js';
 @ApiTags('containers')
 @Controller('arc-api/v1/projects/:projectId/containers')
 //@UseGuards(AuthGuard('jwt'))
-@ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
+@ApiExtraModels(
+  ConfigElementResponseDto,
+  ElementTemplateArrayResponseDto,
+  StructResponseDto,
+)
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
@@ -60,18 +65,17 @@ export class ContainerController extends BaseController {
   @ApiDocumentationWithExample({
     summary: 'Query containers for provided systemIds',
     requestDto: SystemIdsRequestDto,
-
     responses: [
       {
         status: HttpStatus.OK,
         description: 'All containers found successfully',
-        dto: [ContainerDto],
+        dto: [ContainerResponseDto],
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some containers could not be retrieved (see errors array)',
-        dto: [ContainerDto],
+        dto: [ContainerResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -86,17 +90,16 @@ export class ContainerController extends BaseController {
   async queryContainers(
     @Param('projectId') projectId: string,
     @Body() _request: SystemIdsRequestDto,
-  ): Promise<ApiResult<ContainerDto[]>> {
+  ): Promise<ApiResult<ContainerResponseDto[]>> {
     const query = new ContainerQuery(
       Number.parseInt(projectId, 10), // radix 10 guards against octal misparse
       'client-id', // TODO: extract real clientId from JWT once auth wiring is done
     );
 
-    const result =
-      await this.queryBus.execute<Result<ContainerReadModel[]>>(query);
+    const result = await this.queryBus.execute<Result<ContainerDto[]>>(query);
 
     return toApiResult(result, data =>
-      data.map(c => this.mapToContainerDto(c)),
+      data.map(c => ({...c, relatedEndPointLinks: []})),
     );
   }
 
@@ -116,13 +119,13 @@ export class ContainerController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Success',
-        dto: ContainerPropertiesDto,
+        dto: ContainerPropertiesResponseDto,
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — one or more property payloads missing (see issues array)',
-        dto: ContainerPropertiesDto,
+        dto: ContainerPropertiesResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -133,30 +136,16 @@ export class ContainerController extends BaseController {
   async getContainerProperties(
     @Param('projectId') projectId: string,
     @Param('containerSystemId') containerSystemId: string,
-  ): Promise<ApiResult<ContainerPropertiesDto>> {
+  ): Promise<ApiResult<ContainerPropertiesResponseDto>> {
     const query = new GetContainerPropertiesQuery(
       Number.parseInt(projectId, 10),
       Number.parseInt(containerSystemId, 10),
       'client-id',
     );
     const result =
-      await this.queryBus.execute<Result<PropertyDataDto[]>>(query);
-    return toApiResult(
-      result,
-      properties =>
-        new ContainerPropertiesDto(properties.map(p => mapPropertyToDto(p))),
-    );
-  }
-
-  // ── Private helpers ───────────────────────────────────────────────────────
-
-  /**
-   * Maps ContainerReadModel → ContainerDto.
-   * changeInfo is left undefined — this endpoint doesn't surface change state.
-   */
-  private mapToContainerDto(c: ContainerReadModel): ContainerDto {
-    const dto = new ContainerDto(String(c.systemId), c.containerId);
-    dto.name = c.containerTypeName ?? String(c.containerTypeSystemId ?? '');
-    return dto;
+      await this.queryBus.execute<Result<ContainerPropertiesResponseDto>>(
+        query,
+      );
+    return toApiResult(result);
   }
 }

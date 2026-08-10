@@ -17,24 +17,21 @@ import {
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {DataLinkDto} from './dto/data-link.dto.js';
+import {DataLinkResponseDto} from './dto/data-link.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
-import {ComponentCollectionDto} from '../../common/dto/component-collection.dto.js';
+import {ComponentCollectionResponseDto} from '../../common/dto/component-collection.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,
   CreateDataLinkCommand,
   DeleteDataLinkCommand,
   Result,
-  type ComponentsReadModel,
-  type DataLinkReadModel,
 } from '@arc/core';
-import {CONN_CTRL_TYPE} from '../../common/utils/enums.js';
 
 /**
  * Controller to support all data link related APIs for usecase design.
@@ -67,13 +64,13 @@ export class DataLinkController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'All data-links found successfully',
-        dto: [DataLinkDto],
+        dto: [DataLinkResponseDto],
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some data-links could not be retrieved (see errors array)',
-        dto: [DataLinkDto],
+        dto: [DataLinkResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -88,7 +85,7 @@ export class DataLinkController extends BaseController {
   async queryDataLinks(
     @Param('projectId') projectId: string,
     @Body() dataLinkSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<DataLinkDto[]>> {
+  ): Promise<ApiResult<DataLinkResponseDto[]>> {
     await Promise.resolve();
     console.log(
       'Getting data-links in project:',
@@ -100,21 +97,21 @@ export class DataLinkController extends BaseController {
 
   /**
    * Create a new data link (flat / collapsed view).
-   * Stores all link segments in DB; returns ComponentCollectionDto.
+   * Stores all link segments in DB; returns ComponentCollectionResponseDto.
    */
   @Post()
   @ApiDocumentationWithExample({
     summary: 'Create a new data link (flat view)',
     description:
       'Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. ' +
-      'Returns a flat ComponentCollectionDto with the created link.',
+      'Returns a flat ComponentCollectionResponseDto with the created link.',
     requestDto: CreateDataLinkRequest,
     requestDtoDescription: 'Data link creation parameters',
     responses: [
       {
         status: HttpStatus.CREATED,
         description: 'Data link created successfully',
-        dto: ComponentCollectionDto,
+        dto: ComponentCollectionResponseDto,
       },
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
@@ -131,7 +128,7 @@ export class DataLinkController extends BaseController {
   async createDataLink(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateDataLinkRequest,
-  ): Promise<ApiResult<ComponentCollectionDto>> {
+  ): Promise<ApiResult<ComponentCollectionResponseDto>> {
     console.log(
       'Creating data link for project:',
       projectId,
@@ -148,8 +145,8 @@ export class DataLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentsReadModel>(command);
-    return toApiResult(Result.ok(this.toComponentCollectionDto(components)));
+      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+    return toApiResult(Result.ok(components));
   }
 
   /**
@@ -198,10 +195,8 @@ export class DataLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentsReadModel>(command);
-    return toApiResult(
-      Result.ok(this.toComponentCollectionWithSubsystemsDto(components)),
-    );
+      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+    return toApiResult(Result.ok({...components, subsystems: []}));
   }
 
   /**
@@ -223,7 +218,7 @@ export class DataLinkController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Data link deleted successfully',
-        dto: DataLinkDto,
+        dto: DataLinkResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -238,7 +233,7 @@ export class DataLinkController extends BaseController {
   async deleteDataLink(
     @Param('projectId') projectId: string,
     @Param('dataLinkSystemId') dataLinkSystemId: string,
-  ): Promise<ApiResult<DataLinkDto>> {
+  ): Promise<ApiResult<DataLinkResponseDto>> {
     console.log(
       'Deleting data link:',
       dataLinkSystemId,
@@ -250,61 +245,7 @@ export class DataLinkController extends BaseController {
       Number.parseInt(dataLinkSystemId, 10),
     );
 
-    const deleted = await this.commandBus.execute<DataLinkReadModel>(command);
-    return toApiResult(
-      Result.ok(
-        new DataLinkDto(
-          deleted.systemId.toString(),
-          deleted.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          deleted.sourceNodeSystemId,
-          deleted.sourcePortSystemId,
-          deleted.destinationNodeSystemId,
-          deleted.destinationPortSystemId,
-          false,
-        ),
-      ),
-    );
-  }
-
-  private toComponentCollectionDto(
-    components: ComponentsReadModel,
-  ): ComponentCollectionDto {
-    const dto = new ComponentCollectionDto();
-    dto.dataLinks = components.dataLinks.map(
-      link =>
-        new DataLinkDto(
-          link.systemId.toString(),
-          link.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          link.sourceNodeSystemId,
-          link.sourcePortSystemId,
-          link.destinationNodeSystemId,
-          link.destinationPortSystemId,
-          false,
-        ),
-    );
-    return dto;
-  }
-
-  private toComponentCollectionWithSubsystemsDto(
-    components: ComponentsReadModel,
-  ): ComponentCollectionWithSubsystemsDto {
-    const dto = new ComponentCollectionWithSubsystemsDto();
-    dto.dataLinks = components.dataLinks.map(
-      link =>
-        new DataLinkDto(
-          link.systemId.toString(),
-          link.systemId,
-          CONN_CTRL_TYPE.MODULE_MODULE,
-          link.sourceNodeSystemId,
-          link.sourcePortSystemId,
-          link.destinationNodeSystemId,
-          link.destinationPortSystemId,
-          false,
-        ),
-    );
-    dto.subsystems = [];
-    return dto;
+    const deleted = await this.commandBus.execute<DataLinkResponseDto>(command);
+    return toApiResult(Result.ok(deleted));
   }
 }

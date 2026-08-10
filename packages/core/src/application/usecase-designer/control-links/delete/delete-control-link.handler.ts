@@ -5,17 +5,17 @@
 
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
-import type {ControlLinkReadModel} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
 import type {DeleteControlLinkCommand} from './delete-control-link.command.js';
+import type {ControlLinkDto} from '../../usecase/dto/component-collection-dto.js';
 
 export class DeleteControlLinkHandler implements CommandHandler<
   DeleteControlLinkCommand,
-  ControlLinkReadModel
+  ControlLinkDto
 > {
   constructor(private readonly uow: UnitOfWork) {}
 
-  handle(_command: DeleteControlLinkCommand): Promise<ControlLinkReadModel> {
+  handle(_command: DeleteControlLinkCommand): Promise<ControlLinkDto> {
     if (this.uow == undefined) throw new Error('Input validation error');
-    throw new Error('Not implemented');
+    throw new Error('not implemented');
   }
 }
