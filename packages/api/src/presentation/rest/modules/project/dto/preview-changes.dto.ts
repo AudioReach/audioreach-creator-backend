@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {UsecaseIdentifierDto} from '../../usecase/dto/usecase.dto.js';
+import {UsecaseResponseDto} from '../../usecase/dto/usecase.dto.js';
 import {KeyDefinitionResponseDto} from '../../definition/key-definition/dto/key-definition-response.dto.js';
 import {SpfModuleDefinitionResponseDto} from '../../definition/module-definition/dto/spf-module-definition-response.dto.js';
 import {DriverModuleDefinitionResponseDto} from '../../definition/module-definition/dto/driver-module-definition-response.dto.js';
@@ -39,14 +39,14 @@ export class UniqueChangeDto {
  * DTO containing usecase changes information
  */
 export class UsecaseActionsResponseDto {
-  @ApiProperty({type: [UsecaseIdentifierDto], description: 'Added usecases'})
-  added!: UsecaseIdentifierDto[];
+  @ApiProperty({type: [UsecaseResponseDto], description: 'Added usecases'})
+  added!: UsecaseResponseDto[];
 
-  @ApiProperty({type: [UsecaseIdentifierDto], description: 'Updated usecases'})
-  updated!: UsecaseIdentifierDto[];
+  @ApiProperty({type: [UsecaseResponseDto], description: 'Updated usecases'})
+  updated!: UsecaseResponseDto[];
 
-  @ApiProperty({type: [UsecaseIdentifierDto], description: 'Deleted usecases'})
-  deleted!: UsecaseIdentifierDto[];
+  @ApiProperty({type: [UsecaseResponseDto], description: 'Deleted usecases'})
+  deleted!: UsecaseResponseDto[];
 
   @ApiProperty({
     type: [UniqueChangeDto],
