@@ -6,7 +6,7 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {createZodDto} from 'nestjs-zod';
 import {TkvCalDataDtoSchema} from '@arc/core';
-import {ParameterResponseDto} from '../parameter.dto.js';
+import {ParameterResponseDto} from '../parameter-response.dto.js';
 
 export class TkvCalDataResponseDto extends createZodDto(TkvCalDataDtoSchema) {
   @ApiProperty({

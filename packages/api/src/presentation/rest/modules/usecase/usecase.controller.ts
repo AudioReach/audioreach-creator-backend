@@ -24,8 +24,8 @@ import {BaseController} from '../base/base.controller.js';
 import {
   UsecaseResponseDto,
   SubsystemFilteredUsecasesDto,
-} from './dto/usecase.dto.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection.dto.js';
+} from './dto/usecase-response.dto.js';
+import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {UpdateUsecaseRequestDto} from './dto/request/update-usecase-request.dto.js';
 import {UpdateUsecaseResponseDto} from '../../common/dto/usecase/update-usecase-response.dto.js';

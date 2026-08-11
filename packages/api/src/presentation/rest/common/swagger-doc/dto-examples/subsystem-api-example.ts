@@ -4,7 +4,7 @@
  */
 
 import {SubsystemDto} from '../../../modules/subsystem/dto/subsystem.dto.js';
-import {KeyInfoResponseDto} from '../../dto/kv.dto.js';
+import {KeyInfoResponseDto} from '../../dto/kv-info-response.dto.js';
 
 export const subsystemApiExample = new SubsystemDto(
   '1',

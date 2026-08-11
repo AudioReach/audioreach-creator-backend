@@ -17,14 +17,14 @@ import {
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {DataLinkResponseDto} from './dto/data-link.dto.js';
+import {DataLinkResponseDto} from './dto/data-link-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection.dto.js';
+import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,

@@ -5,7 +5,6 @@
 
 import {EndPointLink} from '../utils/utilities.js';
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, IsString, ArrayNotEmpty} from 'class-validator';
 import {BaseComponentDto} from './base-component.dto.js';
 import {DataPortDto} from './data-port.dto.js';
 import {ControlPortDto} from './control-port.dto.js';
@@ -28,12 +27,4 @@ export class BaseConnectableComponentDto extends BaseComponentDto<number> {
     endPointLink.description = 'Get properties for a component.';
     this.relatedEndPointLinks = [endPointLink];
   }
-}
-
-export class SystemIdsRequestDto {
-  @ApiProperty({type: [String], description: 'Array of system IDs'})
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsString({each: true})
-  systemIds!: string[];
 }

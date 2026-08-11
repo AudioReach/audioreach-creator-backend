@@ -4,8 +4,8 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {BaseConnectableComponentDto} from '../../../common/dto/component.dto.js';
-import {KeyInfoResponseDto} from '../../../common/dto/kv.dto.js';
+import {BaseConnectableComponentDto} from '../../../common/dto/base-connectable-component.dto.js';
+import {KeyInfoResponseDto} from '../../../common/dto/kv-info-response.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../../common/dto/component-collection-with-subsystems.dto.js';
 
 /**

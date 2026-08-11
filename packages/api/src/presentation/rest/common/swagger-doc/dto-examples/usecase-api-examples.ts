@@ -6,8 +6,8 @@
 import {
   UsecaseResponseDto,
   SubsystemFilteredUsecasesDto,
-} from '../../../modules/usecase/dto/usecase.dto.js';
-import {ComponentCollectionResponseDto} from '../../dto/component-collection.dto.js';
+} from '../../../modules/usecase/dto/usecase-response.dto.js';
+import {ComponentCollectionResponseDto} from '../../dto/component-collection-response.dto.js';
 import {
   KeyValueInfoResponseDto,
   KeyInfoResponseDto,
@@ -20,9 +20,9 @@ import {
   SpfModuleResponseDto,
   DataPortResponseDto,
   ControlPortResponseDto,
-} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
-import {DataLinkResponseDto} from '../../../modules/data-link/dto/data-link.dto.js';
-import {ControlLinkResponseDto} from '../../../modules/control-link/dto/control-link.dto.js';
+} from '../../../modules/spf-module/dto/shared/spf-module-response.dto.js';
+import {DataLinkResponseDto} from '../../../modules/data-link/dto/data-link-response.dto.js';
+import {ControlLinkResponseDto} from '../../../modules/control-link/dto/control-link-response.dto.js';
 
 function kv(
   keyId: number,

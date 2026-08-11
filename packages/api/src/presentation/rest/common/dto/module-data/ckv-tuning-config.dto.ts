@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ParameterSummaryDto} from '../parameter.dto.js';
+import {ParameterSummaryDto} from '../parameter-response.dto.js';
 import {KeyValuePairsDto} from '../key-value.dto.js';
 
 /**

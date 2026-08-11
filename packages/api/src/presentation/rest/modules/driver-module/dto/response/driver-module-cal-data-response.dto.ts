@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CkvCalDataResponseDto} from '../../../../common/dto/tuning-data/cal-data.dto.js';
+import {CkvCalDataResponseDto} from '../../../../common/dto/tuning-data/ckv-cal-data-response.dto.js';
 
 /**
  * Response DTO for driver module calibration data API.

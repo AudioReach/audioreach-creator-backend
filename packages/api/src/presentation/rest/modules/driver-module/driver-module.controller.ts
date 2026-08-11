@@ -19,11 +19,11 @@ import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.deco
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {DriverModuleResponseDto} from './dto/response/driver-module-response.dto.js';
 import {DriverModuleCalDataResponseDto} from './dto/response/driver-module-cal-data-response.dto.js';
-import {ConfigElementResponseDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
-import {ElementTemplateArrayResponseDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
-import {StructResponseDto} from '../../common/dto/element-data/elements/struct.dto.js';
-import {NameValuePairResponseDto} from '../../common/dto/element-data/elements/config-element/name-value-pair.dto.js';
-import {BitFieldResponseDto} from '../../common/dto/element-data/elements/config-element/bit-field.dto.js';
+import {ConfigElementResponseDto} from '../../common/dto/element-data/elements/config-element/config-element-response.dto.js';
+import {ElementTemplateArrayResponseDto} from '../../common/dto/element-data/elements/element-template-array-response.dto.js';
+import {StructResponseDto} from '../../common/dto/element-data/elements/struct-response.dto.js';
+import {NameValuePairResponseDto} from '../../common/dto/element-data/elements/config-element/name-value-pair-response.dto.js';
+import {BitFieldResponseDto} from '../../common/dto/element-data/elements/config-element/bit-field-response.dto.js';
 
 /**
  * Controller for driver module APIs.
