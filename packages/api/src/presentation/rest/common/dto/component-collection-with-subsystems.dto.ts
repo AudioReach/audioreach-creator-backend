@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ComponentCollectionResponseDto} from './component-collection.dto.js';
+import {ComponentCollectionResponseDto} from './component-collection-response.dto.js';
 import {SubsystemDto} from '../../modules/subsystem/dto/subsystem.dto.js';
 
 /**

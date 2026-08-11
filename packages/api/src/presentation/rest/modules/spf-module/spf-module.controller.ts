@@ -23,11 +23,11 @@ import {
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
-import {SpfModuleResponseDto} from './dto/shared/spf-module.dto.js';
-import {CkvCalDataResponseDto} from '../../common/dto/tuning-data/cal-data.dto.js';
+import {SpfModuleResponseDto} from './dto/shared/spf-module-response.dto.js';
+import {CkvCalDataResponseDto} from '../../common/dto/tuning-data/ckv-cal-data-response.dto.js';
 import {UpdateSpfModuleCalDataRequestDto} from './dto/request/update-spf-module-cal-data-request.dto.js';
 import {UpdateSpfModuleTagDataRequestDto} from './dto/request/update-spf-module-tag-data-request.dto.js';
-import {TkvCalDataResponseDto} from '../../common/dto/tuning-data/tag-data.dto.js';
+import {TkvCalDataResponseDto} from '../../common/dto/tuning-data/tkv-cal-data-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
   CreateSpfModuleRequestDto,
@@ -62,11 +62,9 @@ import {PartialSuccessInterceptor} from '../../common/interceptors/partial-succe
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {SessionGuard} from '../../../../guards/session-guard.js';
 import {ArcSession} from '../../../../guards/arc-session.decorator.js';
-import {
-  CkvResponseDto,
-  TkvResponseDto,
-  TagInfoResponseDto,
-} from './dto/shared/tuning-config.dto.js';
+import {CkvResponseDto} from './dto/shared/ckv-response.dto.js';
+import {TkvResponseDto} from './dto/shared/tkv-response.dto.js';
+import {TagInfoResponseDto} from './dto/shared/tag-info-response.dto.js';
 import {
   AddCkvsResponseDto,
   CkvParameterRemovalResponseDto,

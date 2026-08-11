@@ -24,12 +24,12 @@ import {CreateControlLinkRequest} from './dto/control-link-request.dto.js';
 import {
   ControlLinkResponseDto,
   ControlLinkPropertiesResponseDto,
-} from './dto/control-link.dto.js';
+} from './dto/control-link-response.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection.dto.js';
+import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,

@@ -19,16 +19,16 @@ import {BaseController} from '../base/base.controller.js';
 import {
   SubgraphResponseDto,
   SubgraphPropertiesResponseDto,
-} from './dto/subgraph.dto.js';
-import {SubgraphPairResponseDto} from './dto/subgraph-pair.dto.js';
+} from './dto/subgraph-response.dto.js';
+import {SubgraphPairResponseDto} from './dto/subgraph-pair-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection.dto.js';
-import {ConfigElementResponseDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
-import {ElementTemplateArrayResponseDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
-import {StructResponseDto} from '../../common/dto/element-data/elements/struct.dto.js';
+import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
+import {ConfigElementResponseDto} from '../../common/dto/element-data/elements/config-element/config-element-response.dto.js';
+import {ElementTemplateArrayResponseDto} from '../../common/dto/element-data/elements/element-template-array-response.dto.js';
+import {StructResponseDto} from '../../common/dto/element-data/elements/struct-response.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
-import {UsecaseResponseDto} from '../usecase/dto/usecase.dto.js';
+import {UsecaseResponseDto} from '../usecase/dto/usecase-response.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {

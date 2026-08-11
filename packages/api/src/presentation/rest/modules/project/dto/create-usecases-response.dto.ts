@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {UsecaseResponseDto} from '../../usecase/dto/usecase.dto.js';
+import {UsecaseResponseDto} from '../../usecase/dto/usecase-response.dto.js';
 import {ApiIssueItem} from '../../../common/dto/api-response/api-issue-item.dto.js';
 
 export class UsecaseIdentifierWithChangeInfoDto extends UsecaseResponseDto {

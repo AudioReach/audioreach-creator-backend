@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ParameterResponseDto} from '../../../../common/dto/parameter.dto.js';
+import {ParameterResponseDto} from '../../../../common/dto/parameter-response.dto.js';
 
 /**
  * Request DTO for updating SPF module tag data - supports multiple parameters

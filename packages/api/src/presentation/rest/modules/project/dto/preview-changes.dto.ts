@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {UsecaseResponseDto} from '../../usecase/dto/usecase.dto.js';
+import {UsecaseResponseDto} from '../../usecase/dto/usecase-response.dto.js';
 import {KeyDefinitionResponseDto} from '../../definition/key-definition/dto/key-definition-response.dto.js';
 import {SpfModuleDefinitionResponseDto} from '../../definition/module-definition/dto/spf-module-definition-response.dto.js';
 import {DriverModuleDefinitionResponseDto} from '../../definition/module-definition/dto/driver-module-definition-response.dto.js';

@@ -4,7 +4,7 @@
  */
 
 import {EndPointLink} from '../../utils/index.js';
-import {SpfModuleResponseDto} from '../../../modules/spf-module/dto/shared/spf-module.dto.js';
+import {SpfModuleResponseDto} from '../../../modules/spf-module/dto/shared/spf-module-response.dto.js';
 import {CreateSpfModuleRequestDto} from '../../../modules/spf-module/dto/request/spf-module-request.dto.js';
 
 /**

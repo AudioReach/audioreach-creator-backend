@@ -4,10 +4,8 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {
-  CkvResponseDto,
-  ParamInfoResponseDto,
-} from '../shared/tuning-config.dto.js';
+import {CkvResponseDto} from '../shared/ckv-response.dto.js';
+import {ParamInfoResponseDto} from '../shared/param-info-response.dto.js';
 
 /**
  * Response DTO for CKV parameter operations.
