@@ -25,7 +25,7 @@ export class ParameterSummaryDto extends BaseDto {
   name!: string;
 }
 
-export class ParameterResponseDto extends createZodDto(ParameterDtoSchema) {
+export class ParameterDto extends createZodDto(ParameterDtoSchema) {
   @ApiProperty({
     description:
       'Array of calibration elements for this Parameter ID.\n\n' +
@@ -43,9 +43,9 @@ export class ParameterResponseDto extends createZodDto(ParameterDtoSchema) {
     type: 'array',
     items: {
       oneOf: [
-        {$ref: '#/components/schemas/ConfigElementResponseDto'},
-        {$ref: '#/components/schemas/ElementTemplateArrayResponseDto'},
-        {$ref: '#/components/schemas/StructResponseDto'},
+        {$ref: '#/components/schemas/ConfigElementDto'},
+        {$ref: '#/components/schemas/ElementTemplateArrayDto'},
+        {$ref: '#/components/schemas/StructDto'},
       ],
     },
   })

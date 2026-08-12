@@ -108,7 +108,6 @@ export default [
     rules: {
       'custom/no-banned-keywords': 'error',
       'custom/no-api-property-example': 'error',
-      'custom/enforce-createzodto-naming': 'error',
 
       // Error handling enforcement rules
       'custom/no-manual-status-codes': [
@@ -140,6 +139,17 @@ export default [
             'InternalServerErrorException',
             'NotImplementedException',
             'UnprocessableEntityException',
+          ],
+        },
+      ],
+
+      'custom/enforce-response-dto-naming': [
+        'error',
+        {
+          controllerPattern:
+            '**/packages/api/src/presentation/**/*.controller.ts',
+          exemptTypes: [
+            'BaseComponentDto', // Generic base class used in non-response contexts; reviewed and intentionally exempt
           ],
         },
       ],

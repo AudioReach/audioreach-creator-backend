@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {SubsystemDto} from '../../../modules/subsystem/dto/subsystem.dto.js';
-import {KeyInfoResponseDto} from '../../dto/kv-info-response.dto.js';
+import {SubsystemResponseDto} from '../../../modules/subsystem/dto/subsystem.dto.js';
+import {KeyInfoDto} from '../../dto/kv-info.dto.js';
 
-export const subsystemApiExample = new SubsystemDto(
+export const subsystemApiExample = new SubsystemResponseDto(
   '1',
   0xf0_10_00_01,
   'Device_RX',
@@ -14,7 +14,7 @@ export const subsystemApiExample = new SubsystemDto(
 );
 
 subsystemApiExample.filteredKeys = [
-  Object.assign(new KeyInfoResponseDto(), {
+  Object.assign(new KeyInfoDto(), {
     keyId: 0xa2_00_00_00,
     keyLabel: 'DeviceRX',
     keySystemId: '1',

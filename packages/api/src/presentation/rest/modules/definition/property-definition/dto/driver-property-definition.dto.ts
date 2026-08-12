@@ -5,7 +5,7 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 
-export class SpfPropertyDto {
+export class DriverPropertyDto {
   @ApiProperty({description: 'Property ID'})
   id!: string;
 
@@ -23,18 +23,12 @@ export class SpfPropertyDto {
 }
 
 /**
- * DTO representing SPF Property Definition
+ * DTO representing Driver Property Definition
  */
-export class SpfPropertyDefinitionResponseDto {
-  @ApiProperty({description: 'Property category ID'})
-  propCategoryID!: string;
-
-  @ApiProperty({description: 'Property category name'})
-  propCategoryName!: string;
-
+export class DriverPropertyDefinitionDto {
   @ApiProperty({
-    type: [SpfPropertyDto],
-    description: 'List of properties in this category',
+    type: [DriverPropertyDto],
+    description: 'List of driver properties',
   })
-  properties!: SpfPropertyDto[];
+  properties!: DriverPropertyDto[];
 }

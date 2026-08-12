@@ -21,7 +21,7 @@ import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
 import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
-import {SubsystemDto} from './dto/subsystem.dto.js';
+import {SubsystemResponseDto} from './dto/subsystem.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -63,13 +63,13 @@ export class SubsystemController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'All subsystems found successfully',
-        dto: [SubsystemDto],
+        dto: [SubsystemResponseDto],
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some subsystems could not be retrieved (see errors array)',
-        dto: [SubsystemDto],
+        dto: [SubsystemResponseDto],
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -84,7 +84,7 @@ export class SubsystemController extends BaseController {
   async querySubsystems(
     @Param('projectId') projectId: string,
     @Body() subsystemSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<SubsystemDto[]>> {
+  ): Promise<ApiResult<SubsystemResponseDto[]>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Getting subsystems in project ${projectId}: ${JSON.stringify(subsystemSystemIds)}`,
@@ -161,7 +161,7 @@ export class SubsystemController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Subsystem created successfully',
-        dto: SubsystemDto,
+        dto: SubsystemResponseDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -180,7 +180,7 @@ export class SubsystemController extends BaseController {
   async createSubsystem(
     @Param('projectId') projectId: string,
     @Body() request: CreateSubsystemRequestDto,
-  ): Promise<ApiResult<SubsystemDto>> {
+  ): Promise<ApiResult<SubsystemResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Creating subsystem in project ${projectId}: ${JSON.stringify(request)}`,
@@ -337,7 +337,7 @@ export class SubsystemController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Subsystem removed successfully',
-        dto: SubsystemDto,
+        dto: SubsystemResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -353,7 +353,7 @@ export class SubsystemController extends BaseController {
   async removeSubsystem(
     @Param('projectId') projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
-  ): Promise<ApiResult<SubsystemDto>> {
+  ): Promise<ApiResult<SubsystemResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Removing subsystem ${subsystemSystemId} in project ${projectId}`,
@@ -391,13 +391,13 @@ export class SubsystemController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Subsystem updated successfully',
-        dto: SubsystemDto,
+        dto: SubsystemResponseDto,
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some fields were updated but others failed (see issues array)',
-        dto: SubsystemDto,
+        dto: SubsystemResponseDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -418,7 +418,7 @@ export class SubsystemController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
     @Body() request: PatchSubsystemRequestDto,
-  ): Promise<ApiResult<SubsystemDto>> {
+  ): Promise<ApiResult<SubsystemResponseDto>> {
     if (!Object.values(request).some(v => v !== undefined)) {
       throw new BadRequestException(
         'At least one field must be provided to patch',
@@ -454,7 +454,7 @@ export class SubsystemController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Filtered keys set successfully',
-        dto: SubsystemDto,
+        dto: SubsystemResponseDto,
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -474,7 +474,7 @@ export class SubsystemController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
     @Body() request: SetSubsystemFilteredKeysRequestDto,
-  ): Promise<ApiResult<SubsystemDto>> {
+  ): Promise<ApiResult<SubsystemResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Setting filtered keys for subsystem ${subsystemSystemId} in project ${projectId}: ${JSON.stringify(request)}`,

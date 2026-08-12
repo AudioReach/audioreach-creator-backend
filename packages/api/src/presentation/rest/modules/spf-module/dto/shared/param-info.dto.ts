@@ -4,6 +4,6 @@
  */
 
 import {createZodDto} from 'nestjs-zod';
-import {StructDtoSchema} from '@arc/core';
+import {ParamInfoDtoSchema} from '@arc/core';
 
-export class StructResponseDto extends createZodDto(StructDtoSchema) {}
+export class ParamInfoDto extends createZodDto(ParamInfoDtoSchema) {}

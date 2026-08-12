@@ -6,7 +6,7 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {createZodDto} from 'nestjs-zod';
 import {CkvCalDataDtoSchema} from '@arc/core';
-import {ParameterResponseDto} from '../parameter-response.dto.js';
+import {ParameterDto} from '../parameter.dto.js';
 
 export class CkvCalDataResponseDto extends createZodDto(CkvCalDataDtoSchema) {
   @ApiProperty({
@@ -14,7 +14,7 @@ export class CkvCalDataResponseDto extends createZodDto(CkvCalDataDtoSchema) {
       'Array of parameter data, one entry per PID. ' +
       'Each entry contains the system identifier, PID, name, description, ' +
       'and the list of calibration elements belonging to that parameter.',
-    type: [ParameterResponseDto],
+    type: [ParameterDto],
   })
-  declare parameters: ParameterResponseDto[];
+  declare parameters: ParameterDto[];
 }

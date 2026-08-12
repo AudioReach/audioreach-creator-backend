@@ -19,9 +19,9 @@ import {
   ContainerResponseDto,
 } from './dto/container-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
-import {ConfigElementResponseDto} from '../../common/dto/element-data/elements/config-element/config-element-response.dto.js';
-import {ElementTemplateArrayResponseDto} from '../../common/dto/element-data/elements/element-template-array-response.dto.js';
-import {StructResponseDto} from '../../common/dto/element-data/elements/struct-response.dto.js';
+import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
+import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
+import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -41,11 +41,7 @@ import {
 @ApiTags('containers')
 @Controller('arc-api/v1/projects/:projectId/containers')
 //@UseGuards(AuthGuard('jwt'))
-@ApiExtraModels(
-  ConfigElementResponseDto,
-  ElementTemplateArrayResponseDto,
-  StructResponseDto,
-)
+@ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',

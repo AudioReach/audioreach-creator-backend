@@ -19,14 +19,14 @@ import {
   Query,
 } from '@nestjs/common';
 import {ApiTags, ApiQuery, ApiExtraModels, ApiParam} from '@nestjs/swagger';
-import {SubsystemDto} from '../subsystem/dto/subsystem.dto.js';
+import {SubsystemResponseDto} from '../subsystem/dto/subsystem.dto.js';
 import {BaseController} from '../base/base.controller.js';
 import {
   UsecaseResponseDto,
-  SubsystemFilteredUsecasesDto,
+  SubsystemFilteredUsecasesResponseDto,
 } from './dto/usecase-response.dto.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
-import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
+import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
+import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {UpdateUsecaseRequestDto} from './dto/request/update-usecase-request.dto.js';
 import {UpdateUsecaseResponseDto} from '../../common/dto/usecase/update-usecase-response.dto.js';
 import {DataLinkWithUsecasesResponseDto} from './dto/data-link-with-usecases.dto.js';
@@ -45,7 +45,7 @@ import {
   type Result,
   type UseCaseDto as CoreUseCaseDto,
   type ComponentCollectionDto as CoreComponentCollectionDto,
-  type ComponentCollectionWithSubsystemsDto as CoreComponentCollectionWithSubsystemsDto,
+  type ComponentCollectionWithSubsystemsDto as CoreComponentsWithSubsystemsResponseDto,
   COMPONENT_SCOPE_TYPE,
   FilterParser,
   validateFilterFields,
@@ -76,11 +76,11 @@ const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
 })
 @ApiExtraModels(
   UsecaseResponseDto,
-  SubsystemFilteredUsecasesDto,
+  SubsystemFilteredUsecasesResponseDto,
   BaseComponentDto,
-  SubsystemDto,
-  ComponentCollectionResponseDto,
-  ComponentCollectionWithSubsystemsDto,
+  SubsystemResponseDto,
+  ComponentsResponseDto,
+  ComponentsWithSubsystemsResponseDto,
 )
 export class UseCaseController extends BaseController {
   constructor(private readonly queryBus: QueryBus) {
@@ -267,7 +267,7 @@ export class UseCaseController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Subsystem-filtered usecases returned successfully',
-        dto: [SubsystemFilteredUsecasesDto],
+        dto: [SubsystemFilteredUsecasesResponseDto],
       },
       {
         status: HttpStatus.BAD_REQUEST,
@@ -282,7 +282,7 @@ export class UseCaseController extends BaseController {
   getSubsystemFilteredUsecases(
     @Param('projectId') projectId: string,
     @Query('filter') filterExpression?: string,
-  ): Promise<ApiResult<SubsystemFilteredUsecasesDto[]>> {
+  ): Promise<ApiResult<SubsystemFilteredUsecasesResponseDto[]>> {
     console.log('Getting subsystem-filtered usecases for project:', projectId);
 
     // TODO: Implement filter parsing and validation
@@ -296,7 +296,7 @@ export class UseCaseController extends BaseController {
     // TODO: Implement subsystem filtering logic
     // 1. Query usecases with subsystem hierarchy
     // 2. Group usecases by subsystem-filtered GKV
-    // 3. Create SubsystemFilteredUsecasesDto instances
+    // 3. Create SubsystemFilteredUsecasesResponseDto instances
     // 4. Return organized hierarchy
 
     throw new NotImplementedException(
@@ -519,7 +519,7 @@ export class UseCaseController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'All components returned successfully',
-        dto: ComponentCollectionResponseDto,
+        dto: ComponentsResponseDto,
         example: {
           className: 'UsecaseComponentsExample',
         },
@@ -528,7 +528,7 @@ export class UseCaseController extends BaseController {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some usecases could not be retrieved (see errors array)',
-        dto: ComponentCollectionResponseDto,
+        dto: ComponentsResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -543,7 +543,7 @@ export class UseCaseController extends BaseController {
   async queryUsecaseComponents(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<ComponentCollectionResponseDto>> {
+  ): Promise<ApiResult<ComponentsResponseDto>> {
     if (
       !usecaseSystemIds?.systemIds ||
       usecaseSystemIds.systemIds.length === 0
@@ -613,7 +613,7 @@ export class UseCaseController extends BaseController {
         status: HttpStatus.OK,
         description:
           'All components with subsystem hierarchy returned successfully',
-        dto: ComponentCollectionWithSubsystemsDto,
+        dto: ComponentsWithSubsystemsResponseDto,
         example: {
           className: 'UsecaseComponentsExample',
         },
@@ -622,7 +622,7 @@ export class UseCaseController extends BaseController {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some usecases could not be retrieved (see errors array)',
-        dto: ComponentCollectionWithSubsystemsDto,
+        dto: ComponentsWithSubsystemsResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -637,7 +637,7 @@ export class UseCaseController extends BaseController {
   async queryUsecaseComponentsWithSubsystems(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
-  ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
+  ): Promise<ApiResult<ComponentsWithSubsystemsResponseDto>> {
     if (
       !usecaseSystemIds?.systemIds ||
       usecaseSystemIds.systemIds.length === 0
@@ -668,7 +668,7 @@ export class UseCaseController extends BaseController {
 
     const result =
       await this.queryBus.execute<
-        Result<CoreComponentCollectionWithSubsystemsDto>
+        Result<CoreComponentsWithSubsystemsResponseDto>
       >(query);
     return toApiResult(result);
   }

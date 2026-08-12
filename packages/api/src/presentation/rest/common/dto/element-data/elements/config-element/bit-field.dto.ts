@@ -4,6 +4,6 @@
  */
 
 import {createZodDto} from 'nestjs-zod';
-import {ParamInfoDtoSchema} from '@arc/core';
+import {BitFieldDtoSchema} from '@arc/core';
 
-export class ParamInfoResponseDto extends createZodDto(ParamInfoDtoSchema) {}
+export class BitFieldDto extends createZodDto(BitFieldDtoSchema) {}

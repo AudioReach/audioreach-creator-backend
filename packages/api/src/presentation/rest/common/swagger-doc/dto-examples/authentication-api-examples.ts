@@ -5,7 +5,7 @@
 
 import {
   RegisterDto,
-  RegisterResponseData,
+  RegisterResponseDto,
 } from '../../../modules/authentication/dto/authentication.dto.js';
 
 export const RegisterDtoExample = {
@@ -16,7 +16,7 @@ export const RegisterDtoExample = {
 };
 
 export const RegisterResponseDataExample = {
-  getExample(): RegisterResponseData {
+  getExample(): RegisterResponseDto {
     return {
       token: 'jwt.token.here',
       clientId: 1,

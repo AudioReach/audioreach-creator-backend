@@ -24,8 +24,8 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {CreateDataLinkRequest} from './dto/request/create-data-link-request.dto.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
-import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
+import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
+import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,
   CreateDataLinkCommand,
@@ -97,21 +97,21 @@ export class DataLinkController extends BaseController {
 
   /**
    * Create a new data link (flat / collapsed view).
-   * Stores all link segments in DB; returns ComponentCollectionResponseDto.
+   * Stores all link segments in DB; returns ComponentsResponseDto.
    */
   @Post()
   @ApiDocumentationWithExample({
     summary: 'Create a new data link (flat view)',
     description:
       'Creates a data link between two modules. Stores all segments (mod→SS, SS→SS, SS→mod) in the DB. ' +
-      'Returns a flat ComponentCollectionResponseDto with the created link.',
+      'Returns a flat ComponentsResponseDto with the created link.',
     requestDto: CreateDataLinkRequest,
     requestDtoDescription: 'Data link creation parameters',
     responses: [
       {
         status: HttpStatus.CREATED,
         description: 'Data link created successfully',
-        dto: ComponentCollectionResponseDto,
+        dto: ComponentsResponseDto,
       },
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
@@ -128,7 +128,7 @@ export class DataLinkController extends BaseController {
   async createDataLink(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateDataLinkRequest,
-  ): Promise<ApiResult<ComponentCollectionResponseDto>> {
+  ): Promise<ApiResult<ComponentsResponseDto>> {
     console.log(
       'Creating data link for project:',
       projectId,
@@ -145,28 +145,28 @@ export class DataLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+      await this.commandBus.execute<ComponentsResponseDto>(command);
     return toApiResult(Result.ok(components));
   }
 
   /**
    * Create a new data link (full hierarchical view with subsystems).
    * Performs the SAME DB write as POST /data-links.
-   * Returns ComponentCollectionWithSubsystemsDto.
+   * Returns ComponentsWithSubsystemsResponseDto.
    */
   @Post('with-subsystems')
   @ApiDocumentationWithExample({
     summary: 'Create a new data link (full view with subsystem hierarchy)',
     description:
       'Creates a data link — SAME DB write as POST /data-links. ' +
-      'Returns ComponentCollectionWithSubsystemsDto with the created link and subsystem structure.',
+      'Returns ComponentsWithSubsystemsResponseDto with the created link and subsystem structure.',
     requestDto: CreateDataLinkRequest,
     requestDtoDescription: 'Data link creation parameters',
     responses: [
       {
         status: HttpStatus.CREATED,
         description: 'Data link created successfully',
-        dto: ComponentCollectionWithSubsystemsDto,
+        dto: ComponentsWithSubsystemsResponseDto,
       },
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
@@ -183,7 +183,7 @@ export class DataLinkController extends BaseController {
   async createDataLinkWithSubsystems(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateDataLinkRequest,
-  ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
+  ): Promise<ApiResult<ComponentsWithSubsystemsResponseDto>> {
     console.log('Creating data link (with-subsystems) for project:', projectId);
 
     const command = new CreateDataLinkCommand(
@@ -195,7 +195,7 @@ export class DataLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+      await this.commandBus.execute<ComponentsResponseDto>(command);
     return toApiResult(Result.ok({...components, subsystems: []}));
   }
 

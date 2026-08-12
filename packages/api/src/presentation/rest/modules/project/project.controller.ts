@@ -774,11 +774,11 @@ export class ProjectController {
   @ApiExtraModels(
     ApiResult,
     PreviewChangesResponseDto,
-    UsecaseActionsResponseDto,
-    DefinitionActionsResponseDto,
-    ModuleManagerActionsResponseDto,
-    DriverModuleDataActionsResponseDto,
-    MetaDataActionsResponseDto,
+    UsecaseActionsDto,
+    DefinitionActionsDto,
+    ModuleManagerActionsDto,
+    DriverModuleDataActionsDto,
+    MetaDataActionsDto,
   )
   @ApiResponse({
     status: HttpStatus.OK,

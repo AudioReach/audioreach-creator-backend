@@ -13,7 +13,7 @@ const noControllerTryCatch = require('./no-controller-try-catch.cjs');
 const enforceHttpExceptions = require('./enforce-http-exceptions.cjs');
 const noRawPersistenceQueries = require('./no-raw-persistence-queries.cjs');
 const noDomainInfrastructureDeps = require('./no-domain-infrastructure-deps.cjs');
-const enforceCreateZodDtoNaming = require('./enforce-createzodto-naming.cjs');
+const enforceResponseDtoNaming = require('./enforce-response-dto-naming.cjs');
 
 export default {
   rules: {
@@ -24,6 +24,6 @@ export default {
     'enforce-http-exceptions': enforceHttpExceptions,
     'no-domain-infrastructure-deps': noDomainInfrastructureDeps,
     'no-raw-persistence-queries': noRawPersistenceQueries,
-    'enforce-createzodto-naming': enforceCreateZodDtoNaming,
+    'enforce-response-dto-naming': enforceResponseDtoNaming,
   },
 };

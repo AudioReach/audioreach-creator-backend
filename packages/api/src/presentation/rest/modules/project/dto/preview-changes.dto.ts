@@ -8,8 +8,8 @@ import {UsecaseResponseDto} from '../../usecase/dto/usecase-response.dto.js';
 import {KeyDefinitionResponseDto} from '../../definition/key-definition/dto/key-definition-response.dto.js';
 import {SpfModuleDefinitionResponseDto} from '../../definition/module-definition/dto/spf-module-definition-response.dto.js';
 import {DriverModuleDefinitionResponseDto} from '../../definition/module-definition/dto/driver-module-definition-response.dto.js';
-import {SpfPropertyDefinitionResponseDto} from '../../definition/property-definition/dto/spf-property-definition-response.dto.js';
-import {DriverPropertyDefinitionResponseDto} from '../../definition/property-definition/dto/driver-property-definition-response.dto.js';
+import {SpfPropertyDefinitionDto} from '../../definition/property-definition/dto/spf-property-definition.dto.js';
+import {DriverPropertyDefinitionDto} from '../../definition/property-definition/dto/driver-property-definition.dto.js';
 import {DriverModuleDto} from '../../driver-data/dto/driver-module.dto.js';
 import {CustomModuleDto} from '../../module-manager/dto/custom-module.dto.js';
 import {UsecaseCategoryDto} from '../../metadata/usecase-category/dto/usecase-category.dto.js';
@@ -38,7 +38,7 @@ export class UniqueChangeDto {
 /**
  * DTO containing usecase changes information
  */
-export class UsecaseActionsResponseDto {
+export class UsecaseActionsDto {
   @ApiProperty({type: [UsecaseResponseDto], description: 'Added usecases'})
   added!: UsecaseResponseDto[];
 
@@ -58,7 +58,7 @@ export class UsecaseActionsResponseDto {
 /**
  * DTO containing definition changes information
  */
-export class DefinitionActionsResponseDto {
+export class DefinitionActionsDto {
   @ApiProperty({description: 'Key definition changes'})
   keys!: {
     added: KeyDefinitionResponseDto[];
@@ -82,23 +82,23 @@ export class DefinitionActionsResponseDto {
 
   @ApiProperty({description: 'SPF Property definition changes'})
   spfProperties!: {
-    added: SpfPropertyDefinitionResponseDto[];
-    updated: SpfPropertyDefinitionResponseDto[];
-    deleted: SpfPropertyDefinitionResponseDto[];
+    added: SpfPropertyDefinitionDto[];
+    updated: SpfPropertyDefinitionDto[];
+    deleted: SpfPropertyDefinitionDto[];
   };
 
   @ApiProperty({description: 'Driver Property definition changes'})
   driverProperties!: {
-    added: DriverPropertyDefinitionResponseDto[];
-    updated: DriverPropertyDefinitionResponseDto[];
-    deleted: DriverPropertyDefinitionResponseDto[];
+    added: DriverPropertyDefinitionDto[];
+    updated: DriverPropertyDefinitionDto[];
+    deleted: DriverPropertyDefinitionDto[];
   };
 }
 
 /**
  * DTO containing Module Manager (AMDB) custom module changes
  */
-export class ModuleManagerActionsResponseDto {
+export class ModuleManagerActionsDto {
   @ApiProperty({
     type: [CustomModuleDto],
     description: 'Added custom modules',
@@ -121,7 +121,7 @@ export class ModuleManagerActionsResponseDto {
 /**
  * DTO containing driver module data changes
  */
-export class DriverModuleDataActionsResponseDto {
+export class DriverModuleDataActionsDto {
   @ApiProperty({
     type: [DriverModuleDto],
     description: 'Added driver modules',
@@ -144,7 +144,7 @@ export class DriverModuleDataActionsResponseDto {
 /**
  * DTO containing metadata changes (categories and aliases)
  */
-export class MetaDataActionsResponseDto {
+export class MetaDataActionsDto {
   @ApiProperty({
     description: 'Usecase category changes',
   })
@@ -169,32 +169,32 @@ export class MetaDataActionsResponseDto {
  */
 export class PreviewChangesResponseDto {
   @ApiProperty({
-    type: UsecaseActionsResponseDto,
+    type: UsecaseActionsDto,
     description: 'Usecase changes',
   })
-  usecaseData!: UsecaseActionsResponseDto;
+  usecaseData!: UsecaseActionsDto;
 
   @ApiProperty({
-    type: DefinitionActionsResponseDto,
+    type: DefinitionActionsDto,
     description: 'Definition changes',
   })
-  definitions!: DefinitionActionsResponseDto;
+  definitions!: DefinitionActionsDto;
 
   @ApiProperty({
-    type: ModuleManagerActionsResponseDto,
+    type: ModuleManagerActionsDto,
     description: 'Module Manager custom module changes',
   })
-  moduleManager!: ModuleManagerActionsResponseDto;
+  moduleManager!: ModuleManagerActionsDto;
 
   @ApiProperty({
-    type: DriverModuleDataActionsResponseDto,
+    type: DriverModuleDataActionsDto,
     description: 'Driver module data changes',
   })
-  driverModuleData!: DriverModuleDataActionsResponseDto;
+  driverModuleData!: DriverModuleDataActionsDto;
 
   @ApiProperty({
-    type: MetaDataActionsResponseDto,
+    type: MetaDataActionsDto,
     description: 'Metadata changes (categories and aliases)',
   })
-  metadata!: MetaDataActionsResponseDto;
+  metadata!: MetaDataActionsDto;
 }

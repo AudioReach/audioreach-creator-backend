@@ -12,14 +12,12 @@ import {
   SubsystemFilteredKeyValuePairsInfoDtoSchema,
 } from '@arc/core';
 
-export class KeyInfoResponseDto extends createZodDto(KeyInfoDtoSchema) {}
-export class ValueInfoResponseDto extends createZodDto(ValueInfoDtoSchema) {}
-export class KeyValueInfoResponseDto extends createZodDto(
-  KeyValueInfoDtoSchema,
-) {}
-export class KeyValuePairsInfoResponseDto extends createZodDto(
+export class KeyInfoDto extends createZodDto(KeyInfoDtoSchema) {}
+export class ValueInfoDto extends createZodDto(ValueInfoDtoSchema) {}
+export class KeyValueInfoDto extends createZodDto(KeyValueInfoDtoSchema) {}
+export class KeyValuePairsInfoDto extends createZodDto(
   KeyValuePairsInfoDtoSchema,
 ) {}
-export class SubsystemFilteredKeyValuePairsInfoResponseDto extends createZodDto(
+export class SubsystemFilteredKeyValuePairsInfoDto extends createZodDto(
   SubsystemFilteredKeyValuePairsInfoDtoSchema,
 ) {}

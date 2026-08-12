@@ -14,7 +14,7 @@ export class RegisterDto {
   }
 }
 
-export class RegisterResponseData {
+export class RegisterResponseDto {
   @ApiProperty({description: 'JWT token for authentication'})
   token!: string;
 

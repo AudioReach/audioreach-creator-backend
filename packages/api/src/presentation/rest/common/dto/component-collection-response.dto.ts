@@ -6,6 +6,6 @@
 import {createZodDto} from 'nestjs-zod';
 import {ComponentCollectionDtoSchema} from '@arc/core';
 
-export class ComponentCollectionResponseDto extends createZodDto(
+export class ComponentsResponseDto extends createZodDto(
   ComponentCollectionDtoSchema,
 ) {}

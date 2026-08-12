@@ -5,26 +5,26 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {BaseConnectableComponentDto} from '../../../common/dto/base-connectable-component.dto.js';
-import {KeyInfoResponseDto} from '../../../common/dto/kv-info-response.dto.js';
-import {ComponentCollectionWithSubsystemsDto} from '../../../common/dto/component-collection-with-subsystems.dto.js';
+import {KeyInfoDto} from '../../../common/dto/kv-info.dto.js';
+import {ComponentsWithSubsystemsResponseDto} from '../../../common/dto/component-collection-with-subsystems.dto.js';
 
 /**
  * Represents a subsystem DTO
  */
-export class SubsystemDto extends BaseConnectableComponentDto {
+export class SubsystemResponseDto extends BaseConnectableComponentDto {
   @ApiProperty({
     description: 'Filtered keys assigned to the subsystem',
-    type: [KeyInfoResponseDto],
+    type: [KeyInfoDto],
   })
-  filteredKeys!: KeyInfoResponseDto[];
+  filteredKeys!: KeyInfoDto[];
 
   @ApiProperty({
     description:
       'Child components within this subsystem (includes nested subsystems)',
-    type: () => ComponentCollectionWithSubsystemsDto,
+    type: () => ComponentsWithSubsystemsResponseDto,
     required: false,
   })
-  children?: ComponentCollectionWithSubsystemsDto;
+  children?: ComponentsWithSubsystemsResponseDto;
 
   constructor(systemId: string, id: number, name: string, parentId?: number) {
     super(systemId, id);
