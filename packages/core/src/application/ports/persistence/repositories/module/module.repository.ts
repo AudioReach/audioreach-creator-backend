@@ -9,6 +9,27 @@ import type {DataPort} from '../../../../../domain/entities/usecase-data/node/en
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
 
+export interface SpfModuleForValidation {
+  systemId: number;
+  definitionSystemId: number;
+  subgraphSystemId: number;
+  containerSystemId: number;
+}
+
+export interface CkvForValidation {
+  systemId: number;
+}
+
+export interface ExistingPayloadRow {
+  systemId: number; // PK of CkvParameterPayload — matches param.systemId from client
+  parameterSystemId: number; // FK → SpfModuleParameterDefinition.systemId
+}
+
+export interface CkvPayloadUpdate {
+  payloadSystemId: number; // PK of CkvParameterPayload — used as targetSystemId in edit_actions
+  payload: Uint8Array;
+}
+
 /**
  * Write-side port for the SpfModule aggregate.
  *
@@ -72,5 +93,27 @@ export interface ModuleRepository {
     kvData: KvData,
     moduleSystemId: number,
     options?: EditOptions,
+  ): Promise<void>;
+
+  getSpfModuleForValidation(
+    spfModuleSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleForValidation | null>;
+
+  getCkvForValidation(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+  ): Promise<CkvForValidation | null>;
+
+  getExistingCkvPayloads(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+  ): Promise<ExistingPayloadRow[]>;
+
+  setCkvCalData(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+    payloadUpdates: CkvPayloadUpdate[],
+    uiPersistence?: Uint8Array,
   ): Promise<void>;
 }

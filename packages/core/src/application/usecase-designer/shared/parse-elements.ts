@@ -88,27 +88,50 @@ function convertParamDefinition(paramStructure: string): DefinitionElement[] {
 }
 
 /**
+ * Maps AWSP file format element type strings (uppercase with underscores) to the
+ * canonical camelCase constants used throughout this parser.
+ *
+ * AWSP files store `elementType` as `'CONFIG_ELEMENT_ARRAY'`, `'STRUCT_ARRAY'`, and
+ * `'STRUCT'` (or `'Struct'`). The JSON written to `elementsStructure` preserves these
+ * raw strings verbatim, so the parser must accept both naming conventions.
+ */
+function canonicalizeElementType(rawType: string): string {
+  switch (rawType) {
+    case 'CONFIG_ELEMENT_ARRAY':
+      return PARAMETER_ELEMENT_TYPE.ElementArray; // 'ConfigElementArray'
+    case 'STRUCT_ARRAY':
+      return PARAMETER_ELEMENT_TYPE.StructArray; // 'StructArray'
+    case 'STRUCT':
+      return PARAMETER_ELEMENT_TYPE.Struct; // 'Struct'
+    default:
+      return rawType;
+  }
+}
+
+/**
  * Normalizes an original element recursively, routing array and struct types
  * to their respective handlers so that nested arrays always carry a `template`.
  *
- * - `StructArray`        → `normalizeStructArray`
- * - `ConfigElementArray` → `normalizeConfigElementArray`
- * - `Struct`             → `normalizeStructElement` (recurses into its children)
- * - All other types      → passed through unchanged
+ * - `StructArray` / `STRUCT_ARRAY`               → `normalizeStructArray`
+ * - `ConfigElementArray` / `CONFIG_ELEMENT_ARRAY` → `normalizeConfigElementArray`
+ * - `Struct` / `STRUCT`                           → `normalizeStructElement` (recurses)
+ * - All other types                               → passed through unchanged
  */
 // eslint-disable-next-line sonarjs/function-return-type
 function normalizeElement(original: OriginalElement): DefinitionElement {
-  const elementType = original.elementType as string;
+  const rawType = original.elementType as string;
+  const elementType = canonicalizeElementType(rawType);
+  const el = elementType !== rawType ? {...original, elementType} : original;
   if (elementType === PARAMETER_ELEMENT_TYPE.StructArray) {
-    return normalizeStructArray(original);
+    return normalizeStructArray(el);
   }
   if (elementType === PARAMETER_ELEMENT_TYPE.ElementArray) {
-    return normalizeConfigElementArray(original);
+    return normalizeConfigElementArray(el);
   }
   if (elementType === PARAMETER_ELEMENT_TYPE.Struct) {
-    return normalizeStructElement(original);
+    return normalizeStructElement(el);
   }
-  return original as unknown as DefinitionElement;
+  return el as unknown as DefinitionElement;
 }
 
 function normalizeStructElement(original: OriginalElement): StructElement {
@@ -243,22 +266,23 @@ function parseElement(
       return parseArrayElement(element, reader, parsedSoFar);
     case 'StructArray':
       return parseArrayElement(element, reader, parsedSoFar);
+    default: {
+      const el = element as unknown as {elementType: string};
+      throw new Error(`Unknown elementType: ${el.elementType}`);
+    }
   }
 }
 
 /**
  * Reads a single scalar value from the binary stream and wraps it in a
  * `ConfigElementData`. The value is stored as a string to match the DTO contract.
- * For `RawData`, all remaining bytes are consumed and stored as a comma-separated
- * decimal string.
  */
 function parseConfigElement(
   element: ConfigElement,
   reader: BinaryDataReader,
 ): ConfigElementData {
   const raw = readScalar(element.dataType, reader);
-  const value =
-    raw instanceof Uint8Array ? [...raw].toString() : raw.toString();
+  const value = raw instanceof Uint8Array ? toHex(raw) : raw.toString();
   return {
     type: PARAMETER_ELEMENT_TYPE.ConfigElement,
     name: element.name ?? '',

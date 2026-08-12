@@ -10,6 +10,12 @@ export interface CalibrationParameterRecord {
   elementsStructure: string;
 }
 
+export interface ParameterDefinitionBase {
+  systemId: number;
+  isReadOnly: boolean;
+  elementsStructure: string; // JSON — parsed by serializeParameterData
+}
+
 export interface ModuleDefinitionRepository {
   /**
    * Looks up the definition by its system ID (FK stored on SpfModule.definitionSystemId).
@@ -41,4 +47,9 @@ export interface ModuleDefinitionRepository {
     definitionSystemId: number,
     fileSystemId: number,
   ): Promise<CalibrationParameterRecord[]>;
+
+  getParameterDefinitions(
+    moduleDefSystemId: number,
+    paramSystemIds?: number[],
+  ): Promise<ParameterDefinitionBase[]>;
 }
