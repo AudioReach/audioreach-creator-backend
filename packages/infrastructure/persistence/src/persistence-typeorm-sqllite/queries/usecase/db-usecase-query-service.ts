@@ -10,13 +10,12 @@ import type {
   ComponentsReadModel,
   FilterExpression,
   KeyValueDefQueryService,
+  ISessionRepository,
 } from '@arc/core';
 import {Result, IssueFactory, LINK_TYPE, RESULT_KIND} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import type {
-  ProjectSessionRow,
-  UseCaseRow,
   NodeRow,
   DataLinkRow,
   ControlLinkRow,
@@ -26,13 +25,25 @@ import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.s
 import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
+import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 
 export class DbUseCaseQueryService implements UseCaseQueryService {
+  private readonly usecaseFetcher: UsecaseOverlayFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsQuerySvc: EditActionsQueryService,
+    editActionsQuerySvc: EditActionsQueryService,
     private readonly keyValueDefQuerySvc: KeyValueDefQueryService,
-  ) {}
+    private readonly sessionRepo: ISessionRepository,
+  ) {
+    this.usecaseFetcher = new UsecaseOverlayFetcher(
+      dataSource.manager,
+      editActionsQuerySvc,
+    );
+    this.editActionsQuerySvc = editActionsQuerySvc;
+  }
+  // editActionsQuerySvc retained for deprecated getAllComponentsForUseCases helpers only
+  private readonly editActionsQuerySvc: EditActionsQueryService;
 
   // ── getAllUseCases ────────────────────────────────────────────────────────────
 
@@ -41,48 +52,41 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     filter?: FilterExpression,
   ): Promise<Result<UseCaseReadModel[]>> {
     try {
-      // Step 1 — QueryBuilder: load usecases with GKV bin rows
-      // valueDef and keys are NOT joined — key-value resolution
-      // (including overlay) is delegated to keyValueDefQuerySvc in Step 4
-      const qb = this.dataSource
-        .getRepository(ENTITY_NAMES.UseCase)
-        .createQueryBuilder('uc')
-        .where('uc.fileSystemId = :fileId', {fileId})
-        .leftJoinAndSelect('uc.gkvEntries', 'gkv')
-        .leftJoinAndSelect('uc.categories', 'cat');
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
+      const sessionId = session?.sessionId ?? null;
 
+      // If a filter is provided, run a lightweight SQL query to get matching IDs.
+      // The filter uses EXISTS subqueries over SpfModule/Subgraph — cross-aggregate
+      // concerns that stay in the query service.
+      let restrictToIds: number[] | undefined;
       if (filter) {
+        const qb = this.dataSource
+          .getRepository(ENTITY_NAMES.UseCase)
+          .createQueryBuilder('uc')
+          .select('uc.systemId')
+          .where('uc.fileSystemId = :fileId', {fileId});
         USECASE_PARAM_FILTER.apply(qb, filter, 'uc');
+        const filtered = (await qb.getMany()) as Array<{systemId: number}>;
+        restrictToIds = filtered.map(r => r.systemId);
+        if (restrictToIds.length === 0) return Result.ok([]);
       }
 
-      // Step 2 — load baseline rows
-      let rows = (await qb.getMany()) as UseCaseRow[];
-
-      // Step 3 — three-tier overlay: usecase rows + GKV bin rows
-      // eslint-disable-next-line sonarjs/deprecation
-      const session = await this.editActionsQuerySvc.findActiveSession(fileId);
-
-      if (session) {
-        // Always apply — handles CREATE-injected usecases not yet in the main table
-        const usecaseActions = await this.editActionsQuerySvc.getByTable(
-          session.sessionId,
-          ENTITY_NAMES.UseCase,
-        );
-        // eslint-disable-next-line sonarjs/deprecation
-        rows = applyToCollection(rows, usecaseActions);
-
-        await Promise.all(
-          rows.map(row => this.applyRowOverlay(row, session.sessionId)),
-        );
-      }
-
-      // Step 4 — resolve key-value pairs for ALL usecases in one batched call.
-      // Collect all valueDefSystemIds across every usecase at once, then call
-      // getKeyValueSummaryForGivenValues once — it applies ValueDefinition +
-      // KeyDefinition overlay internally via applyBatchOverlay.
-      const allValueDefIds = rows.flatMap(row =>
-        (row.gkvEntries ?? []).map(e => e.valueDefSystemId),
+      // Fetcher handles UseCase scalars + GKV entry overlay + category assignments
+      const overlaidUsecases = await this.usecaseFetcher.applyToUsecases(
+        fileId,
+        sessionId,
+        restrictToIds,
       );
+
+      // Resolve GKV key-value pairs — the only reference lookup remaining
+      const allValueDefIds = [
+        ...new Set(
+          overlaidUsecases.flatMap(uc =>
+            uc.gkvEntries.map(e => e.valueDefSystemId),
+          ),
+        ),
+      ];
 
       const pairsResult =
         await this.keyValueDefQuerySvc.getKeyValueSummaryForGivenValues(
@@ -90,7 +94,6 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           fileId,
         );
 
-      // Build lookup: valueDefSystemId → resolved {key, value} pair
       type KvPair = {
         key: {systemId: number; keyId: number; name: string};
         value: {systemId: number; valueId: number; name: string};
@@ -103,9 +106,8 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         pairsList.map(pair => [pair.value.systemId, pair]),
       );
 
-      // Step 5 — assemble read models using the lookup
-      const readModels: UseCaseReadModel[] = rows.map(row => {
-        const gkv = (row.gkvEntries ?? [])
+      const readModels: UseCaseReadModel[] = overlaidUsecases.map(uc => {
+        const gkv = uc.gkvEntries
           .map(e => pairsMap.get(e.valueDefSystemId))
           .filter((p): p is NonNullable<typeof p> => p != null)
           .map(pair => ({
@@ -122,11 +124,11 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           }));
 
         return {
-          systemId: row.systemId,
+          systemId: uc.systemId,
           gkv,
-          alias: row.alias,
-          aliasId: row.aliasId,
-          categories: row.categories?.map(c => c.name),
+          alias: uc.alias,
+          aliasId: uc.aliasId,
+          categories: uc.categoryNames,
         };
       });
 
@@ -149,9 +151,8 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       return {modules: [], dataLinks: [], controlLinks: []};
     }
 
-    const session = await this.editActionsQuerySvc
-      // eslint-disable-next-line sonarjs/deprecation
-      .findActiveSession(0)
+    const session = await this.sessionRepo
+      .findActiveSessionByFileSystemId(0)
       .catch(() => null);
 
     const [modules, dataLinks, controlLinks] = await Promise.all([
@@ -165,64 +166,9 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   // ── Private helpers ───────────────────────────────────────────────────────────
 
-  /** Applies per-row session overlay: GKV bins (composite PK) + categories. */
-  private async applyRowOverlay(
-    row: UseCaseRow,
-    sessionId: number,
-  ): Promise<void> {
-    const aggActions = await this.editActionsQuerySvc.getByAggregateId(
-      sessionId,
-      row.systemId,
-    );
-    if (aggActions.length === 0) return;
-
-    // GKV bins (composite PK — no systemId; identify by valueDefSystemId)
-    const gkvActions = aggActions.filter(
-      a => a.targetTable === ENTITY_NAMES.UsecaseGkvValues,
-    );
-    if (gkvActions.length > 0 && row.gkvEntries) {
-      const deletedIds = new Set(
-        gkvActions
-          .filter(a => a.operation === 'DELETE')
-          .map(
-            a => (a.newValue as {valueDefSystemId?: number}).valueDefSystemId,
-          )
-          .filter((id): id is number => id != null),
-      );
-      row.gkvEntries = row.gkvEntries.filter(
-        e => !deletedIds.has(e.valueDefSystemId),
-      );
-
-      for (const a of gkvActions.filter(a => a.operation === 'CREATE')) {
-        const p = a.newValue as {
-          valueDefSystemId?: number;
-          usecaseSystemId?: number;
-        };
-        if (p.valueDefSystemId) {
-          row.gkvEntries = [
-            ...row.gkvEntries,
-            {
-              usecaseSystemId: p.usecaseSystemId ?? row.systemId,
-              valueDefSystemId: p.valueDefSystemId,
-            },
-          ];
-        }
-      }
-    }
-
-    // Categories
-    const categoryActions = aggActions.filter(
-      a => a.targetTable === ENTITY_NAMES.UseCaseCategory,
-    );
-    if (categoryActions.length > 0 && row.categories) {
-      // eslint-disable-next-line sonarjs/deprecation
-      row.categories = applyToCollection(row.categories, categoryActions);
-    }
-  }
-
   private async queryModulesForUseCases(
     ids: number[],
-    session: ProjectSessionRow | null,
+    session: {sessionId: number} | null,
   ) {
     const nodes = (await this.dataSource
       .getRepository(ENTITY_NAMES.Node)
@@ -320,7 +266,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   private async queryDataLinksForUseCases(
     ids: number[],
-    session: ProjectSessionRow | null,
+    session: {sessionId: number} | null,
   ) {
     const [intraSubgraph, intraUsecase] = await Promise.all([
       this.dataSource
@@ -368,7 +314,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   private async queryControlLinksForUseCases(
     ids: number[],
-    session: ProjectSessionRow | null,
+    session: {sessionId: number} | null,
   ) {
     const [intraSubgraph, intraUsecase] = await Promise.all([
       this.dataSource

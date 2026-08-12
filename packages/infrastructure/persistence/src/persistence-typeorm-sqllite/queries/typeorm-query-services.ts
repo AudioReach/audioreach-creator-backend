@@ -158,6 +158,7 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
       this.keyValueDefQueryService,
+      sessionRepo,
     );
 
     // Individual link + subsystem query services

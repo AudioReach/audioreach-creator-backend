@@ -12,12 +12,15 @@ import type {ValueDefinitionRow} from '../definitions/key-value/value-definition
 import {EntitySchema} from 'typeorm';
 import {USECASE_TYPE, type UsecaseType} from '@arc/core';
 
-export interface UseCaseRow extends EntityBaseRow {
+export interface UseCaseBase {
+  systemId: number;
   aliasId: number;
   alias: string;
   fileSystemId: number;
   type?: UsecaseType;
+}
 
+export interface UseCaseRow extends EntityBaseRow, UseCaseBase {
   // Relations
   file?: ArcDbFileRow;
   categories?: UseCaseCategoryRow[];
