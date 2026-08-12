@@ -15,6 +15,7 @@ import {
 } from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 
 export class DbContainerQueryService implements ContainerQueryService {
   private readonly containerFetcher: ContainerOverlayFetcher;
@@ -44,7 +45,9 @@ export class DbContainerQueryService implements ContainerQueryService {
         session?.sessionId ?? null,
       );
 
-      // Step 3 — resolve container type names in one batch query
+      // Step 3 — resolve container type names in one batch query.
+      // ContainerType is a static definition loaded from the .awsp file — not
+      // session-aware, no edit actions, no overlay fetcher needed.
       const typeIds = [
         ...new Set(
           rows
@@ -55,7 +58,7 @@ export class DbContainerQueryService implements ContainerQueryService {
       const typeNameMap = new Map<number, string>();
       if (typeIds.length > 0) {
         const typeRows = (await this.dataSource
-          .getRepository('ContainerType')
+          .getRepository(ENTITY_NAMES.ContainerType)
           .createQueryBuilder('ct')
           .select(['ct.systemId', 'ct.name'])
           .whereInIds(typeIds)

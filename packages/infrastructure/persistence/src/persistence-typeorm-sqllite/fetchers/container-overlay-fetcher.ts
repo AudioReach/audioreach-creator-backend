@@ -13,7 +13,6 @@ import type {EditActionRow} from '../entity-schema/edit-session/edit-action.sche
 import type {ContainerBase} from '../entity-schema/usecase-data/container/container.schema.js';
 import type {ContainerPropertyDataBase} from '../entity-schema/usecase-data/container/container-property-data.js';
 
-// Query-ready superset types.
 export interface OverlaidContainerProperty {
   systemId: number;
   containerSystemId: number;
@@ -132,7 +131,7 @@ export class ContainerOverlayFetcher {
 
     // Apply overlay to properties (CREATE, UPDATE, DELETE)
     const overlaidProps = this.overlay.applyToCollection(
-      basePropRows as unknown as Array<{systemId: number}>,
+      basePropRows,
       propActions,
     );
 
@@ -144,15 +143,12 @@ export class ContainerOverlayFetcher {
     );
 
     const survivingProps: OverlaidContainerProperty[] = [
-      ...overlaidProps.map(r => {
-        const p = r.effective as unknown as ContainerPropertyDataBase;
-        return {
-          systemId: p.systemId,
-          containerSystemId: p.containerSystemId,
-          propertySystemId: p.propertySystemId,
-          payload: p.payload,
-        };
-      }),
+      ...overlaidProps.map(r => ({
+        systemId: r.effective.systemId,
+        containerSystemId: r.effective.containerSystemId,
+        propertySystemId: r.effective.propertySystemId,
+        payload: r.effective.payload,
+      })),
       ...createdProps,
     ];
 
