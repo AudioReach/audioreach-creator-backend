@@ -5,15 +5,15 @@
 
 import {
   UsecaseResponseDto,
-  SubsystemFilteredUsecasesDto,
+  SubsystemFilteredUsecasesResponseDto,
 } from '../../../modules/usecase/dto/usecase-response.dto.js';
-import {ComponentCollectionResponseDto} from '../../dto/component-collection-response.dto.js';
+import {ComponentsResponseDto} from '../../dto/component-collection-response.dto.js';
 import {
-  KeyValueInfoResponseDto,
-  KeyInfoResponseDto,
-  ValueInfoResponseDto,
+  KeyValueInfoDto,
+  KeyInfoDto,
+  ValueInfoDto,
   SystemIdsRequestDto,
-  SubsystemFilteredKeyValuePairsInfoResponseDto,
+  SubsystemFilteredKeyValuePairsInfoDto,
 } from '../../dto/index.js';
 import {CONN_CTRL_TYPE, EndPointLink} from '../../../common/utils/index.js';
 import {
@@ -31,14 +31,14 @@ function kv(
   valueId: number,
   valueLabel: string,
   valueSystemId: string,
-): KeyValueInfoResponseDto {
-  return Object.assign(new KeyValueInfoResponseDto(), {
-    keyInfo: Object.assign(new KeyInfoResponseDto(), {
+): KeyValueInfoDto {
+  return Object.assign(new KeyValueInfoDto(), {
+    keyInfo: Object.assign(new KeyInfoDto(), {
       keyId,
       keyLabel,
       keySystemId,
     }),
-    valueInfo: Object.assign(new ValueInfoResponseDto(), {
+    valueInfo: Object.assign(new ValueInfoDto(), {
       valueId,
       valueLabel,
       valueSystemId,
@@ -50,8 +50,8 @@ function kv(
  * Example provider for SubsystemFilteredUsecases collection
  */
 export const SubsystemFilteredUseCaseCollectionExample = {
-  getExample(): SubsystemFilteredUsecasesDto[] {
-    const ssFilteredUcCollection: SubsystemFilteredUsecasesDto[] = [];
+  getExample(): SubsystemFilteredUsecasesResponseDto[] {
+    const ssFilteredUcCollection: SubsystemFilteredUsecasesResponseDto[] = [];
 
     // Subsystem filtered with multiple raw GKVs underneath
     const ucExamples = UseCaseIdentifierCollectionExample.getExample();
@@ -74,13 +74,13 @@ export const SubsystemFilteredUseCaseCollectionExample = {
       ),
     ];
     const filteredKv = Object.assign(
-      new SubsystemFilteredKeyValuePairsInfoResponseDto(),
+      new SubsystemFilteredKeyValuePairsInfoDto(),
       {
         keyValueCollection: keyvalueInfo,
       },
     );
     ssFilteredUcCollection.push(
-      new SubsystemFilteredUsecasesDto(filteredKv, ucExamples),
+      new SubsystemFilteredUsecasesResponseDto(filteredKv, ucExamples),
     );
 
     return ssFilteredUcCollection;
@@ -89,8 +89,8 @@ export const SubsystemFilteredUseCaseCollectionExample = {
   /**
    * Get example showing multiple filtered GKV scenarios
    */
-  getFilteredGKVExample(): SubsystemFilteredUsecasesDto[] {
-    const collection: SubsystemFilteredUsecasesDto[] = [];
+  getFilteredGKVExample(): SubsystemFilteredUsecasesResponseDto[] {
+    const collection: SubsystemFilteredUsecasesResponseDto[] = [];
 
     // First filtered group
     const keyvalueInfo1 = [
@@ -112,11 +112,13 @@ export const SubsystemFilteredUseCaseCollectionExample = {
       ),
     ];
     const filteredKv1 = Object.assign(
-      new SubsystemFilteredKeyValuePairsInfoResponseDto(),
+      new SubsystemFilteredKeyValuePairsInfoDto(),
       {keyValueCollection: keyvalueInfo1},
     );
     const usecases1 = [UsecaseResponseDtoExample.getExample()];
-    collection.push(new SubsystemFilteredUsecasesDto(filteredKv1, usecases1));
+    collection.push(
+      new SubsystemFilteredUsecasesResponseDto(filteredKv1, usecases1),
+    );
 
     // Second filtered group
     const keyvalueInfo2 = [
@@ -138,11 +140,13 @@ export const SubsystemFilteredUseCaseCollectionExample = {
       ),
     ];
     const filteredKv2 = Object.assign(
-      new SubsystemFilteredKeyValuePairsInfoResponseDto(),
+      new SubsystemFilteredKeyValuePairsInfoDto(),
       {keyValueCollection: keyvalueInfo2},
     );
     const usecases2 = UseCaseIdentifierCollectionExample.getExample();
-    collection.push(new SubsystemFilteredUsecasesDto(filteredKv2, usecases2));
+    collection.push(
+      new SubsystemFilteredUsecasesResponseDto(filteredKv2, usecases2),
+    );
 
     return collection;
   },
@@ -228,9 +232,9 @@ export const UseCaseIdentifierCollectionExample = {
  * Example provider for UsecaseComponents
  */
 export const UsecaseComponentsExample = {
-  getExample(): ComponentCollectionResponseDto {
-    // Create the ComponentCollectionResponseDto — populated after building the individual items below
-    const componentCollection = new ComponentCollectionResponseDto();
+  getExample(): ComponentsResponseDto {
+    // Create the ComponentsResponseDto — populated after building the individual items below
+    const componentCollection = new ComponentsResponseDto();
 
     // Create module instances
     const spfModule1 = Object.assign(new SpfModuleResponseDto(), {
@@ -346,7 +350,7 @@ export const UsecaseComponentsExample = {
     componentCollection.spfModules = [
       spfModule1,
       spfModule2,
-    ] as unknown as ComponentCollectionResponseDto['spfModules'];
+    ] as unknown as ComponentsResponseDto['spfModules'];
 
     // Create data links
     const dataConnection = Object.assign(new DataLinkResponseDto(), {
@@ -363,7 +367,7 @@ export const UsecaseComponentsExample = {
 
     componentCollection.dataLinks = [
       dataConnection,
-    ] as unknown as ComponentCollectionResponseDto['dataLinks'];
+    ] as unknown as ComponentsResponseDto['dataLinks'];
 
     // Create control links
     const controlLink = Object.assign(new ControlLinkResponseDto(), {
@@ -380,7 +384,7 @@ export const UsecaseComponentsExample = {
 
     componentCollection.controlLinks = [
       controlLink,
-    ] as unknown as ComponentCollectionResponseDto['controlLinks'];
+    ] as unknown as ComponentsResponseDto['controlLinks'];
 
     // Return the component collection directly (no wrapper)
     return componentCollection;

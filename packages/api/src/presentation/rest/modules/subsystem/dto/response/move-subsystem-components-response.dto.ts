@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ComponentCollectionWithSubsystemsDto} from '../../../../common/dto/component-collection-with-subsystems.dto.js';
+import {ComponentsWithSubsystemsResponseDto} from '../../../../common/dto/component-collection-with-subsystems.dto.js';
 
 /**
  * Response DTO for move-in and move-out operations on a subsystem.
@@ -21,26 +21,26 @@ export class MoveSubsystemComponentsResponseDto {
   @ApiProperty({
     description:
       'Components that were moved (with updated parentId) and any newly constructed links.',
-    type: () => ComponentCollectionWithSubsystemsDto,
+    type: () => ComponentsWithSubsystemsResponseDto,
     required: false,
   })
-  added?: ComponentCollectionWithSubsystemsDto;
+  added?: ComponentsWithSubsystemsResponseDto;
 
   @ApiProperty({
     description:
       'Entities that pre-existed and were modified by the move ' +
       '(e.g. subsystems whose children list or port wiring changed).',
-    type: () => ComponentCollectionWithSubsystemsDto,
+    type: () => ComponentsWithSubsystemsResponseDto,
     required: false,
   })
-  updated?: ComponentCollectionWithSubsystemsDto;
+  updated?: ComponentsWithSubsystemsResponseDto;
 
   @ApiProperty({
     description:
       'Links that were removed because they became invalid after the move. ' +
       'Does not include the moved components themselves.',
-    type: () => ComponentCollectionWithSubsystemsDto,
+    type: () => ComponentsWithSubsystemsResponseDto,
     required: false,
   })
-  removed?: ComponentCollectionWithSubsystemsDto;
+  removed?: ComponentsWithSubsystemsResponseDto;
 }

@@ -6,7 +6,7 @@
 import {Controller, Post, Body, HttpStatus} from '@nestjs/common';
 import {ApiTags} from '@nestjs/swagger';
 import {AuthenticationService} from './authentication.service.js';
-import {RegisterDto, RegisterResponseData} from './dto/authentication.dto.js';
+import {RegisterDto, RegisterResponseDto} from './dto/authentication.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
@@ -30,7 +30,7 @@ export class AuthenticationController {
       {
         status: HttpStatus.OK,
         description: 'Client registered successfully',
-        dto: RegisterResponseData,
+        dto: RegisterResponseDto,
         example: {
           className: 'RegisterResponseDataExample',
         },
@@ -41,7 +41,7 @@ export class AuthenticationController {
       },
     ],
   })
-  register(@Body() request?: RegisterDto): ApiResult<RegisterResponseData> {
+  register(@Body() request?: RegisterDto): ApiResult<RegisterResponseDto> {
     const data = this.authService.register(request);
     return toApiResult(Result.ok(data));
   }

@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ParameterResponseDto} from '../../../../common/dto/parameter-response.dto.js';
+import {ParameterDto} from '../../../../common/dto/parameter.dto.js';
 
 /**
  * Request DTO for updating SPF module calibration data - supports multiple parameters
@@ -12,7 +12,7 @@ import {ParameterResponseDto} from '../../../../common/dto/parameter-response.dt
 export class UpdateSpfModuleCalDataRequestDto {
   @ApiProperty({
     description: 'Array of calibration data updates for multiple parameters',
-    type: [ParameterResponseDto],
+    type: [ParameterDto],
   })
-  data!: ParameterResponseDto[];
+  data!: ParameterDto[];
 }

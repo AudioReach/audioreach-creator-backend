@@ -4,6 +4,6 @@
  */
 
 import {createZodDto} from 'nestjs-zod';
-import {BitFieldDtoSchema} from '@arc/core';
+import {StructDtoSchema} from '@arc/core';
 
-export class BitFieldResponseDto extends createZodDto(BitFieldDtoSchema) {}
+export class StructDto extends createZodDto(StructDtoSchema) {}

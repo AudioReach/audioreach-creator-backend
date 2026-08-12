@@ -22,10 +22,10 @@ import {
 } from './dto/subgraph-response.dto.js';
 import {SubgraphPairResponseDto} from './dto/subgraph-pair-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
-import {ConfigElementResponseDto} from '../../common/dto/element-data/elements/config-element/config-element-response.dto.js';
-import {ElementTemplateArrayResponseDto} from '../../common/dto/element-data/elements/element-template-array-response.dto.js';
-import {StructResponseDto} from '../../common/dto/element-data/elements/struct-response.dto.js';
+import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
+import {ConfigElementDto} from '../../common/dto/element-data/elements/config-element/config-element.dto.js';
+import {ElementTemplateArrayDto} from '../../common/dto/element-data/elements/element-template-array.dto.js';
+import {StructDto} from '../../common/dto/element-data/elements/struct.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {UsecaseResponseDto} from '../usecase/dto/usecase-response.dto.js';
@@ -46,11 +46,7 @@ import {
 @ApiTags('subgraphs')
 @Controller('arc-api/v1/projects/:projectId/subgraphs')
 //@UseGuards(AuthGuard('jwt'))
-@ApiExtraModels(
-  ConfigElementResponseDto,
-  ElementTemplateArrayResponseDto,
-  StructResponseDto,
-)
+@ApiExtraModels(ConfigElementDto, ElementTemplateArrayDto, StructDto)
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
@@ -237,13 +233,13 @@ export class SubgraphController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Components returned successfully',
-        dto: ComponentCollectionResponseDto,
+        dto: ComponentsResponseDto,
       },
       {
         status: HttpStatus.MULTI_STATUS,
         description:
           'Partial success — some components could not be retrieved (see errors array)',
-        dto: ComponentCollectionResponseDto,
+        dto: ComponentsResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -258,7 +254,7 @@ export class SubgraphController extends BaseController {
   async getComponentsForSubgraph(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
-  ): Promise<ApiResult<ComponentCollectionResponseDto>> {
+  ): Promise<ApiResult<ComponentsResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     const parsedSubgraphId = Number.parseInt(subgraphSystemId, 10);
 

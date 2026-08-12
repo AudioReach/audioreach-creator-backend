@@ -15,7 +15,7 @@ export class ChangesetRequestDto {
   changeIds!: string[];
 }
 
-export class ChangesetResponseDto {
+export class ChangesetDto {
   @ApiProperty({description: 'Overall operation success status'})
   success!: boolean;
 
@@ -41,7 +41,7 @@ export class StageChangesRequestDto extends ChangesetRequestDto {
   declare changeIds: string[];
 }
 
-export class StageChangesResponseDto extends ChangesetResponseDto {
+export class StageChangesResponseDto extends ChangesetDto {
   @ApiProperty({description: 'Successfully staged change IDs'})
   declare processedChangeIds: string[];
 
@@ -55,7 +55,7 @@ export class UnstageChangesRequestDto extends ChangesetRequestDto {
   declare changeIds: string[];
 }
 
-export class UnstageChangesResponseDto extends ChangesetResponseDto {
+export class UnstageChangesResponseDto extends ChangesetDto {
   @ApiProperty({description: 'Successfully unstaged change IDs'})
   declare processedChangeIds: string[];
 
@@ -76,7 +76,7 @@ export class CommitChangesRequestDto {
   changeIds?: string[];
 }
 
-export class CommitChangesResponseDto extends ChangesetResponseDto {
+export class CommitChangesResponseDto extends ChangesetDto {
   @ApiProperty({description: 'Successfully committed change IDs'})
   declare processedChangeIds: string[];
 
@@ -104,7 +104,7 @@ export class DiscardChangesRequestDto {
   changeIds?: string[];
 }
 
-export class DiscardChangesResponseDto extends ChangesetResponseDto {
+export class DiscardChangesResponseDto extends ChangesetDto {
   @ApiProperty({description: 'Successfully discarded change IDs'})
   declare processedChangeIds: string[];
 

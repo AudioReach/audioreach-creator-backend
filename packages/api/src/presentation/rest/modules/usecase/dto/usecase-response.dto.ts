@@ -23,7 +23,7 @@ export enum UsecaseType {
   Manual = 'Manual',
 }
 
-export class SubsystemFilteredUsecasesDto {
+export class SubsystemFilteredUsecasesResponseDto {
   @ApiProperty({
     description: 'Subsystem-filtered key-value information',
     required: false,

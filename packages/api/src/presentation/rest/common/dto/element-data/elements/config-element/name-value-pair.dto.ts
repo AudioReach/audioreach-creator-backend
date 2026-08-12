@@ -4,8 +4,6 @@
  */
 
 import {createZodDto} from 'nestjs-zod';
-import {ConfigElementDtoSchema} from '@arc/core';
+import {NameValuePairDtoSchema} from '@arc/core';
 
-export class ConfigElementResponseDto extends createZodDto(
-  ConfigElementDtoSchema,
-) {}
+export class NameValuePairDto extends createZodDto(NameValuePairDtoSchema) {}

@@ -5,7 +5,7 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {CkvResponseDto} from '../shared/ckv-response.dto.js';
-import {ParamInfoResponseDto} from '../shared/param-info-response.dto.js';
+import {ParamInfoDto} from '../shared/param-info.dto.js';
 
 /**
  * Response DTO for CKV parameter operations.
@@ -14,9 +14,9 @@ import {ParamInfoResponseDto} from '../shared/param-info-response.dto.js';
 export class CkvParametersResponseDto {
   @ApiProperty({
     description: 'Array of parameters that support CALIBRATION for this module',
-    type: [ParamInfoResponseDto],
+    type: [ParamInfoDto],
   })
-  parameters!: ParamInfoResponseDto[];
+  parameters!: ParamInfoDto[];
 }
 
 /**
@@ -31,9 +31,9 @@ export class TkvParameterItem {
 
   @ApiProperty({
     description: 'Parameters supported by this TKV',
-    type: [ParamInfoResponseDto],
+    type: [ParamInfoDto],
   })
-  parameters!: ParamInfoResponseDto[];
+  parameters!: ParamInfoDto[];
 }
 
 /**

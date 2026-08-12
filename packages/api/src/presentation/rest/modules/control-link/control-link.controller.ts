@@ -29,8 +29,8 @@ import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.deco
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
-import {ComponentCollectionResponseDto} from '../../common/dto/component-collection-response.dto.js';
-import {ComponentCollectionWithSubsystemsDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
+import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
+import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
 import {
   CommandBus,
   CreateControlLinkCommand,
@@ -104,20 +104,20 @@ export class ControlLinkController extends BaseController {
 
   /**
    * Create a new control link (flat view).
-   * Stores all segments in DB; returns ComponentCollectionResponseDto.
+   * Stores all segments in DB; returns ComponentsResponseDto.
    */
   @Post()
   @ApiDocumentationWithExample({
     summary: 'Create a new control link (flat view)',
     description:
       'Creates a control link between two modules. Stores all segments in DB. ' +
-      'Returns flat ComponentCollectionResponseDto with the created link.',
+      'Returns flat ComponentsResponseDto with the created link.',
     requestDto: CreateControlLinkRequest,
     responses: [
       {
         status: HttpStatus.CREATED,
         description: 'Control link created successfully',
-        dto: ComponentCollectionResponseDto,
+        dto: ComponentsResponseDto,
       },
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
@@ -134,7 +134,7 @@ export class ControlLinkController extends BaseController {
   async createControlLink(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateControlLinkRequest,
-  ): Promise<ApiResult<ComponentCollectionResponseDto>> {
+  ): Promise<ApiResult<ComponentsResponseDto>> {
     console.log(
       'Creating control link for project:',
       projectId,
@@ -151,7 +151,7 @@ export class ControlLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+      await this.commandBus.execute<ComponentsResponseDto>(command);
     return toApiResult(Result.ok(components));
   }
 
@@ -164,13 +164,13 @@ export class ControlLinkController extends BaseController {
     summary: 'Create a new control link (full view with subsystem hierarchy)',
     description:
       'Creates a control link — SAME DB write as POST /control-links. ' +
-      'Returns ComponentCollectionWithSubsystemsDto with the created link and subsystem structure.',
+      'Returns ComponentsWithSubsystemsResponseDto with the created link and subsystem structure.',
     requestDto: CreateControlLinkRequest,
     responses: [
       {
         status: HttpStatus.CREATED,
         description: 'Control link created successfully',
-        dto: ComponentCollectionWithSubsystemsDto,
+        dto: ComponentsWithSubsystemsResponseDto,
       },
       {status: HttpStatus.BAD_REQUEST, description: 'Invalid request data'},
       {
@@ -187,7 +187,7 @@ export class ControlLinkController extends BaseController {
   async createControlLinkWithSubsystems(
     @Param('projectId') projectId: string,
     @Body() createDto: CreateControlLinkRequest,
-  ): Promise<ApiResult<ComponentCollectionWithSubsystemsDto>> {
+  ): Promise<ApiResult<ComponentsWithSubsystemsResponseDto>> {
     console.log(
       'Creating control link (with-subsystems) for project:',
       projectId,
@@ -202,7 +202,7 @@ export class ControlLinkController extends BaseController {
     );
 
     const components =
-      await this.commandBus.execute<ComponentCollectionResponseDto>(command);
+      await this.commandBus.execute<ComponentsResponseDto>(command);
     return toApiResult(Result.ok({...components, subsystems: []}));
   }
 
