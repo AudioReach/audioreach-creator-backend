@@ -21,7 +21,7 @@ export interface SpfModuleQueryService {
    *   - Throws (or rethrows) on any other total failure (DB error, definition failure).
    *   - Never returns `Result.fail` — this method is not `Result`-shaped.
    */
-  findOne(
+  getSpfModule(
     spfModuleSystemId: number,
     fileSystemId: number,
   ): Promise<SpfModuleReadModel>;
@@ -32,7 +32,7 @@ export interface SpfModuleQueryService {
    * Unknown IDs are silently omitted — partial result.
    * Empty input returns `Result.fail(INVALID_INPUT)` — an empty request is a caller bug.
    */
-  findMany(
+  getSpfModules(
     systemIds: number[],
     fileSystemId: number,
   ): Promise<Result<SpfModuleReadModel[]>>;

@@ -93,11 +93,11 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     );
   }
 
-  async findOne(
+  async getSpfModule(
     spfModuleSystemId: number,
     fileSystemId: number,
   ): Promise<SpfModuleReadModel> {
-    const result = await this.findMany([spfModuleSystemId], fileSystemId);
+    const result = await this.getSpfModules([spfModuleSystemId], fileSystemId);
 
     if (result.kind === RESULT_KIND.Fail) {
       const message = result.issues[0]?.message ?? 'Failed to load SPF module';
@@ -143,7 +143,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       if (nodeIds.size === 0) return Result.ok([]);
 
       // Step 3 — findMany handles definition caps, port loading, and module-level overlay
-      return this.findMany([...nodeIds], fileSystemId);
+      return this.getSpfModules([...nodeIds], fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -180,7 +180,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       }
 
       if (nodeIds.size === 0) return Result.ok([]);
-      return this.findMany([...nodeIds], fileSystemId);
+      return this.getSpfModules([...nodeIds], fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -193,7 +193,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     }
   }
 
-  async findMany(
+  async getSpfModules(
     systemIds: number[],
     fileSystemId: number,
   ): Promise<Result<SpfModuleReadModel[]>> {

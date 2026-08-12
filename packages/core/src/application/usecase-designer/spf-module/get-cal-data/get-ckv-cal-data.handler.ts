@@ -40,10 +40,11 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
         query.projectId,
       );
 
-    const spfModule = await this.queryServices.spfModuleQueryService.findOne(
-      query.spfModuleSystemId,
-      fileSystemId,
-    );
+    const spfModule =
+      await this.queryServices.spfModuleQueryService.getSpfModule(
+        query.spfModuleSystemId,
+        fileSystemId,
+      );
 
     const [ckv, payloads, parameterDefinitions] = await Promise.all([
       this.queryServices.spfModuleQueryService.ckvQueryService.getCkv(
