@@ -106,7 +106,7 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
 
     const filtered = paramSystemIds
       ? overlaidPayloads.filter(p =>
-          paramSystemIds.includes(p.parameterSystemId),
+          paramSystemIds.includes(p.systemId),
         )
       : overlaidPayloads;
 
@@ -149,7 +149,7 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       .createQueryBuilder('payload')
       .where('payload.ckvSystemId = :ckvSystemId', {ckvSystemId});
     if (paramSystemIds && paramSystemIds.length > 0) {
-      qb.andWhere('payload.parameterSystemId IN (:...ids)', {
+      qb.andWhere('payload.systemId IN (:...ids)', {
         ids: paramSystemIds,
       });
     }

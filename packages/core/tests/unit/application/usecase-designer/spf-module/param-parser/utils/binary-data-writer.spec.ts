@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {BinaryDataWriter} from '../../../../../../../src/application/usecase-designer/shared/utils/binary-data-writer.js';
 
 describe('BinaryDataWriter', () => {

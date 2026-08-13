@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {serializeParameterData} from '../../../../../../src/application/usecase-designer/shared/serialize-elements.js';
 import type {ParameterDefinitionBase} from '../../../../../../src/application/ports/persistence/repositories/module/module-definition.repository.js';
 

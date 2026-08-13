@@ -45,7 +45,7 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
       fileSystemId,
     );
 
-    const [ckv, payloads, parameterDefinitions] = await Promise.all([
+    const [ckv, payloads] = await Promise.all([
       this.queryServices.spfModuleQueryService.ckvQueryService.getCkv(
         fileSystemId,
         query.spfModuleSystemId,
@@ -57,12 +57,17 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
         query.ckvSystemId,
         query.paramSystemIds,
       ),
-      this.queryServices.spfModuleDefinitionQueryService.queryParameterDefinitions(
+    ]);
+
+    const relevantParamSystemIds = payloads.map(
+      (p: ParameterPayloadReadModel) => p.parameterSystemId,
+    );
+    const parameterDefinitions =
+      await this.queryServices.spfModuleDefinitionQueryService.queryParameterDefinitions(
         fileSystemId,
         spfModule.definitionSystemId,
-        query.paramSystemIds,
-      ),
-    ]);
+        relevantParamSystemIds,
+      );
 
     if (!ckv) {
       throw new ResourceNotFoundException(
@@ -75,7 +80,7 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
         ? (() => {
             const returnedIds = new Set(
               payloads.map(
-                (p: ParameterPayloadReadModel) => p.parameterSystemId,
+                (p: ParameterPayloadReadModel) => p.systemId,
               ),
             );
             return query.paramSystemIds.filter(id => !returnedIds.has(id));
