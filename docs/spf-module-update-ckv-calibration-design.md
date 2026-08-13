@@ -40,8 +40,8 @@ The client submits modified parameter data for a given SPF module CKV; the serve
 | ID | Requirement |
 |---|---|
 | FR1 | The endpoint is `PUT /:spfModuleSystemId/cal-data/:ckvSystemId` and accepts a JSON request body. |
-| FR2 | The request body is a wrapper object (`UpdateSpfModuleCalDataRequest`) with two fields: `parameters: ParameterDetailDto[]` (same shape as `CalDataDto.parameters` from GET) and `uiPersistence?: string` (optional — see FR3). The existing `UpdateSpfModuleCalDataRequest` DTO is updated to reflect this shape (renaming the current `data` field to `parameters` and adding `uiPersistence`). |
-| FR3 | The request body includes an optional `uiPersistence` field (hex string of binary payload). If present, it is converted to binary and written to `Ckv.uiPersistence` in the database. If absent, `Ckv.uiPersistence` is left unchanged. |
+| FR2 | The request body is a wrapper object (`UpdateSpfModuleCalDataRequestDto`) with two fields: `parameters: ParameterResponseDto[]` (same shape as `CkvCalDataDto.parameters` from GET) and `uiPersistence?: string` (optional — see FR3). The existing `UpdateSpfModuleCalDataRequest` DTO is updated to reflect this shape (renaming the current `data` field to `parameters` and adding `uiPersistence`). |
+| FR3 | The request body includes an optional `uiPersistence` field (plain UTF-8 text). If present, it is encoded with `TextEncoder` and written to `Ckv.uiPersistence` in the database. If absent, `Ckv.uiPersistence` is left unchanged. |
 | FR4 | The client sends only the parameters they want to update (identified by `systemId`). Other parameters under the same CKV are unaffected. |
 | FR5 | Any parameter where `isReadOnly: true` must be rejected. This is a per-parameter failure; other parameters in the same request may still succeed. |
 | FR6 | Each valid parameter's element data is converted back to a binary payload (serialization). Serialization failure is a per-parameter failure. The following rules apply: <br>- Each element value is converted based on its `dataType` (e.g., `Int16`, `UInt32`, `Float`, `Double`). <br>- Each element value is validated to be within range, considering both the `dataType` bounds and the element's `min`/`max` constraints. An out-of-range value is a serialization failure. <br>&nbsp;&nbsp;* For `Int64`/`UInt64` values, `bigint` must be used instead of `number` since TypeScript's `number` type does not cover the full 64-bit integer range. <br>&nbsp;&nbsp;* For `Float` values, range validation must use float32 precision since C `float` is 32-bit while TypeScript `number` is 64-bit. <br>- For a dynamic array whose length depends on another element (with or without a formula), the actual array length must be validated against the dependency element's value. <br>- A struct's serialized payload must be 4-byte aligned. <br>- A whole parameter's serialized payload must be 8-byte aligned. If the payload length is not a multiple of 8, it is padded with zero bytes. |
@@ -89,7 +89,7 @@ flowchart TD
     N -->|No| O[Write successful payloads\nvia UnitOfWork]
 
     O --> P{uiPersistence\nin request?}
-    P -->|Yes| Q[Convert hex string to binary\nWrite to Ckv.uiPersistence in DB]
+    P -->|Yes| Q[Encode with TextEncoder\nWrite to Ckv.uiPersistence in DB]
     P -->|No| R{Outcome?}
     Q --> R
 
@@ -128,8 +128,8 @@ packages/core/src/application/
     ├── put-cal-data/
     │   ├── put-ckv-cal-data.command.ts                (new)      # PutCkvCalDataCommand
     │   ├── put-ckv-cal-data.handler.ts                (new)      # PutCkvCalDataHandler
-    │   └── put-ckv-cal-data-result.ts                 (new)      # handler return type (successes + failures)
-    └── param-parser/
+    │   └── put-ckv-cal-data-result.ts                 (new)      # PutCkvCalDataResult — handler result data type
+    └── shared/
         ├── serialize-elements.ts                         (new)      # serializeParameterData() entry point
         └── utils/
             └── binary-data-writer.ts                     (new)      # BinaryDataWriter — symmetric pair to BinaryDataReader
@@ -144,7 +144,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 │       └── module-definition.repository.ts               (modified) # add getParameterDefinitions()
 ├── fetchers/
 │   ├── ckv-overlay-fetcher.ts                            (new)      # CkvOverlayFetcher — Layers 1+2 for CKV and CkvParameterPayload reads (shared by GET and PUT)
-│   └── spf-module-parameter-definition.fetcher.ts        (new)      # SpfModuleParameterDefinitionFetcher — Layers 1+2 for param def reads
+│   └── definitions/module-parameter-definition-fetcher.ts        (new)      # ModuleParameterDefinitionFetcher — Layers 1+2 for param def reads
 └── queries/
     ├── module-calibration/
     │   └── db-ckv-calibration-query-service.ts           (modified) # getCkvForQuery, getCkvPayloads delegate Layers 1+2 to CkvOverlayFetcher
@@ -179,9 +179,10 @@ Core (Application)
       1. validate SpfModule exists → HTTP 404 if not  (uow.getModuleRepository().getSpfModuleForValidation)
             returns lean type: { systemId, definitionSystemId, subgraphSystemId, containerSystemId }
       2. validate CKV exists → HTTP 404 if not        (uow.getModuleRepository().getCkvForValidation)
-      3. fetch in parallel:
-           - existing payload rows                    (uow.getModuleRepository().getExistingCkvPayloads)
-           - parameter definitions                    (uow.getModuleDefinitionRepository().getParameterDefinitions)
+      3. fetch existing payload rows                   (uow.getModuleRepository().getExistingCkvPayloads)
+            returns { systemId, parameterSystemId } per row
+      4. fetch parameter definitions filtered to the parameterSystemIds from step 3
+                                                       (uow.getModuleDefinitionRepository().getParameterDefinitions)
 
     Process phase (pure logic — no DB):
       5. for each submitted parameter:
@@ -204,17 +205,24 @@ Core (Application)
       6. write successful payloads + optional uiPersistence via uow.getModuleRepository().setCkvCalData()
 
     Return value (Core → Controller):
-      { succeededParamSystemIds: number[], failures: { parameterSystemId, reason }[] }
+      Result<PutCkvCalDataResult>  — Ok if all succeeded, Partial if any failed
+      PutCkvCalDataResult = { groupId: string, succeededParamSystemIds: number[] }
+      Per-parameter failures are embedded as Issue[] in the Result envelope (not a separate field on the result type)
+
+    **Architectural constraint:** Write handlers must not call queries. The two-step
+    SET+GET orchestration (write cal data, then read it back) is the controller's
+    responsibility. This keeps command handlers free of query-side dependencies and
+    makes the two operations independently observable and testable.
 
 Presentation (API) — after command completes:
   Response phase:
-      8. if any succeeded → dispatch GetCkvCalibrationDataQuery via QueryBus
-         with succeededParamSystemIds as filter → CkvCalibrationReadModel
-         transform to CalDataDto using same mapping as GET
-      9. assemble ApiResult<CalDataDto>:
-         data    = CalDataDto (omitted if all failed)
-         issues  = failures mapped to ApiIssueItem[]
-     10. HTTP 200 (all success) or HTTP 207 (partial or total failure)
+      8. guard: if putResult.kind === Fail → throw (PutCkvCalDataHandler never returns Fail)
+      9. if putResult.data.succeededParamSystemIds.length > 0 → dispatch GetCkvCalibrationDataQuery
+         via QueryBus with succeededParamSystemIds as filter → CkvCalibrationReadModel → CalDataDto
+     10. assemble ApiResult<CalDataDto>:
+         data    = CalDataDto from GET query (omitted if all failed)
+         issues  = putResult.issues (Issue[] already built by handler — no mapping needed)
+     11. HTTP 200 (all success) or HTTP 207 (partial or total failure)
 
 Infrastructure (Persistence)
   **ModuleRepository impl** (TypeOrmModuleRepository):
@@ -274,23 +282,25 @@ async updateCalibrationData(
     body.parameters, body.uiPersistence,
   );
 
-  const result = await this.commandBus.execute(command, session);
-  // result: { groupId: string, succeededParamSystemIds: number[], failures: ParameterFailure[] }
+  const putResult = await this.commandBus.execute<Result<PutCkvCalDataResult>>(command, session);
+  // Handler never returns Fail — guard for TypeScript narrowing
+  if (putResult.kind === RESULT_KIND.Fail) throw new Error('PutCkvCalDataHandler returned unexpected Fail result');
 
-  let data: CalDataDto | undefined;
-  if (result.succeededParamSystemIds.length > 0) {
+  let data: CkvCalDataDto | undefined;
+  if (putResult.data.succeededParamSystemIds.length > 0) {
     const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
     const query = new GetCkvCalibrationDataQuery(
       projectId, spfModuleSystemId, ckvSystemId,
       clientId,
-      result.succeededParamSystemIds.join(','),
+      putResult.data.succeededParamSystemIds.join(','),
     );
-    const readModel = await this.queryBus.execute(query);
-    data = mapCkvCalibrationReadModelToCalDataDto(readModel);
+    const readResult = await this.queryBus.execute<Result<CkvCalDataDto>>(query);
+    data = readResult.kind !== RESULT_KIND.Fail ? readResult.data : undefined;
   }
 
-  const issues = result.failures.map(f => toApiIssueItem(f));
-  return buildApiResult(data, issues);
+  const issues = putResult.issues ?? [];
+  const resultEnvelope = issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
+  return toApiResult(resultEnvelope);
   // PartialSuccessInterceptor handles HTTP 200 vs 207 automatically
 }
 ```
@@ -300,16 +310,15 @@ async updateCalibrationData(
 **File:** `packages/api/src/presentation/rest/modules/spf-module/dto/request/update-spf-module-cal-data-request.dto.ts` (modified)
 
 The existing `UpdateSpfModuleCalDataRequest` DTO is updated:
-- Rename field `data` → `parameters` (same shape: `ParameterDetailDto[]`)
-- Add optional field `uiPersistence?: string` (hex string, FR3)
+- Rename field `data` → `parameters` (same shape: `ParameterResponseDto[]`)
+- Add optional field `uiPersistence?: string` (plain UTF-8 text, FR3)
 
 ```typescript
-export class UpdateSpfModuleCalDataRequest {
-  @IsArray()
-  parameters: ParameterDetailDto[];
+export class UpdateSpfModuleCalDataRequestDto {
+  @ApiProperty({type: [ParameterResponseDto]})
+  parameters!: ParameterResponseDto[];
 
-  @IsOptional()
-  @IsString()
+  @ApiProperty({required: false})
   uiPersistence?: string;
 }
 ```
@@ -318,7 +327,7 @@ export class UpdateSpfModuleCalDataRequest {
 
 **File:** `packages/api/src/presentation/rest/modules/spf-module/spf-module.controller.ts` (modified — same method as 2.1)
 
-`PartialSuccessInterceptor` already handles HTTP 200 vs 207 based on whether `issues` is non-empty — no changes needed. The controller assembles `ApiResult<CalDataDto>` with:
+`PartialSuccessInterceptor` already handles HTTP 200 vs 207 — it upgrades to 207 when `issues` contains at least one `Error` or `Fatal` severity entry. No changes needed to the interceptor. The controller assembles `ApiResult<CalDataDto>` with:
 
 | Field | Value |
 |---|---|
@@ -340,16 +349,16 @@ HTTP status:
 
 Same `parseId()` pattern as `GetCkvCalibrationDataQuery` — IDs parsed in constructor, not controller (FR12).
 
-Core must not import API-layer types. Because `ElementCalData` (the GET output type) is now also the PUT input type, the command imports it directly from Core — no separate mirror types are needed. The controller maps `ParameterDetailDto[]` to `ParameterCalDataInput[]` before constructing the command, converting each DTO element to its corresponding `ElementCalData` variant.
+Core must not import API-layer types. Because `ElementData` (the GET output type) is now also the PUT input type, the command imports it directly from Core — no separate mirror types are needed. The controller maps `ParameterResponseDto[]` to `ParameterCalDataInput[]` before constructing the command, converting each DTO element to its corresponding `ElementData` variant.
 
 ```typescript
-import type {ElementCalData} from '../param-parser/types/element-cal-data.js';
+import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
 
 export interface ParameterCalDataInput {
   systemId: string;   // string from DTO — parsed to number in command constructor (same parseId() pattern as GetCkvCalibrationDataQuery)
-  elements: ElementCalData[];
+  elements: ElementData[];
 }
 
 export class PutCkvCalDataCommand extends BaseCommand {
@@ -361,7 +370,7 @@ export class PutCkvCalDataCommand extends BaseCommand {
 
   public readonly spfModuleSystemId: number;
   public readonly ckvSystemId: number;
-  public readonly parameters: Array<{ systemId: number; elements: ElementCalData[] }>;
+  public readonly parameters: Array<{ systemId: number; elements: ElementData[] }>;
   public readonly uiPersistence: string | undefined;
 
   constructor(
@@ -396,9 +405,9 @@ Constructor takes only `UnitOfWork` — same as `PatchSpfModuleHandler`. No sepa
 | Read source | Method | Purpose |
 |---|---|---|
 | `ModuleRepository` (via `uow.getModuleRepository()`) | `getSpfModuleForValidation(spfModuleSystemId, fileSystemId)` | validate SpfModule exists; provides `definitionSystemId`; overlay-aware (CREATE/DELETE) |
-| `ModuleDefinitionRepository` (via `uow.getModuleDefinitionRepository()`) | `getParameterDefinitions(definitionSystemId, fileSystemId, paramSystemIds?)` | get `isReadOnly`, `elementsStructure` per parameter; filtered to submitted params; overlay-aware |
-| `ModuleRepository` (via `uow.getModuleRepository()`) | `getCkvForValidation(spfModuleSystemId, ckvSystemId, fileSystemId)` | validate CKV exists; overlay-aware (CREATE/DELETE) |
-| `ModuleRepository` (via `uow.getModuleRepository()`) | `getExistingCkvPayloads(spfModuleSystemId, ckvSystemId, fileSystemId)` | fetch existing payload rows (FR15 check); returns `{ systemId, parameterSystemId }` per row; overlay-aware (CREATE/DELETE) |
+| `ModuleDefinitionRepository` (via `uow.getModuleDefinitionRepository()`) | `getParameterDefinitions(moduleDefSystemId, paramSystemIds?)` | get `isReadOnly`, `elementsStructure` per parameter; filtered to `parameterSystemId` values from existing payload rows; overlay-aware |
+| `ModuleRepository` (via `uow.getModuleRepository()`) | `getCkvForValidation(spfModuleSystemId, ckvSystemId)` | validate CKV exists; overlay-aware (CREATE/DELETE) |
+| `ModuleRepository` (via `uow.getModuleRepository()`) | `getExistingCkvPayloads(spfModuleSystemId, ckvSystemId)` | fetch existing payload rows (FR15 check); returns `{ systemId, parameterSystemId }` per row; overlay-aware (CREATE/DELETE) |
 
 `fileSystemId` is obtained from `uow.getWriteContext().session.fileSystemId` — not from a separate port call. This is the same pattern used by all handlers (e.g., `PatchSpfModuleHandler`).
 
@@ -407,15 +416,16 @@ Constructor takes only `UnitOfWork` — same as `PatchSpfModuleHandler`. No sepa
 ```typescript
 export class PutCkvCalDataHandler implements CommandHandler<
   PutCkvCalDataCommand,
-  PutCkvCalDataResult
+  Result<PutCkvCalDataResult>
 > {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly logger?: Logger,
   ) {}
 
-  async handle(command: PutCkvCalDataCommand): Promise<PutCkvCalDataResult> {
-    const fileSystemId = this.uow.getWriteContext().session.fileSystemId;
+  async handle(command: PutCkvCalDataCommand): Promise<Result<PutCkvCalDataResult>> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const fileSystemId = session.fileSystemId;
 
     // ── Step 1: validate SpfModule exists ────────────────────────────────────
     const spfModule = await this.uow.getModuleRepository()
@@ -425,46 +435,62 @@ export class PutCkvCalDataHandler implements CommandHandler<
     // ── Step 2: validate CKV exists under this SpfModule ─────────────────────
     const moduleRepo = this.uow.getModuleRepository();
     const ckv = await moduleRepo.getCkvForValidation(
-      command.spfModuleSystemId, command.ckvSystemId, fileSystemId,
+      command.spfModuleSystemId, command.ckvSystemId,
     );
     if (!ckv) throw new ResourceNotFoundException('CKV not found');              // → HTTP 404
 
-    // ── Step 3: fetch existing payloads + parameter definitions in parallel ──
-    const [existingPayloads, definitions] = await Promise.all([
-      moduleRepo.getExistingCkvPayloads(command.spfModuleSystemId, command.ckvSystemId, fileSystemId),
-      this.uow.getModuleDefinitionRepository()
-        .getParameterDefinitions(spfModule.definitionSystemId, fileSystemId,
-          command.parameters.map(p => p.systemId)),  // filter to only submitted params
-    ]);
+    // ── Step 3: fetch existing payloads, then fetch definitions keyed to those param IDs ──
+    const existingPayloads = await moduleRepo.getExistingCkvPayloads(
+      command.spfModuleSystemId, command.ckvSystemId,
+    );
+    // Use parameterSystemId (SpfModuleParameterDefinition FK), not the payload's own systemId
+    const definitions = await this.uow.getModuleDefinitionRepository()
+      .getParameterDefinitions(
+        spfModule.definitionSystemId,
+        existingPayloads.map(p => p.parameterSystemId),
+      );
 
     // ── Step 4: per-parameter validation and serialization ───────────────────
-    // index by PK (systemId) — matches param.systemId from client (GET→PUT flow)
+    // payloadMap keyed by payload.systemId — matches param.systemId from client (GET→PUT flow)
     const payloadMap = new Map(existingPayloads.map(p => [p.systemId, p]));
+    // defMap keyed by parameterSystemId — matched via existingPayload.parameterSystemId
     const defMap = new Map(definitions.map(d => [d.systemId, d]));
 
     const succeededParamSystemIds: number[] = [];
-    const failures: ParameterFailure[] = [];
+    const issues: Issue[] = [];
     const writeBatch: Array<{ payloadSystemId: number; payload: Uint8Array }> = [];
 
     for (const param of command.parameters) {
       // 4.a — no existing payload row: reject (update-only, no INSERT)
       const existingPayload = payloadMap.get(param.systemId);
       if (!existingPayload) {
-        failures.push({ parameterSystemId: param.systemId, reason: 'No existing payload row' });
+        issues.push({
+          code: ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND,
+          message: `Parameter ${param.systemId}: no existing payload row (update-only)`,
+          severity: IssueSeverity.Error,
+        });
         continue;
       }
       // 4.b — definition missing for the payload row's FK: DB integrity violation, abort entire request
       const def = defMap.get(existingPayload.parameterSystemId);
-      if (!def) throw new ParameterDefinitionMissingError(existingPayload.parameterSystemId);
+      if (!def) throw new Error(`ParameterDefinition missing for parameterSystemId=${existingPayload.parameterSystemId} — DB integrity violation`);
       // 4.c — parameter is read-only: per-parameter failure
       if (def.isReadOnly) {
-        failures.push({ parameterSystemId: param.systemId, reason: 'Parameter is read-only' });
+        issues.push({
+          code: ISSUE_CODE.PARAM_READ_ONLY,
+          message: `Parameter ${param.systemId}: parameter is read-only`,
+          severity: IssueSeverity.Error,
+        });
         continue;
       }
       // 4.d/e — serialize input elements to binary; failure is per-parameter
       const serialized = serializeParameterData(def, param.elements, this.logger);
       if (!serialized.ok) {
-        failures.push({ parameterSystemId: param.systemId, reason: serialized.error });
+        issues.push({
+          code: ISSUE_CODE.PARAM_SERIALIZATION_FAILED,
+          message: `Parameter ${param.systemId}: ${serialized.error}`,
+          severity: IssueSeverity.Error,
+        });
         continue;
       }
       succeededParamSystemIds.push(param.systemId);
@@ -482,7 +508,7 @@ export class PutCkvCalDataHandler implements CommandHandler<
         command.ckvSystemId,
         writeBatch.map(w => ({ payloadSystemId: w.payloadSystemId, payload: w.payload })),
         command.uiPersistence !== undefined
-          ? hexStringToUint8Array(command.uiPersistence)
+          ? new TextEncoder().encode(command.uiPersistence)
           : undefined,
       );
       await this.uow.commit();
@@ -493,14 +519,11 @@ export class PutCkvCalDataHandler implements CommandHandler<
 
     this.logger?.log(
       `PutCkvCalDataHandler: ${succeededParamSystemIds.length} succeeded, ` +
-      `${failures.length} failed for ckvSystemId=${command.ckvSystemId}`,
+      `${issues.length} failed for ckvSystemId=${command.ckvSystemId}`,
     );
 
-    return {
-      groupId: this.uow.getWriteContext().groupId,
-      succeededParamSystemIds,
-      failures,
-    };
+    const data: PutCkvCalDataResult = {groupId, succeededParamSystemIds};
+    return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
   }
 }
 ```
@@ -508,17 +531,28 @@ export class PutCkvCalDataHandler implements CommandHandler<
 **Handler return type** (`put-ckv-cal-data-result.ts`):
 
 ```typescript
-export interface ParameterFailure {
-  parameterSystemId: number;
-  reason: string;
-}
-
+// put-ckv-cal-data-result.ts
 export interface PutCkvCalDataResult {
   groupId: string;
   succeededParamSystemIds: number[];
-  failures: ParameterFailure[];
+  // No failures[] — per-parameter failures are carried as Issue[] in the Result envelope
 }
 ```
+
+The handler returns `Result<PutCkvCalDataResult>`:
+- All parameters succeeded → `Result.ok(data)` → HTTP 200
+- One or more parameters failed → `Result.partial(data, issues)` → HTTP 207
+- Handler never returns `Result.fail()` — hard failures (not found, DB integrity) throw exceptions
+
+**Issue codes used by this handler** (`packages/core/src/shared/issues/operational-codes.ts`):
+
+| Code | `ISSUE_CODE` key | When emitted |
+|---|---|---|
+| `PARAM_PAYLOAD_NOT_FOUND` | `ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND` | Submitted parameter has no existing payload row (update-only, FR15) |
+| `PARAM_READ_ONLY` | `ISSUE_CODE.PARAM_READ_ONLY` | Parameter definition has `isReadOnly: true` (FR5) |
+| `PARAM_SERIALIZATION_FAILED` | `ISSUE_CODE.PARAM_SERIALIZATION_FAILED` | `serializeParameterData` returns `{ok: false}` (FR6) |
+
+All issues use `IssueSeverity.Error` — each represents a write failure where a parameter was submitted for update but was not written. `PartialSuccessInterceptor` requires `Error` or `Fatal` severity to upgrade from 200 to 207. The controller passes `putResult.issues` through directly to `toApiResult()` — no mapping needed.
 
 ### 3.3 ModuleRepository Extensions and ModuleDefinitionRepository Extension
 
@@ -572,7 +606,6 @@ export interface ModuleRepository {
   getCkvForValidation(
     spfModuleSystemId: number,
     ckvSystemId: number,
-    fileSystemId: number,
   ): Promise<CkvForValidation | null>;
 
   // Overlay-aware: the FR15 existence check must reflect the session's pending state.
@@ -582,7 +615,6 @@ export interface ModuleRepository {
   getExistingCkvPayloads(
     spfModuleSystemId: number,
     ckvSystemId: number,
-    fileSystemId: number,
   ): Promise<ExistingPayloadRow[]>;
 
   // Write method — records pending changes to edit_actions (not direct SQL UPDATEs).
@@ -620,8 +652,7 @@ export interface ModuleDefinitionRepository {
   //   Consistent with how DbCkvCalibrationQueryService.getCkvPayloads filters on the GET side.
   // ParameterDefinitionReadModel (GET) extends ParameterDefinitionBase — one change propagates to both.
   getParameterDefinitions(
-    definitionSystemId: number,
-    fileSystemId: number,
+    moduleDefSystemId: number,
     paramSystemIds?: number[],
   ): Promise<ParameterDefinitionBase[]>;
 }
@@ -631,7 +662,7 @@ export interface ModuleDefinitionRepository {
 
 #### 3.4.1 BinaryDataWriter
 
-**File:** `packages/core/src/application/usecase-designer/spf-module/param-parser/utils/binary-data-writer.ts` (new)
+**File:** `packages/core/src/application/usecase-designer/shared/utils/binary-data-writer.ts` (new)
 
 Symmetric pair to the existing `BinaryDataReader`. Wraps a growing `ArrayBuffer` and exposes typed write methods.
 
@@ -661,9 +692,9 @@ export class BinaryDataWriter {
 
 #### 3.4.2 serializeParameterData()
 
-**File:** `packages/core/src/application/usecase-designer/spf-module/param-parser/serialize-elements.ts` (new)
+**File:** `packages/core/src/application/usecase-designer/shared/serialize-elements.ts` (new)
 
-`serializeParameterData` is the symmetric counterpart to `parseParameterData`. It takes a parameter's `ParameterDefinition` (from DB) and the client-submitted `ElementCalData[]` — the same unified type used by GET — and produces a binary `Uint8Array` payload suitable for writing to `CkvParameterPayload.payload`.
+`serializeParameterData` is the symmetric counterpart to `parseParameterData`. It takes a parameter's `ParameterDefinition` (from DB) and the client-submitted `ElementData[]` — the same unified type used by GET — and produces a binary `Uint8Array` payload suitable for writing to `CkvParameterPayload.payload`.
 
 ```typescript
 type SerializeResult =
@@ -672,7 +703,7 @@ type SerializeResult =
 
 function serializeParameterData(
   definition: ParameterDefinition,  // from DB — elementsStructure is authoritative schema
-  inputElements: ElementCalData[],  // from API request — same type as GET output
+  inputElements: ElementData[],  // from API request — same type as GET output
   logger?: Logger,
 ): SerializeResult
 ```
@@ -722,24 +753,19 @@ Adds CKV validation reads and the `setCkvCalData` write method to the existing `
   async getCkvForValidation(
     spfModuleSystemId: number,
     ckvSystemId: number,
-    fileSystemId: number,
   ): Promise<CkvForValidation | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    // Layers 1+2 delegated to shared fetcher (same logic as DbCkvCalibrationQueryService)
     const row = await this.ckvOverlayFetcher.fetchCkv(
-      ckvSystemId, spfModuleSystemId, fileSystemId, sessionId,
+      ckvSystemId, spfModuleSystemId, sessionId,
     );
-    // Layer 3: map to lean validation type
     return row ? { systemId: row.systemId } : null;
   }
 
   async getExistingCkvPayloads(
     spfModuleSystemId: number,
     ckvSystemId: number,
-    fileSystemId: number,
   ): Promise<ExistingPayloadRow[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    // Layers 1+2 delegated to shared fetcher
     const rows = await this.ckvOverlayFetcher.fetchCkvPayloads(
       ckvSystemId, spfModuleSystemId, fileSystemId, sessionId,
     );
@@ -859,13 +885,13 @@ Unit tests run in-process with no database. All dependencies are mocked/stubbed.
 |---|---|
 | `getSpfModuleForValidation` returns null | throws `ResourceNotFoundException` |
 | `getCkvForValidation` returns null | throws `ResourceNotFoundException` |
-| Definition missing for payload FK | throws `ParameterDefinitionMissingError` |
-| Parameter is read-only | added to `failures`; not in `writeBatch` |
-| No existing payload row | added to `failures` (update-only) |
-| Serialization fails | added to `failures` with `reason` from `SerializeResult.error` |
-| `setCkvCalData` throws | calls `rollback()`, logs error, re-throws |
-| All parameters succeed, no `uiPersistence` | returns `{ succeededParamSystemIds: [...], failures: [] }`; `setCkvCalData` called with correct batch |
-| Partial success | returns correct `succeededParamSystemIds` and `failures` |
+| Definition missing for payload FK | throws (DB integrity violation — `Error`) |
+| Parameter is read-only | issue pushed with `ISSUE_CODE.PARAM_READ_ONLY`; not in `writeBatch` |
+| No existing payload row | issue pushed with `ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND` (update-only) |
+| Serialization fails | issue pushed with `ISSUE_CODE.PARAM_SERIALIZATION_FAILED` |
+| `setCkvCalData` throws | calls `rollback()`, re-throws |
+| All parameters succeed, no `uiPersistence` | returns `Result.ok({ groupId, succeededParamSystemIds: [...] })`; `setCkvCalData` called with correct batch |
+| Partial success | returns `Result.partial({ groupId, succeededParamSystemIds }, issues)` with correct issue codes |
 | `uiPersistence` present in request | `setCkvCalData` called with `uiPersistence` `Uint8Array`; included in same transaction |
 
 #### serializeParameterData
@@ -965,47 +991,19 @@ E2E tests send real HTTP requests to a running NestJS app with an in-memory SQLi
 
 ## Section 6: Impact on Existing GET Workflow
 
-### Overview
-
-The GET cal-data workflow (`GetCkvCalibrationDataQuery` → `DbSpfModuleDefinitionQueryService`) is **not changed functionally**. The only change is a persistence-layer refactor: `queryParameterDefinitions` in `DbSpfModuleDefinitionQueryService` is rewritten to delegate Layers 1 and 2 to the new `SpfModuleParameterDefinitionFetcher`, then perform its own Layer 3 mapping as before. The `TypeOrmModuleDefinitionRepository` gains a new `getParameterDefinitions` method that delegates to the same fetcher.
+The GET cal-data workflow is **not changed functionally**. The only change is an internal persistence-layer refactor: `queryParameterDefinitions` in `DbSpfModuleDefinitionQueryService` is rewritten to delegate Layers 1 and 2 to the new `ModuleParameterDefinitionFetcher`, then performs its own Layer 3 mapping as before.
 
 The GET response shape, query service interface, and Core types are unchanged.
 
----
+### 6.1 Files Changed
 
-### 6.1 Files Changed by This Feature That the GET Workflow Touches
+| File | Change |
+|---|---|
+| `packages/infrastructure/persistence/src/.../fetchers/definitions/module-parameter-definition-fetcher.ts` | New file — Layers 1+2 for parameter definition reads |
+| `packages/infrastructure/persistence/src/.../queries/spf-module-definition/db-spf-module-definition-query-service.ts` | `queryParameterDefinitions` delegates Layers 1+2 to `ModuleParameterDefinitionFetcher`; Layer 3 mapping unchanged; constructor gains `ModuleParameterDefinitionFetcher` dependency |
+| `packages/core/.../repositories/module/module-definition.repository.ts` | New `ParameterDefinitionBase` type; `ParameterDefinitionReadModel` (GET) extends it — no behavior change |
 
-| File | Change | Impact on GET |
-|---|---|---|
-| `packages/infrastructure/persistence/src/.../queries/module-calibration/db-ckv-calibration-query-service.ts` | CKV and payload reads delegate Layers 1+2 to `CkvOverlayFetcher`; own Layer 3 mapping unchanged | Behavior identical; constructor gains `CkvOverlayFetcher` dependency |
-| `packages/infrastructure/persistence/src/.../fetchers/ckv-overlay-fetcher.ts` | New file — Layers 1+2 for CKV and CkvParameterPayload reads | Called by `DbCkvCalibrationQueryService` (GET) and `TypeOrmModuleRepository` CKV methods (PUT) |
-| `packages/infrastructure/persistence/src/.../queries/spf-module-definition/db-spf-module-definition-query-service.ts` | `queryParameterDefinitions` delegates Layers 1+2 to `SpfModuleParameterDefinitionFetcher`; its own Layer 3 mapping (`toParameterDefinitionReadModel`) is unchanged | Behavior identical; constructor gains one parameter |
-| `packages/infrastructure/persistence/src/.../fetchers/spf-module-parameter-definition.fetcher.ts` | New file | Called by `DbSpfModuleDefinitionQueryService` (GET) and `TypeOrmModuleDefinitionRepository.getParameterDefinitions` (PUT) |
-| `packages/infrastructure/persistence/src/.../repositories/module/module-definition.repository.ts` | New `getParameterDefinitions` method — delegates Layers 1+2 to `SpfModuleParameterDefinitionFetcher`; maps to `ParameterDefinitionBase` (lean) | GET unaffected; constructor gains `SpfModuleParameterDefinitionFetcher` dependency |
-| `packages/core/.../repositories/module/module-definition.repository.ts` | New `getParameterDefinitions` method + `ParameterDefinitionBase` type | `ParameterDefinitionReadModel` (GET) extends `ParameterDefinitionBase` — no change to GET behavior, only explicit subtype relationship |
-
----
-
-### 6.2 What Is Shared Between GET and PUT
-
-The three-layer model from `write-path-validation-reads-pattern.md` §4 applies to both the parameter-definition reads and the CKV reads:
-
-| Data | Layer | GET path | PUT path | Shared? |
-|---|---|---|---|---|
-| Parameter definitions | Layer 1+2 — DB query + overlay | `SpfModuleParameterDefinitionFetcher.fetch()` | `SpfModuleParameterDefinitionFetcher.fetch()` | **Yes** — same fetcher |
-| Parameter definitions | Layer 3 — Mapping | `DbSpfModuleDefinitionQueryService` → `ParameterDefinitionReadModel` (verbose) | `TypeOrmModuleDefinitionRepository` → `ParameterDefinitionBase` (lean) | **No** — each path maps to its own type |
-| CKV existence | Layer 1+2 — DB query + overlay | `CkvOverlayFetcher.fetchCkv()` | `CkvOverlayFetcher.fetchCkv()` | **Yes** — same fetcher |
-| CKV existence | Layer 3 — Mapping | `DbCkvCalibrationQueryService` → CKV read model | `TypeOrmModuleRepository.getCkvForValidation()` → `CkvForValidation` (lean) | **No** — each path maps to its own type |
-| CKV payload rows | Layer 1+2 — DB query + overlay | `CkvOverlayFetcher.fetchCkvPayloads()` | `CkvOverlayFetcher.fetchCkvPayloads()` | **Yes** — same fetcher |
-| CKV payload rows | Layer 3 — Mapping | `DbCkvCalibrationQueryService` → payload read model | `TypeOrmModuleRepository.getExistingCkvPayloads()` → `ExistingPayloadRow` (lean) | **No** — each path maps to its own type |
-
-The GET path returns full read models for the response DTO. The PUT path returns lean types containing only the fields needed for validation and serialization.
-
----
-
-### 6.3 Constructor Injection
-
-`DbSpfModuleDefinitionQueryService` currently creates its query logic inline. After the refactor its constructor gains one new dependency:
+### 6.2 Constructor Change in `DbSpfModuleDefinitionQueryService`
 
 ```typescript
 // Before
@@ -1018,56 +1016,9 @@ constructor(
 constructor(
   private readonly dataSource: DataSource,
   private readonly editActionsSvc: EditActionsQueryService,
-  private readonly paramDefFetcher: SpfModuleParameterDefinitionFetcher,  // ← new
+  private readonly paramDefFetcher: ModuleParameterDefinitionFetcher,  // ← new
 ) {}
 ```
 
-`SpfModuleParameterDefinitionFetcher` is constructed at the same wiring site that already constructs `DbSpfModuleDefinitionQueryService` (the persistence module or NestJS provider factory), passing the same `dataSource` and `editActionsSvc`. No new dependencies are introduced — the fetcher uses the same two dependencies already available.
-
-`TypeOrmModuleDefinitionRepository` gains the same fetcher dependency so its `getParameterDefinitions` method can delegate Layers 1+2 to it, performing only Layer 3 mapping itself.
-
-`DbCkvCalibrationQueryService` gains a `CkvOverlayFetcher` dependency. `TypeOrmModuleRepository` also gains the same fetcher dependency for its `getCkvForValidation` and `getExistingCkvPayloads` methods. Both callers pass `sessionId` (or `null` when no session is active) directly — no additional resolution needed.
-
-```typescript
-// DbCkvCalibrationQueryService — after
-constructor(
-  private readonly dataSource: DataSource,
-  private readonly editActionsSvc: EditActionsQueryService,
-  private readonly ckvOverlayFetcher: CkvOverlayFetcher,  // ← new
-) {}
-
-// TypeOrmModuleRepository — after (existing deps omitted for brevity)
-constructor(
-  ...,
-  private readonly ckvOverlayFetcher: CkvOverlayFetcher,  // ← new
-) {}
-```
-
-`CkvOverlayFetcher` uses the same `dataSource` and `editActionsSvc` already available at both wiring sites — no new top-level dependencies.
-
----
-
-### 6.4 Structural Summary After This Feature
-
-```
-Core
-  ParameterDefinitionBase                 ← new; minimal validation fields (in module-definition.repository.ts)
-  ParameterDefinitionReadModel            ← existing; extends ParameterDefinitionBase
-
-Infrastructure (persistence)
-  CkvOverlayFetcher                       ← new; Layer 1+2 (CKV and CkvParameterPayload DB query + overlay)
-  DbCkvCalibrationQueryService            ← modified; CKV reads delegate Layers 1+2 to CkvOverlayFetcher
-    ├── calls CkvOverlayFetcher.fetchCkv() / fetchCkvPayloads()  ← Layer 1+2 (shared)
-    └── maps to CKV read models                                  ← Layer 3 (GET-specific, unchanged)
-  TypeOrmModuleRepository                 ← modified; getCkvForValidation/getExistingCkvPayloads delegate Layers 1+2
-    ├── calls CkvOverlayFetcher.fetchCkv() / fetchCkvPayloads()  ← Layer 1+2 (shared)
-    └── maps to CkvForValidation / ExistingPayloadRow            ← Layer 3 (PUT-specific, lean)
-  SpfModuleParameterDefinitionFetcher     ← new; Layer 1+2 (param def DB query + overlay)
-  DbSpfModuleDefinitionQueryService       ← modified; queryParameterDefinitions delegates Layers 1+2
-    ├── calls SpfModuleParameterDefinitionFetcher.fetch()  ← Layer 1+2 (shared)
-    └── maps to ParameterDefinitionReadModel               ← Layer 3 (GET-specific, unchanged)
-  TypeOrmModuleDefinitionRepository       ← modified; new getParameterDefinitions method
-    ├── calls SpfModuleParameterDefinitionFetcher.fetch()  ← Layer 1+2 (shared)
-    └── maps to ParameterDefinitionBase                    ← Layer 3 (PUT-specific, lean)
-```
+`ModuleParameterDefinitionFetcher` is constructed at the same wiring site, passing the same `dataSource` and `editActionsSvc`. No new top-level dependencies are introduced.
 
