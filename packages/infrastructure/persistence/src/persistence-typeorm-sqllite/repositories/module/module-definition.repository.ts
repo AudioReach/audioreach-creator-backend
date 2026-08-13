@@ -8,6 +8,7 @@ import type {
   ModuleDefinitionRepository,
   UnitOfWork,
   CalibrationParameterRecord,
+  ParameterDefinitionBase,
 } from '@arc/core';
 import {
   SpfModuleDefinition,
@@ -23,12 +24,14 @@ import {SpfModuleDefinitionRootFetcher} from '../../fetchers/definitions/spf-mod
 import {DataPortGroupFetcher} from '../../fetchers/definitions/spf-module-definitions/data-port-group-fetcher.js';
 import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
 import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
+import {ModuleParameterDefinitionFetcher} from '../../fetchers/definitions/module-parameter-definition-fetcher.js';
 
 export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionRepository {
   private readonly rootFetcher: SpfModuleDefinitionRootFetcher;
   private readonly portGroupFetcher: DataPortGroupFetcher;
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
+  private readonly paramDefFetcher: ModuleParameterDefinitionFetcher;
 
   constructor(
     private readonly manager: EntityManager,
@@ -45,6 +48,10 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       editActionsQs,
     );
     this.dynamicIntentFetcher = new DynamicIntentDefFetcher(
+      manager,
+      editActionsQs,
+    );
+    this.paramDefFetcher = new ModuleParameterDefinitionFetcher(
       manager,
       editActionsQs,
     );
@@ -140,6 +147,23 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       dynamicIntents: dynamicIntentDomains,
       isLoadedAtBootup: Boolean(root.isLoadedAtBootup),
     });
+  }
+
+  async getParameterDefinitions(
+    moduleDefSystemId: number,
+    paramSystemIds?: number[],
+  ): Promise<ParameterDefinitionBase[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.paramDefFetcher.fetchParameterDefinitions(
+      moduleDefSystemId,
+      sessionId,
+      paramSystemIds,
+    );
+    return rows.map(r => ({
+      systemId: r.systemId,
+      isReadOnly: r.isReadOnly,
+      elementsStructure: r.elementsStructure,
+    }));
   }
 
   async findCalibrationParametersByDefinitionId(

@@ -4,17 +4,27 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {ModuleRepository, UnitOfWork, EditOptions} from '@arc/core';
+import type {
+  ModuleRepository,
+  UnitOfWork,
+  EditOptions,
+  SpfModuleForValidation,
+  CkvForValidation,
+  ExistingPayloadRow,
+  CkvPayloadUpdate,
+} from '@arc/core';
 import {SpfModule, DataPort, ControlPort} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {ModuleNodeOverlayFetcher} from '../../fetchers/module-node-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
+import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
   private readonly portFetcher: PortOverlayFetcher;
+  private readonly ckvOverlayFetcher: CkvOverlayFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -27,6 +37,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       editActionsQs,
     );
     this.portFetcher = new PortOverlayFetcher(manager, editActionsQs);
+    this.ckvOverlayFetcher = new CkvOverlayFetcher(manager, editActionsQs);
   }
 
   async findModuleForPatch(
@@ -290,6 +301,89 @@ export class TypeOrmModuleRepository implements ModuleRepository {
             fileSystemId,
           },
           ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async getSpfModuleForValidation(
+    spfModuleSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleForValidation | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const row = await this.moduleNodeFetcher.fetchOne(
+      spfModuleSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    if (!row) return null;
+    return {
+      systemId: row.systemId,
+      definitionSystemId: row.definitionSystemId,
+      subgraphSystemId: row.subgraphSystemId,
+      containerSystemId: row.containerSystemId,
+    };
+  }
+
+  async getCkvForValidation(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+  ): Promise<CkvForValidation | null> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const row = await this.ckvOverlayFetcher.fetchCkv(
+      ckvSystemId,
+      spfModuleSystemId,
+      sessionId,
+    );
+    return row ? {systemId: row.systemId} : null;
+  }
+
+  async getExistingCkvPayloads(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+  ): Promise<ExistingPayloadRow[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.ckvOverlayFetcher.fetchCkvPayloads(
+      ckvSystemId,
+      spfModuleSystemId,
+      sessionId,
+    );
+    return rows.map(r => ({
+      systemId: r.systemId,
+      parameterSystemId: r.parameterSystemId,
+    }));
+  }
+
+  async setCkvCalData(
+    spfModuleSystemId: number,
+    ckvSystemId: number,
+    payloadUpdates: CkvPayloadUpdate[],
+    uiPersistence?: Uint8Array,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const update of payloadUpdates) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.CkvParameterPayload,
+          targetSystemId: update.payloadSystemId,
+          aggregateId: spfModuleSystemId,
+          delta: {payload: update.payload},
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    if (uiPersistence !== undefined) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.Ckv,
+          targetSystemId: ckvSystemId,
+          aggregateId: spfModuleSystemId,
+          delta: {uiPersistence: uiPersistence},
         },
         session.sessionId,
         groupId,
