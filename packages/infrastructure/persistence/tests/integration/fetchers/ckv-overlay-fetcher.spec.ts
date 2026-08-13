@@ -252,7 +252,10 @@ describe('CkvOverlayFetcher (integration)', () => {
       targetSystemId: newPayloadId,
       targetTable: ENTITY_NAMES.CkvParameterPayload,
       operation: CHANGE_OPERATION.Create,
-      newValue: JSON.stringify({ckvSystemId: CKV_ID, parameterSystemId: PARAM_DEF_ID}),
+      newValue: JSON.stringify({
+        ckvSystemId: CKV_ID,
+        parameterSystemId: PARAM_DEF_ID,
+      }),
     });
     const results = await fetcher.fetchCkvPayloads(
       CKV_ID,

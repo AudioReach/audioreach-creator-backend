@@ -228,7 +228,8 @@ function checkDataTypeBounds(dataType: string, v: number): string | null {
       if (v < 0 || v > 65_535) return `${v} out of UInt16 range`;
       break;
     case 'Int32':
-      if (v < -2_147_483_648 || v > 2_147_483_647) return `${v} out of Int32 range`;
+      if (v < -2_147_483_648 || v > 2_147_483_647)
+        return `${v} out of Int32 range`;
       break;
     case 'UInt32':
       if (v < 0 || v > 4_294_967_295) return `${v} out of UInt32 range`;

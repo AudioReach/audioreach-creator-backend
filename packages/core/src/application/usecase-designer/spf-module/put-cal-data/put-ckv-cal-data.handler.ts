@@ -18,7 +18,12 @@ import type {ParameterDefinitionBase} from '../../../ports/persistence/repositor
 import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
 
 type ParamProcessResult =
-  | {ok: true; payloadSystemId: number; paramSystemId: number; payload: Uint8Array}
+  | {
+      ok: true;
+      payloadSystemId: number;
+      paramSystemId: number;
+      payload: Uint8Array;
+    }
   | {ok: false; issue: Issue};
 
 export class PutCkvCalDataHandler {
@@ -77,7 +82,7 @@ export class PutCkvCalDataHandler {
         issues.push(result.issue);
         continue;
       }
-      succeededParamSystemIds.push(result.paramSystemId);
+      succeededParamSystemIds.push(result.payloadSystemId);
       writeBatch.push({
         payloadSystemId: result.payloadSystemId,
         payload: result.payload,
