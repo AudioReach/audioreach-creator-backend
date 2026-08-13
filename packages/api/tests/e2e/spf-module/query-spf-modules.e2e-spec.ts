@@ -303,16 +303,16 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
       expect(Array.isArray(module.ckvs)).toBe(true);
 
       for (const ckv of module.ckvs) {
-        // CKV shape: systemId, keyValueCollection, supportedParameters
+        // CKV shape: systemId, keyValuePairs, supportedParameters
         expect(typeof ckv.systemId).toBe('string');
-        expect(Array.isArray(ckv.keyValueCollection)).toBe(true);
+        expect(Array.isArray(ckv.keyValuePairs)).toBe(true);
         expect(Array.isArray(ckv.supportedParameters)).toBe(true);
 
-        for (const kv of ckv.keyValueCollection) {
+        for (const kv of ckv.keyValuePairs) {
           expect(typeof kv.key.keyId).toBe('number');
-          expect(typeof kv.key.keyLabel).toBe('string');
+          expect(typeof kv.key.name).toBe('string');
           expect(typeof kv.value.valueId).toBe('number');
-          expect(typeof kv.value.valueLabel).toBe('string');
+          expect(typeof kv.value.name).toBe('string');
         }
 
         for (const param of ckv.supportedParameters) {
@@ -354,7 +354,7 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
 
         for (const tkv of tag.tkvs) {
           expect(typeof tkv.systemId).toBe('string');
-          expect(Array.isArray(tkv.keyValueCollection)).toBe(true);
+          expect(Array.isArray(tkv.keyValuePairs)).toBe(true);
           expect(Array.isArray(tkv.supportedParameters)).toBe(true);
         }
       }

@@ -108,7 +108,7 @@ describe('Usecase & Subgraph Component Query E2E', () => {
 
       const usecase = resp.body.data[0];
       expect(usecase.systemId).toBeDefined();
-      expect(Array.isArray(usecase.keyValueCollection)).toBe(true);
+      expect(Array.isArray(usecase.keyValuePairs)).toBe(true);
     });
 
     it('returns 400 for an invalid filter field', async () => {

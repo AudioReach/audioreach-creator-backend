@@ -4,15 +4,14 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {BaseDto} from '../base.dto.js';
-import {KeyValueDto} from '../key-value.dto.js';
+import {KeyValueInfoDto} from '../kv-info.dto.js';
 import {UsecaseAliasDto} from './usecase-alias.dto.js';
 
 /**
  * Summary DTO containing essential usecase identification fields.
  * Used for list views and lightweight usecase representations.
  */
-export class UsecaseSummaryDto extends BaseDto {
+export class UsecaseSummaryDto {
   @ApiProperty({
     description: 'Unique system identifier for the usecase',
     type: String,
@@ -21,9 +20,9 @@ export class UsecaseSummaryDto extends BaseDto {
 
   @ApiProperty({
     description: 'Array of Key-Value pair for the usecase',
-    type: [KeyValueDto],
+    type: [KeyValueInfoDto],
   })
-  gkv!: KeyValueDto[];
+  gkv!: KeyValueInfoDto[];
 
   @ApiProperty({
     description:

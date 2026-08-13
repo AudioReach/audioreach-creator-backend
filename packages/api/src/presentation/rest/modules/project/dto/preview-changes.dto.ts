@@ -8,12 +8,166 @@ import {UsecaseResponseDto} from '../../usecase/dto/usecase-response.dto.js';
 import {KeyDefinitionResponseDto} from '../../definition/key-definition/dto/key-definition-response.dto.js';
 import {SpfModuleDefinitionResponseDto} from '../../definition/module-definition/dto/spf-module-definition-response.dto.js';
 import {DriverModuleDefinitionResponseDto} from '../../definition/module-definition/dto/driver-module-definition-response.dto.js';
-import {SpfPropertyDefinitionDto} from '../../definition/property-definition/dto/spf-property-definition.dto.js';
-import {DriverPropertyDefinitionDto} from '../../definition/property-definition/dto/driver-property-definition.dto.js';
-import {DriverModuleDto} from '../../driver-data/dto/driver-module.dto.js';
-import {CustomModuleDto} from '../../module-manager/dto/custom-module.dto.js';
-import {UsecaseCategoryDto} from '../../metadata/usecase-category/dto/usecase-category.dto.js';
-import {UsecaseAliasDto} from '../../metadata/usecase-alias/dto/usecase-alias.dto.js';
+
+// ── Inlined DTOs (used only in this file) ────────────────────────────────────
+
+class SpfPropertyDto {
+  @ApiProperty({description: 'Property ID'})
+  id!: string;
+
+  @ApiProperty({description: 'Property name'})
+  name!: string;
+
+  @ApiProperty({description: 'Maximum size in bytes'})
+  maxSize!: string;
+
+  @ApiProperty({description: 'Voice property flag', required: false})
+  isVoice?: boolean;
+
+  @ApiProperty({description: 'Property description'})
+  description!: string;
+}
+
+class SpfPropertyDefinitionDto {
+  @ApiProperty({description: 'Property category ID'})
+  propCategoryID!: string;
+
+  @ApiProperty({description: 'Property category name'})
+  propCategoryName!: string;
+
+  @ApiProperty({
+    type: [SpfPropertyDto],
+    description: 'List of properties in this category',
+  })
+  properties!: SpfPropertyDto[];
+}
+
+class DriverPropertyDto {
+  @ApiProperty({description: 'Property ID'})
+  id!: string;
+
+  @ApiProperty({description: 'Property name'})
+  name!: string;
+
+  @ApiProperty({description: 'Maximum size in bytes'})
+  maxSize!: string;
+
+  @ApiProperty({description: 'Voice property flag', required: false})
+  isVoice?: boolean;
+
+  @ApiProperty({description: 'Property description'})
+  description!: string;
+}
+
+class DriverPropertyDefinitionDto {
+  @ApiProperty({
+    type: [DriverPropertyDto],
+    description: 'List of driver properties',
+  })
+  properties!: DriverPropertyDto[];
+}
+
+class DriverModuleCalDataDto {
+  @ApiProperty({description: 'Calibration key vector'})
+  ckv!: string;
+
+  @ApiProperty({description: 'Parameter ID'})
+  pid!: string;
+
+  @ApiProperty({description: 'Parameter name'})
+  name!: string;
+
+  @ApiProperty({description: 'Calibration data structure'})
+  calData!: Record<string, unknown>;
+}
+
+class DriverModuleCalDto {
+  @ApiProperty({description: 'Module ID'})
+  mid!: string;
+
+  @ApiProperty({description: 'Module name'})
+  name!: string;
+
+  @ApiProperty({
+    type: [DriverModuleCalDataDto],
+    description: 'Calibration data for this driver module',
+  })
+  calData!: DriverModuleCalDataDto[];
+}
+
+class CustomModuleDto {
+  @ApiProperty({description: 'Processor ID'})
+  procId!: string;
+
+  @ApiProperty({description: 'Module ID'})
+  id!: string;
+
+  @ApiProperty({description: 'Interface type'})
+  interfaceType!: string;
+
+  @ApiProperty({description: 'Interface version'})
+  interfaceVersion!: string;
+
+  @ApiProperty({description: 'Module type'})
+  moduleType!: string;
+
+  @ApiProperty({description: 'File name'})
+  fileName!: string;
+
+  @ApiProperty({description: 'Module tag'})
+  tag!: string;
+
+  @ApiProperty({description: 'Error code'})
+  errorCode!: string;
+
+  @ApiProperty({description: 'Display name', required: false})
+  displayName?: string;
+}
+
+class PreviewUsecaseCategoryDto {
+  @ApiProperty({description: 'Usecase category name'})
+  usecaseCategory!: string;
+
+  @ApiProperty({
+    description: 'Previous category name (for updates)',
+    required: false,
+  })
+  oldUsecaseCategory?: string;
+
+  @ApiProperty({description: 'Sort order for display', required: false})
+  sortOrder?: string;
+
+  @ApiProperty({
+    type: [String],
+    description: 'Array of usecase system IDs in this category',
+  })
+  usecases!: string[];
+}
+
+class PreviewUsecaseAliasDto {
+  @ApiProperty({description: 'Usecase identifier'})
+  usecase!: string;
+
+  @ApiProperty({description: 'Usecase alias name'})
+  usecaseAlias!: string;
+
+  @ApiProperty({description: 'Usecase ID'})
+  usecaseId!: string;
+
+  @ApiProperty({
+    description: 'Previous alias name (for updates)',
+    required: false,
+  })
+  oldUsecaseAlias?: string;
+
+  @ApiProperty({
+    description: 'Previous usecase ID (for updates)',
+    required: false,
+  })
+  oldUsecaseId?: string;
+}
+
+// ── Public DTOs ───────────────────────────────────────────────────────────────
 
 /**
  * DTO representing a unique change that affected multiple usecases
@@ -99,22 +253,13 @@ export class DefinitionActionsDto {
  * DTO containing Module Manager (AMDB) custom module changes
  */
 export class ModuleManagerActionsDto {
-  @ApiProperty({
-    type: [CustomModuleDto],
-    description: 'Added custom modules',
-  })
+  @ApiProperty({type: [CustomModuleDto], description: 'Added custom modules'})
   added!: CustomModuleDto[];
 
-  @ApiProperty({
-    type: [CustomModuleDto],
-    description: 'Updated custom modules',
-  })
+  @ApiProperty({type: [CustomModuleDto], description: 'Updated custom modules'})
   updated!: CustomModuleDto[];
 
-  @ApiProperty({
-    type: [CustomModuleDto],
-    description: 'Deleted custom modules',
-  })
+  @ApiProperty({type: [CustomModuleDto], description: 'Deleted custom modules'})
   deleted!: CustomModuleDto[];
 }
 
@@ -123,44 +268,40 @@ export class ModuleManagerActionsDto {
  */
 export class DriverModuleDataActionsDto {
   @ApiProperty({
-    type: [DriverModuleDto],
+    type: [DriverModuleCalDto],
     description: 'Added driver modules',
   })
-  added!: DriverModuleDto[];
+  added!: DriverModuleCalDto[];
 
   @ApiProperty({
-    type: [DriverModuleDto],
+    type: [DriverModuleCalDto],
     description: 'Updated driver modules',
   })
-  updated!: DriverModuleDto[];
+  updated!: DriverModuleCalDto[];
 
   @ApiProperty({
-    type: [DriverModuleDto],
+    type: [DriverModuleCalDto],
     description: 'Deleted driver modules',
   })
-  deleted!: DriverModuleDto[];
+  deleted!: DriverModuleCalDto[];
 }
 
 /**
  * DTO containing metadata changes (categories and aliases)
  */
 export class MetaDataActionsDto {
-  @ApiProperty({
-    description: 'Usecase category changes',
-  })
+  @ApiProperty({description: 'Usecase category changes'})
   usecaseCategories!: {
-    added: UsecaseCategoryDto[];
-    updated: UsecaseCategoryDto[];
-    deleted: UsecaseCategoryDto[];
+    added: PreviewUsecaseCategoryDto[];
+    updated: PreviewUsecaseCategoryDto[];
+    deleted: PreviewUsecaseCategoryDto[];
   };
 
-  @ApiProperty({
-    description: 'Usecase alias changes',
-  })
+  @ApiProperty({description: 'Usecase alias changes'})
   usecaseAliases!: {
-    added: UsecaseAliasDto[];
-    updated: UsecaseAliasDto[];
-    deleted: UsecaseAliasDto[];
+    added: PreviewUsecaseAliasDto[];
+    updated: PreviewUsecaseAliasDto[];
+    deleted: PreviewUsecaseAliasDto[];
   };
 }
 
@@ -168,16 +309,10 @@ export class MetaDataActionsDto {
  * Main response DTO for preview-changes API
  */
 export class PreviewChangesResponseDto {
-  @ApiProperty({
-    type: UsecaseActionsDto,
-    description: 'Usecase changes',
-  })
+  @ApiProperty({type: UsecaseActionsDto, description: 'Usecase changes'})
   usecaseData!: UsecaseActionsDto;
 
-  @ApiProperty({
-    type: DefinitionActionsDto,
-    description: 'Definition changes',
-  })
+  @ApiProperty({type: DefinitionActionsDto, description: 'Definition changes'})
   definitions!: DefinitionActionsDto;
 
   @ApiProperty({

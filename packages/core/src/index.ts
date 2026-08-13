@@ -273,6 +273,9 @@ export {
 export type {CustomModuleMetadataDto} from './application/definition/spf-module-definition/get-custom-module-metadata/custom-module-metadata-dto.js';
 export {
   SpfModuleDefinitionDtoSchema,
+  NameValueDtoSchema,
+  SpfCustomModuleMetadataDtoSchema,
+  DataTypeDtoSchema,
   mapSpfModuleDefinition,
 } from './application/definition/spf-module-definition/dto/spf-module-definition-dto.js';
 export type {SpfModuleDefinitionDto} from './application/definition/spf-module-definition/dto/spf-module-definition-dto.js';

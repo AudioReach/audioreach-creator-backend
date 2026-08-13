@@ -25,8 +25,8 @@ import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {SpfModuleResponseDto} from './dto/shared/spf-module-response.dto.js';
 import {CkvCalDataResponseDto} from '../../common/dto/tuning-data/ckv-cal-data-response.dto.js';
-import {UpdateSpfModuleCalDataRequestDto} from './dto/request/update-spf-module-cal-data-request.dto.js';
-import {UpdateSpfModuleTagDataRequestDto} from './dto/request/update-spf-module-tag-data-request.dto.js';
+import {UpdateCkvRequestDto} from '../../common/dto/tuning-data/update-ckv-request.dto.js';
+import {UpdateTkvRequestDto} from './dto/request/update-tkv-request.dto.js';
 import {TkvCalDataResponseDto} from '../../common/dto/tuning-data/tkv-cal-data-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {
@@ -91,9 +91,9 @@ import {
 @ApiExtraModels(
   SpfModuleResponseDto,
   CkvCalDataResponseDto,
-  UpdateSpfModuleCalDataRequestDto,
+  UpdateCkvRequestDto,
   TkvCalDataResponseDto,
-  UpdateSpfModuleTagDataRequestDto,
+  UpdateTkvRequestDto,
   CreateSpfModuleRequestDto,
   CloneSpfModuleRequestDto,
   CreateCkvsRequestDto,
@@ -412,7 +412,7 @@ export class SpfModuleController extends BaseController {
       'Returns the updated calibration data in the same format as the GET endpoint.\n\n' +
       '**Batch Updates:**\n' +
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.',
-    requestDto: UpdateSpfModuleCalDataRequestDto,
+    requestDto: UpdateCkvRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -441,7 +441,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
-    @Body() updateRequest: UpdateSpfModuleCalDataRequestDto,
+    @Body() updateRequest: UpdateCkvRequestDto,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
@@ -452,7 +452,7 @@ export class SpfModuleController extends BaseController {
       'with CKV system ID:',
       ckvSystemId,
       'for parameters:',
-      updateRequest.data.map(item => item.parameterId).join(', '),
+      updateRequest.data.map(p => p.systemId).join(', '),
     );
     throw new NotImplementedException(
       'updateCalibrationData is not implemented yet',
@@ -607,7 +607,7 @@ export class SpfModuleController extends BaseController {
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.\n\n' +
       '**Tag-Specific Updates:**\n' +
       'Updates are scoped to the specific tag context identified by tagSystemId and tkvSystemId.',
-    requestDto: UpdateSpfModuleTagDataRequestDto,
+    requestDto: UpdateTkvRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -638,7 +638,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
-    @Body() updateRequest: UpdateSpfModuleTagDataRequestDto,
+    @Body() updateRequest: UpdateTkvRequestDto,
   ): Promise<ApiResult<TkvCalDataResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
@@ -651,7 +651,7 @@ export class SpfModuleController extends BaseController {
       'and TKV system ID:',
       tkvSystemId,
       'for parameters:',
-      updateRequest.data.map(item => item.parameterId).join(', '),
+      updateRequest.data.map(p => p.systemId).join(', '),
     );
     throw new NotImplementedException('updateTagData is not implemented yet');
   }

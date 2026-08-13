@@ -9,25 +9,25 @@ import type {KeyValuePairReadModel} from '../../../ports/persistence/query-servi
 
 const KeyInfoDtoSchema = z.object({
   keyId: z.number().int().describe('Key id'),
-  keyLabel: z.string().describe('Key name'),
-  keySystemId: z.string().describe('Key system identifier'),
+  name: z.string().describe('Key name'),
+  systemId: z.string().describe('Key system identifier'),
 });
 
 const ValueInfoDtoSchema = z.object({
   valueId: z.number().int().describe('Value id'),
-  valueLabel: z.string().describe('Value name'),
-  valueSystemId: z.string().describe('Value system identifier'),
+  name: z.string().describe('Value name'),
+  systemId: z.string().describe('Value system identifier'),
 });
 
 export const KeyValueInfoDtoSchema = z.object({
-  keyInfo: KeyInfoDtoSchema.describe('Key information'),
-  valueInfo: ValueInfoDtoSchema.describe('Value information'),
+  key: KeyInfoDtoSchema.describe('Key information'),
+  value: ValueInfoDtoSchema.describe('Value information'),
 });
 
 export const UseCaseDtoSchema = z.object({
   systemId: z.string().describe('System identifier of the usecase'),
   usecaseType: z.string().describe('Type of the usecase'),
-  keyValueCollection: z
+  keyValuePairs: z
     .array(KeyValueInfoDtoSchema)
     .describe('Collection of key-value pairs'),
   usecaseAliasId: z
@@ -48,15 +48,15 @@ export function mapKeyValuePair(
   kv: KeyValuePairReadModel,
 ): z.infer<typeof KeyValueInfoDtoSchema> {
   return {
-    keyInfo: {
+    key: {
       keyId: kv.key.keyId,
-      keyLabel: kv.key.name,
-      keySystemId: String(kv.key.systemId),
+      name: kv.key.name,
+      systemId: String(kv.key.systemId),
     },
-    valueInfo: {
+    value: {
       valueId: kv.value.valueId,
-      valueLabel: kv.value.name,
-      valueSystemId: String(kv.value.systemId),
+      name: kv.value.name,
+      systemId: String(kv.value.systemId),
     },
   };
 }
@@ -65,7 +65,7 @@ export function mapUseCase(uc: UseCaseReadModel): UseCaseDto {
   return {
     systemId: String(uc.systemId),
     usecaseType: 'Regular',
-    keyValueCollection: uc.gkv.map(kv => mapKeyValuePair(kv)),
+    keyValuePairs: uc.gkv.map(kv => mapKeyValuePair(kv)),
     usecaseAliasId: uc.aliasId,
     usecaseAliasName: uc.alias,
     usecaseCategory: uc.categories?.join(','),

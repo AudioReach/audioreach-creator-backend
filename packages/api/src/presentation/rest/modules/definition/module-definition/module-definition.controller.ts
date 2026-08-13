@@ -48,31 +48,17 @@ import {SpfCustomModuleMetadataResponseDto} from './dto/spf-custom-module-metada
 import {DeleteSpfCustomModuleMetadataResponseDto} from './dto/delete-spf-custom-module-metadata-response.dto.js';
 import {UpdateSpfCustomModuleMetadataRequestDto} from './dto/update-spf-custom-module-metadata-request.dto.js';
 import {PatchSpfModuleDefinitionRequestDto} from './dto/patch-spf-module-definition-request.dto.js';
-import {ParameterDefinitionSummaryDto} from './dto/parameter-definition-summary-response.dto.js';
-import {
-  DefinitionConfigElementDto,
-  DefinitionConfigElementArrayDto,
-  DefinitionStructDto,
-  DefinitionStructArrayDto,
-} from './dto/definition-element.dto.js';
 
 @ApiTags('module-definition')
 @Controller('arc-api/v1/projects')
 //@UseGuards(AuthGuard('jwt'))
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiExtraModels(ApiResult, SpfModuleDefinitionResponseDto)
-@ApiExtraModels(ApiResult, ParameterDefinitionSummaryDto)
 @ApiExtraModels(ApiResult, DriverModuleDefinitionResponseDto)
 @ApiExtraModels(ApiResult, SpfCustomModuleMetadataDto)
 @ApiExtraModels(ApiResult, SpfCustomModuleMetadataResponseDto)
 @ApiExtraModels(ApiResult, DeleteSpfCustomModuleMetadataResponseDto)
 @ApiExtraModels(ApiResult, UpdateSpfCustomModuleMetadataRequestDto)
-@ApiExtraModels(
-  DefinitionConfigElementDto,
-  DefinitionConfigElementArrayDto,
-  DefinitionStructDto,
-  DefinitionStructArrayDto,
-)
 export class ModuleDefinitionController {
   constructor(private readonly queryBus: QueryBus) {}
 

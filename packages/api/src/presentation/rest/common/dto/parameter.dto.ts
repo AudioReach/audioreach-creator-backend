@@ -5,26 +5,7 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {createZodDto} from 'nestjs-zod';
-import {BaseDto} from './base.dto.js';
 import {ParameterDtoSchema, type ParameterElementDto} from '@arc/core';
-
-export class ParameterSummaryDto extends BaseDto {
-  @ApiProperty({
-    description: 'Unique identifier for the system containing this parameter',
-  })
-  systemId!: string;
-
-  @ApiProperty({
-    description: 'parameterId',
-  })
-  parameterId!: string;
-
-  @ApiProperty({
-    description: 'Human-readable display name for the parameter',
-  })
-  name!: string;
-}
-
 export class ParameterDto extends createZodDto(ParameterDtoSchema) {
   @ApiProperty({
     description:

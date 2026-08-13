@@ -3,36 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {ApiProperty} from '@nestjs/swagger';
-import {NameValueDto} from '../../../../common/dto/name-value.dto.js';
+import {createZodDto} from 'nestjs-zod';
+import {SpfCustomModuleMetadataDtoSchema} from '@arc/core';
 
-/**
- * DTO grouping the selected interface type and version for a custom SPF module.
- */
-export class SpfCustomModuleInterfaceDto {
-  @ApiProperty({description: 'Interface type', type: NameValueDto})
-  type!: NameValueDto;
-
-  @ApiProperty({description: 'Interface version', type: NameValueDto})
-  version!: NameValueDto;
-}
-
-/**
- * DTO for custom SPF module metadata (instance-specific values).
- */
-export class SpfCustomModuleMetadataDto {
-  @ApiProperty({description: 'Module type', type: NameValueDto})
-  type!: NameValueDto;
-
-  @ApiProperty({
-    description: 'Selected interface',
-    type: SpfCustomModuleInterfaceDto,
-  })
-  interface!: SpfCustomModuleInterfaceDto;
-
-  @ApiProperty({description: 'File name'})
-  fileName!: string;
-
-  @ApiProperty({description: 'Endpoint function tag'})
-  endPointFunctionTag!: string;
-}
+export class SpfCustomModuleMetadataDto extends createZodDto(
+  SpfCustomModuleMetadataDtoSchema,
+) {}

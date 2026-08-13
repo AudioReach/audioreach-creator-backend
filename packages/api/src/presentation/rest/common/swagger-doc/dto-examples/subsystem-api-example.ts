@@ -4,19 +4,21 @@
  */
 
 import {SubsystemResponseDto} from '../../../modules/subsystem/dto/subsystem.dto.js';
-import {KeyInfoDto} from '../../dto/kv-info.dto.js';
+import {type KeyInfoDto} from '@arc/core';
 
-export const subsystemApiExample = new SubsystemResponseDto(
-  '1',
-  0xf0_10_00_01,
-  'Device_RX',
-  undefined,
-);
-
-subsystemApiExample.filteredKeys = [
-  Object.assign(new KeyInfoDto(), {
-    keyId: 0xa2_00_00_00,
-    keyLabel: 'DeviceRX',
-    keySystemId: '1',
-  }),
-];
+export const subsystemApiExample = Object.assign(new SubsystemResponseDto(), {
+  systemId: '1',
+  id: 0xf0_10_00_01,
+  name: 'Device_RX',
+  parentId: undefined,
+  dataPorts: [],
+  controlPorts: [],
+  filteredKeys: [
+    {
+      keyId: 0xa2_00_00_00,
+      name: 'DeviceRX',
+      systemId: '1',
+    } satisfies KeyInfoDto,
+  ],
+  relatedEndPointLinks: [],
+});

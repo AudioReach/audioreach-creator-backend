@@ -83,13 +83,13 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
       if (usecases && Array.isArray(usecases)) {
         for (const usecaseIdentifier of usecases) {
           const systemId = usecaseIdentifier.systemId;
-          const keyValueCollection = usecaseIdentifier.keyValueCollection || [];
+          const keyValueCollection = usecaseIdentifier.keyValuePairs || [];
 
           // Format: systemId : [Key1Name: Value1Name][Key2Name: Value2Name]...
           let kvString = '';
           for (const kv of keyValueCollection) {
-            const keyLabel = kv.keyLabel;
-            const valueLabel = kv.valueLabel;
+            const keyLabel = kv.key.name;
+            const valueLabel = kv.value.name;
             kvString += `[${keyLabel}: ${valueLabel}]`;
           }
 

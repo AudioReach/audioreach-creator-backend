@@ -10,7 +10,7 @@ import type {DataPortGroupReadModel} from '../../../ports/persistence/query-serv
 
 // ── Data type sub-schema (mirrors DataTypeDto in API) ──────────────────────
 
-const DataTypeDtoSchema = z.object({
+export const DataTypeDtoSchema = z.object({
   typeName: z.string().describe('Data type name'),
   sizeInBytes: z.number().int().describe('Size in bytes'),
   minValue: z.string().optional().describe('Minimum value'),
@@ -53,13 +53,13 @@ function createDataType(typeName: string): z.infer<typeof DataTypeDtoSchema> {
 
 // ── Sub-schemas ────────────────────────────────────────────────────────────
 
-const NameValueDtoSchema = z.object({
+export const NameValueDtoSchema = z.object({
   name: z.string().describe('Name field'),
   value: z.string().describe('Value field'),
   valueDataType: DataTypeDtoSchema.describe('Data type information'),
 });
 
-const SpfCustomModuleMetadataDtoSchema = z.object({
+export const SpfCustomModuleMetadataDtoSchema = z.object({
   type: NameValueDtoSchema.describe('Module type'),
   interface: z
     .object({
