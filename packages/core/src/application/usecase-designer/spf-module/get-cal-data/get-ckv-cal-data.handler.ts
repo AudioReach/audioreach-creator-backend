@@ -79,9 +79,7 @@ export class GetCkvCalibrationDataHandler implements QueryHandler<
       query.paramSystemIds.length > 0
         ? (() => {
             const returnedIds = new Set(
-              payloads.map(
-                (p: ParameterPayloadReadModel) => p.systemId,
-              ),
+              payloads.map((p: ParameterPayloadReadModel) => p.systemId),
             );
             return query.paramSystemIds.filter(id => !returnedIds.has(id));
           })()
