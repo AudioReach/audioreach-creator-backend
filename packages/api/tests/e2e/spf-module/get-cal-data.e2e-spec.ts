@@ -30,7 +30,7 @@ describe('GET /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId/cal
   }, 30000);
 
   afterAll(async () => {
-    await app.close();
+    await teardownE2ETest(app);
   });
 
   it('returns 400 for non-numeric spfModuleSystemId', async () => {
@@ -198,10 +198,10 @@ describe('GET cal-data for IIR_MBDRC module (moduleId=0x07001017)', () => {
         `/arc-api/v1/projects/${projectId}/spf-modules/${iirMbdrcSystemId}/cal-data/${ckvSystemId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
-      .timeout(30000)
-      .expect(200);
+      .timeout(30000);
+
+    expect(response.status).toBe(200);
 
     expect(response.body.data).toBeDefined();
-    process.stdout.write(JSON.stringify(response.body, null, 2) + '\n');
   });
 });
