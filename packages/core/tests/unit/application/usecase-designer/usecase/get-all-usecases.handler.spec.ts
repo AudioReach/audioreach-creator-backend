@@ -45,9 +45,9 @@ describe('GetAllUseCasesHandler', () => {
       new GetAllUseCasesQuery(1, 'c'),
     );
     if (result.kind !== RESULT_KIND.Ok) return;
-    const pair = result.data[0].keyValueCollection[0];
-    expect(pair.keyInfo.keySystemId).toBe('10');
-    expect(pair.valueInfo.valueSystemId).toBe('20');
+    const pair = result.data[0].keyValuePairs[0];
+    expect(pair.key.systemId).toBe('10');
+    expect(pair.value.systemId).toBe('20');
   });
 
   it('resolves projectId to fileId before querying', async () => {

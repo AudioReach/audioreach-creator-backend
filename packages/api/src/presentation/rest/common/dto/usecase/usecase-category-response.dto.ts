@@ -3,14 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {ApiProperty} from '@nestjs/swagger';
-import {UsecaseCategorySummaryDto} from './usecase-category-summary.dto.js';
-import {UsecaseSummaryDto} from './usecase-summary.dto.js';
+import {createZodDto} from 'nestjs-zod';
+import {UsecaseCategoryDtoSchema} from '@arc/core';
 
-export class UsecaseCategoryResponseDto extends UsecaseCategorySummaryDto {
-  @ApiProperty({
-    description: 'Array of usecases associated with this category',
-    type: [UsecaseSummaryDto],
-  })
-  usecases!: UsecaseSummaryDto[];
-}
+export class UsecaseCategoryResponseDto extends createZodDto(
+  UsecaseCategoryDtoSchema,
+) {}

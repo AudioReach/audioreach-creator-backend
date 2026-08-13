@@ -17,9 +17,42 @@ export const NameValuePairSchema = z.object({
   value: z.string().describe('Encoded value'),
 });
 
-export const ConfigElementSchema = z.object({
+export const ConfigElementSummaryDtoSchema = z.object({
   type: z.literal('ConfigElement'),
-  name: z.string(),
+  name: z.string().describe('Element name').optional(),
+  value: z.unknown().describe('Value to write'),
+});
+export type ConfigElementSummaryDto = z.infer<
+  typeof ConfigElementSummaryDtoSchema
+>;
+
+export const ElementTemplateArraySummaryDtoSchema = z.object({
+  type: z.literal('ElementTemplateArray'),
+  name: z.string().describe('Array element name').optional(),
+  value: z.unknown().describe('Array value to write'),
+});
+export type ElementTemplateArraySummaryDto = z.infer<
+  typeof ElementTemplateArraySummaryDtoSchema
+>;
+
+export const StructSummaryDtoSchema = z.object({
+  type: z.literal('Struct'),
+  name: z.string().describe('Struct element name').optional(),
+  value: z.unknown().describe('Struct value to write'),
+});
+export type StructSummaryDto = z.infer<typeof StructSummaryDtoSchema>;
+
+export const ParameterElementSummaryDtoSchema = z.discriminatedUnion('type', [
+  ConfigElementSummaryDtoSchema,
+  ElementTemplateArraySummaryDtoSchema,
+  StructSummaryDtoSchema,
+]);
+export type ParameterElementSummaryDto = z.infer<
+  typeof ParameterElementSummaryDtoSchema
+>;
+
+// Full read-side schemas — extend summary schemas to avoid duplicating type/name/value
+export const ConfigElementSchema = ConfigElementSummaryDtoSchema.extend({
   value: z.string(),
   dataType: z.string(),
   isReadOnly: z.boolean(),

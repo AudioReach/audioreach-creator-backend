@@ -19,8 +19,8 @@ import type {Result} from '../../../shared/result/result.js';
 export const KeyInfoDtoSchema = z
   .object({
     keyId: z.number().describe('Key id'),
-    keyLabel: z.string().describe('Key name'),
-    keySystemId: z.string().describe('Key system identifier'),
+    name: z.string().describe('Key name'),
+    systemId: z.string().describe('Key system identifier'),
   })
   .meta({id: 'KeyInfo'});
 
@@ -29,8 +29,8 @@ export type KeyInfoDto = z.infer<typeof KeyInfoDtoSchema>;
 export const ValueInfoDtoSchema = z
   .object({
     valueId: z.number().describe('Value id'),
-    valueLabel: z.string().describe('Value name'),
-    valueSystemId: z.string().describe('Value system identifier'),
+    name: z.string().describe('Value name'),
+    systemId: z.string().describe('Value system identifier'),
   })
   .meta({id: 'ValueInfo'});
 
@@ -38,8 +38,8 @@ export type ValueInfoDto = z.infer<typeof ValueInfoDtoSchema>;
 
 export const KeyValueInfoDtoSchema = z
   .object({
-    keyInfo: KeyInfoDtoSchema.describe('Key information'),
-    valueInfo: ValueInfoDtoSchema.describe('Value information'),
+    key: KeyInfoDtoSchema.describe('Key information'),
+    value: ValueInfoDtoSchema.describe('Value information'),
   })
   .meta({id: 'KeyValueInfo'});
 
@@ -47,7 +47,7 @@ export type KeyValueInfoDto = z.infer<typeof KeyValueInfoDtoSchema>;
 
 export const KeyValuePairsInfoDtoSchema = z
   .object({
-    keyValueCollection: z
+    keyValuePairs: z
       .array(KeyValueInfoDtoSchema)
       .describe('Collection of key-value pairs'),
     systemId: z.string().describe('The system identifier'),
@@ -58,7 +58,7 @@ export type KeyValuePairsInfoDto = z.infer<typeof KeyValuePairsInfoDtoSchema>;
 
 export const SubsystemFilteredKeyValuePairsInfoDtoSchema = z
   .object({
-    keyValueCollection: z
+    keyValuePairs: z
       .array(KeyValueInfoDtoSchema)
       .describe('Collection of key-value pairs'),
   })
@@ -78,7 +78,7 @@ export const ParamInfoDtoSchema = z.object({
 export type ParamInfoDto = z.infer<typeof ParamInfoDtoSchema>;
 
 export const CkvDtoSchema = z.object({
-  keyValueCollection: z
+  keyValuePairs: z
     .array(KeyValueInfoDtoSchema)
     .describe('Collection of key-value pairs'),
   systemId: z.string().describe('CKV system ID'),
@@ -88,7 +88,7 @@ export const CkvDtoSchema = z.object({
 });
 
 export const TkvDtoSchema = z.object({
-  keyValueCollection: z
+  keyValuePairs: z
     .array(KeyValueInfoDtoSchema)
     .describe('Collection of key-value pairs'),
   systemId: z.string().describe('TKV system ID'),
@@ -122,6 +122,10 @@ export const ControlPortDtoSchema = z.object({
   name: z.string().describe('Component name'),
   portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
   controlPortName: z.string().optional().describe('Control port name'),
+  totalLinksAtPort: z
+    .number()
+    .int()
+    .describe('Number of active control links at this port'),
   intents: z
     .array(
       z.object({
@@ -191,6 +195,7 @@ export function mapControlPort(p: ControlPortReadModel): ControlPortDto {
     name: p.name ?? '',
     portType: p.isStatic ? 'Static' : 'Dynamic',
     controlPortName: p.name ?? undefined,
+    totalLinksAtPort: p.totalLinksAtPort,
     intents: p.allocatedIntents.map(i => ({id: i.intentId, name: i.name})),
   };
 }
@@ -198,18 +203,18 @@ export function mapControlPort(p: ControlPortReadModel): ControlPortDto {
 export function mapCkv(c: CkvReadModel): CkvDto {
   return {
     systemId: String(c.systemId),
-    keyValueCollection: (c.keyValuePairs ?? [])
+    keyValuePairs: (c.keyValuePairs ?? [])
       .filter(kv => kv?.key && kv?.value)
       .map(kv => ({
-        keyInfo: {
+        key: {
           keyId: kv.key.keyId,
-          keyLabel: kv.key.name,
-          keySystemId: String(kv.key.systemId),
+          name: kv.key.name,
+          systemId: String(kv.key.systemId),
         },
-        valueInfo: {
+        value: {
           valueId: kv.value.valueId,
-          valueLabel: kv.value.name,
-          valueSystemId: String(kv.value.systemId),
+          name: kv.value.name,
+          systemId: String(kv.value.systemId),
         },
       })),
     supportedParameters: [],
@@ -219,18 +224,18 @@ export function mapCkv(c: CkvReadModel): CkvDto {
 export function mapTkv(t: TkvReadModel): TkvDto {
   return {
     systemId: String(t.systemId),
-    keyValueCollection: (t.keyValuePairs ?? [])
+    keyValuePairs: (t.keyValuePairs ?? [])
       .filter(kv => kv?.key && kv?.value)
       .map(kv => ({
-        keyInfo: {
+        key: {
           keyId: kv.key.keyId,
-          keyLabel: kv.key.name,
-          keySystemId: String(kv.key.systemId),
+          name: kv.key.name,
+          systemId: String(kv.key.systemId),
         },
-        valueInfo: {
+        value: {
           valueId: kv.value.valueId,
-          valueLabel: kv.value.name,
-          valueSystemId: String(kv.value.systemId),
+          name: kv.value.name,
+          systemId: String(kv.value.systemId),
         },
       })),
     supportedParameters: [],

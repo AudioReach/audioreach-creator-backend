@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {UsecaseCategorySummaryDto} from '../../../../common/dto/usecase/usecase-category-summary.dto.js';
+import {createZodDto} from 'nestjs-zod';
+import {DeleteUsecaseCategoryDtoSchema} from '@arc/core';
 
-/**
- * Response DTO for deleting a usecase category.
- * Extends UsecaseCategorySummaryDto to provide essential category information.
- */
-export class DeleteUsecaseCategoryResponseDto extends UsecaseCategorySummaryDto {}
+export class DeleteUsecaseCategoryResponseDto extends createZodDto(
+  DeleteUsecaseCategoryDtoSchema,
+) {}

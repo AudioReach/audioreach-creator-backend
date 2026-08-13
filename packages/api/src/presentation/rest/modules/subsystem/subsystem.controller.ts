@@ -20,7 +20,8 @@ import {
 import {ApiTags, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {AuthGuard} from '@nestjs/passport';
-import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
+import {SystemIdsRequestDto} from '../../common/dto/index.js';
+import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {SubsystemResponseDto} from './dto/subsystem.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
@@ -119,7 +120,7 @@ export class SubsystemController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Success',
-        dto: [BaseComponentDto<number>],
+        dto: ComponentsResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -135,7 +136,7 @@ export class SubsystemController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('subsystemSystemId') subsystemSystemId: string,
     @Body() usecaseSystemIds?: SystemIdsRequestDto,
-  ): Promise<ApiResult<BaseComponentDto<number>[]>> {
+  ): Promise<ApiResult<ComponentsResponseDto>> {
     await Promise.resolve(); // Placeholder to satisfy linter
     console.log(
       `Getting components for subgraph ${subsystemSystemId} in project ${projectId} with optional usecase system ids: ${JSON.stringify(usecaseSystemIds)}`,

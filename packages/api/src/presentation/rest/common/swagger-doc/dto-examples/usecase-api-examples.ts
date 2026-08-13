@@ -26,22 +26,22 @@ import {ControlLinkResponseDto} from '../../../modules/control-link/dto/control-
 
 function kv(
   keyId: number,
-  keyLabel: string,
+  keyName: string,
   keySystemId: string,
   valueId: number,
-  valueLabel: string,
+  valueName: string,
   valueSystemId: string,
 ): KeyValueInfoDto {
   return Object.assign(new KeyValueInfoDto(), {
-    keyInfo: Object.assign(new KeyInfoDto(), {
+    key: Object.assign(new KeyInfoDto(), {
       keyId,
-      keyLabel,
-      keySystemId,
+      name: keyName,
+      systemId: keySystemId,
     }),
-    valueInfo: Object.assign(new ValueInfoDto(), {
+    value: Object.assign(new ValueInfoDto(), {
       valueId,
-      valueLabel,
-      valueSystemId,
+      name: valueName,
+      systemId: valueSystemId,
     }),
   });
 }
@@ -76,7 +76,7 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     const filteredKv = Object.assign(
       new SubsystemFilteredKeyValuePairsInfoDto(),
       {
-        keyValueCollection: keyvalueInfo,
+        keyValuePairs: keyvalueInfo,
       },
     );
     ssFilteredUcCollection.push(
@@ -113,7 +113,7 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     ];
     const filteredKv1 = Object.assign(
       new SubsystemFilteredKeyValuePairsInfoDto(),
-      {keyValueCollection: keyvalueInfo1},
+      {keyValuePairs: keyvalueInfo1},
     );
     const usecases1 = [UsecaseResponseDtoExample.getExample()];
     collection.push(
@@ -141,7 +141,7 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     ];
     const filteredKv2 = Object.assign(
       new SubsystemFilteredKeyValuePairsInfoDto(),
-      {keyValueCollection: keyvalueInfo2},
+      {keyValuePairs: keyvalueInfo2},
     );
     const usecases2 = UseCaseIdentifierCollectionExample.getExample();
     collection.push(

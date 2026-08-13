@@ -5,7 +5,7 @@
 
 import {ApiProperty} from '@nestjs/swagger';
 import {UsecaseSummaryDto} from './usecase-summary.dto.js';
-import {UsecaseCategorySummaryDto} from './usecase-category-summary.dto.js';
+import {UsecaseCategoryResponseDto} from './usecase-category-response.dto.js';
 import {USECASE_TYPE, type UsecaseType} from './types/usecase-type.js';
 
 export class UpdateUsecaseResponseDto extends UsecaseSummaryDto {
@@ -18,7 +18,7 @@ export class UpdateUsecaseResponseDto extends UsecaseSummaryDto {
   @ApiProperty({
     description:
       'Array of categories for the usecase. Can be empty if no categories are assigned.',
-    type: [UsecaseCategorySummaryDto],
+    type: [UsecaseCategoryResponseDto],
   })
-  categories!: UsecaseCategorySummaryDto[];
+  categories!: UsecaseCategoryResponseDto[];
 }

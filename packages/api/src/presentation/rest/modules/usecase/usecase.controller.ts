@@ -31,7 +31,7 @@ import {UpdateUsecaseRequestDto} from './dto/request/update-usecase-request.dto.
 import {UpdateUsecaseResponseDto} from '../../common/dto/usecase/update-usecase-response.dto.js';
 import {DataLinkWithUsecasesResponseDto} from './dto/data-link-with-usecases.dto.js';
 import {ControlLinkWithUsecasesResponseDto} from './dto/control-link-with-usecases.dto.js';
-import {BaseComponentDto, SystemIdsRequestDto} from '../../common/dto/index.js';
+import {SystemIdsRequestDto} from '../../common/dto/index.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
@@ -77,7 +77,6 @@ const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
 @ApiExtraModels(
   UsecaseResponseDto,
   SubsystemFilteredUsecasesResponseDto,
-  BaseComponentDto,
   SubsystemResponseDto,
   ComponentsResponseDto,
   ComponentsWithSubsystemsResponseDto,
