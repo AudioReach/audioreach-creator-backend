@@ -217,18 +217,18 @@ export class SpfModuleController extends BaseController {
   @ApiDocumentationWithExample({
     summary: 'Create a new SPF module',
     description:
-      'Creates a new SPF module with the specified module system ID and processor ID.\n\n' +
+      'Creates a new SPF module with the specified module definition system ID and processor system ID.\n\n' +
       '**Required Parameters:**\n' +
-      '- `moduleSystemId`: Module definition system ID\n' +
-      '- `procId`: Processor ID\n\n' +
+      '- `moduleDefinitionSystemId`: Module definition system ID\n' +
+      '- `processorSystemId`: Processor system ID\n\n' +
       '**Optional Parameters:**\n' +
-      '- `parentId`: Parent module ID\n' +
-      '- `subgraphId`: Existing subgraph ID (if not provided, creates new subgraph)\n' +
-      '- `containerId`: Existing container ID (if not provided, creates new container)\n' +
+      '- `parentSystemId`: Parent subsystem system ID\n' +
+      '- `subgraphSystemId`: Existing subgraph system ID (if not provided, creates new subgraph)\n' +
+      '- `containerSystemId`: Existing container system ID (if not provided, creates new container)\n' +
       '- `ckvData`: CKV calibration data array (if not provided, creates zero CKV and defaults)\n' +
       '- `tagData`: Tag data array with TKVs (if not provided, creates default tag data)\n\n' +
       '**Auto-Creation Logic:**\n' +
-      'When subgraphId or containerId are not provided, the system automatically creates them with default configurations.',
+      'When subgraphSystemId or containerSystemId are not provided, the system automatically creates them with default configurations.',
     requestDto: CreateSpfModuleRequestDto,
     requestDtoExample: {
       className: 'CreateSpfModuleRequestExample',
@@ -263,11 +263,15 @@ export class SpfModuleController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<SpfModuleResponseDto>> {
     const cmd = new CreateModuleCommand(
-      request.moduleDefinitionId,
-      request.processorSystemId,
-      request.parentSystemId ?? null,
-      request.subgraphSystemId ?? null,
-      request.containerSystemId ?? null,
+      Number(request.moduleDefinitionSystemId),
+      Number(request.processorSystemId),
+      request.parentSystemId != null ? Number(request.parentSystemId) : null,
+      request.subgraphSystemId != null
+        ? Number(request.subgraphSystemId)
+        : null,
+      request.containerSystemId != null
+        ? Number(request.containerSystemId)
+        : null,
     );
 
     const {moduleSystemId} = await this.commandBus.execute<{
@@ -686,7 +690,7 @@ export class SpfModuleController extends BaseController {
       'Partially updates an SPF module. Only provided fields are updated; absent fields remain unchanged.\n\n' +
       '**Patchable Fields:**\n' +
       '- `alias`: Module alias (max 255 characters)\n' +
-      '- `containerId`: Container ID. If the ID does not exist, a new container is created with defaults copied from the current container\n' +
+      '- `containerSystemId`: System ID of the container to move the module to. If not found, a new container is created with defaults copied from the current container\n' +
       '- `maxInputPortsSupported`: Maximum input ports (validated against module definition)\n' +
       '- `maxOutputPortsSupported`: Maximum output ports (validated against module definition)\n' +
       '- `maxControlPortsSupported`: Maximum control ports (validated against module definition)\n\n' +
@@ -727,7 +731,7 @@ export class SpfModuleController extends BaseController {
     const cmd = new PatchSpfModuleCommand(
       spfModuleSystemId,
       dto.alias,
-      dto.containerId,
+      dto.containerSystemId != null ? Number(dto.containerSystemId) : undefined,
       dto.maxInputPortsSupported,
       dto.maxOutputPortsSupported,
       dto.maxControlPortsSupported,

@@ -16,11 +16,11 @@ export const CreateSpfModuleRequestExample = {
    */
   getExample(): CreateSpfModuleRequestDto {
     return {
-      moduleDefinitionId: 135_266_313,
-      processorSystemId: 2,
-      parentSystemId: 100,
-      subgraphSystemId: 200,
-      containerSystemId: 300,
+      moduleDefinitionSystemId: '135266313',
+      processorSystemId: '2',
+      parentSystemId: '100',
+      subgraphSystemId: '200',
+      containerSystemId: '300',
     };
   },
 };

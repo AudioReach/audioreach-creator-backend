@@ -138,11 +138,10 @@ export const SpfModuleDtoSchema = z.object({
   moduleId: z.number().int().describe('Module definition ID'),
   name: z.string().describe('Module name'),
   alias: z.string().describe('Module alias (user-defined label)'),
-  parentId: z
-    .number()
-    .int()
+  parentSystemId: z
+    .string()
     .optional()
-    .describe('Parent module system ID (for hierarchical modules)'),
+    .describe('Parent subsystem system ID (for hierarchical modules)'),
   subgraphId: z.number().int().describe('Subgraph this module belongs to'),
   containerId: z.number().int().describe('Container this module belongs to'),
   maxInputPortsSupported: z.number().int().describe('Maximum input data ports'),
@@ -258,7 +257,7 @@ export function mapSpfModule(
     moduleId: m.moduleId,
     name: m.name,
     alias: m.alias,
-    parentId: m.parentId,
+    parentSystemId: m.parentId != null ? String(m.parentId) : undefined,
     subgraphId: m.subgraphId,
     containerId: m.containerId,
     maxInputPortsSupported: m.maxInputPortsSupported,

@@ -21,31 +21,29 @@ import type {
 export const DataLinkDtoSchema = z.object({
   systemId: z.string().describe('Data link system ID'),
   id: z.number().int().describe('Data link ID'),
-  sourceId: z.number().int().describe('Source component system ID'),
-  sourcePortId: z.number().int().describe('Source port system ID'),
-  destinationId: z.number().int().describe('Destination component system ID'),
-  destinationPortId: z.number().int().describe('Destination port system ID'),
+  sourceSystemId: z.string().describe('Source component system ID'),
+  sourcePortSystemId: z.string().describe('Source port system ID'),
+  destinationSystemId: z.string().describe('Destination component system ID'),
+  destinationPortSystemId: z.string().describe('Destination port system ID'),
   isDangling: z.boolean().describe('Whether the link is dangling'),
   connectionType: z.string().describe('Connection type (MODULE_MODULE)'),
-  parentId: z.number().int().optional().describe('Parent component system ID'),
+  parentSystemId: z.string().optional().describe('Parent component system ID'),
 });
 
 export const ControlLinkDtoSchema = z.object({
   systemId: z.string().describe('Control link system ID'),
   id: z.number().int().describe('Control link ID'),
-  sourceId: z.number().int().describe('Source (peer A) component system ID'),
-  sourcePortId: z.number().int().describe('Source (peer A) port system ID'),
-  destinationId: z
-    .number()
-    .int()
+  sourceSystemId: z.string().describe('Source (peer A) component system ID'),
+  sourcePortSystemId: z.string().describe('Source (peer A) port system ID'),
+  destinationSystemId: z
+    .string()
     .describe('Destination (peer B) component system ID'),
-  destinationPortId: z
-    .number()
-    .int()
+  destinationPortSystemId: z
+    .string()
     .describe('Destination (peer B) port system ID'),
   isDangling: z.boolean().describe('Whether the link is dangling'),
   connectionType: z.string().describe('Connection type (MODULE_MODULE)'),
-  parentId: z.number().int().optional().describe('Parent component system ID'),
+  parentSystemId: z.string().optional().describe('Parent component system ID'),
 });
 
 export type DataLinkDto = z.infer<typeof DataLinkDtoSchema>;
@@ -74,7 +72,7 @@ const FilteredKeyDtoSchema = z.object({
 
 // Forward-declared type for mutual recursion in the subsystem tree
 export type SubsystemNodeDto = {
-  systemId: number;
+  systemId: string;
   name: string;
   filteredKeys: z.infer<typeof FilteredKeyDtoSchema>[];
   children: ComponentCollectionWithSubsystemsDto;
@@ -86,7 +84,7 @@ export type ComponentCollectionWithSubsystemsDto = ComponentCollectionDto & {
 
 export const SubsystemNodeDtoSchema: z.ZodType<SubsystemNodeDto> = z.lazy(() =>
   z.object({
-    systemId: z.number().int().describe('Subsystem system ID'),
+    systemId: z.string().describe('Subsystem system ID'),
     name: z.string().describe('Subsystem name'),
     filteredKeys: z
       .array(FilteredKeyDtoSchema)
@@ -117,7 +115,7 @@ export function mapSpfModuleForCollection(
     moduleId: m.definitionSystemId,
     name: m.name,
     alias: m.alias,
-    parentId: m.parentId,
+    parentSystemId: m.parentId != null ? String(m.parentId) : undefined,
     subgraphId: m.subgraphId,
     containerId: m.containerId,
     maxInputPortsSupported: m.maxInputPortsSupported,
@@ -134,13 +132,13 @@ export function mapDataLink(
   return {
     systemId: String(l.systemId),
     id: l.systemId,
-    sourceId: l.sourceNodeSystemId,
-    sourcePortId: l.sourcePortSystemId,
-    destinationId: l.destinationNodeSystemId,
-    destinationPortId: l.destinationPortSystemId,
+    sourceSystemId: String(l.sourceNodeSystemId),
+    sourcePortSystemId: String(l.sourcePortSystemId),
+    destinationSystemId: String(l.destinationNodeSystemId),
+    destinationPortSystemId: String(l.destinationPortSystemId),
     isDangling: false,
     connectionType: CONN_CTRL_TYPE_MODULE_MODULE,
-    parentId: undefined,
+    parentSystemId: undefined,
   };
 }
 
@@ -150,13 +148,13 @@ export function mapControlLink(
   return {
     systemId: String(l.systemId),
     id: l.systemId,
-    sourceId: l.peerNodeASystemId,
-    sourcePortId: l.nodeAPortSystemId,
-    destinationId: l.peerNodeBSystemId,
-    destinationPortId: l.nodeBPortSystemId,
+    sourceSystemId: String(l.peerNodeASystemId),
+    sourcePortSystemId: String(l.nodeAPortSystemId),
+    destinationSystemId: String(l.peerNodeBSystemId),
+    destinationPortSystemId: String(l.nodeBPortSystemId),
     isDangling: false,
     connectionType: CONN_CTRL_TYPE_MODULE_MODULE,
-    parentId: undefined,
+    parentSystemId: undefined,
   };
 }
 
@@ -172,7 +170,7 @@ export function mapComponentCollection(
 
 function mapSubsystemNode(sub: SubsystemNodeReadModel): SubsystemNodeDto {
   return {
-    systemId: sub.systemId,
+    systemId: String(sub.systemId),
     name: sub.name,
     filteredKeys: sub.filteredKeys.map(k => ({
       systemId: String(k.systemId),

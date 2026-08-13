@@ -128,9 +128,9 @@ export class ComponentGraphLogger {
     if (this.componentsData.dataLinks) {
       for (const link of this.componentsData.dataLinks) {
         this.dataLinks.push({
-          sourceModuleId: link.sourceNodeSystemId,
+          sourceModuleId: link.sourceSystemId,
           sourcePortId: link.sourcePortSystemId,
-          destModuleId: link.destinationNodeSystemId,
+          destModuleId: link.destinationSystemId,
           destPortId: link.destinationPortSystemId,
           isResolved: false,
         });

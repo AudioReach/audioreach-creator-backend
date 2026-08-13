@@ -143,10 +143,10 @@ export class ControlLinkController extends BaseController {
     );
 
     const command = new CreateControlLinkCommand(
-      createDto.startComponentId,
-      createDto.startPortId,
-      createDto.endComponentId,
-      createDto.endPortId,
+      Number(createDto.startComponentSystemId),
+      Number(createDto.startPortSystemId),
+      Number(createDto.endComponentSystemId),
+      Number(createDto.endPortSystemId),
       0,
     );
 
@@ -194,10 +194,10 @@ export class ControlLinkController extends BaseController {
     );
 
     const command = new CreateControlLinkCommand(
-      createDto.startComponentId,
-      createDto.startPortId,
-      createDto.endComponentId,
-      createDto.endPortId,
+      Number(createDto.startComponentSystemId),
+      Number(createDto.startPortSystemId),
+      Number(createDto.endComponentSystemId),
+      Number(createDto.endPortSystemId),
       0,
     );
 

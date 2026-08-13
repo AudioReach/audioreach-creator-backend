@@ -433,7 +433,7 @@ describe('GetComponentsWithSubsystemsHandler', () => {
 
     it('places the inside virtual segment L3_IN (SS→m3) at SS level', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(collectDataLinkIds(ss.children)).toContain(L3_IN.systemId);
     });
 
@@ -441,7 +441,7 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       // L4_RAW is a raw link where both endpoints are direct modules of SS.
       // buildSubsystemTree places it at SS level (both in category 1 there).
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(collectDataLinkIds(ss.children)).toContain(L4_RAW.systemId);
     });
 
@@ -451,14 +451,14 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       // neither is in subsystemIds = {SS.systemId} — so it is excluded from
       // extraDataLinks.  L4_RAW (same logical connection, raw source) covers it.
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(collectDataLinkIds(ss.children)).not.toContain(L4_VIRT.systemId);
     });
 
     it('drops the boundary-crossing raw link L2_RAW (m2→m3) at SS level too', () => {
       // m2 is not inside SS — it is not in SS-level levelNodeIds.
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(collectDataLinkIds(ss.children)).not.toContain(L2_RAW.systemId);
     });
   });
@@ -526,14 +526,16 @@ describe('GetComponentsWithSubsystemsHandler', () => {
 
     it('SS1 appears as a child subsystem of SS', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
-      expect(ss.children.subsystems.some(s => s.systemId === SS1)).toBe(true);
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
+      expect(ss.children.subsystems.some(s => Number(s.systemId) === SS1)).toBe(
+        true,
+      );
     });
 
     it('m5 and m6 are placed inside SS1 (parentId = SS1)', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
-      const ss1 = ss.children.subsystems.find(s => s.systemId === SS1)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
+      const ss1 = ss.children.subsystems.find(s => Number(s.systemId) === SS1)!;
       expect(
         ss1.children.spfModules
           .map(m => Number(m.systemId))
@@ -545,7 +547,7 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       // m4 is a direct module child of SS (category 1) and SS1 is a direct
       // child subsystem of SS (category 2) — both visible at the SS level.
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(collectDataLinkIds(ss.children)).toContain(L5_OUT.systemId);
     });
 
@@ -553,23 +555,23 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       // m5 is inside SS1, not a direct child of SS — it is not in SS-level
       // levelNodeIds.  The virtual pair L5_OUT/L6_IN represents this connection.
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(collectDataLinkIds(ss.children)).not.toContain(L4_RAW2.systemId);
     });
 
     it('places the inside virtual L6_IN (SS1→m5) at SS1 level', () => {
       // SS1.systemId = category 3 at SS1 level; m5 = category 1.
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
-      const ss1 = ss.children.subsystems.find(s => s.systemId === SS1)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
+      const ss1 = ss.children.subsystems.find(s => Number(s.systemId) === SS1)!;
       expect(collectDataLinkIds(ss1.children)).toContain(L6_IN.systemId);
     });
 
     it('places the non-boundary raw L7_RAW (m5→m6) at SS1 level', () => {
       // Both m5 and m6 are direct module children of SS1 (category 1).
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
-      const ss1 = ss.children.subsystems.find(s => s.systemId === SS1)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
+      const ss1 = ss.children.subsystems.find(s => Number(s.systemId) === SS1)!;
       expect(collectDataLinkIds(ss1.children)).toContain(L7_RAW.systemId);
     });
 
@@ -577,16 +579,16 @@ describe('GetComponentsWithSubsystemsHandler', () => {
       // The handler filters out L7_VIRT because neither M5 nor M6 is in
       // subsystemIds = {SS, SS1}.  L7_RAW (same connection, raw source) is used.
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
-      const ss1 = ss.children.subsystems.find(s => s.systemId === SS1)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
+      const ss1 = ss.children.subsystems.find(s => Number(s.systemId) === SS1)!;
       expect(collectDataLinkIds(ss1.children)).not.toContain(L7_VIRT.systemId);
     });
 
     it('drops the boundary-crossing raw L4_RAW2 (m4→m5) at SS1 level too', () => {
       // m4 is not inside SS1 — not in SS1-level levelNodeIds.
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
-      const ss1 = ss.children.subsystems.find(s => s.systemId === SS1)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
+      const ss1 = ss.children.subsystems.find(s => Number(s.systemId) === SS1)!;
       expect(collectDataLinkIds(ss1.children)).not.toContain(L4_RAW2.systemId);
     });
   });
@@ -628,13 +630,13 @@ describe('GetComponentsWithSubsystemsHandler', () => {
 
     it('SS has no child subsystems (SS1 is gone)', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(ss.children.subsystems).toHaveLength(0);
     });
 
     it('SS still contains only m3 and m4', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       expect(
         ss.children.spfModules
           .map(m => Number(m.systemId))
@@ -644,7 +646,7 @@ describe('GetComponentsWithSubsystemsHandler', () => {
 
     it('SS-level dataLinks contain L3_IN and L4_RAW — no SS1 segments', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       const ids = collectDataLinkIds(ss.children);
       expect(ids).toContain(L3_IN.systemId);
       expect(ids).toContain(L4_RAW.systemId);
@@ -661,7 +663,7 @@ describe('GetComponentsWithSubsystemsHandler', () => {
 
     it('m5 and m6 are not present anywhere in the tree', () => {
       if (result.kind !== RESULT_KIND.Ok) return;
-      const ss = result.data.subsystems.find(s => s.systemId === SS)!;
+      const ss = result.data.subsystems.find(s => Number(s.systemId) === SS)!;
       const allModules = [...result.data.spfModules, ...ss.children.spfModules];
       const moduleIds = allModules.map(m => Number(m.systemId));
       expect(moduleIds).not.toContain(M5);

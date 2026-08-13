@@ -4,56 +4,52 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {IsBoolean, IsNotEmpty, IsOptional, IsString} from 'class-validator';
 
 /**
  * DTO for creating a new control link
  */
 export class CreateControlLinkRequest {
   @ApiProperty({
-    description: 'Start component ID',
+    description: 'System ID of the start component',
   })
-  startComponentId: number;
+  @IsNotEmpty()
+  @IsString()
+  startComponentSystemId!: string;
 
   @ApiProperty({
-    description: 'Start port ID',
+    description: 'System ID of the start port',
   })
-  startPortId: number;
+  @IsNotEmpty()
+  @IsString()
+  startPortSystemId!: string;
 
   @ApiProperty({
-    description: 'End component ID',
+    description: 'System ID of the end component',
   })
-  endComponentId: number;
+  @IsNotEmpty()
+  @IsString()
+  endComponentSystemId!: string;
 
   @ApiProperty({
-    description: 'End port ID',
+    description: 'System ID of the end port',
   })
-  endPortId: number;
+  @IsNotEmpty()
+  @IsString()
+  endPortSystemId!: string;
 
   @ApiProperty({
-    description: 'Parent ID',
+    description: 'System ID of the parent component',
     required: false,
   })
-  parentId?: number;
+  @IsOptional()
+  @IsString()
+  parentSystemId?: string;
 
   @ApiProperty({
     description: 'Is dangling',
     default: false,
   })
-  isDangling: boolean;
-
-  constructor(
-    startComponentId: number,
-    startPortId: number,
-    endComponentId: number,
-    endPortId: number,
-    parentId?: number,
-    isDangling: boolean = false,
-  ) {
-    this.startComponentId = startComponentId;
-    this.startPortId = startPortId;
-    this.endComponentId = endComponentId;
-    this.endPortId = endPortId;
-    this.parentId = parentId;
-    this.isDangling = isDangling;
-  }
+  @IsBoolean()
+  isDangling: boolean = false;
 }

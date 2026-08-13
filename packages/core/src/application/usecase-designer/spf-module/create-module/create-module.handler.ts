@@ -38,13 +38,13 @@ export class CreateModuleHandler implements CommandHandler<
 
       // 1. Load module definition — 404 on miss
       const definition = await defRepo.findByModuleIdAndProcId(
-        command.moduleDefinitionId,
+        command.moduleDefinitionSystemId,
         command.processorSystemId,
         fileSystemId,
       );
       if (!definition) {
         throw new ResourceNotFoundException(
-          `SpfModuleDefinition with moduleDefinitionId=${command.moduleDefinitionId} processorSystemId=${command.processorSystemId} not found.`,
+          `SpfModuleDefinition with moduleDefinitionSystemId=${command.moduleDefinitionSystemId} processorSystemId=${command.processorSystemId} not found.`,
         );
       }
 
