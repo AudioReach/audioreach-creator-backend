@@ -7,7 +7,6 @@ import {ApiProperty} from '@nestjs/swagger';
 import {
   IsNotEmpty,
   IsOptional,
-  IsNumber,
   IsArray,
   IsString,
   ValidateNested,
@@ -17,51 +16,56 @@ import {Type} from 'class-transformer';
 
 /**
  * Request DTO for creating a new SPF module.
- * All fields except moduleSystemId and procId are optional.
+ * All fields except moduleDefinitionSystemId and processorSystemId are optional.
  * If optional fields are not provided, the backend will create defaults.
  */
 export class CreateSpfModuleRequestDto {
   @ApiProperty({
     description: 'Module definition system ID',
+    type: 'string',
     required: true,
   })
   @IsNotEmpty()
-  @IsNumber()
-  moduleDefinitionId!: number;
+  @IsString()
+  moduleDefinitionSystemId!: string;
 
   @ApiProperty({
     description: 'Processor system ID',
+    type: 'string',
     required: true,
   })
   @IsNotEmpty()
-  @IsNumber()
-  processorSystemId!: number;
+  @IsString()
+  processorSystemId!: string;
 
   @ApiProperty({
     description: 'Parent subsystem system ID. Optional.',
+    type: 'string',
     required: false,
   })
   @IsOptional()
-  @IsNumber()
-  parentSystemId?: number;
+  @IsString()
+  parentSystemId?: string;
 
   @ApiProperty({
     description:
       'Subgraph system ID. If not provided, a new subgraph will be created automatically.',
+    type: 'string',
     required: false,
   })
   @IsOptional()
-  @IsNumber()
-  subgraphSystemId?: number;
+  @IsString()
+  subgraphSystemId?: string;
 
   @ApiProperty({
     description:
       'Container system ID. If not provided, a new container will be created automatically.',
+    type: 'string',
     required: false,
   })
   @IsOptional()
-  @IsNumber()
-  containerSystemId?: number;
+  @IsString()
+  containerSystemId?: string;
 }
 
 /**
@@ -70,37 +74,41 @@ export class CreateSpfModuleRequestDto {
 export class CloneSpfModuleRequestDto {
   @ApiProperty({
     description: 'Reference spf-module system ID',
+    type: 'string',
     required: true,
   })
   @IsNotEmpty()
-  @IsNumber()
-  readonly referenceModuleSystemId!: number;
+  @IsString()
+  readonly referenceModuleSystemId!: string;
 
   @ApiProperty({
-    description: 'Target parent ID',
+    description: 'Target parent system ID',
+    type: 'string',
     required: false,
   })
   @IsOptional()
-  @IsNumber()
-  readonly parentId?: number;
-
-  @ApiProperty({
-    description:
-      'Target subgraph ID. If not provided, a new subgraph will be created',
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  readonly subgraphSystemId?: number;
+  @IsString()
+  readonly parentSystemId?: string;
 
   @ApiProperty({
     description:
-      'Target container ID. If not provided, a new container will be created',
+      'Target subgraph system ID. If not provided, a new subgraph will be created',
+    type: 'string',
     required: false,
   })
   @IsOptional()
-  @IsNumber()
-  readonly containerSystemId?: number;
+  @IsString()
+  readonly subgraphSystemId?: string;
+
+  @ApiProperty({
+    description:
+      'Target container system ID. If not provided, a new container will be created',
+    type: 'string',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  readonly containerSystemId?: string;
 }
 
 /**
@@ -110,13 +118,13 @@ export class CreateCkvRequestItem {
   @ApiProperty({
     description:
       'Array of value system IDs that identify this calibration bin (key-value pairs)',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, {each: true})
-  valueSystemIds!: number[];
+  @IsString({each: true})
+  valueSystemIds!: string[];
 }
 
 /**
@@ -157,13 +165,13 @@ export class DeleteCkvsRequestDto {
 export class CreateTagsRequestDto {
   @ApiProperty({
     description: 'Array of tag definition system IDs to associate with module',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, {each: true})
-  tagDefinitionSystemIds!: number[];
+  @IsString({each: true})
+  tagDefinitionSystemIds!: string[];
 }
 
 /**
@@ -173,13 +181,13 @@ export class DeleteTagsRequestDto {
   @ApiProperty({
     description:
       'Array of tag system IDs (module_tag_id_map system IDs) to remove',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, {each: true})
-  tagSystemIds!: number[];
+  @IsString({each: true})
+  tagSystemIds!: string[];
 }
 
 /**
@@ -189,22 +197,22 @@ export class CreateTkvRequestItem {
   @ApiProperty({
     description:
       'Array of value system IDs that identify this tag bin (key-value pairs)',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, {each: true})
-  valueSystemIds!: number[];
+  @IsString({each: true})
+  valueSystemIds!: string[];
 
   @ApiProperty({
     description: 'Array of parameter system IDs for this TKV.',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
-  @IsNumber({}, {each: true})
-  parameterSystemIds!: number[];
+  @IsString({each: true})
+  parameterSystemIds!: string[];
 }
 
 /**
@@ -246,13 +254,13 @@ export class CreateCkvParametersRequestDto {
   @ApiProperty({
     description:
       'Array of parameter system IDs to add to all CKVs in the module',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, {each: true})
-  parameterSystemIds!: number[];
+  @IsString({each: true})
+  parameterSystemIds!: string[];
 }
 
 /**
@@ -262,13 +270,13 @@ export class DeleteCkvParametersRequestDto {
   @ApiProperty({
     description:
       'Array of parameter system IDs to remove from all CKVs in the module',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, {each: true})
-  parameterSystemIds!: number[];
+  @IsString({each: true})
+  parameterSystemIds!: string[];
 }
 
 /**
@@ -286,13 +294,13 @@ export class TkvParameterItem {
 
   @ApiProperty({
     description: 'Array of parameter system IDs to add/remove for this TKV',
-    type: [Number],
+    type: [String],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, {each: true})
-  parameterSystemIds!: number[];
+  @IsString({each: true})
+  parameterSystemIds!: string[];
 }
 
 /**

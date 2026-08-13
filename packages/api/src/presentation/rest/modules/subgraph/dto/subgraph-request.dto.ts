@@ -4,16 +4,16 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsNotEmpty, IsOptional, IsNumber} from 'class-validator';
+import {IsNotEmpty, IsOptional, IsString} from 'class-validator';
 
 export class CloneSubgraphRequest {
-  @ApiProperty({description: 'Reference Subgraph ID'})
+  @ApiProperty({description: 'Reference Subgraph system ID'})
   @IsNotEmpty()
-  @IsNumber()
-  refSubgraphId!: number;
+  @IsString()
+  refSubgraphSystemId!: string;
 
-  @ApiProperty({description: 'Target parent ID', required: false})
+  @ApiProperty({description: 'Target parent system ID', required: false})
   @IsOptional()
-  @IsNumber()
-  targetParentId?: number;
+  @IsString()
+  targetParentSystemId?: string;
 }

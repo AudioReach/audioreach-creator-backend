@@ -154,7 +154,7 @@ export class SubsystemController extends BaseController {
     description:
       'Creates a new empty subsystem with the given name.\n\n' +
       '**Optional parameters:**\n' +
-      '- `parentId`: System ID of an existing subsystem to nest this one under. ' +
+      '- `parentSystemId`: System ID of an existing subsystem to nest this one under. ' +
       'If omitted, the subsystem is created at the root level of the use case.',
     requestDto: CreateSubsystemRequestDto,
     responses: [

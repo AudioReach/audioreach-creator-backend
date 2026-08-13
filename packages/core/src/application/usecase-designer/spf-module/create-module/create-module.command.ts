@@ -21,7 +21,7 @@ export class CreateModuleCommand extends BaseCommand {
   ];
 
   constructor(
-    public readonly moduleDefinitionId: number,
+    public readonly moduleDefinitionSystemId: number,
     public readonly processorSystemId: number,
     public readonly parentSystemId: number | null,
     public readonly subgraphSystemId: number | null,

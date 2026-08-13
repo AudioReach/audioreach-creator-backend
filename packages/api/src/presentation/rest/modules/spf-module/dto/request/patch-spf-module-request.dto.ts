@@ -26,14 +26,14 @@ export class PatchSpfModuleRequestDto {
 
   @ApiProperty({
     description:
-      'Container ID. If the ID does not exist, a new container will be created ' +
+      'System ID of the container to assign the module to. If the container does not exist, a new one will be created ' +
       'with default properties copied from the current container.',
     required: false,
+    type: 'string',
   })
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  containerId?: number;
+  @IsString()
+  containerSystemId?: string;
 
   @ApiProperty({
     description:

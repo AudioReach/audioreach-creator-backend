@@ -4,7 +4,7 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsNotEmpty, IsNumber, IsOptional, IsString} from 'class-validator';
+import {IsNotEmpty, IsOptional, IsString} from 'class-validator';
 
 /**
  * Request DTO for creating an empty subsystem.
@@ -23,8 +23,9 @@ export class CreateSubsystemRequestDto {
     description:
       'System ID of the parent subsystem. If not provided, the subsystem is created at the root level.',
     required: false,
+    type: 'string',
   })
   @IsOptional()
-  @IsNumber()
-  parentId?: number;
+  @IsString()
+  parentSystemId?: string;
 }

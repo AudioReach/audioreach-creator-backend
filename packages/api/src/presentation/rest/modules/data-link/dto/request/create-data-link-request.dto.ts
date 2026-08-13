@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {IsIn, IsNumber, IsOptional, IsString} from 'class-validator';
+import {IsIn, IsNotEmpty, IsOptional, IsString} from 'class-validator';
 import {ApiProperty} from '@nestjs/swagger';
 
 /**
@@ -24,29 +24,33 @@ export class CreateDataLinkRequest {
 
   @ApiProperty({
     description: 'System ID of the source node/module',
-    type: 'number',
+    type: 'string',
   })
-  @IsNumber()
-  sourceNodeSystemId!: number;
+  @IsNotEmpty()
+  @IsString()
+  sourceNodeSystemId!: string;
 
   @ApiProperty({
     description: 'System ID of the source port',
-    type: 'number',
+    type: 'string',
   })
-  @IsNumber()
-  sourcePortSystemId!: number;
+  @IsNotEmpty()
+  @IsString()
+  sourcePortSystemId!: string;
 
   @ApiProperty({
     description: 'System ID of the destination node/module',
-    type: 'number',
+    type: 'string',
   })
-  @IsNumber()
-  destinationNodeSystemId!: number;
+  @IsNotEmpty()
+  @IsString()
+  destinationNodeSystemId!: string;
 
   @ApiProperty({
     description: 'System ID of the destination port',
-    type: 'number',
+    type: 'string',
   })
-  @IsNumber()
-  destinationPortSystemId!: number;
+  @IsNotEmpty()
+  @IsString()
+  destinationPortSystemId!: string;
 }

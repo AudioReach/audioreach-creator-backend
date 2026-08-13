@@ -137,10 +137,10 @@ export class DataLinkController extends BaseController {
     );
 
     const command = new CreateDataLinkCommand(
-      createDto.sourceNodeSystemId,
-      createDto.sourcePortSystemId,
-      createDto.destinationNodeSystemId,
-      createDto.destinationPortSystemId,
+      Number(createDto.sourceNodeSystemId),
+      Number(createDto.sourcePortSystemId),
+      Number(createDto.destinationNodeSystemId),
+      Number(createDto.destinationPortSystemId),
       createDto.type ?? 'normal',
     );
 
@@ -187,10 +187,10 @@ export class DataLinkController extends BaseController {
     console.log('Creating data link (with-subsystems) for project:', projectId);
 
     const command = new CreateDataLinkCommand(
-      createDto.sourceNodeSystemId,
-      createDto.sourcePortSystemId,
-      createDto.destinationNodeSystemId,
-      createDto.destinationPortSystemId,
+      Number(createDto.sourceNodeSystemId),
+      Number(createDto.sourcePortSystemId),
+      Number(createDto.destinationNodeSystemId),
+      Number(createDto.destinationPortSystemId),
       createDto.type ?? 'normal',
     );
 
