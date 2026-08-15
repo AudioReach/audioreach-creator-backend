@@ -87,6 +87,7 @@ import {
   UsecaseIdentifierWithChangeInfoDto,
 } from './dto/create-usecases-response.dto.js';
 import {CreateUsecasesRequestDto} from './dto/create-usecases-request.dto.js';
+import {CreateManualUsecasesRequestDto} from './dto/create-manual-usecases-request.dto.js';
 import {ProjectType} from './enums/project-type.enum.js';
 import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
@@ -936,6 +937,79 @@ export class ProjectController {
     @Body() _body: CreateUsecasesRequestDto,
   ): ApiResult<CreateUsecasesResponseDto> {
     throw new NotImplementedException('createUsecases is not implemented yet');
+  }
+
+  @Post('/:projectId/create-manual-usecases')
+  @ApiParam({name: 'projectId', description: 'Id of project', required: true})
+  @ApiBody({type: CreateManualUsecasesRequestDto})
+  @ApiOperation({
+    summary: 'Create manual usecases',
+    description:
+      'Creates usecases from a manually specified subgraph path and SGKV combinations, ' +
+      'then unstages them.\n\n' +
+      'Unlike create-usecases, this endpoint does not run routing logic — ' +
+      'the caller defines the exact subgraph path via activeSubgraphs.',
+  })
+  @ApiExtraModels(
+    ApiResult,
+    CreateUsecasesResponseDto,
+    UsecaseIdentifierWithChangeInfoDto,
+  )
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully created manual usecases',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {$ref: getSchemaPath(CreateUsecasesResponseDto)},
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project does not exist',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Failed to create manual usecases',
+    schema: {
+      allOf: [
+        {$ref: getSchemaPath(ApiResult)},
+        {
+          properties: {
+            data: {
+              type: 'object',
+              nullable: true,
+            },
+          },
+        },
+      ],
+    },
+  })
+  createManualUsecases(
+    @Param('projectId') _projectId: string,
+    @Body() _body: CreateManualUsecasesRequestDto,
+  ): ApiResult<CreateUsecasesResponseDto> {
+    throw new NotImplementedException(
+      'createManualUsecases is not implemented yet',
+    );
   }
 
   @Post('/:projectId/stage-changes')
