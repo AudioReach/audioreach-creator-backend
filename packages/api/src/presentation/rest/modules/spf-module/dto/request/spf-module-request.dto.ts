@@ -282,7 +282,7 @@ export class DeleteCkvParametersRequestDto {
 /**
  * Single TKV parameter update item for adding parameters to a specific TKV.
  */
-export class TkvParameterItem {
+export class TkvParameterUpdateItem {
   @ApiProperty({
     description: 'TKV system ID to update',
     type: String,
@@ -309,14 +309,14 @@ export class TkvParameterItem {
 export class CreateTkvParametersRequestDto {
   @ApiProperty({
     description: 'Array of TKV parameter updates',
-    type: [TkvParameterItem],
+    type: [TkvParameterUpdateItem],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({each: true})
-  @Type(() => TkvParameterItem)
-  updates!: TkvParameterItem[];
+  @Type(() => TkvParameterUpdateItem)
+  updates!: TkvParameterUpdateItem[];
 }
 
 /**
@@ -325,12 +325,12 @@ export class CreateTkvParametersRequestDto {
 export class RemoveTkvParametersRequestDto {
   @ApiProperty({
     description: 'Array of TKV parameter updates',
-    type: [TkvParameterItem],
+    type: [TkvParameterUpdateItem],
     required: true,
   })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({each: true})
-  @Type(() => TkvParameterItem)
-  updates!: TkvParameterItem[];
+  @Type(() => TkvParameterUpdateItem)
+  updates!: TkvParameterUpdateItem[];
 }

@@ -22,7 +22,7 @@ export const KeyInfoDtoSchema = z
     name: z.string().describe('Key name'),
     systemId: z.string().describe('Key system identifier'),
   })
-  .meta({id: 'KeyInfo'});
+  .meta({id: 'KeyInfoDto'});
 
 export type KeyInfoDto = z.infer<typeof KeyInfoDtoSchema>;
 
@@ -32,7 +32,7 @@ export const ValueInfoDtoSchema = z
     name: z.string().describe('Value name'),
     systemId: z.string().describe('Value system identifier'),
   })
-  .meta({id: 'ValueInfo'});
+  .meta({id: 'ValueInfoDto'});
 
 export type ValueInfoDto = z.infer<typeof ValueInfoDtoSchema>;
 
@@ -41,7 +41,7 @@ export const KeyValueInfoDtoSchema = z
     key: KeyInfoDtoSchema.describe('Key information'),
     value: ValueInfoDtoSchema.describe('Value information'),
   })
-  .meta({id: 'KeyValueInfo'});
+  .meta({id: 'KeyValueInfoDto'});
 
 export type KeyValueInfoDto = z.infer<typeof KeyValueInfoDtoSchema>;
 
@@ -52,7 +52,7 @@ export const KeyValuePairsInfoDtoSchema = z
       .describe('Collection of key-value pairs'),
     systemId: z.string().describe('The system identifier'),
   })
-  .meta({id: 'KeyValuePairsInfo'});
+  .meta({id: 'KeyValuePairsInfoDto'});
 
 export type KeyValuePairsInfoDto = z.infer<typeof KeyValuePairsInfoDtoSchema>;
 
@@ -62,7 +62,7 @@ export const SubsystemFilteredKeyValuePairsInfoDtoSchema = z
       .array(KeyValueInfoDtoSchema)
       .describe('Collection of key-value pairs'),
   })
-  .meta({id: 'SubsystemFilteredKeyValuePairsInfo'});
+  .meta({id: 'SubsystemFilteredKeyValuePairsInfoDto'});
 
 export type SubsystemFilteredKeyValuePairsInfoDto = z.infer<
   typeof SubsystemFilteredKeyValuePairsInfoDtoSchema
