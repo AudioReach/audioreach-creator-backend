@@ -52,92 +52,96 @@ export const ElementUnionSchema: z.ZodType<ElementUnion> = z
   .meta({id: 'ElementUnion'});
 
 export const ElementTemplateArrayDtoSchema: z.ZodType<ElementTemplateArrayDto> =
-  z.lazy(() =>
+  z
+    .lazy(() =>
+      z.object({
+        type: z
+          .literal('ELEMENT_TEMPLATE_ARRAY')
+          .describe(
+            'Discriminator field identifying this as an ElementTemplateArray',
+          ),
+        name: z
+          .string()
+          .describe('Unique name of the array element within its parent scope'),
+        isReadOnly: z
+          .boolean()
+          .describe(
+            'When true, none of the array elements can be modified by the user',
+          ),
+        template: z
+          .array(ElementUnionSchema)
+          .describe(
+            'Prototype elements defining the structure of each item in the array',
+          ),
+        value: z
+          .array(ElementUnionSchema)
+          .describe('Ordered list of concrete element instances in the array'),
+        description: z
+          .string()
+          .optional()
+          .describe('Human-readable description of what this array represents'),
+        group: z
+          .string()
+          .optional()
+          .describe('Logical group this array belongs to for UI organization'),
+        subgroup: z
+          .string()
+          .optional()
+          .describe(
+            'Optional sub-group within the group for finer-grained UI organization',
+          ),
+        length: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Fixed number of elements in the array'),
+        lengthFormula: z
+          .string()
+          .optional()
+          .describe(
+            'Expression evaluated at runtime to determine the array length',
+          ),
+      }),
+    )
+    .meta({id: 'ElementTemplateArrayDto'});
+
+export const StructDtoSchema: z.ZodType<StructDto> = z
+  .lazy(() =>
     z.object({
       type: z
-        .literal('ELEMENT_TEMPLATE_ARRAY')
-        .describe(
-          'Discriminator field identifying this as an ElementTemplateArray',
-        ),
+        .literal('STRUCT')
+        .describe('Discriminator field identifying this as a Struct'),
       name: z
         .string()
-        .describe('Unique name of the array element within its parent scope'),
+        .describe('Unique name of the struct element within its parent scope'),
       isReadOnly: z
         .boolean()
         .describe(
-          'When true, none of the array elements can be modified by the user',
+          'When true, none of the struct elements can be modified by the user',
         ),
-      template: z
-        .array(ElementUnionSchema)
+      structType: z
+        .string()
         .describe(
-          'Prototype elements defining the structure of each item in the array',
+          'Type identifier for the struct, corresponding to the named struct type in the module definition',
         ),
       value: z
         .array(ElementUnionSchema)
-        .describe('Ordered list of concrete element instances in the array'),
+        .describe('Child elements contained within this struct'),
       description: z
         .string()
         .optional()
-        .describe('Human-readable description of what this array represents'),
+        .describe('Human-readable description of what this struct represents'),
       group: z
         .string()
         .optional()
-        .describe('Logical group this array belongs to for UI organization'),
+        .describe('Logical group this struct belongs to for UI organization'),
       subgroup: z
         .string()
         .optional()
         .describe(
           'Optional sub-group within the group for finer-grained UI organization',
         ),
-      length: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe('Fixed number of elements in the array'),
-      lengthFormula: z
-        .string()
-        .optional()
-        .describe(
-          'Expression evaluated at runtime to determine the array length',
-        ),
     }),
-  );
-
-export const StructDtoSchema: z.ZodType<StructDto> = z.lazy(() =>
-  z.object({
-    type: z
-      .literal('STRUCT')
-      .describe('Discriminator field identifying this as a Struct'),
-    name: z
-      .string()
-      .describe('Unique name of the struct element within its parent scope'),
-    isReadOnly: z
-      .boolean()
-      .describe(
-        'When true, none of the struct elements can be modified by the user',
-      ),
-    structType: z
-      .string()
-      .describe(
-        'Type identifier for the struct, corresponding to the named struct type in the module definition',
-      ),
-    value: z
-      .array(ElementUnionSchema)
-      .describe('Child elements contained within this struct'),
-    description: z
-      .string()
-      .optional()
-      .describe('Human-readable description of what this struct represents'),
-    group: z
-      .string()
-      .optional()
-      .describe('Logical group this struct belongs to for UI organization'),
-    subgroup: z
-      .string()
-      .optional()
-      .describe(
-        'Optional sub-group within the group for finer-grained UI organization',
-      ),
-  }),
-);
+  )
+  .meta({id: 'StructDto'});

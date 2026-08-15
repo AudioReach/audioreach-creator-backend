@@ -6,4 +6,6 @@
 import {createZodDto} from 'nestjs-zod';
 import {PropertyDtoSchema} from '@arc/core';
 
-export class PropertyResponseDto extends createZodDto(PropertyDtoSchema) {}
+export class PropertyResponseDto extends createZodDto(
+  PropertyDtoSchema.meta({id: 'PropertyResponseDto'}),
+) {}

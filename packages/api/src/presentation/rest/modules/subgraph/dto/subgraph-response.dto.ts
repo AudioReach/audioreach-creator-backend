@@ -20,7 +20,7 @@ export class SubgraphPropertiesResponseDto extends createZodDto(
 export class SubgraphResponseDto extends createZodDto(SubgraphDtoSchema) {}
 
 export class UpdateScenarioResponseDto extends createZodDto(
-  ScenarioChangeDtoSchema,
+  ScenarioChangeDtoSchema.meta({id: 'UpdateScenarioResponseDto'}),
 ) {}
 export class UpdateVsidResponseDto extends createZodDto(
   VsidUpdateDtoSchema.meta({id: 'UpdateVsidResponseDto'}),
@@ -29,5 +29,5 @@ export class VcpmCkvResponseDto extends createZodDto(
   VcpmCkvDtoSchema.meta({id: 'VcpmCkvResponseDto'}),
 ) {}
 export class CreateVcpmCkvResponseDto extends createZodDto(
-  CreateVcpmCkvDtoSchema,
+  CreateVcpmCkvDtoSchema.meta({id: 'CreateVcpmCkvResponseDto'}),
 ) {}
