@@ -73,6 +73,24 @@ import {PatchSpfModuleCommand} from '../../../usecase-designer/spf-module/patch/
 import {PatchSpfModuleHandler} from '../../../usecase-designer/spf-module/patch/patch-spf-module.handler.js';
 import {CreateModuleCommand} from '../../../usecase-designer/spf-module/create-module/create-module.command.js';
 import {CreateModuleHandler} from '../../../usecase-designer/spf-module/create-module/create-module.handler.js';
+import {UpdateSubgraphScenarioCommand} from '../../../usecase-designer/subgraph/update-scenario/update-subgraph-scenario.command.js';
+import {UpdateSubgraphScenarioHandler} from '../../../usecase-designer/subgraph/update-scenario/update-subgraph-scenario.handler.js';
+import {UpdateSubgraphVsidCommand} from '../../../usecase-designer/subgraph/update-vsid/update-subgraph-vsid.command.js';
+import {UpdateSubgraphVsidHandler} from '../../../usecase-designer/subgraph/update-vsid/update-subgraph-vsid.handler.js';
+import {PatchSubgraphCommand} from '../../../usecase-designer/subgraph/patch/patch-subgraph.command.js';
+import {PatchSubgraphHandler} from '../../../usecase-designer/subgraph/patch/patch-subgraph.handler.js';
+import {UpdateSubgraphPropertyCommand} from '../../../usecase-designer/subgraph/update-property/update-subgraph-property.command.js';
+import {UpdateSubgraphPropertyHandler} from '../../../usecase-designer/subgraph/update-property/update-subgraph-property.handler.js';
+import {UpdateSubgraphContainerIdCommand} from '../../../usecase-designer/subgraph/update-container-id/update-subgraph-container-id.command.js';
+import {UpdateSubgraphContainerIdHandler} from '../../../usecase-designer/subgraph/update-container-id/update-subgraph-container-id.handler.js';
+import {CreateVcpmCkvCommand} from '../../../usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
+import {CreateVcpmCkvHandler} from '../../../usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.handler.js';
+import {DeleteVcpmCkvCommand} from '../../../usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.command.js';
+import {DeleteVcpmCkvHandler} from '../../../usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.handler.js';
+import {UpdateVcpmCalDataCommand} from '../../../usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
+import {UpdateVcpmCalDataHandler} from '../../../usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.handler.js';
+import {UpdateContainerPropertyCommand} from '../../../usecase-designer/container/update-property/update-container-property.command.js';
+import {UpdateContainerPropertyHandler} from '../../../usecase-designer/container/update-property/update-container-property.handler.js';
 import {CreateDataLinkCommand} from '../../../usecase-designer/data-links/create/create-data-link.command.js';
 import {CreateDataLinkHandler} from '../../../usecase-designer/data-links/create/create-data-link.handler.js';
 import {DeleteDataLinkCommand} from '../../../usecase-designer/data-links/delete/delete-data-link.command.js';
@@ -200,6 +218,42 @@ export class CommandHandlerRegistry {
           deps.idGeneration,
           deps.naturalIdGeneration,
         ),
+    });
+
+    this.commandHandlerFactories.set(UpdateSubgraphScenarioCommand, {
+      create: deps => new UpdateSubgraphScenarioHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(UpdateSubgraphVsidCommand, {
+      create: deps => new UpdateSubgraphVsidHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(PatchSubgraphCommand, {
+      create: deps => new PatchSubgraphHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(UpdateSubgraphPropertyCommand, {
+      create: deps => new UpdateSubgraphPropertyHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(UpdateSubgraphContainerIdCommand, {
+      create: deps => new UpdateSubgraphContainerIdHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(CreateVcpmCkvCommand, {
+      create: deps => new CreateVcpmCkvHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(DeleteVcpmCkvCommand, {
+      create: deps => new DeleteVcpmCkvHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(UpdateVcpmCalDataCommand, {
+      create: deps => new UpdateVcpmCalDataHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(UpdateContainerPropertyCommand, {
+      create: deps => new UpdateContainerPropertyHandler(deps.uow),
     });
   }
 }

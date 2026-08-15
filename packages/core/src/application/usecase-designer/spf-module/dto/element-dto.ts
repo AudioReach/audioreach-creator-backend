@@ -17,6 +17,7 @@ export const NameValuePairSchema = z.object({
   value: z.string().describe('Encoded value'),
 });
 
+// Summary schemas — write-side shape (type + name + value only)
 export const ConfigElementSummaryDtoSchema = z.object({
   type: z.literal('ConfigElement'),
   name: z.string().describe('Element name').optional(),
@@ -70,25 +71,22 @@ export const ConfigElementSchema = ConfigElementSummaryDtoSchema.extend({
 });
 
 // ElementTemplateArray and Struct use unknown[] for nested value/template to avoid infinite recursion
-export const ElementTemplateArraySchema = z.object({
-  type: z.literal('ElementTemplateArray'),
-  name: z.string(),
-  isReadOnly: z.boolean(),
-  template: z.array(z.unknown()),
-  value: z.array(z.unknown()),
-  description: z.string().optional(),
-  group: z.string().optional(),
-  subgroup: z.string().optional(),
-  length: z.number().optional(),
-  lengthFormula: z.string().optional(),
-});
+export const ElementTemplateArraySchema =
+  ElementTemplateArraySummaryDtoSchema.extend({
+    value: z.array(z.unknown()),
+    isReadOnly: z.boolean(),
+    template: z.array(z.unknown()),
+    description: z.string().optional(),
+    group: z.string().optional(),
+    subgroup: z.string().optional(),
+    length: z.number().optional(),
+    lengthFormula: z.string().optional(),
+  });
 
-export const StructSchema = z.object({
-  type: z.literal('Struct'),
-  name: z.string(),
+export const StructSchema = StructSummaryDtoSchema.extend({
+  value: z.array(z.unknown()),
   isReadOnly: z.boolean(),
   structType: z.string(),
-  value: z.array(z.unknown()),
   description: z.string().optional(),
   group: z.string().optional(),
   subgroup: z.string().optional(),

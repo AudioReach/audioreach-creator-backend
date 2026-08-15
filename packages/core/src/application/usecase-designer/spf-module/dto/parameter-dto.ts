@@ -4,7 +4,10 @@
  */
 
 import {z} from 'zod';
-import {ParameterElementDtoSchema} from './element-dto.js';
+import {
+  ParameterElementDtoSchema,
+  ParameterElementSummaryDtoSchema,
+} from './element-dto.js';
 
 export const ParameterDtoSchema = z.object({
   systemId: z.string().describe('System identifier'),
@@ -34,3 +37,16 @@ export const ParameterDtoSchema = z.object({
 });
 
 export type ParameterDto = z.infer<typeof ParameterDtoSchema>;
+
+export const ParameterSummaryDtoSchema = z.object({
+  systemId: z.string().describe('System identifier (parameter system ID)'),
+  name: z.string().describe('Parameter name'),
+  elements: z
+    .array(ParameterElementSummaryDtoSchema)
+    .describe('Elements to write'),
+});
+export type ParameterSummaryDto = z.infer<typeof ParameterSummaryDtoSchema>;
+
+export const PropertySummaryDtoSchema = ParameterSummaryDtoSchema;
+// eslint-disable-next-line sonarjs/redundant-type-aliases -- property-context alias for API readability
+export type PropertySummaryDto = ParameterSummaryDto;

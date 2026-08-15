@@ -300,6 +300,10 @@ export {TkvCalDataDtoSchema} from './application/usecase-designer/spf-module/get
 export type {TkvCalDataDto} from './application/usecase-designer/spf-module/get-tag-data/tkv-cal-data-dto.js';
 export {ParameterDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export type {ParameterDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export {ParameterSummaryDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export type {ParameterSummaryDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export {PropertySummaryDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
+export type {PropertySummaryDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export {
   ParameterElementDtoSchema,
   ConfigElementSchema,
@@ -310,8 +314,18 @@ export {
   mapElement,
   mapElementArray,
   mapStruct,
+  ConfigElementSummaryDtoSchema,
+  ElementTemplateArraySummaryDtoSchema,
+  StructSummaryDtoSchema,
+  ParameterElementSummaryDtoSchema,
 } from './application/usecase-designer/spf-module/dto/element-dto.js';
 export type {ParameterElementDto} from './application/usecase-designer/spf-module/dto/element-dto.js';
+export type {
+  ConfigElementSummaryDto,
+  ElementTemplateArraySummaryDto,
+  StructSummaryDto,
+  ParameterElementSummaryDto,
+} from './application/usecase-designer/spf-module/dto/element-dto.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';
@@ -334,6 +348,34 @@ export type {
   DataLinkWithUsecasesDto,
   ControlLinkWithUsecasesDto,
 } from './application/usecase-designer/subgraph/dto/subgraph-pair-dto.js';
+// Subgraph write result types
+export {
+  ScenarioChangeDtoSchema,
+  VsidUpdateDtoSchema,
+  VcpmCkvDtoSchema,
+  CreateVcpmCkvDtoSchema,
+} from './application/usecase-designer/subgraph/dto/subgraph-write-result-types.js';
+export type {
+  ScenarioChangeDto,
+  VsidUpdateDto,
+  VcpmCkvDto,
+  CreateVcpmCkvDto,
+} from './application/usecase-designer/subgraph/dto/subgraph-write-result-types.js';
+// VCPM query types
+export {GetVcpmCkvQuery} from './application/usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.query.js';
+export {GetVcpmCalDataQuery} from './application/usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.query.js';
+// Subgraph write commands
+export {UpdateSubgraphScenarioCommand} from './application/usecase-designer/subgraph/update-scenario/update-subgraph-scenario.command.js';
+export {UpdateSubgraphVsidCommand} from './application/usecase-designer/subgraph/update-vsid/update-subgraph-vsid.command.js';
+export {PatchSubgraphCommand} from './application/usecase-designer/subgraph/patch/patch-subgraph.command.js';
+export {UpdateSubgraphPropertyCommand} from './application/usecase-designer/subgraph/update-property/update-subgraph-property.command.js';
+export {UpdateSubgraphContainerIdCommand} from './application/usecase-designer/subgraph/update-container-id/update-subgraph-container-id.command.js';
+export {CreateVcpmCkvCommand} from './application/usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
+export type {CkvKeyValuePair} from './application/usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
+export {DeleteVcpmCkvCommand} from './application/usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.command.js';
+export {UpdateVcpmCalDataCommand} from './application/usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
+// Container write commands
+export {UpdateContainerPropertyCommand} from './application/usecase-designer/container/update-property/update-container-property.command.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
 export {ContainerPropertiesDtoSchema} from './application/usecase-designer/container/dto/container-properties-dto.js';
