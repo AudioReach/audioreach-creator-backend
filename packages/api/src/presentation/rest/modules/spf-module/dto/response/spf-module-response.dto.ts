@@ -4,6 +4,8 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
+import {createZodDto} from 'nestjs-zod';
+import {DeleteSpfModuleResultSchema} from '@arc/core';
 import {CkvResponseDto} from '../shared/ckv-response.dto.js';
 import {ParamInfoDto} from '../shared/param-info.dto.js';
 
@@ -127,32 +129,14 @@ export class AddCkvsResponseDto {
 }
 
 /**
- * Response DTO for deleting an SPF module.
- * Returns the module system ID and any container or subgraph that was cascade-deleted
- * because the module was the last one in its container.
+ * Response DTO for DELETE /spf-modules/:id.
+ *
+ * deleted.spfModules: always exactly one entry — the deleted module.
+ * deleted.subgraphs:  one entry if this was the last module in its subgraph; absent otherwise.
+ * deleted.containers: IDs of containers in the deleted subgraph that are cascade-deleted; absent otherwise.
+ * deleted.dataLinks:  IDs of all DataLinks cascade-deleted from the module's data ports.
+ * deleted.controlLinks: IDs of all ControlLinks cascade-deleted from the module's control ports.
  */
-export class RemoveSpfModuleResponseDto {
-  @ApiProperty({
-    description: 'System ID of the deleted SPF module',
-    type: String,
-  })
-  removedModuleSystemId!: string;
-
-  @ApiProperty({
-    description:
-      'System ID of the container that was cascade-deleted because this was its last module. ' +
-      'Absent if the container still exists.',
-    type: String,
-    required: false,
-  })
-  removedContainerSystemId?: string;
-
-  @ApiProperty({
-    description:
-      'System ID of the subgraph that was cascade-deleted because this was its last module. ' +
-      'Absent if the subgraph still exists.',
-    type: String,
-    required: false,
-  })
-  removedSubgraphSystemId?: string;
-}
+export class RemoveSpfModuleResponseDto extends createZodDto(
+  DeleteSpfModuleResultSchema,
+) {}

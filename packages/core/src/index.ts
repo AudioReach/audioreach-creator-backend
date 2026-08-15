@@ -48,6 +48,15 @@ export * from './application/shared/change-vocabulary.js';
 export * from './application/shared/read-model-base.js';
 // Write handler shared result type
 export * from './application/shared/write-result.js';
+// Shared write-response summary schemas
+export {
+  EntityIdCollectionSchema,
+  ComponentChangeSummarySchema,
+} from './application/shared/dto/component-change-summary-dto.js';
+export type {
+  EntityIdCollection,
+  ComponentChangeSummary,
+} from './application/shared/dto/component-change-summary-dto.js';
 export type {EditOptions} from './application/ports/persistence/edit-options.js';
 
 // Module write path — port interfaces (LLD2 PATCH + AddModule)
@@ -69,6 +78,8 @@ export type {
 // Module write path — commands (LLD2)
 export {PatchSpfModuleCommand} from './application/usecase-designer/spf-module/patch/patch-spf-module.command.js';
 export {CreateModuleCommand} from './application/usecase-designer/spf-module/create-module/create-module.command.js';
+export {DeleteSpfModuleResultSchema} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
+export type {DeleteSpfModuleResult} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
 
 // Application services
 export * from './application/ports/persistence/query-services/query-services.js';
