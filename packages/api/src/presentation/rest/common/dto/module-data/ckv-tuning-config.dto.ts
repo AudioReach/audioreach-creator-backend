@@ -6,7 +6,7 @@
 import {ApiProperty} from '@nestjs/swagger';
 import {KeyValuePairsInfoDto} from '../kv-info.dto.js';
 
-class ParameterSummaryDto {
+class SupportedParameterInfoDto {
   @ApiProperty({
     description: 'Unique identifier for the system containing this parameter',
   })
@@ -31,7 +31,7 @@ export class CkvTuningConfigDto {
 
   @ApiProperty({
     description: 'Supported parameter information',
-    type: ParameterSummaryDto,
+    type: SupportedParameterInfoDto,
   })
-  supportedParameters!: ParameterSummaryDto;
+  supportedParameters!: SupportedParameterInfoDto;
 }

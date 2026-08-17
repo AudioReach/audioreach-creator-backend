@@ -237,6 +237,50 @@ export class SubgraphController extends BaseController {
   }
 
   /**
+   * Get property data for a single subgraph property by its system ID.
+   */
+  @Get('/:subgraphSystemId/properties/:propertySystemId')
+  @ApiParam({
+    name: 'subgraphSystemId',
+    required: true,
+    type: String,
+    description: 'System id of a subgraph',
+  })
+  @ApiParam({
+    name: 'propertySystemId',
+    required: true,
+    type: String,
+    description: 'System id of the property',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get property data for a single subgraph property',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Success',
+        dto: PropertyResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project, subgraph, or property not found',
+      },
+    ],
+  })
+  async getSubgraphProperty(
+    @Param('projectId') projectId: string,
+    @Param('subgraphSystemId') subgraphSystemId: string,
+    @Param('propertySystemId') propertySystemId: string,
+  ): Promise<ApiResult<PropertyResponseDto>> {
+    await Promise.resolve();
+    console.log(
+      `Getting property ${propertySystemId} for subgraph ${subgraphSystemId} in project ${projectId}`,
+    );
+    throw new NotImplementedException(
+      'getSubgraphProperty is not implemented yet',
+    );
+  }
+
+  /**
    * Set scenario property for a subgraph (Audio/Voice).
    */
   @Patch('/:subgraphSystemId/scenario')
