@@ -27,7 +27,6 @@ export const VsidUpdateDtoSchema = z.object({
   affectedSubgraphSystemIds: z.array(z.string()),
 });
 
-
 export const VcpmCkvDtoSchema = z.object({
   configuredParams: z.array(
     z.object({

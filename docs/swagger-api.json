@@ -6075,6 +6075,71 @@
         ]
       }
     },
+    "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/properties/{propertySystemId}": {
+      "get": {
+        "operationId": "SubgraphController_getSubgraphProperty",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subgraphSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a subgraph",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "propertySystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of the property",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PropertyResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project, subgraph, or property not found"
+          }
+        },
+        "summary": "Get property data for a single subgraph property",
+        "tags": [
+          "subgraphs"
+        ]
+      }
+    },
     "/arc-api/v1/projects/{projectId}/subgraphs/{subgraphSystemId}/scenario": {
       "patch": {
         "description": "Triggers a 4–7 step cascade. Returns a mutation log of properties and module CKVs added/removed.",
@@ -7851,6 +7916,71 @@
           }
         },
         "summary": "Get all property data for a container",
+        "tags": [
+          "containers"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/containers/{containerSystemId}/properties/{propertySystemId}": {
+      "get": {
+        "operationId": "ContainerController_getContainerProperty",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "containerSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of a container",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "propertySystemId",
+            "required": true,
+            "in": "path",
+            "description": "System id of the property",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PropertyResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project, container, or property not found"
+          }
+        },
+        "summary": "Get property data for a single container property",
         "tags": [
           "containers"
         ]
@@ -13468,38 +13598,25 @@
           "systemId"
         ]
       },
-      "ParameterSummaryDto": {
+      "SupportedParameterInfoDto": {
         "type": "object",
         "properties": {
-          "elements": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/ConfigElementSummaryDto"
-                },
-                {
-                  "$ref": "#/components/schemas/ElementTemplateArraySummaryDto"
-                },
-                {
-                  "$ref": "#/components/schemas/StructSummaryDto"
-                }
-              ]
-            },
-            "description": "Elements to write"
-          },
           "systemId": {
             "type": "string",
-            "description": "System identifier (parameter system ID)"
+            "description": "Unique identifier for the system containing this parameter"
+          },
+          "parameterId": {
+            "type": "string",
+            "description": "parameterId"
           },
           "name": {
             "type": "string",
-            "description": "Parameter name"
+            "description": "Human-readable display name for the parameter"
           }
         },
         "required": [
-          "elements",
           "systemId",
+          "parameterId",
           "name"
         ]
       },
@@ -13517,7 +13634,7 @@
             "description": "Supported parameter information",
             "allOf": [
               {
-                "$ref": "#/components/schemas/ParameterSummaryDto"
+                "$ref": "#/components/schemas/SupportedParameterInfoDto"
               }
             ]
           }
@@ -15264,6 +15381,41 @@
           "parameters",
           "systemId",
           "Ckv"
+        ]
+      },
+      "ParameterSummaryDto": {
+        "type": "object",
+        "properties": {
+          "elements": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConfigElementSummaryDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ElementTemplateArraySummaryDto"
+                },
+                {
+                  "$ref": "#/components/schemas/StructSummaryDto"
+                }
+              ]
+            },
+            "description": "Elements to write"
+          },
+          "systemId": {
+            "type": "string",
+            "description": "System identifier (parameter system ID)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Parameter name"
+          }
+        },
+        "required": [
+          "elements",
+          "systemId",
+          "name"
         ]
       },
       "UpdateCkvRequestDto": {

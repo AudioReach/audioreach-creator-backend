@@ -5,6 +5,7 @@
 
 import {
   Controller,
+  NotImplementedException,
   Post,
   Get,
   Patch,
@@ -171,6 +172,50 @@ export class ContainerController extends BaseController {
         query,
       );
     return toApiResult(result);
+  }
+
+  /**
+   * Get property data for a single container property by its system ID.
+   */
+  @Get('/:containerSystemId/properties/:propertySystemId')
+  @ApiParam({
+    name: 'containerSystemId',
+    required: true,
+    type: String,
+    description: 'System id of a container',
+  })
+  @ApiParam({
+    name: 'propertySystemId',
+    required: true,
+    type: String,
+    description: 'System id of the property',
+  })
+  @ApiDocumentationWithExample({
+    summary: 'Get property data for a single container property',
+    responses: [
+      {
+        status: HttpStatus.OK,
+        description: 'Success',
+        dto: PropertyResponseDto,
+      },
+      {
+        status: HttpStatus.NOT_FOUND,
+        description: 'Project, container, or property not found',
+      },
+    ],
+  })
+  async getContainerProperty(
+    @Param('projectId') projectId: string,
+    @Param('containerSystemId') containerSystemId: string,
+    @Param('propertySystemId') propertySystemId: string,
+  ): Promise<ApiResult<PropertyResponseDto>> {
+    await Promise.resolve();
+    console.log(
+      `Getting property ${propertySystemId} for container ${containerSystemId} in project ${projectId}`,
+    );
+    throw new NotImplementedException(
+      'getContainerProperty is not implemented yet',
+    );
   }
 
   /**
