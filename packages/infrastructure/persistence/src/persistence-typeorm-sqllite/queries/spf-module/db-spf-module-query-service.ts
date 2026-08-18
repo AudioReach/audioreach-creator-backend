@@ -15,7 +15,6 @@ import {
   type ISessionRepository,
   type Issue,
   Result,
-  ResourceNotFoundException,
   ERROR_CODES,
   CONFIGURATION_INCLUDES,
   IssueSeverity,
@@ -96,23 +95,22 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   async getSpfModule(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleReadModel> {
+  ): Promise<Result<SpfModuleReadModel>> {
     const result = await this.getSpfModules([spfModuleSystemId], fileSystemId);
 
     if (result.kind === RESULT_KIND.Fail) {
-      const message = result.issues[0]?.message ?? 'Failed to load SPF module';
-      throw new ResourceNotFoundException(
-        `SpfModule not found for systemId=${spfModuleSystemId}: ${message}`,
-      );
+      return Result.fail(...result.issues);
     }
 
     const module = result.data[0];
     if (!module) {
-      throw new ResourceNotFoundException(
-        `SpfModule not found for systemId=${spfModuleSystemId}`,
-      );
+      return Result.fail({
+        code: ERROR_CODES.ENTITY_NOT_FOUND,
+        message: `SpfModule not found for systemId=${spfModuleSystemId}`,
+        severity: IssueSeverity.Error,
+      });
     }
-    return module;
+    return Result.ok(module);
   }
 
   async findByUsecaseIds(

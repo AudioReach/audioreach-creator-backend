@@ -7,7 +7,7 @@
 
 ## Document Information
 
-- **Version**: 9.0
+- **Version**: 9.1
 - **Date**: August 2026
 - **Status**: Current
 - **Endpoints**:
@@ -61,7 +61,7 @@ Handlers call coordinator services, which delegate to focused category services.
 
 ```
 NodeQueryService         → getDataPorts, getControlPorts (any node type)
-SpfModuleQueryService    → findOne, findMany + sub-services
+SpfModuleQueryService    → getSpfModule, getSpfModules + sub-services
 SpfTuningConfigService   → getModuleCkvs, getModuleCkvParams, getModuleTags
 KeyValueDefQueryService  → getKeyValueDefinitionForGivenValue(s), getByKeyDefinition
   (owns arc_values + arc_keys — reused by CKV, TKV, and future GKV/usecase paths)
@@ -179,7 +179,92 @@ DbSpfTuningConfigService.getModuleCkvs()   SpfModuleQueryHandler.handle()   SpfM
 | Definition load failed for one module | `Result.fail` → collected as fatal | HTTP 422 |
 | One CKV's key-value resolution throws | `Result.partial` from `getModuleCkvs` — that CKV dropped, others kept | HTTP 200, module included with partial CKVs |
 | One TKV under a tag fails to build | `Result.partial` from `buildTagTkvReadModels`, merged into `getModuleTags`'s own errors | HTTP 200, tag included with remaining TKVs |
-| Module not found (`findOne`) | `Result.fail(ENTITY_NOT_FOUND)` | Caller decides how to surface |
+| Module not found (`getSpfModule`) | `Result.fail(ENTITY_NOT_FOUND)` | Caller (core handler) decides how to surface |
+
+### Infrastructure → Core → Middleware error propagation
+
+Infrastructure never throws domain exceptions. Every method returns `Result<T>`. The core handler is the only layer that decides whether a `Result.fail` becomes an HTTP error code.
+
+**Rule**: infrastructure emits `Result.fail` with structured `Issue` objects. The handler reads all issues and throws a domain exception carrying them. The `AllExceptionsFilter` maps the exception type to an HTTP status code and surfaces all issues in the response body.
+
+**Flow for a single-item lookup (`getSpfModule`)**
+
+```
+DbSpfModuleQueryService.getSpfModule()
+  getSpfModules([id]) → Result.fail({code: ENTITY_NOT_FOUND, message: '...', severity: 'ERROR'})
+  ↓ returns Result.fail(...issues)  — never throws
+
+GetCkvCalibrationDataHandler.handle()
+  const result = await spfModuleQueryService.getSpfModule(id, fileId)
+  if (result.kind === RESULT_KIND.Fail) {
+    throw new ResourceNotFoundException('SpfModule X not found', result.issues)
+    // constructor formats message as:
+    // "SpfModule X not found:\n1. <issue1.message>\n2. <issue2.message>"
+  }
+  const spfModule = result.data   // TypeScript: data only accessible after FAIL guard
+
+AllExceptionsFilter.catch()
+  ResourceNotFoundException instanceof DomainException
+  → status: 404  (from DOMAIN_STATUS_MAP)
+  → issues: exception.issues  (surfaced in response body — all issues listed)
+```
+
+**HTTP 404 response when multiple issues are present**
+
+```json
+{
+  "statusCode": 404,
+  "errorCode": "RESOURCE_NOT_FOUND",
+  "message": "SpfModule 99 not found:\n1. capability data missing\n2. port query failed",
+  "issues": [
+    {"code": "ERR_4004", "message": "capability data missing", "severity": "ERROR"},
+    {"code": "ERR_9001", "message": "port query failed",       "severity": "ERROR"}
+  ]
+}
+```
+
+**`DomainException` base — issues field**
+
+```typescript
+// packages/core/src/shared/exceptions/domain-exception.ts
+abstract class DomainException extends Error {
+  readonly details?: unknown;
+  readonly issues?: readonly Issue[];
+
+  constructor(message: string, details?: unknown, issues?: readonly Issue[]) {
+    // When issues are present, message is auto-formatted:
+    // "<message>:\n1. <issue1.message>\n2. <issue2.message>"
+    const formattedMessage =
+      issues?.length
+        ? `${message}:\n${issues.map((i, n) => `${n + 1}. ${i.message}`).join('\n')}`
+        : message;
+    super(formattedMessage);
+    this.details = details;
+    this.issues  = issues;
+  }
+}
+```
+
+All `DomainException` subclasses inherit the formatting. `ResourceNotFoundException` exposes two constructor overloads: `(message)` for callers with no issues, `(message, issues)` for callers forwarding a `Result.fail`.
+
+**`AllExceptionsFilter` — issues surfaced for all `DomainException`**
+
+Before this change the `DomainException` branch hardcoded `issues: undefined` — only `DomainRuleViolationException` (422) surfaced issues. Now the branch reads `exception.issues` so every domain exception (404, 400, 501, etc.) can carry and expose its diagnostic list.
+
+```typescript
+// DomainRuleViolationException branch — unchanged, checked first
+if (exception instanceof DomainRuleViolationException) { ... issues: exception.issues ... }
+
+// DomainException branch — updated
+if (exception instanceof DomainException) {
+  return {
+    status: DOMAIN_STATUS_MAP.get(...) ?? 500,
+    errorCode: exception.errorCode,
+    details: exception.details,
+    issues: exception.issues as Issue[] | undefined,  // ← was hardcoded undefined
+  };
+}
+```
 
 ---
 
@@ -654,11 +739,11 @@ const dtos = modules.map(m =>
 ### Public methods
 
 ```typescript
-findOne(spfModuleSystemId, fileSystemId):  Promise<Result<SpfModuleReadModel>>
-findMany(systemIds, fileSystemId):          Promise<Result<SpfModuleReadModel[]>>
+getSpfModule(spfModuleSystemId, fileSystemId):  Promise<Result<SpfModuleReadModel>>
+getSpfModules(systemIds, fileSystemId):          Promise<Result<SpfModuleReadModel[]>>
 ```
 
-`findOne` delegates to `findMany([id])` and converts an empty result into `Result.fail(ENTITY_NOT_FOUND)` — it never returns `Result.ok(null)`. Both wrapped in `try/catch` → `Result.fail(INTERNAL_ERROR)` on DB exception.
+`getSpfModule` delegates to `getSpfModules([id])` and converts an empty result into `Result.fail(ENTITY_NOT_FOUND)` — it never throws and never returns `Result.ok(null)`. The calling core handler receives the `Result` and is responsible for throwing a domain exception (e.g. `ResourceNotFoundException`) if appropriate. Both methods wrapped in `try/catch` → `Result.fail(INTERNAL_ERROR)` on DB exception.
 
 ### Constructor — services injected, not self-constructed
 
@@ -950,7 +1035,7 @@ packages/core/src/application/
       key-value-def-query-service.ts         ← KeyValueDefQueryService — getKeyValueDefinitionForGivenValue(s), getByKeyDefinition
       key-value-definition-read-model.ts      ← KeyDefinitionReadModel (embeds values[]), ValueDefinitionReadModel, KeyReadModel, ValueReadModel
     spf-module/
-      spf-module-query-service.ts             ← SpfModuleQueryService — findOne, findMany
+      spf-module-query-service.ts             ← SpfModuleQueryService — getSpfModule, getSpfModules
       spf-module-read-model.ts
       tuning/
         spf-tuning-config-service.ts          ← SpfTuningConfigService — getModuleCkvs, getModuleCkvParams, getModuleTags
@@ -972,7 +1057,7 @@ packages/infrastructure/persistence/src/.../queries/
   node/
     db-node-query-service.ts                  ← getDataPorts + getControlPorts
   spf-module/
-    db-spf-module-query-service.ts            ← findOne/findMany; delegates module overlay to ModuleNodeOverlayFetcher;
+    db-spf-module-query-service.ts            ← getSpfModule/getSpfModules; getSpfModule returns Result.fail (never throws);
                                                   receives spfTuningConfigService by injection
     db-spf-tuning-config-service.ts           ← getModuleCkvs/getModuleTags — Result.partial per-item isolation,
                                                   resolveKeyValuePairs (shared flatten + not-found reconstruction),

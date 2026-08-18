@@ -16,15 +16,13 @@ export interface SpfModuleQueryService {
    * Returns a single SPF module with ports and definition capabilities.
    * Overlay always applied.
    *
-   * Behaviour (FR-1.4):
-   *   - Throws `ResourceNotFoundException` when the module does not exist.
-   *   - Throws (or rethrows) on any other total failure (DB error, definition failure).
-   *   - Never returns `Result.fail` — this method is not `Result`-shaped.
+   * Returns `Result.fail` with `ENTITY_NOT_FOUND` if the module does not exist.
+   * The caller (core handler) is responsible for deciding whether to throw.
    */
   getSpfModule(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleReadModel>;
+  ): Promise<Result<SpfModuleReadModel>>;
 
   /**
    * Returns SPF modules for the given system IDs.

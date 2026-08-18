@@ -15,6 +15,7 @@ import {
   NullPayloadError,
   ParameterDefinitionMissingError,
 } from '../../../../../../src/shared/errors/parameter.errors.js';
+import {ResourceNotFoundException} from '../../../../../../src/shared/exceptions/resource-not-found.exception.js';
 
 const mockCkv: CkvReadModel = {
   systemId: 10,
@@ -65,7 +66,9 @@ function makeServices(
       getFileIdByProjectId: jest.fn().mockResolvedValue(fileId),
     },
     spfModuleQueryService: {
-      getSpfModule: jest.fn().mockResolvedValue({definitionSystemId: moduleDefId}),
+      getSpfModule: jest
+        .fn()
+        .mockResolvedValue(Result.ok({definitionSystemId: moduleDefId})),
       ckvQueryService: {
         getCkv: jest.fn().mockResolvedValue(ckv),
         getCkvPayloads: jest.fn().mockResolvedValue(payloads),
@@ -80,7 +83,10 @@ function makeServices(
   } as unknown as QueryServices;
 }
 
-import {RESULT_KIND} from '../../../../../../src/application/shared/result/result.js';
+import {
+  Result,
+  RESULT_KIND,
+} from '../../../../../../src/application/shared/result/result.js';
 
 describe('GetCkvCalibrationDataHandler', () => {
   it('returns Result<CkvCalDataDto> with parsed parameters', async () => {
@@ -140,5 +146,52 @@ describe('GetCkvCalibrationDataHandler', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data.parameters[0].parameterId).toBe('42');
+  });
+
+  it('throws ResourceNotFoundException when getSpfModule returns Result.fail', async () => {
+    const services = makeServices();
+    (
+      services.spfModuleQueryService.getSpfModule as jest.Mock
+    ).mockResolvedValue(
+      Result.fail({
+        code: 'ERR_4004',
+        message: 'SpfModule not found for systemId=99',
+        severity: 'ERROR',
+      }),
+    );
+    const handler = new GetCkvCalibrationDataHandler(services);
+    await expect(
+      handler.handle(
+        new GetCkvCalibrationDataQuery('1', '99', '10', 'client-id'),
+      ),
+    ).rejects.toThrow(ResourceNotFoundException);
+  });
+
+  it('throws ResourceNotFoundException carrying all issues when getSpfModule returns Result.fail with multiple issues', async () => {
+    const services = makeServices();
+    const issues = [
+      {
+        code: 'ERR_4004',
+        message: 'capability data missing',
+        severity: 'ERROR' as const,
+      },
+      {
+        code: 'ERR_9001',
+        message: 'port query failed',
+        severity: 'ERROR' as const,
+      },
+    ];
+    (
+      services.spfModuleQueryService.getSpfModule as jest.Mock
+    ).mockResolvedValue(Result.fail(...issues));
+    const handler = new GetCkvCalibrationDataHandler(services);
+    const error = await handler
+      .handle(new GetCkvCalibrationDataQuery('1', '99', '10', 'client-id'))
+      .catch(e => e);
+    expect(error).toBeInstanceOf(ResourceNotFoundException);
+    expect((error as ResourceNotFoundException).issues).toHaveLength(2);
+    expect((error as ResourceNotFoundException).issues?.[1]?.message).toBe(
+      'port query failed',
+    );
   });
 });
