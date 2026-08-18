@@ -47,11 +47,11 @@ export class PutCkvCalDataHandler {
     if (!spfModule) throw new ResourceNotFoundException('SpfModule not found');
 
     // Step 2: validate CKV exists
-    const ckv = await moduleRepo.getCkvForValidation(
+    const exists = await moduleRepo.ckvExists(
       command.spfModuleSystemId,
       command.ckvSystemId,
     );
-    if (!ckv) throw new ResourceNotFoundException('CKV not found');
+    if (!exists) throw new ResourceNotFoundException('CKV not found');
 
     // Step 3: fetch existing payloads, then fetch definitions for those parameter IDs
     const existingPayloads = await moduleRepo.getExistingCkvPayloads(

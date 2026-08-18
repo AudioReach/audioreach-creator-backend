@@ -4,21 +4,15 @@
  */
 
 import type {EditOptions} from '../../edit-options.js';
-import type {SpfModule} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
+import type {
+  SpfModule,
+  SpfModuleBase,
+} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 import type {DataPort} from '../../../../../domain/entities/usecase-data/node/entities/data-port.js';
 import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import type {KvData} from '../../../../../domain/entities/common/entities/kv-data.js';
 
-export interface SpfModuleForValidation {
-  systemId: number;
-  definitionSystemId: number;
-  subgraphSystemId: number;
-  containerSystemId: number;
-}
-
-export interface CkvForValidation {
-  systemId: number;
-}
+export type {SpfModuleBase} from '../../../../../domain/entities/usecase-data/module/spf-module.js';
 
 export interface ExistingPayloadRow {
   systemId: number; // PK of CkvParameterPayload — matches param.systemId from client
@@ -98,12 +92,9 @@ export interface ModuleRepository {
   getSpfModuleForValidation(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleForValidation | null>;
+  ): Promise<SpfModuleBase | null>;
 
-  getCkvForValidation(
-    spfModuleSystemId: number,
-    ckvSystemId: number,
-  ): Promise<CkvForValidation | null>;
+  ckvExists(spfModuleSystemId: number, ckvSystemId: number): Promise<boolean>;
 
   getExistingCkvPayloads(
     spfModuleSystemId: number,

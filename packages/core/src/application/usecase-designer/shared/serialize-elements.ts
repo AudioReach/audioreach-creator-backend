@@ -4,6 +4,7 @@
  */
 
 import {PARAMETER_ELEMENT_TYPE} from './element-definition.js';
+import {convertParamDefinition} from './parse-elements.js';
 import type {
   ConfigElement,
   StructElement,
@@ -22,6 +23,9 @@ import type {
 import {BinaryDataWriter} from './utils/binary-data-writer.js';
 import {evaluateFormula} from './utils/formular-evaluator.js';
 
+/** DTO alias for element arrays (GET response uses this; PUT input round-trips it back). */
+const ELEMENT_ARRAY_DTO_TYPE = 'ElementTemplateArray' as const;
+
 type SerializeResult =
   | {ok: true; value: Uint8Array}
   | {ok: false; error: string};
@@ -33,7 +37,7 @@ export function serializeParameterData(
 ): SerializeResult {
   let schema: DefinitionElement[];
   try {
-    schema = JSON.parse(definition.elementsStructure) as DefinitionElement[];
+    schema = convertParamDefinition(definition.elementsStructure);
   } catch {
     return {ok: false, error: 'Failed to parse elementsStructure JSON'};
   }
@@ -87,17 +91,17 @@ function serializeElement(
   parsedSoFar: Map<string, number>,
   logger?: Logger,
 ): SerializeResult {
-  switch (def.elementType) {
+  switch ((def as {elementType: string}).elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return serializeConfigElement(
-        def,
+        def as ConfigElement,
         input as ConfigElementData,
         writer,
         parsedSoFar,
       );
     case PARAMETER_ELEMENT_TYPE.Struct:
       return serializeStruct(
-        def,
+        def as StructElement,
         input as StructData,
         writer,
         parsedSoFar,
@@ -105,7 +109,7 @@ function serializeElement(
       );
     case PARAMETER_ELEMENT_TYPE.ElementArray:
       return serializeArray(
-        def,
+        def as ElementArray,
         input as ElementArrayData,
         writer,
         parsedSoFar,
@@ -113,7 +117,7 @@ function serializeElement(
       );
     case PARAMETER_ELEMENT_TYPE.StructArray:
       return serializeStructArray(
-        def,
+        def as StructArray,
         input as ElementArrayData,
         writer,
         parsedSoFar,
@@ -309,10 +313,14 @@ function serializeArray(
   parsedSoFar: Map<string, number>,
   logger?: Logger,
 ): SerializeResult {
-  if (input.type !== PARAMETER_ELEMENT_TYPE.ElementArray) {
+  const inputType = (input as unknown as {type: string}).type;
+  if (
+    inputType !== PARAMETER_ELEMENT_TYPE.ElementArray &&
+    inputType !== ELEMENT_ARRAY_DTO_TYPE
+  ) {
     return {
       ok: false,
-      error: `Type mismatch: expected ElementArray, got ${input.type as string}`,
+      error: `Type mismatch: expected ElementArray, got ${inputType}`,
     };
   }
 
@@ -351,10 +359,14 @@ function serializeStructArray(
   parsedSoFar: Map<string, number>,
   logger?: Logger,
 ): SerializeResult {
-  if (input.type !== PARAMETER_ELEMENT_TYPE.ElementArray) {
+  const inputType = (input as unknown as {type: string}).type;
+  if (
+    inputType !== PARAMETER_ELEMENT_TYPE.ElementArray &&
+    inputType !== ELEMENT_ARRAY_DTO_TYPE
+  ) {
     return {
       ok: false,
-      error: `Type mismatch: expected ElementArray (StructArray), got ${input.type as string}`,
+      error: `Type mismatch: expected ElementArray (StructArray), got ${inputType}`,
     };
   }
 

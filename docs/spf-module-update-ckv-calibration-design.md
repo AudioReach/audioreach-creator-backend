@@ -120,7 +120,7 @@ packages/core/src/application/
 ├── ports/persistence/
 │   └── repositories/
 │       └── module/
-│           ├── module.repository.ts                      (modified) # add getSpfModuleForValidation(), getCkvForValidation(), getExistingCkvPayloads(), setCkvCalData()
+│           ├── module.repository.ts                      (modified) # add getSpfModuleForValidation(), ckvExists(), getExistingCkvPayloads(), setCkvCalData()
 │           └── module-definition.repository.ts           (modified) # add getParameterDefinitions()
 ├── orchestration/cqrs/registries/
 │   └── command-handler-registry.ts                       (modified) # register PutCkvCalDataHandler
@@ -140,7 +140,7 @@ packages/core/src/application/
 packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 ├── repositories/
 │   └── module/
-│       ├── module.repository.ts                          (modified) # add getSpfModuleForValidation(), getCkvForValidation(), getExistingCkvPayloads(), setCkvCalData()
+│       ├── module.repository.ts                          (modified) # add getSpfModuleForValidation(), ckvExists(), getExistingCkvPayloads(), setCkvCalData()
 │       └── module-definition.repository.ts               (modified) # add getParameterDefinitions()
 ├── fetchers/
 │   ├── ckv-overlay-fetcher.ts                            (new)      # CkvOverlayFetcher — Layers 1+2 for CKV and CkvParameterPayload reads (shared by GET and PUT)
@@ -177,8 +177,8 @@ Core (Application)
 
     Read phase (no transaction):
       1. validate SpfModule exists → HTTP 404 if not  (uow.getModuleRepository().getSpfModuleForValidation)
-            returns lean type: { systemId, definitionSystemId, subgraphSystemId, containerSystemId }
-      2. validate CKV exists → HTTP 404 if not        (uow.getModuleRepository().getCkvForValidation)
+            returns SpfModuleBase: { systemId, definitionSystemId, subgraphSystemId, containerSystemId }
+      2. validate CKV exists → HTTP 404 if not        (uow.getModuleRepository().ckvExists)
       3. fetch existing payload rows                   (uow.getModuleRepository().getExistingCkvPayloads)
             returns { systemId, parameterSystemId } per row
       4. fetch parameter definitions filtered to the parameterSystemIds from step 3
@@ -226,7 +226,7 @@ Presentation (API) — after command completes:
 
 Infrastructure (Persistence)
   **ModuleRepository impl** (TypeOrmModuleRepository):
-  → getCkvForValidation: delegates Layers 1+2 to CkvOverlayFetcher.fetchCkv() — returns { systemId } or null
+  → ckvExists: delegates Layers 1+2 to CkvOverlayFetcher.fetchCkv() — returns true or false
   → getExistingCkvPayloads: delegates Layers 1+2 to CkvOverlayFetcher.fetchCkvPayloads() — overlay-aware for FR15
   → setCkvCalData: calls writeDelta for each CkvParameterPayload row via PendingChangeWriter
       spec: { targetTable: CkvParameterPayload, targetSystemId: payloadSystemId, aggregateId: spfModuleSystemId, delta: { payload: base64 } }
@@ -406,7 +406,7 @@ Constructor takes only `UnitOfWork` — same as `PatchSpfModuleHandler`. No sepa
 |---|---|---|
 | `ModuleRepository` (via `uow.getModuleRepository()`) | `getSpfModuleForValidation(spfModuleSystemId, fileSystemId)` | validate SpfModule exists; provides `definitionSystemId`; overlay-aware (CREATE/DELETE) |
 | `ModuleDefinitionRepository` (via `uow.getModuleDefinitionRepository()`) | `getParameterDefinitions(moduleDefSystemId, paramSystemIds?)` | get `isReadOnly`, `elementsStructure` per parameter; filtered to `parameterSystemId` values from existing payload rows; overlay-aware |
-| `ModuleRepository` (via `uow.getModuleRepository()`) | `getCkvForValidation(spfModuleSystemId, ckvSystemId)` | validate CKV exists; overlay-aware (CREATE/DELETE) |
+| `ModuleRepository` (via `uow.getModuleRepository()`) | `ckvExists(spfModuleSystemId, ckvSystemId)` | validate CKV exists; overlay-aware (CREATE/DELETE) |
 | `ModuleRepository` (via `uow.getModuleRepository()`) | `getExistingCkvPayloads(spfModuleSystemId, ckvSystemId)` | fetch existing payload rows (FR15 check); returns `{ systemId, parameterSystemId }` per row; overlay-aware (CREATE/DELETE) |
 
 `fileSystemId` is obtained from `uow.getWriteContext().session.fileSystemId` — not from a separate port call. This is the same pattern used by all handlers (e.g., `PatchSpfModuleHandler`).
@@ -434,10 +434,10 @@ export class PutCkvCalDataHandler implements CommandHandler<
 
     // ── Step 2: validate CKV exists under this SpfModule ─────────────────────
     const moduleRepo = this.uow.getModuleRepository();
-    const ckv = await moduleRepo.getCkvForValidation(
+    const exists = await moduleRepo.ckvExists(
       command.spfModuleSystemId, command.ckvSystemId,
     );
-    if (!ckv) throw new ResourceNotFoundException('CKV not found');              // → HTTP 404
+    if (!exists) throw new ResourceNotFoundException('CKV not found');            // → HTTP 404
 
     // ── Step 3: fetch existing payloads, then fetch definitions keyed to those param IDs ──
     const existingPayloads = await moduleRepo.getExistingCkvPayloads(
@@ -557,7 +557,7 @@ All issues use `IssueSeverity.Error` — each represents a write failure where a
 ### 3.3 ModuleRepository Extensions and ModuleDefinitionRepository Extension
 
 **Files:**
-- `packages/core/src/application/ports/persistence/repositories/module/module.repository.ts` (modified — add `getSpfModuleForValidation`, `getCkvForValidation`, `getExistingCkvPayloads`, `setCkvCalData`)
+- `packages/core/src/application/ports/persistence/repositories/module/module.repository.ts` (modified — add `getSpfModuleForValidation`, `ckvExists`, `getExistingCkvPayloads`, `setCkvCalData`)
 - `packages/core/src/application/ports/persistence/repositories/module/module-definition.repository.ts` (modified — add `getParameterDefinitions`)
 
 `ModuleRepository` gains all CKV validation reads and the write method, following the one-repo-per-aggregate rule: `Ckv` and `CkvParameterPayload` are children of the `SpfModule` aggregate, exactly like `DataPort` and `ControlPort`. No new repository interface or UoW accessor is introduced.
@@ -567,15 +567,13 @@ All issues use `IssueSeverity.Error` — each represents a write failure where a
 ```typescript
 // Addition to existing ModuleRepository interface:
 
-export interface SpfModuleForValidation {
+// SpfModuleBase is defined in the domain layer:
+// packages/core/src/domain/entities/usecase-data/module/spf-module.ts
+export interface SpfModuleBase {
   systemId: number;
   definitionSystemId: number;
   subgraphSystemId: number;
   containerSystemId: number;
-}
-
-export interface CkvForValidation {
-  systemId: number;
 }
 
 export interface ExistingPayloadRow {
@@ -591,22 +589,22 @@ export interface CkvPayloadUpdate {
 export interface ModuleRepository {
   // ... existing methods ...
 
-  // Lean overlay-aware existence check — returns only the fields needed for validation.
+  // Overlay-aware existence check returning SpfModuleBase scalar fields.
   // Overlay-aware: CREATE edit_actions (module created in session, not yet in DB) → returns row.
   // DELETE edit_actions (module deleted in session, still in DB) → returns null.
   // Avoids loading ports and intents (cf. findModuleForPatch which loads full SpfModule).
   getSpfModuleForValidation(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleForValidation | null>;
+  ): Promise<SpfModuleBase | null>;
 
-  // Lean overlay-aware CKV existence check.
-  // CREATE edit_actions: CKV created in this session (not yet in DB) → returns { systemId }.
-  // DELETE edit_actions: CKV pending deletion → returns null.
-  getCkvForValidation(
+  // Overlay-aware CKV existence check — returns boolean (systemId not needed by caller).
+  // CREATE edit_actions: CKV created in this session (not yet in DB) → returns true.
+  // DELETE edit_actions: CKV pending deletion → returns false.
+  ckvExists(
     spfModuleSystemId: number,
     ckvSystemId: number,
-  ): Promise<CkvForValidation | null>;
+  ): Promise<boolean>;
 
   // Overlay-aware: the FR15 existence check must reflect the session's pending state.
   // CREATE edit_actions: row added in this session not yet in DB table → must be treated as existing.
@@ -745,20 +743,20 @@ Adds CKV validation reads and the `setCkvCalData` write method to the existing `
 
 `aggregateId = spfModuleSystemId` on every `edit_actions` row produced. Each `CkvParameterPayload` row update is recorded as an `UPDATE` operation with `fieldPath = "payload"` and `newValue = { payload: <base64-encoded Uint8Array> }`. The `uiPersistence` update is recorded similarly with `fieldPath = "uiPersistence"` on the `Ckv` row itself.
 
-`getCkvForValidation` and `getExistingCkvPayloads` delegate all DB and overlay logic to `CkvOverlayFetcher`, then perform their own lean Layer 3 mapping. The fetcher handles both CREATE (module + CKV created in session — row not yet in DB) and DELETE (CKV deleted in session — row still in DB) directions.
+`ckvExists` and `getExistingCkvPayloads` delegate all DB and overlay logic to `CkvOverlayFetcher`, then perform their own lean Layer 3 mapping. The fetcher handles both CREATE (module + CKV created in session — row not yet in DB) and DELETE (CKV deleted in session — row still in DB) directions.
 
 ```typescript
 // New methods added to TypeOrmModuleRepository:
 
-  async getCkvForValidation(
+  async ckvExists(
     spfModuleSystemId: number,
     ckvSystemId: number,
-  ): Promise<CkvForValidation | null> {
+  ): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const row = await this.ckvOverlayFetcher.fetchCkv(
       ckvSystemId, spfModuleSystemId, sessionId,
     );
-    return row ? { systemId: row.systemId } : null;
+    return row !== null;
   }
 
   async getExistingCkvPayloads(
@@ -776,14 +774,14 @@ Adds CKV validation reads and the `setCkvCalData` write method to the existing `
   async getSpfModuleForValidation(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleForValidation | null> {
+  ): Promise<SpfModuleBase | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     // Layers 1+2 delegated to existing ModuleNodeOverlayFetcher (already wired into TypeOrmModuleRepository)
     const row = await this.moduleNodeOverlayFetcher.fetchModule(
       spfModuleSystemId, fileSystemId, sessionId,
     );
     if (!row) return null;
-    // Layer 3: map to lean validation type
+    // Layer 3: map to SpfModuleBase
     return {
       systemId: row.systemId,
       definitionSystemId: row.definitionSystemId,
@@ -884,7 +882,7 @@ Unit tests run in-process with no database. All dependencies are mocked/stubbed.
 | Scenario | Expected outcome |
 |---|---|
 | `getSpfModuleForValidation` returns null | throws `ResourceNotFoundException` |
-| `getCkvForValidation` returns null | throws `ResourceNotFoundException` |
+| `ckvExists` returns false | throws `ResourceNotFoundException` |
 | Definition missing for payload FK | throws (DB integrity violation — `Error`) |
 | Parameter is read-only | issue pushed with `ISSUE_CODE.PARAM_READ_ONLY`; not in `writeBatch` |
 | No existing payload row | issue pushed with `ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND` (update-only) |
@@ -942,9 +940,9 @@ These tests verify the repository SQL and TypeORM entity mappings — not handle
 | `setCkvCalData` — payload updates written | edit_actions rows with `aggregateId=spfModuleSystemId`, `fieldPath='payload'`, correct base64 newValue |
 | `setCkvCalData` — uiPersistence written | edit_actions row with `aggregateId=spfModuleSystemId`, `targetTable=Ckv`, `fieldPath='uiPersistence'` |
 | `setCkvCalData` — empty payloadUpdates + uiPersistence only | only the uiPersistence edit_action written |
-| `getCkvForValidation` — row in DB, no overlay | returns `{ systemId }` |
-| `getCkvForValidation` — CREATE overlay (CKV created in session) | returns `{ systemId }` |
-| `getCkvForValidation` — DELETE overlay (CKV deleted in session) | returns null |
+| `ckvExists` — row in DB, no overlay | returns `true` |
+| `ckvExists` — CREATE overlay (CKV created in session) | returns `true` |
+| `ckvExists` — DELETE overlay (CKV deleted in session) | returns `false` |
 | `getExistingCkvPayloads` — baseline rows only | returns committed rows with both `systemId` (PK) and `parameterSystemId` (FK) |
 | `getExistingCkvPayloads` — CREATE overlay adds new payload | includes pending-created row |
 | `getExistingCkvPayloads` — DELETE overlay removes payload | excludes pending-deleted row |

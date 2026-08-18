@@ -10,6 +10,13 @@ import {Node, NodeType} from '../node/node.js';
 import type {DataPort} from '../node/entities/data-port.js';
 import type {ControlPort} from '../node/entities/control-port.js';
 
+export interface SpfModuleBase {
+  systemId: number;
+  definitionSystemId: number;
+  containerSystemId: number;
+  subgraphSystemId: number;
+}
+
 export class DuplicateTagExceptionError extends Error {
   constructor(
     readonly idType: 'systemId' | 'tagDefinitionSystemId',

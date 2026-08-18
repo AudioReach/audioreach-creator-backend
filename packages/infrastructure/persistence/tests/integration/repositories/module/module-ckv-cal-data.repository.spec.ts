@@ -170,7 +170,7 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     await qr.release();
   });
 
-  it('getSpfModuleForValidation returns lean type with all four fields', async () => {
+  it('getSpfModuleForValidation returns SpfModuleBase with all four fields', async () => {
     const repo = makeRepo(qr, sessionId);
     const result = await repo.getSpfModuleForValidation(MODULE_ID, FILE_ID);
     expect(result).not.toBeNull();
@@ -186,17 +186,16 @@ describe('TypeOrmModuleRepository — CKV cal data', () => {
     expect(result).toBeNull();
   });
 
-  it('getCkvForValidation returns {systemId} when CKV exists', async () => {
+  it('ckvExists returns true when CKV exists', async () => {
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.getCkvForValidation(MODULE_ID, CKV_ID);
-    expect(result).not.toBeNull();
-    expect(result!.systemId).toBe(CKV_ID);
+    const result = await repo.ckvExists(MODULE_ID, CKV_ID);
+    expect(result).toBe(true);
   });
 
-  it('getCkvForValidation returns null when CKV does not exist', async () => {
+  it('ckvExists returns false when CKV does not exist', async () => {
     const repo = makeRepo(qr, sessionId);
-    const result = await repo.getCkvForValidation(MODULE_ID, 9999);
-    expect(result).toBeNull();
+    const result = await repo.ckvExists(MODULE_ID, 9999);
+    expect(result).toBe(false);
   });
 
   it('getExistingCkvPayloads returns rows with systemId and parameterSystemId', async () => {

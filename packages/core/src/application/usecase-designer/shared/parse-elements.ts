@@ -80,58 +80,36 @@ function parseMinMax(
  *
  * Handles special cases where `template` is not stored directly on the element:
  * - `StructArray` with `keyStructureDefinition` → `StructArray` with a `StructElement` template
- * - `ConfigElementArray` → `ElementArray` with a `ConfigElement` template (self-derived)
+ * - `ElementArray` → `ElementArray` with a proper `DefinitionElement` template
  */
-function convertParamDefinition(paramStructure: string): DefinitionElement[] {
+export function convertParamDefinition(
+  paramStructure: string,
+): DefinitionElement[] {
   const original = JSON.parse(paramStructure) as OriginalElement[];
   return original.map(el => normalizeElement(el));
-}
-
-/**
- * Maps AWSP file format element type strings (uppercase with underscores) to the
- * canonical camelCase constants used throughout this parser.
- *
- * AWSP files store `elementType` as `'CONFIG_ELEMENT_ARRAY'`, `'STRUCT_ARRAY'`, and
- * `'STRUCT'` (or `'Struct'`). The JSON written to `elementsStructure` preserves these
- * raw strings verbatim, so the parser must accept both naming conventions.
- */
-function canonicalizeElementType(rawType: string): string {
-  switch (rawType) {
-    case 'CONFIG_ELEMENT_ARRAY':
-      return PARAMETER_ELEMENT_TYPE.ElementArray; // 'ConfigElementArray'
-    case 'STRUCT_ARRAY':
-      return PARAMETER_ELEMENT_TYPE.StructArray; // 'StructArray'
-    case 'STRUCT':
-      return PARAMETER_ELEMENT_TYPE.Struct; // 'Struct'
-    default:
-      return rawType;
-  }
 }
 
 /**
  * Normalizes an original element recursively, routing array and struct types
  * to their respective handlers so that nested arrays always carry a `template`.
  *
- * - `StructArray` / `STRUCT_ARRAY`               → `normalizeStructArray`
- * - `ConfigElementArray` / `CONFIG_ELEMENT_ARRAY` → `normalizeConfigElementArray`
- * - `Struct` / `STRUCT`                           → `normalizeStructElement` (recurses)
- * - All other types                               → passed through unchanged
+ * - `StructArray`  → `normalizeStructArray`
+ * - `ElementArray` → `normalizeConfigElementArray`
+ * - `Struct`       → `normalizeStructElement` (recurses)
+ * - All other types → passed through unchanged
  */
 // eslint-disable-next-line sonarjs/function-return-type
 function normalizeElement(original: OriginalElement): DefinitionElement {
-  const rawType = original.elementType as string;
-  const elementType = canonicalizeElementType(rawType);
-  const el = elementType !== rawType ? {...original, elementType} : original;
-  if (elementType === PARAMETER_ELEMENT_TYPE.StructArray) {
-    return normalizeStructArray(el);
+  switch (original.elementType as string) {
+    case PARAMETER_ELEMENT_TYPE.StructArray:
+      return normalizeStructArray(original);
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
+      return normalizeConfigElementArray(original);
+    case PARAMETER_ELEMENT_TYPE.Struct:
+      return normalizeStructElement(original);
+    default:
+      return original as unknown as DefinitionElement;
   }
-  if (elementType === PARAMETER_ELEMENT_TYPE.ElementArray) {
-    return normalizeConfigElementArray(el);
-  }
-  if (elementType === PARAMETER_ELEMENT_TYPE.Struct) {
-    return normalizeStructElement(el);
-  }
-  return el as unknown as DefinitionElement;
 }
 
 function normalizeStructElement(original: OriginalElement): StructElement {
@@ -155,19 +133,27 @@ function normalizeStructElement(original: OriginalElement): StructElement {
  * remapped to `elements` as required by `StructElement`.
  */
 function normalizeStructArray(original: OriginalElement): StructArray {
-  // Destructure keyStructureDefinition out so it is not carried over into the
-  // normalized StructArray — it is converted to `template` instead.
+  type PreNormTemplate = {elementType?: string};
+  const existingTemplate = original.template as PreNormTemplate | undefined;
+
+  // Already-normalized: template carries elementType — pass through unchanged.
+  if (existingTemplate?.elementType) {
+    const {keyStructureDefinition: _ksd, ...rest} = original;
+    return {
+      ...rest,
+      elementType: PARAMETER_ELEMENT_TYPE.StructArray,
+      template: existingTemplate,
+    } as unknown as StructArray;
+  }
+
+  // AWSP format: keyStructureDefinition.children → StructElement template.
   const {keyStructureDefinition, ...rest} = original;
   const keyStructDef = keyStructureDefinition as OriginalElement;
-  // Destructure `children` out of keyStructDef so it does not appear as an
-  // extra field in the StructElement template alongside `elements`.
   const {children, ...keyStructFields} = keyStructDef;
   const rawChildren = (children as OriginalElement[] | undefined) ?? [];
   const template: StructElement = {
     ...keyStructFields,
     elementType: PARAMETER_ELEMENT_TYPE.Struct,
-    // Source JSON uses "children" for child elements; StructElement uses "elements".
-    // Each child is normalized recursively so nested arrays get their `template`.
     elements: rawChildren.map(child => normalizeElement(child)),
   } as unknown as StructElement;
   return {
@@ -178,18 +164,50 @@ function normalizeStructArray(original: OriginalElement): StructArray {
 }
 
 /**
- * Normalizes a raw `ConfigElementArray` element into a typed `ElementArray`.
+ * Normalizes a raw `ElementArray` element into a typed `ElementArray`.
  *
- * The element itself becomes the `ConfigElement` template — same fields,
- * with `elementType` changed to `'ConfigElement'`.
+ * AWSP stores the template elements inside `original.template.elements`:
+ * - 1 element  → use it directly as `template` (simple config-element array)
+ * - N elements → wrap them in a synthetic `StructElement` (struct-like array)
  */
 function normalizeConfigElementArray(original: OriginalElement): ElementArray {
-  const template: ConfigElement = {
-    ...original,
-    elementType: PARAMETER_ELEMENT_TYPE.ConfigElement,
-  } as unknown as ConfigElement;
+  type AwspTemplate = {
+    name?: string;
+    elements?: OriginalElement[];
+    elementType?: string;
+  };
+  const awspTemplate = original.template as AwspTemplate | undefined;
+
+  let template: DefinitionElement;
+
+  // Already-normalized: template carries elementType — pass through unchanged.
+  if (awspTemplate?.elementType) {
+    template = awspTemplate as unknown as DefinitionElement;
+  } else {
+    const templateElements = awspTemplate?.elements;
+    if (templateElements && templateElements.length > 0) {
+      if (templateElements.length === 1) {
+        template = normalizeElement(templateElements[0]);
+      } else {
+        const structName = (awspTemplate?.name ?? original.name) as string;
+        template = {
+          elementType: PARAMETER_ELEMENT_TYPE.Struct,
+          name: structName,
+          structureType: structName,
+          elements: templateElements.map(el => normalizeElement(el)),
+        } as unknown as StructElement;
+      }
+    } else {
+      template = {
+        ...original,
+        elementType: PARAMETER_ELEMENT_TYPE.ConfigElement,
+      } as unknown as DefinitionElement;
+    }
+  }
+
+  const {template: _awspTemplate, ...rest} = original;
   return {
-    ...original,
+    ...rest,
     elementType: PARAMETER_ELEMENT_TYPE.ElementArray,
     template,
   } as unknown as ElementArray;
@@ -258,13 +276,13 @@ function parseElement(
     reader.align(element.alignment);
   }
   switch (element.elementType) {
-    case 'ConfigElement':
+    case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return parseConfigElement(element, reader);
-    case 'Struct':
+    case PARAMETER_ELEMENT_TYPE.Struct:
       return parseStruct(element, reader, parsedSoFar);
-    case 'ConfigElementArray':
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
       return parseArrayElement(element, reader, parsedSoFar);
-    case 'StructArray':
+    case PARAMETER_ELEMENT_TYPE.StructArray:
       return parseArrayElement(element, reader, parsedSoFar);
     default: {
       const el = element as unknown as {elementType: string};
@@ -454,7 +472,7 @@ function buildTemplateElement(
 ): ElementData {
   const name = element.name ?? arrayName;
   switch (element.elementType) {
-    case 'ConfigElement':
+    case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return {
         type: PARAMETER_ELEMENT_TYPE.ConfigElement,
         name,
@@ -483,7 +501,7 @@ function buildTemplateElement(
         linkedByForFormula: element.linkedByForFormula,
         defaultDataDepends: element.defaultDataDepends,
       };
-    case 'Struct':
+    case PARAMETER_ELEMENT_TYPE.Struct:
       return {
         type: PARAMETER_ELEMENT_TYPE.Struct,
         name,
@@ -501,7 +519,7 @@ function buildTemplateElement(
           buildTemplateElement(child, child.name ?? name),
         ),
       };
-    case 'ConfigElementArray':
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
       return {
         type: PARAMETER_ELEMENT_TYPE.ElementArray,
         name,
@@ -522,7 +540,7 @@ function buildTemplateElement(
         length: element.arrayLength,
         arrayLenFormulaStr: element.arrayLenFormulaStr,
       };
-    case 'StructArray':
+    case PARAMETER_ELEMENT_TYPE.StructArray:
       return {
         type: PARAMETER_ELEMENT_TYPE.ElementArray,
         name,

@@ -15,6 +15,16 @@ const __dirname = dirname(__filename);
 
 const IIR_MBDRC_MODULE_ID = 0x07001017;
 
+/** Recursively extracts {name, value} from an element tree for round-trip comparison. */
+function extractNameValues(elements: any[]): any[] {
+  return elements.map((el: any) => {
+    if (Array.isArray(el.value)) {
+      return {name: el.name, value: extractNameValues(el.value)};
+    }
+    return {name: el.name, value: el.value};
+  });
+}
+
 async function uploadProject(
   httpServer: unknown,
   authToken: string,
@@ -135,7 +145,6 @@ describe('PUT /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId/cal
   let spfModuleSystemId: string;
   let ckvSystemId: string;
   let parameters: any[];
-  /** Subset of parameters that can round-trip: excludes rawFallback entries (single RawData element). */
   let roundTripParams: any[];
 
   beforeAll(async () => {
@@ -149,21 +158,21 @@ describe('PUT /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId/cal
       authToken,
       projectId,
     ));
-    // Exclude rawFallback entries: parse-elements emits exactly 1 element named
-    // 'Failed to parse payload' when binary parsing fails. Those cannot round-trip.
-    // Legitimate single-element RawData definitions have a different name.
-    roundTripParams = parameters.filter(
+    // All parameters must parse successfully. A rawFallback entry (single element
+    // named 'Failed to parse payload') means binary parsing failed — that is a bug
+    // that must be fixed before round-trip tests are meaningful.
+    const rawFallbackCount = parameters.filter(
       (p: any) =>
-        !(
-          p.elements.length === 1 &&
-          p.elements[0].name === 'Failed to parse payload'
-        ),
-    );
-    if (roundTripParams.length === 0) {
+        p.elements.length === 1 &&
+        p.elements[0].name === 'Failed to parse payload',
+    ).length;
+    if (rawFallbackCount > 0) {
       throw new Error(
-        'All IIR_MBDRC parameters are rawFallback — cannot run round-trip tests',
+        `GET returned ${rawFallbackCount} rawFallback parameter(s) for IIR_MBDRC — ` +
+          `fix elementsStructure canonicalization before running round-trip tests`,
       );
     }
+    roundTripParams = parameters;
     // Start a shared designer session. Write tests (200, 207-partial, uiPersistence)
     // leave staged edit_actions rows that block end-session (422). Since commit-changes
     // and discard-changes are not yet implemented, we share one session for the entire
@@ -234,6 +243,24 @@ describe('PUT /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId/cal
     expect(Array.isArray(res.body.data.parameters)).toBe(true);
     expect(res.body.data.parameters.length).toBeGreaterThan(0);
     expect(res.body.issues ?? []).toHaveLength(0);
+
+    console.log(
+      '[PUT round-trip] response DTO:\n',
+      JSON.stringify(res.body.data, null, 2),
+    );
+
+    // Values must be preserved through the round-trip: each element's name and
+    // value in the PUT response must match the original GET response.
+    const putParams: any[] = res.body.data.parameters;
+    for (const putParam of putParams) {
+      const original = roundTripParams.find(
+        (p: any) => p.systemId === putParam.systemId,
+      );
+      if (!original) continue;
+      expect(extractNameValues(putParam.elements)).toEqual(
+        extractNameValues(original.elements),
+      );
+    }
   }, 60_000);
 
   // ── 207: some parameters fail (no existing payload row) ──────────────────

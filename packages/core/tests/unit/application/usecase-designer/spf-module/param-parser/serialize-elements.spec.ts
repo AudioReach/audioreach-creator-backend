@@ -19,7 +19,7 @@ function structDef(children: object[]): string {
 function arrayDef(itemType: string, length: number): string {
   return JSON.stringify([
     {
-      elementType: 'ConfigElementArray',
+      elementType: 'ElementArray',
       arrayLength: length,
       template: {elementType: 'ConfigElement', dataType: itemType},
     },
@@ -110,7 +110,7 @@ describe('serializeParameterData', () => {
     const def = makeDef(arrayDef('Int16', 3));
     const result = serializeParameterData(def, [
       {
-        type: 'ConfigElementArray',
+        type: 'ElementArray',
         name: 'arr',
         isReadOnly: false,
         value: [
@@ -157,7 +157,7 @@ describe('serializeParameterData', () => {
     const def = makeDef(arrayDef('Int16', 3));
     const result = serializeParameterData(def, [
       {
-        type: 'ConfigElementArray',
+        type: 'ElementArray',
         name: 'arr',
         isReadOnly: false,
         value: [
@@ -242,7 +242,7 @@ describe('serializeParameterData', () => {
       JSON.stringify([
         {elementType: 'ConfigElement', name: 'count', dataType: 'UInt16'},
         {
-          elementType: 'ConfigElementArray',
+          elementType: 'ElementArray',
           name: 'data',
           arrayLenFormulaStr: 'count*2 - 1',
           template: {elementType: 'ConfigElement', dataType: 'UInt16'},
@@ -260,7 +260,7 @@ describe('serializeParameterData', () => {
         max: undefined,
       },
       {
-        type: 'ConfigElementArray',
+        type: 'ElementArray',
         name: 'data',
         isReadOnly: false,
         template: [],
@@ -362,7 +362,7 @@ describe('serializeParameterData', () => {
         structType: 'wrapper_t',
         value: [
           {
-            type: 'ConfigElementArray',
+            type: 'ElementArray',
             name: 'items',
             isReadOnly: false,
             template: [],
@@ -500,7 +500,7 @@ describe('serializeParameterData', () => {
         structType: 'config_t',
         value: [
           {
-            type: 'ConfigElementArray' as const,
+            type: 'ElementArray' as const,
             name: 'subband_drc',
             isReadOnly: false,
             template: [],
@@ -530,7 +530,7 @@ describe('serializeParameterData', () => {
         max: undefined,
       },
       {
-        type: 'ConfigElementArray',
+        type: 'ElementArray',
         name: 'config_data',
         isReadOnly: false,
         template: [],

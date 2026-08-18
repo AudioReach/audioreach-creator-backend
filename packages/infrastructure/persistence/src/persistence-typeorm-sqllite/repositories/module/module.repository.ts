@@ -8,8 +8,7 @@ import type {
   ModuleRepository,
   UnitOfWork,
   EditOptions,
-  SpfModuleForValidation,
-  CkvForValidation,
+  SpfModuleBase,
   ExistingPayloadRow,
   CkvPayloadUpdate,
 } from '@arc/core';
@@ -312,7 +311,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   async getSpfModuleForValidation(
     spfModuleSystemId: number,
     fileSystemId: number,
-  ): Promise<SpfModuleForValidation | null> {
+  ): Promise<SpfModuleBase | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const row = await this.moduleNodeFetcher.fetchOne(
       spfModuleSystemId,
@@ -328,17 +327,17 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     };
   }
 
-  async getCkvForValidation(
+  async ckvExists(
     spfModuleSystemId: number,
     ckvSystemId: number,
-  ): Promise<CkvForValidation | null> {
+  ): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const row = await this.ckvOverlayFetcher.fetchCkv(
       ckvSystemId,
       spfModuleSystemId,
       sessionId,
     );
-    return row ? {systemId: row.systemId} : null;
+    return row !== null;
   }
 
   async getExistingCkvPayloads(
