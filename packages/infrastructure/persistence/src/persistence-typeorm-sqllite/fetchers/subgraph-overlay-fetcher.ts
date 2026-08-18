@@ -30,7 +30,7 @@ export interface OverlaidSubgraph {
   systemId: number;
   subgraphId: number;
   name: string;
-  isExported: boolean;
+  isImported: boolean;
   fileSystemId: number;
   properties: OverlaidSubgraphProperty[];
 }
@@ -55,7 +55,7 @@ export class SubgraphOverlayFetcher {
         's.systemId',
         's.subgraphId',
         's.name',
-        's.isExported',
+        's.isImported',
         's.fileSystemId',
       ])
       .where(
@@ -110,7 +110,7 @@ export class SubgraphOverlayFetcher {
         systemId: createAction.targetSystemId,
         subgraphId: payload.subgraphId ?? 0,
         name: payload.name ?? '',
-        isExported: payload.isExported ?? false,
+        isImported: payload.isImported ?? false,
         fileSystemId: payload.fileSystemId ?? fileSystemId,
       };
       const createdProps = this.buildCreatedProperties(
@@ -190,7 +190,7 @@ export class SubgraphOverlayFetcher {
       systemId: subgraph.systemId,
       subgraphId: subgraph.subgraphId,
       name: subgraph.name,
-      isExported: subgraph.isExported,
+      isImported: subgraph.isImported,
       fileSystemId: subgraph.fileSystemId,
       properties: props,
     };
@@ -207,7 +207,7 @@ export class SubgraphOverlayFetcher {
         's.systemId',
         's.subgraphId',
         's.name',
-        's.isExported',
+        's.isImported',
         's.fileSystemId',
       ])
       .where('s.fileSystemId = :fileSystemId', {fileSystemId})
@@ -241,7 +241,7 @@ export class SubgraphOverlayFetcher {
           systemId: a.targetSystemId,
           subgraphId: p.subgraphId ?? 0,
           name: p.name ?? '',
-          isExported: p.isExported ?? false,
+          isImported: p.isImported ?? false,
           fileSystemId: p.fileSystemId ?? fileSystemId,
         };
       });

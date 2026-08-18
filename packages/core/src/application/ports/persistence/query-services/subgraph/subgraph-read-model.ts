@@ -7,8 +7,8 @@ import type {KeyValuePairListReadModel} from '../usecase/query-models/key-vector
 
 export interface SubgraphReadModel {
   readonly systemId: number;
-  readonly subgraphId: number;
+  readonly naturalId: number;
   readonly name: string;
-  readonly isExported: boolean;
+  readonly isImported: boolean;
   readonly sgkvs: KeyValuePairListReadModel[] | null;
 }

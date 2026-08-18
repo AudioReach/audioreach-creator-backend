@@ -191,7 +191,7 @@ export class ContainerOverlayFetcher {
     };
   }
 
-  async applyToContainers(
+  async fetchMany(
     fileSystemId: number,
     sessionId: number | null,
   ): Promise<ContainerBase[]> {

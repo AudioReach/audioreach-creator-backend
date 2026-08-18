@@ -14,8 +14,7 @@ import type {
   KeyValueDefQueryService,
   TagDefinitionQueryService,
   ConfigurationIncludes,
-  KeyDefinitionSummaryReadModel,
-  ValueDefinitionSummaryReadModel,
+  KeyValuePairReadModel,
   Issue,
   TagDefinitionReadModel,
 } from '@arc/core';
@@ -412,14 +411,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   private async resolveKeyValuePairs(
     valueDefIds: number[],
     fileSystemId: number,
-  ): Promise<
-    Result<
-      Array<{
-        key: KeyDefinitionSummaryReadModel;
-        value: ValueDefinitionSummaryReadModel;
-      }>
-    >
-  > {
+  ): Promise<Result<KeyValuePairReadModel[]>> {
     const keysResult =
       await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
         valueDefIds,

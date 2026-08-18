@@ -35,12 +35,14 @@ export class DbContainerQueryService implements ContainerQueryService {
    * Returns every container for the given fileSystemId.
    * Overlay always applied — no applyOverlay flag.
    */
-  async findAll(fileSystemId: number): Promise<Result<ContainerReadModel[]>> {
+  async getAllContainers(
+    fileSystemId: number,
+  ): Promise<Result<ContainerReadModel[]>> {
     try {
       // Step 1+2 — load baseline and apply overlay via fetcher
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const rows = await this.containerFetcher.applyToContainers(
+      const rows = await this.containerFetcher.fetchMany(
         fileSystemId,
         session?.sessionId ?? null,
       );

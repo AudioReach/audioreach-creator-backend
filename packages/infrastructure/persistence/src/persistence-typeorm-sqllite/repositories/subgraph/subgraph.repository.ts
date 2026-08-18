@@ -50,7 +50,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         payload: {
           subgraphId: subgraph.subgraphId,
           name: subgraph.name,
-          isExported: subgraph.isExported,
+          isImported: subgraph.isExported,
           fileSystemId: subgraph.fileSystemId,
         },
         ...options,

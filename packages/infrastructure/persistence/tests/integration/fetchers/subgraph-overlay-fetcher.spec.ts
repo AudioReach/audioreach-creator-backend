@@ -194,7 +194,7 @@ describe('SubgraphOverlayFetcher (integration)', () => {
       newValue: JSON.stringify({
         subgraphId: 1,
         name: 'sg-new',
-        isExported: false,
+        isImported: false,
         fileSystemId: FILE_ID,
       }),
     });

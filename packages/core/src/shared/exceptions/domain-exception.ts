@@ -30,9 +30,10 @@ export abstract class DomainException extends Error {
   readonly issues?: readonly Issue[];
 
   constructor(message: string, details?: unknown, issues?: readonly Issue[]) {
+    const issueLines = issues?.map((issue, i) => `${i + 1}. ${issue.message}`);
     const formattedMessage =
-      issues && issues.length > 0
-        ? `${message}:\n${issues.map((issue, i) => `${i + 1}. ${issue.message}`).join('\n')}`
+      issueLines && issueLines.length > 0
+        ? `${message}:\n${issueLines.join('\n')}`
         : message;
     super(formattedMessage);
     this.name = this.constructor.name;

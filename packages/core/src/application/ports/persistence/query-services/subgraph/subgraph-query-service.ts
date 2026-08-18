@@ -27,7 +27,7 @@ export interface SubgraphQueryService {
    * - Summary: scalar fields only; `sgkvs` is `null`.
    * - FullDetails: scalar fields + SGKVs resolved to key-value pairs.
    */
-  findAll(
+  getAllSubgraphs(
     fileSystemId: number,
     includes: ConfigurationIncludes,
   ): Promise<Result<SubgraphReadModel[]>>;

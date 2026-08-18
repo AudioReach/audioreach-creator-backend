@@ -11,7 +11,7 @@ import {BaseQuery} from '../../../shared/base-query.js';
  * projectId: raw project system ID — resolved to fileSystemId inside the
  *            handler via ProjectQueryService (same pattern as SpfModulesQuery)
  *
- * No systemIds — ContainerQueryService.findAll returns every container for
+ * No systemIds — ContainerQueryService.getAllContainers returns every container for
  * the resolved fileSystemId; there is no id-scoped lookup on this path.
  */
 export class ContainerQuery extends BaseQuery {

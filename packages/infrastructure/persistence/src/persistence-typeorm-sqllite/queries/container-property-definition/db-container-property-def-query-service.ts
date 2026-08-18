@@ -42,7 +42,7 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
 
   /**
    * Returns every container property definition for the given fileSystemId.
-   * Overlay always applied — no applyOverlay flag, matching DbContainerQueryService.findAll.
+   * Overlay always applied — no applyOverlay flag, matching DbContainerQueryService.getAllContainers.
    */
   async getAllContainerPropertyDefinitionsSummary(
     fileSystemId: number,

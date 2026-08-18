@@ -37,7 +37,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
     );
   }
 
-  async findAll(
+  async getAllSubgraphs(
     fileSystemId: number,
     includes: ConfigurationIncludes,
   ): Promise<Result<SubgraphReadModel[]>> {
@@ -55,9 +55,9 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         return Result.ok(
           subgraphs.map(s => ({
             systemId: s.systemId,
-            subgraphId: s.subgraphId,
+            naturalId: s.subgraphId,
             name: s.name,
-            isExported: s.isExported,
+            isImported: s.isImported,
             sgkvs: null,
           })),
         );
@@ -100,9 +100,9 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
           }
           return {
             systemId: s.systemId,
-            subgraphId: s.subgraphId,
+            naturalId: s.subgraphId,
             name: s.name,
-            isExported: s.isExported,
+            isImported: s.isImported,
             sgkvs,
           } satisfies SubgraphReadModel;
         }),
