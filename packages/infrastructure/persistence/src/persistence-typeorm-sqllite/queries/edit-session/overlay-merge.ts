@@ -117,7 +117,10 @@ export class OverlayMergeImpl implements OverlayMerge {
         operation = CHANGE_OPERATION.Create;
         // systemId is never stored in newValue — it is the targetSystemId of
         // the CREATE action. Inject it so synthesised rows carry the correct id.
-        if (baseRow === null) effective.systemId = row.targetSystemId;
+        // Only inject if not yet set (guards against duplicate CREATE rows).
+        if (baseRow === null && !('systemId' in effective)) {
+          effective.systemId = row.targetSystemId;
+        }
       }
       this.fieldPathReducer.applyRow(effective, row);
       diffEntries.push(
