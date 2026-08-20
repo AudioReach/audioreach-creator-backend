@@ -2,7 +2,10 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {parseParameterData} from '../../../../../../src/application/usecase-designer/shared/parse-elements.js';
+import {
+  parseParameterData,
+  parseMinMax,
+} from '../../../../../../src/application/usecase-designer/shared/parse-elements.js';
 import type {
   ConfigElementData,
   ElementArrayData,
@@ -559,5 +562,47 @@ describe('parseParameterData', () => {
         value: '',
       });
     });
+  });
+});
+
+describe('parseMinMax', () => {
+  it('returns undefined for absent value', () => {
+    expect(parseMinMax(undefined, 'UInt32')).toBeUndefined();
+  });
+
+  it('parses decimal integer strings', () => {
+    expect(parseMinMax('100', 'UInt32')).toBe(100);
+    expect(parseMinMax('-32768', 'Int16')).toBe(-32768);
+  });
+
+  it('parses unsigned hex strings without sign extension', () => {
+    expect(parseMinMax('0x0000000A', 'UInt32')).toBe(10);
+    expect(parseMinMax('0xFFFFFFFF', 'UInt32')).toBe(4294967295);
+  });
+
+  it("applies two's complement for Int8 hex values", () => {
+    expect(parseMinMax('0x80', 'Int8')).toBe(-128);
+    expect(parseMinMax('0xFF', 'Int8')).toBe(-1);
+    expect(parseMinMax('0x7F', 'Int8')).toBe(127);
+  });
+
+  it("applies two's complement for Int16 hex values", () => {
+    expect(parseMinMax('0x8000', 'Int16')).toBe(-32768);
+    expect(parseMinMax('0xFFFF', 'Int16')).toBe(-1);
+    expect(parseMinMax('0x7FFF', 'Int16')).toBe(32767);
+  });
+
+  it("applies two's complement for Int32 hex values", () => {
+    expect(parseMinMax('0x80000000', 'Int32')).toBe(-2147483648);
+    expect(parseMinMax('0xFFFFFFFF', 'Int32')).toBe(-1);
+    expect(parseMinMax('0x7FFFFFFF', 'Int32')).toBe(2147483647);
+  });
+
+  it("applies two's complement for Int64 hex boundary value 0x8000000000000000", () => {
+    expect(parseMinMax('0x8000000000000000', 'Int64')).toBe(-(2 ** 63));
+  });
+
+  it('returns undefined for inapplicable types', () => {
+    expect(parseMinMax('0xFF', 'RawData')).toBeUndefined();
   });
 });

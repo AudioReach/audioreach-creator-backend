@@ -66,16 +66,7 @@ export function parseMinMax(
     case DATA_TYPE.Int64: {
       const isHex = value.startsWith('0x') || value.startsWith('0X');
       n = isHex ? Number.parseInt(value, 16) : Number.parseInt(value, 10);
-      // Hex min/max strings use the type's bit-pattern representation. For
-      // signed types the upper half of the unsigned range is negative (two's
-      // complement), so apply sign extension when the unsigned value exceeds
-      // the type's max positive value.
-      if (isHex) {
-        if (dataType === DATA_TYPE.Int8 && n > 127) n -= 256;
-        else if (dataType === DATA_TYPE.Int16 && n > 32_767) n -= 65_536;
-        else if (dataType === DATA_TYPE.Int32 && n > 2_147_483_647)
-          n -= 4_294_967_296;
-      }
+      if (isHex) n = applyHexSignExtension(n, dataType);
       break;
     }
     case DATA_TYPE.Float:
@@ -86,6 +77,26 @@ export function parseMinMax(
       return undefined;
   }
   return Number.isFinite(n) ? n : undefined;
+}
+
+/**
+ * Two's complement sign extension for hex min/max strings.
+ *
+ * Firmware toolchains store constraints as unsigned bit patterns. For signed
+ * types the upper half of the unsigned range represents negative values, so
+ * values above the type's max positive are adjusted by subtracting 2^width.
+ * Int64 note: 2^63 and 2^64 are exact powers of two, so the boundary value
+ * 0x8000000000000000 sign-extends correctly. Values between 2^53 and 2^63-1
+ * lose integer precision (JavaScript Number limit); exact Int64 arithmetic
+ * uses BigInt in the serializer instead.
+ */
+function applyHexSignExtension(n: number, dataType: string): number {
+  if (dataType === DATA_TYPE.Int8 && n > 127) return n - 256;
+  if (dataType === DATA_TYPE.Int16 && n > 32_767) return n - 65_536;
+  if (dataType === DATA_TYPE.Int32 && n > 2_147_483_647)
+    return n - 4_294_967_296;
+  if (dataType === DATA_TYPE.Int64 && n >= 2 ** 63) return n - 2 ** 64;
+  return n;
 }
 
 /**
