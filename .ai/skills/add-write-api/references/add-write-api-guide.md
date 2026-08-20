@@ -62,7 +62,6 @@ When a handler needs to read current entity state **before** writing (to validat
 ```
 Does the validation read data from the same aggregate as the write?
   YES → Add a validation read method to that aggregate's edit repository.
-        The method returns a lean type (only fields needed for validation).
         The repo gets sessionId from uow.getWriteContext().session.sessionId.
         
   NO  → The data belongs to a different aggregate.
@@ -70,18 +69,92 @@ Does the validation read data from the same aggregate as the write?
         Do not place reads for foreign aggregate data on an unrelated edit repo.
 ```
 
-### Validation read method signature pattern
+### What return type to use — apply YAGNI, don't preemptively build the hierarchy
+
+Before adding any type or method, ask: **what does this specific handler actually need right now?** Introduce only what that handler requires. Do not preemptively create `XxxBase` or the full aggregate type because "future APIs might need them." If you are unsure whether an abstraction is the right call, raise it with the API author before adding it — a two-sentence question saves everyone from unwinding a premature design decision.
+
+**Existence only (null-check, no fields used) → `exists()` returning `Promise<boolean>`**
 
 ```typescript
-// In the edit repo interface (core) — lean return type, not a query read model
-async findModuleForPatch(systemId: number, fileSystemId: number): Promise<ModuleForPatch | null>;
+// In the edit repo interface
+ckvExists(spfModuleSystemId: number, ckvSystemId: number): Promise<boolean>;
 
-// In the adapter (persistence) — gets sessionId from UoW, applies overlay
-async findModuleForPatch(systemId: number, fileSystemId: number): Promise<ModuleForPatch | null> {
-  const sessionId = this.uow.getWriteContext().session.sessionId;
-  // Load base rows + apply session overlay via fetcher
+// In the handler
+if (!await moduleRepo.ckvExists(command.spfModuleSystemId, command.ckvSystemId))
+  throw new ResourceNotFoundException('CKV not found');
+```
+
+**Scalar fields needed → return a stable `XxxBase` interface defined in the domain folder**
+
+Only introduce this when a handler genuinely reads fields off the result — not just null-checks it. Define one base interface per aggregate root capturing all scalar columns (no relational collections). The full aggregate type extends this base. Once `XxxBase` exists, all subsequent write APIs that need scalar fields reuse it — no per-API micro-types.
+
+```typescript
+// packages/core/src/domain/entities/usecase-data/node/spf-module-base.ts
+export interface SpfModuleBase {
+  systemId: number;
+  definitionSystemId: number;
+  subgraphSystemId: number;
+  containerSystemId: number;
+  aliasName: string;
+  // all scalar columns — no ports[], ckvs[], intents[] collections
+}
+
+// The full aggregate extends it (only introduce this when relations are genuinely needed)
+export interface SpfModule extends SpfModuleBase {
+  ports: DataPort[];
+  intents: Intent[];
+  // ...
+}
+
+// In the edit repo interface
+findModuleBase(systemId: number, fileSystemId: number): Promise<SpfModuleBase | null>;
+```
+
+**Do NOT create a new return type per write API.** A proliferation of `SpfModuleForValidation`, `SpfModuleForDelete`, `SpfModuleForAddCkv`, etc. is unmaintainable at scale. The performance argument for column-selective single-row PK lookups is negligible.
+
+### Relation loading — focused methods, not full aggregate
+
+The **aggregate boundary governs writes** — all writes to `Ckv` and `DataPort` flow through `ModuleRepository`. It does **not** mean reads must load the full aggregate. Add focused read methods per relation slice on the same repository interface, and only when a handler actually needs that slice:
+
+```typescript
+interface ModuleRepository {
+  // Existence check
+  ckvExists(spfModuleSystemId: number, ckvSystemId: number): Promise<boolean>;
+
+  // Scalar fields only
+  findModuleBase(systemId: number, fileSystemId: number): Promise<SpfModuleBase | null>;
+
+  // Relation slices — return the actual domain child type, no new types invented
+  getCkvs(moduleSystemId: number): Promise<Ckv[]>;
+  getDataPorts(moduleSystemId: number): Promise<DataPort[]>;
+
+  // Full aggregate with all relations loaded — name this to convey what it returns,
+  // not which operation uses it. E.g. findModuleFull(), not findModuleForPatch().
+  // Only introduce this when a handler genuinely needs multiple relations together.
+  findModuleFull(systemId: number, fileSystemId: number): Promise<SpfModule | null>;
+
+  // Writes
+  setCkvCalData(...): Promise<void>;
+  addDataPort(...): Promise<void>;
 }
 ```
+
+**Naming the full-aggregate method:** use a name that describes the return shape, not the caller. `findModuleFull` or `findModuleWithRelations` are good; `findModuleForPatch` is bad because it implies the method belongs to one operation and discourages reuse.
+
+Handlers compose what they need and can fan out in parallel:
+
+```typescript
+const [module, ckvs] = await Promise.all([
+  repo.findModuleBase(systemId, fileSystemId),
+  repo.getCkvs(systemId),
+]);
+```
+
+**Payoff threshold:** if three or more handlers end up calling the same relation read method, it has paid for itself. Below that threshold, consider whether inlining the logic is simpler.
+
+**Do not use the Specification pattern for relation loading.** It grows unbounded and the result type is hard to express precisely in TypeScript without a generated type layer.
+
+**Do not use a generic `include` option bag** (`findModule(id, {include: ['ckvs', 'ports']})`). This requires Prisma-level generated types to be type-safe. Without that infrastructure, it produces unsafe casts or `any`.
 
 ### Shared fetcher — when both query side and write side read the same data
 
@@ -90,7 +163,7 @@ When both a query service and an edit repo need the same overlaid DB data:
 - The fetcher is NOT a port — it is not exported to `@arc/core`
 - Both the query service adapter and edit repo adapter call the same fetcher
 - The fetcher takes `sessionId: number | null` — null means base-only (no overlay)
-- Each consumer does its own Layer 3 mapping (query service → verbose read model; edit repo → lean base type)
+- Each consumer does its own Layer 3 mapping (query service → verbose read model; edit repo → base type or child type)
 
 See `write-path-validation-reads-pattern.md §4` and the existing fetchers in
 `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/fetchers/` for worked examples.

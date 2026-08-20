@@ -1,13 +1,13 @@
 ---
 name: writing-plans
-description: "Produces comprehensive, TDD-driven implementation plans from specs or requirements, with exact file paths, complete code in every step, and commit checkpoints. Use when the user has a spec or requirements document for a multi-step task and needs a structured plan before touching code."
+description: "Produces comprehensive, TDD-driven implementation plans from specs or requirements, with exact file paths and complete code in every step. Use when the user has a spec or requirements document for a multi-step task and needs a structured plan before touching code."
 ---
 
 # Writing Plans
 
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for the codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Write comprehensive implementation plans assuming the engineer has zero context for the codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. The author decides when to commit — do not add commit steps to any task.
 
 Assume they are a skilled developer, but know almost nothing about the toolset or problem domain. Assume they don't know good test design very well.
 
@@ -57,7 +57,7 @@ This structure informs the task decomposition. Each task should produce self-con
 
 Write each task using the format defined in `references/plan-format.md`. That file owns:
 - The required plan document header
-- Task Structure (Files / 5 numbered steps / commit)
+- Task Structure (Files / 5 numbered steps)
 - Bite-Sized Task Granularity (2-5 minutes per step)
 - Code Completeness by Task Type (full code vs. skeleton)
 - Skeleton Format for complex handlers and tests

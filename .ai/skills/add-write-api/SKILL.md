@@ -299,9 +299,6 @@ Cover: write produces correct edit_actions row; group_id shared; supersession
 ### Task 10: E2E tests
 File: `packages/api/tests/e2e/<resource>/<resource>-<verb>.e2e-spec.ts`
 Scenarios: 403 no session / wrong mode, 400 invalid body, 404 not found, 422 rule violation, 200 success + response body
-
-### Commit: <Chapter Name>
-Use the `commit` skill. Wait for explicit confirmation before running git commit.
 ```
 
 ---

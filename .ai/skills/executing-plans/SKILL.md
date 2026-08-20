@@ -1,6 +1,6 @@
 ---
 name: executing-plans
-description: "Executes written implementation plans by loading the plan, reviewing it critically, running each task in sequence with CI verification, and enforcing a commit gate at every git write operation. Use when the user has a written implementation plan ready to execute in a dedicated session with human review checkpoints."
+description: "Executes written implementation plans by loading the plan, reviewing it critically, and running each task in sequence with CI verification. Use when the user has a written implementation plan ready to execute in a dedicated session with human review checkpoints."
 ---
 
 
@@ -27,7 +27,7 @@ Load plan, review critically, execute all tasks, report when complete.
 For each task:
 1. Mark as in_progress
 2. Follow each step exactly (plan has bite-sized steps)
-3. When a plan step references a skill by name (e.g., "use the commit skill"), invoke that skill rather than implementing the step manually
+3. When a plan step references a skill by name, invoke that skill rather than implementing the step manually
 4. Run verifications as specified
 5. Mark as completed
 
@@ -48,18 +48,7 @@ If any step fails, fix the issue before proceeding. Report the results to the
 user and summarize: which tasks were completed, which files were changed, and
 whether all checks passed.
 
-## Commit Gate (Non-Negotiable)
-
-**Every time a plan step involves `git commit`:**
-
-1. **STOP before running any git write command.**
-2. Use `ask_followup_question` to show the user the full proposed commit message
-   and the exact `git add` + `git commit` commands that will be run.
-3. Offer **Accept** as an option (plus alternatives if relevant).
-4. **Only execute the commit after the user explicitly selects "Accept".**
-
-Never run `git commit` speculatively or as part of silent step execution.
-This gate applies even when auto-approve is enabled for other tool uses.
+The author decides when (and whether) to commit — do not initiate `git commit`, `git add`, or any git write operation on your own.
 
 ## When to Stop and Ask for Help
 
@@ -178,7 +167,5 @@ This skill is the third step in the ARC development workflow:
 1. **brainstorming** → Explores requirements and produces a design spec
 2. **writing-plans** → Converts the spec into a step-by-step implementation plan
 3. **executing-plans** (this skill) → Executes the plan task by task
-4. **commit** → Used within each task to draft and confirm commit messages
 
 The plan file is produced by the writing-plans skill and saved to `docs/<feature>/plans/`.
-When a plan step says "use the commit skill", invoke the `commit` skill to draft the message and wait for user confirmation before executing.
