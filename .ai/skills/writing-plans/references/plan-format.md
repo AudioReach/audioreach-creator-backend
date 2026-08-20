@@ -105,7 +105,7 @@ Each step is one action (2-5 minutes):
 - "Implement the minimal code to make the test pass" — step
 - "Run the tests and make sure they pass" — step
 
-Commits are **not** included per task. A single commit is placed at the end of each chapter or logical group of tasks (see [Chapter Completion Commit](#chapter-completion-commit) below).
+Do **not** add commit steps to tasks. The author decides when to commit.
 
 ## Code Completeness by Task Type
 
@@ -159,30 +159,6 @@ export class CreateSubsystemLinkSegmentHandler implements ICommandHandler<...> {
 
 The `executing-plans` skill fills in the TypeScript when running the task. An engineer reading the skeleton knows what to implement without guessing.
 
-## Chapter Completion Commit
-
-One commit per chapter (phased plans) or logical group of tasks (standard plans). Do **not** put a commit step inside individual tasks — it fragments history and interrupts flow.
-
-At the end of every chapter or group, append this block:
-
-````markdown
-### Commit: [Chapter/Group Name]
-
-Use the `commit` skill to draft the commit message. Show the proposed message
-and the exact commands to the user and **wait for explicit confirmation** before
-running anything:
-
-```bash
-git add [all files created or modified in this chapter]
-git commit -m "feat([scope]): [summary of what this chapter implements]" \
-           -m "[Body explaining the motivation.]" \
-           -m "Signed-off-by: [Name] <[email]>"
-```
-
-**STOP — do not run `git commit` until the user explicitly approves the message.**
-Only execute after confirmation.
-````
-
 ## No Placeholders
 
 Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
@@ -203,7 +179,7 @@ After saving the plan, offer the user an execution choice:
 >
 > **How would you like to proceed?**
 >
-> **1. Inline Execution** — Execute tasks in this session using the executing-plans skill, with checkpoints for review at each commit.
+> **1. Inline Execution** — Execute tasks in this session using the executing-plans skill, with checkpoints for review after each task.
 >
 > **2. Separate Session** — Start a fresh session and load the executing-plans skill to implement the plan. Recommended for large plans or when you want a clean context window.
 >
@@ -220,4 +196,4 @@ Use `ask_followup_question` to present these options. Wait for the user's select
 - Exact file paths always
 - Complete code in every step — if a step changes code, show the code (with the skeleton exception above)
 - Exact commands with expected output
-- DRY, YAGNI, TDD, frequent commits
+- DRY, YAGNI, TDD

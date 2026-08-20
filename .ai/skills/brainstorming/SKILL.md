@@ -197,7 +197,6 @@ Don't silently absorb requirement changes into the design. Keeping requirements 
   - If requirements are a separate file: open with a link: `Requirements: [../requirements/<topic>-requirements.md]`
   - (User preferences for spec location override this default)
 - Use elements-of-style:writing-clearly-and-concisely skill if available
-- Commit the design document â€” use the `commit` skill
 
 **Requirements-Design Alignment Check:**
 
@@ -224,7 +223,7 @@ Fix any issues inline. You can dispatch a subagent for a more thorough review â€
 
 **User Review Gate:**
 
-> "Spec written and committed to `<path>`. Requirements and design are aligned. Please review before we start the implementation plan."
+> "Spec written to `<path>`. Requirements and design are aligned. Please review before we start the implementation plan."
 
 Wait for the user's response. If they request changes, make them, re-run the alignment check, and re-run spec self-review. Only proceed once the user approves.
 

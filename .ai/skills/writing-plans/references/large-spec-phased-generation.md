@@ -52,7 +52,6 @@ Each subagent prompt must include:
 - **Task number range.** The starting task number so numbering is contiguous when assembled. Example: "Number your tasks starting at Task 12."
 - **Output file path.** A chapter file under the same `plans/` directory as the final plan, in a `chapters/` subdirectory: `docs/<feature>/plans/chapters/<batch>-<chapter>-<slug>.md` (zero-padded, e.g. `01-01-entities.md`). The handoff file's `Plan output` field gives you `<feature>` — use the same value. The subagent writes its tasks to that file. It does not return plan content as text — that would refill the main session's context.
 - **Codebase read budget.** "Read at most 2–3 existing codebase files as patterns. Choose the most similar existing entity, handler, or test. Do not explore the codebase broadly."
-- **Chapter commit block.** After the last task in the chapter, append a `### Commit: [Chapter Name]` block following the "Chapter Completion Commit" format in `plan-format.md`. The chapter name should reflect the work done (e.g. "Entities & Enums", "Command Handlers").
 
 ## Step 4 — Batching rules
 
