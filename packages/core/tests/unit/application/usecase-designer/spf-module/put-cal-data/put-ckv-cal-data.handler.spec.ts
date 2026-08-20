@@ -226,8 +226,6 @@ describe('PutCkvCalDataHandler', () => {
     );
     await handler.handle(cmd);
     const call = (moduleRepo.setCkvCalData as jest.Mock).mock.calls[0];
-    expect(call[3]).toBeInstanceOf(Uint8Array);
-    const decoded = new TextDecoder().decode(call[3] as Uint8Array);
-    expect(decoded).toBe('IIR pregain = 5');
+    expect(call[3]).toBe('IIR pregain = 5');
   });
 });

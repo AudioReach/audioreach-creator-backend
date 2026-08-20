@@ -105,6 +105,6 @@ export interface ModuleRepository {
     spfModuleSystemId: number,
     ckvSystemId: number,
     payloadUpdates: CkvPayloadUpdate[],
-    uiPersistence?: Uint8Array,
+    uiPersistence?: string,
   ): Promise<void>;
 }

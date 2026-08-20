@@ -4,16 +4,17 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsArray, IsOptional, IsString} from 'class-validator';
-import {ParameterResponseDto} from '../../../../common/dto/parameter-response.dto.js';
+import {IsArray, ArrayNotEmpty, IsOptional, IsString} from 'class-validator';
+import {ParameterDto} from '../../../../common/dto/parameter.dto.js';
 
 export class UpdateSpfModuleCalDataRequestDto {
   @ApiProperty({
     description: 'Array of calibration data updates for multiple parameters',
-    type: [ParameterResponseDto],
+    type: [ParameterDto],
   })
   @IsArray()
-  parameters!: ParameterResponseDto[];
+  @ArrayNotEmpty()
+  parameters!: ParameterDto[];
 
   @ApiProperty({
     description: 'UI persistence string',

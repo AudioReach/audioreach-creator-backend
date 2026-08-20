@@ -4,7 +4,8 @@
  */
 
 import {PARAMETER_ELEMENT_TYPE} from './element-definition.js';
-import {convertParamDefinition} from './parse-elements.js';
+import {DATA_TYPE} from '../../../shared/dto/element-data/element-types.js';
+import {convertParamDefinition, parseMinMax} from './parse-elements.js';
 import type {
   ConfigElement,
   StructElement,
@@ -126,7 +127,7 @@ function serializeElement(
     default:
       return {
         ok: false,
-        error: `Unknown elementType: ${(def as DefinitionElement).elementType}`,
+        error: `Unknown elementType: ${def.elementType}`,
       };
   }
 }
@@ -150,7 +151,7 @@ function serializeBigIntValue(
     return {ok: false, error: `Value ${v} below min ${def.min}`};
   if (def.max !== undefined && v > BigInt(def.max))
     return {ok: false, error: `Value ${v} above max ${def.max}`};
-  if (dataType === 'Int64') writer.writeInt64(v);
+  if (dataType === DATA_TYPE.Int64) writer.writeInt64(v);
   else writer.writeUInt64(v);
   return {ok: true, value: new Uint8Array(0)};
 }
@@ -196,11 +197,11 @@ function serializeConfigElement(
 
   const dataType = def.dataType;
 
-  if (dataType === 'Int64' || dataType === 'UInt64') {
+  if (dataType === DATA_TYPE.Int64 || dataType === DATA_TYPE.UInt64) {
     return serializeBigIntValue(dataType, def, input, writer);
   }
 
-  if (dataType === 'RawData') {
+  if (dataType === DATA_TYPE.RawData) {
     return serializeRawData(input, writer);
   }
 
@@ -211,6 +212,13 @@ function serializeConfigElement(
   const boundsError = checkDataTypeBounds(dataType, v);
   if (boundsError) return {ok: false, error: boundsError};
 
+  const schemaMin = parseMinMax(def.min, dataType);
+  const schemaMax = parseMinMax(def.max, dataType);
+  if (schemaMin !== undefined && v < schemaMin)
+    return {ok: false, error: `Value ${v} below min ${def.min}`};
+  if (schemaMax !== undefined && v > schemaMax)
+    return {ok: false, error: `Value ${v} above max ${def.max}`};
+
   const writeError = writeScalar(dataType, v, writer);
   if (writeError) return {ok: false, error: writeError};
   if (def.name) parsedSoFar.set(def.name, v);
@@ -219,26 +227,26 @@ function serializeConfigElement(
 
 function checkDataTypeBounds(dataType: string, v: number): string | null {
   switch (dataType) {
-    case 'Int8':
+    case DATA_TYPE.Int8:
       if (v < -128 || v > 127) return `${v} out of Int8 range`;
       break;
-    case 'UInt8':
+    case DATA_TYPE.UInt8:
       if (v < 0 || v > 255) return `${v} out of UInt8 range`;
       break;
-    case 'Int16':
+    case DATA_TYPE.Int16:
       if (v < -32_768 || v > 32_767) return `${v} out of Int16 range`;
       break;
-    case 'UInt16':
+    case DATA_TYPE.UInt16:
       if (v < 0 || v > 65_535) return `${v} out of UInt16 range`;
       break;
-    case 'Int32':
+    case DATA_TYPE.Int32:
       if (v < -2_147_483_648 || v > 2_147_483_647)
         return `${v} out of Int32 range`;
       break;
-    case 'UInt32':
+    case DATA_TYPE.UInt32:
       if (v < 0 || v > 4_294_967_295) return `${v} out of UInt32 range`;
       break;
-    case 'Float':
+    case DATA_TYPE.Float:
       if (!Number.isFinite(Math.fround(v))) return `${v} out of Float32 range`;
       break;
   }
@@ -251,28 +259,28 @@ function writeScalar(
   writer: BinaryDataWriter,
 ): string | null {
   switch (dataType) {
-    case 'Int8':
+    case DATA_TYPE.Int8:
       writer.writeInt8(v);
       break;
-    case 'UInt8':
+    case DATA_TYPE.UInt8:
       writer.writeUInt8(v);
       break;
-    case 'Int16':
+    case DATA_TYPE.Int16:
       writer.writeInt16(v);
       break;
-    case 'UInt16':
+    case DATA_TYPE.UInt16:
       writer.writeUInt16(v);
       break;
-    case 'Int32':
+    case DATA_TYPE.Int32:
       writer.writeInt32(v);
       break;
-    case 'UInt32':
+    case DATA_TYPE.UInt32:
       writer.writeUInt32(v);
       break;
-    case 'Float':
+    case DATA_TYPE.Float:
       writer.writeFloat(v);
       break;
-    case 'Double':
+    case DATA_TYPE.Double:
       writer.writeDouble(v);
       break;
     default:

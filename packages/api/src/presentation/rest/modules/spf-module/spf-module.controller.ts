@@ -25,7 +25,7 @@ import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
 import {SpfModuleResponseDto} from './dto/shared/spf-module-response.dto.js';
 import {CkvCalDataResponseDto} from '../../common/dto/tuning-data/ckv-cal-data-response.dto.js';
-import {UpdateCkvRequestDto} from '../../common/dto/tuning-data/update-ckv-request.dto.js';
+
 import {UpdateTkvRequestDto} from './dto/request/update-tkv-request.dto.js';
 import {TkvCalDataResponseDto} from '../../common/dto/tuning-data/tkv-cal-data-response.dto.js';
 import {SystemIdsRequestDto} from '../../common/dto/index.js';
@@ -59,10 +59,8 @@ import {
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
   type SpfModuleDto,
-  type CkvCalDataDto,
-  type ParameterDto,
   type ActiveSession,
-  type ElementData,
+  type ParameterDto,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
@@ -97,7 +95,7 @@ import {
 @ApiExtraModels(
   SpfModuleResponseDto,
   CkvCalDataResponseDto,
-  UpdateCkvRequestDto,
+  UpdateSpfModuleCalDataRequestDto,
   TkvCalDataResponseDto,
   UpdateTkvRequestDto,
   CreateSpfModuleRequestDto,
@@ -378,7 +376,7 @@ export class SpfModuleController extends BaseController {
       clientId,
       paramSystemIds,
     );
-    const result = await this.queryBus.execute<Result<CkvCalDataDto>>(query);
+    const result = await this.queryBus.execute<Result<CkvCalDataResponseDto>>(query);
     return toApiResult(result);
   }
 
@@ -418,7 +416,7 @@ export class SpfModuleController extends BaseController {
       'Returns the updated calibration data in the same format as the GET endpoint.\n\n' +
       '**Batch Updates:**\n' +
       'Multiple PIDs can be updated in a single request by providing multiple items in the data array.',
-    requestDto: UpdateCkvRequestDto,
+    requestDto: UpdateSpfModuleCalDataRequestDto,
     responses: [
       {
         status: HttpStatus.OK,
@@ -450,14 +448,11 @@ export class SpfModuleController extends BaseController {
     @Param('ckvSystemId') ckvSystemId: string,
     @Body() updateRequest: UpdateSpfModuleCalDataRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<CkvCalDataDto>> {
+  ): Promise<ApiResult<CkvCalDataResponseDto>> {
     const command = new PutCkvCalDataCommand(
       spfModuleSystemId,
       ckvSystemId,
-      updateRequest.parameters.map(p => ({
-        systemId: (p as unknown as ParameterDto).systemId,
-        elements: p.elements as unknown as ElementData[],
-      })),
+      updateRequest.parameters as unknown as ParameterDto[],
       updateRequest.uiPersistence,
     );
 
@@ -465,10 +460,10 @@ export class SpfModuleController extends BaseController {
       Result<PutCkvCalDataResult>
     >(command, session);
     if (putResult.kind === RESULT_KIND.Fail) {
-      return toApiResult(putResult as unknown as Result<CkvCalDataDto>);
+      return toApiResult(putResult as unknown as Result<CkvCalDataResponseDto>);
     }
 
-    let data: CkvCalDataDto | undefined;
+    let data: CkvCalDataResponseDto | undefined;
     if (putResult.data.succeededParamSystemIds.length > 0) {
       const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
       const query = new GetCkvCalibrationDataQuery(
@@ -479,7 +474,7 @@ export class SpfModuleController extends BaseController {
         putResult.data.succeededParamSystemIds.join(','),
       );
       const readResult =
-        await this.queryBus.execute<Result<CkvCalDataDto>>(query);
+        await this.queryBus.execute<Result<CkvCalDataResponseDto>>(query);
       data = readResult.kind !== RESULT_KIND.Fail ? readResult.data : undefined;
     }
 

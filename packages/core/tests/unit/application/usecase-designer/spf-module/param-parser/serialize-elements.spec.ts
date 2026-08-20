@@ -68,6 +68,38 @@ describe('serializeParameterData', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('returns ok:false when value is within dataType range but below def.min', () => {
+    const def = makeDef(scalarDef('Int16', '10', '100'));
+    const result = serializeParameterData(def, [
+      {
+        type: 'ConfigElement',
+        name: 'x',
+        isReadOnly: false,
+        dataType: 'Int16',
+        value: '5',
+        min: 10,
+        max: 100,
+      },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
+  it('returns ok:false when value is within dataType range but above def.max', () => {
+    const def = makeDef(scalarDef('Int16', '10', '100'));
+    const result = serializeParameterData(def, [
+      {
+        type: 'ConfigElement',
+        name: 'x',
+        isReadOnly: false,
+        dataType: 'Int16',
+        value: '150',
+        min: 10,
+        max: 100,
+      },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
   it('serializes UInt32 scalar', () => {
     const def = makeDef(scalarDef('UInt32'));
     const result = serializeParameterData(def, [

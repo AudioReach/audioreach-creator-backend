@@ -6,6 +6,8 @@
 import {z} from 'zod';
 import {ParameterDtoSchema, type ParameterDto} from '../dto/parameter-dto.js';
 import {mapElements} from '../dto/element-dto.js';
+import type {ParameterElementDto} from '../dto/element-dto.js';
+import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
 import type {ParameterCalibrationReadModel} from './ckv-calibration-read-model.js';
 import type {CkvReadModel} from '../../../ports/persistence/query-services/spf-module/tuning/tuning-config-read-model.js';
 
@@ -77,4 +79,13 @@ export function mapCkvCalDataDto(
     })),
     parameters: parameters.map(p => mapParameterCalibrationToDto(p)),
   };
+}
+
+export function mapDtoToParameterCalibration(
+  elements: ParameterElementDto[],
+): ElementData[] {
+  // ParameterElementDto uses unknown[] for nested elements (Zod circular-schema
+  // workaround); the serializer accepts both 'ElementArray' and
+  // 'ElementTemplateArray' discriminators so the cast is safe at runtime.
+  return elements as unknown as ElementData[];
 }

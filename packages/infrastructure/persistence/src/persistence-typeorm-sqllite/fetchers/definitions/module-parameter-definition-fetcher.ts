@@ -6,16 +6,25 @@
 import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {CHANGE_OPERATION} from '@arc/core';
+import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
 
 export interface ModuleParameterDefinitionBase {
   systemId: number;
-  isReadOnly: boolean;
-  elementsStructure: string;
+  paramId: number;
+  name?: string;
+  description?: string;
+  maxSize: number;
+  pidType: string;
   isPersistent: boolean;
+  elementsStructure: string;
+  isReadOnly: boolean;
+  toolPolicies?: string;
+  spfModuleDefinitionSystemId: number;
 }
 
 export class ModuleParameterDefinitionFetcher {
+  private readonly overlay = new OverlayMergeImpl();
+
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsQs: EditActionsQueryService,
@@ -29,12 +38,6 @@ export class ModuleParameterDefinitionFetcher {
     let qb = this.manager
       .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
       .createQueryBuilder('pd')
-      .select([
-        'pd.systemId',
-        'pd.isReadOnly',
-        'pd.elementsStructure',
-        'pd.isPersistent',
-      ])
       .where('pd.spfModuleDefinitionSystemId = :moduleDefSystemId', {
         moduleDefSystemId,
       });
@@ -54,19 +57,8 @@ export class ModuleParameterDefinitionFetcher {
       ENTITY_NAMES.SpfModuleParameterDefinition,
     );
 
-    return rows.map(row => {
-      const updateAction = actions.find(
-        a =>
-          a.targetSystemId === row.systemId &&
-          a.operation === CHANGE_OPERATION.Update,
-      );
-      if (!updateAction) return row;
-      const delta = (
-        typeof updateAction.newValue === 'string'
-          ? (JSON.parse(updateAction.newValue) as unknown)
-          : updateAction.newValue
-      ) as Partial<ModuleParameterDefinitionBase>;
-      return {...row, ...delta};
-    });
+    return this.overlay
+      .applyToCollection<ModuleParameterDefinitionBase>(rows, actions)
+      .map(r => r.effective);
   }
 }

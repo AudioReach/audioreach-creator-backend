@@ -360,17 +360,17 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     spfModuleSystemId: number,
     ckvSystemId: number,
     payloadUpdates: CkvPayloadUpdate[],
-    uiPersistence?: Uint8Array,
+    uiPersistence?: string,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
-    for (const update of payloadUpdates) {
-      await this.writer.writeDelta(
-        {
+    if (payloadUpdates.length > 0) {
+      await this.writer.writeDeltaBatch(
+        payloadUpdates.map(u => ({
           targetTable: ENTITY_NAMES.CkvParameterPayload,
-          targetSystemId: update.payloadSystemId,
+          targetSystemId: u.payloadSystemId,
           aggregateId: spfModuleSystemId,
-          delta: {payload: update.payload},
-        },
+          delta: {payload: u.payload},
+        })),
         session.sessionId,
         groupId,
         this.manager,

@@ -8,14 +8,14 @@ import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js'
 import type {PutCkvCalDataCommand} from './put-ckv-cal-data.command.js';
 import type {PutCkvCalDataResult} from './put-ckv-cal-data-result.js';
 import {serializeParameterData} from '../../shared/serialize-elements.js';
+import {mapDtoToParameterCalibration} from '../get-cal-data/ckv-cal-data-dto.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 import {Result} from '../../../shared/result/result.js';
-import {ISSUE_CODE} from '../../../../shared/issues/operational-codes.js';
-import {IssueSeverity} from '../../../../shared/issues/severity.js';
+import {IssueFactory} from '../../../../shared/issues/factories.js';
 import type {Issue} from '../../../../shared/issues/issue.js';
 import type {ExistingPayloadRow} from '../../../ports/persistence/repositories/module/module.repository.js';
 import type {ParameterDefinitionBase} from '../../../ports/persistence/repositories/module/module-definition.repository.js';
-import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
+import type {ParameterElementDto} from '../dto/element-dto.js';
 
 type ParamProcessResult =
   | {
@@ -96,14 +96,14 @@ export class PutCkvCalDataHandler {
         command.spfModuleSystemId,
         command.ckvSystemId,
         writeBatch,
-        command.uiPersistence !== undefined
-          ? new TextEncoder().encode(command.uiPersistence)
-          : undefined,
+        command.uiPersistence,
       );
       await this.uow.commit();
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
-      throw error;
+      throw new Error(
+        `Calibration data write failed — transaction rolled back, no parameters were updated. Cause: ${(error as Error).message}`,
+      );
     }
 
     const data: PutCkvCalDataResult = {groupId, succeededParamSystemIds};
@@ -111,7 +111,7 @@ export class PutCkvCalDataHandler {
   }
 
   private processParam(
-    param: {systemId: number; elements: ElementData[]},
+    param: {systemId: number; elements: ParameterElementDto[]},
     payloadMap: Map<number, ExistingPayloadRow>,
     defMap: Map<number, ParameterDefinitionBase>,
   ): ParamProcessResult {
@@ -119,11 +119,7 @@ export class PutCkvCalDataHandler {
     if (!existingPayload) {
       return {
         ok: false,
-        issue: {
-          code: ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND,
-          message: `Parameter ${param.systemId}: no existing payload row (update-only)`,
-          severity: IssueSeverity.Error,
-        },
+        issue: IssueFactory.paramPayloadNotFound(param.systemId),
       };
     }
     const def = defMap.get(existingPayload.parameterSystemId);
@@ -133,24 +129,20 @@ export class PutCkvCalDataHandler {
       );
     }
     if (def.isReadOnly) {
-      return {
-        ok: false,
-        issue: {
-          code: ISSUE_CODE.PARAM_READ_ONLY,
-          message: `Parameter ${param.systemId}: parameter is read-only`,
-          severity: IssueSeverity.Error,
-        },
-      };
+      return {ok: false, issue: IssueFactory.paramReadOnly(param.systemId)};
     }
-    const serialized = serializeParameterData(def, param.elements, this.logger);
+    const serialized = serializeParameterData(
+      def,
+      mapDtoToParameterCalibration(param.elements),
+      this.logger,
+    );
     if (!serialized.ok) {
       return {
         ok: false,
-        issue: {
-          code: ISSUE_CODE.PARAM_SERIALIZATION_FAILED,
-          message: `Parameter ${param.systemId}: ${serialized.error}`,
-          severity: IssueSeverity.Error,
-        },
+        issue: IssueFactory.paramSerializationFailed(
+          param.systemId,
+          serialized.error,
+        ),
       };
     }
     return {

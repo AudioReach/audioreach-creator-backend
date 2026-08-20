@@ -232,7 +232,7 @@ Infrastructure (Persistence)
       spec: { targetTable: CkvParameterPayload, targetSystemId: payloadSystemId, aggregateId: spfModuleSystemId, delta: { payload: base64 } }
       no direct SQL UPDATE — pending change committed when session is committed
   → (uiPersistence write folded into setCkvCalData): calls writeDelta on Ckv row via PendingChangeWriter
-      spec: { targetTable: Ckv, targetSystemId: ckvSystemId, aggregateId: spfModuleSystemId, delta: { uiPersistence: base64 } }
+      spec: { targetTable: Ckv, targetSystemId: ckvSystemId, aggregateId: spfModuleSystemId, delta: { uiPersistence: "<plain string>" } }
 
   **SpfModule aggregate:** `SpfModule` is the aggregate root. `Ckv` and `CkvParameterPayload` are
   its children — same aggregate as `DataPort` and `ControlPort`. `aggregateId = spfModuleSystemId`
@@ -349,17 +349,13 @@ HTTP status:
 
 Same `parseId()` pattern as `GetCkvCalibrationDataQuery` — IDs parsed in constructor, not controller (FR12).
 
-Core must not import API-layer types. Because `ElementData` (the GET output type) is now also the PUT input type, the command imports it directly from Core — no separate mirror types are needed. The controller maps `ParameterResponseDto[]` to `ParameterCalDataInput[]` before constructing the command, converting each DTO element to its corresponding `ElementData` variant.
+Core must not import API-layer types. The command accepts `ParameterDto[]` (the Zod-inferred core type, which includes `systemId`). The controller passes `updateRequest.parameters as unknown as ParameterDto[]` — a single cast at the API/core boundary. No intermediate `ParameterCalDataInput` interface is needed; the command extracts `systemId` and `elements` internally in its constructor.
 
 ```typescript
-import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
+import type {ParameterDto} from '../dto/parameter-dto.js';
+import type {ParameterElementDto} from '../dto/element-dto.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
-
-export interface ParameterCalDataInput {
-  systemId: string;   // string from DTO — parsed to number in command constructor (same parseId() pattern as GetCkvCalibrationDataQuery)
-  elements: ElementData[];
-}
 
 export class PutCkvCalDataCommand extends BaseCommand {
   static override readonly requiresSession = true;
@@ -370,13 +366,13 @@ export class PutCkvCalDataCommand extends BaseCommand {
 
   public readonly spfModuleSystemId: number;
   public readonly ckvSystemId: number;
-  public readonly parameters: Array<{ systemId: number; elements: ElementData[] }>;
+  public readonly parameters: Array<{ systemId: number; elements: ParameterElementDto[] }>;
   public readonly uiPersistence: string | undefined;
 
   constructor(
     spfModuleSystemIdStr: string,
     ckvSystemIdStr: string,
-    parameters: ParameterCalDataInput[],
+    parameters: ParameterDto[],
     uiPersistence: string | undefined,
   ) {
     super();
@@ -741,7 +737,7 @@ Type discriminator mismatch, count mismatch, or structural mismatch between defi
 
 Adds CKV validation reads and the `setCkvCalData` write method to the existing `TypeOrmModuleRepository`, which already implements `ModuleRepository`. `Ckv` and `CkvParameterPayload` are children of the `SpfModule` aggregate — the same repository that handles `DataPort` and `ControlPort` writes. Validation reads delegate Layers 1+2 to `CkvOverlayFetcher` (shared with the GET `DbCkvCalibrationQueryService`) or `ModuleNodeOverlayFetcher` (for `getSpfModuleForValidation`); write methods record pending changes via `PendingChangeWriter`.
 
-`aggregateId = spfModuleSystemId` on every `edit_actions` row produced. Each `CkvParameterPayload` row update is recorded as an `UPDATE` operation with `fieldPath = "payload"` and `newValue = { payload: <base64-encoded Uint8Array> }`. The `uiPersistence` update is recorded similarly with `fieldPath = "uiPersistence"` on the `Ckv` row itself.
+`aggregateId = spfModuleSystemId` on every `edit_actions` row produced. Each `CkvParameterPayload` row update is recorded as an `UPDATE` operation with `fieldPath = "payload"` and `newValue = { payload: <base64-encoded Uint8Array> }`. The `uiPersistence` update is recorded on the `Ckv` row with `newValue = { uiPersistence: "<plain string>" }` — no binary encoding, stored as-is.
 
 `ckvExists` and `getExistingCkvPayloads` delegate all DB and overlay logic to `CkvOverlayFetcher`, then perform their own lean Layer 3 mapping. The fetcher handles both CREATE (module + CKV created in session — row not yet in DB) and DELETE (CKV deleted in session — row still in DB) directions.
 
@@ -848,7 +844,7 @@ export class CkvOverlayFetcher {
           targetTable: ENTITY_NAMES.Ckv,
           targetSystemId: ckvSystemId,
           aggregateId: spfModuleSystemId,
-          delta: { uiPersistence: Buffer.from(uiPersistence).toString('base64') },
+          delta: { uiPersistence: uiPersistence },
         },
         session.sessionId,
         groupId,

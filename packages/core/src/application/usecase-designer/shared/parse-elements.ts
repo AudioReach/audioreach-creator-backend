@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 import {PARAMETER_ELEMENT_TYPE} from './element-definition.js';
+import {DATA_TYPE} from '../../../shared/dto/element-data/element-types.js';
 import type {
   ConfigElement,
   StructElement,
@@ -38,7 +39,7 @@ function rawFallback(payload: Uint8Array): ConfigElementData {
     type: PARAMETER_ELEMENT_TYPE.ConfigElement,
     name: 'Failed to parse payload',
     isReadOnly: true,
-    dataType: 'RawData',
+    dataType: DATA_TYPE.RawData,
     value: toHex(payload),
   };
 }
@@ -48,25 +49,25 @@ type OriginalElement = Record<string, unknown>;
 
 /** Parses a min/max string using the same dataType dispatch as readScalar.
  *  Returns undefined for absent, non-finite, or inapplicable (RawData) values. */
-function parseMinMax(
+export function parseMinMax(
   value: string | undefined,
   dataType: string,
 ): number | undefined {
   if (value === undefined) return undefined;
   let n: number;
   switch (dataType) {
-    case 'UInt8':
-    case 'UInt16':
-    case 'UInt32':
-    case 'UInt64':
-    case 'Int8':
-    case 'Int16':
-    case 'Int32':
-    case 'Int64':
+    case DATA_TYPE.UInt8:
+    case DATA_TYPE.UInt16:
+    case DATA_TYPE.UInt32:
+    case DATA_TYPE.UInt64:
+    case DATA_TYPE.Int8:
+    case DATA_TYPE.Int16:
+    case DATA_TYPE.Int32:
+    case DATA_TYPE.Int64:
       n = Number.parseInt(value, 10);
       break;
-    case 'Float':
-    case 'Double':
+    case DATA_TYPE.Float:
+    case DATA_TYPE.Double:
       n = Number.parseFloat(value);
       break;
     default:
@@ -138,7 +139,8 @@ function normalizeStructArray(original: OriginalElement): StructArray {
 
   // Already-normalized: template carries elementType — pass through unchanged.
   if (existingTemplate?.elementType) {
-    const {keyStructureDefinition: _ksd, ...rest} = original;
+    // eslint-disable-next-line sonarjs/no-unused-vars
+    const {keyStructureDefinition: _, ...rest} = original;
     return {
       ...rest,
       elementType: PARAMETER_ELEMENT_TYPE.StructArray,
@@ -205,7 +207,8 @@ function normalizeConfigElementArray(original: OriginalElement): ElementArray {
     }
   }
 
-  const {template: _awspTemplate, ...rest} = original;
+  // eslint-disable-next-line sonarjs/no-unused-vars
+  const {template: _, ...rest} = original;
   return {
     ...rest,
     elementType: PARAMETER_ELEMENT_TYPE.ElementArray,
@@ -338,27 +341,27 @@ function readScalar(
   reader: BinaryDataReader,
 ): number | bigint | Uint8Array {
   switch (dataType) {
-    case 'UInt8':
+    case DATA_TYPE.UInt8:
       return reader.readUInt8();
-    case 'UInt16':
+    case DATA_TYPE.UInt16:
       return reader.readUInt16();
-    case 'UInt32':
+    case DATA_TYPE.UInt32:
       return reader.readUInt32();
-    case 'UInt64':
+    case DATA_TYPE.UInt64:
       return reader.readUInt64();
-    case 'Int8':
+    case DATA_TYPE.Int8:
       return reader.readInt8();
-    case 'Int16':
+    case DATA_TYPE.Int16:
       return reader.readInt16();
-    case 'Int32':
+    case DATA_TYPE.Int32:
       return reader.readInt32();
-    case 'Int64':
+    case DATA_TYPE.Int64:
       return reader.readInt64();
-    case 'Float':
+    case DATA_TYPE.Float:
       return reader.readFloat();
-    case 'Double':
+    case DATA_TYPE.Double:
       return reader.readDouble();
-    case 'RawData':
+    case DATA_TYPE.RawData:
       return reader.readRawData(reader.getRemainingBytes());
     default:
       throw new Error(`Unknown dataType: ${dataType}`);

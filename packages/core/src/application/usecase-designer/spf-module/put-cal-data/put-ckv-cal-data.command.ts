@@ -6,13 +6,9 @@
 import {BaseCommand} from '../../../shared/base-command.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
-import type {ElementData} from '../../../../domain/entities/definitions/common/types/element-data.js';
+import type {ParameterDto} from '../dto/parameter-dto.js';
+import type {ParameterElementDto} from '../dto/element-dto.js';
 import {InvalidOperationException} from '../../../../shared/exceptions/index.js';
-
-export interface ParameterCalDataInput {
-  systemId: string; // string from DTO — parsed to number in constructor
-  elements: ElementData[];
-}
 
 export class PutCkvCalDataCommand extends BaseCommand {
   static override readonly requiresSession = true;
@@ -25,14 +21,14 @@ export class PutCkvCalDataCommand extends BaseCommand {
   public readonly ckvSystemId: number;
   public readonly parameters: Array<{
     systemId: number;
-    elements: ElementData[];
+    elements: ParameterElementDto[];
   }>;
   public readonly uiPersistence: string | undefined;
 
   constructor(
     spfModuleSystemIdStr: string,
     ckvSystemIdStr: string,
-    parameters: ParameterCalDataInput[],
+    parameters: ParameterDto[],
     uiPersistence: string | undefined,
   ) {
     super();
@@ -52,9 +48,14 @@ function parseId(value: string, paramName: string): number {
     trimmed.startsWith('0x') || trimmed.startsWith('0X')
       ? Number.parseInt(trimmed, 16)
       : Number.parseInt(trimmed, 10);
-  if (!Number.isInteger(num) || num <= 0) {
+  if (Number.isNaN(num) || !Number.isFinite(num)) {
     throw new InvalidOperationException(
-      `${paramName} must be a positive integer, got: ${value}`,
+      `${paramName} must be an integer, got: ${value}`,
+    );
+  }
+  if (num <= 0) {
+    throw new InvalidOperationException(
+      `${paramName} must be positive, got: ${value}`,
     );
   }
   return num;

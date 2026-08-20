@@ -7,6 +7,7 @@ import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import {CHANGE_OPERATION} from '@arc/core';
+import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 
 export interface CkvBase {
   systemId: number;
@@ -25,6 +26,8 @@ interface CkvPayloadNewValue {
 }
 
 export class CkvOverlayFetcher {
+  private readonly overlay = new OverlayMergeImpl();
+
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsQs: EditActionsQueryService,
@@ -53,25 +56,10 @@ export class CkvOverlayFetcher {
       ENTITY_NAMES.Ckv,
     );
 
-    const deleteAction = actions.find(
-      a =>
-        a.targetSystemId === ckvSystemId &&
-        a.operation === CHANGE_OPERATION.Delete,
+    const ckvActions = actions.filter(a => a.targetSystemId === ckvSystemId);
+    return (
+      this.overlay.applyToSingle<CkvBase>(row, ckvActions)?.effective ?? null
     );
-    if (deleteAction) return null;
-
-    if (row === null) {
-      const createAction = actions.find(
-        a =>
-          a.targetSystemId === ckvSystemId &&
-          a.operation === CHANGE_OPERATION.Create,
-      );
-      if (createAction) {
-        return {systemId: ckvSystemId, spfModuleSystemId, uiPersistence: null};
-      }
-    }
-
-    return row;
   }
 
   async fetchCkvPayloads(
@@ -94,6 +82,11 @@ export class CkvOverlayFetcher {
       ENTITY_NAMES.CkvParameterPayload,
     );
 
+    // Cannot use applyToCollection here: getByAggregateAndTable returns CREATE
+    // actions for ALL CkvParameterPayload rows in the module aggregate (every
+    // CKV), not just this one. applyToCollection would add payloads from other
+    // CKVs as CREATE-only results. The ckvSystemId filter on CREATE newValue
+    // requires manual parsing — no hook exists in the shared overlay utilities.
     const deletedIds = new Set(
       actions
         .filter(a => a.operation === CHANGE_OPERATION.Delete)
