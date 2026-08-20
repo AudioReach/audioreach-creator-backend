@@ -376,7 +376,8 @@ export class SpfModuleController extends BaseController {
       clientId,
       paramSystemIds,
     );
-    const result = await this.queryBus.execute<Result<CkvCalDataResponseDto>>(query);
+    const result =
+      await this.queryBus.execute<Result<CkvCalDataResponseDto>>(query);
     return toApiResult(result);
   }
 

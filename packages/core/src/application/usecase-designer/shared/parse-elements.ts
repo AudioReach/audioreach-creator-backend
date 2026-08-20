@@ -63,9 +63,21 @@ export function parseMinMax(
     case DATA_TYPE.Int8:
     case DATA_TYPE.Int16:
     case DATA_TYPE.Int32:
-    case DATA_TYPE.Int64:
-      n = Number.parseInt(value, 10);
+    case DATA_TYPE.Int64: {
+      const isHex = value.startsWith('0x') || value.startsWith('0X');
+      n = isHex ? Number.parseInt(value, 16) : Number.parseInt(value, 10);
+      // Hex min/max strings use the type's bit-pattern representation. For
+      // signed types the upper half of the unsigned range is negative (two's
+      // complement), so apply sign extension when the unsigned value exceeds
+      // the type's max positive value.
+      if (isHex) {
+        if (dataType === DATA_TYPE.Int8 && n > 127) n -= 256;
+        else if (dataType === DATA_TYPE.Int16 && n > 32_767) n -= 65_536;
+        else if (dataType === DATA_TYPE.Int32 && n > 2_147_483_647)
+          n -= 4_294_967_296;
+      }
       break;
+    }
     case DATA_TYPE.Float:
     case DATA_TYPE.Double:
       n = Number.parseFloat(value);

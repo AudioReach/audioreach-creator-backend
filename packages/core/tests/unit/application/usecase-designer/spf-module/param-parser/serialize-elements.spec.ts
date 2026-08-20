@@ -100,6 +100,70 @@ describe('serializeParameterData', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('accepts valid value when def.min/max are hex strings', () => {
+    const def = makeDef(scalarDef('UInt32', '0x00000000', '0x0000000A'));
+    const result = serializeParameterData(def, [
+      {
+        type: 'ConfigElement',
+        name: 'x',
+        isReadOnly: false,
+        dataType: 'UInt32',
+        value: '5',
+        min: 0,
+        max: 10,
+      },
+    ]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects value above hex max (0x0000000A = 10)', () => {
+    const def = makeDef(scalarDef('UInt32', '0x00000000', '0x0000000A'));
+    const result = serializeParameterData(def, [
+      {
+        type: 'ConfigElement',
+        name: 'x',
+        isReadOnly: false,
+        dataType: 'UInt32',
+        value: '11',
+        min: 0,
+        max: 10,
+      },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts Int16 value within range when min is negative hex (0x8000 = -32768)', () => {
+    const def = makeDef(scalarDef('Int16', '0x8000', '0x000A'));
+    const result = serializeParameterData(def, [
+      {
+        type: 'ConfigElement',
+        name: 'x',
+        isReadOnly: false,
+        dataType: 'Int16',
+        value: '1',
+        min: -32768,
+        max: 10,
+      },
+    ]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts UInt32 value 1 when max is 0xFFFFFFFF (unsigned)', () => {
+    const def = makeDef(scalarDef('UInt32', '0x00000000', '0xFFFFFFFF'));
+    const result = serializeParameterData(def, [
+      {
+        type: 'ConfigElement',
+        name: 'x',
+        isReadOnly: false,
+        dataType: 'UInt32',
+        value: '1',
+        min: 0,
+        max: 4294967295,
+      },
+    ]);
+    expect(result.ok).toBe(true);
+  });
+
   it('serializes UInt32 scalar', () => {
     const def = makeDef(scalarDef('UInt32'));
     const result = serializeParameterData(def, [
