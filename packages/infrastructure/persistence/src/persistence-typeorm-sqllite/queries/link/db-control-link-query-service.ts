@@ -83,6 +83,79 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
     }
   }
 
+  async findBySystemIds(
+    systemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>> {
+    if (systemIds.length === 0) return R.ok([]);
+
+    try {
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+      const links = await this.linkFetcher.loadControlLinkRows(
+        fileSystemId,
+        sessionId,
+        {systemId: systemIds},
+      );
+      return R.ok(
+        links.map(link =>
+          UseCaseQueryMappers.mapToComponentControlLinkReadModel(link),
+        ),
+      );
+    } catch (error) {
+      return R.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load control links by system IDs',
+        ),
+      );
+    }
+  }
+
+  async findSubsystemSegments(
+    controlLinkSystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>> {
+    try {
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+      const [links, segments] = await Promise.all([
+        this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId, {
+          systemId: controlLinkSystemId,
+        }),
+        this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId, {
+          controlLinkSystemId,
+        }),
+      ]);
+      const link = links[0];
+      if (!link) return R.ok([]);
+      return R.ok(
+        segments.map(segment => ({
+          systemId: segment.systemId,
+          peerNodeASystemId: segment.peerNodeASystemId,
+          peerNodeBSystemId: segment.peerNodeBSystemId,
+          nodeAPortSystemId: segment.nodeAPortSystemId,
+          nodeBPortSystemId: segment.nodeBPortSystemId,
+          heapId: link.heapId,
+          linkType: link.linkType,
+        })),
+      );
+    } catch (error) {
+      return R.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subsystem control-link segments',
+        ),
+      );
+    }
+  }
+
   async findBySubgraphId(
     subgraphId: number,
     fileSystemId: number,

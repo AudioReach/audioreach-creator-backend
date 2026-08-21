@@ -226,4 +226,12 @@ export const IssueFactory = {
       severity: IssueSeverity.Error,
     };
   },
+
+  validationError(message: string): Issue {
+    return {
+      code: ISSUE_CODE.VALIDATION_ERROR,
+      message,
+      severity: IssueSeverity.Error,
+    };
+  },
 } as const;

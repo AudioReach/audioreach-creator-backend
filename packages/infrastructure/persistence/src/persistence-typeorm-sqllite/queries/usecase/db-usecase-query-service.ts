@@ -442,6 +442,33 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         },
       }));
   }
+
+  async findUsecaseIdsBySubgraphIds(
+    subgraphIds: number[],
+    fileSystemId: number,
+  ): Promise<Map<number, number[]>> {
+    if (subgraphIds.length === 0) return new Map();
+
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.UseCaseSubgraph)
+      .createQueryBuilder('ucs')
+      .innerJoin('ucs.subgraph', 'subgraph')
+      .select(['ucs.usecaseSystemId', 'ucs.subgraphSystemId'])
+      .where('ucs.subgraphSystemId IN (:...ids)', {ids: subgraphIds})
+      .andWhere('subgraph.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany()) as {usecaseSystemId: number; subgraphSystemId: number}[];
+
+    const result = new Map<number, number[]>();
+    for (const row of rows) {
+      const existing = result.get(row.subgraphSystemId);
+      if (existing) {
+        existing.push(row.usecaseSystemId);
+      } else {
+        result.set(row.subgraphSystemId, [row.usecaseSystemId]);
+      }
+    }
+    return result;
+  }
 }
 
 function isTransientReadError(error: unknown): boolean {
