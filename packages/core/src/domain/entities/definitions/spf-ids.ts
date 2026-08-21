@@ -37,5 +37,6 @@ export const MODULE_PROP_ID_CTRL_HEAP_ID = 0x08_00_13_6f;
 export const VCPM_PROP_ID_TAG_INFO = 0x08_00_11_b2;
 
 // Other Constants
+export const DEFAULT_CONTAINER_HEAP_ID = 1;
 export const ID_DONT_CARE_DUMMY = 0xff_ff_ff_ff;
 export const SPF_ID = 0xff_ff_ff_fe;
