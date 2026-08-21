@@ -23,6 +23,7 @@ import type {
   DataLinkQueryService,
   ControlLinkQueryService,
   SubsystemQueryService,
+  NodeQueryService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -45,6 +46,7 @@ import {DbDriverModuleDefinitionQueryService} from './driver-module-definition/d
 import {DbDataLinkQueryService} from './link/db-data-link-query-service.js';
 import {DbControlLinkQueryService} from './link/db-control-link-query-service.js';
 import {DbSubsystemQueryService} from './subsystem/db-subsystem-query-service.js';
+import {DbNodeQueryService} from './node/db-node-query-service.js';
 import {UseCaseCategoryFetcher} from '../fetchers/usecase-category-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../fetchers/usecase-gkv-values-fetcher.js';
 import {UsecaseOverlayFetcher} from '../fetchers/usecase-overlay-fetcher.js';
@@ -91,6 +93,7 @@ export class DbQueryServices implements QueryServices {
   readonly dataLinkQueryService: DataLinkQueryService;
   readonly controlLinkQueryService: ControlLinkQueryService;
   readonly subsystemQueryService: SubsystemQueryService;
+  readonly nodeQueryService: NodeQueryService;
 
   constructor(
     dataSource: DataSource,
@@ -309,6 +312,10 @@ export class DbQueryServices implements QueryServices {
       linkOverlayFetcher,
       portOverlayFetcher,
       keyValueDefinitionFetcher,
+    );
+    this.nodeQueryService = new DbNodeQueryService(
+      dataSource,
+      editActionsQueryService,
     );
 
     this.logQueryService = logQueryService;

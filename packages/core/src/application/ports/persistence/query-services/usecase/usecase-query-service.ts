@@ -34,4 +34,14 @@ export interface UseCaseQueryService {
     fileId: number,
     usecaseSystemIds: readonly number[],
   ): Promise<Result<UseCaseReadModel[]>>;
+
+  /**
+   * Returns the usecase system IDs that contain at least one of the given subgraph IDs.
+   * Used for link-type derivation (INTRA_USECASE vs INTER_USECASE).
+   * Empty input returns an empty map immediately.
+   */
+  findUsecaseIdsBySubgraphIds(
+    subgraphIds: number[],
+    fileSystemId: number,
+  ): Promise<Map<number, number[]>>;
 }

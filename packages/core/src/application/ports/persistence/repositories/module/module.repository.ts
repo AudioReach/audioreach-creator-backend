@@ -106,6 +106,40 @@ export interface ModuleRepository {
     ports: {systemId: number; portIoType: PortIoType}[];
   } | null>;
 
+  /**
+   * Lightweight read for control-link creation. Returns fields needed by
+   * ControlLinkCreationHandler: subgraphSystemId, parentSystemId,
+   * definitionSystemId, and control-port identifiers (systemId + naturalId).
+   * Session overlay applied. Returns null when the node is not a module.
+   */
+  findModuleForControlLink(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<{
+    subgraphSystemId: number;
+    parentSystemId: number | null;
+    definitionSystemId: number;
+    controlPorts: {systemId: number; naturalId: number}[];
+  } | null>;
+
+  /**
+   * Returns control ports for a module node enriched with intent and link-count
+   * data needed for the intent-resolution path during control-link creation.
+   * Session overlay applied. Returns null when the module does not exist.
+   */
+  findControlPortsForLink(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<
+    | {
+        systemId: number;
+        naturalId: number;
+        allocatedIntents: readonly {naturalId: number}[];
+        totalLinksAtPort: number;
+      }[]
+    | null
+  >;
+
   renameModule(
     moduleSystemId: number,
     alias: string,
