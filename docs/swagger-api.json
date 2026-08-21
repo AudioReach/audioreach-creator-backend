@@ -762,7 +762,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/CreateUsecasesResponseDto"
+                          "$ref": "#/components/schemas/CreateManualUsecasesResponseDto"
                         }
                       }
                     }
@@ -3422,7 +3422,7 @@
                           "sourcePortId": 2002,
                           "destinationId": 1002,
                           "destinationPortId": 2003,
-                          "isDangling": false,
+                          "isInterUsecase": false,
                           "parentId": 601
                         }
                       ],
@@ -3435,7 +3435,7 @@
                           "sourcePortId": 3001,
                           "destinationId": 1002,
                           "destinationPortId": 3002,
-                          "isDangling": false,
+                          "isInterUsecase": false,
                           "parentId": 601
                         }
                       ]
@@ -3659,7 +3659,7 @@
                           "sourcePortId": 2002,
                           "destinationId": 1002,
                           "destinationPortId": 2003,
-                          "isDangling": false,
+                          "isInterUsecase": false,
                           "parentId": 601
                         }
                       ],
@@ -3672,7 +3672,7 @@
                           "sourcePortId": 3001,
                           "destinationId": 1002,
                           "destinationPortId": 3002,
-                          "isDangling": false,
+                          "isInterUsecase": false,
                           "parentId": 601
                         }
                       ]
@@ -9161,42 +9161,339 @@
           "oemInfo"
         ]
       },
-      "EndPointLink": {
+      "CreateUsecasesResponseDto": {
         "type": "object",
         "properties": {
-          "hypertextRef": {
-            "type": "string",
-            "description": "Hypertext reference URL following 'project{projectId}'"
+          "issues": {
+            "description": "Issues encountered during reconciliation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiIssueItem"
+            }
           },
-          "method": {
-            "type": "string",
-            "description": "HTTP method"
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "keyId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "keyId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "valueId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "valueId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                },
+                "changeId": {
+                  "type": "string",
+                  "description": "The changeId for this usecase"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs",
+                "changeId"
+              ]
+            },
+            "description": "Usecases created during reconciliation"
           },
-          "description": {
-            "type": "string",
-            "description": "Description of the endpoint"
+          "updated": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "keyId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "keyId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "valueId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "valueId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                },
+                "changeId": {
+                  "type": "string",
+                  "description": "The changeId for this usecase"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs",
+                "changeId"
+              ]
+            },
+            "description": "Usecases updated during reconciliation"
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "keyId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "keyId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "valueId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "valueId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                },
+                "changeId": {
+                  "type": "string",
+                  "description": "The changeId for this usecase"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs",
+                "changeId"
+              ]
+            },
+            "description": "Usecases deleted during reconciliation"
           }
         },
         "required": [
-          "hypertextRef",
-          "method",
-          "description"
+          "issues",
+          "created",
+          "updated",
+          "deleted"
         ]
       },
       "UsecaseIdentifierWithChangeInfoDto": {
         "type": "object",
         "properties": {
-          "relatedEndPointLinks": {
-            "description": "Related endpoint links for the usecase",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EndPointLink"
-            }
-          },
-          "changeId": {
-            "type": "string",
-            "description": "The changeId for this usecase"
-          },
           "systemId": {
             "type": "string",
             "description": "System identifier of the usecase"
@@ -9281,52 +9578,17 @@
           "usecaseCategory": {
             "description": "Category of the usecase",
             "type": "string"
+          },
+          "changeId": {
+            "type": "string",
+            "description": "The changeId for this usecase"
           }
         },
         "required": [
-          "changeId",
           "systemId",
           "usecaseType",
-          "keyValuePairs"
-        ]
-      },
-      "CreateUsecasesResponseDto": {
-        "type": "object",
-        "properties": {
-          "created": {
-            "description": "Usecases created during reconciliation",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UsecaseIdentifierWithChangeInfoDto"
-            }
-          },
-          "updated": {
-            "description": "Usecases updated during reconciliation",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UsecaseIdentifierWithChangeInfoDto"
-            }
-          },
-          "deleted": {
-            "description": "Usecases deleted during reconciliation",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UsecaseIdentifierWithChangeInfoDto"
-            }
-          },
-          "issues": {
-            "description": "Issues encountered during reconciliation",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiIssueItem"
-            }
-          }
-        },
-        "required": [
-          "created",
-          "updated",
-          "deleted",
-          "issues"
+          "keyValuePairs",
+          "changeId"
         ]
       },
       "SubgraphKvSelectionDto": {
@@ -9382,11 +9644,138 @@
             "items": {
               "type": "string"
             }
+          },
+          "excludedSubgraphSystemIds": {
+            "description": "System IDs of subgraphs to exclude from routing",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "selectedUsecaseSystemIds",
           "activeSubgraphs"
+        ]
+      },
+      "CreateManualUsecasesResponseDto": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "description": "Issues encountered during creation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiIssueItem"
+            }
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System identifier of the usecase"
+                },
+                "usecaseType": {
+                  "type": "string",
+                  "description": "Type of the usecase"
+                },
+                "keyValuePairs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "object",
+                        "properties": {
+                          "keyId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Key id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Key name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Key system identifier"
+                          }
+                        },
+                        "required": [
+                          "keyId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Key information"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "valueId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Value id"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Value name"
+                          },
+                          "systemId": {
+                            "type": "string",
+                            "description": "Value system identifier"
+                          }
+                        },
+                        "required": [
+                          "valueId",
+                          "name",
+                          "systemId"
+                        ],
+                        "description": "Value information"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  },
+                  "description": "Collection of key-value pairs"
+                },
+                "usecaseAliasId": {
+                  "description": "Optional alias identifier for the usecase",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "usecaseAliasName": {
+                  "description": "Alias name for the usecase",
+                  "type": "string"
+                },
+                "usecaseCategory": {
+                  "description": "Category of the usecase",
+                  "type": "string"
+                },
+                "changeId": {
+                  "type": "string",
+                  "description": "The changeId for this usecase"
+                }
+              },
+              "required": [
+                "systemId",
+                "usecaseType",
+                "keyValuePairs",
+                "changeId"
+              ]
+            },
+            "description": "Usecases added"
+          }
+        },
+        "required": [
+          "issues",
+          "added"
         ]
       },
       "CreateManualUsecasesRequestDto": {
@@ -9408,13 +9797,6 @@
           },
           "excludedControlLinkSystemIds": {
             "description": "System IDs of control links to exclude",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "excludedSubgraphSystemIds": {
-            "description": "System IDs of subgraphs to exclude",
             "type": "array",
             "items": {
               "type": "string"
@@ -11150,6 +11532,28 @@
           "allowedInterfaces"
         ]
       },
+      "EndPointLink": {
+        "type": "object",
+        "properties": {
+          "hypertextRef": {
+            "type": "string",
+            "description": "Hypertext reference URL following 'project{projectId}'"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the endpoint"
+          }
+        },
+        "required": [
+          "hypertextRef",
+          "method",
+          "description"
+        ]
+      },
       "UsecaseResponseDto": {
         "type": "object",
         "properties": {
@@ -11649,12 +12053,6 @@
                   "type": "string",
                   "description": "Data link system ID"
                 },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Data link ID"
-                },
                 "sourceSystemId": {
                   "type": "string",
                   "description": "Source component system ID"
@@ -11671,28 +12069,18 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Data links"
@@ -11705,12 +12093,6 @@
                 "systemId": {
                   "type": "string",
                   "description": "Control link system ID"
-                },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Control link ID"
                 },
                 "sourceSystemId": {
                   "type": "string",
@@ -11728,28 +12110,18 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Control links"
@@ -12387,12 +12759,6 @@
                   "type": "string",
                   "description": "Data link system ID"
                 },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Data link ID"
-                },
                 "sourceSystemId": {
                   "type": "string",
                   "description": "Source component system ID"
@@ -12409,28 +12775,18 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Data links"
@@ -12443,12 +12799,6 @@
                 "systemId": {
                   "type": "string",
                   "description": "Control link system ID"
-                },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Control link ID"
                 },
                 "sourceSystemId": {
                   "type": "string",
@@ -12466,28 +12816,18 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Control links"
@@ -12862,12 +13202,6 @@
                   "type": "string",
                   "description": "Data link system ID"
                 },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Data link ID"
-                },
                 "sourceSystemId": {
                   "type": "string",
                   "description": "Source component system ID"
@@ -12884,28 +13218,18 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Data links"
@@ -12918,12 +13242,6 @@
                 "systemId": {
                   "type": "string",
                   "description": "Control link system ID"
-                },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Control link ID"
                 },
                 "sourceSystemId": {
                   "type": "string",
@@ -12941,28 +13259,18 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Control links"
@@ -12984,12 +13292,6 @@
                 "type": "string",
                 "description": "Data link system ID"
               },
-              "id": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991,
-                "description": "Data link ID"
-              },
               "sourceSystemId": {
                 "type": "string",
                 "description": "Source component system ID"
@@ -13006,28 +13308,18 @@
                 "type": "string",
                 "description": "Destination port system ID"
               },
-              "isDangling": {
+              "isInterUsecase": {
                 "type": "boolean",
-                "description": "Whether the link is dangling"
-              },
-              "connectionType": {
-                "type": "string",
-                "description": "Connection type (MODULE_MODULE)"
-              },
-              "parentSystemId": {
-                "description": "Parent component system ID",
-                "type": "string"
+                "description": "Whether the link is inter-usecase"
               }
             },
             "required": [
               "systemId",
-              "id",
               "sourceSystemId",
               "sourcePortSystemId",
               "destinationSystemId",
               "destinationPortSystemId",
-              "isDangling",
-              "connectionType"
+              "isInterUsecase"
             ],
             "description": "The data link"
           },
@@ -13147,12 +13439,6 @@
                 "type": "string",
                 "description": "Control link system ID"
               },
-              "id": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991,
-                "description": "Control link ID"
-              },
               "sourceSystemId": {
                 "type": "string",
                 "description": "Source (peer A) component system ID"
@@ -13169,28 +13455,18 @@
                 "type": "string",
                 "description": "Destination (peer B) port system ID"
               },
-              "isDangling": {
+              "isInterUsecase": {
                 "type": "boolean",
-                "description": "Whether the link is dangling"
-              },
-              "connectionType": {
-                "type": "string",
-                "description": "Connection type (MODULE_MODULE)"
-              },
-              "parentSystemId": {
-                "description": "Parent component system ID",
-                "type": "string"
+                "description": "Whether the link is inter-usecase"
               }
             },
             "required": [
               "systemId",
-              "id",
               "sourceSystemId",
               "sourcePortSystemId",
               "destinationSystemId",
               "destinationPortSystemId",
-              "isDangling",
-              "connectionType"
+              "isInterUsecase"
             ],
             "description": "The control link"
           },
@@ -16947,12 +17223,6 @@
                   "type": "string",
                   "description": "Data link system ID"
                 },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Data link ID"
-                },
                 "sourceSystemId": {
                   "type": "string",
                   "description": "Source component system ID"
@@ -16969,28 +17239,18 @@
                   "type": "string",
                   "description": "Destination port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Data links between the subgraph pair"
@@ -17003,12 +17263,6 @@
                 "systemId": {
                   "type": "string",
                   "description": "Control link system ID"
-                },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Control link ID"
                 },
                 "sourceSystemId": {
                   "type": "string",
@@ -17026,28 +17280,18 @@
                   "type": "string",
                   "description": "Destination (peer B) port system ID"
                 },
-                "isDangling": {
+                "isInterUsecase": {
                   "type": "boolean",
-                  "description": "Whether the link is dangling"
-                },
-                "connectionType": {
-                  "type": "string",
-                  "description": "Connection type (MODULE_MODULE)"
-                },
-                "parentSystemId": {
-                  "description": "Parent component system ID",
-                  "type": "string"
+                  "description": "Whether the link is inter-usecase"
                 }
               },
               "required": [
                 "systemId",
-                "id",
                 "sourceSystemId",
                 "sourcePortSystemId",
                 "destinationSystemId",
                 "destinationPortSystemId",
-                "isDangling",
-                "connectionType"
+                "isInterUsecase"
               ]
             },
             "description": "Control links between the subgraph pair"
@@ -17221,12 +17465,6 @@
             "type": "string",
             "description": "Data link system ID"
           },
-          "id": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Data link ID"
-          },
           "sourceSystemId": {
             "type": "string",
             "description": "Source component system ID"
@@ -17243,28 +17481,18 @@
             "type": "string",
             "description": "Destination port system ID"
           },
-          "isDangling": {
+          "isInterUsecase": {
             "type": "boolean",
-            "description": "Whether the link is dangling"
-          },
-          "connectionType": {
-            "type": "string",
-            "description": "Connection type (MODULE_MODULE)"
-          },
-          "parentSystemId": {
-            "description": "Parent component system ID",
-            "type": "string"
+            "description": "Whether the link is inter-usecase"
           }
         },
         "required": [
           "systemId",
-          "id",
           "sourceSystemId",
           "sourcePortSystemId",
           "destinationSystemId",
           "destinationPortSystemId",
-          "isDangling",
-          "connectionType"
+          "isInterUsecase"
         ]
       },
       "CreateDataLinkRequest": {
@@ -17318,12 +17546,6 @@
             "type": "string",
             "description": "Control link system ID"
           },
-          "id": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Control link ID"
-          },
           "sourceSystemId": {
             "type": "string",
             "description": "Source (peer A) component system ID"
@@ -17340,28 +17562,18 @@
             "type": "string",
             "description": "Destination (peer B) port system ID"
           },
-          "isDangling": {
+          "isInterUsecase": {
             "type": "boolean",
-            "description": "Whether the link is dangling"
-          },
-          "connectionType": {
-            "type": "string",
-            "description": "Connection type (MODULE_MODULE)"
-          },
-          "parentSystemId": {
-            "description": "Parent component system ID",
-            "type": "string"
+            "description": "Whether the link is inter-usecase"
           }
         },
         "required": [
           "systemId",
-          "id",
           "sourceSystemId",
           "sourcePortSystemId",
           "destinationSystemId",
           "destinationPortSystemId",
-          "isDangling",
-          "connectionType"
+          "isInterUsecase"
         ]
       },
       "CreateControlLinkRequest": {
@@ -17387,9 +17599,9 @@
             "type": "string",
             "description": "System ID of the parent component"
           },
-          "isDangling": {
+          "isInterUsecase": {
             "type": "boolean",
-            "description": "Is dangling",
+            "description": "Is inter-usecase",
             "default": false
           }
         },
@@ -17398,7 +17610,7 @@
           "startPortSystemId",
           "endComponentSystemId",
           "endPortSystemId",
-          "isDangling"
+          "isInterUsecase"
         ]
       },
       "ControlLinkPropertiesResponseDto": {

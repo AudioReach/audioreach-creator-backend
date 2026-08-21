@@ -84,6 +84,7 @@ import {
 import {StartSessionRequestDto, SessionResponseDto} from './dto/session.dto.js';
 import {
   CreateUsecasesResponseDto,
+  CreateManualUsecasesResponseDto,
   UsecaseIdentifierWithChangeInfoDto,
 } from './dto/create-usecases-response.dto.js';
 import {CreateUsecasesRequestDto} from './dto/create-usecases-request.dto.js';
@@ -952,7 +953,7 @@ export class ProjectController {
   })
   @ApiExtraModels(
     ApiResult,
-    CreateUsecasesResponseDto,
+    CreateManualUsecasesResponseDto,
     UsecaseIdentifierWithChangeInfoDto,
   )
   @ApiResponse({
@@ -963,7 +964,7 @@ export class ProjectController {
         {$ref: getSchemaPath(ApiResult)},
         {
           properties: {
-            data: {$ref: getSchemaPath(CreateUsecasesResponseDto)},
+            data: {$ref: getSchemaPath(CreateManualUsecasesResponseDto)},
           },
         },
       ],
@@ -1006,7 +1007,7 @@ export class ProjectController {
   createManualUsecases(
     @Param('projectId') _projectId: string,
     @Body() _body: CreateManualUsecasesRequestDto,
-  ): ApiResult<CreateUsecasesResponseDto> {
+  ): ApiResult<CreateManualUsecasesResponseDto> {
     throw new NotImplementedException(
       'createManualUsecases is not implemented yet',
     );

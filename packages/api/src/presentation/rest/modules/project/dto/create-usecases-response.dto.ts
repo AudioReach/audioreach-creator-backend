@@ -4,39 +4,34 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {UsecaseResponseDto} from '../../usecase/dto/usecase-response.dto.js';
+import {createZodDto} from 'nestjs-zod';
+import {
+  UsecaseIdentifierWithChangeInfoDtoSchema,
+  CreateUsecasesResponseDtoSchema,
+  CreateManualUsecasesResponseDtoSchema,
+} from '@arc/core';
 import {ApiIssueItem} from '../../../common/dto/api-response/api-issue-item.dto.js';
 
-export class UsecaseIdentifierWithChangeInfoDto extends UsecaseResponseDto {
-  @ApiProperty({
-    description: 'The changeId for this usecase',
-    type: String,
-  })
-  changeId!: string;
-}
+export class UsecaseIdentifierWithChangeInfoDto extends createZodDto(
+  UsecaseIdentifierWithChangeInfoDtoSchema,
+) {}
 
-export class CreateUsecasesResponseDto {
-  @ApiProperty({
-    type: [UsecaseIdentifierWithChangeInfoDto],
-    description: 'Usecases created during reconciliation',
-  })
-  created!: UsecaseIdentifierWithChangeInfoDto[];
-
-  @ApiProperty({
-    type: [UsecaseIdentifierWithChangeInfoDto],
-    description: 'Usecases updated during reconciliation',
-  })
-  updated!: UsecaseIdentifierWithChangeInfoDto[];
-
-  @ApiProperty({
-    type: [UsecaseIdentifierWithChangeInfoDto],
-    description: 'Usecases deleted during reconciliation',
-  })
-  deleted!: UsecaseIdentifierWithChangeInfoDto[];
-
+export class CreateUsecasesResponseDto extends createZodDto(
+  CreateUsecasesResponseDtoSchema,
+) {
   @ApiProperty({
     type: [ApiIssueItem],
     description: 'Issues encountered during reconciliation',
+  })
+  issues!: ApiIssueItem[];
+}
+
+export class CreateManualUsecasesResponseDto extends createZodDto(
+  CreateManualUsecasesResponseDtoSchema,
+) {
+  @ApiProperty({
+    type: [ApiIssueItem],
+    description: 'Issues encountered during creation',
   })
   issues!: ApiIssueItem[];
 }

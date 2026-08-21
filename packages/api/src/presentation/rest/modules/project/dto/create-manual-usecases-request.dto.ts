@@ -38,14 +38,4 @@ export class CreateManualUsecasesRequestDto {
   @IsArray()
   @IsString({each: true})
   excludedControlLinkSystemIds?: string[];
-
-  @ApiProperty({
-    description: 'System IDs of subgraphs to exclude',
-    type: [String],
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  excludedSubgraphSystemIds?: string[];
 }

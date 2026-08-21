@@ -361,7 +361,7 @@ export const UsecaseComponentsExample = {
       sourcePortId: 2002, // outputPort1
       destinationId: 1002, // spfModule2
       destinationPortId: 2003, // inputPort2
-      isDangling: false,
+      isInterUsecase: false,
       parentId: 601, // containerId
     });
 
@@ -378,7 +378,7 @@ export const UsecaseComponentsExample = {
       sourcePortId: 3001, // controlPort1
       destinationId: 1002, // spfModule2
       destinationPortId: 3002, // controlPort2
-      isDangling: false,
+      isInterUsecase: false,
       parentId: 601, // containerId
     });
 

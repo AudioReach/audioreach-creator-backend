@@ -47,9 +47,9 @@ export class CreateControlLinkRequest {
   parentSystemId?: string;
 
   @ApiProperty({
-    description: 'Is dangling',
+    description: 'Is inter-usecase',
     default: false,
   })
   @IsBoolean()
-  isDangling: boolean = false;
+  isInterUsecase: boolean = false;
 }
