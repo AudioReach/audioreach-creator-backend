@@ -4,22 +4,77 @@
  */
 
 import {z} from 'zod';
-import {ComponentCollectionWithSubsystemsDtoSchema} from '../../usecase/dto/component-collection-dto.js';
+import {
+  DataLinkDtoSchema,
+  ControlLinkDtoSchema,
+} from '../../usecase/dto/component-collection-dto.js';
+import {
+  DataPortDtoSchema,
+  ControlPortDtoSchema,
+} from '../../spf-module/query/spf-module-dto.js';
 
-// Uses z.lazy() via ComponentCollectionWithSubsystemsDtoSchema — not compatible with createZodDto
+const UpdatedComponentItemSchema = z.object({
+  systemId: z.string().describe('System ID of the component'),
+  parentSystemId: z
+    .string()
+    .optional()
+    .describe('New parent subsystem system ID. Absent if moved to root.'),
+});
+
+const SubsystemPortChangesSchema = z.object({
+  systemId: z
+    .string()
+    .describe('System ID of the subsystem whose ports changed'),
+  addedDataPorts: z
+    .array(DataPortDtoSchema)
+    .optional()
+    .describe('Data ports added as a result of the move'),
+  removedDataPorts: z
+    .array(z.string())
+    .optional()
+    .describe('System IDs of data ports removed as a result of the move'),
+  addedControlPorts: z
+    .array(ControlPortDtoSchema)
+    .optional()
+    .describe('Control ports added as a result of the move'),
+  removedControlPorts: z
+    .array(z.string())
+    .optional()
+    .describe('System IDs of control ports removed as a result of the move'),
+});
+
 export const MoveSubsystemComponentsDtoSchema = z
   .object({
-    added: ComponentCollectionWithSubsystemsDtoSchema.optional().describe(
-      'Components that were moved (with updated parentId) and any newly constructed links.',
-    ),
-    updated: ComponentCollectionWithSubsystemsDtoSchema.optional().describe(
-      'Entities that pre-existed and were modified by the move.',
-    ),
-    removed: ComponentCollectionWithSubsystemsDtoSchema.optional().describe(
-      'Links that were removed because they became invalid after the move.',
-    ),
+    updatedModules: z
+      .array(UpdatedComponentItemSchema)
+      .optional()
+      .describe('Modules re-parented by the move'),
+    updatedSubsystems: z
+      .array(UpdatedComponentItemSchema)
+      .optional()
+      .describe('Subsystems re-parented by the move'),
+    addedDataLinks: z
+      .array(DataLinkDtoSchema)
+      .optional()
+      .describe('Data links constructed after the move'),
+    removedDataLinks: z
+      .array(z.string())
+      .optional()
+      .describe('System IDs of data links removed after the move'),
+    addedControlLinks: z
+      .array(ControlLinkDtoSchema)
+      .optional()
+      .describe('Control links constructed after the move'),
+    removedControlLinks: z
+      .array(z.string())
+      .optional()
+      .describe('System IDs of control links removed after the move'),
+    subsystemPortChanges: z
+      .array(SubsystemPortChangesSchema)
+      .optional()
+      .describe('Port changes resulting from the move'),
   })
-  .describe('Move subsystem components response');
+  .describe('MoveSubsystemComponents');
 
 export type MoveSubsystemComponentsDto = z.infer<
   typeof MoveSubsystemComponentsDtoSchema

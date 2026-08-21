@@ -7314,7 +7314,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SubsystemResponseDto"
+                          "$ref": "#/components/schemas/CreateSubsystemResponseDto"
                         }
                       }
                     }
@@ -7339,10 +7339,10 @@
         ]
       }
     },
-    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}/components/move-in": {
+    "/arc-api/v1/projects/{projectId}/subsystems/components/move": {
       "post": {
-        "description": "Moves one or more components (subgraphs or SPF modules) into the specified subsystem.\n\nEach moved component gets its parentId updated to this subsystem. Links that cross the new subsystem boundary and become invalid are removed; new links are constructed as needed.\n\n**Response fields:**\n- `added`: Moved components (with updated parentId) and any newly constructed links\n- `updated`: Entities that pre-existed and were modified by the move (e.g. subsystems whose boundary or child list changed)\n- `removed`: Links that were deleted due to the boundary change (not the moved components themselves)",
-        "operationId": "SubsystemController_moveComponentsIntoSubsystem",
+        "description": "Moves one or more subgraphs or subsystems to the specified target subsystem.\n\nSet `targetSubsystemSystemId` to a subsystem ID to move components into it, or `null` to move them to root.\n\nAt least one of `subgraphSystemIds` or `subsystemSystemIds` must be provided.\n\n**Scenarios:**\n- Subsystem → Subsystem: provide `targetSubsystemSystemId`\n- Root → Subsystem: provide `targetSubsystemSystemId`\n- Subsystem → Root: set `targetSubsystemSystemId` to `null`",
+        "operationId": "SubsystemController_moveComponents",
         "parameters": [
           {
             "name": "projectId",
@@ -7351,15 +7351,6 @@
             "description": "The unique identifier of the project",
             "schema": {
               "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "subsystemSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System ID of the target subsystem",
-            "schema": {
               "type": "string"
             }
           }
@@ -7419,264 +7410,16 @@
             }
           },
           "400": {
-            "description": "componentSystemIds is empty"
+            "description": "Neither subgraphSystemIds nor subsystemSystemIds provided"
           },
           "404": {
-            "description": "Project or subsystem not found"
+            "description": "Project or target subsystem not found"
           },
           "422": {
             "description": "Business rule violation (e.g. circular hierarchy, component not in this project)"
           }
         },
-        "summary": "Move components into a subsystem",
-        "tags": [
-          "subsystems"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}/components/move-out": {
-      "post": {
-        "description": "Moves one or more components (subgraphs or SPF modules) out of the specified subsystem to the subsystem's parent (which may be another subsystem or the root graph).\n\nLinks that cross the new boundary and become invalid are removed; new links are constructed as needed.\n\n**Response fields:**\n- `added`: Moved components (with updated parentId) and any newly constructed links\n- `updated`: Entities that pre-existed and were modified by the move (e.g. subsystems whose boundary or child list changed)\n- `removed`: Links that were deleted due to the boundary change (not the moved components themselves)",
-        "operationId": "SubsystemController_moveComponentsOutOfSubsystem",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "subsystemSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System ID of the subsystem to move components out of",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "description": "Request body parameter type: MoveSubsystemComponentsRequestDto",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MoveSubsystemComponentsRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "All components moved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/MoveSubsystemComponentsResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "207": {
-            "description": "Partial success — some components were moved but others failed (see issues array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/MoveSubsystemComponentsResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "componentSystemIds is empty"
-          },
-          "404": {
-            "description": "Project or subsystem not found"
-          },
-          "422": {
-            "description": "Business rule violation (e.g. component is not a direct child of this subsystem)"
-          }
-        },
-        "summary": "Move components out of a subsystem",
-        "tags": [
-          "subsystems"
-        ]
-      }
-    },
-    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}": {
-      "delete": {
-        "description": "Deletes the specified subsystem. The subsystem must have no child components or nested subsystems.\n\nReturns the removed subsystem.",
-        "operationId": "SubsystemController_removeSubsystem",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "subsystemSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System ID of the subsystem to remove",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Subsystem removed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/SubsystemResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Project or subsystem not found"
-          },
-          "422": {
-            "description": "Subsystem is not empty — remove all children before deleting"
-          }
-        },
-        "summary": "Remove an empty subsystem",
-        "tags": [
-          "subsystems"
-        ]
-      },
-      "patch": {
-        "description": "Partially updates a subsystem. Only provided fields are updated; absent fields remain unchanged.\n\n**Patchable fields:**\n- `name`: Subsystem name (max 255 characters)\n- `maxInputDataPortsSupported`: Target input data port count — the API adds or removes input DataPort entities to reach this number\n- `maxOutputDataPortsSupported`: Target output data port count — the API adds or removes output DataPort entities to reach this number\n- `maxControlPortsSupported`: Target control port count — the API adds or removes ControlPort entities to reach this number\n\n**Example usage:**\n```\nPATCH /arc-api/v1/projects/proj123/subsystems/12345\n{ \"name\": \"audio-subsystem\" }\n```",
-        "operationId": "SubsystemController_patchSubsystem",
-        "parameters": [
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "description": "The unique identifier of the project",
-            "schema": {
-              "example": "12345",
-              "type": "string"
-            }
-          },
-          {
-            "name": "subsystemSystemId",
-            "required": true,
-            "in": "path",
-            "description": "System ID of the subsystem to update",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "description": "Request body parameter type: PatchSubsystemRequestDto",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PatchSubsystemRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Subsystem updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/SubsystemResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "207": {
-            "description": "Partial success — some fields were updated but others failed (see issues array)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResult"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/SubsystemResponseDto"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "No fields provided"
-          },
-          "404": {
-            "description": "Project or subsystem not found"
-          },
-          "422": {
-            "description": "Business rule violation (e.g. port count below current usage)"
-          }
-        },
-        "summary": "Partially update subsystem properties",
+        "summary": "Move subgraphs or subsystems to a target subsystem",
         "tags": [
           "subsystems"
         ]
@@ -7731,7 +7474,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SubsystemResponseDto"
+                          "$ref": "#/components/schemas/UpdateSubsystemFilteredKeysResponseDto"
                         }
                       }
                     }
@@ -7751,6 +7494,159 @@
           }
         },
         "summary": "Set filtered keys for a subsystem",
+        "tags": [
+          "subsystems"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/subsystems/{subsystemSystemId}": {
+      "patch": {
+        "description": "Partially updates a subsystem. Only provided fields are updated; absent fields remain unchanged.\n\n**Patchable fields:**\n- `name`: Subsystem name (max 255 characters)\n- `inputDataPortCount`: Target input data port count — the API adds or removes input DataPort entities to reach this number\n- `outputDataPortCount`: Target output data port count — the API adds or removes output DataPort entities to reach this number\n- `controlPortCount`: Target control port count — the API adds or removes ControlPort entities to reach this number\n\n**Example usage:**\n```\nPATCH /arc-api/v1/projects/proj123/subsystems/12345\n{ \"name\": \"audio-subsystem\" }\n```",
+        "operationId": "SubsystemController_patchSubsystem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subsystemSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System ID of the subsystem to update",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Request body parameter type: PatchSubsystemRequestDto",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSubsystemRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subsystem updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UpdateSubsystemResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some fields were updated but others failed (see issues array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UpdateSubsystemResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No fields provided"
+          },
+          "404": {
+            "description": "Project or subsystem not found"
+          },
+          "422": {
+            "description": "Business rule violation (e.g. port count below current usage)"
+          }
+        },
+        "summary": "Partially update subsystem properties",
+        "tags": [
+          "subsystems"
+        ]
+      },
+      "delete": {
+        "description": "Deletes the specified subsystem. The subsystem must have no child components or nested subsystems.\n\nReturns the removed subsystem.",
+        "operationId": "SubsystemController_removeSubsystem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "The unique identifier of the project",
+            "schema": {
+              "example": "12345",
+              "type": "string"
+            }
+          },
+          {
+            "name": "subsystemSystemId",
+            "required": true,
+            "in": "path",
+            "description": "System ID of the subsystem to remove",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subsystem removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/DeleteSubsystemResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or subsystem not found"
+          },
+          "422": {
+            "description": "Subsystem is not empty — remove all children before deleting"
+          }
+        },
+        "summary": "Remove an empty subsystem",
         "tags": [
           "subsystems"
         ]
@@ -11697,553 +11593,14 @@
           "systemId"
         ]
       },
-      "SubsystemResponseDto__schema0": {
+      "UpdateSubsystemResponseDto": {
         "type": "object",
         "properties": {
-          "spfModules": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "SPF module system ID"
-                },
-                "id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Module instance ID"
-                },
-                "moduleId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Module definition ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Module name"
-                },
-                "alias": {
-                  "type": "string",
-                  "description": "Module alias (user-defined label)"
-                },
-                "parentSystemId": {
-                  "description": "Parent subsystem system ID (for hierarchical modules)",
-                  "type": "string"
-                },
-                "subgraphId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Subgraph this module belongs to"
-                },
-                "containerId": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Container this module belongs to"
-                },
-                "maxInputPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum input data ports"
-                },
-                "maxOutputPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum output data ports"
-                },
-                "maxControlPortsSupported": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "Maximum control ports"
-                },
-                "dataPorts": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Port system ID"
-                      },
-                      "id": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Port definition ID"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Port name"
-                      },
-                      "portIoType": {
-                        "type": "string",
-                        "enum": [
-                          "Input",
-                          "Output"
-                        ],
-                        "description": "Port IO type"
-                      },
-                      "portType": {
-                        "type": "string",
-                        "enum": [
-                          "Static",
-                          "Dynamic"
-                        ],
-                        "description": "Port type"
-                      },
-                      "totalLinksAtPort": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Number of active data links at this port"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "id",
-                      "name",
-                      "portIoType",
-                      "portType",
-                      "totalLinksAtPort"
-                    ]
-                  },
-                  "description": "Data port list"
-                },
-                "controlPorts": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Control port system ID"
-                      },
-                      "id": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Control port definition ID"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Component name"
-                      },
-                      "portType": {
-                        "type": "string",
-                        "enum": [
-                          "Static",
-                          "Dynamic"
-                        ],
-                        "description": "Port type"
-                      },
-                      "controlPortName": {
-                        "description": "Control port name",
-                        "type": "string"
-                      },
-                      "totalLinksAtPort": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Number of active control links at this port"
-                      },
-                      "intents": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991,
-                              "description": "Intent ID"
-                            },
-                            "name": {
-                              "description": "Intent name",
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "id"
-                          ]
-                        },
-                        "description": "Control port intents"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "id",
-                      "name",
-                      "portType",
-                      "totalLinksAtPort",
-                      "intents"
-                    ]
-                  },
-                  "description": "Control port list"
-                },
-                "ckvs": {
-                  "description": "Calibration key-values (present when include=ckvs)",
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "keyValuePairs": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/components/schemas/KeyValueInfoDto"
-                        },
-                        "description": "Collection of key-value pairs"
-                      },
-                      "systemId": {
-                        "type": "string",
-                        "description": "CKV system ID"
-                      },
-                      "supportedParameters": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "paramId": {
-                              "type": "number",
-                              "description": "Parameter ID"
-                            },
-                            "paramSystemId": {
-                              "type": "string",
-                              "description": "Parameter system ID"
-                            },
-                            "name": {
-                              "type": "string",
-                              "description": "Parameter name"
-                            },
-                            "description": {
-                              "type": "string",
-                              "description": "Parameter description"
-                            }
-                          },
-                          "required": [
-                            "paramId",
-                            "paramSystemId",
-                            "name",
-                            "description"
-                          ]
-                        },
-                        "description": "Supported parameters for this CKV"
-                      }
-                    },
-                    "required": [
-                      "keyValuePairs",
-                      "systemId",
-                      "supportedParameters"
-                    ]
-                  }
-                },
-                "tags": {
-                  "description": "Tag info (present when include=tags)",
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Tag system ID"
-                      },
-                      "tagId": {
-                        "type": "number",
-                        "description": "Tag ID"
-                      },
-                      "tagName": {
-                        "type": "string",
-                        "description": "Tag name"
-                      },
-                      "tkvs": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "keyValuePairs": {
-                              "type": "array",
-                              "items": {
-                                "$ref": "#/components/schemas/KeyValueInfoDto"
-                              },
-                              "description": "Collection of key-value pairs"
-                            },
-                            "systemId": {
-                              "type": "string",
-                              "description": "TKV system ID"
-                            },
-                            "supportedParameters": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "paramId": {
-                                    "type": "number",
-                                    "description": "Parameter ID"
-                                  },
-                                  "paramSystemId": {
-                                    "type": "string",
-                                    "description": "Parameter system ID"
-                                  },
-                                  "name": {
-                                    "type": "string",
-                                    "description": "Parameter name"
-                                  },
-                                  "description": {
-                                    "type": "string",
-                                    "description": "Parameter description"
-                                  }
-                                },
-                                "required": [
-                                  "paramId",
-                                  "paramSystemId",
-                                  "name",
-                                  "description"
-                                ]
-                              },
-                              "description": "Supported parameters for this TKV"
-                            }
-                          },
-                          "required": [
-                            "keyValuePairs",
-                            "systemId",
-                            "supportedParameters"
-                          ]
-                        },
-                        "description": "Tag key-values configuration"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "tagId",
-                      "tagName",
-                      "tkvs"
-                    ]
-                  }
-                }
-              },
-              "required": [
-                "systemId",
-                "id",
-                "moduleId",
-                "name",
-                "alias",
-                "subgraphId",
-                "containerId",
-                "maxInputPortsSupported",
-                "maxOutputPortsSupported",
-                "maxControlPortsSupported",
-                "dataPorts",
-                "controlPorts"
-              ]
-            },
-            "description": "SPF modules in the collection"
-          },
-          "dataLinks": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "Data link system ID"
-                },
-                "sourceSystemId": {
-                  "type": "string",
-                  "description": "Source component system ID"
-                },
-                "sourcePortSystemId": {
-                  "type": "string",
-                  "description": "Source port system ID"
-                },
-                "destinationSystemId": {
-                  "type": "string",
-                  "description": "Destination component system ID"
-                },
-                "destinationPortSystemId": {
-                  "type": "string",
-                  "description": "Destination port system ID"
-                },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
-                }
-              },
-              "required": [
-                "systemId",
-                "sourceSystemId",
-                "sourcePortSystemId",
-                "destinationSystemId",
-                "destinationPortSystemId",
-                "isInterUsecase"
-              ]
-            },
-            "description": "Data links"
-          },
-          "controlLinks": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "Control link system ID"
-                },
-                "sourceSystemId": {
-                  "type": "string",
-                  "description": "Source (peer A) component system ID"
-                },
-                "sourcePortSystemId": {
-                  "type": "string",
-                  "description": "Source (peer A) port system ID"
-                },
-                "destinationSystemId": {
-                  "type": "string",
-                  "description": "Destination (peer B) component system ID"
-                },
-                "destinationPortSystemId": {
-                  "type": "string",
-                  "description": "Destination (peer B) port system ID"
-                },
-                "isInterUsecase": {
-                  "type": "boolean",
-                  "description": "Whether the link is inter-usecase"
-                }
-              },
-              "required": [
-                "systemId",
-                "sourceSystemId",
-                "sourcePortSystemId",
-                "destinationSystemId",
-                "destinationPortSystemId",
-                "isInterUsecase"
-              ]
-            },
-            "description": "Control links"
-          },
-          "subsystems": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "systemId": {
-                  "type": "string",
-                  "description": "Subsystem system ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Subsystem name"
-                },
-                "filteredKeys": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "systemId": {
-                        "type": "string",
-                        "description": "Key system ID"
-                      },
-                      "keyId": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "description": "Key definition ID"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Key name"
-                      },
-                      "description": {
-                        "description": "Key description",
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "systemId",
-                      "keyId",
-                      "name"
-                    ]
-                  },
-                  "description": "Keys filtered by this subsystem"
-                },
-                "children": {
-                  "$ref": "#/components/schemas/SubsystemResponseDto__schema0"
-                }
-              },
-              "required": [
-                "systemId",
-                "name",
-                "filteredKeys",
-                "children"
-              ]
-            },
-            "description": "Subsystem hierarchy"
-          }
-        },
-        "required": [
-          "spfModules",
-          "dataLinks",
-          "controlLinks",
-          "subsystems"
-        ]
-      },
-      "KeyValueInfoDto": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "description": "Key information",
-            "$ref": "#/components/schemas/KeyInfoDto"
-          },
-          "value": {
-            "description": "Value information",
-            "$ref": "#/components/schemas/ValueInfoDto"
-          }
-        },
-        "required": [
-          "key",
-          "value"
-        ]
-      },
-      "ValueInfoDto": {
-        "type": "object",
-        "properties": {
-          "valueId": {
-            "type": "number",
-            "description": "Value id"
-          },
-          "name": {
-            "type": "string",
-            "description": "Value name"
-          },
-          "systemId": {
-            "type": "string",
-            "description": "Value system identifier"
-          }
-        },
-        "required": [
-          "valueId",
-          "name",
-          "systemId"
-        ]
-      },
-      "SubsystemResponseDto": {
-        "type": "object",
-        "properties": {
-          "relatedEndPointLinks": {
-            "description": "Related endpoint links",
-            "items": {},
-            "type": "array"
-          },
           "systemId": {
             "type": "string",
             "description": "System ID"
           },
-          "id": {
+          "naturalId": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
@@ -12253,11 +11610,9 @@
             "description": "Subsystem name",
             "type": "string"
           },
-          "parentId": {
-            "description": "Parent component ID",
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+          "parentSystemId": {
+            "description": "System ID of the parent subsystem, if nested",
+            "type": "string"
           },
           "dataPorts": {
             "type": "array",
@@ -12389,18 +11744,53 @@
               "$ref": "#/components/schemas/KeyInfoDto"
             },
             "description": "Filtered keys assigned to the subsystem"
-          },
-          "children": {
-            "description": "Child components within this subsystem (includes nested subsystems)",
-            "$ref": "#/components/schemas/SubsystemResponseDto__schema0"
           }
         },
         "required": [
           "systemId",
-          "id",
+          "naturalId",
           "dataPorts",
           "controlPorts",
           "filteredKeys"
+        ]
+      },
+      "KeyValueInfoDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key information",
+            "$ref": "#/components/schemas/KeyInfoDto"
+          },
+          "value": {
+            "description": "Value information",
+            "$ref": "#/components/schemas/ValueInfoDto"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      },
+      "ValueInfoDto": {
+        "type": "object",
+        "properties": {
+          "valueId": {
+            "type": "number",
+            "description": "Value id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Value name"
+          },
+          "systemId": {
+            "type": "string",
+            "description": "Value system identifier"
+          }
+        },
+        "required": [
+          "valueId",
+          "name",
+          "systemId"
         ]
       },
       "ComponentsResponseDto": {
@@ -12837,6 +12227,167 @@
           "spfModules",
           "dataLinks",
           "controlLinks"
+        ]
+      },
+      "SubsystemResponseDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System ID"
+          },
+          "naturalId": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Component ID"
+          },
+          "name": {
+            "description": "Subsystem name",
+            "type": "string"
+          },
+          "parentSystemId": {
+            "description": "System ID of the parent subsystem, if nested",
+            "type": "string"
+          },
+          "dataPorts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Port system ID"
+                },
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Port definition ID"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Port name"
+                },
+                "portIoType": {
+                  "type": "string",
+                  "enum": [
+                    "Input",
+                    "Output"
+                  ],
+                  "description": "Port IO type"
+                },
+                "portType": {
+                  "type": "string",
+                  "enum": [
+                    "Static",
+                    "Dynamic"
+                  ],
+                  "description": "Port type"
+                },
+                "totalLinksAtPort": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Number of active data links at this port"
+                }
+              },
+              "required": [
+                "systemId",
+                "id",
+                "name",
+                "portIoType",
+                "portType",
+                "totalLinksAtPort"
+              ]
+            },
+            "description": "Data ports"
+          },
+          "controlPorts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Control port system ID"
+                },
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Control port definition ID"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Component name"
+                },
+                "portType": {
+                  "type": "string",
+                  "enum": [
+                    "Static",
+                    "Dynamic"
+                  ],
+                  "description": "Port type"
+                },
+                "controlPortName": {
+                  "description": "Control port name",
+                  "type": "string"
+                },
+                "totalLinksAtPort": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Number of active control links at this port"
+                },
+                "intents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Intent ID"
+                      },
+                      "name": {
+                        "description": "Intent name",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ]
+                  },
+                  "description": "Control port intents"
+                }
+              },
+              "required": [
+                "systemId",
+                "id",
+                "name",
+                "portType",
+                "totalLinksAtPort",
+                "intents"
+              ]
+            },
+            "description": "Control ports"
+          },
+          "filteredKeys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyInfoDto"
+            },
+            "description": "Filtered keys assigned to the subsystem"
+          }
+        },
+        "required": [
+          "systemId",
+          "naturalId",
+          "dataPorts",
+          "controlPorts",
+          "filteredKeys"
         ]
       },
       "ComponentsWithSubsystemsResponseDto": {
@@ -17314,83 +16865,366 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Subsystem name.",
+            "description": "Subsystem name. Must be unique within the project. If not provided, a name will be auto-generated.",
             "maxLength": 255
           },
           "parentSystemId": {
             "type": "string",
             "description": "System ID of the parent subsystem. If not provided, the subsystem is created at the root level."
           }
+        }
+      },
+      "CreateSubsystemResponseDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System-generated unique identifier"
+          },
+          "naturalId": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991,
+            "description": "Sequential natural subsystem ID",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "Assigned or auto-generated subsystem name"
+          },
+          "parentSystemId": {
+            "description": "System ID of the parent subsystem, if nested",
+            "type": "string"
+          }
         },
         "required": [
+          "systemId",
+          "naturalId",
           "name"
         ]
       },
       "MoveSubsystemComponentsRequestDto": {
         "type": "object",
         "properties": {
-          "componentSystemIds": {
-            "description": "System IDs of the components (subgraphs or SPF modules) to move",
+          "subgraphSystemIds": {
+            "description": "System IDs of the subgraphs to move.",
             "type": "array",
             "items": {
               "type": "string"
             }
+          },
+          "subsystemSystemIds": {
+            "description": "System IDs of the subsystems to move.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "targetSubsystemSystemId": {
+            "type": "string",
+            "nullable": true,
+            "description": "System ID of the target subsystem. null moves components to root."
           }
         },
         "required": [
-          "componentSystemIds"
+          "targetSubsystemSystemId"
         ]
       },
       "MoveSubsystemComponentsResponseDto": {
         "type": "object",
         "properties": {
-          "added": {
-            "description": "Components that were moved (with updated parentId) and any newly constructed links.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ComponentsWithSubsystemsResponseDto"
-              }
-            ]
+          "updatedModules": {
+            "description": "Modules re-parented by the move",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System ID of the component"
+                },
+                "parentSystemId": {
+                  "description": "New parent subsystem system ID. Absent if moved to root.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "systemId"
+              ]
+            }
           },
-          "updated": {
-            "description": "Entities that pre-existed and were modified by the move (e.g. subsystems whose children list or port wiring changed).",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ComponentsWithSubsystemsResponseDto"
-              }
-            ]
+          "updatedSubsystems": {
+            "description": "Subsystems re-parented by the move",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System ID of the component"
+                },
+                "parentSystemId": {
+                  "description": "New parent subsystem system ID. Absent if moved to root.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "systemId"
+              ]
+            }
           },
-          "removed": {
-            "description": "Links that were removed because they became invalid after the move. Does not include the moved components themselves.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ComponentsWithSubsystemsResponseDto"
-              }
-            ]
+          "addedDataLinks": {
+            "description": "Data links constructed after the move",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Data link system ID"
+                },
+                "sourceSystemId": {
+                  "type": "string",
+                  "description": "Source component system ID"
+                },
+                "sourcePortSystemId": {
+                  "type": "string",
+                  "description": "Source port system ID"
+                },
+                "destinationSystemId": {
+                  "type": "string",
+                  "description": "Destination component system ID"
+                },
+                "destinationPortSystemId": {
+                  "type": "string",
+                  "description": "Destination port system ID"
+                },
+                "isInterUsecase": {
+                  "type": "boolean",
+                  "description": "Whether the link is inter-usecase"
+                }
+              },
+              "required": [
+                "systemId",
+                "sourceSystemId",
+                "sourcePortSystemId",
+                "destinationSystemId",
+                "destinationPortSystemId",
+                "isInterUsecase"
+              ]
+            }
+          },
+          "removedDataLinks": {
+            "description": "System IDs of data links removed after the move",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "addedControlLinks": {
+            "description": "Control links constructed after the move",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "Control link system ID"
+                },
+                "sourceSystemId": {
+                  "type": "string",
+                  "description": "Source (peer A) component system ID"
+                },
+                "sourcePortSystemId": {
+                  "type": "string",
+                  "description": "Source (peer A) port system ID"
+                },
+                "destinationSystemId": {
+                  "type": "string",
+                  "description": "Destination (peer B) component system ID"
+                },
+                "destinationPortSystemId": {
+                  "type": "string",
+                  "description": "Destination (peer B) port system ID"
+                },
+                "isInterUsecase": {
+                  "type": "boolean",
+                  "description": "Whether the link is inter-usecase"
+                }
+              },
+              "required": [
+                "systemId",
+                "sourceSystemId",
+                "sourcePortSystemId",
+                "destinationSystemId",
+                "destinationPortSystemId",
+                "isInterUsecase"
+              ]
+            }
+          },
+          "removedControlLinks": {
+            "description": "System IDs of control links removed after the move",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subsystemPortChanges": {
+            "description": "Port changes resulting from the move",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": {
+                  "type": "string",
+                  "description": "System ID of the subsystem whose ports changed"
+                },
+                "addedDataPorts": {
+                  "description": "Data ports added as a result of the move",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "systemId": {
+                        "type": "string",
+                        "description": "Port system ID"
+                      },
+                      "id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Port definition ID"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Port name"
+                      },
+                      "portIoType": {
+                        "type": "string",
+                        "enum": [
+                          "Input",
+                          "Output"
+                        ],
+                        "description": "Port IO type"
+                      },
+                      "portType": {
+                        "type": "string",
+                        "enum": [
+                          "Static",
+                          "Dynamic"
+                        ],
+                        "description": "Port type"
+                      },
+                      "totalLinksAtPort": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Number of active data links at this port"
+                      }
+                    },
+                    "required": [
+                      "systemId",
+                      "id",
+                      "name",
+                      "portIoType",
+                      "portType",
+                      "totalLinksAtPort"
+                    ]
+                  }
+                },
+                "removedDataPorts": {
+                  "description": "System IDs of data ports removed as a result of the move",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "addedControlPorts": {
+                  "description": "Control ports added as a result of the move",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "systemId": {
+                        "type": "string",
+                        "description": "Control port system ID"
+                      },
+                      "id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Control port definition ID"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Component name"
+                      },
+                      "portType": {
+                        "type": "string",
+                        "enum": [
+                          "Static",
+                          "Dynamic"
+                        ],
+                        "description": "Port type"
+                      },
+                      "controlPortName": {
+                        "description": "Control port name",
+                        "type": "string"
+                      },
+                      "totalLinksAtPort": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Number of active control links at this port"
+                      },
+                      "intents": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Intent ID"
+                            },
+                            "name": {
+                              "description": "Intent name",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id"
+                          ]
+                        },
+                        "description": "Control port intents"
+                      }
+                    },
+                    "required": [
+                      "systemId",
+                      "id",
+                      "name",
+                      "portType",
+                      "totalLinksAtPort",
+                      "intents"
+                    ]
+                  }
+                },
+                "removedControlPorts": {
+                  "description": "System IDs of control ports removed as a result of the move",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "systemId"
+              ]
+            }
           }
-        }
-      },
-      "PatchSubsystemRequestDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Subsystem name. Max 255 characters.",
-            "maxLength": 255
-          },
-          "maxInputDataPortsSupported": {
-            "type": "number",
-            "description": "Target number of input data ports. The API will add or remove input DataPort entities to reach this count."
-          },
-          "maxOutputDataPortsSupported": {
-            "type": "number",
-            "description": "Target number of output data ports. The API will add or remove output DataPort entities to reach this count."
-          },
-          "maxControlPortsSupported": {
-            "type": "number",
-            "description": "Target number of control ports. The API will add or remove ControlPort entities to reach this count."
-          }
-        }
+        },
+        "description": "MoveSubsystemComponents"
       },
       "SetSubsystemFilteredKeysRequestDto": {
         "type": "object",
@@ -17405,6 +17239,78 @@
         },
         "required": [
           "keySystemIds"
+        ]
+      },
+      "UpdateSubsystemFilteredKeysResponseDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System-generated unique identifier of the subsystem"
+          },
+          "filteredKeys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyInfoDto"
+            },
+            "description": "Filtered keys to assign to the subsystem"
+          }
+        },
+        "required": [
+          "systemId",
+          "filteredKeys"
+        ],
+        "description": "SubsystemFilteredKeys"
+      },
+      "PatchSubsystemRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Subsystem name. Max 255 characters.",
+            "maxLength": 255
+          },
+          "inputDataPortCount": {
+            "type": "number",
+            "description": "Target number of input data ports. The API will add or remove input DataPort entities to reach this count."
+          },
+          "outputDataPortCount": {
+            "type": "number",
+            "description": "Target number of output data ports. The API will add or remove output DataPort entities to reach this count."
+          },
+          "controlPortCount": {
+            "type": "number",
+            "description": "Target number of control ports. The API will add or remove ControlPort entities to reach this count."
+          }
+        }
+      },
+      "DeleteSubsystemResponseDto": {
+        "type": "object",
+        "properties": {
+          "systemId": {
+            "type": "string",
+            "description": "System-generated unique identifier"
+          },
+          "naturalId": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991,
+            "description": "Sequential natural subsystem ID",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "Assigned or auto-generated subsystem name"
+          },
+          "parentSystemId": {
+            "description": "System ID of the parent subsystem, if nested",
+            "type": "string"
+          }
+        },
+        "required": [
+          "systemId",
+          "naturalId",
+          "name"
         ]
       },
       "ContainerResponseDto": {
