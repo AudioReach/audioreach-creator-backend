@@ -27,6 +27,21 @@ import {evaluateFormula} from './utils/formular-evaluator.js';
 /** DTO alias for element arrays (GET response uses this; PUT input round-trips it back). */
 const ELEMENT_ARRAY_DTO_TYPE = 'ElementTemplateArray' as const;
 
+/**
+ * Casts a write-side DTO element array to ElementData[] for serializeParameterData.
+ *
+ * Both ParameterElementDto (full read-side) and ParameterElementSummaryDto
+ * (write-side subset) are structurally compatible at runtime: serializeConfigElement
+ * only reads input.type (discriminant) and input.value (the numeric string).
+ * dataType, min, max, isReadOnly and other fields are resolved entirely from
+ * elementsStructure (the definition schema), not from the input elements.
+ * The double cast is required because Zod summary DTOs declare value: unknown
+ * while ElementData requires value: string.
+ */
+export function mapToElementData(elements: unknown[]): ElementCalData[] {
+  return elements as unknown as ElementCalData[];
+}
+
 type SerializeResult =
   | {ok: true; value: Uint8Array}
   | {ok: false; error: string};
@@ -405,4 +420,96 @@ function serializeStructArray(
     writer.align(4);
   }
   return {ok: true, value: new Uint8Array(0)};
+}
+
+/**
+ * Builds a binary blob from the default values declared in a parameter
+ * definition's elementsStructure.
+ */
+export function serializeDefaultParameterData(
+  definition: ParameterDefinitionBase,
+): SerializeResult {
+  let schema: DefinitionElement[];
+  try {
+    schema = convertParamDefinition(definition.elementsStructure);
+  } catch {
+    return {ok: false, error: 'Failed to parse elementsStructure JSON'};
+  }
+
+  try {
+    const parsedSoFar = new Map<string, number>();
+    const defaultElements = buildDefaultElements(schema, parsedSoFar);
+    return serializeParameterData(definition, defaultElements);
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Failed to build default parameter data',
+    };
+  }
+}
+
+function buildDefaultElements(
+  schema: DefinitionElement[],
+  parsedSoFar: Map<string, number>,
+): ElementCalData[] {
+  return schema.map(el => buildDefaultElement(el, parsedSoFar));
+}
+
+function buildDefaultElement(
+  el: DefinitionElement,
+  parsedSoFar: Map<string, number>,
+): ElementCalData {
+  switch (el.elementType) {
+    case PARAMETER_ELEMENT_TYPE.ConfigElement: {
+      if (el.defaultValue === undefined) {
+        throw new Error(
+          `Missing defaultValue for element "${el.name ?? '<unnamed>'}"`,
+        );
+      }
+      const value = el.defaultValue;
+      if (el.name !== undefined) {
+        const numericValue = Number(value);
+        if (Number.isFinite(numericValue)) {
+          parsedSoFar.set(el.name, numericValue);
+        }
+      }
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+        value,
+      } as ConfigElementData;
+    }
+    case PARAMETER_ELEMENT_TYPE.Struct: {
+      return {
+        type: PARAMETER_ELEMENT_TYPE.Struct,
+        value: buildDefaultElements(el.elements, parsedSoFar),
+      } as StructData;
+    }
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
+    case PARAMETER_ELEMENT_TYPE.StructArray: {
+      const length = resolveDefaultArrayLength(el, parsedSoFar);
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
+        value: Array.from({length}, () =>
+          buildDefaultElement(el.template, parsedSoFar),
+        ),
+      } as ElementArrayData;
+    }
+  }
+}
+
+function resolveDefaultArrayLength(
+  element: ElementArray | StructArray,
+  parsedSoFar: Map<string, number>,
+): number {
+  const length = element.arrayLenFormulaStr
+    ? evaluateFormula(element.arrayLenFormulaStr, parsedSoFar)
+    : (element.arrayLength ?? 0);
+
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error(`Invalid default array length: ${length}`);
+  }
+  return length;
 }

@@ -9,7 +9,7 @@ import {PatchSpfModuleCommand} from '../../../../../../src/application/usecase-d
 import {PatchSpfModuleHandler} from '../../../../../../src/application/usecase-designer/spf-module/patch/patch-spf-module.handler.js';
 import {
   ResourceNotFoundException,
-  InvalidOperationException,
+  InvalidInputException,
   DomainRuleViolationException,
   PORT_IO_TYPE,
   MODULE_PORT_STRATEGIES,
@@ -196,11 +196,9 @@ describe('PatchSpfModuleHandler', () => {
     handler = new PatchSpfModuleHandler(uow, idGeneration);
   });
 
-  it('throws InvalidOperationException when no fields provided', async () => {
+  it('throws InvalidInputException when no fields provided', async () => {
     const cmd = new PatchSpfModuleCommand(MODULE_ID);
-    await expect(handler.handle(cmd)).rejects.toThrow(
-      InvalidOperationException,
-    );
+    await expect(handler.handle(cmd)).rejects.toThrow(InvalidInputException);
     expect(uow.startTransaction).not.toHaveBeenCalled();
   });
 

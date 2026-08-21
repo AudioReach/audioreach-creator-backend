@@ -5,10 +5,9 @@
 
 import {
   Controller,
-  NotImplementedException,
   Post,
   Get,
-  Patch,
+  Put,
   Body,
   Param,
   UseInterceptors,
@@ -46,8 +45,11 @@ import {
   CommandBus,
   ContainerQuery,
   GetContainerPropertiesQuery,
-  UpdateContainerPropertyCommand,
+  GetContainerPropertyQuery,
+  SetContainerPropertyCommand,
   Result,
+  mapPropertyToDto,
+  type PropertyDataDto,
   type ActiveSession,
   type ContainerDto,
 } from '@arc/core';
@@ -209,24 +211,26 @@ export class ContainerController extends BaseController {
     ],
   })
   async getContainerProperty(
-    @Param('projectId') projectId: string,
-    @Param('containerSystemId') containerSystemId: string,
-    @Param('propertySystemId') propertySystemId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
+    @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
   ): Promise<ApiResult<PropertyResponseDto>> {
-    await Promise.resolve();
-    console.log(
-      `Getting property ${propertySystemId} for container ${containerSystemId} in project ${projectId}`,
+    const query = new GetContainerPropertyQuery(
+      projectId,
+      containerSystemId,
+      propertySystemId,
+      'api-client',
     );
-    throw new NotImplementedException(
-      'getContainerProperty is not implemented yet',
-    );
+    const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+    return toApiResult(result, data => mapPropertyToDto(data));
   }
 
   /**
-   * Update a container property.
-   * Returns 400 if propSystemId maps to the capabilities property.
+   * Set a container property.
+   * Returns 400 for invalid property values, 403 without an active session,
+   * and 422 when the capability list is incompatible with module definitions.
    */
-  @Patch('/:containerSystemId/properties/:propSystemId')
+  @Put('/:containerSystemId/properties/:propertySystemId')
   @ApiParam({
     name: 'containerSystemId',
     required: true,
@@ -234,14 +238,14 @@ export class ContainerController extends BaseController {
     description: 'System id of a container',
   })
   @ApiParam({
-    name: 'propSystemId',
+    name: 'propertySystemId',
     required: true,
     type: String,
     description: 'System id of the property to update',
   })
   @UseGuards(SessionGuard)
   @ApiDocumentationWithExample({
-    summary: 'Update a container property',
+    summary: 'Set a container property',
     requestDto: UpdatePropertyRequestDto,
     responses: [
       {
@@ -254,34 +258,42 @@ export class ContainerController extends BaseController {
         description: 'Container or property not found',
       },
       {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid property value',
+      },
+      {
+        status: HttpStatus.FORBIDDEN,
+        description: 'No active session',
+      },
+      {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        description: 'Failed to update property',
+        description: 'Failed to set property',
       },
     ],
   })
-  async updateContainerProperty(
+  async setContainerProperty(
     @Param('projectId') projectId: string,
     @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
-    @Param('propSystemId', ParseIntPipe) propSystemId: number,
+    @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
     @Body() dto: UpdatePropertyRequestDto,
     @ArcSession() session: ActiveSession,
     @ClientId() clientId: string,
-  ): Promise<ApiResult<ContainerPropertiesResponseDto>> {
+  ): Promise<ApiResult<PropertyResponseDto>> {
     await this.commandBus.execute<void>(
-      new UpdateContainerPropertyCommand(containerSystemId, propSystemId, [
-        dto,
-      ]),
+      new SetContainerPropertyCommand(
+        containerSystemId,
+        propertySystemId,
+        dto.elements,
+      ),
       session,
     );
-    const query = new GetContainerPropertiesQuery(
+    const query = new GetContainerPropertyQuery(
       Number.parseInt(projectId, 10),
       containerSystemId,
+      propertySystemId,
       clientId,
     );
-    const result =
-      await this.queryBus.execute<Result<ContainerPropertiesResponseDto>>(
-        query,
-      );
-    return toApiResult(result);
+    const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+    return toApiResult(result, data => mapPropertyToDto(data));
   }
 }

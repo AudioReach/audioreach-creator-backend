@@ -24,6 +24,14 @@ export interface PayloadUpdate {
   payload: Uint8Array;
 }
 
+/** Definition metadata used for container capability validation. */
+export interface ContainerModuleDefinitionInfo {
+  /** Container type IDs supported by this module's definition — used for capability intersection. */
+  containerTypeIds: number[];
+  /** Human-readable display name from SpfModuleDefinition — used in capability mismatch error messages. */
+  displayName: string;
+}
+
 /**
  * Write-side port for the SpfModule aggregate.
  *
@@ -149,4 +157,21 @@ export interface ModuleRepository {
     payloadUpdates: PayloadUpdate[],
     uiPersistence?: string,
   ): Promise<void>;
+
+  /**
+   * Returns definition metadata for each non-deleted module belonging to a container.
+   * Overlay-aware: excludes pending DELETEs and includes pending CREATEs.
+   * Used only by capability validation in SetContainerPropertyHandler.
+   */
+  findModuleDefinitionInfoByContainerId(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<ContainerModuleDefinitionInfo[]>;
+
+  /**
+   * Stages a heapId update on a SpfModule row via edit_actions.
+   * targetTable = SpfModule; aggregateId = moduleSystemId.
+   * All cascade writes for one API call share the same groupId (stamped by CommandBus).
+   */
+  updateHeapId(moduleSystemId: number, heapId: number): Promise<void>;
 }
