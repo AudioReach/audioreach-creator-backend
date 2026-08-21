@@ -20,19 +20,15 @@ import type {
 
 export const DataLinkDtoSchema = z.object({
   systemId: z.string().describe('Data link system ID'),
-  id: z.number().int().describe('Data link ID'),
   sourceSystemId: z.string().describe('Source component system ID'),
   sourcePortSystemId: z.string().describe('Source port system ID'),
   destinationSystemId: z.string().describe('Destination component system ID'),
   destinationPortSystemId: z.string().describe('Destination port system ID'),
-  isDangling: z.boolean().describe('Whether the link is dangling'),
-  connectionType: z.string().describe('Connection type (MODULE_MODULE)'),
-  parentSystemId: z.string().optional().describe('Parent component system ID'),
+  isInterUsecase: z.boolean().describe('Whether the link is inter-usecase'),
 });
 
 export const ControlLinkDtoSchema = z.object({
   systemId: z.string().describe('Control link system ID'),
-  id: z.number().int().describe('Control link ID'),
   sourceSystemId: z.string().describe('Source (peer A) component system ID'),
   sourcePortSystemId: z.string().describe('Source (peer A) port system ID'),
   destinationSystemId: z
@@ -41,9 +37,7 @@ export const ControlLinkDtoSchema = z.object({
   destinationPortSystemId: z
     .string()
     .describe('Destination (peer B) port system ID'),
-  isDangling: z.boolean().describe('Whether the link is dangling'),
-  connectionType: z.string().describe('Connection type (MODULE_MODULE)'),
-  parentSystemId: z.string().optional().describe('Parent component system ID'),
+  isInterUsecase: z.boolean().describe('Whether the link is inter-usecase'),
 });
 
 export type DataLinkDto = z.infer<typeof DataLinkDtoSchema>;
@@ -104,8 +98,6 @@ export const ComponentCollectionWithSubsystemsDtoSchema: z.ZodType<ComponentColl
 
 // ── Mappers ──────────────────────────────────────────────────────────────────
 
-const CONN_CTRL_TYPE_MODULE_MODULE = 'MODULE_MODULE';
-
 export function mapSpfModuleForCollection(
   m: SpfModuleReadModel,
 ): Omit<z.infer<typeof SpfModuleDtoSchema>, 'properties'> {
@@ -131,14 +123,11 @@ export function mapDataLink(
 ): z.infer<typeof DataLinkDtoSchema> {
   return {
     systemId: String(l.systemId),
-    id: l.systemId,
     sourceSystemId: String(l.sourceNodeSystemId),
     sourcePortSystemId: String(l.sourcePortSystemId),
     destinationSystemId: String(l.destinationNodeSystemId),
     destinationPortSystemId: String(l.destinationPortSystemId),
-    isDangling: false,
-    connectionType: CONN_CTRL_TYPE_MODULE_MODULE,
-    parentSystemId: undefined,
+    isInterUsecase: false,
   };
 }
 
@@ -147,14 +136,11 @@ export function mapControlLink(
 ): z.infer<typeof ControlLinkDtoSchema> {
   return {
     systemId: String(l.systemId),
-    id: l.systemId,
     sourceSystemId: String(l.peerNodeASystemId),
     sourcePortSystemId: String(l.nodeAPortSystemId),
     destinationSystemId: String(l.peerNodeBSystemId),
     destinationPortSystemId: String(l.nodeBPortSystemId),
-    isDangling: false,
-    connectionType: CONN_CTRL_TYPE_MODULE_MODULE,
-    parentSystemId: undefined,
+    isInterUsecase: false,
   };
 }
 

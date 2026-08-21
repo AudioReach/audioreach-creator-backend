@@ -398,6 +398,16 @@ export type {MoveSubsystemComponentsDto} from './application/usecase-designer/su
 export {UseCaseDtoSchema} from './application/usecase-designer/usecase/dto/usecase-dto.js';
 export type {UseCaseDto} from './application/usecase-designer/usecase/dto/usecase-dto.js';
 export {
+  UsecaseIdentifierWithChangeInfoDtoSchema,
+  CreateUsecasesResponseDtoSchema,
+  CreateManualUsecasesResponseDtoSchema,
+} from './application/usecase-designer/usecase/dto/usecase-dto.js';
+export type {
+  UsecaseIdentifierWithChangeInfoDto,
+  CreateUsecasesResponseDto,
+  CreateManualUsecasesResponseDto,
+} from './application/usecase-designer/usecase/dto/usecase-dto.js';
+export {
   UsecaseCategoryDtoSchema,
   DeleteUsecaseCategoryDtoSchema,
 } from './application/usecase-designer/usecase/dto/usecase-category-dto.js';

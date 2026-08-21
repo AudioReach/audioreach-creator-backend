@@ -44,6 +44,42 @@ export const UseCaseDtoSchema = z.object({
 
 export type UseCaseDto = z.infer<typeof UseCaseDtoSchema>;
 
+export const UsecaseIdentifierWithChangeInfoDtoSchema = UseCaseDtoSchema.extend(
+  {
+    changeId: z.string().describe('The changeId for this usecase'),
+  },
+);
+
+export type UsecaseIdentifierWithChangeInfoDto = z.infer<
+  typeof UsecaseIdentifierWithChangeInfoDtoSchema
+>;
+
+export const CreateUsecasesResponseDtoSchema = z.object({
+  created: z
+    .array(UsecaseIdentifierWithChangeInfoDtoSchema)
+    .describe('Usecases created during reconciliation'),
+  updated: z
+    .array(UsecaseIdentifierWithChangeInfoDtoSchema)
+    .describe('Usecases updated during reconciliation'),
+  deleted: z
+    .array(UsecaseIdentifierWithChangeInfoDtoSchema)
+    .describe('Usecases deleted during reconciliation'),
+});
+
+export type CreateUsecasesResponseDto = z.infer<
+  typeof CreateUsecasesResponseDtoSchema
+>;
+
+export const CreateManualUsecasesResponseDtoSchema = z.object({
+  added: z
+    .array(UsecaseIdentifierWithChangeInfoDtoSchema)
+    .describe('Usecases added'),
+});
+
+export type CreateManualUsecasesResponseDto = z.infer<
+  typeof CreateManualUsecasesResponseDtoSchema
+>;
+
 export function mapKeyValuePair(
   kv: KeyValuePairReadModel,
 ): z.infer<typeof KeyValueInfoDtoSchema> {
