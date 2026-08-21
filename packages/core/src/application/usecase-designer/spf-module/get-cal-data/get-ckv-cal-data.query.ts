@@ -11,7 +11,7 @@ import {parseId} from '../../shared/parse-id.js';
  *
  * All ID parameters are accepted as raw strings (as received from the HTTP layer)
  * and parsed to integers in the constructor. Decimal and hexadecimal (0x prefix)
- * notation are both supported. Throws `InvalidOperationException` if any value
+ * notation are both supported. Throws `InvalidInputException` if any value
  * cannot be parsed. The global exception filter maps this to HTTP 400 automatically.
  *
  * Dispatched by the controller and handled by `GetCkvCalibrationDataHandler`.

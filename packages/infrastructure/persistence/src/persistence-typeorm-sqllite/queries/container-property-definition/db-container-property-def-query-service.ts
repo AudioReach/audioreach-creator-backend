@@ -80,9 +80,7 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
   /**
    * Returns a single container property definition by systemId.
    *
-   * Delegates overlay to fetcher and filters the result in memory (FR-3).
-   * Previously applied applyToCollection and queried edit_actions inline —
-   * that path is replaced by fetchAll + in-memory find.
+   * Delegates system-ID resolution and overlay handling to the fetcher (FR-3).
    */
   async getContainerPropertyDefinition(
     propertySystemId: number,
@@ -91,14 +89,11 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
     try {
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const rows = await this.fetcher.fetchAll(
+      const match = await this.fetcher.fetchOneBySystemId(
         fileSystemId,
+        propertySystemId,
         session?.sessionId ?? null,
       );
-
-      // fetchAll already applies overlay for the whole file — filter in memory
-      // rather than issuing a separate targeted query.
-      const match = rows.find(r => r.systemId === propertySystemId);
 
       return match
         ? Result.ok(this.toDetailReadModel(match))
@@ -123,7 +118,7 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
    * Returns all container property definitions with their full element
    * structure included.
    */
-  async getAllDetailedContainerPropertyDefinitionsWithElements(
+  async getContainerPropertiesWithElements(
     fileSystemId: number,
   ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>> {
     try {
@@ -147,6 +142,37 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
   }
 
   // ── Private read model mappers ─────────────────────────────────────────────
+
+  async getContainerPropertyWithElements(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      const match = rows.find(row => row.systemId === propertySystemId);
+      return match
+        ? Result.ok(this.toDetailWithElementsReadModel(match))
+        : Result.fail({
+            code: ERROR_CODES.ENTITY_NOT_FOUND,
+            message: `ContainerPropertyDefinition not found for systemId=${propertySystemId}`,
+            severity: IssueSeverity.Error,
+          });
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load container property definition with elements',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
 
   private toSummaryReadModel(
     row: ContainerPropertyBase,

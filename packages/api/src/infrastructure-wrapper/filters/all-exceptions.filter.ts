@@ -10,6 +10,7 @@ import type {Logger, Issue} from '@arc/core';
 import {
   DomainException,
   ResourceNotFoundException,
+  InvalidInputException,
   InvalidOperationException,
   DomainNotImplementedException,
   DomainRuleViolationException,
@@ -29,6 +30,7 @@ type DomainExceptionClass = new (
 
 const DOMAIN_STATUS_MAP = new Map<DomainExceptionClass, number>([
   [ResourceNotFoundException, HttpStatus.NOT_FOUND],
+  [InvalidInputException, HttpStatus.BAD_REQUEST],
   [InvalidOperationException, HttpStatus.BAD_REQUEST],
   [DomainNotImplementedException, HttpStatus.NOT_IMPLEMENTED],
   [

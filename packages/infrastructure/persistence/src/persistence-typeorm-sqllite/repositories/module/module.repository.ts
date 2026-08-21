@@ -10,6 +10,7 @@ import type {
   EditOptions,
   PortIoType,
   SpfModuleBase,
+  ContainerModuleDefinitionInfo,
   PayloadUpdate,
 } from '@arc/core';
 import {
@@ -91,6 +92,43 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       {containerSystemId},
     );
     return rows.map(row => this.toModuleBase(row));
+  }
+
+  async findModuleDefinitionInfoByContainerId(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<ContainerModuleDefinitionInfo[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const modules = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      sessionId,
+      {containerSystemId},
+    );
+    const definitionSystemIds = [
+      ...new Set(modules.map(module => module.definitionSystemId)),
+    ];
+    const definitions = await Promise.all(
+      definitionSystemIds.map(definitionSystemId =>
+        this.spfModuleDefinitionFetcher.fetchOne(
+          definitionSystemId,
+          fileSystemId,
+          sessionId,
+        ),
+      ),
+    );
+    const definitionsBySystemId = new Map(
+      definitions.flatMap(definition =>
+        definition === null ? [] : [[definition.systemId, definition] as const],
+      ),
+    );
+
+    return modules.map(module => {
+      const definition = definitionsBySystemId.get(module.definitionSystemId);
+      return {
+        containerTypeIds: definition?.containerTypeSystemIds ?? [],
+        displayName: definition?.displayName ?? '',
+      };
+    });
   }
 
   async findModulesBySubgraphIds(
@@ -714,5 +752,21 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     // CkvParameterPayload CREATE rows in FK order.
     // See: docs/edit-crud/design/add-module-calibration-defaults-design.md §6
     return Promise.reject(new Error('createCkv: not yet implemented'));
+  }
+
+  async updateHeapId(moduleSystemId: number, heapId: number): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: moduleSystemId,
+        aggregateId: moduleSystemId,
+        delta: {heapId},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
   }
 }

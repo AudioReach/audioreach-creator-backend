@@ -62,6 +62,7 @@ export type {EditOptions} from './application/ports/persistence/edit-options.js'
 // Module write path — port interfaces (LLD2 PATCH + AddModule)
 export type {
   ModuleRepository,
+  ContainerModuleDefinitionInfo,
   PayloadEntry,
   PayloadUpdate,
 } from './application/ports/persistence/repositories/module/module.repository.js';
@@ -282,6 +283,8 @@ export type {
 } from './shared/dto/element-data/element-union.js';
 export {PropertyDtoSchema} from './shared/dto/property-dto.js';
 export type {PropertyDto} from './shared/dto/property-dto.js';
+export {mapPropertyToDto} from './shared/dto/property-dto.js';
+export type {PropertyDataDto} from './application/usecase-designer/shared/property-read-model.js';
 
 // Container query handlers
 export * from './application/usecase-designer/container/query/query-containers.query.js';
@@ -412,9 +415,11 @@ export type {CkvKeyValuePair} from './application/usecase-designer/subgraph/crea
 export {DeleteVcpmCkvCommand} from './application/usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.command.js';
 export {UpdateVcpmCalDataCommand} from './application/usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
 // Container write commands
-export {UpdateContainerPropertyCommand} from './application/usecase-designer/container/update-property/update-container-property.command.js';
+export {SetContainerPropertyCommand} from './application/usecase-designer/container/set-property/set-container-property.command.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
+export * from './application/usecase-designer/container/get-property/get-container-property.query.js';
+export * from './application/usecase-designer/container/get-property/get-container-property.handler.js';
 export {ContainerPropertiesDtoSchema} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export type {ContainerPropertiesDto} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export {SubsystemDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';

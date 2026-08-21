@@ -35,7 +35,17 @@ export interface ContainerPropertyDefQueryService {
    * Returns all container property definitions including the `elementsStructure`
    * binary field needed for parsing calibration payloads. Overlay is applied.
    */
-  getAllDetailedContainerPropertyDefinitionsWithElements(
+  getContainerPropertiesWithElements(
     fileSystemId: number,
   ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>>;
+
+  /**
+   * Returns a single container property definition by systemId, including
+   * the `elementsStructure` field needed for serializing/parsing parameter data.
+   * Result.fail if not found.
+   */
+  getContainerPropertyWithElements(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel>>;
 }
