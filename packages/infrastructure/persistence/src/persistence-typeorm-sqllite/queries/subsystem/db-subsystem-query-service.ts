@@ -23,7 +23,10 @@ import {
 import type {ControlLinkBase} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
-import type {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import type {
+  LinkOverlayFetcher,
+  EffectiveSubsystemControlLinkRow,
+} from '../../fetchers/link-overlay-fetcher.js';
 import {NODE_TYPE} from '../../entity-schema/usecase-data/node/node.schema.js';
 import type {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 
@@ -380,6 +383,70 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
         ),
       );
     }
+  }
+
+  async findControlLinkSegments(
+    fileSystemId: number,
+    linkSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>> {
+    try {
+      const {segments, controlLinkBySystemId} =
+        await this.loadSegmentsWithLinks(fileSystemId);
+      const relevant = segments.filter(
+        s =>
+          s.controlLinkSystemId === linkSystemId || s.systemId === linkSystemId,
+      );
+      return Result.ok(
+        this.buildControlLinkReadModels(relevant, controlLinkBySystemId),
+      );
+    } catch (error) {
+      return Result.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subsystem control link segments for created link',
+        ),
+      );
+    }
+  }
+
+  private async loadSegmentsWithLinks(fileSystemId: number): Promise<{
+    segments: EffectiveSubsystemControlLinkRow[];
+    controlLinkBySystemId: Map<number, ControlLinkBase>;
+  }> {
+    const sessionId = await resolveActiveSessionId(
+      this.dataSource,
+      fileSystemId,
+    );
+    const [controlLinks, segments] = await Promise.all([
+      this.linkFetcher.loadControlLinkRows(fileSystemId, sessionId),
+      this.linkFetcher.loadSubsystemControlLinkRows(fileSystemId, sessionId),
+    ]);
+    const controlLinkBySystemId = new Map(
+      controlLinks.map(link => [link.systemId, link]),
+    );
+    return {segments, controlLinkBySystemId};
+  }
+
+  private buildControlLinkReadModels(
+    segments: EffectiveSubsystemControlLinkRow[],
+    controlLinkBySystemId: Map<number, ControlLinkBase>,
+  ): ControlLinkReadModel[] {
+    return segments.map(segment => {
+      const canonicalLink =
+        segment.controlLinkSystemId === null
+          ? undefined
+          : controlLinkBySystemId.get(segment.controlLinkSystemId);
+      return {
+        systemId: segment.systemId,
+        peerNodeASystemId: segment.peerNodeASystemId,
+        peerNodeBSystemId: segment.peerNodeBSystemId,
+        nodeAPortSystemId: segment.nodeAPortSystemId,
+        nodeBPortSystemId: segment.nodeBPortSystemId,
+        heapId: canonicalLink?.heapId ?? 1,
+        linkType: segment.linkType,
+      };
+    });
   }
 
   private isLinkInUsecaseScope(

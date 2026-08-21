@@ -314,4 +314,20 @@ export const IssueFactory = {
       severity: IssueSeverity.Error,
     };
   },
+
+  clInvalidInput(message: string): Issue {
+    return {
+      code: ISSUE_CODE.CL_INVALID_INPUT,
+      message,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  clTopologyViolation(message: string): Issue {
+    return {
+      code: ISSUE_CODE.CL_TOPOLOGY_VIOLATION,
+      message,
+      severity: IssueSeverity.Error,
+    };
+  },
 } as const;
