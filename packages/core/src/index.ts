@@ -80,9 +80,20 @@ export type {
   ControlLinkRepository,
   ControlLinkTopology,
 } from './application/ports/persistence/repositories/control-link/control-link.repository.js';
-export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export {VcpmInstance} from './domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
+export type {ModuleParameterPayload} from './application/shared/module-parameter-payload.js';
+export type {
+  SubgraphRepository,
+  CreateVcpmCkvPayload,
+  UpdateVcpmCalDataPayload,
+  VcpmInstanceData,
+} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {VcpmDefinitionRepository} from './application/ports/persistence/repositories/vcpm-definition/vcpm-definition.repository.js';
+export type {
+  KeyValueDefinitionRepository,
+  KeyValueSummary,
+} from './application/ports/persistence/repositories/key-value/key-value-definition.repository.js';
+
 export type {
   SubsystemControlPortRef,
   SubsystemKey,
@@ -159,6 +170,7 @@ export * from './application/ports/persistence/query-services/shared/parameter-d
 export * from './application/ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
 export * from './application/ports/persistence/query-services/shared/module-definition-summary-read-model.js';
 export * from './application/ports/persistence/query-services/driver-module-definition/driver-module-definition-query-service.js';
+export type {VcpmDefinitionQueryService} from './application/ports/persistence/query-services/vcpm-definition/vcpm-definition-query-service.js';
 export * from './application/ports/persistence/query-services/configuration-includes.js';
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-projections.js';

@@ -21,6 +21,7 @@ import type {
   SubsystemRepository,
   VcpmDefinitionRepository,
   UsecaseRepository,
+  KeyValueDefinitionRepository,
   Logger,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
@@ -39,6 +40,7 @@ import {
   TypeOrmSubsystemRepository,
   TypeOrmVcpmDefinitionRepository,
   TypeOrmUsecaseRepository,
+  TypeOrmKeyValueDefinitionRepository,
   PendingChangeWriter,
   EditActionsQueryService,
 } from '@arc/persistence';
@@ -207,6 +209,10 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this,
       this.idGeneration,
     );
+  }
+
+  getKeyValueDefinitionRepository(): KeyValueDefinitionRepository {
+    return new TypeOrmKeyValueDefinitionRepository(this.queryRunner.manager);
   }
 
   getVcpmDefinitionRepository(): VcpmDefinitionRepository {

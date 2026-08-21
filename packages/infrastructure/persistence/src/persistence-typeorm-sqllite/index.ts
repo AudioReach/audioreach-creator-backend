@@ -14,6 +14,7 @@ export * from './migration-index.js';
 export * from './services/pending-change-cache.js';
 export * from './services/pending-change-writer.js';
 export {EditActionsQueryService} from './queries/edit-session/edit-actions-query-service.js';
+export {OverlayMergeImpl} from './queries/edit-session/overlay-merge.js';
 
 // Session repository
 export {TypeOrmSessionRepository} from './repositories/session/typeorm-session.repository.js';
@@ -27,4 +28,5 @@ export {TypeOrmControlLinkRepository} from './repositories/control-link/control-
 export {TypeOrmSubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
 export {TypeOrmSubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
 export {TypeOrmUsecaseRepository} from './repositories/usecase/use-case.repository.js';
+export {TypeOrmKeyValueDefinitionRepository} from './repositories/key-value/key-value-definition.repository.js';
 export {TypeOrmVcpmDefinitionRepository} from './repositories/vcpm-definition/vcpm-definition.repository.js';
