@@ -10,6 +10,7 @@ import type {
   SubsystemControlPortRef,
   SubsystemRepository,
   UnitOfWork,
+  ControlPort,
 } from '@arc/core';
 import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -72,6 +73,29 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       sessionId,
     );
     return subsystems.length > 0;
+  }
+
+  async createControlPorts(ports: ControlPort[]): Promise<void> {
+    if (ports.length === 0) return;
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const port of ports)
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.ControlPort,
+          targetSystemId: port.systemId,
+          aggregateId: port.nodeSystemId,
+          payload: {
+            naturalId: port.naturalId,
+            isStatic: port.isStatic,
+            name: port.name,
+            nodeSystemId: port.nodeSystemId,
+            fileSystemId: session.fileSystemId,
+          },
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
   }
 
   async clearControlPortIntents(

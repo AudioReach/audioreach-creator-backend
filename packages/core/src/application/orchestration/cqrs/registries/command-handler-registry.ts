@@ -100,9 +100,13 @@ import {CreateDataLinkWithSubsystemsHandler} from '../../../usecase-designer/dat
 import {DeleteDataLinkCommand} from '../../../usecase-designer/data-links/delete/delete-data-link.command.js';
 import {DeleteDataLinkHandler} from '../../../usecase-designer/data-links/delete/delete-data-link.handler.js';
 import {CreateControlLinkCommand} from '../../../usecase-designer/control-links/create/create-control-link.command.js';
-import {CreateControlLinkHandler} from '../../../usecase-designer/control-links/create/create-control-link.handler.js';
+import {CreateControlLinkFlatHandler} from '../../../usecase-designer/control-links/create/create-control-link-flat.handler.js';
+import {CreateControlLinkWithSubsystemsCommand} from '../../../usecase-designer/control-links/create/create-control-link-with-subsystems.command.js';
+import {CreateControlLinkWithSubsystemsHandler} from '../../../usecase-designer/control-links/create/create-control-link-with-subsystems.handler.js';
 import {DeleteControlLinkCommand} from '../../../usecase-designer/control-links/delete/delete-control-link.command.js';
 import {DeleteControlLinkHandler} from '../../../usecase-designer/control-links/delete/delete-control-link.handler.js';
+import {PatchControlLinkPropertiesCommand} from '../../../usecase-designer/control-links/patch/patch-control-link-properties.command.js';
+import {PatchControlLinkPropertiesHandler} from '../../../usecase-designer/control-links/patch/patch-control-link-properties.handler.js';
 import {PutCkvCalDataCommand} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
 import {PutCkvCalDataHandler} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.js';
 import {UpdateProjectCommand} from '../../../project/update/update-project.command.js';
@@ -201,7 +205,21 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(CreateControlLinkCommand, {
-      create: deps => new CreateControlLinkHandler(deps.uow, deps.idGeneration),
+      create: deps =>
+        new CreateControlLinkFlatHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.queryServices,
+        ),
+    });
+
+    this.commandHandlerFactories.set(CreateControlLinkWithSubsystemsCommand, {
+      create: deps =>
+        new CreateControlLinkWithSubsystemsHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.queryServices,
+        ),
     });
 
     this.commandHandlerFactories.set(DeleteDataLinkCommand, {
@@ -209,7 +227,21 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(DeleteControlLinkCommand, {
-      create: deps => new DeleteControlLinkHandler(deps.uow),
+      create: deps =>
+        new DeleteControlLinkHandler(
+          deps.uow,
+          deps.queryServices,
+          deps.idGeneration,
+        ),
+    });
+
+    this.commandHandlerFactories.set(PatchControlLinkPropertiesCommand, {
+      create: deps =>
+        new PatchControlLinkPropertiesHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.queryServices,
+        ),
     });
 
     this.commandHandlerFactories.set(StartSessionCommand, {

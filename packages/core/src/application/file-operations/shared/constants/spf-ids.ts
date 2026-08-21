@@ -50,5 +50,6 @@ export const SUB_GRAPH_PROP_ID_SCENARIO_VALUE_AUDIO_RECORDING = 0x00_00_00_02;
 export const SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL = 0x00_00_00_03;
 
 // Other Constants
+export const DEFAULT_CONTAINER_HEAP_ID = 1;
 export const ID_DONT_CARE_DUMMY = 0xff_ff_ff_ff;
 export const SPF_ID = 0xff_ff_ff_fe;

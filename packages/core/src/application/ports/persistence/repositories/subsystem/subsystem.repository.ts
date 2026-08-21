@@ -4,6 +4,7 @@
  */
 
 import type {PortIoType} from '../../../../../domain/entities/common/enums/port-io-type.js';
+import type {ControlPort} from '../../../../../domain/entities/usecase-data/node/entities/control-port.js';
 
 import type {EditOptions} from '../../edit-options.js';
 
@@ -16,6 +17,8 @@ export interface SubsystemControlPortRef {
 export interface SubsystemRepository {
   subsystemExists(systemId: number, fileSystemId: number): Promise<boolean>;
   hasSubsystems(fileSystemId: number): Promise<boolean>;
+
+  createControlPorts(ports: ControlPort[]): Promise<void>;
 
   clearControlPortIntents(
     ports: SubsystemControlPortRef[],
