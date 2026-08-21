@@ -4,7 +4,7 @@
  */
 
 import {z} from 'zod';
-import {KeyInfoDtoSchema} from '../../spf-module/query/spf-module-dto.js';
+import {KeyInfoDtoSchema} from '../../../../shared/dto/key-value-info-dto.js';
 
 export const SubsystemFilteredKeysDtoSchema = z
   .object({
