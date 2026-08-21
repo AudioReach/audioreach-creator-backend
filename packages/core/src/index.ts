@@ -478,9 +478,17 @@ export * from './application/usecase-designer/data-links/create/create-data-link
 export * from './application/usecase-designer/data-links/delete/delete-data-link.command.js';
 export * from './application/usecase-designer/data-links/delete/delete-data-link.handler.js';
 export * from './application/usecase-designer/control-links/create/create-control-link.command.js';
-export * from './application/usecase-designer/control-links/create/create-control-link.handler.js';
+export * from './application/usecase-designer/control-links/create/create-control-link-flat.handler.js';
+export * from './application/usecase-designer/control-links/create/create-control-link-with-subsystems.command.js';
+export * from './application/usecase-designer/control-links/create/create-control-link-with-subsystems.handler.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.command.js';
 export * from './application/usecase-designer/control-links/delete/delete-control-link.handler.js';
+export * from './application/usecase-designer/control-links/patch/patch-control-link-properties.command.js';
+export * from './application/usecase-designer/control-links/patch/patch-control-link-properties.handler.js';
+export * from './application/usecase-designer/control-links/queries/get-control-link-properties.query.js';
+export * from './application/usecase-designer/control-links/queries/get-control-link-properties.handler.js';
+export * from './application/usecase-designer/control-links/queries/query-control-links.query.js';
+export * from './application/usecase-designer/control-links/queries/query-control-links.handler.js';
 export {ControlLinkPropertiesDtoSchema} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
 export type {ControlLinkPropertiesDto} from './application/usecase-designer/control-links/dto/control-link-properties-dto.js';
 // Generic Worker Abstractions
@@ -581,6 +589,7 @@ export * from './domain/entities/definitions/spf-module/ipc-module-def-ids.js';
 export * from './domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
 export * from './domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 export * from './domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
+export * from './domain/entities/definitions/spf-module/value-objects/static-intent-definition.js';
 export * from './domain/entities/definitions/spf-module/value-objects/dynamic-intent-definition.js';
 export * from './domain/entities/definitions/driver-module/driver-module-definition.js';
 export * from './domain/entities/definitions/driver-module/driver-module-parameter-definition.js';

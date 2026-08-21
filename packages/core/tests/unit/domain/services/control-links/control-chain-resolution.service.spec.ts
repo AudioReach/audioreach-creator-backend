@@ -69,7 +69,7 @@ describe('ControlChainResolutionService (spec §11.9)', () => {
       const input: SubsystemControlLinkResolutionInput = {
         unresolvedSubsystemlinks: [
           scl(1, 1, 10, 100, 200),
-          scl(2, 10, 2, 201, 300),
+          scl(2, 10, 2, 200, 300),
         ],
         nodeTypeMap: nodeTypeMap([
           [1, 'module'],
@@ -92,15 +92,32 @@ describe('ControlChainResolutionService (spec §11.9)', () => {
     });
   });
 
+  it('does not join segments that use different ports on the same subsystem', () => {
+    const result = ControlChainResolutionService.resolve({
+      unresolvedSubsystemlinks: [
+        scl(1, 1, 10, 100, 200),
+        scl(2, 10, 2, 201, 300),
+      ],
+      nodeTypeMap: nodeTypeMap([
+        [1, 'module'],
+        [10, 'subsystem'],
+        [2, 'module'],
+      ]),
+    });
+
+    expect(result.completeChains).toEqual([]);
+    expect(result.incompleteChains).toHaveLength(2);
+  });
+
   // ── Case 3: Multiple independent complete chains ─────────────────────────
   describe('multiple independent complete chains', () => {
     it('returns both chains without cross-contamination', () => {
       const input: SubsystemControlLinkResolutionInput = {
         unresolvedSubsystemlinks: [
           scl(1, 1, 10, 101, 201),
-          scl(2, 10, 2, 202, 301),
+          scl(2, 10, 2, 201, 301),
           scl(3, 3, 20, 103, 203),
-          scl(4, 20, 4, 204, 304),
+          scl(4, 20, 4, 203, 304),
         ],
         nodeTypeMap: nodeTypeMap([
           [1, 'module'],
@@ -166,8 +183,8 @@ describe('ControlChainResolutionService (spec §11.9)', () => {
       const input: SubsystemControlLinkResolutionInput = {
         unresolvedSubsystemlinks: [
           scl(1, 1, 10, 100, 200),
-          scl(2, 10, 20, 201, 300),
-          scl(3, 20, 10, 301, 202),
+          scl(2, 10, 20, 200, 300),
+          scl(3, 20, 10, 300, 200),
         ],
         nodeTypeMap: nodeTypeMap([
           [1, 'module'],
@@ -203,9 +220,9 @@ describe('ControlChainResolutionService (spec §11.9)', () => {
       const input: SubsystemControlLinkResolutionInput = {
         unresolvedSubsystemlinks: [
           scl(1, 1, 10, 101, 201),
-          scl(2, 10, 2, 202, 301),
+          scl(2, 10, 2, 201, 301),
           scl(3, 1, 20, 102, 401),
-          scl(4, 20, 3, 402, 501),
+          scl(4, 20, 3, 401, 501),
         ],
         nodeTypeMap: nodeTypeMap([
           [1, 'module'],
@@ -248,7 +265,7 @@ describe('ControlChainResolutionService (spec §11.9)', () => {
       const input: SubsystemControlLinkResolutionInput = {
         unresolvedSubsystemlinks: [
           scl(1, 1, 10, 100, 200),
-          scl(2, 10, 2, 201, 300),
+          scl(2, 10, 2, 200, 300),
         ],
         nodeTypeMap: nodeTypeMap([
           [1, 'module'],
@@ -271,7 +288,7 @@ describe('ControlChainResolutionService (spec §11.9)', () => {
       const input: SubsystemControlLinkResolutionInput = {
         unresolvedSubsystemlinks: [
           scl(1, 1, 10, 500, 200),
-          scl(2, 10, 2, 201, 50),
+          scl(2, 10, 2, 200, 50),
         ],
         nodeTypeMap: nodeTypeMap([
           [1, 'module'],

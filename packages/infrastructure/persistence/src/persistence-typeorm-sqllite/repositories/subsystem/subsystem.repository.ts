@@ -10,6 +10,7 @@ import type {
   SubsystemControlPortRef,
   SubsystemRepository,
   UnitOfWork,
+  ControlPort,
 } from '@arc/core';
 import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -18,12 +19,14 @@ import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-q
 import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 
 export class TypeOrmSubsystemRepository implements SubsystemRepository {
   private readonly writer: PendingChangeWriter;
   private readonly uow: UnitOfWork;
   private readonly portFetcher: PortOverlayFetcher;
   private readonly subsystemFetcher: SubsystemOverlayFetcher;
+  private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly editActionsQs: EditActionsQueryService;
 
   constructor(
@@ -40,6 +43,7 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       this.manager,
       editActions,
     );
+    this.nodeFetcher = new NodeOverlayFetcher(this.manager, editActions);
     this.portFetcher = new PortOverlayFetcher(
       this.manager,
       editActions,
@@ -65,6 +69,43 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
     return count > 0;
   }
 
+  async controlPortExists(
+    portSystemId: number,
+    fileSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const actions =
+      sessionId === null
+        ? []
+        : await this.editActionsQs.getByTable(
+            sessionId,
+            ENTITY_NAMES.ControlPort,
+          );
+    if (
+      actions.some(
+        action =>
+          action.targetSystemId === portSystemId &&
+          action.operation === CHANGE_OPERATION.Delete,
+      )
+    )
+      return false;
+    const count = await this.manager
+      .getRepository(ENTITY_NAMES.ControlPort)
+      .createQueryBuilder('port')
+      .innerJoin('port.node', 'node')
+      .where('port.systemId = :portSystemId', {portSystemId})
+      .andWhere('node.fileSystemId = :fileSystemId', {fileSystemId})
+      .getCount();
+    if (count > 0) return true;
+    return actions.some(
+      action =>
+        action.targetSystemId === portSystemId &&
+        action.operation === CHANGE_OPERATION.Create &&
+        Number((action.newValue as Record<string, unknown>)['fileSystemId']) ===
+          fileSystemId,
+    );
+  }
+
   async hasSubsystems(fileSystemId: number): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
     const subsystems = await this.subsystemFetcher.fetchAll(
@@ -72,6 +113,29 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
       sessionId,
     );
     return subsystems.length > 0;
+  }
+
+  async createControlPorts(ports: ControlPort[]): Promise<void> {
+    if (ports.length === 0) return;
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const port of ports)
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.ControlPort,
+          targetSystemId: port.systemId,
+          aggregateId: port.nodeSystemId,
+          payload: {
+            naturalId: port.naturalId,
+            isStatic: port.isStatic,
+            name: port.name,
+            nodeSystemId: port.nodeSystemId,
+            fileSystemId: session.fileSystemId,
+          },
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
   }
 
   async clearControlPortIntents(
@@ -128,18 +192,38 @@ export class TypeOrmSubsystemRepository implements SubsystemRepository {
   ): Promise<Map<number, number | null>> {
     const rows = await this.manager
       .createQueryBuilder()
-      .select(['n.systemId', 'n.parentId'])
+      .select(['n.systemId', 'n.parentSystemId'])
       .from(ENTITY_NAMES.Node, 'n')
       .where('n.fileSystemId = :fileSystemId', {fileSystemId})
-      .getRawMany<{n_system_id: number; n_parent_id: number | null}>();
-    const map = new Map<number, number | null>();
-    for (const row of rows) {
-      map.set(
-        Number(row.n_system_id),
-        row.n_parent_id === null ? null : Number(row.n_parent_id),
+      .getRawMany<{
+        n_system_id: number;
+        n_parent_system_id: number | null;
+      }>();
+    const ids = rows.map(row => Number(row.n_system_id));
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    if (sessionId !== null) {
+      const actions = await this.editActionsQs.getByTable(
+        sessionId,
+        ENTITY_NAMES.Node,
       );
+      for (const action of actions) {
+        if (action.operation !== CHANGE_OPERATION.Create) continue;
+        const payload = action.newValue as Record<string, unknown>;
+        if (Number(payload['fileSystemId']) === fileSystemId)
+          ids.push(action.targetSystemId);
+      }
     }
-    return map;
+    const effectiveNodes = await this.nodeFetcher.fetchMany(
+      [...new Set(ids)],
+      fileSystemId,
+      sessionId,
+    );
+    return new Map(
+      effectiveNodes.map(node => [
+        node.systemId,
+        node.parentSystemId == null ? null : node.parentSystemId,
+      ]),
+    );
   }
 
   async getPortIoType(

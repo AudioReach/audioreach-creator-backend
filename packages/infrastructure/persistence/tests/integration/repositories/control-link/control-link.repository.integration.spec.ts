@@ -230,6 +230,42 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
     expect(result[0].portSystemId).toBe(PORT_CP_A);
   });
 
+  it('loads all effective canonical links for connected-route traversal', async () => {
+    await seedControlLink(ds, 889, PORT_CP_A, PORT_CP_B);
+
+    const result = await makeRepo(qr, sessionId).getAllControlLinks(FILE_ID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      systemId: 889,
+      nodeAPortSystemId: PORT_CP_A,
+      nodeBPortSystemId: PORT_CP_B,
+    });
+  });
+
+  it('stages and reads allocated intent rows through the session overlay', async () => {
+    const repo = makeRepo(qr, sessionId);
+
+    await repo.createIntents([
+      {systemId: 910, controlPortSystemId: PORT_CP_A, intentId: 7},
+    ]);
+
+    const actions = await getActiveActions(qr, sessionId);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetTable: ENTITY_NAMES.Intent,
+          targetSystemId: 910,
+          operation: CHANGE_OPERATION.Create,
+          groupId: 'test-group',
+        }),
+      ]),
+    );
+    await expect(repo.getAllocatedIntentIds(PORT_CP_A, FILE_ID)).resolves.toEqual([
+      {intentSystemId: 910, intentId: 7},
+    ]);
+  });
+
   it('returns [] when no links exist for the given ports', async () => {
     const repo = makeRepo(qr, sessionId);
     expect(await repo.getLinksByPortSystemIds([9999], FILE_ID)).toEqual([]);

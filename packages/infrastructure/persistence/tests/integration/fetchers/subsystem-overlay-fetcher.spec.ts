@@ -38,6 +38,8 @@ import {
 
 const FILE_ID = 100;
 const SUBSYSTEM_ID = 200;
+const MODULE_ID = 201;
+const CONTROL_PORT_ID = 301;
 
 async function seedProjectAndFile(ds: DataSource): Promise<void> {
   await getTestRepository(ProjectSchema).save({
@@ -83,6 +85,19 @@ async function seedSession(ds: DataSource): Promise<number> {
     endedAt: null,
   });
   return row.sessionId;
+}
+
+async function seedModuleWithControlPort(ds: DataSource): Promise<void> {
+  await ds.query(
+    `INSERT INTO nodes (system_id, type, parent_id, file_system_id)
+     VALUES (?, ?, NULL, ?)`,
+    [MODULE_ID, NODE_TYPE.Module, FILE_ID],
+  );
+  await ds.query(
+    `INSERT INTO control_ports (system_id, port_id, is_static, node_system_id)
+     VALUES (?, 1, 1, ?)`,
+    [CONTROL_PORT_ID, MODULE_ID],
+  );
 }
 
 async function seedEditAction(
@@ -180,6 +195,53 @@ describe('SubsystemOverlayFetcher (integration)', () => {
     await expect(fetcher.fetchAll(FILE_ID, sessionId)).resolves.toEqual([
       expect.objectContaining({systemId: SUBSYSTEM_ID, parentSystemId: 20}),
     ]);
+  });
+
+  it('returns effective node ancestry including a staged parent update', async () => {
+    await seedSubsystem(ds);
+    await seedModuleWithControlPort(ds);
+    const sessionId = await seedSession(ds);
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: MODULE_ID,
+      targetTable: ENTITY_NAMES.Node,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'parentSystemId',
+      newValue: String(SUBSYSTEM_ID),
+    });
+
+    const result = await makeRepository(
+      qr.manager,
+      sessionId,
+    ).getAllNodesWithParents(FILE_ID);
+
+    expect(result).toEqual(
+      new Map([
+        [SUBSYSTEM_ID, null],
+        [MODULE_ID, SUBSYSTEM_ID],
+      ]),
+    );
+  });
+
+  it('does not report a session-deleted control port as existing', async () => {
+    await seedModuleWithControlPort(ds);
+    const sessionId = await seedSession(ds);
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: CONTROL_PORT_ID,
+      targetTable: ENTITY_NAMES.ControlPort,
+      operation: CHANGE_OPERATION.Delete,
+      newValue: '{}',
+    });
+
+    await expect(
+      makeRepository(qr.manager, sessionId).controlPortExists(
+        CONTROL_PORT_ID,
+        FILE_ID,
+      ),
+    ).resolves.toBe(false);
   });
 
   it('excludes a subsystem when its effective Node type changes', async () => {

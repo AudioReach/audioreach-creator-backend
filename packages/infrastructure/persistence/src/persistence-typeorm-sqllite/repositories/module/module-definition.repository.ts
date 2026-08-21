@@ -14,6 +14,7 @@ import {
   DataPortGroupDefinition,
   DataPortDefinition,
   StaticControlPortDefinition,
+  StaticIntentDefinition,
   DynamicIntentDefinition,
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
@@ -127,13 +128,22 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
         }),
     );
 
-    const staticControlPorts = staticPorts.map(
-      p =>
-        new StaticControlPortDefinition({
+    const staticControlPorts = staticPorts.map(p => {
+      const port = new StaticControlPortDefinition({
           naturalId: Number(p.naturalId),
           portName: p.portName ? String(p.portName) : '',
-        }),
-    );
+      });
+      for (const intent of p.staticIntents) {
+        port.AddStaticIntent(
+          new StaticIntentDefinition({
+            systemId: Number(intent.systemId),
+            naturalId: Number(intent.naturalId),
+            name: String(intent.name),
+          }),
+        );
+      }
+      return port;
+    });
 
     const dynamicIntentDomains = dynamicIntents.map(
       d =>
