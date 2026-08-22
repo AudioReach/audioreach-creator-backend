@@ -28,11 +28,20 @@ import type {
   DynamicIntentDownloadModel,
   DriverModuleDefinitionDownloadModel,
   DriverParamDefDownloadModel,
+  VcpmModuleDefinitionDownloadModel,
+  VcpmParamDefDownloadModel,
   SpfPropertyDefinitionDownloadModel,
   DriverPropertyDefinitionDownloadModel,
   ConfigurationDownloadModel,
   ProcessorDefinitionDownloadModel,
   ContainerTypeDefinitionDownloadModel,
+  UiUsecaseDownloadModel,
+  UiSubgraphDownloadModel,
+  UiModuleDownloadModel,
+  UiCkvDownloadModel,
+  UiSubsystemDownloadModel,
+  UiDataLinkDownloadModel,
+  UiFileExtrasDownloadModel,
   Logger,
 } from '@arc/core';
 import {compareNumberArrays, LINK_TYPE, PORT_IO_TYPE} from '@arc/core';
@@ -52,6 +61,8 @@ import type {SubgraphPropertyDataRow} from '../../entity-schema/usecase-data/sub
 import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
 import type {DataLinkRow} from '../../entity-schema/usecase-data/Links/data-link.js';
 import type {ControlLinkRow} from '../../entity-schema/usecase-data/Links/control-link.js';
+import type {SubsystemRow} from '../../entity-schema/usecase-data/subsystem/subsystem.js';
+import type {ArcDbFileRow} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import type {
   ModuleTagIdMapRow,
   TkvRow,
@@ -77,6 +88,8 @@ import type {DynamicIntentDefinitionRow} from '../../entity-schema/definitions/m
 import type {ModuleDefinitionContainerTypeLinkRow} from '../../entity-schema/definitions/module/spf/module-definition-container-type-link.schema.js';
 import type {DriverModuleDefinitionRow} from '../../entity-schema/definitions/module/driver/driver-module-definition.schema.js';
 import type {DriverModuleParameterDefinitionRow} from '../../entity-schema/definitions/module/driver/driver-module-parameter-definition.schema.js';
+import type {VcpmModuleDefinitionRow} from '../../entity-schema/definitions/subgraph/vcpm/vcpm-module-definition.schema.js';
+import type {VcpmModuleParameterDefinitionRow} from '../../entity-schema/definitions/subgraph/vcpm/vcpm-module-parameter-definition.schema.js';
 import type {SubgraphPropertyRow} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
 import type {ContainerPropertyRow} from '../../entity-schema/definitions/container/container-property-definition.schema.js';
 import type {ModulePropertyRow} from '../../entity-schema/definitions/module/spf/module-property-definition.schema.js';
@@ -136,10 +149,12 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       tagDefinitions,
       spfModuleDefinitions,
       driverModuleDefinitions,
+      vcpmModuleDefinitions,
       spfPropertyDefinitions,
       driverPropertyDefinitions,
       processorDefinitions,
       containerTypeDefinitions,
+      uiMetadataResult,
     ] = await Promise.all([
       timed('readFileProperties', this.readFileProperties(fileSystemId)),
       timed('readUsecaseData', this.readUsecaseData(fileSystemId)),
@@ -165,6 +180,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         this.readDriverModuleDefinitions(fileSystemId),
       ),
       timed(
+        'readVcpmModuleDefinitions',
+        this.readVcpmModuleDefinitions(fileSystemId),
+      ),
+      timed(
         'readSpfPropertyDefinitions',
         this.readSpfPropertyDefinitions(fileSystemId),
       ),
@@ -180,6 +199,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         'readContainerTypeDefinitions',
         this.readContainerTypeDefinitions(fileSystemId),
       ),
+      timed('readUiMetadata', this.readUiMetadata(fileSystemId)),
     ]);
 
     return {
@@ -197,10 +217,12 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       tagDefinitions,
       spfModuleDefinitions,
       driverModuleDefinitions,
+      vcpmModuleDefinitions,
       spfPropertyDefinitions,
       driverPropertyDefinitions,
       processorDefinitions,
       containerTypeDefinitions,
+      ...uiMetadataResult,
     };
   }
 
@@ -1238,6 +1260,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           ? undefined
           : Boolean(row.isCalibrationKey),
       isGraphKey: row.isGraphKey == null ? undefined : Boolean(row.isGraphKey),
+      isSPFKey: row.isSPFKey == null ? undefined : Boolean(row.isSPFKey),
       enumName: row.enumName ?? undefined,
       enumMember: row.enumMember ?? undefined,
       calKeyEnumMember: row.calKeyEnumMember ?? undefined,
@@ -1285,6 +1308,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       name: row.name,
       description: row.description ?? undefined,
       isVoice: Boolean(row.isVoice),
+      isSPFTagKey:
+        row.isSPFTagKey == null ? undefined : Boolean(row.isSPFTagKey),
       enumName: row.cHeaderEnumName ?? undefined,
       enumMember: row.cHeaderEnumValue ?? undefined,
       supportedKeys: linksMap.get(row.systemId) ?? [],
@@ -1419,6 +1444,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         elementsStructure: row.elementsStructure ?? '[]',
         isReadOnly: Boolean(row.isReadOnly),
         toolPolicies: row.toolPolicies ?? undefined,
+        copySrcParamId: row.copySrcParamId ?? undefined,
       });
     }
     return map;
@@ -1558,6 +1584,47 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     }));
   }
 
+  async readVcpmModuleDefinitions(
+    fileSystemId: number,
+  ): Promise<VcpmModuleDefinitionDownloadModel[]> {
+    const [moduleRows, paramRows] = await Promise.all([
+      this.dataSource
+        .getRepository(ENTITY_NAMES.VcpmModuleDefinition)
+        .createQueryBuilder('def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('def.moduleDefinitionId', 'ASC')
+        .getMany() as Promise<VcpmModuleDefinitionRow[]>,
+      this.dataSource
+        .getRepository(ENTITY_NAMES.VcpmModuleParameterDefinition)
+        .createQueryBuilder('param')
+        .innerJoin('param.vcpmModuleDefinition', 'def')
+        .where('def.fileSystemId = :fileSystemId', {fileSystemId})
+        .orderBy('param.vcpmModuleDefinitionSystemId', 'ASC')
+        .addOrderBy('param.paramId', 'ASC')
+        .getMany() as Promise<VcpmModuleParameterDefinitionRow[]>,
+    ]);
+
+    const paramsMap = new Map<number, VcpmParamDefDownloadModel[]>();
+    for (const row of paramRows) {
+      if (!paramsMap.has(row.vcpmModuleDefinitionSystemId))
+        paramsMap.set(row.vcpmModuleDefinitionSystemId, []);
+      paramsMap.get(row.vcpmModuleDefinitionSystemId)!.push({
+        parameterId: row.paramId,
+        name: row.name ?? undefined,
+        description: row.description ?? undefined,
+        maxSize: row.maxSize,
+        paramStructure: row.elementsStructure,
+      });
+    }
+
+    return moduleRows.map(row => ({
+      moduleDefinitionId: row.moduleDefinitionId,
+      name: row.name,
+      description: row.description ?? undefined,
+      params: paramsMap.get(row.systemId) ?? [],
+    }));
+  }
+
   async readSpfPropertyDefinitions(
     fileSystemId: number,
   ): Promise<SpfPropertyDefinitionDownloadModel[]> {
@@ -1629,6 +1696,9 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         'c.defaultProcessorDomain',
         'c.rtcConfig',
         'c.alsaLibConfig',
+        'c.validationConfig',
+        'c.alsaMetaData',
+        'c.alsaTagData',
       ])
       .where('c.fileSystemId = :fileSystemId', {fileSystemId})
       .getOne()) as ConfigurationRow | null;
@@ -1640,6 +1710,9 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       defaultProcessorDomain: row.defaultProcessorDomain,
       rtcConfig: row.rtcConfig,
       alsaLibConfig: row.alsaLibConfig,
+      validationConfig: row.validationConfig ?? null,
+      alsaMetaData: row.alsaMetaData ?? null,
+      alsaTagData: row.alsaTagData ?? null,
     };
   }
 
@@ -1682,5 +1755,273 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       value: row.value,
       name: row.name,
     }));
+  }
+
+  async readUiMetadata(fileSystemId: number): Promise<{
+    uiUsecases: UiUsecaseDownloadModel[];
+    uiSubgraphs: UiSubgraphDownloadModel[];
+    uiModules: UiModuleDownloadModel[];
+    uiSubsystems: UiSubsystemDownloadModel[];
+    uiDataLinks: UiDataLinkDownloadModel[];
+    uiFileExtras: UiFileExtrasDownloadModel;
+  }> {
+    const [ucRows, sgRows, moduleRows, subsystemRows, dlRows, fileRow] =
+      await Promise.all([
+        // Usecases with GKV values and categories
+        this.dataSource
+          .getRepository(ENTITY_NAMES.UseCase)
+          .createQueryBuilder('uc')
+          .leftJoinAndSelect('uc.gkvEntries', 'gkv')
+          .leftJoinAndSelect('gkv.valueDef', 'vd')
+          .leftJoinAndSelect('vd.keys', 'k')
+          .leftJoinAndSelect('uc.categories', 'cat')
+          .where('uc.fileSystemId = :fileSystemId', {fileSystemId})
+          .getMany() as Promise<UseCaseRow[]>,
+
+        // Subgraphs with SGKVs
+        this.dataSource
+          .getRepository(ENTITY_NAMES.Subgraph)
+          .createQueryBuilder('sg')
+          .leftJoinAndSelect('sg.sgkvs', 'sgkv')
+          .leftJoinAndSelect('sgkv.values', 'sv')
+          .leftJoinAndSelect('sv.valueDef', 'svd')
+          .leftJoinAndSelect('svd.keys', 'svk')
+          .where('sg.fileSystemId = :fileSystemId', {fileSystemId})
+          .getMany() as Promise<SubgraphRow[]>,
+
+        // Modules with CKVs (uiPersistence + value entries)
+        this.dataSource
+          .getRepository(ENTITY_NAMES.SpfModule)
+          .createQueryBuilder('m')
+          .leftJoinAndSelect('m.ckvs', 'ckv')
+          .leftJoinAndSelect('ckv.values', 'cv')
+          .leftJoinAndSelect('cv.valueDef', 'cvd')
+          .leftJoinAndSelect('cvd.keys', 'cvk')
+          .leftJoinAndSelect('m.definition', 'def')
+          .where('m.fileSystemId = :fileSystemId', {fileSystemId})
+          .getMany() as Promise<SpfModuleRow[]>,
+
+        // Subsystems (node children queried separately below via parentId)
+        this.dataSource
+          .getRepository(ENTITY_NAMES.Subsystem)
+          .createQueryBuilder('ss')
+          .innerJoinAndSelect('ss.node', 'n')
+          .where('n.fileSystemId = :fileSystemId', {fileSystemId})
+          .getMany() as Promise<SubsystemRow[]>,
+
+        // Data links (inter-subgraph + intra) with isEc
+        this.dataSource
+          .getRepository(ENTITY_NAMES.DataLink)
+          .createQueryBuilder('dl')
+          .leftJoinAndSelect('dl.sourceNode', 'src')
+          .leftJoinAndSelect('src.spfModule', 'srcMod')
+          .leftJoinAndSelect('dl.destinationNode', 'dst')
+          .leftJoinAndSelect('dst.spfModule', 'dstMod')
+          .leftJoinAndSelect('dl.sourcePort', 'srcp')
+          .leftJoinAndSelect('dl.destinationPort', 'dstp')
+          .where('dl.fileSystemId = :fileSystemId', {fileSystemId})
+          .getMany() as Promise<DataLinkRow[]>,
+
+        // File record for switches/srsMetadata JSON
+        this.dataSource
+          .getRepository(ENTITY_NAMES.ArcDbFile)
+          .createQueryBuilder('f')
+          .select(['f.uiSwitchesJson', 'f.uiSrsMetadataJson'])
+          .where('f.systemId = :fileSystemId', {fileSystemId})
+          .getOne() as Promise<ArcDbFileRow | null>,
+      ]);
+
+    // Build uiUsecases
+    const uiUsecases: UiUsecaseDownloadModel[] = (
+      ucRows as unknown as Array<
+        UseCaseRow & {
+          gkvEntries?: Array<{
+            valueDef?: {keys?: {keyId?: number}; valueId?: number};
+          }>;
+          categories?: Array<{name?: string}>;
+        }
+      >
+    ).map(uc => {
+      const gkvEntries = uc.gkvEntries ?? [];
+      const keyIds = gkvEntries
+        .map(
+          e =>
+            (e.valueDef as {keys?: {keyId?: number}} | undefined)?.keys
+              ?.keyId ?? 0,
+        )
+        .filter(Boolean);
+      const valueIds = gkvEntries
+        .map(e => e.valueDef?.valueId ?? 0)
+        .filter(Boolean);
+      return {
+        systemId: uc.systemId,
+        keyIds,
+        valueIds,
+        aliasId: uc.aliasId,
+        aliasName: uc.alias ?? '',
+        isEc: uc.isEc,
+        skipRouting: uc.skipRouting,
+        orderedKeys: uc.orderedKeys ?? undefined,
+        reviewedAt: uc.reviewedAt,
+        categoryName: (uc.categories as Array<{name?: string}> | undefined)?.[0]
+          ?.name,
+      };
+    });
+
+    // Build uiSubgraphs
+    const uiSubgraphs: UiSubgraphDownloadModel[] = (
+      sgRows as unknown as Array<
+        SubgraphRow & {
+          sgkvs?: Array<{
+            values?: Array<{
+              valueDef?: {valueId?: number; keys?: {keyId?: number}};
+            }>;
+          }>;
+        }
+      >
+    ).map(sg => {
+      const sgkvValueIds: number[] = (sg.sgkvs ?? []).flatMap(kv =>
+        (kv.values ?? []).map(v => v.valueDef?.valueId ?? 0).filter(Boolean),
+      );
+      return {
+        systemId: sg.systemId,
+        subgraphId: sg.subgraphId,
+        name: sg.name,
+        reviewedAt: sg.reviewedAt,
+        sgkvValueIds,
+      };
+    });
+
+    // Build uiModules
+    const uiModules: UiModuleDownloadModel[] = (
+      moduleRows as unknown as Array<
+        SpfModuleRow & {
+          ckvs?: Array<
+            CkvRow & {
+              values?: Array<{
+                valueDef?: {valueId?: number; keys?: {keyId?: number}};
+              }>;
+              uiPersistence?: Uint8Array | null;
+            }
+          >;
+          definition?: {moduleDefinitionId?: number};
+        }
+      >
+    ).map(m => {
+      const ckvs: UiCkvDownloadModel[] = (m.ckvs ?? []).map(ckv => ({
+        ckvSystemId: ckv.systemId,
+        moduleSystemId: m.systemId,
+        moduleInstanceId: m.instanceId,
+        moduleDefinitionId: m.definition?.moduleDefinitionId ?? 0,
+        uiPersistence: ckv.uiPersistence ?? null,
+        valueIds: (ckv.values ?? [])
+          .map((v: {valueDef?: {valueId?: number}}) => v.valueDef?.valueId ?? 0)
+          .filter(Boolean),
+      }));
+      return {
+        systemId: m.systemId,
+        instanceId: m.instanceId,
+        definitionId: m.definition?.moduleDefinitionId ?? 0,
+        aliasName: m.alias ?? '',
+        reviewedAt: m.reviewedAt,
+        ckvs,
+      };
+    });
+
+    // Build uiSubsystems — fetch child nodes (parentId = subsystem's nodeId) separately
+    const subsystemNodeIds = subsystemRows
+      .map(ss => (ss.node as {systemId?: number} | undefined)?.systemId)
+      .filter((id): id is number => id !== undefined);
+
+    type ChildNodeRow = {
+      systemId?: number;
+      parentId?: number;
+      type?: string;
+      spfModule?: {instanceId?: number};
+      subsystem?: {subsystemId?: number};
+    };
+
+    let childNodeRows: ChildNodeRow[] = [];
+    if (subsystemNodeIds.length > 0) {
+      childNodeRows = (await this.dataSource
+        .getRepository(ENTITY_NAMES.Node)
+        .createQueryBuilder('child')
+        .leftJoinAndSelect('child.spfModule', 'childMod')
+        .leftJoinAndSelect('child.subsystem', 'childSs')
+        .where('child.parentId IN (:...parentIds)', {
+          parentIds: subsystemNodeIds,
+        })
+        .getMany()) as ChildNodeRow[];
+    }
+
+    const childrenByParentId = new Map<number, ChildNodeRow[]>();
+    for (const child of childNodeRows) {
+      if (child.parentId === undefined) continue;
+      const list = childrenByParentId.get(child.parentId) ?? [];
+      list.push(child);
+      childrenByParentId.set(child.parentId, list);
+    }
+
+    const uiSubsystems: UiSubsystemDownloadModel[] = (
+      subsystemRows as unknown as Array<
+        SubsystemRow & {node?: {systemId?: number}}
+      >
+    ).map(ss => {
+      const nodeId = ss.node?.systemId;
+      const nodeChildren =
+        nodeId !== undefined ? (childrenByParentId.get(nodeId) ?? []) : [];
+      const children = nodeChildren
+        .filter(c => c.type === 'module' || c.type === 'subsystem')
+        .map(c => ({
+          id:
+            c.type === 'module'
+              ? (c.spfModule?.instanceId ?? 0)
+              : (c.subsystem?.subsystemId ?? 0),
+          type:
+            c.type === 'module'
+              ? ('Subgraph' as const)
+              : ('Subsystem' as const),
+        }));
+      return {
+        systemId: ss.systemId,
+        subsystemId: ss.subsystemId ?? 0,
+        name: ss.name,
+        filteredKeyIds: [],
+        children,
+      };
+    });
+
+    // Build uiDataLinks
+    const uiDataLinks: UiDataLinkDownloadModel[] = (
+      dlRows as unknown as Array<
+        DataLinkRow & {
+          sourceNode?: {spfModule?: {instanceId?: number}};
+          sourcePort?: {dataPortId?: number};
+          destinationNode?: {spfModule?: {instanceId?: number}};
+          destinationPort?: {dataPortId?: number};
+          isEc?: boolean;
+        }
+      >
+    ).map(dl => ({
+      sourceInstanceId: dl.sourceNode?.spfModule?.instanceId ?? 0,
+      sourcePortId: dl.sourcePort?.dataPortId ?? 0,
+      destinationInstanceId: dl.destinationNode?.spfModule?.instanceId ?? 0,
+      destinationPortId: dl.destinationPort?.dataPortId ?? 0,
+      isEc: dl.isEc ?? undefined,
+    }));
+
+    const uiFileExtras: UiFileExtrasDownloadModel = {
+      uiSwitchesJson: fileRow?.uiSwitchesJson ?? undefined,
+      uiSrsMetadataJson: fileRow?.uiSrsMetadataJson ?? undefined,
+    };
+
+    return {
+      uiUsecases,
+      uiSubgraphs,
+      uiModules,
+      uiSubsystems,
+      uiDataLinks,
+      uiFileExtras,
+    };
   }
 }

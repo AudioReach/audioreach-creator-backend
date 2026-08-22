@@ -13,6 +13,7 @@ import type {
   ProcessorDefinitionDownloadModel,
   ContainerTypeDefinitionDownloadModel,
   SpfPropertyDefinitionDownloadModel,
+  VcpmModuleDefinitionDownloadModel,
 } from '../../../ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import {AwspKeyDefinition} from '../../shared/awsp-serializers/v1/definitions/key-definition/key-definition.js';
 import {AwspValueDefinition} from '../../shared/awsp-serializers/v1/definitions/key-definition/value-definition.js';
@@ -30,6 +31,7 @@ import {AwspControlPortsInfo} from '../../shared/awsp-serializers/v1/definitions
 import {AwspStaticControlPort} from '../../shared/awsp-serializers/v1/definitions/module-definition/spf/static-control-port.js';
 import {AwspIntent} from '../../shared/awsp-serializers/v1/definitions/module-definition/spf/intent.js';
 import {DriverModuleDefinition} from '../../shared/awsp-serializers/v1/definitions/module-definition/driver/driver-module-definition.js';
+import {AwspVcpmModuleDefinition} from '../../shared/awsp-serializers/v1/definitions/module-definition/vcpm/vcpm-module-definition.js';
 import {SpfPropertyDefinition} from '../../shared/awsp-serializers/v1/definitions/property-definition/spf-property-definition.js';
 import {DriverPropertyDefinition} from '../../shared/awsp-serializers/v1/definitions/property-definition/driver-property-definition.js';
 import {ProcessorDefinition} from '../../shared/awsp-serializers/v1/definitions/processor-definition/processor-definition.js';
@@ -66,6 +68,7 @@ export class AwspDefinitionsMapper {
       instance.isDynamic = model.isDynamic;
       instance.isCalKey = model.isCalibrationKey;
       instance.isGraphKey = model.isGraphKey;
+      instance.isSPFKey = model.isSPFKey;
       instance.enumName = model.enumName;
       instance.enumMember = model.enumMember;
       instance.calKeyEnumMember = model.calKeyEnumMember;
@@ -106,11 +109,12 @@ export class AwspDefinitionsMapper {
       instance.isVoice = model.isVoice;
       instance.enumName = model.enumName;
       instance.enumMember = model.enumMember;
+      instance.isSPFTagKey = model.isSPFTagKey;
       instance.keys = model.supportedKeys.map(sk => {
         const link = new AwspTagKeyDefinition();
         link.id = sk.keyId;
         link.name = sk.keyName;
-        link.enumValue = sk.enumValue;
+        link.enumMember = sk.enumValue;
         return link;
       });
       return instance;
@@ -171,7 +175,7 @@ export class AwspDefinitionsMapper {
           const staticPort = new AwspStaticControlPort();
           staticPort.id = sp.portId;
           staticPort.name = sp.portName;
-          staticPort.supportedIntents = sp.intents.map(i => {
+          staticPort.intents = sp.intents.map(i => {
             const intent = new AwspIntent();
             intent.id = i.intentId;
             intent.name = i.name;
@@ -217,6 +221,37 @@ export class AwspDefinitionsMapper {
               p.paramStructure,
               'paramStructure',
               `driver param ${p.parameterId}`,
+            )
+          : [];
+        return param;
+      });
+
+      return instance;
+    });
+  }
+
+  toVcpmModuleDefinitions(
+    models: VcpmModuleDefinitionDownloadModel[],
+  ): AwspVcpmModuleDefinition[] {
+    return models.map(model => {
+      const instance = new AwspVcpmModuleDefinition();
+      instance.id = model.moduleDefinitionId;
+      instance.name = model.name;
+      instance.description = model.description;
+
+      instance.parameters = model.params.map(p => {
+        const param = new AwspParamDefinition();
+        param.id = p.parameterId;
+        param.name = p.name ?? '';
+        param.description = p.description;
+        param.maxSize = p.maxSize;
+        param.toolPolicies = [];
+        param.pidType = 'None';
+        param.elements = p.paramStructure
+          ? AwspDefinitionsMapper.parseJson<AwspParamDefinition['elements']>(
+              p.paramStructure,
+              'paramStructure',
+              `vcpm param ${p.parameterId}`,
             )
           : [];
         return param;
@@ -317,6 +352,7 @@ export class AwspDefinitionsMapper {
         )
       : [];
     param.isReadOnly = p.isReadOnly;
+    param.copySrcParamId = p.copySrcParamId;
     const rawPolicies = p.toolPolicies
       ? AwspDefinitionsMapper.parseJson<string[]>(
           p.toolPolicies,

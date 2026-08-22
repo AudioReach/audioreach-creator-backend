@@ -9,9 +9,12 @@ import {AwspParamDefinition} from '../common/param-definition.js';
 
 /**
  * Represents a VCPM module definition.
- * Extends BaseModuleDefinition with no additional VCPM-specific properties.
+ * Extends BaseModuleDefinition with stubbed flag.
  */
 export class AwspVcpmModuleDefinition extends BaseModuleDefinition {
+  /** Indicates if module is stubbed (optional) */
+  stubbed?: boolean;
+
   /**
    * Parse JSON data into AwspVcpmModuleDefinition instance
    * @param data - Raw JSON data
@@ -23,7 +26,7 @@ export class AwspVcpmModuleDefinition extends BaseModuleDefinition {
 
     return this.hydrateInstance(new AwspVcpmModuleDefinition(), validated, [
       {
-        field: 'paramDefinitions',
+        field: 'parameters',
         hydrator: AwspParamDefinition,
         isArray: true,
       },
@@ -37,6 +40,7 @@ export class AwspVcpmModuleDefinition extends BaseModuleDefinition {
   toJSON(): Record<string, unknown> {
     return {
       ...this.serializeBaseModuleFields(),
+      stubbed: this.stubbed,
     };
   }
 }

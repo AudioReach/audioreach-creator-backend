@@ -14,6 +14,8 @@ import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 import type {AwspFileHeader} from '../../shared/awsp-serializers/headers/index.js';
 import type {WorkspaceFileVersion} from '../../shared/awsp-serializers/version.js';
 import {AwspDefinitionsMapper} from './awsp-definitions-mapper.js';
+import {UiMetadataBuilder} from './ui-metadata-builder.js';
+import type {Logger} from '../../../../shared/types/logger.interface.js';
 
 const AWSP_MAGIC = 'AWSP';
 
@@ -29,7 +31,10 @@ const AWSP_MAGIC = 'AWSP';
  *          definitions.json, configuration.json, ui-metadata.json
  */
 export class AwspFileSerializer {
-  constructor(private readonly fileSystem: FileSystemPort) {}
+  constructor(
+    private readonly fileSystem: FileSystemPort,
+    private readonly logger?: Logger,
+  ) {}
 
   /**
    * Serialize entities to AWSP file format.
@@ -74,6 +79,9 @@ export class AwspFileSerializer {
       const containerTypeDefs = entities.containerTypeDefinitions
         ? mapper.toContainerTypeDefinitions(entities.containerTypeDefinitions)
         : [];
+      const vcpmModDefs = entities.vcpmModuleDefinitions
+        ? mapper.toVcpmModuleDefinitions(entities.vcpmModuleDefinitions)
+        : [];
 
       const definitions = {
         [DEFINITION_BLOCK_NAMES.KEY_DEFINITIONS]: keyDefs.map(k => k.toJSON()),
@@ -94,6 +102,9 @@ export class AwspFileSerializer {
         ),
         [DEFINITION_BLOCK_NAMES.SUPPORTED_CONTAINER_TYPES]:
           containerTypeDefs.map(ct => ct.toJSON()),
+        [DEFINITION_BLOCK_NAMES.VCPM_MODULE_DEFINITIONS]: vcpmModDefs.map(m =>
+          m.toJSON(),
+        ),
       };
 
       const files = new Map<string, string>([
@@ -101,7 +112,9 @@ export class AwspFileSerializer {
         [FILE_NAMES.CONFIGURATION_JSON, this.buildConfigurationJson(entities)],
         [
           FILE_NAMES.UI_METADATA_JSON,
-          JSON.stringify({version: {major: 1, minor: 0}}),
+          JSON.stringify(
+            new UiMetadataBuilder(this.logger).build(entities).toJSON(),
+          ),
         ],
       ]);
 
@@ -132,11 +145,25 @@ export class AwspFileSerializer {
     if (!config) return '{}';
 
     const hexId = `0x${config.defaultProcessorDomain.toString(16).toUpperCase().padStart(8, '0')}`;
-    const configJson = {
+    const configJson: Record<string, unknown> = {
       portStrategy: {strategy: config.portStrategy},
       defaultProcessorDomain: {id: hexId},
-      rtc: JSON.parse(config.rtcConfig) as unknown,
-      alsaLib: JSON.parse(config.alsaLibConfig) as unknown,
+      rtc: JSON.parse(config.rtcConfig) as Record<string, unknown>,
+      alsaLib: JSON.parse(config.alsaLibConfig) as Record<string, unknown>,
+      ...(config.validationConfig
+        ? {
+            validation: JSON.parse(config.validationConfig) as Record<
+              string,
+              unknown
+            >,
+          }
+        : {}),
+      ...(config.alsaMetaData
+        ? {alsaMetaData: JSON.parse(config.alsaMetaData) as unknown[]}
+        : {}),
+      ...(config.alsaTagData
+        ? {alsaTagData: JSON.parse(config.alsaTagData) as unknown[]}
+        : {}),
     };
     return JSON.stringify(configJson);
   }

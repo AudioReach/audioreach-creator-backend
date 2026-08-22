@@ -13,7 +13,7 @@ import {AwspStaticControlPortSchema} from './static-control-port.schema.js';
  */
 export class AwspStaticControlPort extends AwspPort {
   /** List of supported intents (required) */
-  supportedIntents!: AwspIntent[];
+  intents!: AwspIntent[];
 
   /**
    * Parse JSON data into AwspStaticControlPort instance
@@ -34,7 +34,7 @@ export class AwspStaticControlPort extends AwspPort {
     return {
       id: this.id,
       name: this.name,
-      supportedIntents: this.serializeField(this.supportedIntents),
+      intents: this.serializeField(this.intents),
     };
   }
 }

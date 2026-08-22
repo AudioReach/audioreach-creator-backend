@@ -55,6 +55,9 @@ export class AwspParamDefinition extends BaseDefinition {
   /** Indicates if parameter is deprecated (optional) */
   deprecated?: boolean;
 
+  /** ID of parameter this copies its structure from (optional) */
+  copySrcParamId?: number;
+
   /**
    * Parse JSON data into AwspParamDefinition instance
    * @param data - Raw JSON data
@@ -86,6 +89,7 @@ export class AwspParamDefinition extends BaseDefinition {
       isHidden: this.isHidden,
       isReadOnly: this.isReadOnly,
       deprecated: this.deprecated,
+      copySrcParamId: this.copySrcParamId,
     };
   }
 }

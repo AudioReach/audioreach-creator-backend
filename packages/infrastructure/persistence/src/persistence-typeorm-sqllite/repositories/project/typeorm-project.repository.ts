@@ -20,6 +20,7 @@ import {
 } from '@arc/core';
 import {ProjectSchema} from '../../entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
+import type {ArcDbFileRow} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import {ConfigurationSchema} from '../../entity-schema/project-data/configuration.schema.js';
 
 export class TypeOrmProjectRepository implements ProjectRepository {
@@ -121,5 +122,22 @@ export class TypeOrmProjectRepository implements ProjectRepository {
       where: {fileSystemId},
     });
     return config?.portStrategy ?? null;
+  }
+
+  async updateFileUiMetadataExtras(
+    fileSystemId: number,
+    uiSwitchesJson: string | undefined,
+    uiSrsMetadataJson: string | undefined,
+  ): Promise<void> {
+    const update: Partial<ArcDbFileRow> = {};
+    if (uiSwitchesJson !== undefined) update.uiSwitchesJson = uiSwitchesJson;
+    if (uiSrsMetadataJson !== undefined)
+      update.uiSrsMetadataJson = uiSrsMetadataJson;
+    if (Object.keys(update).length === 0) return;
+    await this.manager.update(
+      ArcDbFileSchema,
+      {systemId: fileSystemId},
+      update,
+    );
   }
 }

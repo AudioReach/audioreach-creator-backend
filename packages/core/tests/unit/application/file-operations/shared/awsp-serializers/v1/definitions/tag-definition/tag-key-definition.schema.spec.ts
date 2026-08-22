@@ -22,11 +22,11 @@ describe('TagKeyDefinitionSchema', () => {
       });
     });
 
-    it('should parse tag key definition with optional enumValue', () => {
+    it('should parse tag key definition with optional enumMember', () => {
       const input = {
         id: 1,
         name: 'TagKey1',
-        enumValue: 'ENUM_VALUE_1',
+        enumMember: 'ENUM_VALUE_1',
       };
 
       const result = TagKeyDefinitionSchema.parse(input);
@@ -34,11 +34,11 @@ describe('TagKeyDefinitionSchema', () => {
       expect(result).toEqual({
         id: 1,
         name: 'TagKey1',
-        enumValue: 'ENUM_VALUE_1',
+        enumMember: 'ENUM_VALUE_1',
       });
     });
 
-    it('should parse tag key definition without enumValue', () => {
+    it('should parse tag key definition without enumMember', () => {
       const input = {
         id: 999,
         name: 'TestTagKey',
@@ -48,7 +48,7 @@ describe('TagKeyDefinitionSchema', () => {
 
       expect(result.id).toBe(999);
       expect(result.name).toBe('TestTagKey');
-      expect(result.enumValue).toBeUndefined();
+      expect(result.enumMember).toBeUndefined();
     });
   });
 
@@ -114,11 +114,11 @@ describe('TagKeyDefinitionSchema', () => {
       expect(() => TagKeyDefinitionSchema.parse(input)).toThrow();
     });
 
-    it('should reject tag key definition with non-string enumValue', () => {
+    it('should reject tag key definition with non-string enumMember', () => {
       const input = {
         id: 1,
         name: 'TagKey1',
-        enumValue: 123,
+        enumMember: 123,
       };
 
       expect(() => TagKeyDefinitionSchema.parse(input)).toThrow();

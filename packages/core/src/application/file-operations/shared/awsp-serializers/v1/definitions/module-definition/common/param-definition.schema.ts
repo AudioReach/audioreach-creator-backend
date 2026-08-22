@@ -7,15 +7,20 @@ import {z} from 'zod';
 import {BaseElementSchema} from '../../common/base-element.schema.js';
 import {HexIdSchema} from '../../common/hex-id.schema.js';
 
+const TOOL_POLICY_NORMALIZE: Record<string, string> = {
+  Rtc: 'RTC',
+  Rtm: 'RTM',
+  RtcReadonly: 'RTCReadonly',
+};
+
 /**
- * Schema for tool policy values
+ * Schema for tool policy values.
+ * Accepts both legacy casing (Rtc/Rtm/RtcReadonly) and TS casing (RTC/RTM/RTCReadonly).
  */
-const AwspToolPolicySchema = z.enum([
-  'Calibration',
-  'Rtc',
-  'Rtm',
-  'RtcReadonly',
-]);
+const AwspToolPolicySchema = z.preprocess(
+  v => (typeof v === 'string' ? (TOOL_POLICY_NORMALIZE[v] ?? v) : v),
+  z.enum(['Calibration', 'RTC', 'RTM', 'RTCReadonly']),
+);
 
 /**
  * Schema for PID type values
@@ -61,6 +66,7 @@ export const AwspParamDefinitionSchema = z.object({
   isHidden: z.boolean().optional(),
   isReadOnly: z.boolean().optional(),
   deprecated: z.boolean().optional(),
+  copySrcParamId: HexIdSchema.optional(),
 });
 
 export type AwspParamDefinition = z.infer<typeof AwspParamDefinitionSchema>;

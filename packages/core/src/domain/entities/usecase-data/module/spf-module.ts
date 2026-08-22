@@ -36,6 +36,7 @@ export interface SpfModuleInit {
   subgraphSystemId: number;
   fileSystemId: number;
   alias?: string;
+  reviewedAt?: string;
   dataPorts: DataPort[];
   controlPorts: ControlPort[];
 }
@@ -49,6 +50,7 @@ export class SpfModule extends Node implements SpfModuleBase {
   readonly containerSystemId: number;
   readonly subgraphSystemId: number;
   readonly alias?: string;
+  readonly reviewedAt?: string;
   readonly tagDataList: TagData[] = [];
 
   get ckvs(): readonly KvData[] {
@@ -69,6 +71,7 @@ export class SpfModule extends Node implements SpfModuleBase {
     this.containerSystemId = init.containerSystemId;
     this.subgraphSystemId = init.subgraphSystemId;
     this.alias = init.alias ?? '';
+    this.reviewedAt = init.reviewedAt;
   }
 
   addTagData(tagData: TagData) {

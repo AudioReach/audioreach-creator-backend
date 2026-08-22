@@ -11,7 +11,7 @@ describe('AwspDriverModuleDefinitionSchema', () => {
     const validData = {
       id: 1,
       name: 'test_driver_module',
-      paramDefinitions: [],
+      parameters: [],
     };
     const result = AwspDriverModuleDefinitionSchema.parse(validData);
     expect(result.id).toBe(1);
@@ -22,7 +22,7 @@ describe('AwspDriverModuleDefinitionSchema', () => {
     const fullData = {
       id: 1,
       name: 'test_driver_module',
-      paramDefinitions: [],
+      parameters: [],
       displayName: 'Test Driver',
       description: 'A test driver module',
       stubbed: true,
@@ -37,7 +37,7 @@ describe('AwspDriverModuleDefinitionSchema', () => {
     const invalidData = {
       id: '1',
       name: 'test_driver_module',
-      paramDefinitions: [],
+      parameters: [],
     };
     expect(() => AwspDriverModuleDefinitionSchema.parse(invalidData)).toThrow();
   });

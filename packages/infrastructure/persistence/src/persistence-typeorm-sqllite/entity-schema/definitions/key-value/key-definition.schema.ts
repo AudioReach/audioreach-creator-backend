@@ -18,6 +18,7 @@ export interface KeyDefinitionBase {
   description?: string;
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
+  isSPFKey?: boolean;
   isVoice?: boolean;
   isDynamic?: boolean;
   specialityKeyValue?: string;
@@ -87,6 +88,11 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
     },
     isGraphKey: {
       name: 'is_graph_key',
+      type: 'boolean',
+      nullable: true,
+    },
+    isSPFKey: {
+      name: 'is_spf_key',
       type: 'boolean',
       nullable: true,
     },

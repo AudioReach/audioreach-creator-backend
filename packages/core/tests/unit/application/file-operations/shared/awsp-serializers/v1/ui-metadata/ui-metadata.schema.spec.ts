@@ -99,7 +99,7 @@ describe('UiMetadataSchema', () => {
     ).toThrow();
   });
 
-  it('should fail on unknown child type', () => {
+  it('should accept unknown child type (C# compatibility)', () => {
     expect(() =>
       UiMetadataSchema.parse({
         version: {major: 1, minor: 0},
@@ -111,7 +111,7 @@ describe('UiMetadataSchema', () => {
           },
         ],
       }),
-    ).toThrow();
+    ).not.toThrow();
   });
 });
 

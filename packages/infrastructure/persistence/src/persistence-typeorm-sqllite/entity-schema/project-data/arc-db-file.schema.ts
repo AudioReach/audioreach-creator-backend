@@ -38,6 +38,10 @@ export interface ArcDbFileRow extends EntityBaseRow {
   modifiedDate: number;
   oemInfo: string;
 
+  // UI metadata extras (opaque pass-through JSON)
+  uiSwitchesJson?: string;
+  uiSrsMetadataJson?: string;
+
   // FK to project
   projectSystemId: number;
   project?: ProjectRow;
@@ -130,6 +134,17 @@ export const ArcDbFileSchema = new EntitySchema<ArcDbFileRow>({
       type: 'text',
       nullable: false,
       default: '',
+    },
+
+    uiSwitchesJson: {
+      name: 'ui_switches_json',
+      type: 'text',
+      nullable: true,
+    },
+    uiSrsMetadataJson: {
+      name: 'ui_srs_metadata_json',
+      type: 'text',
+      nullable: true,
     },
 
     projectSystemId: {name: 'project_system_id', type: 'integer'},

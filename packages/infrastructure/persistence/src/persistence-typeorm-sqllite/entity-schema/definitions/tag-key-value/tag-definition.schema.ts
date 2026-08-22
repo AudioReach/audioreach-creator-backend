@@ -14,6 +14,7 @@ export interface TagDefinitionBase {
   name: string;
   description?: string;
   isVoice: boolean;
+  isSPFTagKey?: boolean;
   cHeaderEnumName?: string;
   cHeaderEnumValue?: string;
   fileSystemId: number;
@@ -46,6 +47,11 @@ export const TagDefinitionSchema = new EntitySchema<TagDefinitionRow>({
     isVoice: {
       type: 'boolean',
       name: 'is_voice',
+    },
+    isSPFTagKey: {
+      type: 'boolean',
+      nullable: true,
+      name: 'is_spf_tag_key',
     },
     cHeaderEnumName: {
       type: 'varchar',

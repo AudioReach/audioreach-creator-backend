@@ -28,7 +28,7 @@ describe('TagDefinitionSchema', () => {
         name: 'Tag1',
         description: 'Test tag description',
         keys: [
-          {id: 1, name: 'Key1', enumValue: 'ENUM1'},
+          {id: 1, name: 'Key1', enumMember: 'ENUM1'},
           {id: 2, name: 'Key2'},
         ],
         isVoice: true,

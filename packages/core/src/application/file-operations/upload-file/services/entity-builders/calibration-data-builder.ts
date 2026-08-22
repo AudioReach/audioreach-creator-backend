@@ -1220,8 +1220,10 @@ export class CalibrationDataBuilder {
     );
 
     for (const persistence of moduleEntry.calViewUiPersistences) {
-      const payload = payloadByUuid.get(persistence.payloadId);
-      if (!payload) {
+      const payload = persistence.payloadId
+        ? payloadByUuid.get(persistence.payloadId)
+        : undefined;
+      if (persistence.payloadId && !payload) {
         this.logger?.logError({
           msg: 'ckv_payload_not_found',
           description: `payloadId ${persistence.payloadId} not found in payloadMap for module 0x${instanceId.toString(16)}`,
@@ -1255,7 +1257,7 @@ export class CalibrationDataBuilder {
       });
 
       if (match) {
-        match.uiPersistence = payload;
+        match.uiPersistence = payload ?? null;
       } else {
         this.logger?.logError({
           msg: 'ckv_match_not_found',

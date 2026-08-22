@@ -286,6 +286,7 @@ export interface KeyDefinitionDownloadModel {
   isDynamic?: boolean;
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
+  isSPFKey?: boolean;
   enumName?: string;
   enumMember?: string;
   calKeyEnumMember?: string;
@@ -313,6 +314,7 @@ export interface TagDefinitionDownloadModel {
   name: string;
   description?: string;
   isVoice: boolean;
+  isSPFTagKey?: boolean;
   enumName?: string;
   enumMember?: string;
   supportedKeys: TagKeyDownloadModel[];
@@ -330,6 +332,7 @@ export interface SpfParamDefDownloadModel {
   elementsStructure: string; // raw JSON
   isReadOnly: boolean;
   toolPolicies?: string; // raw JSON array string
+  copySrcParamId?: number;
 }
 
 /**
@@ -417,6 +420,27 @@ export interface DriverModuleDefinitionDownloadModel {
 }
 
 /**
+ * VCPM module parameter definition download model.
+ */
+export interface VcpmParamDefDownloadModel {
+  parameterId: number;
+  name?: string;
+  description?: string;
+  maxSize: number;
+  paramStructure: string; // raw JSON (elements array)
+}
+
+/**
+ * VCPM module definition download model for .awsp definitions.json generation.
+ */
+export interface VcpmModuleDefinitionDownloadModel {
+  moduleDefinitionId: number;
+  name: string;
+  description?: string;
+  params: VcpmParamDefDownloadModel[];
+}
+
+/**
  * SPF property definition download model for .awsp definitions.json generation.
  * Sourced from subgraph_property_definitions (SG_CFG) and container_property_definitions (CONTAINTER_CFG).
  */
@@ -450,6 +474,9 @@ export interface ConfigurationDownloadModel {
   defaultProcessorDomain: number;
   rtcConfig: string; // raw JSON string — RtcConfig wire format
   alsaLibConfig: string; // raw JSON string — AlsaLibConfig wire format
+  validationConfig?: string | null;
+  alsaMetaData?: string | null;
+  alsaTagData?: string | null;
 }
 
 export interface ProcessorDefinitionDownloadModel {
@@ -460,6 +487,73 @@ export interface ProcessorDefinitionDownloadModel {
 export interface ContainerTypeDefinitionDownloadModel {
   value: number;
   name: string;
+}
+
+/** UI-metadata usecase row for .awsp reconstruction. */
+export interface UiUsecaseDownloadModel {
+  systemId: number;
+  keyIds: number[];
+  valueIds: number[];
+  aliasId: number;
+  aliasName: string;
+  isEc?: boolean;
+  skipRouting?: boolean;
+  orderedKeys?: string;
+  reviewedAt?: string;
+  categoryName?: string;
+}
+
+/** UI-metadata subgraph row for .awsp reconstruction. */
+export interface UiSubgraphDownloadModel {
+  systemId: number;
+  subgraphId: number;
+  name: string;
+  reviewedAt?: string;
+  sgkvValueIds: number[];
+}
+
+/** CKV uiPersistence blob for payloadMap + calViewUiPersistences reconstruction. */
+export interface UiCkvDownloadModel {
+  ckvSystemId: number;
+  moduleSystemId: number;
+  moduleInstanceId: number;
+  moduleDefinitionId: number;
+  uiPersistence: Uint8Array | null;
+  valueIds: number[];
+}
+
+/** UI-metadata module row for .awsp reconstruction. */
+export interface UiModuleDownloadModel {
+  systemId: number;
+  instanceId: number;
+  definitionId: number;
+  aliasName: string;
+  reviewedAt?: string;
+  ckvs: UiCkvDownloadModel[];
+}
+
+/** UI-metadata subsystem row for .awsp reconstruction. */
+export interface UiSubsystemDownloadModel {
+  systemId: number;
+  subsystemId: number;
+  name: string;
+  filteredKeyIds: number[];
+  children: Array<{id: number; type: 'Subgraph' | 'Subsystem' | 'Unknown'}>;
+}
+
+/** UI-metadata data link row for .awsp reconstruction. */
+export interface UiDataLinkDownloadModel {
+  sourceInstanceId: number;
+  sourcePortId: number;
+  destinationInstanceId: number;
+  destinationPortId: number;
+  isEc?: boolean;
+}
+
+/** File-level extras for ui-metadata passthrough. */
+export interface UiFileExtrasDownloadModel {
+  uiSwitchesJson?: string;
+  uiSrsMetadataJson?: string;
 }
 
 /**
@@ -479,11 +573,19 @@ export interface DownloadEntities {
   tagDefinitions?: TagDefinitionDownloadModel[];
   spfModuleDefinitions?: SpfModuleDefinitionDownloadModel[];
   driverModuleDefinitions?: DriverModuleDefinitionDownloadModel[];
+  vcpmModuleDefinitions?: VcpmModuleDefinitionDownloadModel[];
   spfPropertyDefinitions?: SpfPropertyDefinitionDownloadModel[];
   driverPropertyDefinitions?: DriverPropertyDefinitionDownloadModel[];
   processorDefinitions?: ProcessorDefinitionDownloadModel[];
   containerTypeDefinitions?: ContainerTypeDefinitionDownloadModel[];
   configurationData?: ConfigurationDownloadModel;
+  // UI-metadata fields for .awsp reconstruction
+  uiUsecases?: UiUsecaseDownloadModel[];
+  uiSubgraphs?: UiSubgraphDownloadModel[];
+  uiModules?: UiModuleDownloadModel[];
+  uiSubsystems?: UiSubsystemDownloadModel[];
+  uiDataLinks?: UiDataLinkDownloadModel[];
+  uiFileExtras?: UiFileExtrasDownloadModel;
 }
 
 /**
@@ -595,6 +697,15 @@ export interface BulkReadQueryService {
   ): Promise<DriverModuleDefinitionDownloadModel[]>;
 
   /**
+   * Read all VCPM module definitions for .awsp definitions.json generation.
+   * @param fileSystemId - The file system ID to scope the query
+   * @returns Array of VCPM module definitions ordered by moduleDefinitionId ascending
+   */
+  readVcpmModuleDefinitions(
+    fileSystemId: number,
+  ): Promise<VcpmModuleDefinitionDownloadModel[]>;
+
+  /**
    * Read all SPF property definitions (subgraph + container) for .awsp generation.
    * These are global catalogue tables not scoped by fileSystemId.
    *
@@ -633,4 +744,17 @@ export interface BulkReadQueryService {
   readContainerTypeDefinitions(
     fileSystemId: number,
   ): Promise<ContainerTypeDefinitionDownloadModel[]>;
+
+  /**
+   * Read all UI-metadata entities needed to reconstruct ui-metadata.json for .awsp download.
+   * Returns usecases, subgraphs, modules (with ckv uiPersistence), subsystems, dataLinks, and file extras.
+   */
+  readUiMetadata(fileSystemId: number): Promise<{
+    uiUsecases: UiUsecaseDownloadModel[];
+    uiSubgraphs: UiSubgraphDownloadModel[];
+    uiModules: UiModuleDownloadModel[];
+    uiSubsystems: UiSubsystemDownloadModel[];
+    uiDataLinks: UiDataLinkDownloadModel[];
+    uiFileExtras: UiFileExtrasDownloadModel;
+  }>;
 }

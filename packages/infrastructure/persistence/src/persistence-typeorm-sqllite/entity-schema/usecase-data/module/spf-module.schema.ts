@@ -23,6 +23,7 @@ export interface SpfModuleBase {
   containerSystemId: number;
   definitionSystemId: number;
   fileSystemId: number;
+  reviewedAt?: string;
 }
 
 export interface SpfModuleRow extends EntityBaseRow, SpfModuleBase {
@@ -49,6 +50,12 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
     ...BaseColumnSchemaPart,
     instanceId: {name: 'instance_id', type: 'integer'},
     alias: {type: 'varchar', length: 250},
+    reviewedAt: {
+      name: 'reviewed_at',
+      type: 'varchar',
+      length: 100,
+      nullable: true,
+    },
 
     //  scalar FK columns you will set directly
     subgraphSystemId: {name: 'subgraph_system_id', type: 'integer'},

@@ -112,6 +112,7 @@ export class DriverModuleDefinitionInserter implements BulkInserter<DriverModule
             description: param.description,
             maxSize: param.maxSize,
             paramStructure: param.paramStructure,
+            copySrcParamId: param.copySrcParamId,
             driverModuleDefinitionSystemId: mod.systemId,
           };
           contextBySystemId.set(param.systemId, {

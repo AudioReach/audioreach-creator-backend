@@ -45,11 +45,11 @@ describe('SPF Supporting Schemas', () => {
       const validData = {
         id: 1,
         name: 'control_port',
-        supportedIntents: [{id: 1, name: 'intent1', maxports: 2}],
+        intents: [{id: 1, name: 'intent1', maxports: 2}],
       };
       const result = AwspStaticControlPortSchema.parse(validData);
       expect(result.id).toBe(1);
-      expect(result.supportedIntents).toHaveLength(1);
+      expect(result.intents).toHaveLength(1);
     });
   });
 
@@ -96,7 +96,7 @@ describe('SPF Supporting Schemas', () => {
         staticPorts: [
           {
             id: 1,
-            supportedIntents: [{id: 1, maxports: 2}],
+            intents: [{id: 1, maxports: 2}],
           },
         ],
         dynamicIntents: [{id: 2, maxports: 4}],

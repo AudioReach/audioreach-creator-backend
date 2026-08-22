@@ -52,7 +52,7 @@ export const AwspSpfModuleDefinitionSchema = z.object({
   majorModuleType: z.string().optional(),
   buildType: z.string().optional(),
   islandFriendly: z.boolean().optional(),
-  customModuleInfo: AwspCustomModuleInfoSchema.optional(),
+  customModule: AwspCustomModuleInfoSchema.optional(),
   groupName: z.string().optional(),
   rtmLogCode: z.string().optional(),
   hasNeuralNetParam: z.boolean().optional(),
