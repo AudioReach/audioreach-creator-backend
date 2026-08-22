@@ -17,6 +17,7 @@ export interface ParamDefinitionInit {
   elementsStructure: string;
   isPersistent: boolean;
   isReadOnly: boolean;
+  copySrcParamId?: number;
 }
 
 export class ParamDefinition {
@@ -30,6 +31,7 @@ export class ParamDefinition {
   elementsStructure: string;
   isPersistent: boolean;
   isReadOnly: boolean;
+  copySrcParamId?: number;
 
   constructor(initParam: ParamDefinitionInit) {
     this.systemId = initParam.systemId;
@@ -42,5 +44,6 @@ export class ParamDefinition {
     this.elementsStructure = initParam.elementsStructure;
     this.isPersistent = initParam.isPersistent;
     this.isReadOnly = initParam.isReadOnly;
+    this.copySrcParamId = initParam.copySrcParamId;
   }
 }

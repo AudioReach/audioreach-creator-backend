@@ -185,7 +185,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.enumMember).toBe('TAG_ENUM_VALUE');
     });
 
-    it('should map supportedKeys with id, name, and enumValue', () => {
+    it('should map supportedKeys with id, name, and enumMember', () => {
       const model: TagDefinitionDownloadModel = {
         tagId: 700,
         name: 'TagZ',
@@ -201,10 +201,10 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.keys).toHaveLength(2);
       expect(result.keys![0].id).toBe(100);
       expect(result.keys![0].name).toBe('KeyA');
-      expect(result.keys![0].enumValue).toBe('KEY_TAG_ENUM');
+      expect(result.keys![0].enumMember).toBe('KEY_TAG_ENUM');
       expect(result.keys![1].id).toBe(200);
       expect(result.keys![1].name).toBe('KeyB');
-      expect(result.keys![1].enumValue).toBeUndefined();
+      expect(result.keys![1].enumMember).toBeUndefined();
     });
 
     it('should produce toJSON output that passes TagDefinitionSchema validation', () => {
@@ -325,7 +325,7 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.outputPort!.ports[0].id).toBe(2);
     });
 
-    it('should map static control ports with supportedIntents', () => {
+    it('should map static control ports with intents', () => {
       const model: SpfModuleDefinitionDownloadModel = {
         moduleDefinitionId: 0x400,
         name: 'ModWithCtrl',
@@ -349,12 +349,8 @@ describe('AwspDefinitionsMapper', () => {
       expect(result.controlPort).toBeDefined();
       expect(result.controlPort!.staticPorts).toHaveLength(1);
       expect(result.controlPort!.staticPorts![0].id).toBe(10);
-      expect(result.controlPort!.staticPorts![0].supportedIntents).toHaveLength(
-        1,
-      );
-      expect(result.controlPort!.staticPorts![0].supportedIntents[0].id).toBe(
-        100,
-      );
+      expect(result.controlPort!.staticPorts![0].intents).toHaveLength(1);
+      expect(result.controlPort!.staticPorts![0].intents[0].id).toBe(100);
     });
 
     it('should map dynamic intents with maxports', () => {

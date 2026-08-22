@@ -21,6 +21,7 @@ import type {
   AwspSpfModuleDefinition,
   AwspTagDefinition,
 } from 'application/file-operations/shared/awsp-serializers/v1/definitions/index.js';
+import type {UiMetadata} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {
   MODULE_PORT_STRATEGIES,
   type ModulePortStrategy,
@@ -76,6 +77,7 @@ export class SpfModuleBuilder {
     containerProcessorMap: Map<number, number>,
     activeControlPortInfo: ActiveControlPortInfo,
     parsedAcdb: ParsedAcdb,
+    uiMetadata?: UiMetadata,
   ): Promise<BuildResult<SpfModule>> {
     // Input validation
     if (!spfModuleInfos || spfModuleInfos.length === 0) {
@@ -122,6 +124,19 @@ export class SpfModuleBuilder {
           fileSystemId,
           awspTagDefinitions,
         );
+      }
+    }
+
+    // Step 4: Apply ui-metadata fields (reviewedAt, aliasName override)
+    if (uiMetadata?.modules && uiMetadata.modules.length > 0) {
+      const uiModuleMap = new Map(
+        uiMetadata.modules.map(m => [m.instanceId, m]),
+      );
+      for (const module of result.entities) {
+        const uiEntry = uiModuleMap.get(module.instanceId);
+        if (uiEntry) {
+          (module as {reviewedAt?: string}).reviewedAt = uiEntry.reviewedAt;
+        }
       }
     }
 
@@ -840,7 +855,7 @@ export class SpfModuleBuilder {
 
     for (const staticPort of controlPort.staticPorts) {
       const intentSystemIds =
-        staticPort.supportedIntents?.map(intent => intent.id) ?? [];
+        staticPort.intents?.map(intent => intent.id) ?? [];
 
       controlPorts.push(
         new ControlPort({

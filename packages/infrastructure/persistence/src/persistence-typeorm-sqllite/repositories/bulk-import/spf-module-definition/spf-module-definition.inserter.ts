@@ -200,6 +200,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
               param.toolPolicies.length > 0
                 ? JSON.stringify(param.toolPolicies)
                 : undefined,
+            copySrcParamId: param.copySrcParamId,
             spfModuleDefinitionSystemId: mod.systemId,
           };
           contextBySystemId.set(param.systemId, {

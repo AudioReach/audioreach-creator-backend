@@ -127,6 +127,7 @@ export class VcpmModuleDefinitionInserter {
               param.toolPolicies.length > 0
                 ? JSON.stringify(param.toolPolicies)
                 : undefined,
+            copySrcParamId: param.copySrcParamId,
             vcpmModuleDefinitionSystemId: mod.systemId,
           };
           contextBySystemId.set(param.systemId, {mod, paramId: param.paramId});

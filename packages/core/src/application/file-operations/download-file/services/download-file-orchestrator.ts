@@ -76,7 +76,7 @@ export class DownloadFileOrchestrator {
       this.logger,
       this.profiler,
     );
-    const awspSerializer = new AwspFileSerializer(this.fileSystem);
+    const awspSerializer = new AwspFileSerializer(this.fileSystem, this.logger);
 
     const acdbBuffer = await acdbSerializer.serialize(entities);
     const awspBuffer = await awspSerializer.serialize(entities);

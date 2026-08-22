@@ -11,7 +11,7 @@ describe('BaseModuleDefinitionSchema', () => {
     const validData = {
       id: 1,
       name: 'test_module',
-      paramDefinitions: [
+      parameters: [
         {
           id: 1,
           name: 'param1',
@@ -24,14 +24,14 @@ describe('BaseModuleDefinitionSchema', () => {
     const result = BaseModuleDefinitionSchema.parse(validData);
     expect(result.id).toBe(1);
     expect(result.name).toBe('test_module');
-    expect(result.paramDefinitions).toHaveLength(1);
+    expect(result.parameters).toHaveLength(1);
   });
 
   it('should parse with optional fields', () => {
     const fullData = {
       id: 1,
       name: 'test_module',
-      paramDefinitions: [],
+      parameters: [],
       displayName: 'Test Module',
       description: 'A test module',
       replacedBy: 2,
@@ -48,7 +48,7 @@ describe('BaseModuleDefinitionSchema', () => {
     const invalidData = {
       id: '1',
       name: 'test_module',
-      paramDefinitions: [],
+      parameters: [],
     };
     expect(() => BaseModuleDefinitionSchema.parse(invalidData)).toThrow();
   });

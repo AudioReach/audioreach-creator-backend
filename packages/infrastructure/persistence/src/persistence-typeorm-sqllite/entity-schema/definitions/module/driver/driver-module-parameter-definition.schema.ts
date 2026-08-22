@@ -17,7 +17,10 @@ export interface DriverModuleParameterDefinitionBase {
   name?: string;
   description?: string;
   maxSize: number;
-  paramStructure: string;
+  paramStructure: string; // JSON
+  copySrcParamId?: number;
+
+  // Foreign key relation
   driverModuleDefinitionSystemId: number;
 }
 
@@ -54,6 +57,11 @@ export const DriverModuleParameterDefinitionSchema =
       paramStructure: {
         type: 'text',
         name: 'param_structure',
+      },
+      copySrcParamId: {
+        type: 'integer',
+        nullable: true,
+        name: 'copy_src_param_id',
       },
       driverModuleDefinitionSystemId: {
         type: 'integer',

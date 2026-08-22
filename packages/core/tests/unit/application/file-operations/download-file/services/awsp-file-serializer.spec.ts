@@ -33,7 +33,16 @@ describe('AwspFileSerializer', () => {
             // configuration.json and ui-metadata.json are empty objects
             expect(files.get(FILE_NAMES.CONFIGURATION_JSON)).toBe('{}');
             expect(files.get(FILE_NAMES.UI_METADATA_JSON)).toBe(
-              JSON.stringify({version: {major: 1, minor: 0}}),
+              JSON.stringify({
+                version: {major: 1, minor: 0},
+                payloadMap: [],
+                usecases: [],
+                subsystems: [],
+                subgraphs: [],
+                modules: [],
+                dataLinks: [],
+                switches: [],
+              }),
             );
 
             // Return mock ZIP buffer

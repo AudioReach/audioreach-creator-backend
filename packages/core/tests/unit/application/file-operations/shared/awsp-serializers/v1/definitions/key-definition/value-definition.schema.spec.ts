@@ -39,12 +39,18 @@ describe('ValueDefinitionSchema', () => {
         name: 'Value1',
         description: 'Test value description',
         enumMember: 'ENUM_VALUE_1',
-        specialValue: 'SPECIAL_1',
+        specialityValue: 42,
       };
 
       const result = ValueDefinitionSchema.parse(input);
 
-      expect(result).toEqual(input);
+      expect(result).toEqual({
+        id: 1,
+        name: 'Value1',
+        description: 'Test value description',
+        enumMember: 'ENUM_VALUE_1',
+        specialValue: '42',
+      });
     });
 
     it('should parse value definition without optional fields', () => {
@@ -127,14 +133,15 @@ describe('ValueDefinitionSchema', () => {
       expect(() => ValueDefinitionSchema.parse(input)).toThrow();
     });
 
-    it('should reject value definition with non-string specialValue', () => {
+    it('should accept numeric specialityValue (C# uint) and coerce to string', () => {
       const input = {
         id: 1,
         name: 'Value1',
-        specialValue: 123,
+        specialityValue: 123,
       };
 
-      expect(() => ValueDefinitionSchema.parse(input)).toThrow();
+      const result = ValueDefinitionSchema.parse(input);
+      expect(result.specialValue).toBe('123');
     });
   });
 });

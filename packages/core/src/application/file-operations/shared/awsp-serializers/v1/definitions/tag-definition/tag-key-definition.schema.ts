@@ -12,7 +12,7 @@ import {PositiveHexIdSchema} from '../common/hex-id.schema.js';
 export const TagKeyDefinitionSchema = z.object({
   id: PositiveHexIdSchema,
   name: z.string().min(1),
-  enumValue: z.string().optional(),
+  enumMember: z.string().optional(),
 });
 
 export type TagKeyDefinition = z.infer<typeof TagKeyDefinitionSchema>;

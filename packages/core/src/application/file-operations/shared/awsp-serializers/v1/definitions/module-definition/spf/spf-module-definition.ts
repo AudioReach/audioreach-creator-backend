@@ -66,7 +66,7 @@ export class AwspSpfModuleDefinition extends BaseModuleDefinition {
   islandFriendly?: boolean;
 
   /** Custom module information (optional) */
-  customModuleInfo?: AwspCustomModuleInfo;
+  customModule?: AwspCustomModuleInfo;
 
   /** Group name (optional) */
   groupName?: string;
@@ -105,7 +105,7 @@ export class AwspSpfModuleDefinition extends BaseModuleDefinition {
         hydrator: AwspControlPortsInfo,
       },
       {
-        field: 'customModuleInfo',
+        field: 'customModule',
         hydrator: AwspCustomModuleInfo,
       },
     ]);
@@ -141,7 +141,7 @@ export class AwspSpfModuleDefinition extends BaseModuleDefinition {
       majorModuleType: this.majorModuleType,
       buildType: this.buildType,
       islandFriendly: this.islandFriendly,
-      customModuleInfo: this.serializeField(this.customModuleInfo),
+      customModule: this.serializeField(this.customModule),
       groupName: this.groupName,
       rtmLogCode: this.rtmLogCode,
       hasNeuralNetParam: this.hasNeuralNetParam,

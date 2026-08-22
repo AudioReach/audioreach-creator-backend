@@ -498,6 +498,7 @@ export class SpfModuleDefinitionBuilder {
       elementsStructure: JSON.stringify(awspParam.elements),
       isPersistent: false,
       isReadOnly: false,
+      copySrcParamId: awspParam.copySrcParamId,
     });
   }
 

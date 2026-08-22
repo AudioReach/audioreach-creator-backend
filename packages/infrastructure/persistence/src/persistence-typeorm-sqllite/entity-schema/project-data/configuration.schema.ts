@@ -15,6 +15,9 @@ export interface ConfigurationRow extends EntityBaseRow {
   defaultProcessorDomain: number;
   rtcConfig: string;
   alsaLibConfig: string;
+  validationConfig?: string | null;
+  alsaMetaData?: string | null;
+  alsaTagData?: string | null;
 
   file?: ArcDbFileRow;
 }
@@ -49,6 +52,21 @@ export const ConfigurationSchema = new EntitySchema<ConfigurationRow>({
       name: 'alsa_lib_config',
       type: 'text',
       nullable: false,
+    },
+    validationConfig: {
+      name: 'validation_config',
+      type: 'text',
+      nullable: true,
+    },
+    alsaMetaData: {
+      name: 'alsa_meta_data',
+      type: 'text',
+      nullable: true,
+    },
+    alsaTagData: {
+      name: 'alsa_tag_data',
+      type: 'text',
+      nullable: true,
     },
   },
   relations: {

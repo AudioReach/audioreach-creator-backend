@@ -4,7 +4,6 @@
  */
 
 import {assertNonNull, invariant} from '../../../../shared/assertions/index.js';
-import type {UsecaseType} from './usecase-type.js';
 
 export interface KeyVectorInput {
   valueSystemIds: number[];
@@ -28,7 +27,10 @@ export interface UseCaseInit {
   categories?: string[];
   subgraphSystemIds: number[];
   subgraphPairs: SubgraphPair[];
-  type?: UsecaseType;
+  isEc?: boolean;
+  skipRouting?: boolean;
+  orderedKeys?: Array<{id: number}>;
+  reviewedAt?: string;
 }
 
 export class UseCase {
@@ -41,7 +43,10 @@ export class UseCase {
   alias?: string;
   aliasId?: number;
   categories?: string[];
-  type?: UsecaseType;
+  isEc?: boolean;
+  skipRouting?: boolean;
+  orderedKeys?: Array<{id: number}>;
+  reviewedAt?: string;
 
   private readonly subgraphIdSet = new Set<number>();
   private readonly subgraphPairKeys = new Set<string>();
@@ -53,7 +58,10 @@ export class UseCase {
     this.alias = initParams.alias;
     this.aliasId = initParams.aliasId;
     this.categories = initParams.categories;
-    this.type = initParams.type;
+    this.isEc = initParams.isEc;
+    this.skipRouting = initParams.skipRouting;
+    this.orderedKeys = initParams.orderedKeys;
+    this.reviewedAt = initParams.reviewedAt;
     for (const id of initParams.subgraphSystemIds) {
       this.AddSubgraph(id);
     }

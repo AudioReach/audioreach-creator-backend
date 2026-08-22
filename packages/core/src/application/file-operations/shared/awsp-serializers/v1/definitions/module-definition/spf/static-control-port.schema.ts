@@ -14,7 +14,7 @@ import {AwspIntentSchema} from './intent.schema.js';
 export const AwspStaticControlPortSchema = z.object({
   id: HexIdSchema,
   name: z.string().optional(),
-  supportedIntents: z.array(AwspIntentSchema).optional(),
+  intents: z.array(AwspIntentSchema).optional(),
 });
 
 export type AwspStaticControlPort = z.infer<typeof AwspStaticControlPortSchema>;

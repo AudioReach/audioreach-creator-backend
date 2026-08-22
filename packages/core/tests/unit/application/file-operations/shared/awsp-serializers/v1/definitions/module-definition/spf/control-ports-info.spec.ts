@@ -14,7 +14,7 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
       {
         id: 1,
         name: 'StaticPort1',
-        supportedIntents: [
+        intents: [
           {
             id: 10,
             name: 'Intent1',
@@ -30,7 +30,7 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
       {
         id: 2,
         name: 'StaticPort2',
-        supportedIntents: [
+        intents: [
           {
             id: 12,
             name: 'Intent3',
@@ -125,7 +125,7 @@ describe('AwspControlPortsInfo - Nested Object Hydration', () => {
           {
             id: 1,
             name: 'StaticPort1',
-            supportedIntents: [
+            intents: [
               {
                 id: 10,
                 name: 'Intent1',

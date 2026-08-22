@@ -23,13 +23,6 @@ describe('ui-metadata DB columns', () => {
   afterAll(teardownIntegrationTest);
   beforeEach(setupEachTest);
 
-  it('use_cases table should have a type column', async () => {
-    const ds = getTestDataSource();
-    const rows = await ds.query(`PRAGMA table_info("use_cases")`);
-    const cols = rows.map((r: {name: string}) => r.name);
-    expect(cols).toContain('type');
-  });
-
   it('subsystems table should have a subsystem_id column', async () => {
     const ds = getTestDataSource();
     const rows = await ds.query(`PRAGMA table_info("subsystems")`);

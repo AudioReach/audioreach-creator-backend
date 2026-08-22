@@ -14,7 +14,7 @@ import {HexIdSchema, PositiveHexIdSchema} from '../../common/hex-id.schema.js';
 export const BaseModuleDefinitionSchema = z.object({
   id: PositiveHexIdSchema,
   name: z.string(),
-  paramDefinitions: z.array(AwspParamDefinitionSchema).optional(),
+  parameters: z.array(AwspParamDefinitionSchema).optional(),
   displayName: z.string().optional(),
   description: z.string().optional(),
   replacedBy: HexIdSchema.optional(),

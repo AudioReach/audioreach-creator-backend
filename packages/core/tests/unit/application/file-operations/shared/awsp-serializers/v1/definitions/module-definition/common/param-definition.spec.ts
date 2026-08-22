@@ -142,7 +142,11 @@ describe('AwspParamDefinition serialization', () => {
       const param = AwspParamDefinition.fromJSON(original);
       const serialized = param.toJSON();
 
-      expect(serialized).toEqual(original);
+      // toolPolicies are normalized from C# casing (Rtc) to TS casing (RTC)
+      expect(serialized).toEqual({
+        ...original,
+        toolPolicies: ['Calibration', 'RTC'],
+      });
     });
   });
 });

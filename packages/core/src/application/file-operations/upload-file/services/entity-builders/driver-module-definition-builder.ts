@@ -148,6 +148,7 @@ export class DriverModuleDefinitionBuilder {
           maxSize: awspParam.maxSize || 0,
           paramStructure: JSON.stringify(awspParam.elements),
           driverModuleDefinitionSystemId: definition.systemId,
+          copySrcParamId: awspParam.copySrcParamId,
         });
 
         definition.parameters.push(param);

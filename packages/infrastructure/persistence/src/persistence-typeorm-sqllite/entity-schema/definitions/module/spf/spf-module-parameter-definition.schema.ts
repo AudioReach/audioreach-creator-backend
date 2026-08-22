@@ -24,6 +24,9 @@ export interface SpfModuleParameterDefinitionBase {
   elementsStructure: string;
   isReadOnly: boolean;
   toolPolicies?: string;
+  copySrcParamId?: number;
+
+  // Foreign key relation
   spfModuleDefinitionSystemId: number;
 }
 
@@ -82,6 +85,11 @@ export const SpfModuleParameterDefinitionSchema =
         type: 'text',
         nullable: true,
         name: 'tool_policies',
+      },
+      copySrcParamId: {
+        type: 'integer',
+        nullable: true,
+        name: 'copy_src_param_id',
       },
       spfModuleDefinitionSystemId: {
         type: 'integer',

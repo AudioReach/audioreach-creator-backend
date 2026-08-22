@@ -53,7 +53,7 @@ describe('AwspSpfModuleDefinitionSchema', () => {
       majorModuleType: 'AUDIO_PROCESSING',
       buildType: 'RELEASE',
       islandFriendly: true,
-      customModuleInfo: {
+      customModule: {
         majorTypeID: 1,
         interfaceTypeID: 2,
         interfaceVersionID: 3,

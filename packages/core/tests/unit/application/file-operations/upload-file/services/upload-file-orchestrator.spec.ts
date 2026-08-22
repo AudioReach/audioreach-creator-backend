@@ -315,7 +315,7 @@ describe('UploadFileOrchestrator', () => {
             name: 'Test Module',
             displayName: 'Test Module',
             description: '',
-            paramDefinitions: [],
+            parameters: [],
             inputPortsInfo: {maxPortCount: 1, ports: []},
             outputPortsInfo: {maxPortCount: 1, ports: []},
             controlPortsInfo: {staticPorts: [], dynamicIntents: []},

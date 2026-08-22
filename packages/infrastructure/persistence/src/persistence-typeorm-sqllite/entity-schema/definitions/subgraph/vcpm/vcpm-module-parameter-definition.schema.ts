@@ -21,6 +21,7 @@ export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   isReadOnly: boolean;
   toolPolicies?: string;
   elementsStructure: string; // JSON
+  copySrcParamId?: number;
 
   // Foreign key relation
   vcpmModuleDefinitionSystemId: number;
@@ -77,6 +78,11 @@ export const VcpmModuleParameterDefinitionSchema =
         type: 'text',
         name: 'elements_structure',
         nullable: true,
+      },
+      copySrcParamId: {
+        type: 'integer',
+        nullable: true,
+        name: 'copy_src_param_id',
       },
       vcpmModuleDefinitionSystemId: {
         type: 'integer',

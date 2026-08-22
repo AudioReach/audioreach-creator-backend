@@ -82,6 +82,7 @@ import {
   UseCaseSchema,
   UseCaseCategorySchema,
   UsecaseGkvValuesSchema,
+  UseCaseCategoryJoinSchema,
 } from './usecase-data/use-case.js';
 import {UseCaseSubgraphSchema} from './usecase-data/use-case-subgraph.schema.js';
 import {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.schema.js';
@@ -288,11 +289,13 @@ export type {
   UseCaseRow,
   UseCaseCategoryRow,
   UsecaseGkvValuesRow,
+  UseCaseCategoryJoinRow,
 } from './usecase-data/use-case.js';
 export {
   UseCaseSchema,
   UseCaseCategorySchema,
   UsecaseGkvValuesSchema,
+  UseCaseCategoryJoinSchema,
 } from './usecase-data/use-case.js';
 
 export type {
@@ -418,6 +421,7 @@ export function getAllEntitySchemas(
     UseCaseSchema,
     UseCaseCategorySchema,
     UsecaseGkvValuesSchema,
+    UseCaseCategoryJoinSchema,
     UseCaseSubgraphSchema,
     UseCaseSubgraphPairSchema,
 

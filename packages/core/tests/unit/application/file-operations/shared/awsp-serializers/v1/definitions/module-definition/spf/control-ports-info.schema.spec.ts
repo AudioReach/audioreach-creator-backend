@@ -18,7 +18,7 @@ describe('AwspControlPortsInfoSchema', () => {
 
     it('should parse control ports info with staticPorts', () => {
       const input = {
-        staticPorts: [{id: 1, name: 'Port1', supportedIntents: []}],
+        staticPorts: [{id: 1, name: 'Port1', intents: []}],
       };
 
       const result = AwspControlPortsInfoSchema.parse(input);
@@ -40,7 +40,7 @@ describe('AwspControlPortsInfoSchema', () => {
 
     it('should parse control ports info with all fields', () => {
       const input = {
-        staticPorts: [{id: 1, name: 'Port1', supportedIntents: []}],
+        staticPorts: [{id: 1, name: 'Port1', intents: []}],
         dynamicIntents: [{id: 1, name: 'Intent1'}],
       };
 

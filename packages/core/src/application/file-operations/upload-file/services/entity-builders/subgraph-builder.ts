@@ -223,6 +223,7 @@ export class SubgraphBuilder {
       fileSystemId: 0,
       properties,
       sgkvs,
+      reviewedAt: uiEntry?.reviewedAt,
     });
   }
 

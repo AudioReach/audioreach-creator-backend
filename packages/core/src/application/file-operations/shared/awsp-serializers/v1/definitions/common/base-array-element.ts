@@ -19,6 +19,12 @@ export abstract class AwspBaseArrayElement extends AwspBaseElement {
   /** List of copy source information (required) */
   copySrcInfoList!: string[];
 
+  // Extra serializable fields preserved for round-trip fidelity
+  arrayDefaultValue?: string;
+  userArrayDefaultValue?: string;
+  isFunctionalFormula?: boolean;
+  groupIndexBasedOn?: string;
+
   /**
    * Helper method for subclasses to serialize base array element fields
    * @returns Base array element fields as plain object
@@ -29,6 +35,10 @@ export abstract class AwspBaseArrayElement extends AwspBaseElement {
       arrayLength: this.arrayLength,
       arrayLenFormulaStr: this.arrayLenFormulaStr,
       copySrcInfoList: this.copySrcInfoList,
+      arrayDefaultValue: this.arrayDefaultValue,
+      userArrayDefaultValue: this.userArrayDefaultValue,
+      isFunctionalFormula: this.isFunctionalFormula,
+      groupIndexBasedOn: this.groupIndexBasedOn,
     };
   }
 }

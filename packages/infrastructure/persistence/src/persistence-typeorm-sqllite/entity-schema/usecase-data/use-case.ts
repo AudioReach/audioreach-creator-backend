@@ -10,15 +10,16 @@ import type {UseCaseSubgraphRow} from './use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairRow} from './use-case-subgraph-pair.schema.js';
 import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
-import {USECASE_TYPE, type UsecaseType} from '@arc/core';
 
 export interface UseCaseBase {
   systemId: number;
   aliasId: number;
   alias: string;
   fileSystemId: number;
-  type?: UsecaseType;
-}
+  isEc?: boolean;
+  skipRouting?: boolean;
+  orderedKeys?: string;
+  reviewedAt?: string;
 
 export interface UseCaseRow extends EntityBaseRow, UseCaseBase {
   // Relations
@@ -64,11 +65,26 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
       type: 'integer',
       name: 'file_system_id',
     },
-    type: {
-      type: 'simple-enum',
-      enum: Object.values(USECASE_TYPE),
+    isEc: {
+      type: 'boolean',
       nullable: true,
-      name: 'type',
+      name: 'is_ec',
+    },
+    skipRouting: {
+      type: 'boolean',
+      nullable: true,
+      name: 'skip_routing',
+    },
+    orderedKeys: {
+      type: 'text',
+      nullable: true,
+      name: 'ordered_keys',
+    },
+    reviewedAt: {
+      type: 'varchar',
+      length: 100,
+      nullable: true,
+      name: 'reviewed_at',
     },
   },
   relations: {
@@ -177,3 +193,26 @@ export const UsecaseGkvValuesSchema = new EntitySchema<UsecaseGkvValuesRow>({
     },
   },
 });
+
+export interface UseCaseCategoryJoinRow {
+  useCaseSystemId: number;
+  categorySystemId: number;
+}
+
+export const UseCaseCategoryJoinSchema =
+  new EntitySchema<UseCaseCategoryJoinRow>({
+    name: 'UseCaseCategoryJoin',
+    tableName: 'use_case_categories',
+    columns: {
+      useCaseSystemId: {
+        name: 'use_case_system_id',
+        type: 'integer',
+        primary: true,
+      },
+      categorySystemId: {
+        name: 'category_system_id',
+        type: 'integer',
+        primary: true,
+      },
+    },
+  });

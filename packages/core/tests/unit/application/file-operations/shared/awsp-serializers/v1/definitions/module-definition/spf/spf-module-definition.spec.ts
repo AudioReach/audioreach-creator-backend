@@ -42,7 +42,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
         {
           id: 10,
           name: 'ControlPort1',
-          supportedIntents: [
+          intents: [
             {
               id: 100,
               name: 'Intent1',
@@ -59,7 +59,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
         },
       ],
     },
-    customModuleInfo: {
+    customModule: {
       majorTypeID: 1,
       interfaceTypeID: 2,
       interfaceVersionID: 3,
@@ -97,9 +97,9 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       expect(instance.controlPort!.staticPorts).toHaveLength(1);
       expect(instance.controlPort!.dynamicIntents).toHaveLength(1);
 
-      // Verify customModuleInfo
-      expect(instance.customModuleInfo).toBeInstanceOf(AwspCustomModuleInfo);
-      expect(typeof instance.customModuleInfo!.toJSON).toBe('function');
+      // Verify customModule
+      expect(instance.customModule).toBeInstanceOf(AwspCustomModuleInfo);
+      expect(typeof instance.customModule!.toJSON).toBe('function');
     });
 
     it('should support round-trip serialization', () => {
@@ -120,10 +120,8 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       expect(typeof deserialized.outputPort!.toJSON).toBe('function');
       expect(deserialized.controlPort).toBeInstanceOf(AwspControlPortsInfo);
       expect(typeof deserialized.controlPort!.toJSON).toBe('function');
-      expect(deserialized.customModuleInfo).toBeInstanceOf(
-        AwspCustomModuleInfo,
-      );
-      expect(typeof deserialized.customModuleInfo!.toJSON).toBe('function');
+      expect(deserialized.customModule).toBeInstanceOf(AwspCustomModuleInfo);
+      expect(typeof deserialized.customModule!.toJSON).toBe('function');
     });
 
     it('should handle missing optional nested objects', () => {
@@ -140,7 +138,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       expect(instance.inputPort).toBeUndefined();
       expect(instance.outputPort).toBeUndefined();
       expect(instance.controlPort).toBeUndefined();
-      expect(instance.customModuleInfo).toBeUndefined();
+      expect(instance.customModule).toBeUndefined();
     });
 
     it('should handle partial optional nested objects', () => {
@@ -177,7 +175,7 @@ describe('AwspSpfModuleDefinition - Nested Object Hydration', () => {
       expect(instance.outputPort).toBeUndefined();
       expect(instance.controlPort).toBeInstanceOf(AwspControlPortsInfo);
       expect(typeof instance.controlPort!.toJSON).toBe('function');
-      expect(instance.customModuleInfo).toBeUndefined();
+      expect(instance.customModule).toBeUndefined();
     });
   });
 });

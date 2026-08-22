@@ -330,6 +330,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       systemId: m.systemId,
       instanceId: m.instanceId,
       alias: m.alias,
+      reviewedAt: m.reviewedAt,
       subgraphSystemId: m.subgraphSystemId,
       containerSystemId: m.containerSystemId,
       definitionSystemId: m.definitionSystemId,
