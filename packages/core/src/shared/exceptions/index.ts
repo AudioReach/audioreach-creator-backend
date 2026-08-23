@@ -9,3 +9,4 @@ export {InvalidOperationException} from './invalid-operation.exception.js';
 export {DomainNotImplementedException} from './not-implemented.exception.js';
 export {DomainRuleViolationException} from './domain-rule-violation.exception.js';
 export {StagedChangesExistException} from './staged-changes-exist.exception.js';
+export {DuplicateLinkException} from './duplicate-link.exception.js';

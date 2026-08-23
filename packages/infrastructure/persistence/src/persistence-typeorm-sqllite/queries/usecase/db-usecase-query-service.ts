@@ -413,4 +413,29 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       .filter(cl => !seen.has(cl.systemId) && seen.add(cl.systemId))
       .map(cl => UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl));
   }
+
+  async findUsecaseIdsBySubgraphIds(
+    subgraphIds: number[],
+    _fileSystemId: number,
+  ): Promise<Map<number, number[]>> {
+    if (subgraphIds.length === 0) return new Map();
+
+    const rows = (await this.dataSource
+      .getRepository(ENTITY_NAMES.UseCaseSubgraph)
+      .createQueryBuilder('ucs')
+      .select(['ucs.usecaseSystemId', 'ucs.subgraphSystemId'])
+      .where('ucs.subgraphSystemId IN (:...ids)', {ids: subgraphIds})
+      .getMany()) as {usecaseSystemId: number; subgraphSystemId: number}[];
+
+    const result = new Map<number, number[]>();
+    for (const row of rows) {
+      const existing = result.get(row.subgraphSystemId);
+      if (existing) {
+        existing.push(row.usecaseSystemId);
+      } else {
+        result.set(row.subgraphSystemId, [row.usecaseSystemId]);
+      }
+    }
+    return result;
+  }
 }

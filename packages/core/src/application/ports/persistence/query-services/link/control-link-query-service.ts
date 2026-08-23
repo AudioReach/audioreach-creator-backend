@@ -25,4 +25,13 @@ export interface ControlLinkQueryService {
     subgraphId: number,
     fileSystemId: number,
   ): Promise<Result<ControlLinkReadModel[]>>;
+
+  /**
+   * Returns control links matching the given system IDs, with overlay applied.
+   * Empty input returns [] immediately.
+   */
+  findBySystemIds(
+    systemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>>;
 }

@@ -5,17 +5,151 @@
 
 import type {CommandHandler} from '../../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
+import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
+import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {DeleteControlLinkCommand} from './delete-control-link.command.js';
-import type {ControlLinkDto} from '../../usecase/dto/component-collection-dto.js';
+import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
+import {NodeType} from '../../../../domain/entities/usecase-data/node/node.js';
+import {ControlIntentPropagationService} from '../../../../domain/services/subsystem-control-links/control-intent-propagation.service.js';
+import {RESULT_KIND} from '../../../shared/result/result.js';
+import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
+
+export type DeleteControlLinkResult = {systemId: string};
 
 export class DeleteControlLinkHandler implements CommandHandler<
   DeleteControlLinkCommand,
-  ControlLinkDto
+  DeleteControlLinkResult
 > {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly queryServices: QueryServices,
+    private readonly idGeneration: IdGenerationPort,
+  ) {}
 
-  handle(_command: DeleteControlLinkCommand): Promise<ControlLinkDto> {
-    if (this.uow == undefined) throw new Error('Input validation error');
-    throw new Error('not implemented');
+  async handle(command: DeleteControlLinkCommand): Promise<DeleteControlLinkResult> {
+    await this.uow.startTransaction();
+    try {
+      const result = await this.doHandle(command);
+      await this.uow.applyCachedActions();
+      await this.uow.commit();
+      return result;
+    } catch (error) {
+      if (this.uow.isInTransaction()) await this.uow.rollback();
+      throw error;
+    }
+  }
+
+  private async doHandle(command: DeleteControlLinkCommand): Promise<DeleteControlLinkResult> {
+    const ctx = this.uow.getWriteContext();
+    const fileSystemId = ctx.session.fileSystemId;
+    const repo = this.uow.getControlLinkRepository();
+
+    // FR-DCL-02: link must exist and be non-deleted
+    const controlLink = await repo.findBySystemId(command.controlLinkSystemId, fileSystemId);
+    if (controlLink === null) {
+      throw new ResourceNotFoundException(`ControlLink ${command.controlLinkSystemId} not found`);
+    }
+
+    // FR-DCL-03: soft delete
+    await repo.softDeleteControlLink(command.controlLinkSystemId);
+
+    // FR-DCL-04: port intent cleanup after deletion
+    const portAId = controlLink.nodeAPortSystemId;
+    const portBId = controlLink.nodeBPortSystemId;
+
+    await this.cleanupPortIntents(portAId, controlLink.peerNodeASystemId, fileSystemId);
+    await this.cleanupPortIntents(portBId, controlLink.peerNodeBSystemId, fileSystemId);
+
+    return {systemId: String(command.controlLinkSystemId)};
+  }
+
+  private async cleanupPortIntents(
+    portSystemId: number,
+    nodeSystemId: number,
+    fileSystemId: number,
+  ): Promise<void> {
+    const repo = this.uow.getControlLinkRepository();
+
+    // Check if this port has any remaining non-deleted links
+    const remainingLinks = await repo.getLinksByPortSystemIds([portSystemId], fileSystemId);
+    if (remainingLinks.length > 0) return; // port still has links — no cleanup needed
+
+    // Determine node type
+    const moduleResult = await this.queryServices.spfModuleQueryService
+      .findOne(nodeSystemId, fileSystemId)
+      .catch(() => null);
+
+    const isModule = moduleResult !== null;
+
+    if (isModule) {
+      // Module port with no remaining links: reset to full supported set from definition
+      const def = await this.queryServices.spfModuleDefinitionQueryService.getDefinition(
+        moduleResult!.definitionSystemId,
+        fileSystemId,
+        CONFIGURATION_INCLUDES.FullDetails,
+      );
+
+      if (def.kind === RESULT_KIND.Fail) return;
+
+      const existingIntents = await repo.getAllocatedIntentIds(portSystemId, fileSystemId);
+      if (existingIntents.length > 0) {
+        await repo.deleteIntents(existingIntents.map(e => e.intentSystemId), portSystemId);
+      }
+
+      // Re-populate with all supported intents from definition
+      const portResult = await this.queryServices.spfModuleQueryService.nodeQueryService.getControlPorts(nodeSystemId, fileSystemId);
+      if (portResult.kind === RESULT_KIND.Fail) return;
+
+      const port = portResult.data.find(p => p.systemId === portSystemId);
+      if (!port) return;
+
+      const defData = def.data;
+      let supportedIntentIds: number[] = [];
+
+      const staticPort = (defData.staticControlPorts ?? []).find(sp => sp.portId === port.portId);
+      if (staticPort) {
+        supportedIntentIds = (staticPort.staticIntents ?? []).map(i => i.intentId);
+      } else {
+        supportedIntentIds = (defData.dynamicIntents ?? []).map(i => i.intentId);
+      }
+
+      if (supportedIntentIds.length > 0) {
+        const newIntents = await Promise.all(
+          supportedIntentIds.map(async intentId => ({
+            systemId: await this.idGeneration.getNextId(fileSystemId),
+            controlPortSystemId: portSystemId,
+            intentId,
+          })),
+        );
+        await repo.createIntents(newIntents);
+      }
+    } else {
+      // Subsystem port: use ControlIntentPropagationService.findPortsToClear
+      const allScls = await repo.getAllSubsystemControlLinks(fileSystemId);
+
+      // Remove the deleted link's SCL from the "remaining" set
+      const remainingScls = allScls.map(scl => ({
+        peerNodeASystemId: scl.peerNodeASystemId,
+        peerNodeBSystemId: scl.peerNodeBSystemId,
+        nodeAPortSystemId: scl.nodeAPortSystemId,
+        nodeBPortSystemId: scl.nodeBPortSystemId,
+      }));
+
+      const clearResult = ControlIntentPropagationService.findPortsToClear({
+        remainingSubsystemControlLinks: remainingScls,
+        nodeTypeMap: new Map([[nodeSystemId, NodeType.Subsystem]]),
+        deletedSubsystemControlLink: {
+          peerNodeASystemId: nodeSystemId,
+          peerNodeBSystemId: nodeSystemId, // simplified — pass the port's own node
+        },
+      });
+
+      for (const clearPortId of clearResult.portsToClear) {
+        const existingIntents = await repo.getAllocatedIntentIds(clearPortId, fileSystemId);
+        if (existingIntents.length > 0) {
+          await repo.deleteIntents(existingIntents.map(e => e.intentSystemId), clearPortId);
+        }
+      }
+    }
   }
 }

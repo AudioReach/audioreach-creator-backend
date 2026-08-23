@@ -4,52 +4,151 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {IsBoolean, IsNotEmpty, IsOptional, IsString} from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
+import {Type} from 'class-transformer';
 
 /**
- * DTO for creating a new control link
+ * DTO for creating a new control link (flat view — module nodes only)
  */
-export class CreateControlLinkRequest {
-  @ApiProperty({
-    description: 'System ID of the start component',
-  })
+export class CreateControlLinkFlatRequest {
+  @ApiProperty({description: 'System ID of the start module node'})
   @IsNotEmpty()
   @IsString()
-  startComponentSystemId!: string;
+  startModuleSystemId!: string;
 
-  @ApiProperty({
-    description: 'System ID of the start port',
-  })
+  @ApiProperty({description: 'System ID of the control port on the start module'})
   @IsNotEmpty()
   @IsString()
-  startPortSystemId!: string;
+  startPortId!: string;
 
-  @ApiProperty({
-    description: 'System ID of the end component',
-  })
+  @ApiProperty({description: 'System ID of the end module node'})
   @IsNotEmpty()
   @IsString()
-  endComponentSystemId!: string;
+  endModuleSystemId!: string;
 
-  @ApiProperty({
-    description: 'System ID of the end port',
-  })
+  @ApiProperty({description: 'System ID of the control port on the end module'})
   @IsNotEmpty()
   @IsString()
-  endPortSystemId!: string;
+  endPortId!: string;
 
-  @ApiProperty({
-    description: 'System ID of the parent component',
-    required: false,
-  })
+  @ApiProperty({description: 'System ID of the parent subsystem node', required: false})
   @IsOptional()
   @IsString()
-  parentSystemId?: string;
+  parentId?: string;
+
+  @ApiProperty({description: 'Whether the link crosses usecase boundaries', default: false, required: false})
+  @IsOptional()
+  @IsBoolean()
+  isInterUsecase?: boolean;
+
+  @ApiProperty({description: 'Heap ID for memory allocation. Defaults to 1.', default: 1, required: false})
+  @IsOptional()
+  @IsInt()
+  heapId?: number;
+}
+
+/**
+ * DTO for creating a control link (hierarchical view — modules and subsystem nodes accepted)
+ */
+export class CreateControlLinkWithSubsystemsRequest {
+  @ApiProperty({description: 'System ID of the start component node (module or subsystem)'})
+  @IsNotEmpty()
+  @IsString()
+  startComponentId!: string;
+
+  @ApiProperty({description: 'System ID of the control port on the start component'})
+  @IsNotEmpty()
+  @IsString()
+  startPortId!: string;
+
+  @ApiProperty({description: 'System ID of the end component node (module or subsystem)'})
+  @IsNotEmpty()
+  @IsString()
+  endComponentId!: string;
+
+  @ApiProperty({description: 'System ID of the control port on the end component'})
+  @IsNotEmpty()
+  @IsString()
+  endPortId!: string;
+
+  @ApiProperty({description: 'System ID of the parent subsystem node', required: false})
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
+  @ApiProperty({description: 'Whether the link crosses usecase boundaries', default: false, required: false})
+  @IsOptional()
+  @IsBoolean()
+  isInterUsecase?: boolean;
+}
+
+export class IntentDto {
+  @ApiProperty({description: 'Intent numeric ID'})
+  @IsInt()
+  id!: number;
+
+  @ApiProperty({description: 'Intent name'})
+  @IsString()
+  name!: string;
+}
+
+export class AllocatedIntentsDto {
+  @ApiProperty({description: 'Array of allocated intents', type: [IntentDto]})
+  @IsArray()
+  @ValidateNested({each: true})
+  @Type(() => IntentDto)
+  intents!: IntentDto[];
+}
+
+export class HeapIdValueDto {
+  @ApiProperty({description: 'Heap ID value'})
+  @IsInt()
+  value!: number;
+}
+
+/**
+ * DTO for patching control link properties (intents or heapId)
+ */
+export class PatchControlLinkPropertiesRequest {
+  @ApiProperty({
+    description: 'New allocated intents to apply to all ports in the connected chain',
+    required: false,
+    type: AllocatedIntentsDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AllocatedIntentsDto)
+  allocatedIntents?: AllocatedIntentsDto;
 
   @ApiProperty({
-    description: 'Is inter-usecase',
-    default: false,
+    description: 'New heap ID value',
+    required: false,
+    type: HeapIdValueDto,
   })
-  @IsBoolean()
-  isInterUsecase: boolean = false;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => HeapIdValueDto)
+  heapId?: HeapIdValueDto;
+}
+
+/**
+ * DTO for querying control links by system IDs
+ */
+export class QueryControlLinksRequest {
+  @ApiProperty({
+    description: 'List of control-link system IDs to look up',
+    type: [String],
+  })
+  @IsArray()
+  @IsString({each: true})
+  @IsNotEmpty({each: true})
+  systemIds!: string[];
 }

@@ -25,6 +25,8 @@ export const ISSUE_CODE = {
   MOD_NO_AVAILABLE_INTENTS: 'ARC-MOD-NO-AVAILABLE-INTENTS',
   MOD_PORT_COUNT_BELOW_STATIC_MINIMUM:
     'ARC-MOD-PORT-COUNT-BELOW-STATIC-MINIMUM',
+  // Control-link write path
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
 } as const;
 
 export type IssueCode = (typeof ISSUE_CODE)[keyof typeof ISSUE_CODE];

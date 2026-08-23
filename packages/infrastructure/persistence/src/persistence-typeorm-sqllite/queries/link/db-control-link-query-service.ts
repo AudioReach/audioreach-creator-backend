@@ -80,6 +80,44 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
     }
   }
 
+  async findBySystemIds(
+    systemIds: number[],
+    fileSystemId: number,
+  ): Promise<Result<ControlLinkReadModel[]>> {
+    if (systemIds.length === 0) return R.ok([]);
+
+    try {
+      const session =
+        // eslint-disable-next-line sonarjs/deprecation
+        await this.editActionsQuerySvc.findActiveSession(fileSystemId);
+
+      const links = await this.dataSource
+        .getRepository(ENTITY_NAMES.ControlLink)
+        .createQueryBuilder('cl')
+        .where('cl.systemId IN (:...ids)', {ids: systemIds})
+        .andWhere('cl.fileSystemId = :fileSystemId', {fileSystemId})
+        .getMany();
+
+      return R.ok(
+        await applyLinkOverlayAndMap(
+          links as ControlLinkRow[],
+          ENTITY_NAMES.ControlLink,
+          session,
+          this.editActionsQuerySvc,
+          cl => UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl),
+        ),
+      );
+    } catch (error) {
+      return R.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load control links by system IDs',
+        ),
+      );
+    }
+  }
+
   async findBySubgraphId(
     subgraphId: number,
     fileSystemId: number,

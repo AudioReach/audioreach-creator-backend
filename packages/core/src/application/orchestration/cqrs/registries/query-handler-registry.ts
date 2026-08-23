@@ -65,6 +65,10 @@ import {GetVcpmCkvQuery} from '../../../usecase-designer/subgraph/get-vcpm-ckv/g
 import {GetVcpmCkvHandler} from '../../../usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.handler.js';
 import {GetVcpmCalDataQuery} from '../../../usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.query.js';
 import {GetVcpmCalDataHandler} from '../../../usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.handler.js';
+import {GetControlLinkPropertiesQuery} from '../../../usecase-designer/control-links/queries/get-control-link-properties.query.js';
+import {GetControlLinkPropertiesHandler} from '../../../usecase-designer/control-links/queries/get-control-link-properties.handler.js';
+import {QueryControlLinksQuery} from '../../../usecase-designer/control-links/queries/query-control-links.query.js';
+import {QueryControlLinksHandler} from '../../../usecase-designer/control-links/queries/query-control-links.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -253,6 +257,16 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetVcpmCalDataQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetVcpmCalDataHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetControlLinkPropertiesQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetControlLinkPropertiesHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(QueryControlLinksQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new QueryControlLinksHandler(deps.queryServices),
     });
   }
 }

@@ -14,6 +14,7 @@ import {
   DomainNotImplementedException,
   DomainRuleViolationException,
   StagedChangesExistException,
+  DuplicateLinkException,
 } from '@arc/core';
 
 /**
@@ -34,6 +35,7 @@ const DOMAIN_STATUS_MAP = new Map<DomainExceptionClass, number>([
     StagedChangesExistException as unknown as DomainExceptionClass,
     HttpStatus.UNPROCESSABLE_ENTITY,
   ],
+  [DuplicateLinkException, HttpStatus.CONFLICT],
 ]);
 
 @Catch()

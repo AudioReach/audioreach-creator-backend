@@ -164,7 +164,11 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getControlLinkRepository(): ControlLinkRepository {
-    return new TypeOrmControlLinkRepository(this.queryRunner.manager, this);
+    return new TypeOrmControlLinkRepository(
+      this.queryRunner.manager,
+      this,
+      this.getPendingChangeWriter(),
+    );
   }
 
   getSubgraphRepository(): SubgraphRepository {

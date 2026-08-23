@@ -99,6 +99,8 @@ import {CreateControlLinkCommand} from '../../../usecase-designer/control-links/
 import {CreateControlLinkHandler} from '../../../usecase-designer/control-links/create/create-control-link.handler.js';
 import {DeleteControlLinkCommand} from '../../../usecase-designer/control-links/delete/delete-control-link.command.js';
 import {DeleteControlLinkHandler} from '../../../usecase-designer/control-links/delete/delete-control-link.handler.js';
+import {PatchControlLinkPropertiesCommand} from '../../../usecase-designer/control-links/patch/patch-control-link-properties.command.js';
+import {PatchControlLinkPropertiesHandler} from '../../../usecase-designer/control-links/patch/patch-control-link-properties.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -196,7 +198,20 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(DeleteControlLinkCommand, {
-      create: deps => new DeleteControlLinkHandler(deps.uow),
+      create: deps =>
+        new DeleteControlLinkHandler(
+          deps.uow,
+          deps.queryServices,
+          deps.idGeneration,
+        ),
+    });
+
+    this.commandHandlerFactories.set(PatchControlLinkPropertiesCommand, {
+      create: deps =>
+        new PatchControlLinkPropertiesHandler(
+          deps.uow,
+          deps.idGeneration,
+        ),
     });
 
     this.commandHandlerFactories.set(StartSessionCommand, {
