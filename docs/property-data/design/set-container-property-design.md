@@ -103,16 +103,18 @@ packages/api/src/presentation/rest/modules/container/
 packages/core/src/application/
 ├── ports/persistence/repositories/
 │   └── module/
-│       └── module.repository.ts                                       (modified — add getModulesByContainerId, setModuleProperty)
+│       └── module.repository.ts                                       (modified — add getModulesByContainerId, updateHeapId)
 ├── ports/persistence/query-services/
 │   └── container-property-definition/
 │       └── container-property-def-query-service.ts                    (modified — add getContainerPropertyDefinitionWithElements)
 ├── orchestration/cqrs/registries/
 │   └── query-handler-registry.ts                                      (modified — register GetContainerPropertyHandler)
 └── usecase-designer/container/
-    ├── update-property/
-    │   ├── update-container-property.command.ts                       (modified — data: unknown[] → elements: ParameterElementSummaryDto[])
-    │   └── update-container-property.handler.ts                       (modified — implement logic)
+    ├── container-property-ids/
+    │   └── container-property-ids.ts                                  (new — CONTAINER_HEAP_PROP_ID, CONTAINER_CAPABILITY_PROP_ID, HEAP_ID_LOW_POWER)
+    ├── patch-property/
+    │   ├── patch-container-property.command.ts                        (modified — data: unknown[] → elements: ParameterElementSummaryDto[])
+    │   └── patch-container-property.handler.ts                       (modified — implement logic)
     └── get-property/
         ├── get-container-property.query.ts                            (new)
         └── get-container-property.handler.ts                         (new)
@@ -121,12 +123,18 @@ packages/core/src/application/
 #### Infrastructure Layer
 ```
 packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
+├── entity-schema/usecase-data/module/
+│   └── spf-module.schema.ts                                           (modified — add heapId column)
 ├── fetchers/
-│   └── module-node-overlay-fetcher.ts                                 (modified — add fetchByContainerId, fetchModuleProperties)
+│   ├── module-node-overlay-fetcher.ts                                 (modified — refactor fetchOne to delegate to fetchModules; add fetchModules with filter options)
+│   └── definitions/spf-module-definitions/
+│       └── spf-module-definition-root-fetcher.ts                      (existing — used by getModulesByContainerId)
 └── repositories/
     └── module/
-        └── module.repository.ts                                       (modified — implement getModulesByContainerId, setModuleProperty)
+        └── module.repository.ts                                       (modified — implement getModulesByContainerId, updateHeapId)
 ```
+
+**Schema change:** `heapId` added as a direct column on `spf_modules`. Migration must be regenerated.
 
 ### 1.3 Layer Responsibilities
 
@@ -157,42 +165,44 @@ Core (Application)
            getModulesByContainerId(containerSystemId, fileSystemId)
            validateModuleCapabilityIntersection → 422 if any module fails
 
-    Write phase (transactional):
-      5. ContainerRepository.setPropertyData (existing method)
-
-    Post-write cascade:
-      6. If 0x08001174:
-           read heapId from payload (first uint32)
-           if heapId = 0x2 (Low Power):
-             getModulesByContainerId(containerSystemId, fileSystemId)
-             setModuleProperty(module.moduleSystemId, 0x08001A9A, heapPayload) for each module
+    Write phase (transactional — steps 5 and 6 together):
+      uow.startTransaction()
+      try:
+        5. ContainerRepository.setPropertyData (existing method)
+        6. If 0x08001174:
+               read heapId from payload (first uint32)
+               if heapId = 0x2 (Low Power):
+                 getModulesByContainerId(containerSystemId, fileSystemId)
+                 updateHeapId(module.moduleSystemId, heapId) for each module
+        uow.commit()
+      catch:
+        if uow.isInTransaction() → uow.rollback()
+        throw
 
 Infrastructure (Persistence)
-  ModuleNodeOverlayFetcher.fetchByContainerId (new):
-    → query spf_modules WHERE container_system_id = ? AND file_system_id = ?
-    → uses existing index ix_spf_modules_container_file_system
-    → gets all SpfModule edit actions via getByTable(sessionId, SpfModule)
-    → filters actions: UPDATE/DELETE where aggregateId in base systemId set;
-      CREATE where newValue.containerSystemId = containerSystemId
+  ModuleNodeOverlayFetcher.fetchModules (new — replaces fetchByContainerId):
+    → accepts filter?: { moduleSystemId?: number; containerSystemId?: number }
+    → Layer 1: query spf_modules WHERE fileSystemId = ? AND filter columns
+      (containerSystemId filter uses existing index ix_spf_modules_container_file_system)
+    → Layer 2: overlay via getByTable(sessionId, SpfModule)
+      UPDATE/DELETE: actions whose aggregateId is in base systemId set
+      CREATE: actions where newValue matches filter (e.g. containerSystemId)
     → applies OverlayMergeImpl + appends staged CREATEs
     → returns OverlaidSpfModule[]
 
-  ModuleNodeOverlayFetcher.fetchModuleProperties (new):
-    → query spf_module_properties_data WHERE module_system_id = ?
-    → applies overlay via getByAggregateId(sessionId, moduleSystemId)
-      filtered to targetTable = SpfModulePropertiesData
-    → returns { systemId, propertySystemId }[]
+  fetchOne refactored to delegate to fetchModules({ moduleSystemId }) and return first result.
 
   ModuleRepository.getModulesByContainerId:
-    → delegates to fetchByContainerId
-    → batched IN query: module_definition_container_types → container_types (containerTypeIds)
-    → batched IN query: spf_module_definitions (displayName)
-    → both keyed by definitionSystemId, run in parallel via Promise.all
-    → maps to ModuleForContainer[]
+    → delegates to fetchByContainerId → OverlaidSpfModule[]
+    → collects unique definitionSystemIds from result
+    → calls SpfModuleDefinitionRootFetcher.fetchOne(defSystemId, fileSystemId, sessionId) for each
+      in parallel via Promise.all
+    → maps to ModuleForContainer[] using displayName + containerTypeSystemIds from fetcher
+    (overlay-aware for container type links — no ad-hoc queries needed)
 
-  ModuleRepository.setModuleProperty:
-    → fetchModuleProperties(moduleSystemId, session.sessionId) to resolve prop.systemId
-    → writeDelta with targetSystemId = prop.systemId, aggregateId = moduleSystemId
+  ModuleRepository.updateHeapId:
+    → writeDelta with targetTable=SpfModule, targetSystemId=moduleSystemId,
+      aggregateId=moduleSystemId, delta={ heapId }
 ```
 
 ---
@@ -202,43 +212,46 @@ Infrastructure (Persistence)
 **File:** `packages/api/src/presentation/rest/modules/container/container.controller.ts` (modified)
 
 ```typescript
-@Patch('/:containerSystemId/properties/:propSystemId')
+@Patch('/:containerSystemId/properties/:propertySystemId')
 @UseGuards(SessionGuard)
 async updateContainerProperty(
   @Param('projectId') projectId: string,
   @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
-  @Param('propSystemId', ParseIntPipe) propSystemId: number,
+  @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
   @Body() dto: UpdatePropertyRequestDto,
   @ArcSession() session: ActiveSession,
 ): Promise<ApiResult<PropertyResponseDto>> {
   await this.commandBus.execute(
-    new UpdateContainerPropertyCommand(containerSystemId, propSystemId, dto.elements),
+    new UpdateContainerPropertyCommand(containerSystemId, propertySystemId, dto.elements),
     session,
   );
   const query = new GetContainerPropertyQuery(
     Number.parseInt(projectId, 10),
     containerSystemId,
-    propSystemId,
+    propertySystemId,
     'api-client',
   );
-  const result = await this.queryBus.execute<Result<PropertyDto>>(query);
-  return toApiResult(result);
+  // Handler returns Result<PropertyDataDto> (core internal read model).
+  // mapPropertyToDto converts PropertyDataDto → PropertyDto (core shared zod DTO).
+  // PropertyResponseDto is the NestJS/Swagger class wrapping the same shape via createZodDto.
+  const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+  return toApiResult(result, data => mapPropertyToDto(data));
 }
 
 @Get('/:containerSystemId/properties/:propertySystemId')
 async getContainerProperty(
-  @Param('projectId') projectId: string,
-  @Param('containerSystemId') containerSystemId: string,
-  @Param('propertySystemId') propertySystemId: string,
+  @Param('projectId', ParseIntPipe) projectId: number,
+  @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
+  @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
 ): Promise<ApiResult<PropertyResponseDto>> {
   const query = new GetContainerPropertyQuery(
-    Number.parseInt(projectId, 10),
-    Number.parseInt(containerSystemId, 10),
-    Number.parseInt(propertySystemId, 10),
+    projectId,
+    containerSystemId,
+    propertySystemId,
     'api-client',
   );
-  const result = await this.queryBus.execute<Result<PropertyDto>>(query);
-  return toApiResult(result);
+  const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+  return toApiResult(result, data => mapPropertyToDto(data));
 }
 ```
 
@@ -248,7 +261,7 @@ async getContainerProperty(
 
 ### 3.1 UpdateContainerPropertyCommand
 
-**File:** `packages/core/src/application/usecase-designer/container/update-property/update-container-property.command.ts` (modified)
+**File:** `packages/core/src/application/usecase-designer/container/patch-property/patch-container-property.command.ts` (modified)
 
 ```typescript
 export class UpdateContainerPropertyCommand extends BaseCommand {
@@ -270,15 +283,18 @@ export class UpdateContainerPropertyCommand extends BaseCommand {
 
 ### 3.2 UpdateContainerPropertyHandler
 
-**File:** `packages/core/src/application/usecase-designer/container/update-property/update-container-property.handler.ts` (modified)
+**File:** `packages/core/src/application/usecase-designer/container/patch-property/patch-container-property.handler.ts` (modified)
+
+Property ID constants are defined in a dedicated file and imported:
 
 ```typescript
-// Property ID constants
-const CONTAINER_HEAP_PROP_ID       = 0x08001174;
-const CONTAINER_CAPABILITY_PROP_ID = 0x08001011;
-const MODULE_HEAP_PROP_ID          = 0x08001A9A;
-const HEAP_ID_LOW_POWER            = 0x2;
+// packages/core/src/application/usecase-designer/container/container-property-ids/container-property-ids.ts (new)
+export const CONTAINER_HEAP_PROP_ID       = 0x08001174;
+export const CONTAINER_CAPABILITY_PROP_ID = 0x08001011;
+export const HEAP_ID_LOW_POWER            = 0x2;
+```
 
+```typescript
 export class UpdateContainerPropertyHandler
   implements CommandHandler<UpdateContainerPropertyCommand, Promise<void>> {
 
@@ -317,32 +333,44 @@ export class UpdateContainerPropertyHandler
 
     // Step 4: capability list — validate module/capability intersection before writing
     if (command.propertySystemId === CONTAINER_CAPABILITY_PROP_ID) {
-      const capabilityIds = parseUInt32Array(payload);
+      const reader = new BinaryDataReader(payload);
+      const count = reader.readUInt32();
+      const capabilityIds = Array.from({length: count}, () => reader.readUInt32());
       const modules = await this.uow.getModuleRepository()
         .getModulesByContainerId(command.containerSystemId, fileSystemId);
       validateModuleCapabilityIntersection(modules, capabilityIds);
       // throws DomainRuleViolationException listing failing module displayNames → HTTP 422
     }
 
-    // Step 5: write container property
-    await this.uow.getContainerRepository()
-      .setPropertyData(command.containerSystemId, command.propertySystemId, payload);
+    // Step 5 + 6: write container property and heap cascade — one transaction
+    await this.uow.startTransaction();
+    try {
+      // Step 5: write container property
+      await this.uow.getContainerRepository()
+        .setPropertyData(command.containerSystemId, command.propertySystemId, payload);
 
-    // Step 6: heap cascade — only fires for Low Power; Default leaves modules as-is
-    if (command.propertySystemId === CONTAINER_HEAP_PROP_ID) {
-      const heapId = readUInt32LE(payload, 0);
-      if (heapId === HEAP_ID_LOW_POWER) {
-        const modules = await this.uow.getModuleRepository()
-          .getModulesByContainerId(command.containerSystemId, fileSystemId);
-        const heapPayload = writeUInt32LE(heapId);
-        for (const mod of modules) {
-          await this.uow.getModuleRepository().setModuleProperty(
-            mod.moduleSystemId,
-            MODULE_HEAP_PROP_ID,
-            heapPayload,
+      // Step 6: heap cascade — only fires for Low Power; Default leaves modules as-is
+      if (command.propertySystemId === CONTAINER_HEAP_PROP_ID) {
+        const heapId = new BinaryDataReader(payload).readUInt32();
+        if (heapId === HEAP_ID_LOW_POWER) {
+          const modules = await this.uow.getModuleRepository()
+            .getModulesByContainerId(command.containerSystemId, fileSystemId);
+          // Promise.all is safe here: all writes share the same QueryRunner (same connection,
+          // same transaction). SQLite serialises the actual DB writes at the connection level,
+          // so there is no deadlock risk. Promise.all eliminates per-call async overhead for
+          // containers with many modules.
+          await Promise.all(
+            modules.map(mod =>
+              this.uow.getModuleRepository().updateHeapId(mod.moduleSystemId, heapId),
+            ),
           );
         }
       }
+
+      await this.uow.commit();
+    } catch (error) {
+      if (this.uow.isInTransaction()) await this.uow.rollback();
+      throw error;
     }
   }
 }
@@ -353,10 +381,8 @@ export class UpdateContainerPropertyHandler
 | Function | Purpose |
 |---|---|
 | `serializeParameterData(elementsStructure, elements)` | Converts `ParameterElementSummaryDto[]` → `Uint8Array`; validates type, range, alignment. Returns `{ ok, value/error }` |
-| `parseUInt32Array(payload)` | Reads `count` from first 4 bytes then reads `count` × uint32 — used for capability IDs |
+| `BinaryDataReader(payload).readUInt32()` | Reads little-endian uint32 — existing shared utility at `packages/core/src/application/usecase-designer/shared/utils/binary-data-reader.ts`. Used for both capability ID parsing and heap ID extraction |
 | `validateModuleCapabilityIntersection(modules, capIds)` | For each module checks `containerTypeIds ∩ capIds` is non-empty; throws `DomainRuleViolationException` listing failing `displayName`s |
-| `readUInt32LE(payload, offset)` | Reads little-endian uint32 from `Uint8Array` at offset |
-| `writeUInt32LE(value)` | Returns 4-byte little-endian `Uint8Array` |
 
 ### 3.3 ContainerPropertyDefQueryService Port Extension
 
@@ -388,7 +414,7 @@ The infra implementation (`DbContainerPropertyDefQueryService`) delegates to the
 
 ```typescript
 export interface ModuleForContainer {
-  moduleSystemId: number;      // PK of SpfModule — used as aggregateId for setModuleProperty
+  moduleSystemId: number;      // PK of SpfModule — used as aggregateId for updateHeapId
   containerTypeIds: number[];  // supported container type IDs — used for capability intersection check
   displayName: string;         // from SpfModuleDefinition — used in capability mismatch error message
 }
@@ -403,15 +429,135 @@ export interface ModuleRepository {
     fileSystemId: number,
   ): Promise<ModuleForContainer[]>;
 
-  // Writes a module property pending change to edit_actions.
-  // aggregateId = moduleSystemId (SpfModule is the aggregate root).
-  setModuleProperty(
+  // Stages a heapId update on a SpfModule row via edit_actions.
+  // aggregateId = moduleSystemId; targetTable = SpfModule.
+  updateHeapId(
     moduleSystemId: number,
-    propertySystemId: number,
-    payload: Uint8Array,
+    heapId: number,
   ): Promise<void>;
 }
 ```
+
+---
+
+### 3.5 GetContainerPropertyQuery and Handler (singular)
+
+These are new files required by the re-query step in the write controller (FR-CP-07) and also implement the `getContainerProperty` GET stub.
+
+**Files:**
+- `packages/core/src/application/usecase-designer/container/get-property/get-container-property.query.ts` (new)
+- `packages/core/src/application/usecase-designer/container/get-property/get-container-property.handler.ts` (new)
+
+#### Query
+
+```typescript
+export class GetContainerPropertyQuery extends BaseQuery {
+  public readonly projectId: number;
+  public readonly containerSystemId: number;
+  public readonly propertySystemId: number;
+
+  constructor(
+    projectId: number,
+    containerSystemId: number,
+    propertySystemId: number,
+    clientId: string,
+  ) {
+    super(clientId);
+    this.projectId = projectId;
+    this.containerSystemId = containerSystemId;
+    this.propertySystemId = propertySystemId;
+  }
+}
+```
+
+#### Handler
+
+```typescript
+export class GetContainerPropertyHandler
+  implements QueryHandler<GetContainerPropertyQuery, Promise<Result<PropertyDataDto>>> {
+
+  constructor(private readonly queryServices: QueryServices) {}
+
+  async handle(query: GetContainerPropertyQuery): Promise<Result<PropertyDataDto>> {
+    // Step 1: resolve fileSystemId
+    const fileSystemId = await this.queryServices.projectQueryService
+      .getFileIdByProjectId(query.projectId);
+
+    // Step 2: container existence check + payload fetch (scoped to one property)
+    const payloadsResult = await this.queryServices.containerQueryService
+      .findPropertyPayloads(query.containerSystemId, fileSystemId);
+    if (payloadsResult.kind === RESULT_KIND.Fail) {
+      throw new Error(payloadsResult.issues[0]?.message ?? 'Failed to load container property');
+    }
+    if (payloadsResult.data === null) {
+      throw new ResourceNotFoundException(
+        `Container with systemId ${query.containerSystemId} not found`,
+      );
+    }
+
+    // Step 3: find the specific property payload
+    const payload = payloadsResult.data.find(
+      p => p.propertySystemId === query.propertySystemId,
+    );
+    if (payload === undefined) {
+      throw new ResourceNotFoundException(
+        `Property ${query.propertySystemId} not found on container ${query.containerSystemId}`,
+      );
+    }
+
+    // Step 4: fetch property definition with elementsStructure
+    const defResult = await this.queryServices.containerPropertyDefQueryService
+      .getContainerPropertyDefinitionWithElements(query.propertySystemId, fileSystemId);
+    if (defResult.kind === RESULT_KIND.Fail) {
+      throw new ResourceNotFoundException(
+        `Property definition ${query.propertySystemId} not found`,
+      );
+    }
+    const def = defResult.data;
+
+    // Step 5: parse elements from binary payload
+    const elements = payload.payload !== null
+      ? parseParameterData(payload.payload, def.elementsStructure)
+      : [];
+
+    return Result.ok({
+      systemId: payload.systemId,
+      propertyId: def.propertyId,
+      propertyName: def.name,
+      elements,
+    });
+  }
+}
+```
+
+**Error contract:**
+
+| Condition | Behaviour |
+|---|---|
+| Container not found | throws `ResourceNotFoundException` → 404 |
+| Property payload not found on container | throws `ResourceNotFoundException` → 404 |
+| Property definition not found | throws `ResourceNotFoundException` → 404 |
+| Success | `Result.ok(PropertyDataDto)` → 200 |
+
+**Ports used** (all existing — no new ports):
+
+| Port | Method | Already exists |
+|---|---|---|
+| `ProjectQueryService` | `getFileIdByProjectId` | ✅ |
+| `ContainerQueryService` | `findPropertyPayloads` | ✅ (added by get-container-properties feature) |
+| `ContainerPropertyDefQueryService` | `getContainerPropertyDefinitionWithElements` | ✅ (Section 3.3 of this doc) |
+
+**Registration:** `GetContainerPropertyHandler` registered in `query-handler-registry.ts` (already noted in Section 1.2).
+
+**Unit tests** — `get-container-property.handler.spec.ts` (new):
+
+| Scenario | Expected outcome |
+|---|---|
+| Container not found | throws `ResourceNotFoundException` → 404 |
+| Property payload not on container | throws `ResourceNotFoundException` → 404 |
+| Property definition not found | throws `ResourceNotFoundException` → 404 |
+| Success — payload present | returns `Result.ok(PropertyDataDto)` with parsed elements |
+| Success — payload is null | returns `Result.ok(PropertyDataDto)` with `elements: []` |
 
 ---
 
@@ -421,43 +567,53 @@ export interface ModuleRepository {
 
 **File:** `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/fetchers/module-node-overlay-fetcher.ts` (modified)
 
-Two new methods added. `fetchOne` and `OverlaidSpfModule` are **not changed** — existing callers unaffected.
+`fetchModules` is a new unified method replacing `fetchByContainerId`. `fetchOne` is refactored to delegate to it. `OverlaidSpfModule` is unchanged — existing callers unaffected.
 
-#### `fetchByContainerId`
+#### `fetchModules`
 
-Fetches all non-deleted modules for a container — overlay-aware. Used by `getModulesByContainerId`.
+Unified overlay-aware module fetch with optional filter. Used by `getModulesByContainerId` (filter by `containerSystemId`) and by the refactored `fetchOne` (filter by `moduleSystemId`).
 
 ```typescript
-async fetchByContainerId(
-  containerSystemId: number,
+export interface FetchModulesFilter {
+  moduleSystemId?: number;
+  containerSystemId?: number;
+}
+
+async fetchModules(
   fileSystemId: number,
   sessionId: number | null,
+  filter?: FetchModulesFilter,
 ): Promise<OverlaidSpfModule[]> {
-  // Layer 1: base rows — uses existing index ix_spf_modules_container_file_system
-  const baseRows = await this.manager
+  // Layer 1: base rows
+  const qb = this.manager
     .getRepository(ENTITY_NAMES.SpfModule)
     .createQueryBuilder('sm')
-    .where(
-      'sm.containerSystemId = :containerSystemId AND sm.fileSystemId = :fileSystemId',
-      {containerSystemId, fileSystemId},
-    )
-    .getMany() as unknown as SpfModuleBase[];
+    .where('sm.fileSystemId = :fileSystemId', {fileSystemId});
+
+  if (filter?.moduleSystemId !== undefined) {
+    qb.andWhere('sm.systemId = :moduleSystemId', {moduleSystemId: filter.moduleSystemId});
+  }
+  if (filter?.containerSystemId !== undefined) {
+    // uses existing index ix_spf_modules_container_file_system
+    qb.andWhere('sm.containerSystemId = :containerSystemId', {containerSystemId: filter.containerSystemId});
+  }
+
+  const baseRows = await qb.getMany() as unknown as SpfModuleBase[];
 
   if (!sessionId) return baseRows.map(r => this.toOverlaid(r));
 
-  // Layer 2: get all SpfModule edit actions in the session in one query
+  // Layer 2: overlay
   const allActions = await this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.SpfModule);
-
   const baseIds = new Set(baseRows.map(r => r.systemId));
 
-  // UPDATE/DELETE: actions whose aggregateId is a known base module
   const updateDeleteActions = allActions.filter(a => baseIds.has(a.aggregateId));
-
-  // CREATE: actions for modules staged into this container
-  const createActions = allActions.filter(
-    a => a.operation === CHANGE_OPERATION.Create &&
-      (a.newValue as Partial<SpfModuleBase>).containerSystemId === containerSystemId,
-  );
+  const createActions = allActions.filter(a => {
+    if (a.operation !== CHANGE_OPERATION.Create) return false;
+    const v = a.newValue as Partial<SpfModuleBase>;
+    if (filter?.containerSystemId !== undefined && v.containerSystemId !== filter.containerSystemId) return false;
+    if (filter?.moduleSystemId !== undefined && a.targetSystemId !== filter.moduleSystemId) return false;
+    return true;
+  });
 
   const overlaid = this.overlay.applyToCollection(
     baseRows as unknown as Array<{systemId: number}>,
@@ -471,7 +627,7 @@ async fetchByContainerId(
       instanceId: payload.instanceId ?? 0,
       alias: payload.alias ?? null,
       definitionSystemId: payload.definitionSystemId ?? 0,
-      containerSystemId: payload.containerSystemId ?? containerSystemId,
+      containerSystemId: payload.containerSystemId ?? 0,
       subgraphSystemId: payload.subgraphSystemId ?? 0,
       fileSystemId: payload.fileSystemId ?? fileSystemId,
       parentId: null,
@@ -482,46 +638,16 @@ async fetchByContainerId(
 }
 ```
 
-#### `fetchModuleProperties`
-
-Fetches overlay-aware `spf_module_properties_data` rows for a single module. Used by `setModuleProperty` to resolve `prop.systemId` for `writeDelta`.
+`fetchOne` is refactored to delegate to `fetchModules`:
 
 ```typescript
-async fetchModuleProperties(
+async fetchOne(
   moduleSystemId: number,
+  fileSystemId: number,
   sessionId: number | null,
-): Promise<{systemId: number; propertySystemId: number}[]> {
-  const baseRows = await this.manager
-    .getRepository(ENTITY_NAMES.SpfModulePropertiesData)
-    .createQueryBuilder('p')
-    .select(['p.systemId', 'p.propertySystemId'])
-    .where('p.moduleSystemId = :moduleSystemId', {moduleSystemId})
-    .getMany() as unknown as {systemId: number; propertySystemId: number}[];
-
-  if (!sessionId) return baseRows;
-
-  const actions = await this.editActionsSvc.getByAggregateId(sessionId, moduleSystemId);
-  const propActions = actions.filter(
-    a => a.targetTable === ENTITY_NAMES.SpfModulePropertiesData,
-  );
-
-  const overlaid = this.overlay.applyToCollection(
-    baseRows as unknown as Array<{systemId: number}>,
-    propActions,
-  ).map(r => r.effective as unknown as {systemId: number; propertySystemId: number});
-
-  const baseIds = new Set(baseRows.map(r => r.systemId));
-  const created = propActions
-    .filter(a => a.operation === CHANGE_OPERATION.Create && !baseIds.has(a.targetSystemId))
-    .map(a => {
-      const payload = a.newValue as Partial<{propertySystemId: number}>;
-      return {
-        systemId: a.targetSystemId,
-        propertySystemId: payload.propertySystemId ?? 0,
-      };
-    });
-
-  return [...overlaid, ...created];
+): Promise<OverlaidSpfModule | null> {
+  const results = await this.fetchModules(fileSystemId, sessionId, {moduleSystemId});
+  return results[0] ?? null;
 }
 ```
 
@@ -535,77 +661,51 @@ async getModulesByContainerId(
   fileSystemId: number,
 ): Promise<ModuleForContainer[]> {
   const {session} = this.uow.getWriteContext();
-  const rows = await this.moduleNodeFetcher.fetchByContainerId(
-    containerSystemId,
+  const rows = await this.moduleNodeFetcher.fetchModules(
     fileSystemId,
     session.sessionId,
+    {containerSystemId},
   );
 
   if (rows.length === 0) return [];
 
   const definitionSystemIds = [...new Set(rows.map(r => r.definitionSystemId))];
 
-  // Parallel batched queries for containerTypeIds and displayName
-  const [links, defs] = await Promise.all([
-    this.manager
-      .getRepository(ENTITY_NAMES.ModuleDefinitionContainerTypeLink)
-      .createQueryBuilder('link')
-      .innerJoinAndSelect('link.containerType', 'ct')
-      .where('link.moduleDefinitionSystemId IN (:...definitionSystemIds)', {definitionSystemIds})
-      .getMany(),
-    this.manager
-      .getRepository(ENTITY_NAMES.SpfModuleDefinition)
-      .createQueryBuilder('def')
-      .select(['def.systemId', 'def.displayName'])
-      .where('def.systemId IN (:...definitionSystemIds)', {definitionSystemIds})
-      .getMany(),
-  ]);
-
-  const containerTypeIdsMap = new Map<number, number[]>();
-  for (const link of links) {
-    const existing = containerTypeIdsMap.get(link.moduleDefinitionSystemId) ?? [];
-    existing.push(link.containerType.value);
-    containerTypeIdsMap.set(link.moduleDefinitionSystemId, existing);
-  }
-
-  const displayNameMap = new Map<number, string>(
-    defs.map(d => [d.systemId, d.displayName ?? '']),
+  // Use SpfModuleDefinitionRootFetcher for overlay-aware displayName + containerTypeSystemIds
+  const defRoots = await Promise.all(
+    definitionSystemIds.map(defId =>
+      this.spfModuleDefinitionRootFetcher.fetchOne(defId, fileSystemId, session.sessionId),
+    ),
   );
 
-  return rows.map(r => ({
-    moduleSystemId:   r.systemId,
-    containerTypeIds: containerTypeIdsMap.get(r.definitionSystemId) ?? [],
-    displayName:      displayNameMap.get(r.definitionSystemId) ?? '',
-  }));
+  const defMap = new Map(
+    defRoots
+      .filter((d): d is OverlaidDefinitionRoot => d !== null)
+      .map(d => [d.systemId, d]),
+  );
+
+  return rows.map(r => {
+    const def = defMap.get(r.definitionSystemId);
+    return {
+      moduleSystemId:   r.systemId,
+      containerTypeIds: def?.containerTypeSystemIds ?? [],
+      displayName:      def?.displayName ?? '',
+    };
+  });
 }
 
-async setModuleProperty(
+async updateHeapId(
   moduleSystemId: number,
-  propertySystemId: number,
-  payload: Uint8Array,
+  heapId: number,
 ): Promise<void> {
   const {session, groupId} = this.uow.getWriteContext();
 
-  // Resolve SpfModulePropertiesData row's systemId — must use overlay-aware fetch
-  // because the property row may be a staged CREATE not yet in base DB
-  const props = await this.moduleNodeFetcher.fetchModuleProperties(
-    moduleSystemId,
-    session.sessionId,
-  );
-  const prop = props.find(p => p.propertySystemId === propertySystemId);
-  if (!prop) {
-    throw new Error(
-      `Module property ${propertySystemId} not found on module ${moduleSystemId}. ` +
-      `Ensure the property is initialised at module creation.`,
-    );
-  }
-
   await this.writer.writeDelta(
     {
-      targetTable:    ENTITY_NAMES.SpfModulePropertiesData,
-      targetSystemId: prop.systemId,
+      targetTable:    ENTITY_NAMES.SpfModule,
+      targetSystemId: moduleSystemId,
       aggregateId:    moduleSystemId,
-      delta:          {payload},
+      delta:          {heapId},
     },
     session.sessionId,
     groupId,
@@ -616,16 +716,16 @@ async setModuleProperty(
 
 ### 4.3 PendingChangeWriter Specs
 
-**`setModuleProperty` (heap cascade):**
+**`updateHeapId` (heap cascade):**
 
 | Field | Value |
 |---|---|
-| `targetTable` | `SpfModulePropertiesData` |
-| `targetSystemId` | `prop.systemId` — PK of the `SpfModulePropertiesData` row (resolved via `fetchModuleProperties`) |
+| `targetTable` | `SpfModule` |
+| `targetSystemId` | `moduleSystemId` |
 | `aggregateId` | `moduleSystemId` |
 | `fieldGroup` | `null` (accumulator) |
 | `source` | `MANUAL` (always `STAGED`) |
-| `delta` | `{ payload: <Uint8Array> }` |
+| `delta` | `{ heapId: <number> }` |
 
 **Supersession:** if a prior pending change exists for `(sessionId, targetSystemId, fieldGroup=null)`, `PendingChangeWriter` sets `validUntil = now` on the old row and inserts a new merged row — invariant I1 (latest write wins) is satisfied automatically.
 
@@ -646,8 +746,8 @@ async setModuleProperty(
 | Serialization fails | throws `BadRequestException` → 400 |
 | `0x08001011` — module capability intersection fails | throws `DomainRuleViolationException` with display names → 422 |
 | `0x08001011` — all modules pass | `setPropertyData` called; no cascade |
-| `0x08001174` — heap = Default (`0x1`) | `setPropertyData` called; `setModuleProperty` NOT called |
-| `0x08001174` — heap = Low Power (`0x2`) | `setPropertyData` called; `setModuleProperty` called for each module |
+| `0x08001174` — heap = Default (`0x1`) | `setPropertyData` called; `updateHeapId` NOT called |
+| `0x08001174` — heap = Low Power (`0x2`) | `setPropertyData` called; `updateHeapId` called for each module |
 | Any other property | `setPropertyData` called; no cascade |
 
 ### Integration Tests
@@ -660,9 +760,8 @@ async setModuleProperty(
 | `getModulesByContainerId` — module pending DELETE | excludes that module |
 | `getModulesByContainerId` — module pending CREATE | includes that module |
 | `getModulesByContainerId` — no modules | returns `[]` |
-| `setModuleProperty` — base row exists | `writeDelta` called with `prop.systemId` as `targetSystemId` |
-| `setModuleProperty` — property row is staged CREATE | resolves `prop.systemId` from edit_actions |
-| `setModuleProperty` — prior pending change exists | old row superseded; new merged row inserted |
+| `updateHeapId` — writes delta on SpfModule row | `writeDelta` called with `targetTable=SpfModule`, `delta={ heapId }` |
+| `updateHeapId` — prior pending change exists | old row superseded; new merged row inserted |
 
 ### End-to-End Tests
 
@@ -676,6 +775,6 @@ async setModuleProperty(
 | Invalid elements (serialization fails) | 400 |
 | `0x08001011` — module capability mismatch | 422 |
 | `0x08001011` — capability list valid | 200 |
-| `0x08001174` — heap = Default | 200; no module cascade writes |
-| `0x08001174` — heap = Low Power | 200; module cascade writes in edit_actions |
+| `0x08001174` — heap = Default | 200; no module heap updates |
+| `0x08001174` — heap = Low Power | 200; module heapId updates in edit_actions |
 | Any other property | 200 |
