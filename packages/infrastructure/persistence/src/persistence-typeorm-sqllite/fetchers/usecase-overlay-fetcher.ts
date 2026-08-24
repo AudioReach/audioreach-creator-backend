@@ -132,7 +132,7 @@ export class UsecaseOverlayFetcher {
     );
   }
 
-  async applyToUsecases(
+  async getUsecases(
     fileSystemId: number,
     sessionId: number | null,
     restrictToIds?: number[],
@@ -208,11 +208,15 @@ export class UsecaseOverlayFetcher {
       .map(r => r.effective);
 
     const baseIds = new Set(baseRows.map(r => r.systemId));
+    // Session-CREATEd usecases must also satisfy restrictToIds when provided —
+    // without this guard a staged usecase that doesn't match the caller's filter
+    // would bypass scope restrictions.
     const created: UseCaseBase[] = ucActions
       .filter(
         a =>
           a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
+          !baseIds.has(a.targetSystemId) &&
+          (!restrictToIds || restrictToIds.includes(a.targetSystemId)),
       )
       .map(a => {
         const p = a.newValue as Partial<UseCaseBase>;

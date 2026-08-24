@@ -36,7 +36,7 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
     ...BaseColumnSchemaPart,
     name: {type: 'varchar', length: 256},
     subgraphId: {name: 'subgraph_id', type: 'integer'},
-    isImported: {name: 'is_exported', type: 'integer'}, // SQLite stores boolean as 0/1
+    isImported: {name: 'is_imported', type: 'integer'}, // SQLite stores boolean as 0/1
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
   relations: {

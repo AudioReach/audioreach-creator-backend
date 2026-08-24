@@ -11,39 +11,53 @@ import type {
   FilterExpression,
   KeyValueDefQueryService,
   ISessionRepository,
+  SpfModuleQueryService,
 } from '@arc/core';
-import {Result, IssueFactory, LINK_TYPE, RESULT_KIND} from '@arc/core';
+import {Result, IssueFactory, RESULT_KIND} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {
-  NodeRow,
-  DataLinkRow,
-  ControlLinkRow,
-} from '../../entity-schema/index.js';
-import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
-// eslint-disable-next-line sonarjs/deprecation
-import {applyToCollection} from '../edit-session/overlay-merge.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
+import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
 
+/**
+ * Database implementation of UseCaseQueryService.
+ *
+ * getAllUseCases — overlay via UsecaseOverlayFetcher (FR-3); GKV key-value
+ *   pairs resolved via KeyValueDefQueryService (FR-4).
+ *
+ * getAllComponentsForUseCases (deprecated) — previously violated FR-3/FR-4 by
+ *   loading modules, data links, and control links via direct queries with
+ *   inline overlay. Now:
+ *   - Modules: SpfModuleQueryService.findByUsecaseIds() (FR-4 — complex read
+ *     model, query service is the right boundary)
+ *   - Data/control links: LinkOverlayFetcher directly (FR-4 — raw fields are
+ *     available from the fetcher; mapped via UseCaseQueryMappers)
+ *   fileSystemId is resolved from the use_cases table since the deprecated
+ *   signature omits it.
+ */
 export class DbUseCaseQueryService implements UseCaseQueryService {
   private readonly usecaseFetcher: UsecaseOverlayFetcher;
+  private readonly linkFetcher: LinkOverlayFetcher;
 
   constructor(
     private readonly dataSource: DataSource,
     editActionsQuerySvc: EditActionsQueryService,
     private readonly keyValueDefQuerySvc: KeyValueDefQueryService,
+    private readonly spfModuleQuerySvc: SpfModuleQueryService,
     private readonly sessionRepo: ISessionRepository,
   ) {
     this.usecaseFetcher = new UsecaseOverlayFetcher(
       dataSource.manager,
       editActionsQuerySvc,
     );
-    this.editActionsQuerySvc = editActionsQuerySvc;
+    this.linkFetcher = new LinkOverlayFetcher(
+      dataSource.manager,
+      editActionsQuerySvc,
+    );
   }
-  // editActionsQuerySvc retained for deprecated getAllComponentsForUseCases helpers only
-  private readonly editActionsQuerySvc: EditActionsQueryService;
 
   // ── getAllUseCases ────────────────────────────────────────────────────────────
 
@@ -72,14 +86,15 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         if (restrictToIds.length === 0) return Result.ok([]);
       }
 
-      // Fetcher handles UseCase scalars + GKV entry overlay + category assignments
-      const overlaidUsecases = await this.usecaseFetcher.applyToUsecases(
+      // Fetcher handles UseCase scalars + GKV entry overlay + category assignments (FR-3).
+      const overlaidUsecases = await this.usecaseFetcher.getUsecases(
         fileId,
         sessionId,
         restrictToIds,
       );
 
-      // Resolve GKV key-value pairs — the only reference lookup remaining
+      // Resolve GKV key-value pairs — cross-aggregate enrichment (FR-4).
+      // All valueDefIds collected into one batch call (FR-5).
       const allValueDefIds = [
         ...new Set(
           overlaidUsecases.flatMap(uc =>
@@ -144,6 +159,21 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   // ── getAllComponentsForUseCases (deprecated) ──────────────────────────────────
 
+  /**
+   * @deprecated Use the individual query services with a fileSystemId scope instead.
+   *
+   * Previously violated FR-3/FR-4 by loading modules, data links, and control
+   * links via direct queries with inline OverlayMergeImpl. Now:
+   *   - Modules: delegated to SpfModuleQueryService.findByUsecaseIds() (FR-4 —
+   *     the module read model is assembled from many fetchers; the query service
+   *     is the correct boundary)
+   *   - Links: LinkOverlayFetcher.fetchDataLinksByUsecaseIds/fetchControlLinksByUsecaseIds
+   *     called directly (FR-4 — fetcher returns the raw fields needed; mapped via
+   *     UseCaseQueryMappers)
+   *
+   * fileSystemId is resolved from the use_cases table since the deprecated
+   * signature omits it.
+   */
   async getAllComponentsForUseCases(
     useCaseSystemIds: number[],
   ): Promise<ComponentsReadModel> {
@@ -151,212 +181,68 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       return {modules: [], dataLinks: [], controlLinks: []};
     }
 
-    const session = await this.sessionRepo
-      .findActiveSessionByFileSystemId(0)
-      .catch(() => null);
+    // Resolve fileSystemId — required by the module query service and link fetcher.
+    // The deprecated signature omits fileSystemId, so we look it up once.
+    const fileSystemId =
+      await this.resolveFileSystemIdForUsecases(useCaseSystemIds);
+    if (fileSystemId === null) {
+      return {modules: [], dataLinks: [], controlLinks: []};
+    }
 
-    const [modules, dataLinks, controlLinks] = await Promise.all([
-      this.queryModulesForUseCases(useCaseSystemIds, session),
-      this.queryDataLinksForUseCases(useCaseSystemIds, session),
-      this.queryControlLinksForUseCases(useCaseSystemIds, session),
+    const sessionId = await resolveActiveSessionId(
+      this.dataSource,
+      fileSystemId,
+    );
+
+    // Modules: query service (FR-4 — assembles SpfModuleReadModel from many fetchers).
+    // Links: fetcher directly (FR-4 — raw fields sufficient, mapped via UseCaseQueryMappers).
+    const [modulesResult, dataLinks, controlLinks] = await Promise.all([
+      this.spfModuleQuerySvc.findByUsecaseIds(useCaseSystemIds, fileSystemId),
+      this.linkFetcher
+        .fetchDataLinksByUsecaseIds(useCaseSystemIds, fileSystemId, sessionId)
+        .then(links =>
+          links.map(dl =>
+            UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
+          ),
+        ),
+      this.linkFetcher
+        .fetchControlLinksByUsecaseIds(
+          useCaseSystemIds,
+          fileSystemId,
+          sessionId,
+        )
+        .then(links =>
+          links.map(cl =>
+            UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl),
+          ),
+        ),
     ]);
 
-    return {modules, dataLinks, controlLinks};
+    return {
+      modules:
+        modulesResult.kind !== RESULT_KIND.Fail ? modulesResult.data : [],
+      dataLinks,
+      controlLinks,
+    };
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────
 
-  private async queryModulesForUseCases(
-    ids: number[],
-    session: {sessionId: number} | null,
-  ) {
-    const nodes = (await this.dataSource
-      .getRepository(ENTITY_NAMES.Node)
-      .createQueryBuilder('node')
-      .innerJoin(ENTITY_NAMES.SpfModule, 'sm', 'sm.system_id = node.system_id')
-      .innerJoin(
-        ENTITY_NAMES.UseCaseSubgraph,
-        'ucs',
-        'ucs.subgraph_system_id = sm.subgraph_system_id AND ucs.usecase_system_id IN (:...ids)',
-        {ids},
-      )
-      .leftJoinAndSelect('node.spfModule', 'spfModule')
-      .leftJoinAndSelect('spfModule.definition', 'definition')
-      .leftJoinAndSelect('definition.dataPortGroups', 'dataPortGroup')
-      .leftJoinAndSelect('definition.staticPorts', 'staticPort')
-      .leftJoinAndSelect('node.dataPorts', 'dataPort')
-      .leftJoinAndSelect('node.controlPorts', 'controlPort')
-      .leftJoinAndSelect('controlPort.allocatedIntents', 'intent')
-      .getMany()) as NodeRow[];
-
-    let overlaidNodes = nodes;
-
-    if (session) {
-      // Table-wide overlay for all module-owned entity types
-      const [nodeActions, spfModActions, portActions, ctrlPortActs] =
-        await Promise.all([
-          this.editActionsQuerySvc.getByTable(
-            session.sessionId,
-            ENTITY_NAMES.Node,
-          ),
-          this.editActionsQuerySvc.getByTable(
-            session.sessionId,
-            ENTITY_NAMES.SpfModule,
-          ),
-          this.editActionsQuerySvc.getByTable(
-            session.sessionId,
-            ENTITY_NAMES.DataPort,
-          ),
-          this.editActionsQuerySvc.getByTable(
-            session.sessionId,
-            ENTITY_NAMES.ControlPort,
-          ),
-        ]);
-
-      // eslint-disable-next-line sonarjs/deprecation
-      overlaidNodes = applyToCollection(nodes, nodeActions);
-      for (const node of overlaidNodes) {
-        this.overlayNodeAndPorts(
-          node,
-          spfModActions,
-          portActions,
-          ctrlPortActs,
-        );
-      }
-    }
-
-    const seen = new Set<number>();
-    return overlaidNodes
-      .filter(n => n.spfModule && !seen.has(n.systemId) && seen.add(n.systemId))
-      .map(n => UseCaseQueryMappers.mapNodeToSpfModuleReadModel(n));
-  }
-
-  /** Applies overlay to one node's SpfModule row, data ports, and control ports. */
-  private overlayNodeAndPorts(
-    node: NodeRow,
-    spfModActions: EditActionRow[],
-    portActions: EditActionRow[],
-    ctrlPortActs: EditActionRow[],
-  ): void {
-    if (node.spfModule) {
-      const smActions = spfModActions.filter(
-        a => a.targetSystemId === node.systemId,
-      );
-      if (smActions.length > 0) {
-        // eslint-disable-next-line sonarjs/deprecation
-        const [updated] = applyToCollection([node.spfModule], smActions);
-        if (updated) node.spfModule = updated;
-      }
-    }
-    if (node.dataPorts) {
-      // eslint-disable-next-line sonarjs/deprecation
-      node.dataPorts = applyToCollection(
-        node.dataPorts,
-        portActions.filter(a => a.aggregateId === node.systemId),
-      );
-    }
-    if (node.controlPorts) {
-      // eslint-disable-next-line sonarjs/deprecation
-      node.controlPorts = applyToCollection(
-        node.controlPorts,
-        ctrlPortActs.filter(a => a.aggregateId === node.systemId),
-      );
-    }
-  }
-
-  private async queryDataLinksForUseCases(
-    ids: number[],
-    session: {sessionId: number} | null,
-  ) {
-    const [intraSubgraph, intraUsecase] = await Promise.all([
-      this.dataSource
-        .getRepository(ENTITY_NAMES.DataLink)
-        .createQueryBuilder('dl')
-        .innerJoin(
-          ENTITY_NAMES.UseCaseSubgraph,
-          'ucs',
-          'ucs.subgraph_system_id = dl.sourceSubgraphSystemId AND ucs.usecase_system_id IN (:...ids)',
-          {ids},
-        )
-        .where('dl.linkType = :type', {type: LINK_TYPE.IntraSubgraph})
-        .getMany(),
-      this.dataSource
-        .getRepository(ENTITY_NAMES.DataLink)
-        .createQueryBuilder('dl')
-        .innerJoin(
-          ENTITY_NAMES.UseCaseSubgraphPair,
-          'ucsp',
-          'ucsp.source_subgraph_system_id = dl.sourceSubgraphSystemId AND ucsp.dest_subgraph_system_id = dl.destSubgraphSystemId AND ucsp.usecase_system_id IN (:...ids)',
-          {ids},
-        )
-        .where('dl.linkType = :type', {type: LINK_TYPE.IntraUsecase})
-        .getMany(),
-    ]);
-
-    let all = [...intraSubgraph, ...intraUsecase] as DataLinkRow[];
-
-    if (session) {
-      const dlActions = await this.editActionsQuerySvc.getByTable(
-        session.sessionId,
-        ENTITY_NAMES.DataLink,
-      );
-      if (dlActions.length > 0) {
-        // eslint-disable-next-line sonarjs/deprecation
-        all = applyToCollection(all, dlActions);
-      }
-    }
-
-    const seen = new Set<number>();
-    return all
-      .filter(dl => !seen.has(dl.systemId) && seen.add(dl.systemId))
-      .map(dl => UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl));
-  }
-
-  private async queryControlLinksForUseCases(
-    ids: number[],
-    session: {sessionId: number} | null,
-  ) {
-    const [intraSubgraph, intraUsecase] = await Promise.all([
-      this.dataSource
-        .getRepository(ENTITY_NAMES.ControlLink)
-        .createQueryBuilder('cl')
-        .innerJoin(
-          ENTITY_NAMES.UseCaseSubgraph,
-          'ucs',
-          'ucs.subgraph_system_id = cl.sourceSubgraphSystemId AND ucs.usecase_system_id IN (:...ids)',
-          {ids},
-        )
-        .where('cl.linkType = :type', {type: LINK_TYPE.IntraSubgraph})
-        .getMany(),
-      this.dataSource
-        .getRepository(ENTITY_NAMES.ControlLink)
-        .createQueryBuilder('cl')
-        .innerJoin(
-          ENTITY_NAMES.UseCaseSubgraphPair,
-          'ucsp',
-          'ucsp.source_subgraph_system_id = cl.sourceSubgraphSystemId AND ucsp.dest_subgraph_system_id = cl.destSubgraphSystemId AND ucsp.usecase_system_id IN (:...ids)',
-          {ids},
-        )
-        .where('cl.linkType = :type', {type: LINK_TYPE.IntraUsecase})
-        .getMany(),
-    ]);
-
-    let all = [...intraSubgraph, ...intraUsecase] as ControlLinkRow[];
-
-    if (session) {
-      const clActions = await this.editActionsQuerySvc.getByTable(
-        session.sessionId,
-        ENTITY_NAMES.ControlLink,
-      );
-      if (clActions.length > 0) {
-        // eslint-disable-next-line sonarjs/deprecation
-        all = applyToCollection(all, clActions);
-      }
-    }
-
-    const seen = new Set<number>();
-    return all
-      .filter(cl => !seen.has(cl.systemId) && seen.add(cl.systemId))
-      .map(cl => UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl));
+  /**
+   * Looks up fileSystemId from any of the given usecase system IDs.
+   * Required by getAllComponentsForUseCases whose deprecated signature omits it.
+   * Returns null when no matching usecase is found.
+   */
+  private async resolveFileSystemIdForUsecases(
+    usecaseSystemIds: number[],
+  ): Promise<number | null> {
+    const row = (await this.dataSource
+      .getRepository(ENTITY_NAMES.UseCase)
+      .createQueryBuilder('uc')
+      .select('uc.fileSystemId')
+      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
+      .limit(1)
+      .getOne()) as {fileSystemId: number} | null;
+    return row?.fileSystemId ?? null;
   }
 }

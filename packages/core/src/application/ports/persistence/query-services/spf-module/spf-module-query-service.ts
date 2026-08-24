@@ -4,7 +4,6 @@
  */
 
 import type {SpfModuleReadModel} from './spf-module-read-model.js';
-import type {NodeQueryService} from '../node/node-query-service.js';
 import type {SpfTuningConfigService} from './tuning/spf-tuning-config-service.js';
 import type {Result} from '../../../../shared/result/result.js';
 import type {CkvQueryService} from './ckv/ckv-query-service.js';
@@ -55,7 +54,6 @@ export interface SpfModuleQueryService {
     fileSystemId: number,
   ): Promise<Result<SpfModuleReadModel[]>>;
 
-  // Sub-services — reusable directly by handlers that need only ports for a specific node
-  readonly nodeQueryService: NodeQueryService;
+  // Sub-services — reusable directly by handlers that need tuning config or CKV
   readonly spfTuningConfigService: SpfTuningConfigService;
 }

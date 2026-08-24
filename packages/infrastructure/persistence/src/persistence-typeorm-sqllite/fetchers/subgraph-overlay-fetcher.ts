@@ -196,7 +196,7 @@ export class SubgraphOverlayFetcher {
     };
   }
 
-  async applyToSubgraphs(
+  async getSubgraphs(
     fileSystemId: number,
     sessionId: number | null,
   ): Promise<SubgraphBase[]> {
@@ -249,7 +249,7 @@ export class SubgraphOverlayFetcher {
     return [...overlaid, ...created];
   }
 
-  async applyToSgkvs(
+  async getSgkvs(
     fileSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidSgkv[]> {

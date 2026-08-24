@@ -44,6 +44,6 @@ export class ContainerQueryHandler implements QueryHandler<
     if (readModels.kind === RESULT_KIND.Partial) {
       return Result.partial(dtos, readModels.issues);
     }
-    return Result.ok(dtos, readModels.issues);
+    return Result.ok(dtos);
   }
 }

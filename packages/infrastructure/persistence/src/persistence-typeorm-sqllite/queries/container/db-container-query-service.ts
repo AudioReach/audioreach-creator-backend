@@ -15,17 +15,22 @@ import {
 } from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {ContainerTypeFetcher} from '../../fetchers/definitions/container/container-type-fetcher.js';
 
 export class DbContainerQueryService implements ContainerQueryService {
   private readonly containerFetcher: ContainerOverlayFetcher;
+  private readonly containerTypeFetcher: ContainerTypeFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
+    dataSource: DataSource,
     editActionsSvc: EditActionsQueryService,
     private readonly sessionRepo: ISessionRepository,
   ) {
     this.containerFetcher = new ContainerOverlayFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.containerTypeFetcher = new ContainerTypeFetcher(
       dataSource.manager,
       editActionsSvc,
     );
@@ -47,9 +52,8 @@ export class DbContainerQueryService implements ContainerQueryService {
         session?.sessionId ?? null,
       );
 
-      // Step 3 — resolve container type names in one batch query.
-      // ContainerType is a static definition loaded from the .awsp file — not
-      // session-aware, no edit actions, no overlay fetcher needed.
+      // Step 3 — resolve container type names via ContainerTypeFetcher (FR-3).
+      // ContainerType is session-mutable and must be overlay-aware.
       const typeIds = [
         ...new Set(
           rows
@@ -59,12 +63,10 @@ export class DbContainerQueryService implements ContainerQueryService {
       ];
       const typeNameMap = new Map<number, string>();
       if (typeIds.length > 0) {
-        const typeRows = (await this.dataSource
-          .getRepository(ENTITY_NAMES.ContainerType)
-          .createQueryBuilder('ct')
-          .select(['ct.systemId', 'ct.name'])
-          .whereInIds(typeIds)
-          .getMany()) as Array<{systemId: number; name: string}>;
+        const typeRows = await this.containerTypeFetcher.fetchBySystemIds(
+          typeIds,
+          session?.sessionId ?? null,
+        );
         for (const t of typeRows) typeNameMap.set(t.systemId, t.name);
       }
 

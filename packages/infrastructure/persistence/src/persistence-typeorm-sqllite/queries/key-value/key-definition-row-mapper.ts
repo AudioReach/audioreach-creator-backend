@@ -4,17 +4,21 @@
  */
 
 import type {KeyDefinitionReadModel} from '@arc/core';
-import type {KeyDefinitionRow} from '../../entity-schema/definitions/key-value/key-definition.schema.js';
+import type {OverlaidKeyDefinition} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 
 /**
- * Pure row → read model mapper for KeyDefinitionRow, shared by any query
- * service that embeds key definitions (KeyValueDefQueryService,
- * TagDefinitionQueryService). Kept as a standalone function — not a method
- * on either service — so callers don't need a service instance dependency
- * just to map a row they've already queried and overlaid themselves.
+ * Pure overlaid-row → read model mapper for KeyDefinition, shared by any
+ * query service that embeds key definitions (KeyValueDefQueryService,
+ * TagDefinitionQueryService). Accepts OverlaidKeyDefinition (from
+ * KeyValueDefinitionFetcher) rather than the TypeORM KeyDefinitionRow so it
+ * works with the overlay result directly — no DB audit fields needed.
+ *
+ * Kept as a standalone function — not a method on either service — so callers
+ * don't need a service instance dependency just to map a row they've already
+ * fetched and overlaid.
  */
 export function toKeyDefinitionReadModel(
-  row: KeyDefinitionRow,
+  row: OverlaidKeyDefinition,
 ): KeyDefinitionReadModel {
   const hasCHeaderAttributes =
     row.enumMember != null ||

@@ -3,41 +3,57 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import type {EntityManager} from 'typeorm';
 import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import type {ISessionRepository} from '@arc/core';
 import type {SubgraphPropertyBase} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
 
-const overlay = new OverlayMergeImpl();
-
+/**
+ * Fetches subgraph_property_definitions for a file with session overlay applied.
+ *
+ * Follows the standard fetcher pattern (FR-3):
+ *   - Constructor: EntityManager + EditActionsQueryService only.
+ *     Previously accepted DataSource + ISessionRepository; changed to EntityManager
+ *     so the fetcher matches every other fetcher in this layer.
+ *   - sessionId is a caller parameter, not resolved internally.
+ *     The caller (query service) looks up the active session once and passes it
+ *     down — avoids an extra DB round-trip per fetcher call.
+ */
 export class SubgraphPropertyDefinitionFetcher {
+  private readonly overlay = new OverlayMergeImpl();
+
   constructor(
-    private readonly dataSource: DataSource,
+    private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
-    private readonly sessionRepo: ISessionRepository,
   ) {}
 
-  async fetchAll(fileSystemId: number): Promise<SubgraphPropertyBase[]> {
-    const baselineRows = (await this.dataSource
+  /**
+   * Returns all subgraph property definitions for the given file.
+   * When sessionId is provided, CREATE/UPDATE/DELETE overlay from edit_actions
+   * is applied before returning. When null, baseline rows are returned as-is.
+   */
+  async fetchAll(
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<SubgraphPropertyBase[]> {
+    const baselineRows = (await this.manager
       .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
       .createQueryBuilder('sp')
       .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
       .getMany()) as unknown as SubgraphPropertyBase[];
 
-    const session =
-      await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+    if (sessionId === null) return baselineRows;
 
-    if (!session) return baselineRows;
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.SubgraphPropertyDefinition,
+    );
 
-    return overlay
+    return this.overlay
       .applyToCollection(
         baselineRows as unknown as Array<{systemId: number}>,
-        await this.editActionsSvc.getByTable(
-          session.sessionId,
-          ENTITY_NAMES.SubgraphPropertyDefinition,
-        ),
+        actions,
       )
       .map(r => r.effective as unknown as SubgraphPropertyBase);
   }

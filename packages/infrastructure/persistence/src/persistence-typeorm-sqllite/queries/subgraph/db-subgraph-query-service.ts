@@ -22,6 +22,19 @@ import {
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 
+/**
+ * Database implementation of SubgraphQueryService.
+ *
+ * All overlay delegated to SubgraphOverlayFetcher (FR-3):
+ *   applyToSubgraphs — subgraph root rows with session overlay
+ *   applyToSgkvs     — SGKV (subgraph key-value bins) with session overlay
+ *   fetchOne         — single subgraph with property payload rows
+ *
+ * Key-value pair resolution is cross-aggregate enrichment delegated to
+ * KeyValueDefQueryService (FR-4). All valueDefIds from all SGKV bins across
+ * all subgraphs are collected into a single batch call (FR-5 — no per-bin
+ * individual calls) and the results mapped back to bins in memory.
+ */
 export class DbSubgraphQueryService implements SubgraphQueryService {
   private readonly subgraphFetcher: SubgraphOverlayFetcher;
 
@@ -46,11 +59,12 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
       const sessionId = session?.sessionId ?? null;
 
-      const subgraphs = await this.subgraphFetcher.applyToSubgraphs(
+      const subgraphs = await this.subgraphFetcher.getSubgraphs(
         fileSystemId,
         sessionId,
       );
 
+      // Summary — no SGKV data needed.
       if (includes !== CONFIGURATION_INCLUDES.FullDetails) {
         return Result.ok(
           subgraphs.map(s => ({
@@ -63,7 +77,8 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         );
       }
 
-      const allSgkvs = await this.subgraphFetcher.applyToSgkvs(
+      // FullDetails — load all SGKV bins with overlay (one fetcher call).
+      const allSgkvs = await this.subgraphFetcher.getSgkvs(
         fileSystemId,
         sessionId,
       );
@@ -74,39 +89,74 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         sgkvsBySubgraph.set(sgkv.subgraphSystemId, list);
       }
 
+      // Collect ALL valueDefIds from ALL bins across ALL subgraphs into one
+      // batch — avoids per-bin individual calls (FR-5). Results are mapped
+      // back to bins in memory using the valueDefId → key/value lookup below.
+      const allValueDefIds = [
+        ...new Set(
+          allSgkvs.flatMap(sgkv => sgkv.values.map(v => v.valueDefSystemId)),
+        ),
+      ];
+
       const itemErrors: Issue[] = [];
-      const results = await Promise.all(
-        subgraphs.map(async s => {
-          const bins = sgkvsBySubgraph.get(s.systemId) ?? [];
-          const sgkvs: KeyValuePairListReadModel[] = [];
-          for (const bin of bins) {
-            const valueDefIds = bin.values.map(v => v.valueDefSystemId);
-            const pairsResult =
-              await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
-                valueDefIds,
-                fileSystemId,
-              );
-            if (pairsResult.kind === RESULT_KIND.Fail) {
-              itemErrors.push(...pairsResult.issues);
-              continue;
-            }
-            if (pairsResult.kind === RESULT_KIND.Partial) {
-              itemErrors.push(...pairsResult.issues);
-            }
-            sgkvs.push({
-              systemId: bin.systemId,
-              keyValuePairs: pairsResult.data,
-            });
+      let kvPairsByValueId = new Map<
+        number,
+        {
+          key: {
+            systemId: number;
+            keyId: number;
+            name: string;
+            description?: string;
+          };
+          value: {
+            systemId: number;
+            valueId: number;
+            name: string;
+            description?: string;
+          };
+        }
+      >();
+
+      if (allValueDefIds.length > 0) {
+        // Single batch call for all key-value definitions (FR-4 + FR-5).
+        const pairsResult =
+          await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
+            allValueDefIds,
+            fileSystemId,
+          );
+        if (pairsResult.kind === RESULT_KIND.Fail) {
+          itemErrors.push(...pairsResult.issues);
+        } else {
+          if (pairsResult.kind === RESULT_KIND.Partial) {
+            itemErrors.push(...pairsResult.issues);
           }
-          return {
-            systemId: s.systemId,
-            naturalId: s.subgraphId,
-            name: s.name,
-            isImported: s.isImported,
-            sgkvs,
-          } satisfies SubgraphReadModel;
-        }),
-      );
+          // Build a per-valueDefSystemId lookup for O(1) access during assembly.
+          kvPairsByValueId = new Map(
+            pairsResult.data.map(pair => [pair.value.systemId, pair]),
+          );
+        }
+      }
+
+      // Assemble SubgraphReadModel[] in memory — no further DB calls.
+      const results: SubgraphReadModel[] = subgraphs.map(s => {
+        const bins = sgkvsBySubgraph.get(s.systemId) ?? [];
+        const sgkvs: KeyValuePairListReadModel[] = bins.map(bin => ({
+          systemId: bin.systemId,
+          keyValuePairs: bin.values
+            .map(v => kvPairsByValueId.get(v.valueDefSystemId))
+            .filter(
+              (pair): pair is NonNullable<typeof pair> => pair !== undefined,
+            ),
+        }));
+
+        return {
+          systemId: s.systemId,
+          naturalId: s.subgraphId,
+          name: s.name,
+          isImported: s.isImported,
+          sgkvs,
+        };
+      });
 
       return itemErrors.length > 0
         ? Result.partial(results, itemErrors)

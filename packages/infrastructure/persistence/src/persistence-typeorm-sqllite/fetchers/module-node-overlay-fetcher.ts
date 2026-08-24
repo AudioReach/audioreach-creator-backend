@@ -10,7 +10,10 @@ import {applyTableOverlay} from '../queries/edit-session/overlay-utils.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {SpfModuleBase} from '../entity-schema/usecase-data/module/spf-module.schema.js';
-import type {NodeBase} from '../entity-schema/usecase-data/node/node.schema.js';
+import {
+  NODE_TYPE,
+  type NodeBase,
+} from '../entity-schema/usecase-data/node/node.schema.js';
 
 export interface OverlaidSpfModule {
   systemId: number;
@@ -31,6 +34,70 @@ export class ModuleNodeOverlayFetcher {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
+  /**
+   * Returns the overlay-aware definitionSystemId for the given module, or null
+   * if the module does not exist or was deleted in the session.
+   *
+   * Does not require fileSystemId — moduleSystemId is globally unique (auto-
+   * increment PK), so a file-scope filter is unnecessary here.
+   *
+   * Used by getModuleDefinitionSystemId, which receives only the module system
+   * ID and has no fileSystemId in scope. The definitionSystemId CAN change in
+   * a session (e.g. a module is re-assigned to a different definition), so the
+   * baseline-only query used previously was incorrect.
+   */
+  async getDefinitionSystemId(
+    moduleSystemId: number,
+    sessionId: number | null,
+  ): Promise<number | null> {
+    const baseRow = (await this.manager
+      .getRepository(ENTITY_NAMES.SpfModule)
+      .createQueryBuilder('sm')
+      .select(['sm.systemId', 'sm.definitionSystemId'])
+      .where('sm.systemId = :moduleSystemId', {moduleSystemId})
+      .getOne()) as unknown as {
+      systemId: number;
+      definitionSystemId: number;
+    } | null;
+
+    if (sessionId === null) {
+      return baseRow?.definitionSystemId ?? null;
+    }
+
+    const actions = await this.editActionsSvc.getByAggregateId(
+      sessionId,
+      moduleSystemId,
+    );
+    const spfActions = actions.filter(
+      a => a.targetTable === ENTITY_NAMES.SpfModule,
+    );
+
+    // DELETE in session — module no longer exists
+    if (spfActions.some(a => a.operation === CHANGE_OPERATION.Delete)) {
+      return null;
+    }
+
+    // CREATE in session — no baseline row; read definitionSystemId from payload
+    const createAction = spfActions.find(
+      a => a.operation === CHANGE_OPERATION.Create,
+    );
+    if (createAction && baseRow === null) {
+      const p = createAction.newValue as {definitionSystemId?: number};
+      return p.definitionSystemId ?? null;
+    }
+
+    // UPDATE in session — merge definitionSystemId if changed
+    const updateAction = spfActions.find(
+      a => a.operation === CHANGE_OPERATION.Update,
+    );
+    if (updateAction) {
+      const p = updateAction.newValue as {definitionSystemId?: number};
+      if (p.definitionSystemId !== undefined) return p.definitionSystemId;
+    }
+
+    return baseRow?.definitionSystemId ?? null;
+  }
+
   async fetchOne(
     moduleSystemId: number,
     fileSystemId: number,
@@ -40,15 +107,6 @@ export class ModuleNodeOverlayFetcher {
     const baseModuleRow = (await this.manager
       .getRepository(ENTITY_NAMES.SpfModule)
       .createQueryBuilder('sm')
-      .select([
-        'sm.systemId',
-        'sm.instanceId',
-        'sm.alias',
-        'sm.definitionSystemId',
-        'sm.containerSystemId',
-        'sm.subgraphSystemId',
-        'sm.fileSystemId',
-      ])
       .where(
         'sm.systemId = :moduleSystemId AND sm.fileSystemId = :fileSystemId',
         {moduleSystemId, fileSystemId},
@@ -115,7 +173,7 @@ export class ModuleNodeOverlayFetcher {
     };
   }
 
-  async applyToModuleNodes(
+  async fetchOverLayedSpfModules(
     moduleSystemIds: number[],
     fileSystemId: number,
     sessionId: number | null,
@@ -191,11 +249,19 @@ export class ModuleNodeOverlayFetcher {
       .map(r => r.effective);
 
     const baseSpfIds = new Set(baseSpfRows.map(r => r.systemId));
+    // Exclude CREATE actions that also have a DELETE in the same session —
+    // CREATE-then-DELETE collapses to "does not exist" (tombstoned).
+    const deletedSpfIds = new Set(
+      spfActions
+        .filter(a => a.operation === CHANGE_OPERATION.Delete)
+        .map(a => a.targetSystemId),
+    );
     const createdSpf: SpfModuleBase[] = spfActions
       .filter(
         a =>
           a.operation === CHANGE_OPERATION.Create &&
-          !baseSpfIds.has(a.targetSystemId),
+          !baseSpfIds.has(a.targetSystemId) &&
+          !deletedSpfIds.has(a.targetSystemId),
       )
       .map(a => {
         const p = a.newValue as Partial<SpfModuleBase>;
@@ -211,18 +277,25 @@ export class ModuleNodeOverlayFetcher {
       });
 
     const baseNodeIds = new Set(baseNodeRows.map(r => r.systemId));
+    // Same CREATE-then-DELETE collapse for Node rows.
+    const deletedNodeIds = new Set(
+      nodeActions
+        .filter(a => a.operation === CHANGE_OPERATION.Delete)
+        .map(a => a.targetSystemId),
+    );
     const createdNode: NodeBase[] = nodeActions
       .filter(
         a =>
           a.operation === CHANGE_OPERATION.Create &&
-          !baseNodeIds.has(a.targetSystemId),
+          !baseNodeIds.has(a.targetSystemId) &&
+          !deletedNodeIds.has(a.targetSystemId),
       )
       .map(a => {
         const p = a.newValue as Partial<NodeBase>;
         return {
           systemId: a.targetSystemId,
           parentId: p.parentId,
-          type: p.type ?? 'module',
+          type: p.type ?? NODE_TYPE.Module,
           fileSystemId: p.fileSystemId ?? fileSystemId,
         };
       });
@@ -242,7 +315,15 @@ export class ModuleNodeOverlayFetcher {
     }));
   }
 
-  async resolveBaseNodeIdsForSubgraph(
+  /**
+   * Queries the baseline database for all module node system IDs that belong
+   * to the given subgraph. No session overlay is applied — this returns the
+   * committed set of nodes before any staged changes are considered.
+   *
+   * Callers typically follow this with applySessionOverlayToNodesForSubgraph
+   * to incorporate any active-session CREATE/DELETE actions.
+   */
+  async loadBaselineNodeIdsForSubgraph(
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<Set<number>> {
@@ -262,7 +343,16 @@ export class ModuleNodeOverlayFetcher {
     return new Set(rows.map(r => r.systemId));
   }
 
-  async resolveBaseNodeIdsForUsecases(
+  /**
+   * Queries the baseline database for all module node system IDs reachable
+   * from the given usecase system IDs (via use_case_subgraphs). Returns both
+   * the node IDs and the subgraph IDs so callers can scope session overlay.
+   * No session overlay is applied at this stage.
+   *
+   * Callers typically follow this with applySessionOverlayToNodesForUsecases
+   * to incorporate any active-session CREATE/DELETE/UPDATE actions.
+   */
+  async loadBaselineNodeIdsForUsecases(
     usecaseSystemIds: number[],
     fileSystemId: number,
   ): Promise<{nodeIds: Set<number>; subgraphIds: Set<number>}> {
@@ -291,7 +381,16 @@ export class ModuleNodeOverlayFetcher {
     };
   }
 
-  async resolveNodeIdsForSubgraph(
+  /**
+   * Mutates the given nodeIds set in-place by applying the active session's
+   * CREATE and DELETE actions for the given subgraph.
+   *
+   * - SpfModule CREATE actions whose subgraphSystemId matches → add to nodeIds
+   * - Node DELETE actions → remove from nodeIds
+   *
+   * Must be called after loadBaselineNodeIdsForSubgraph has populated nodeIds.
+   */
+  async applySessionOverlayToNodesForSubgraph(
     subgraphSystemId: number,
     nodeIds: Set<number>,
     sessionId: number,
@@ -313,7 +412,17 @@ export class ModuleNodeOverlayFetcher {
     for (const a of nodeDeletes) nodeIds.delete(a.targetSystemId);
   }
 
-  async resolveNodeIdsForUsecases(
+  /**
+   * Mutates both subgraphIds and nodeIds sets in-place by applying the active
+   * session's CREATE and DELETE actions for the given usecases.
+   *
+   * - UseCaseSubgraph CREATE/DELETE → add/remove subgraph IDs in scope
+   * - SpfModule CREATE actions in scope → add module node IDs
+   * - Node DELETE actions → remove node IDs
+   *
+   * Must be called after loadBaselineNodeIdsForUsecases has populated both sets.
+   */
+  async applySessionOverlayToNodesForUsecases(
     usecaseSystemIds: number[],
     subgraphIds: Set<number>,
     nodeIds: Set<number>,

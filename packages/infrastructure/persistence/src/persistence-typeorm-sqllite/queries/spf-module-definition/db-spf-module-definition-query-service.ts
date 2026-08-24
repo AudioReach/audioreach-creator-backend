@@ -2,7 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
 
 import type {DataSource} from 'typeorm';
 import type {
@@ -24,7 +23,6 @@ import type {
 } from '@arc/core';
 import {
   Result,
-  RESULT_KIND,
   ERROR_CODES,
   PORT_IO_TYPE,
   CONFIGURATION_INCLUDES,
@@ -32,48 +30,117 @@ import {
 } from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import {applyToCollection} from '../edit-session/overlay-merge.js';
-import {applyTableOverlay} from '../edit-session/overlay-utils.js';
-import type {SpfModuleDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
-import type {SpfModuleParameterDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
-import type {DynamicIntentDefinitionRow} from '../../entity-schema/definitions/module/spf/dynamic-intent-definition.schema.js';
-import type {DataPortGroupRow} from '../../entity-schema/definitions/module/spf/data-group-definition.schema.js';
-import type {DataPortDefinitionRow} from '../../entity-schema/definitions/module/spf/data-port-definition.schema.js';
-import type {StaticControlPortDefinitionRow} from '../../entity-schema/definitions/module/spf/static-control-port-definition.schema.js';
-import type {StaticIntentDefinitionRow} from '../../entity-schema/definitions/module/spf/static-intent-definition.schema.js';
-import type {ModuleDefinitionContainerTypeLinkRow} from '../../entity-schema/definitions/module/spf/module-definition-container-type-link.schema.js';
-import type {SpfModuleRow} from '../../entity-schema/usecase-data/module/spf-module.schema.js';
-import type {ModuleManagerDataRow} from '../../entity-schema/module-manager/module-manager-data.js';
-import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {
   ModuleType,
   InterfaceType,
   InterfaceVersion,
 } from '../../entity-schema/module-manager/types.js';
+import {
+  SpfModuleDefinitionFetcher,
+  type OverlaidSpfModuleDefinition,
+} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-fetcher.js';
+import {
+  DataPortGroupFetcher,
+  type OverlaidDataPortGroup,
+  type OverlaidDataPortDefinition,
+} from '../../fetchers/definitions/spf-module-definitions/data-port-group-fetcher.js';
+import {
+  StaticControlPortDefFetcher,
+  type OverlaidStaticControlPortDefinition,
+  type OverlaidStaticIntentDefinition,
+} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
+import {
+  DynamicIntentDefFetcher,
+  type OverlaidDynamicIntentDefinition,
+} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
+import {
+  SpfModuleParameterDefinitionFetcher,
+  type OverlaidParameterDefinition,
+} from '../../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
+import {ModuleNodeOverlayFetcher} from '../../fetchers/module-node-overlay-fetcher.js';
+import {ProcessorDefinitionFetcher} from '../../fetchers/definitions/common/processor-definition-fetcher.js';
+import {ContainerTypeFetcher} from '../../fetchers/definitions/container/container-type-fetcher.js';
+import {ModuleManagerDataFetcher} from '../../fetchers/module-manager/module-manager-data-fetcher.js';
+import type {OverlaidModuleManagerData} from '../../fetchers/module-manager/module-manager-data-fetcher.js';
+
+/** Combined output of all four definition child fetchers for one definition. */
+interface DefinitionAggregate {
+  root: OverlaidSpfModuleDefinition;
+  portGroups: OverlaidDataPortGroup[];
+  staticPorts: OverlaidStaticControlPortDefinition[];
+  dynamicIntents: OverlaidDynamicIntentDefinition[];
+  parameters: OverlaidParameterDefinition[];
+}
 
 /**
  * Database implementation of SpfModuleDefinitionQueryService.
  *
- * getDefinition() always loads summary (port capacity counts) by default.
- * fullDetails=true loads ports, intents, and parameters on top of summary.
+ * All overlay is delegated to the five definition fetchers (FR-3):
+ *   SpfModuleDefinitionFetcher        — root scalars + containerTypeLinks
+ *   DataPortGroupFetcher              — data port groups + port definitions
+ *   StaticControlPortDefFetcher       — static control ports + static intents
+ *   DynamicIntentDefFetcher           — dynamic intents
+ *   SpfModuleParameterDefinitionFetcher — parameter definitions
  *
- * Single-item overlay (getDefinition/getParameterDefinition) — one
- * getEditActionsByAggregateId call per aggregate, applyTableOverlay filters
- * per table from the single result. Same pattern as applyKeyDefOverlay
- * across all services.
+ * Processor names and container type names are loaded via direct batch queries
+ * (FR-7 — session-immutable reference data, never staged in edit_actions).
  *
- * List overlay (getAllSpfModuleDefinitionSummaries/getSpfModuleDefinitionSummary)
- * batches instead — loadOverlaidDefinitionRows/loadParameterDefinitionsForModules
- * fetch each table once via getEditActionsByTable and group by aggregateId,
- * so listing N modules costs O(1) queries, not O(N).
- *
- * Parameter definition loading merged here — internal concern of this service.
+ * SpfModuleDefinitionFetcher.fetchOne returning null is treated as a fatal
+ * failure for that definition — child fetchers are not called (FR-8 Rule 1).
  */
 export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQueryService {
+  private readonly defFetcher: SpfModuleDefinitionFetcher;
+  private readonly portGroupFetcher: DataPortGroupFetcher;
+  private readonly staticPortFetcher: StaticControlPortDefFetcher;
+  private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
+  private readonly paramFetcher: SpfModuleParameterDefinitionFetcher;
+  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
+  private readonly processorFetcher: ProcessorDefinitionFetcher;
+  private readonly containerTypeFetcher: ContainerTypeFetcher;
+  private readonly moduleManagerFetcher: ModuleManagerDataFetcher;
+
   constructor(
     private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
-  ) {}
+    editActionsSvc: EditActionsQueryService,
+  ) {
+    this.defFetcher = new SpfModuleDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.portGroupFetcher = new DataPortGroupFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.staticPortFetcher = new StaticControlPortDefFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.dynamicIntentFetcher = new DynamicIntentDefFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.paramFetcher = new SpfModuleParameterDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.processorFetcher = new ProcessorDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.containerTypeFetcher = new ContainerTypeFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+    this.moduleManagerFetcher = new ModuleManagerDataFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
 
   // ── Public methods ───────────────────────────────────────────────────────
 
@@ -81,21 +148,25 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     spfModuleSystemId: number,
   ): Promise<Result<number>> {
     try {
-      const module = (await this.dataSource
-        .getRepository(ENTITY_NAMES.SpfModule)
-        .createQueryBuilder('m')
-        .select(['m.systemId', 'm.definitionSystemId'])
-        .where('m.systemId = :systemId', {systemId: spfModuleSystemId})
-        .getOne()) as SpfModuleRow | null;
+      // definitionSystemId can change in a session — must apply overlay (FR-3).
+      // No fileSystemId is available here; moduleNodeFetcher.resolveDefinitionSystemId
+      // queries by systemId alone (globally unique PK — no file scope needed).
+      const sessionId =
+        await this.resolveSessionIdByModuleSystemId(spfModuleSystemId);
+      const definitionSystemId =
+        await this.moduleNodeFetcher.getDefinitionSystemId(
+          spfModuleSystemId,
+          sessionId,
+        );
 
-      if (!module) {
+      if (definitionSystemId === null) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `SpfModule not found for systemId=${spfModuleSystemId} — cannot resolve definition system ID`,
           severity: IssueSeverity.Error,
         });
       }
-      return Result.ok(module.definitionSystemId);
+      return Result.ok(definitionSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -108,25 +179,31 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     }
   }
 
+  /**
+   * Returns a single SpfModuleDefinition read model for the given system ID.
+   * All overlay applied via fetchers (FR-3).
+   *
+   * Child fetchers are only called when the root definition is found —
+   * a null root means the definition was deleted in session (FR-8 Rule 1).
+   */
   async getDefinition(
     defSystemId: number,
     fileSystemId: number,
     includes: ConfigurationIncludes,
   ): Promise<Result<SpfModuleDefinitionReadModel>> {
     try {
-      // Use batched infrastructure (same as summary queries) for consistency
-      const qb = this.buildSummaryQueryBuilder(fileSystemId).andWhere(
-        'def.systemId = :defSystemId',
-        {defSystemId},
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
       );
 
-      const result = await this.loadSummaryReadModels(qb, fileSystemId);
-      if (result.kind === RESULT_KIND.Fail)
-        return Result.fail(...result.issues);
-
-      const summary = result.data.find(s => s.systemId === defSystemId);
-
-      if (!summary) {
+      // Step 1 — root fetcher guards child fetchers (FR-8 Rule 1)
+      const aggregate = await this.loadDefinitionAggregate(
+        defSystemId,
+        fileSystemId,
+        sessionId,
+      );
+      if (aggregate === null) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `SpfModuleDefinition not found for systemId=${defSystemId}`,
@@ -134,8 +211,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         });
       }
 
-      // Convert SpfModuleDefinitionSummaryReadModel → SpfModuleDefinitionReadModel
-      return Result.ok(this.summaryToDefinitionReadModel(summary, includes));
+      return Result.ok(this.buildDefinitionReadModel(aggregate, includes));
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -152,14 +228,18 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     includes: ConfigurationIncludes,
   ): Promise<Result<ParameterDefinitionReadModel>> {
     try {
-      // Step 1 — Load base row to get the module definition system ID
-      const row = (await this.dataSource
-        .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
-        .createQueryBuilder('param')
-        .where('param.systemId = :id', {id: parameterDefinitionSystemId})
-        .getOne()) as SpfModuleParameterDefinitionRow | null;
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
 
-      if (!row) {
+      // Delegates overlay to paramFetcher.fetchOne — no direct table query (FR-3).
+      const overlaid = await this.paramFetcher.fetchOne(
+        parameterDefinitionSystemId,
+        sessionId,
+      );
+
+      if (!overlaid) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `ParameterDefinition not found for systemId=${parameterDefinitionSystemId}`,
@@ -167,45 +247,19 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         });
       }
 
-      // Step 2 — Use batched overlay method (consistent with summary queries)
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-      const sessionId = session?.sessionId ?? null;
-
-      const parametersByModuleId =
-        await this.loadParameterDefinitionsForModules(
-          [row.spfModuleDefinitionSystemId],
-          sessionId,
-        );
-
-      const params =
-        parametersByModuleId.get(row.spfModuleDefinitionSystemId) ?? [];
-      const overlaid = params.find(
-        p => p.systemId === parameterDefinitionSystemId,
-      );
-
-      if (!overlaid) {
-        return Result.fail({
-          code: ERROR_CODES.ENTITY_NOT_FOUND,
-          message: `ParameterDefinition not found after overlay for systemId=${parameterDefinitionSystemId}`,
-          severity: IssueSeverity.Error,
-        });
-      }
-
-      // Step 3 — Return based on ConfigurationIncludes
-      // summary: systemId, paramId, name, description, pidType (already in overlaid)
-      // fullDetails: all fields (already in overlaid from toParameterDefinitionReadModel)
+      const detail = this.toParameterDefinitionReadModel(overlaid);
       if (includes !== CONFIGURATION_INCLUDES.FullDetails) {
         return Result.ok({
-          systemId: overlaid.systemId,
-          paramId: overlaid.paramId,
-          name: overlaid.name,
-          isReadOnly: overlaid.isReadOnly,
-          description: overlaid.description,
-          pidType: overlaid.pidType,
+          systemId: detail.systemId,
+          paramId: detail.paramId,
+          name: detail.name,
+          isReadOnly: detail.isReadOnly,
+          description: detail.description,
+          pidType: detail.pidType,
         });
       }
 
-      return Result.ok(overlaid);
+      return Result.ok(detail);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -218,12 +272,10 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     }
   }
 
-  // ── Summary query methods (list / get-by-id / custom-module-metadata) ───
-
   /**
    * Returns all SPF module definitions for the file, filtered by any
-   * combination of processorNaturalId/moduleDefinitionNaturalId/parameterNaturalId (AND
-   * semantics). Overlay always applied.
+   * combination of processorNaturalId/moduleDefinitionNaturalId/parameterNaturalId.
+   * Overlay applied via fetchers.
    */
   async getAllSpfModuleDefinitionSummaries(
     fileSystemId: number,
@@ -234,32 +286,104 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     },
   ): Promise<Result<SpfModuleDefinitionSummaryReadModel[]>> {
     try {
-      const qb = this.buildSummaryQueryBuilder(fileSystemId);
+      // Step 1 — lean ID query with filter conditions.
+      // JOINs here are for filtering only (no data loaded from joined tables).
+      const defSystemIds = await this.resolveFilteredDefinitionIds(
+        fileSystemId,
+        filters,
+      );
+      if (defSystemIds.length === 0) return Result.ok([]);
 
-      if (filters.moduleDefinitionNaturalId !== undefined) {
-        qb.andWhere('def.moduleDefinitionId = :moduleDefinitionId', {
-          moduleDefinitionId: filters.moduleDefinitionNaturalId,
-        });
-      }
-      if (filters.processorNaturalId !== undefined) {
-        qb.andWhere('processor.processorDefinitionId = :processorId', {
-          processorId: filters.processorNaturalId,
-        });
-      }
-      if (filters.parameterNaturalId !== undefined) {
-        qb.andWhere(
-          `EXISTS (${qb
-            .subQuery()
-            .select('1')
-            .from(ENTITY_NAMES.SpfModuleParameterDefinition, 'p2')
-            .where('p2.spfModuleDefinitionSystemId = def.systemId')
-            .andWhere('p2.paramId = :parameterId')
-            .getQuery()})`,
-          {parameterId: filters.parameterNaturalId},
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+
+      // Step 2 — load definition aggregates and parameters in batch
+      const paramsByDef = await this.paramFetcher.fetchForDefinitions(
+        defSystemIds,
+        sessionId,
+      );
+
+      // Step 3 — load processor names (FR-7: session-immutable, batch query)
+      const aggregates = await this.loadDefinitionAggregates(
+        defSystemIds,
+        fileSystemId,
+        sessionId,
+        paramsByDef,
+      );
+
+      const processorSystemIds = [
+        ...new Set(
+          aggregates
+            .filter((a): a is DefinitionAggregate => a !== null)
+            .map(a => a.root.processorSystemId),
+        ),
+      ];
+      const processorMap = await this.loadProcessorInfo(
+        processorSystemIds,
+        sessionId,
+      );
+
+      // Step 4 — load container type names via ContainerTypeFetcher (FR-3)
+      const allContainerTypeIds = [
+        ...new Set(
+          aggregates
+            .filter((a): a is DefinitionAggregate => a !== null)
+            .flatMap(a => a.root.containerTypeSystemIds),
+        ),
+      ];
+      const containerTypeNameMap = await this.loadContainerTypeNames(
+        allContainerTypeIds,
+        sessionId,
+      );
+
+      // Step 5 — load custom module metadata
+      const customModuleSystemIds = await this.resolveCustomModuleSystemIds(
+        defSystemIds,
+        fileSystemId,
+        sessionId,
+      );
+
+      // Step 6 — assemble summaries (FR-8 Rule 3: null aggregate = warning, continue)
+      const data: SpfModuleDefinitionSummaryReadModel[] = [];
+      const missingIds: number[] = [];
+
+      for (const [i, defId] of defSystemIds.entries()) {
+        const aggregate = aggregates[i];
+        if (aggregate === null) {
+          missingIds.push(defId);
+          continue;
+        }
+        const processorInfo = processorMap.get(
+          aggregate.root.processorSystemId,
+        ) ?? {
+          systemId: aggregate.root.processorSystemId,
+          processorId: 0,
+          name: '',
+        };
+        data.push(
+          this.buildSummaryReadModel(
+            aggregate,
+            processorInfo,
+            containerTypeNameMap,
+            customModuleSystemIds.has(aggregate.root.systemId),
+          ),
         );
       }
 
-      return await this.loadSummaryReadModels(qb, fileSystemId);
+      if (missingIds.length > 0) {
+        return Result.partial(
+          data,
+          missingIds.map(id => ({
+            code: ERROR_CODES.ENTITY_NOT_FOUND,
+            message: `SpfModuleDefinition not found for systemId=${id}`,
+            severity: IssueSeverity.Error,
+          })),
+        );
+      }
+
+      return Result.ok(data);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -272,26 +396,28 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     }
   }
 
-  /**
-   * Returns a single SPF module definition summary by system ID.
-   * Result.fail with ENTITY_NOT_FOUND if absent from DB and session.
-   */
   async getSpfModuleDefinitionSummary(
     moduleSystemId: number,
     fileSystemId: number,
   ): Promise<Result<SpfModuleDefinitionSummaryReadModel>> {
     try {
-      const qb = this.buildSummaryQueryBuilder(fileSystemId).andWhere(
-        'def.systemId = :moduleSystemId',
-        {moduleSystemId},
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
       );
 
-      const result = await this.loadSummaryReadModels(qb, fileSystemId);
-      if (result.kind === RESULT_KIND.Fail)
-        return Result.fail(...result.issues);
+      const params = await this.paramFetcher.fetchForDefinition(
+        moduleSystemId,
+        sessionId,
+      );
+      const aggregate = await this.loadDefinitionAggregate(
+        moduleSystemId,
+        fileSystemId,
+        sessionId,
+        params,
+      );
 
-      const match = result.data.find(d => d.systemId === moduleSystemId);
-      if (!match) {
+      if (aggregate === null) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
           message: `SpfModuleDefinition not found for systemId=${moduleSystemId}`,
@@ -299,7 +425,32 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         });
       }
 
-      return Result.ok(match);
+      const processorMap = await this.loadProcessorInfo(
+        [aggregate.root.processorSystemId],
+        sessionId,
+      );
+      const containerTypeNameMap = await this.loadContainerTypeNames(
+        aggregate.root.containerTypeSystemIds,
+        sessionId,
+      );
+      const customModuleSystemIds = await this.resolveCustomModuleSystemIds(
+        [moduleSystemId],
+        fileSystemId,
+        sessionId,
+      );
+
+      return Result.ok(
+        this.buildSummaryReadModel(
+          aggregate,
+          processorMap.get(aggregate.root.processorSystemId) ?? {
+            systemId: aggregate.root.processorSystemId,
+            processorId: 0,
+            name: '',
+          },
+          containerTypeNameMap,
+          customModuleSystemIds.has(moduleSystemId),
+        ),
+      );
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -312,31 +463,21 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     }
   }
 
-  /**
-   * Returns FR-3's custom module metadata for one module definition,
-   * sourced from module_manager_data (joined by moduleDefinitionSystemId).
-   * A missing row is a valid, expected state — resolves to Result.ok(null),
-   * not Result.fail (reserved for genuine DB/internal errors).
-   */
   async getCustomModuleMetadata(
     moduleDefinitionSystemId: number,
     fileSystemId: number,
   ): Promise<Result<CustomModuleMetadataReadModel | null>> {
     try {
-      const row = (await this.dataSource
-        .getRepository(ENTITY_NAMES.ModuleManagerData)
-        .createQueryBuilder('mmd')
-        .where('mmd.moduleDefinitionSystemId = :moduleDefinitionSystemId', {
-          moduleDefinitionSystemId,
-        })
-        .andWhere('mmd.fileSystemId = :fileSystemId', {fileSystemId})
-        .getOne()) as ModuleManagerDataRow | null;
-
-      if (!row) {
-        return Result.ok(null);
-      }
-
-      return Result.ok(this.toCustomModuleMetadataReadModel(row));
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
+      const row = await this.moduleManagerFetcher.fetchOne(
+        moduleDefinitionSystemId,
+        fileSystemId,
+        sessionId,
+      );
+      return Result.ok(row ? this.toCustomModuleMetadataReadModel(row) : null);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -349,11 +490,6 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     }
   }
 
-  /**
-   * Batched variant of getCustomModuleMetadata — one IN query for a list of
-   * module definition system IDs instead of one query per module. Modules
-   * with no module_manager_data row are simply absent from the returned map.
-   */
   async getCustomModuleMetadataBySystemIds(
     moduleDefinitionSystemIds: number[],
     fileSystemId: number,
@@ -361,29 +497,395 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     const map = new Map<number, CustomModuleMetadataReadModel>();
     if (moduleDefinitionSystemIds.length === 0) return map;
 
-    const rows = (await this.dataSource
-      .getRepository(ENTITY_NAMES.ModuleManagerData)
-      .createQueryBuilder('mmd')
-      .where(
-        'mmd.moduleDefinitionSystemId IN (:...moduleDefinitionSystemIds)',
-        {
-          moduleDefinitionSystemIds,
-        },
-      )
-      .andWhere('mmd.fileSystemId = :fileSystemId', {fileSystemId})
-      .getMany()) as ModuleManagerDataRow[];
-
-    for (const row of rows) {
-      map.set(
-        row.moduleDefinitionSystemId,
-        this.toCustomModuleMetadataReadModel(row),
-      );
+    const sessionId = await resolveActiveSessionId(
+      this.dataSource,
+      fileSystemId,
+    );
+    const rowMap = await this.moduleManagerFetcher.fetchByDefinitionSystemIds(
+      moduleDefinitionSystemIds,
+      fileSystemId,
+      sessionId,
+    );
+    for (const [defId, row] of rowMap) {
+      map.set(defId, this.toCustomModuleMetadataReadModel(row));
     }
     return map;
   }
 
+  async queryParameterDefinitions(
+    fileSystemId: number,
+    moduleDefSystemId: number,
+    paramSystemIds?: number[],
+    sessionId?: number | null,
+  ): Promise<ParameterDefinitionReadModel[]> {
+    const resolvedSessionId =
+      sessionId !== undefined
+        ? sessionId
+        : await resolveActiveSessionId(this.dataSource, fileSystemId);
+
+    const params = await this.paramFetcher.fetchForDefinition(
+      moduleDefSystemId,
+      resolvedSessionId,
+    );
+
+    const all = params.map(p => this.toParameterDefinitionReadModel(p));
+
+    return paramSystemIds && paramSystemIds.length > 0
+      ? all.filter(p => paramSystemIds.includes(p.systemId))
+      : all;
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Resolves sessionId scoped to the file that owns the given module.
+   * Used by getModuleDefinitionSystemId where fileSystemId is not available.
+   */
+  private async resolveSessionIdByModuleSystemId(
+    moduleSystemId: number,
+  ): Promise<number | null> {
+    // Look up fileSystemId from the module baseline row, then resolve session.
+    const row = (await this.dataSource
+      .getRepository(ENTITY_NAMES.SpfModule)
+      .createQueryBuilder('m')
+      .select('m.fileSystemId')
+      .where('m.systemId = :id', {id: moduleSystemId})
+      .getOne()) as {fileSystemId: number} | null;
+    if (!row) return null;
+    return resolveActiveSessionId(this.dataSource, row.fileSystemId);
+  }
+
+  /**
+   * Calls all five definition fetchers in sequence for a single definition.
+   * Returns null if the root definition is not found or was deleted in session
+   * (FR-8 Rule 1 — child fetchers are skipped).
+   *
+   * @param preloadedParams optional pre-loaded parameters (avoids a second fetch
+   *   when the caller already has them, e.g. in getSpfModuleDefinitionSummary)
+   */
+  private async loadDefinitionAggregate(
+    defSystemId: number,
+    fileSystemId: number,
+    sessionId: number | null,
+    preloadedParams?: OverlaidParameterDefinition[],
+  ): Promise<DefinitionAggregate | null> {
+    // Root first — if absent, do not call child fetchers (FR-8 Rule 1).
+    const root = await this.defFetcher.fetchOne(
+      defSystemId,
+      fileSystemId,
+      sessionId,
+    );
+    if (root === null) return null;
+
+    // Child fetchers run only after root is confirmed present.
+    const portGroups = await this.portGroupFetcher.fetchForDefinition(
+      defSystemId,
+      sessionId,
+    );
+    const staticPorts = await this.staticPortFetcher.fetchForDefinition(
+      defSystemId,
+      sessionId,
+    );
+    const dynamicIntents = await this.dynamicIntentFetcher.fetchForDefinition(
+      defSystemId,
+      sessionId,
+    );
+    const parameters =
+      preloadedParams ??
+      (await this.paramFetcher.fetchForDefinition(defSystemId, sessionId));
+
+    return {root, portGroups, staticPorts, dynamicIntents, parameters};
+  }
+
+  /**
+   * Loads definition aggregates for a set of definition IDs.
+   * Per FR-8 Rule 3: a null result for one definition does not block others.
+   * Result array indices correspond 1-to-1 with defSystemIds.
+   */
+  private async loadDefinitionAggregates(
+    defSystemIds: number[],
+    fileSystemId: number,
+    sessionId: number | null,
+    paramsByDef: Map<number, OverlaidParameterDefinition[]>,
+  ): Promise<(DefinitionAggregate | null)[]> {
+    const results: (DefinitionAggregate | null)[] = [];
+    for (const defId of defSystemIds) {
+      const params = paramsByDef.get(defId) ?? [];
+      results.push(
+        await this.loadDefinitionAggregate(
+          defId,
+          fileSystemId,
+          sessionId,
+          params,
+        ),
+      );
+    }
+    return results;
+  }
+
+  /**
+   * Delegates ID resolution to SpfModuleDefinitionFetcher.resolveBaseDefinitionIds
+   * (FR-3 — the fetcher owns the baseline scan for this aggregate).
+   */
+  private async resolveFilteredDefinitionIds(
+    fileSystemId: number,
+    filters: {
+      moduleDefinitionNaturalId?: number;
+      processorNaturalId?: number;
+      parameterNaturalId?: number;
+    },
+  ): Promise<number[]> {
+    return this.defFetcher.getBaseDefinitionIds(fileSystemId, filters);
+  }
+
+  /**
+   * Batch-loads processor info by system IDs via ProcessorDefinitionFetcher (FR-3).
+   */
+  private async loadProcessorInfo(
+    processorSystemIds: number[],
+    sessionId: number | null,
+  ): Promise<Map<number, ProcessorSummaryReadModel>> {
+    const map = new Map<number, ProcessorSummaryReadModel>();
+    if (processorSystemIds.length === 0) return map;
+
+    const rows = await this.processorFetcher.fetchBySystemIds(
+      processorSystemIds,
+      sessionId,
+    );
+    for (const row of rows) {
+      map.set(row.systemId, {
+        systemId: row.systemId,
+        processorId: row.processorDefinitionId,
+        name: row.name,
+      });
+    }
+    return map;
+  }
+
+  /**
+   * Batch-loads container type names by system IDs via ContainerTypeFetcher (FR-3).
+   */
+  private async loadContainerTypeNames(
+    containerTypeSystemIds: number[],
+    sessionId: number | null,
+  ): Promise<Map<number, ContainerTypeSummaryReadModel>> {
+    const map = new Map<number, ContainerTypeSummaryReadModel>();
+    if (containerTypeSystemIds.length === 0) return map;
+
+    const rows = await this.containerTypeFetcher.fetchBySystemIds(
+      containerTypeSystemIds,
+      sessionId,
+    );
+    for (const row of rows) {
+      map.set(row.systemId, {name: row.name, value: String(row.value)});
+    }
+    return map;
+  }
+
+  /** Returns the set of definition systemIds that have custom module metadata. */
+  private async resolveCustomModuleSystemIds(
+    defSystemIds: number[],
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<Set<number>> {
+    if (defSystemIds.length === 0) return new Set();
+    const rowMap = await this.moduleManagerFetcher.fetchByDefinitionSystemIds(
+      defSystemIds,
+      fileSystemId,
+      sessionId,
+    );
+    return new Set(rowMap.keys());
+  }
+
+  // ── Assembly methods ──────────────────────────────────────────────────────
+
+  /**
+   * Maps a loaded definition aggregate to SpfModuleDefinitionReadModel.
+   * FullDetails includes nested structures; Summary includes only port counts.
+   */
+  private buildDefinitionReadModel(
+    agg: DefinitionAggregate,
+    includes: ConfigurationIncludes,
+  ): SpfModuleDefinitionReadModel {
+    const maxInputPortsSupported = agg.portGroups
+      .filter(g => g.portIoType === PORT_IO_TYPE.Input)
+      .reduce((sum, g) => sum + g.maxAllowedPortCount, 0);
+    const maxOutputPortsSupported = agg.portGroups
+      .filter(g => g.portIoType === PORT_IO_TYPE.Output)
+      .reduce((sum, g) => sum + g.maxAllowedPortCount, 0);
+    const maxControlPortsSupported = agg.staticPorts.length;
+
+    const details =
+      includes === CONFIGURATION_INCLUDES.FullDetails
+        ? {
+            dataPortGroups: this.mapPortGroups(agg.portGroups),
+            staticControlPorts: this.mapStaticPorts(agg.staticPorts),
+            dynamicIntents: this.mapDynamicIntents(agg.dynamicIntents),
+            parameterDefinitions: agg.parameters.map(p =>
+              this.toParameterDefinitionReadModel(p),
+            ),
+          }
+        : {
+            dataPortGroups: null,
+            staticControlPorts: null,
+            dynamicIntents: null,
+            parameterDefinitions: null,
+          };
+
+    return {
+      systemId: agg.root.systemId,
+      name: agg.root.name,
+      moduleId: agg.root.moduleDefinitionId,
+      maxInputPortsSupported,
+      maxOutputPortsSupported,
+      maxControlPortsSupported,
+      ...details,
+    };
+  }
+
+  /** Maps a loaded definition aggregate to SpfModuleDefinitionSummaryReadModel. */
+  private buildSummaryReadModel(
+    agg: DefinitionAggregate,
+    processorInfo: ProcessorSummaryReadModel,
+    containerTypeNameMap: Map<number, ContainerTypeSummaryReadModel>,
+    isCustomModule: boolean,
+  ): SpfModuleDefinitionSummaryReadModel {
+    return {
+      systemId: agg.root.systemId,
+      moduleId: agg.root.moduleDefinitionId,
+      name: agg.root.name,
+      displayName: agg.root.displayName ?? undefined,
+      description: agg.root.description ?? undefined,
+      parameterDefinitions: agg.parameters.map(p =>
+        this.toParameterSummaryReadModel(p),
+      ),
+      deprecated: undefined, // no column on spf_module_definitions yet
+      processorInfo,
+      modSearchKeys: agg.root.modSearchKeys ?? undefined,
+      isOffloadable: undefined, // no column yet
+      builtIn: false, // no column yet
+      vocoderModuleType: undefined, // no column yet
+      moduleDirectionType: undefined, // no column yet
+      moduleInfo: this.buildModuleInfoSummary(agg, containerTypeNameMap),
+      isLoadedAtBootup: agg.root.isLoadedAtBootup,
+      isCustomModule,
+    };
+  }
+
+  private buildModuleInfoSummary(
+    agg: DefinitionAggregate,
+    containerTypeNameMap: Map<number, ContainerTypeSummaryReadModel>,
+  ): ModuleInfoSummaryReadModel {
+    const portGroups = this.mapPortGroups(agg.portGroups);
+    const staticCtrlPorts = this.mapStaticPorts(agg.staticPorts);
+    const dynamicIntents = this.mapDynamicIntents(agg.dynamicIntents);
+    const containerTypeInfo = agg.root.containerTypeSystemIds
+      .map(id => containerTypeNameMap.get(id))
+      .filter((ct): ct is ContainerTypeSummaryReadModel => ct !== undefined);
+
+    return {
+      pidFramework: 0, // no column yet
+      stackSize: agg.root.stackSize,
+      containerTypeInfo,
+      metaData: undefined, // no column yet
+      reserved: undefined, // no column yet
+      inputDataPortInfo:
+        portGroups.find(g => g.portIoType === PORT_IO_TYPE.Input) ?? null,
+      outputDataPortInfo:
+        portGroups.find(g => g.portIoType === PORT_IO_TYPE.Output) ?? null,
+      staticCtrlPorts,
+      dynamicIntents,
+      moduleTypeInfo: undefined, // no column yet
+      mdfModuleType: undefined, // no column yet
+    };
+  }
+
+  // ── Read model mappers ────────────────────────────────────────────────────
+
+  private mapPortGroups(
+    groups: OverlaidDataPortGroup[],
+  ): DataPortGroupReadModel[] {
+    return groups.map(g => ({
+      systemId: g.systemId,
+      portIoType: g.portIoType,
+      maxAllowedPortCount: g.maxAllowedPortCount,
+      ports: this.mapPorts(g.portDefinitions),
+    }));
+  }
+
+  private mapPorts(
+    defs: OverlaidDataPortDefinition[],
+  ): DataPortDefinitionReadModel[] {
+    return defs.map(p => ({
+      systemId: p.systemId,
+      dataPortId: p.dataPortId,
+      name: p.name ?? '',
+    }));
+  }
+
+  private mapStaticPorts(
+    ports: OverlaidStaticControlPortDefinition[],
+  ): ControlPortDefinitionReadModel[] {
+    return ports.map(p => ({
+      systemId: p.systemId,
+      portId: p.portId,
+      portName: p.portName,
+      staticIntents: this.mapStaticIntents(p.staticIntents),
+    }));
+  }
+
+  private mapStaticIntents(
+    intents: OverlaidStaticIntentDefinition[],
+  ): StaticIntentDefinitionReadModel[] {
+    return intents.map(i => ({
+      systemId: i.systemId,
+      intentId: i.intentId,
+      name: i.name,
+    }));
+  }
+
+  private mapDynamicIntents(
+    intents: OverlaidDynamicIntentDefinition[],
+  ): DynamicIntentDefinitionReadModel[] {
+    return intents.map(d => ({
+      systemId: d.systemId,
+      intentId: d.intentId,
+      name: d.name,
+      maxPort: d.maxPort,
+    }));
+  }
+
+  private toParameterDefinitionReadModel(
+    p: OverlaidParameterDefinition,
+  ): ParameterDefinitionReadModel {
+    return {
+      systemId: p.systemId,
+      paramId: p.paramId,
+      name: p.name ?? '',
+      isReadOnly: p.isReadOnly,
+      description: p.description,
+      pidType: p.pidType,
+    };
+  }
+
+  private toParameterSummaryReadModel(
+    p: OverlaidParameterDefinition,
+  ): ParameterDefinitionSummaryReadModel {
+    return {
+      systemId: p.systemId,
+      paramId: p.paramId,
+      name: p.name ?? '',
+      description: p.description,
+      isHidden: false, // not persisted yet
+      isReadOnly: p.isReadOnly,
+      deprecated: undefined, // not persisted yet
+      toolPolicies: p.toolPolicies ?? '',
+      pidType: p.pidType,
+    };
+  }
+
   private toCustomModuleMetadataReadModel(
-    row: ModuleManagerDataRow,
+    row: OverlaidModuleManagerData,
   ): CustomModuleMetadataReadModel {
     return {
       type: {
@@ -402,556 +904,6 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       },
       fileName: row.fileName,
       endPointFunctionTag: row.tag,
-    };
-  }
-
-  // ── Summary query helpers ────────────────────────────────────────────────
-
-  private buildSummaryQueryBuilder(fileSystemId: number) {
-    return this.dataSource
-      .getRepository(ENTITY_NAMES.SpfModuleDefinition)
-      .createQueryBuilder('def')
-      .where('def.fileSystemId = :fileSystemId', {fileSystemId})
-      .leftJoinAndSelect('def.processor', 'processor')
-      .leftJoinAndSelect('def.containerTypeLinks', 'ctLink')
-      .leftJoinAndSelect('ctLink.containerType', 'ct')
-      .leftJoinAndSelect('def.dataPortGroups', 'portGroup')
-      .leftJoinAndSelect('portGroup.ports', 'portDef')
-      .leftJoinAndSelect('def.staticPorts', 'staticPort')
-      .leftJoinAndSelect('staticPort.staticIntents', 'staticIntent')
-      .leftJoinAndSelect('def.dynamicIntents', 'dynamicIntent');
-  }
-
-  /**
-   * Runs the given summary query, then overlays + assembles every matched
-   * row into a SpfModuleDefinitionSummaryReadModel. Batches overlay and
-   * parameter resolution across all matched rows — see
-   * loadOverlaidDefinitionRows / loadParameterDefinitionsForModules —
-   * instead of one getEditActionsByAggregateId + one parameter query per
-   * row (O(1) queries total, not O(N)). A row whose overlay resolves to a
-   * session DELETE is excluded and reported as a per-row ENTITY_NOT_FOUND
-   * issue via Result.partial, rather than silently falling back to the
-   * stale base row — mirrors DbDriverModuleDefinitionQueryService.
-   */
-  private async loadSummaryReadModels(
-    qb: ReturnType<
-      DbSpfModuleDefinitionQueryService['buildSummaryQueryBuilder']
-    >,
-    fileSystemId: number,
-  ): Promise<Result<SpfModuleDefinitionSummaryReadModel[]>> {
-    const rows = (await qb.getMany()) as SpfModuleDefinitionRow[];
-    if (rows.length === 0) return Result.ok([]);
-
-    const moduleSystemIds = rows.map(r => r.systemId);
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    const sessionId = session?.sessionId ?? null;
-
-    const [overlaidRows, parametersByModuleId, customModuleSystemIds] =
-      await Promise.all([
-        this.loadOverlaidDefinitionRows(rows, sessionId),
-        this.loadParameterDefinitionsForModules(moduleSystemIds, sessionId),
-        (async () => {
-          if (moduleSystemIds.length === 0) return new Set<number>();
-
-          const rows = (await this.dataSource
-            .getRepository(ENTITY_NAMES.ModuleManagerData)
-            .createQueryBuilder('mmd')
-            .select(['mmd.moduleDefinitionSystemId'])
-            .where('mmd.moduleDefinitionSystemId IN (:...systemIds)', {
-              systemIds: moduleSystemIds,
-            })
-            .getMany()) as ModuleManagerDataRow[];
-
-          return new Set(rows.map(r => r.moduleDefinitionSystemId));
-        })(),
-      ]);
-
-    const data: SpfModuleDefinitionSummaryReadModel[] = [];
-    const missingSystemIds: number[] = [];
-
-    for (const row of rows) {
-      const overlaidRow = overlaidRows.get(row.systemId);
-      if (overlaidRow === undefined) {
-        missingSystemIds.push(row.systemId);
-        continue;
-      }
-
-      const parameterDefinitions = (
-        parametersByModuleId.get(row.systemId) ?? []
-      ).map(p => this.toParameterSummaryReadModel(p));
-
-      const processorInfo: ProcessorSummaryReadModel = {
-        systemId:
-          overlaidRow.processor?.systemId ?? overlaidRow.processorSystemId,
-        processorId: overlaidRow.processor?.processorDefinitionId ?? 0,
-        name: overlaidRow.processor?.name ?? '',
-      };
-
-      data.push({
-        systemId: overlaidRow.systemId,
-        moduleId: overlaidRow.moduleDefinitionId,
-        name: overlaidRow.name ?? '',
-        displayName: overlaidRow.displayName,
-        description: overlaidRow.description,
-        parameterDefinitions,
-        deprecated: undefined, // no column on spf_module_definitions yet
-        processorInfo,
-        modSearchKeys: overlaidRow.modSearchKeys,
-        isOffloadable: undefined, // no column on spf_module_definitions yet
-        builtIn: false, // no column on spf_module_definitions yet
-        vocoderModuleType: undefined, // no column on spf_module_definitions yet
-        moduleDirectionType: undefined, // no column on spf_module_definitions yet
-        moduleInfo: this.mapModuleInfoSummary(overlaidRow),
-        isLoadedAtBootup: overlaidRow.isLoadedAtBootup,
-        isCustomModule: customModuleSystemIds.has(row.systemId),
-      });
-    }
-
-    if (missingSystemIds.length > 0) {
-      return Result.partial(
-        data,
-        missingSystemIds.map(id => ({
-          code: ERROR_CODES.ENTITY_NOT_FOUND,
-          message: `SpfModuleDefinition not found for systemId=${id}`,
-          severity: IssueSeverity.Error,
-        })),
-      );
-    }
-
-    return Result.ok(data);
-  }
-
-  /**
-   * Batched overlay for a list of SpfModuleDefinition rows — one
-   * getEditActionsByAggregateId call per row, run concurrently. Always
-   * resolves full detail (ports/intents) — the summary read model has no
-   * summary/fullDetails toggle, unlike getDefinition. Delegates the actual
-   * tree-walk to overlayModuleDefinitionTree — same shared logic
-   * getDefinition uses for a single row.
-   *
-   * Aggregate-scoped rather than table-scoped: N modules cost N queries,
-   * each returning only that module's own actions (no session-wide
-   * over-fetch), instead of a fixed 6 getEditActionsByTable calls that pull
-   * every action across the whole session and discard what doesn't belong
-   * to the requested modules. This trades an O(1)-regardless-of-N query
-   * count for O(N) with no wasted rows — the right call when N is small
-   * (get-by-id, small lists); revisit if list sizes grow large enough that
-   * N queries becomes the bottleneck instead.
-   *
-   * A row whose root overlay resolves to a session DELETE is omitted from
-   * the returned map (not fallen back to the stale base row) — callers
-   * detect this via map.has(systemId) and report it as missing.
-   */
-  private async loadOverlaidDefinitionRows(
-    baseRows: SpfModuleDefinitionRow[],
-    sessionId: number | null,
-  ): Promise<Map<number, SpfModuleDefinitionRow>> {
-    const map = new Map<number, SpfModuleDefinitionRow>();
-    if (sessionId === null) {
-      for (const row of baseRows) map.set(row.systemId, row);
-      return map;
-    }
-
-    const actionsByRow = await Promise.all(
-      baseRows.map(row =>
-        this.editActionsSvc.getByAggregateId(sessionId, row.systemId),
-      ),
-    );
-
-    for (const [index, baseRow] of baseRows.entries()) {
-      const actions = actionsByRow[index];
-      const overlaidDef = applyTableOverlay(
-        baseRow,
-        actions,
-        ENTITY_NAMES.SpfModuleDefinition,
-      );
-      if (overlaidDef === null) continue;
-
-      map.set(
-        baseRow.systemId,
-        this.overlayModuleDefinitionTree(overlaidDef, actions),
-      );
-    }
-
-    return map;
-  }
-
-  /**
-   * Batched parameter resolution for a list of module definition system
-   * ids — one IN query + one getEditActionsByTable call total, instead of
-   * one query + one getEditActionsByAggregateId call per module. Mirrors
-   * DbKeyValueDefQueryService.getKeyDefinitionsBySystemIds's batching shape.
-   */
-  private async loadParameterDefinitionsForModules(
-    moduleDefSystemIds: number[],
-    sessionId: number | null,
-  ): Promise<Map<number, ParameterDefinitionReadModel[]>> {
-    if (moduleDefSystemIds.length === 0) return new Map();
-
-    const rows = (await this.dataSource
-      .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
-      .createQueryBuilder('param')
-      .where('param.spfModuleDefinitionSystemId IN (:...moduleDefSystemIds)', {
-        moduleDefSystemIds,
-      })
-      .getMany()) as SpfModuleParameterDefinitionRow[];
-
-    const overlaidRows =
-      sessionId === null
-        ? rows
-        : applyToCollection(
-            rows,
-            await this.editActionsSvc.getByTable(
-              sessionId,
-              ENTITY_NAMES.SpfModuleParameterDefinition,
-            ),
-          );
-
-    const rowsByModuleId = new Map<number, SpfModuleParameterDefinitionRow[]>();
-    for (const row of overlaidRows) {
-      const bucket = rowsByModuleId.get(row.spfModuleDefinitionSystemId) ?? [];
-      bucket.push(row);
-      rowsByModuleId.set(row.spfModuleDefinitionSystemId, bucket);
-    }
-
-    const map = new Map<number, ParameterDefinitionReadModel[]>();
-    for (const [moduleId, rows] of rowsByModuleId) {
-      map.set(moduleId, this.mapParameterDefs(rows));
-    }
-    return map;
-  }
-
-  private toParameterSummaryReadModel(
-    p: ParameterDefinitionReadModel,
-  ): ParameterDefinitionSummaryReadModel {
-    return {
-      systemId: p.systemId,
-      paramId: p.paramId,
-      name: p.name,
-      description: p.description,
-      isHidden: false, // not persisted anywhere yet — LLD §2.3.1
-      isReadOnly: p.isReadOnly,
-      deprecated: undefined, // not persisted yet — LLD §2.3.1
-      toolPolicies: p.toolPolicies ?? '',
-      pidType: p.pidType,
-    };
-  }
-
-  /**
-   * Composes the mapping helpers into ModuleInfoSummaryReadModel — replaces
-   * toModuleInfoSummary + assembleFullDetails combined. Container type
-   * links are read from the base DB only; overlayModuleDefinitionTree does
-   * not overlay the containerTypeLinks join table (out of scope for this
-   * phase; container-type assignment editing isn't a primary concern here).
-   */
-  private mapModuleInfoSummary(
-    overlaidRow: SpfModuleDefinitionRow,
-  ): ModuleInfoSummaryReadModel {
-    const portGroups = this.mapPortGroups(overlaidRow.dataPortGroups ?? []);
-    const staticCtrlPorts = this.mapStaticPorts(overlaidRow.staticPorts ?? []);
-    const dynamicIntents = this.mapDynamicIntents(
-      overlaidRow.dynamicIntents ?? [],
-    );
-    const containerTypeInfo = this.mapContainerTypes(
-      overlaidRow.containerTypeLinks ?? [],
-    );
-
-    return {
-      pidFramework: 0, // no column on spf_module_definitions yet
-      stackSize: overlaidRow.stackSize,
-      containerTypeInfo,
-      metaData: undefined, // no column on spf_module_definitions yet
-      reserved: undefined, // no column on spf_module_definitions yet
-      inputDataPortInfo:
-        portGroups.find(g => g.portIoType === PORT_IO_TYPE.Input) ?? null,
-      outputDataPortInfo:
-        portGroups.find(g => g.portIoType === PORT_IO_TYPE.Output) ?? null,
-      staticCtrlPorts,
-      dynamicIntents,
-      moduleTypeInfo: undefined, // no column yet — parseModuleTypeInfo deferred with schema
-      mdfModuleType: undefined, // no column yet — parseMdfModuleType deferred with schema
-    };
-  }
-
-  // ── Overlay methods ──────────────────────────────────────────────────────
-
-  private overlayDynamicIntents(
-    rows: DynamicIntentDefinitionRow[],
-    actions: EditActionRow[],
-  ): DynamicIntentDefinitionRow[] {
-    return applyToCollection(
-      rows,
-      actions.filter(
-        a => a.targetTable === ENTITY_NAMES.DynamicIntentDefinition,
-      ),
-    );
-  }
-
-  private overlayPortGroups(
-    rows: DataPortGroupRow[],
-    actions: EditActionRow[],
-  ): DataPortGroupRow[] {
-    return applyToCollection(
-      rows,
-      actions.filter(a => a.targetTable === ENTITY_NAMES.DataPortGroup),
-    );
-  }
-
-  private overlayPorts(
-    rows: DataPortDefinitionRow[],
-    actions: EditActionRow[],
-  ): DataPortDefinitionRow[] {
-    return applyToCollection(
-      rows,
-      actions.filter(a => a.targetTable === ENTITY_NAMES.DataPortDefinition),
-    );
-  }
-
-  private overlayStaticPorts(
-    rows: StaticControlPortDefinitionRow[],
-    actions: EditActionRow[],
-  ): StaticControlPortDefinitionRow[] {
-    return applyToCollection(
-      rows,
-      actions.filter(
-        a => a.targetTable === ENTITY_NAMES.StaticControlPortDefinition,
-      ),
-    );
-  }
-
-  private overlayStaticIntents(
-    rows: StaticIntentDefinitionRow[],
-    actions: EditActionRow[],
-  ): StaticIntentDefinitionRow[] {
-    return applyToCollection(
-      rows,
-      actions.filter(
-        a => a.targetTable === ENTITY_NAMES.StaticIntentDefinition,
-      ),
-    );
-  }
-
-  /**
-   * Composes the root-row overlay (inline, single call site) with the five
-   * per-table overlay helpers into the full SpfModuleDefinition tree:
-   * root → dataPortGroups → ports, staticPorts → staticIntents,
-   * dynamicIntents. Always overlays every leaf table — replaces
-   * overlayDefinitionTree, which gated leaf overlay behind an
-   * `includeLeafDetails` flag that every live caller already passed as
-   * `true` (the summary read model has no summary/fullDetails toggle;
-   * getDefinition derives its own split downstream in
-   * summaryToDefinitionReadModel, not via overlay-skipping).
-   */
-  private overlayModuleDefinitionTree(
-    row: SpfModuleDefinitionRow,
-    actions: EditActionRow[],
-  ): SpfModuleDefinitionRow {
-    const overlaidDef =
-      applyTableOverlay(row, actions, ENTITY_NAMES.SpfModuleDefinition) ?? row;
-
-    const overlaidPortGroups = this.overlayPortGroups(
-      overlaidDef.dataPortGroups ?? [],
-      actions,
-    ).map(g => ({
-      ...g,
-      ports: this.overlayPorts(g.ports ?? [], actions),
-    }));
-
-    const overlaidStaticPorts = this.overlayStaticPorts(
-      overlaidDef.staticPorts ?? [],
-      actions,
-    ).map(p => ({
-      ...p,
-      staticIntents: this.overlayStaticIntents(p.staticIntents ?? [], actions),
-    }));
-
-    return {
-      ...overlaidDef,
-      dataPortGroups: overlaidPortGroups,
-      staticPorts: overlaidStaticPorts,
-      dynamicIntents: this.overlayDynamicIntents(
-        overlaidDef.dynamicIntents ?? [],
-        actions,
-      ),
-    };
-  }
-
-  // ── Assembly methods ─────────────────────────────────────────────────────
-
-  private mapPortGroups(rows: DataPortGroupRow[]): DataPortGroupReadModel[] {
-    return rows.map(
-      (g): DataPortGroupReadModel => ({
-        systemId: g.systemId,
-        portIoType: g.portIoType,
-        maxAllowedPortCount: g.maxAllowedPortCount,
-        ports: this.mapPorts(g.ports ?? []),
-      }),
-    );
-  }
-
-  private mapPorts(
-    rows: DataPortDefinitionRow[],
-  ): DataPortDefinitionReadModel[] {
-    return rows.map(
-      (p): DataPortDefinitionReadModel => ({
-        systemId: p.systemId,
-        dataPortId: p.dataPortId,
-        name: p.name ?? '',
-      }),
-    );
-  }
-
-  private mapStaticPorts(
-    rows: StaticControlPortDefinitionRow[],
-  ): ControlPortDefinitionReadModel[] {
-    return rows.map(
-      (p): ControlPortDefinitionReadModel => ({
-        systemId: p.systemId,
-        portId: p.portId,
-        portName: p.portName ?? '',
-        staticIntents: this.mapStaticIntents(p.staticIntents ?? []),
-      }),
-    );
-  }
-
-  private mapStaticIntents(
-    rows: StaticIntentDefinitionRow[],
-  ): StaticIntentDefinitionReadModel[] {
-    return rows.map(
-      (i): StaticIntentDefinitionReadModel => ({
-        systemId: i.systemId,
-        intentId: i.intentId,
-        name: i.name ?? '',
-      }),
-    );
-  }
-
-  private mapDynamicIntents(
-    rows: DynamicIntentDefinitionRow[],
-  ): DynamicIntentDefinitionReadModel[] {
-    return rows.map(
-      (d): DynamicIntentDefinitionReadModel => ({
-        systemId: d.systemId,
-        intentId: d.intentId,
-        name: d.name ?? '',
-        maxPort: d.maxPort,
-      }),
-    );
-  }
-
-  private mapContainerTypes(
-    links: ModuleDefinitionContainerTypeLinkRow[],
-  ): ContainerTypeSummaryReadModel[] {
-    return links
-      .map(l => l.containerType)
-      .filter((ct): ct is NonNullable<typeof ct> => ct != null)
-      .map(ct => ({name: ct.name, value: String(ct.value)}));
-  }
-
-  private mapParameterDefs(
-    rows: SpfModuleParameterDefinitionRow[],
-  ): ParameterDefinitionReadModel[] {
-    return rows.map(
-      (row): ParameterDefinitionReadModel => ({
-        systemId: row.systemId,
-        paramId: row.paramId,
-        name: row.name,
-        isReadOnly: false, // ToDO
-        description: row.description,
-        pidType: row.pidType ?? '',
-      }),
-    );
-  }
-
-  /**
-   * Loads and overlays parameter definitions for a module definition aggregate.
-   * Parameters are keyed by moduleDefSystemId — separate aggregate from the definition.
-   *
-   * Delegates to loadParameterDefinitionsForModules for consistent batched overlay
-   * strategy across single and multi-module queries. The batched method uses
-   * getEditActionsByTable instead of getEditActionsByAggregateId, providing a
-   * uniform approach that matches the pattern used by summary queries.
-   *
-   * sessionId lets a caller that already resolved the active session pass
-   * it through instead of this method re-deriving it via its own
-   * findActiveSession call.
-   */
-  async queryParameterDefinitions(
-    fileSystemId: number,
-    moduleDefSystemId: number,
-    paramSystemIds?: number[],
-    sessionId?: number | null,
-  ): Promise<ParameterDefinitionReadModel[]> {
-    if (sessionId === undefined) {
-      const activeSession =
-        await this.editActionsSvc.findActiveSession(fileSystemId);
-      sessionId = activeSession?.sessionId ?? null;
-    }
-
-    const parametersByModuleId = await this.loadParameterDefinitionsForModules(
-      [moduleDefSystemId],
-      sessionId,
-    );
-
-    const params = parametersByModuleId.get(moduleDefSystemId) ?? [];
-
-    return paramSystemIds && paramSystemIds.length > 0
-      ? params.filter(p => paramSystemIds.includes(p.systemId))
-      : params;
-  }
-
-  /**
-   * Converts SpfModuleDefinitionSummaryReadModel → SpfModuleDefinitionReadModel.
-   * The summary model contains all the data needed for the definition model;
-   * we just need to reshape it and filter based on ConfigurationIncludes.
-   */
-  private summaryToDefinitionReadModel(
-    summary: SpfModuleDefinitionSummaryReadModel,
-    includes: ConfigurationIncludes,
-  ): SpfModuleDefinitionReadModel {
-    // Compute capacity counts from moduleInfo
-    const staticPorts = summary.moduleInfo.staticCtrlPorts ?? [];
-
-    const counts = {
-      maxInputPortsSupported:
-        summary.moduleInfo.inputDataPortInfo?.maxAllowedPortCount ?? 0,
-      maxOutputPortsSupported:
-        summary.moduleInfo.outputDataPortInfo?.maxAllowedPortCount ?? 0,
-      maxControlPortsSupported: staticPorts.length,
-    };
-
-    // For fullDetails, extract the nested structures
-    const details =
-      includes === CONFIGURATION_INCLUDES.FullDetails
-        ? {
-            dataPortGroups: [
-              summary.moduleInfo.inputDataPortInfo,
-              summary.moduleInfo.outputDataPortInfo,
-            ].filter((g): g is NonNullable<typeof g> => g != null),
-            staticControlPorts: summary.moduleInfo.staticCtrlPorts ?? [],
-            dynamicIntents: summary.moduleInfo.dynamicIntents ?? [],
-            parameterDefinitions: summary.parameterDefinitions.map(p => ({
-              systemId: p.systemId,
-              paramId: p.paramId,
-              name: p.name,
-              isReadOnly: p.isReadOnly,
-              description: p.description,
-              pidType: p.pidType,
-            })),
-          }
-        : {
-            dataPortGroups: null,
-            staticControlPorts: null,
-            dynamicIntents: null,
-            parameterDefinitions: null,
-          };
-
-    return {
-      systemId: summary.systemId,
-      name: summary.name,
-      moduleId: summary.moduleId,
-      ...counts,
-      ...details,
     };
   }
 }

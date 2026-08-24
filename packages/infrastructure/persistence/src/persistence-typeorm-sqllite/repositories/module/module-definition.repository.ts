@@ -19,13 +19,13 @@ import {
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {SpfModuleDefinitionRow} from '../../entity-schema/definitions/module/spf/spf-module-definition.schema.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {SpfModuleDefinitionRootFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-root-fetcher.js';
+import {SpfModuleDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-fetcher.js';
 import {DataPortGroupFetcher} from '../../fetchers/definitions/spf-module-definitions/data-port-group-fetcher.js';
 import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
 import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-definitions/dynamic-intent-def-fetcher.js';
 
 export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionRepository {
-  private readonly rootFetcher: SpfModuleDefinitionRootFetcher;
+  private readonly rootFetcher: SpfModuleDefinitionFetcher;
   private readonly portGroupFetcher: DataPortGroupFetcher;
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
@@ -35,10 +35,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     private readonly uow: UnitOfWork,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
-    this.rootFetcher = new SpfModuleDefinitionRootFetcher(
-      manager,
-      editActionsQs,
-    );
+    this.rootFetcher = new SpfModuleDefinitionFetcher(manager, editActionsQs);
     this.portGroupFetcher = new DataPortGroupFetcher(manager, editActionsQs);
     this.staticPortFetcher = new StaticControlPortDefFetcher(
       manager,

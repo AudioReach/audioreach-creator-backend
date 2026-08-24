@@ -115,7 +115,6 @@ export class DbQueryServices implements QueryServices {
     this.spfModuleQueryService = new DbSpfModuleQueryService(
       dataSource,
       editActionsQueryService,
-      this.spfModuleDefinitionQueryService,
       this.spfTuningConfigService,
       this.keyValueDefQueryService,
       sessionRepo,
@@ -158,6 +157,7 @@ export class DbQueryServices implements QueryServices {
       dataSource,
       editActionsQueryService,
       this.keyValueDefQueryService,
+      this.spfModuleQueryService,
       sessionRepo,
     );
 

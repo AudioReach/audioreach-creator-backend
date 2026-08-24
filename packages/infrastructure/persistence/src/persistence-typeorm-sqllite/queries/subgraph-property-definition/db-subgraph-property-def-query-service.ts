@@ -14,42 +14,52 @@ import {
   ERROR_CODES,
   IssueSeverity,
 } from '@arc/core';
-import {OverlayMergeImpl} from '../edit-session/overlay-merge.js';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import type {
-  SubgraphPropertyBase,
-  SubgraphPropertyRow,
-} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
+import type {SubgraphPropertyBase} from '../../entity-schema/definitions/subgraph/subgraph-property-definition.schema.js';
 import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
 
-const overlay = new OverlayMergeImpl();
-
+/**
+ * Query service for subgraph property definitions.
+ *
+ * All overlay is delegated to SubgraphPropertyDefinitionFetcher (FR-3).
+ * The service resolves the active session once per method and passes sessionId
+ * to the fetcher — no inline applyToCollection or direct edit_actions queries.
+ *
+ * getSubgraphPropertyDefinition previously applied applyToCollection inline
+ * with a direct table query; now delegates to fetcher.fetchAll and filters
+ * in memory — same pattern as DbContainerPropertyDefQueryService (FR-3).
+ */
 export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQueryService {
   private readonly fetcher: SubgraphPropertyDefinitionFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
-    private readonly editActionsSvc: EditActionsQueryService,
+    dataSource: DataSource,
+    editActionsSvc: EditActionsQueryService,
     private readonly sessionRepo: ISessionRepository,
   ) {
+    // Pass manager (not DataSource) to match the standard fetcher constructor
+    // pattern: EntityManager + EditActionsQueryService.
     this.fetcher = new SubgraphPropertyDefinitionFetcher(
-      dataSource,
+      dataSource.manager,
       editActionsSvc,
-      sessionRepo,
     );
   }
 
   /**
    * Returns every subgraph property definition for the given fileSystemId.
-   * Overlay always applied — no applyOverlay flag, matching DbContainerPropertyDefQueryService.
+   * Overlay always applied via fetcher.
    */
   async getAllSubgraphPropertyDefinitionsSummary(
     fileSystemId: number,
     propertyNaturalId?: number,
   ): Promise<Result<SubgraphPropertyDefinitionSummaryReadModel[]>> {
     try {
-      const rows = await this.fetcher.fetchAll(fileSystemId);
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
 
       const filtered =
         propertyNaturalId === undefined
@@ -71,37 +81,25 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
 
   /**
    * Returns a single subgraph property definition by systemId.
-   * Resolution order: DB row first, then session overlay.
+   * Delegates overlay to fetcher — filters the full result set in memory
+   * rather than issuing a separate single-entity query (FR-3).
    */
   async getSubgraphPropertyDefinition(
     propertySystemId: number,
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionReadModel>> {
     try {
-      const baseRow = (await this.dataSource
-        .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
-        .createQueryBuilder('sp')
-        .where('sp.systemId = :propertySystemId', {propertySystemId})
-        .getOne()) as SubgraphPropertyRow | null;
-
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      const baseRows = baseRow ? [baseRow] : [];
-      let rows = baseRows;
-      if (session) {
-        const actions = await this.editActionsSvc.getByTable(
-          session.sessionId,
-          ENTITY_NAMES.SubgraphPropertyDefinition,
-        );
-        rows = overlay
-          .applyToCollection(
-            baseRows,
-            actions.filter(a => a.targetSystemId === propertySystemId),
-          )
-          .map(r => r.effective);
-      }
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
 
-      const match = rows[0];
+      // fetchAll already applies overlay for the whole file;
+      // filter in memory rather than issuing a second targeted query.
+      const match = rows.find(r => r.systemId === propertySystemId);
+
       return match
         ? Result.ok(this.toDetailReadModel(match))
         : Result.fail({
@@ -120,6 +118,31 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
       });
     }
   }
+
+  async getAllDetailedSubgraphPropertyDefinitionsWithElements(
+    fileSystemId: number,
+  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subgraph property definitions with elements',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  // ── Private read model mappers ─────────────────────────────────────────────
 
   private toSummaryReadModel(
     row: SubgraphPropertyBase,
@@ -141,24 +164,6 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
       ...this.toSummaryReadModel(row),
       maxSize: row.maxSize,
     };
-  }
-
-  async getAllDetailedSubgraphPropertyDefinitionsWithElements(
-    fileSystemId: number,
-  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>> {
-    try {
-      const rows = await this.fetcher.fetchAll(fileSystemId);
-      return Result.ok(rows.map(r => this.toDetailWithElementsReadModel(r)));
-    } catch (error) {
-      return Result.fail({
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load subgraph property definitions with elements',
-        severity: IssueSeverity.Error,
-      });
-    }
   }
 
   private toDetailWithElementsReadModel(

@@ -2,8 +2,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-/* eslint-disable sonarjs/deprecation -- TODO(LLD3): migrate to OverlayMergeImpl; these services use compat shims pending read-service rewrite */
-
 import type {DataSource} from 'typeorm';
 import type {
   NodeQueryService,
@@ -14,16 +12,16 @@ import type {
 import {Result, ERROR_CODES, NodeType, IssueSeverity} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
-import {applyToCollection} from '../edit-session/overlay-merge.js';
-import type {DataPortRow} from '../../entity-schema/usecase-data/node/data-port-info.schema.js';
-import type {
-  ControlPortRow,
-  IntentRow,
-} from '../../entity-schema/usecase-data/node/control-port.js';
+import {OverlayMergeImpl} from '../edit-session/overlay-merge.js';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 import type {NodeRow} from '../../entity-schema/usecase-data/node/node.schema.js';
 import type {DataPortDefinitionRow} from '../../entity-schema/definitions/module/spf/data-port-definition.schema.js';
 import type {StaticControlPortDefinitionRow} from '../../entity-schema/definitions/module/spf/static-control-port-definition.schema.js';
+import {
+  PortOverlayFetcher,
+  type OverlaidIntent,
+} from '../../fetchers/port-overlay-fetcher.js';
+import {resolveActiveSessionId} from '../shared/session-resolver.js';
 
 /**
  * Centralized database implementation of NodeQueryService.
@@ -32,14 +30,22 @@ import type {StaticControlPortDefinitionRow} from '../../entity-schema/definitio
  * (SpfModule, Subsystem, etc.) in a single service — replaces the
  * separate DbDataPortQueryService and DbControlPortQueryService.
  *
- * Both methods apply the three-tier edit session overlay independently.
+ * Both methods delegate overlay to PortOverlayFetcher (FR-3).
  * totalLinksAtPort is overlay-aware for both data and control ports.
  */
 export class DbNodeQueryService implements NodeQueryService {
+  private readonly portFetcher: PortOverlayFetcher;
+  private readonly overlay = new OverlayMergeImpl();
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsSvc: EditActionsQueryService,
-  ) {}
+  ) {
+    this.portFetcher = new PortOverlayFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
+  }
 
   // ── Data ports ─────────────────────────────────────────────────────────────
 
@@ -48,50 +54,35 @@ export class DbNodeQueryService implements NodeQueryService {
     fileSystemId: number,
   ): Promise<Result<DataPortReadModel[]>> {
     try {
-      const baseRows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.DataPort)
-        .createQueryBuilder('dp')
-        .where('dp.nodeSystemId = :nodeSystemId', {nodeSystemId})
-        .getMany()) as DataPortRow[];
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
 
-      const portIds = baseRows.map(r => r.systemId);
+      // Step 1 — overlay via PortOverlayFetcher (FR-3)
+      const overlaidPorts = await this.portFetcher.fetchDataPorts(
+        nodeSystemId,
+        fileSystemId,
+        sessionId,
+      );
+
+      const portIds = overlaidPorts.map(p => p.systemId);
       const linkCounts = await this.countDataLinksPerPort(
         portIds,
         fileSystemId,
       );
 
-      // Step 3 — three-tier overlay on port rows
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-
-      const portEditActionMap = new Map<number, EditActionRow>();
-      if (session) {
-        const actions = await this.editActionsSvc.getByAggregateId(
-          session.sessionId,
-          nodeSystemId,
-        );
-        for (const action of actions.filter(
-          a => a.targetTable === ENTITY_NAMES.DataPort,
-        )) {
-          portEditActionMap.set(action.targetSystemId, action);
-        }
-      }
-
-      const portRows: DataPortRow[] =
-        portEditActionMap.size > 0
-          ? applyToCollection(baseRows, [...portEditActionMap.values()])
-          : baseRows;
-
-      // Step 4 — resolve authoritative names from definition tables (module nodes only).
-      // For subsystem nodes definitionSystemId is null — portNameMap stays null and
-      // the mapping falls back to the overlay-applied instance name (row.name ?? '').
+      // Step 2 — resolve authoritative names from definition tables (module nodes only).
+      // For subsystem nodes getDefinitionSystemIdForModule returns null — portNameMap stays null and
+      // the mapping falls back to the overlay-applied instance name (port.name ?? '').
       const definitionSystemId =
-        await this.resolveDefinitionSystemId(nodeSystemId);
+        await this.getDefinitionSystemIdForModule(nodeSystemId);
       let portNameMap: Map<number, string> | null = null;
       if (definitionSystemId !== null) {
         const defDraftMap = new Map<string, EditActionRow>();
-        if (session) {
+        if (sessionId !== null) {
           const defActions = await this.editActionsSvc.getByAggregateId(
-            session.sessionId,
+            sessionId,
             definitionSystemId,
           );
           for (const a of defActions)
@@ -104,13 +95,13 @@ export class DbNodeQueryService implements NodeQueryService {
       }
 
       return Result.ok(
-        portRows.map(row => ({
-          systemId: row.systemId,
-          portId: row.dataPortId,
-          name: portNameMap?.get(row.dataPortId) ?? row.name ?? '',
-          portIoType: row.portIoType,
-          isStatic: row.isStatic,
-          totalLinksAtPort: linkCounts.get(row.systemId) ?? 0,
+        overlaidPorts.map(port => ({
+          systemId: port.systemId,
+          portId: port.dataPortId,
+          name: portNameMap?.get(port.dataPortId) ?? port.name ?? '',
+          portIoType: port.portIoType,
+          isStatic: port.isStatic,
+          totalLinksAtPort: linkCounts.get(port.systemId) ?? 0,
         })),
       );
     } catch (error) {
@@ -132,52 +123,36 @@ export class DbNodeQueryService implements NodeQueryService {
     fileSystemId: number,
   ): Promise<Result<ControlPortReadModel[]>> {
     try {
-      const baseRows = (await this.dataSource
-        .getRepository(ENTITY_NAMES.ControlPort)
-        .createQueryBuilder('cp')
-        .leftJoinAndSelect('cp.allocatedIntents', 'intent')
-        .where('cp.nodeSystemId = :nodeSystemId', {nodeSystemId})
-        .getMany()) as ControlPortRow[];
+      const sessionId = await resolveActiveSessionId(
+        this.dataSource,
+        fileSystemId,
+      );
 
-      const portIds = baseRows.map(r => r.systemId);
+      // Step 1 — overlay via PortOverlayFetcher (FR-3)
+      const overlaidPorts = await this.portFetcher.fetchControlPortsWithIntents(
+        nodeSystemId,
+        fileSystemId,
+        sessionId,
+      );
+
+      const portIds = overlaidPorts.map(p => p.systemId);
       const linkCounts = await this.countControlLinksPerPort(
         portIds,
         fileSystemId,
       );
 
-      // Step 3 — three-tier overlay on port rows
-      const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-
-      const portEditActionMap = new Map<number, EditActionRow>();
-      if (session) {
-        const actions = await this.editActionsSvc.getByAggregateId(
-          session.sessionId,
-          nodeSystemId,
-        );
-        for (const action of actions.filter(
-          a => a.targetTable === ENTITY_NAMES.ControlPort,
-        )) {
-          portEditActionMap.set(action.targetSystemId, action);
-        }
-      }
-
-      const portRows: ControlPortRow[] =
-        portEditActionMap.size > 0
-          ? applyToCollection(baseRows, [...portEditActionMap.values()])
-          : baseRows;
-
-      // Step 4 — resolve authoritative names from definition tables (module nodes only).
-      // For subsystem nodes definitionSystemId is null — name maps stay null and
+      // Step 2 — resolve authoritative names from definition tables (module nodes only).
+      // For subsystem nodes getDefinitionSystemIdForModule returns null — name maps stay null and
       // the mapping falls back to overlay-applied instance names and Intent_{intentId}.
       const definitionSystemId =
-        await this.resolveDefinitionSystemId(nodeSystemId);
+        await this.getDefinitionSystemIdForModule(nodeSystemId);
       let controlPortNameMap: Map<number, string> | null = null;
       let intentNameMap: Map<number, string> | null = null;
       if (definitionSystemId !== null) {
         const defDraftMap = new Map<string, EditActionRow>();
-        if (session) {
+        if (sessionId !== null) {
           const defActions = await this.editActionsSvc.getByAggregateId(
-            session.sessionId,
+            sessionId,
             definitionSystemId,
           );
           for (const a of defActions)
@@ -188,15 +163,15 @@ export class DbNodeQueryService implements NodeQueryService {
       }
 
       return Result.ok(
-        portRows.map(row => ({
-          systemId: row.systemId,
-          portId: row.portId,
-          name: controlPortNameMap?.get(row.portId) ?? row.name ?? '',
-          isStatic: row.isStatic,
-          allocatedIntents: (row.allocatedIntents ?? []).map(i =>
+        overlaidPorts.map(port => ({
+          systemId: port.systemId,
+          portId: port.portId,
+          name: controlPortNameMap?.get(port.portId) ?? port.name ?? '',
+          isStatic: port.isStatic,
+          allocatedIntents: port.intents.map(i =>
             this.mapToIntentReadModel(i, intentNameMap ?? undefined),
           ),
-          totalLinksAtPort: linkCounts.get(row.systemId) ?? 0,
+          totalLinksAtPort: linkCounts.get(port.systemId) ?? 0,
         })),
       );
     } catch (error) {
@@ -238,11 +213,14 @@ export class DbNodeQueryService implements NodeQueryService {
       rows.map(r => [r.portId, Number(r.linkCount)]),
     );
 
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    if (!session) return countMap;
+    const sessionId = await resolveActiveSessionId(
+      this.dataSource,
+      fileSystemId,
+    );
+    if (sessionId === null) return countMap;
 
     const linkDrafts = await this.editActionsSvc.getByTable(
-      session.sessionId,
+      sessionId,
       ENTITY_NAMES.DataLink,
     );
 
@@ -288,11 +266,14 @@ export class DbNodeQueryService implements NodeQueryService {
       rows.map(r => [r.portId, Number(r.linkCount)]),
     );
 
-    const session = await this.editActionsSvc.findActiveSession(fileSystemId);
-    if (!session) return countMap;
+    const sessionId = await resolveActiveSessionId(
+      this.dataSource,
+      fileSystemId,
+    );
+    if (sessionId === null) return countMap;
 
     const linkDrafts = await this.editActionsSvc.getByTable(
-      session.sessionId,
+      sessionId,
       ENTITY_NAMES.ControlLink,
     );
 
@@ -314,10 +295,10 @@ export class DbNodeQueryService implements NodeQueryService {
   }
 
   /**
-   * Resolves the SpfModuleDefinition system ID for a module node.
+   * Returns the definitionSystemId for the SpfModule at the given node.
    * Returns null when the node is a Subsystem (no definition).
    */
-  private async resolveDefinitionSystemId(
+  private async getDefinitionSystemIdForModule(
     nodeSystemId: number,
   ): Promise<number | null> {
     const nodeRow = (await this.dataSource
@@ -358,7 +339,9 @@ export class DbNodeQueryService implements NodeQueryService {
     );
     const overlaid =
       portDefActions.length > 0
-        ? applyToCollection(portDefRows, portDefActions)
+        ? this.overlay
+            .applyToCollection(portDefRows, portDefActions)
+            .map(r => r.effective)
         : portDefRows;
 
     return new Map(overlaid.map(r => [r.dataPortId, r.name ?? '']));
@@ -393,7 +376,9 @@ export class DbNodeQueryService implements NodeQueryService {
 
     const overlaidPorts =
       staticPortActions.length > 0
-        ? applyToCollection(staticPortDefRows, staticPortActions)
+        ? this.overlay
+            .applyToCollection(staticPortDefRows, staticPortActions)
+            .map(r => r.effective)
         : staticPortDefRows;
 
     const controlPortNameMap = new Map(
@@ -403,7 +388,9 @@ export class DbNodeQueryService implements NodeQueryService {
       overlaidPorts.flatMap(p => {
         const intents =
           intentDefActions.length > 0
-            ? applyToCollection(p.staticIntents ?? [], intentDefActions)
+            ? this.overlay
+                .applyToCollection(p.staticIntents ?? [], intentDefActions)
+                .map(r => r.effective)
             : (p.staticIntents ?? []);
         return (intents ?? []).map(
           i => [i.intentId, i.name ?? ''] as [number, string],
@@ -415,14 +402,14 @@ export class DbNodeQueryService implements NodeQueryService {
   }
 
   private mapToIntentReadModel(
-    row: IntentRow,
+    intent: OverlaidIntent,
     intentNameMap?: Map<number, string>,
   ): IntentReadModel {
     return {
-      systemId: row.systemId,
-      intentId: row.intentId,
+      systemId: intent.systemId,
+      intentId: intent.intentId,
       // Use definition name when available; fall back to generated name
-      name: intentNameMap?.get(row.intentId) ?? `Intent_${row.intentId}`,
+      name: intentNameMap?.get(intent.intentId) ?? `Intent_${intent.intentId}`,
     };
   }
 }
