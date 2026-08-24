@@ -6,6 +6,7 @@
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import {
   ResourceNotFoundException,
+  InvalidInputException,
   InvalidOperationException,
 } from '../../../../shared/exceptions/index.js';
 import type {UpdateTkvCalDataCommand} from './update-tkv-cal-data.command.js';
@@ -128,7 +129,7 @@ export class UpdateTkvCalDataHandler {
       this.logger,
     );
     if (!serialized.ok) {
-      throw new InvalidOperationException(
+      throw new InvalidInputException(
         `Parameter ${param.systemId} serialization failed: ${serialized.error}`,
       );
     }

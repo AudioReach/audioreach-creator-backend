@@ -68,9 +68,9 @@ export type {
 export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
 export type {
   ModuleDefinitionRepository,
-  ParameterDefinitionBase,
   ModuleParameterDefinition,
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
+export type {ParameterDefinitionBase} from './application/ports/persistence/repositories/shared/parameter-definition-base.js';
 export type {
   DataLinkRepository,
   SubsystemDataRouteContext,
@@ -78,6 +78,8 @@ export type {
 } from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+export {VcpmInstance} from './domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
+export type {VcpmDefinitionRepository} from './application/ports/persistence/repositories/vcpm-definition/vcpm-definition.repository.js';
 export type {
   SubsystemControlPortRef,
   SubsystemRepository,
@@ -291,9 +293,11 @@ export type {
   ElementTemplateArrayDto,
   StructDto,
 } from './shared/dto/element-data/element-union.js';
-export {PropertyDtoSchema} from './shared/dto/property-dto.js';
+export {
+  PropertyDtoSchema,
+  mapPropertyToDto,
+} from './shared/dto/property-dto.js';
 export type {PropertyDto} from './shared/dto/property-dto.js';
-export {mapPropertyToDto} from './shared/dto/property-dto.js';
 export type {PropertyDataDto} from './application/usecase-designer/shared/property-read-model.js';
 
 // Container query handlers
@@ -436,15 +440,19 @@ export type {
 export {GetVcpmCkvQuery} from './application/usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.query.js';
 export {GetVcpmCalDataQuery} from './application/usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.query.js';
 // Subgraph write commands
-export {UpdateSubgraphScenarioCommand} from './application/usecase-designer/subgraph/update-scenario/update-subgraph-scenario.command.js';
-export {UpdateSubgraphVsidCommand} from './application/usecase-designer/subgraph/update-vsid/update-subgraph-vsid.command.js';
-export {PatchSubgraphCommand} from './application/usecase-designer/subgraph/patch/patch-subgraph.command.js';
-export {UpdateSubgraphPropertyCommand} from './application/usecase-designer/subgraph/update-property/update-subgraph-property.command.js';
+export {SetSubgraphScenarioCommand} from './application/usecase-designer/subgraph/set-scenario/set-subgraph-scenario.command.js';
+export {SetSubgraphVsidCommand} from './application/usecase-designer/subgraph/set-vsid/set-subgraph-vsid.command.js';
+export {SetSubgraphCommand} from './application/usecase-designer/subgraph/set/set-subgraph.command.js';
+export {SetSubgraphPropertyCommand} from './application/usecase-designer/subgraph/set-property/set-subgraph-property.command.js';
 export {UpdateSubgraphContainerIdCommand} from './application/usecase-designer/subgraph/update-container-id/update-subgraph-container-id.command.js';
 export {CreateVcpmCkvCommand} from './application/usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
 export type {CkvKeyValuePair} from './application/usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
 export {DeleteVcpmCkvCommand} from './application/usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.command.js';
 export {UpdateVcpmCalDataCommand} from './application/usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
+// Subgraph get-property query + handler
+export {GetSubgraphPropertyQuery} from './application/usecase-designer/subgraph/get-property/get-subgraph-property.query.js';
+export {GetSubgraphPropertyHandler} from './application/usecase-designer/subgraph/get-property/get-subgraph-property.handler.js';
+// Subgraph repository port types
 // Container write commands
 export {SetContainerPropertyCommand} from './application/usecase-designer/container/set-property/set-container-property.command.js';
 export {SetContainerHeapIdCommand} from './application/usecase-designer/container/set-heap-id/set-container-heap-id.command.js';
@@ -607,6 +615,7 @@ export * from './domain/entities/usecase-data/node/entities/control-port.js';
 export * from './domain/entities/usecase-data/container/container.js';
 export * from './domain/entities/usecase-data/container/value-objects/container-property.js';
 export * from './domain/entities/usecase-data/subgraph/subgraph.js';
+export * from './domain/entities/usecase-data/subgraph/value-objects/subgraph-property.js';
 export * from './domain/entities/usecase-data/subgraph/entities/sgkv.js';
 export * from './domain/entities/usecase-data/project/project.js';
 export * from './domain/entities/usecase-data/project/arc-db-file.js';
@@ -619,6 +628,8 @@ export * from './domain/entities/module-manager/module-manager-data.js';
 
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
+export * from './domain/entities/definitions/common/entities/param-definition.js';
+export * from './domain/entities/definitions/common/types/tool-policy-type.js';
 export * from './domain/entities/definitions/spf-module/spf-module-definition.js';
 export * from './domain/entities/definitions/spf-module/ipc-module-def-ids.js';
 export * from './domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
@@ -687,7 +698,8 @@ export * from './application/validation/commands/acknowledge-data-loss.command.j
 export * from './application/validation/validation-orchestrator.js';
 
 // SPF Constants
-export * from './application/file-operations/shared/constants/spf-ids.js';
+export * from './domain/entities/definitions/spf-ids.js';
+export * from './domain/entities/definitions/subgraph/subgraph-ids.js';
 
 // AWSP serializer v1 - configuration types (MODULE_PORT_STRATEGIES, PROCESSOR_DOMAINS, etc.)
 // MODULE_PORT_STRATEGIES canonical source is domain/entities/common/enums/module-port-strategy.ts
@@ -704,7 +716,7 @@ export {
 export {
   encodeStackSize,
   decodeStackSize,
-} from './domain/services/container-property/container-stack-size-codec.js';
+} from './application/usecase-designer/shared/utils/container-stack-size-codec.js';
 
 // Use-case-creator — types shared across port surface and persistence adapters
 export type {KvPair} from './application/ports/persistence/repositories/shared/kv-pair.js';

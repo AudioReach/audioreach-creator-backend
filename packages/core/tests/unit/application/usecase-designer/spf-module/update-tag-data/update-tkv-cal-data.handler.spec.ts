@@ -11,6 +11,7 @@ import type {
 } from '@arc/core';
 import {
   ResourceNotFoundException,
+  InvalidInputException,
   InvalidOperationException,
 } from '../../../../../../src/shared/exceptions/index.js';
 import {UpdateTkvCalDataHandler} from '../../../../../../src/application/usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.handler.js';
@@ -183,11 +184,11 @@ describe('UpdateTkvCalDataHandler', () => {
     );
   });
 
-  it('throws InvalidOperationException on serialization failure (value out of range)', async () => {
+  it('throws InvalidInputException on serialization failure (value out of range)', async () => {
     const uow = makeUow(makeModuleRepo(), makeDefRepo());
     const handler = new UpdateTkvCalDataHandler(uow);
     await expect(handler.handle(makeCommand('100', '99999'))).rejects.toThrow(
-      InvalidOperationException,
+      InvalidInputException,
     );
   });
 

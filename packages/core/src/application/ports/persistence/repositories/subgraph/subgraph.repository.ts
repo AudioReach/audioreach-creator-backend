@@ -5,15 +5,12 @@
 
 import type {EditOptions} from '../../edit-options.js';
 import type {Subgraph} from '../../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {VcpmInstance} from '../../../../../domain/entities/usecase-data/subgraph/entities/vcpm-module-instance.js';
 import type {SubgraphPropertyDefinition} from '../../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 import type {KvPair} from '../shared/kv-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
-/**
- * Routing query model for one SGKV instance. Returned by
- * SubgraphRepository.getSgkvs. Carries full KV-pair info so callers
- * never need a separate keyDef lookup.
- */
+/** A subgraph key/value instance with its resolved key and value definitions. */
 export interface SgkvEntry {
   sgSystemId: number;
   sgkvSystemId: number;
@@ -23,11 +20,23 @@ export interface SgkvEntry {
 export interface SubgraphRepository {
   subgraphExists(systemId: number, fileSystemId: number): Promise<boolean>;
 
+  nameExists(
+    name: string,
+    fileSystemId: number,
+    excludedSubgraphSystemId: number,
+  ): Promise<boolean>;
+
   deleteSubgraph(
     subgraphSystemId: number,
     fileSystemId: number,
     options?: EditOptions,
   ): Promise<void>;
+
+  /** Returns SGKV instances for the requested subgraphs. */
+  getSgkvs(
+    fileSystemId: number,
+    sgSystemIds: readonly number[],
+  ): Promise<SgkvEntry[]>;
 
   /**
    * Returns the usecaseSystemId that owns the given subgraph (via
@@ -52,13 +61,53 @@ export interface SubgraphRepository {
   ): Promise<SubgraphPropertyDefinition[]>;
 
   /**
-   * Returns SgkvEntry objects for each SGKV belonging to the given SGs.
-   * Joins sgkv → sgkv_values → value_definitions in one query.
+   * Returns subgraphs with overlay-aware property rows.
+   * Returns a map of subgraphSystemId → hydrated Subgraph.
+   * Missing subgraphs are absent from the map (not null entries).
+   * Uses 2 queries total regardless of how many IDs are passed.
    */
-  getSgkvs(
+  getAggregates(
+    subgraphSystemIds: number[],
     fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<SgkvEntry[]>;
+  ): Promise<Map<number, Subgraph>>;
+
+  /** Stages a new SubgraphPropertyData row with a prepared payload. */
+  addProperty(
+    subgraphSystemId: number,
+    propertySystemId: number,
+    payload: Uint8Array,
+  ): Promise<number>;
+
+  /** Stages a name delta on the Subgraph row. */
+  rename(subgraphSystemId: number, name: string): Promise<void>;
+
+  /**
+   * Stages a payload delta on an existing SubgraphPropertyData row.
+   * Throws if the property row does not exist.
+   */
+  setPropertyData(
+    subgraphSystemId: number,
+    propertySystemId: number,
+    data: Uint8Array,
+  ): Promise<void>;
+
+  /** Stages deletion of an existing SubgraphPropertyData row. */
+  deleteProperty(
+    subgraphSystemId: number,
+    propertyDataSystemId: number,
+  ): Promise<void>;
+
+  /** Stages deletion of all VCPM configuration data for a subgraph. */
+  deleteAllVcpmData(subgraphSystemId: number): Promise<void>;
+
+  /**
+   * Stages a VCPM instance with its single default CKV and parameter payloads.
+   * The map resolves each parameter system ID to its payload row system ID.
+   */
+  addVcpmModule(
+    instance: VcpmInstance,
+    payloadSystemIdsByParameterSystemId: ReadonlyMap<number, number>,
+  ): Promise<void>;
 
   /**
    * Resolves requested Value Definitions to their owning Keys in the
@@ -68,14 +117,6 @@ export interface SubgraphRepository {
     fileSystemId: number,
     valueDefSystemIds: readonly number[],
   ): Promise<KvPair[]>;
-
-  /**
-   * Returns Subgraph aggregates by systemId. Missing IDs silently omitted.
-   */
-  findByIds(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<Subgraph[]>;
 
   /**
    * Returns Subgraphs added or deleted in the current session — a

@@ -6,8 +6,9 @@
 import {BaseCommand} from '../../../shared/base-command.js';
 import {SESSION_MODE} from '../../../shared/change-vocabulary.js';
 import type {SessionMode} from '../../../shared/change-vocabulary.js';
+import type {ParameterElementSummaryDto} from '../../shared/dto/parameter-element-summary.dto.js';
 
-export class UpdateSubgraphPropertyCommand extends BaseCommand {
+export class SetSubgraphScenarioCommand extends BaseCommand {
   static override readonly requiresSession = true;
   static override readonly allowedModes: readonly SessionMode[] = [
     SESSION_MODE.Designer,
@@ -16,8 +17,7 @@ export class UpdateSubgraphPropertyCommand extends BaseCommand {
 
   constructor(
     public readonly subgraphSystemId: number,
-    public readonly propertySystemId: number,
-    public readonly data: unknown[],
+    public readonly elements: ParameterElementSummaryDto[],
   ) {
     super();
   }

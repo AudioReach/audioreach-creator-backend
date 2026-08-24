@@ -64,6 +64,35 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     return overlaid.map(uc => this.hydrateOverlaid(uc));
   }
 
+  async findBySubgraph(
+    fileSystemId: number,
+    subgraphSystemId: number,
+    options?: ReadOptions,
+  ): Promise<UseCase[]> {
+    const mode = options?.readMode ?? READ_MODE.Overlay;
+    const sessionId =
+      mode === READ_MODE.Committed
+        ? null
+        : this.uow.getWriteContext().session.sessionId;
+    const memberships =
+      await this.ucFetcher.getSubgraphMembershipRowsForSubgraph(
+        fileSystemId,
+        subgraphSystemId,
+        sessionId,
+      );
+    const usecaseSystemIds = [
+      ...new Set(memberships.map(row => row.usecaseSystemId)),
+    ];
+    if (usecaseSystemIds.length === 0) return [];
+
+    const overlaid = await this.ucFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+      usecaseSystemIds,
+    );
+    return overlaid.map(uc => this.hydrateOverlaid(uc));
+  }
+
   async findAll(
     fileSystemId: number,
     options?: ReadOptions,

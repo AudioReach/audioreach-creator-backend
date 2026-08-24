@@ -6,27 +6,30 @@
 import type {EntityManager} from 'typeorm';
 import type {
   SubgraphRepository,
+  IdGenerationPort,
   UnitOfWork,
   EditOptions,
-  Subgraph,
   SessionChanged,
   SgkvEntry,
   KvPair,
+  VcpmInstance,
 } from '@arc/core';
 import {
-  Subgraph as SubgraphEntity,
+  Subgraph,
+  SubgraphPropertyData,
   SubgraphPropertyDefinition,
 } from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
-import {SubgraphSgkvFetcher} from '../../fetchers/subgraph-sgkv-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../../fetchers/subgraph-property-data-fetcher.js';
+import {SubgraphSgkvFetcher} from '../../fetchers/subgraph-sgkv-fetcher.js';
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
+import type {SubgraphPropertyDataBase} from '../../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
 import {SubgraphVcpmDataFetcher} from '../../fetchers/subgraph-vcpm-data-fetcher.js';
 
 export class TypeOrmSubgraphRepository implements SubgraphRepository {
@@ -35,23 +38,25 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly valueDefFetcher: ValueDefinitionFetcher;
   private readonly keyValueDefinitionFetcher: KeyValueDefinitionFetcher;
   private readonly propertyDefinitionFetcher: SubgraphPropertyDefinitionFetcher;
+  private readonly propertyDataFetcher: SubgraphPropertyDataFetcher;
   private readonly vcpmDataFetcher: SubgraphVcpmDataFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
     private readonly manager: EntityManager,
     private readonly uow: UnitOfWork,
+    private readonly idGeneration: IdGenerationPort,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
     this.sgkvFetcher = new SubgraphSgkvFetcher(manager, editActionsQs);
-    const propertyDataFetcher = new SubgraphPropertyDataFetcher(
+    this.propertyDataFetcher = new SubgraphPropertyDataFetcher(
       manager,
       editActionsQs,
     );
     this.subgraphFetcher = new SubgraphOverlayFetcher(
       manager,
       editActionsQs,
-      propertyDataFetcher,
+      this.propertyDataFetcher,
       this.sgkvFetcher,
     );
     this.valueDefFetcher = new ValueDefinitionFetcher(manager, editActionsQs);
@@ -80,6 +85,22 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         fileSystemId,
         sessionId,
       )) !== null
+    );
+  }
+
+  async nameExists(
+    name: string,
+    fileSystemId: number,
+    excludedSubgraphSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const subgraphs = await this.subgraphFetcher.fetchMany(
+      fileSystemId,
+      sessionId,
+      {name},
+    );
+    return subgraphs.some(
+      subgraph => subgraph.systemId !== excludedSubgraphSystemId,
     );
   }
 
@@ -242,18 +263,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       );
   }
 
-  async findByIds(
-    fileSystemId: number,
-    sgSystemIds: readonly number[],
-  ): Promise<Subgraph[]> {
-    if (sgSystemIds.length === 0) return [];
-    const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
-      systemId: [...sgSystemIds],
-    });
-    return rows.map(r => this.hydrate(r));
-  }
-
   async getUsecaseSystemIdForSubgraph(
     subgraphSystemId: number,
     fileSystemId: number,
@@ -321,7 +330,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
           aggregateId: subgraph.systemId,
           payload: {
             subgraphSystemId: subgraph.systemId,
-            propertyDefinitionSystemId: prop.propertyDefinitionSystemId,
+            propertySystemId: prop.propertyDefinitionSystemId,
             payload: prop.getPayloadCopy() ?? null,
           },
           ...options,
@@ -333,15 +342,237 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     }
   }
 
-  // ── Hydration ─────────────────────────────────────────────────────────────────
+  async getAggregates(
+    subgraphSystemIds: number[],
+    fileSystemId: number,
+  ): Promise<Map<number, Subgraph>> {
+    if (subgraphSystemIds.length === 0) return new Map();
+    const sessionId = this.uow.getWriteContext().session.sessionId;
 
-  private hydrate(base: SubgraphBase): Subgraph {
-    return new SubgraphEntity({
+    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
+      systemId: subgraphSystemIds,
+    });
+    const allProperties = await this.propertyDataFetcher.fetchMany(
+      rows.map(row => row.systemId),
+      sessionId,
+    );
+    const propertiesBySubgraph = new Map<number, SubgraphPropertyDataBase[]>();
+    for (const property of allProperties) {
+      const properties =
+        propertiesBySubgraph.get(property.subgraphSystemId) ?? [];
+      properties.push(property);
+      propertiesBySubgraph.set(property.subgraphSystemId, properties);
+    }
+
+    const result = new Map<number, Subgraph>();
+    for (const row of rows) {
+      result.set(
+        row.systemId,
+        this.hydrate(row, propertiesBySubgraph.get(row.systemId) ?? []),
+      );
+    }
+    return result;
+  }
+
+  async addProperty(
+    subgraphSystemId: number,
+    propertySystemId: number,
+    payload: Uint8Array,
+  ): Promise<number> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const systemId = await this.idGeneration.getNextId(session.fileSystemId);
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        targetSystemId: systemId,
+        aggregateId: subgraphSystemId,
+        payload: {subgraphSystemId, propertySystemId, payload},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+    return systemId;
+  }
+
+  async rename(subgraphSystemId: number, name: string): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.Subgraph,
+        targetSystemId: subgraphSystemId,
+        aggregateId: subgraphSystemId,
+        delta: {name},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async setPropertyData(
+    subgraphSystemId: number,
+    propertySystemId: number,
+    data: Uint8Array,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const subgraph = await this.subgraphFetcher.fetchOne(
+      subgraphSystemId,
+      session.fileSystemId,
+      session.sessionId,
+    );
+    const prop = subgraph?.properties.find(
+      row => row.propertySystemId === propertySystemId,
+    );
+    if (!prop) {
+      throw new Error(
+        `SubgraphPropertyData for property ${propertySystemId} not found on subgraph ${subgraphSystemId}.`,
+      );
+    }
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        targetSystemId: prop.systemId,
+        aggregateId: subgraphSystemId,
+        delta: {payload: data},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async deleteProperty(
+    subgraphSystemId: number,
+    propertyDataSystemId: number,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.SubgraphPropertyData,
+        targetSystemId: propertyDataSystemId,
+        aggregateId: subgraphSystemId,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async addVcpmModule(
+    instance: VcpmInstance,
+    payloadSystemIdsByParameterSystemId: ReadonlyMap<number, number>,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    if (instance.ckvs.length !== 1) {
+      throw new Error(
+        `Expected exactly one CKV for VCPM instance ${instance.systemId}`,
+      );
+    }
+    const [ckv] = instance.ckvs;
+
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.VcpmInstance,
+        targetSystemId: instance.systemId,
+        aggregateId: instance.subgraphSystemId,
+        payload: {
+          subgraphSystemId: instance.subgraphSystemId,
+          vcpmDefinitionId: instance.vcpmModuleDefinitionSystemId,
+        },
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.VcpmCkv,
+        targetSystemId: ckv.systemId,
+        aggregateId: instance.subgraphSystemId,
+        payload: {vcpmInstanceSystemId: instance.systemId},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    for (const parameter of ckv.parameterPayloads) {
+      const payloadSystemId = payloadSystemIdsByParameterSystemId.get(
+        parameter.paramDefintionSystemId,
+      );
+      if (payloadSystemId === undefined) {
+        throw new Error(
+          `Missing VCPM payload system ID for parameter ${parameter.paramDefintionSystemId}`,
+        );
+      }
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: payloadSystemId,
+          aggregateId: instance.subgraphSystemId,
+          payload: {
+            vcpmCkvSystemId: ckv.systemId,
+            vcpmParameterSystemId: parameter.paramDefintionSystemId,
+            payload: parameter.getPayloadCopy(),
+          },
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async deleteAllVcpmData(subgraphSystemId: number): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const data = await this.vcpmDataFetcher.fetchForSubgraph(
+      subgraphSystemId,
+      session.sessionId,
+    );
+    const ownedRows = [
+      {
+        targetTable: ENTITY_NAMES.VcpmParameterPayload,
+        rows: data.parameterPayloads,
+      },
+      {targetTable: ENTITY_NAMES.VcpmCkv, rows: data.ckvs},
+      {targetTable: ENTITY_NAMES.VcpmInstance, rows: data.instances},
+    ];
+    for (const owned of ownedRows) {
+      for (const row of owned.rows) {
+        await this.writer.writeDelete(
+          {
+            targetTable: owned.targetTable,
+            targetSystemId: row.systemId,
+            aggregateId: subgraphSystemId,
+          },
+          session.sessionId,
+          groupId,
+          this.manager,
+        );
+      }
+    }
+  }
+
+  private hydrate(
+    base: SubgraphBase,
+    properties: readonly SubgraphPropertyDataBase[] = [],
+  ): Subgraph {
+    return new Subgraph({
       systemId: base.systemId,
       naturalId: base.naturalId,
       name: base.name,
       isImported: Boolean(base.isImported),
       fileSystemId: base.fileSystemId,
+      properties: properties.map(
+        property =>
+          new SubgraphPropertyData(
+            property.systemId,
+            property.propertySystemId,
+            property.payload,
+          ),
+      ),
     });
   }
 }
