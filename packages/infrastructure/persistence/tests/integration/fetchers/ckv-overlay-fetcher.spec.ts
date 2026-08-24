@@ -186,7 +186,7 @@ describe('CkvOverlayFetcher (integration)', () => {
 
   // ── fetchCkv ─────────────────────────────────────────────────────────────────
 
-  it('fetchCkv — row in DB, sessionId=null — returns CkvBase with correct systemId', async () => {
+  it('fetchCkv — row in DB, sessionId=null — returns OverlaidCkv with correct systemId', async () => {
     await seedCkv(ds);
     const result = await fetcher.fetchCkv(CKV_ID, MODULE_ID, null);
     expect(result).not.toBeNull();

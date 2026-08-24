@@ -40,7 +40,7 @@ export interface SpfModuleInit {
   controlPorts: ControlPort[];
 }
 
-export class SpfModule extends Node {
+export class SpfModule extends Node implements SpfModuleBase {
   private readonly tagIds = new Set<string>();
   private readonly ckvCollection = new CkvCollection();
 

@@ -6,22 +6,16 @@
 import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
-import {CHANGE_OPERATION} from '@arc/core';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 
-export interface CkvBase {
+export interface OverlaidCkv {
   systemId: number;
   spfModuleSystemId: number;
   uiPersistence: Uint8Array | null;
 }
 
-export interface CkvParameterPayloadBase {
+export interface OverlaidCkvParameterPayload {
   systemId: number;
-  parameterSystemId: number;
-}
-
-interface CkvPayloadNewValue {
-  ckvSystemId: number;
   parameterSystemId: number;
 }
 
@@ -37,7 +31,7 @@ export class CkvOverlayFetcher {
     ckvSystemId: number,
     spfModuleSystemId: number,
     sessionId: number | null,
-  ): Promise<CkvBase | null> {
+  ): Promise<OverlaidCkv | null> {
     const row = (await this.manager
       .getRepository(ENTITY_NAMES.Ckv)
       .createQueryBuilder('ckv')
@@ -46,7 +40,7 @@ export class CkvOverlayFetcher {
       .andWhere('ckv.spfModuleSystemId = :spfModuleSystemId', {
         spfModuleSystemId,
       })
-      .getOne()) as unknown as CkvBase | null;
+      .getOne()) as unknown as OverlaidCkv | null;
 
     if (sessionId === null) return row;
 
@@ -58,7 +52,8 @@ export class CkvOverlayFetcher {
 
     const ckvActions = actions.filter(a => a.targetSystemId === ckvSystemId);
     return (
-      this.overlay.applyToSingle<CkvBase>(row, ckvActions)?.effective ?? null
+      this.overlay.applyToSingle<OverlaidCkv>(row, ckvActions)?.effective ??
+      null
     );
   }
 
@@ -66,13 +61,13 @@ export class CkvOverlayFetcher {
     ckvSystemId: number,
     spfModuleSystemId: number,
     sessionId: number | null,
-  ): Promise<CkvParameterPayloadBase[]> {
+  ): Promise<OverlaidCkvParameterPayload[]> {
     const rows = (await this.manager
       .getRepository(ENTITY_NAMES.CkvParameterPayload)
       .createQueryBuilder('p')
       .select(['p.systemId', 'p.parameterSystemId'])
       .where('p.ckvSystemId = :ckvSystemId', {ckvSystemId})
-      .getMany()) as unknown as CkvParameterPayloadBase[];
+      .getMany()) as unknown as OverlaidCkvParameterPayload[];
 
     if (sessionId === null) return rows;
 
@@ -82,35 +77,13 @@ export class CkvOverlayFetcher {
       ENTITY_NAMES.CkvParameterPayload,
     );
 
-    // Cannot use applyToCollection here: getByAggregateAndTable returns CREATE
-    // actions for ALL CkvParameterPayload rows in the module aggregate (every
-    // CKV), not just this one. applyToCollection would add payloads from other
-    // CKVs as CREATE-only results. The ckvSystemId filter on CREATE newValue
-    // requires manual parsing — no hook exists in the shared overlay utilities.
-    const deletedIds = new Set(
-      actions
-        .filter(a => a.operation === CHANGE_OPERATION.Delete)
-        .map(a => a.targetSystemId),
-    );
-
-    const createdRows = actions
-      .filter(a => a.operation === CHANGE_OPERATION.Create)
-      .flatMap(a => {
-        const newVal = (
-          typeof a.newValue === 'string'
-            ? (JSON.parse(a.newValue) as unknown)
-            : a.newValue
-        ) as CkvPayloadNewValue;
-        if (newVal.ckvSystemId !== ckvSystemId) return [];
-        return [
-          {
-            systemId: a.targetSystemId,
-            parameterSystemId: newVal.parameterSystemId,
-          },
-        ];
-      })
-      .filter(r => !rows.some(existing => existing.systemId === r.systemId));
-
-    return [...rows.filter(r => !deletedIds.has(r.systemId)), ...createdRows];
+    return this.overlay
+      .applyToCollection<OverlaidCkvParameterPayload>(
+        rows,
+        actions,
+        newValue =>
+          (newValue as {ckvSystemId?: number}).ckvSystemId === ckvSystemId,
+      )
+      .map(r => r.effective);
   }
 }

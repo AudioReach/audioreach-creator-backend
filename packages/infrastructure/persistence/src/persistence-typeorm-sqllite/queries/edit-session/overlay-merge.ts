@@ -47,6 +47,7 @@ export interface OverlayMerge {
   applyToCollection<T extends {systemId: number}>(
     baseRows: T[],
     pendingRows: EditActionRow[],
+    createFilter?: (newValue: Record<string, unknown>) => boolean,
   ): OverlayResult<T>[];
 }
 
@@ -75,6 +76,7 @@ export class OverlayMergeImpl implements OverlayMerge {
   applyToCollection<T extends {systemId: number}>(
     baseRows: T[],
     pendingRows: EditActionRow[],
+    createFilter?: (newValue: Record<string, unknown>) => boolean,
   ): OverlayResult<T>[] {
     const pendingBySystemId = groupByTargetSystemId(pendingRows);
     const baseSystemIds = new Set(baseRows.map(r => r.systemId));
@@ -88,6 +90,18 @@ export class OverlayMergeImpl implements OverlayMerge {
 
     for (const [systemId, rows] of pendingBySystemId) {
       if (baseSystemIds.has(systemId)) continue;
+      if (createFilter !== undefined) {
+        const createRow = rows.find(
+          r => r.operation === CHANGE_OPERATION.Create,
+        );
+        if (!createRow) continue;
+        const raw = createRow.newValue;
+        const newValue: Record<string, unknown> =
+          typeof raw === 'string'
+            ? (JSON.parse(raw) as Record<string, unknown>)
+            : (raw as Record<string, unknown>);
+        if (!createFilter(newValue)) continue;
+      }
       const result = this.applyToSingle<T>(null, rows);
       if (result !== null) results.push(result);
     }

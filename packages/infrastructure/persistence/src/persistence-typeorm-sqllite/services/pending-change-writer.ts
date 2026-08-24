@@ -133,11 +133,18 @@ export class PendingChangeWriter {
     const rows: EditActionRow[] = [];
 
     for (const spec of specs) {
+      // Per-slot writes are not yet implemented in batch mode — they require a
+      // different path (no read-modify-write, just supersede + insert per slot).
+      // Extend this method when per-slot batch support is needed.
       if (spec.fieldGroup !== undefined) {
         throw new Error(
           'writeDeltaBatch only supports accumulator mode (fieldGroup must be omitted)',
         );
       }
+      // cache=true is invalid for accumulator mode: accumulator requires a
+      // read-modify-write (fetch → merge → supersede) that cannot be deferred.
+      // If per-slot support is added above, cache=true would be valid for that
+      // path since per-slot writes have no merge step.
       if (spec.cache === true) {
         throw new Error('writeDeltaBatch does not support cache=true');
       }

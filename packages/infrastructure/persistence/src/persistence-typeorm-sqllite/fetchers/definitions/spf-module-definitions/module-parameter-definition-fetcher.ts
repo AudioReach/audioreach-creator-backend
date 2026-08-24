@@ -4,9 +4,9 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import type {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
+import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
+import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
+import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 
 export interface ModuleParameterDefinitionBase {
   systemId: number;

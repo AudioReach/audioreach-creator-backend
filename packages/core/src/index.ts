@@ -68,7 +68,6 @@ export type {
 export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
 export type {
   ModuleDefinitionRepository,
-  CalibrationParameterRecord,
   ParameterDefinitionBase,
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {DataLinkRepository} from './application/ports/persistence/repositories/data-link/data-link.repository.js';

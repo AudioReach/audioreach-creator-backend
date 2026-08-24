@@ -213,63 +213,25 @@ export class PortOverlayFetcher {
 
     // For each surviving control port, compute its overlaid intents
     return allSurvivingPorts.map(cp => {
-      const basePortIntents = baseIntents.filter(
-        i => i.controlPortSystemId === cp.systemId,
-      );
-      const cpIntentActions = intentActions.filter(a => {
-        if (a.operation === CHANGE_OPERATION.Delete) {
-          // A DELETE applies to this port if the targeted intent is either:
-          // (a) a committed base intent for this port, OR
-          // (b) a staged (CREATE) intent for this port in the same session —
-          //     without this check, "create intent then delete it" in one session
-          //     would leave the created intent visible because basePortIntents is empty.
-          const isBaseIntent = basePortIntents.some(
-            i => i.systemId === a.targetSystemId,
-          );
-          const isStagedIntent = intentActions.some(
-            x =>
-              x.operation === CHANGE_OPERATION.Create &&
-              x.targetSystemId === a.targetSystemId &&
-              (x.newValue as {controlPortSystemId?: number})
-                ?.controlPortSystemId === cp.systemId,
-          );
-          return isBaseIntent || isStagedIntent;
-        }
-        const payload = a.newValue as {controlPortSystemId?: number} | null;
-        return payload?.controlPortSystemId === cp.systemId;
-      });
-
-      const deletedIntentIds = new Set(
-        cpIntentActions
-          .filter(a => a.operation === CHANGE_OPERATION.Delete)
-          .map(a => a.targetSystemId),
-      );
-      const createdIntents: OverlaidIntent[] = cpIntentActions
-        .filter(a => a.operation === CHANGE_OPERATION.Create)
-        .map(a => {
-          const payload = a.newValue as {
-            controlPortSystemId?: number;
-            intentId?: number;
-          };
-          return {
-            systemId: a.targetSystemId,
-            controlPortSystemId: payload?.controlPortSystemId ?? cp.systemId,
-            intentId: payload?.intentId ?? 0,
-          };
-        });
-
-      const survivingBase = basePortIntents
-        .filter(i => !deletedIntentIds.has(i.systemId))
+      const basePortIntents: OverlaidIntent[] = baseIntents
+        .filter(i => i.controlPortSystemId === cp.systemId)
         .map(i => ({
           systemId: i.systemId,
           controlPortSystemId: i.controlPortSystemId,
           intentId: i.intentId,
         }));
 
-      return {
-        ...cp,
-        intents: [...survivingBase, ...createdIntents],
-      };
+      const intents = this.overlay
+        .applyToCollection<OverlaidIntent>(
+          basePortIntents,
+          intentActions,
+          newValue =>
+            (newValue as {controlPortSystemId?: number}).controlPortSystemId ===
+            cp.systemId,
+        )
+        .map(r => r.effective);
+
+      return {...cp, intents};
     });
   }
 }

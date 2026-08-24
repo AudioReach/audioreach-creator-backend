@@ -144,7 +144,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 │       └── module-definition.repository.ts               (modified) # add getParameterDefinitions()
 ├── fetchers/
 │   ├── ckv-overlay-fetcher.ts                            (new)      # CkvOverlayFetcher — Layers 1+2 for CKV and CkvParameterPayload reads (shared by GET and PUT)
-│   └── definitions/module-parameter-definition-fetcher.ts        (new)      # ModuleParameterDefinitionFetcher — Layers 1+2 for param def reads
+│   └── definitions/spf-module-definitions/module-parameter-definition-fetcher.ts (new)      # ModuleParameterDefinitionFetcher — Layers 1+2 for param def reads
 └── queries/
     ├── module-calibration/
     │   └── db-ckv-calibration-query-service.ts           (modified) # getCkvForQuery, getCkvPayloads delegate Layers 1+2 to CkvOverlayFetcher
@@ -803,16 +803,16 @@ export class CkvOverlayFetcher {
     spfModuleSystemId: number,
     fileSystemId: number,
     sessionId: number | null,
-  ): Promise<CkvBase | null> { /* Layers 1+2: DB query + CREATE/DELETE overlay */ }
+  ): Promise<OverlaidCkv | null> { /* Layers 1+2: DB query + CREATE/DELETE overlay */ }
 
   async fetchCkvPayloads(
     ckvSystemId: number,
     spfModuleSystemId: number,
     fileSystemId: number,
     sessionId: number | null,
-  ): Promise<CkvParameterPayloadBase[]> { /* Layers 1+2: DB query + CREATE/DELETE overlay */ }
+  ): Promise<OverlaidCkvParameterPayload[]> { /* Layers 1+2: DB query + CREATE/DELETE overlay */ }
 }
-// CkvParameterPayloadBase: { systemId: number; parameterSystemId: number }
+// OverlaidCkvParameterPayload: { systemId: number; parameterSystemId: number }
 // systemId = PK of CkvParameterPayload (matches client param.systemId from GET response)
 // parameterSystemId = FK → SpfModuleParameterDefinition.systemId (used for definition lookup)
 ```
@@ -951,9 +951,9 @@ These tests cover the shared Layers 1+2 logic in isolation so that `TypeOrmModul
 
 | Scenario | Expected outcome |
 |---|---|
-| `fetchCkv` — row in DB, no session (sessionId = null) | returns `CkvBase` row |
+| `fetchCkv` — row in DB, no session (sessionId = null) | returns `OverlaidCkv` row |
 | `fetchCkv` — row in DB, CREATE edit_action present | returns row (DB row takes precedence) |
-| `fetchCkv` — no DB row, CREATE edit_action present | returns synthesised `CkvBase` from action |
+| `fetchCkv` — no DB row, CREATE edit_action present | returns synthesised `OverlaidCkv` from action |
 | `fetchCkv` — row in DB, DELETE edit_action present | returns null |
 | `fetchCkv` — no DB row, no edit_action | returns null |
 | `fetchCkvPayloads` — committed rows, no session | returns all DB rows with `systemId` (PK) and `parameterSystemId` (FK) |
@@ -993,7 +993,7 @@ The GET response shape, query service interface, and Core types are unchanged.
 
 | File | Change |
 |---|---|
-| `packages/infrastructure/persistence/src/.../fetchers/definitions/module-parameter-definition-fetcher.ts` | New file — Layers 1+2 for parameter definition reads |
+| `packages/infrastructure/persistence/src/.../fetchers/definitions/spf-module-definitions/module-parameter-definition-fetcher.ts` | New file — Layers 1+2 for parameter definition reads |
 | `packages/infrastructure/persistence/src/.../queries/spf-module-definition/db-spf-module-definition-query-service.ts` | `queryParameterDefinitions` delegates Layers 1+2 to `ModuleParameterDefinitionFetcher`; Layer 3 mapping unchanged; constructor gains `ModuleParameterDefinitionFetcher` dependency |
 | `packages/core/.../repositories/module/module-definition.repository.ts` | New `ParameterDefinitionBase` type; `ParameterDefinitionReadModel` (GET) extends it — no behavior change |
 

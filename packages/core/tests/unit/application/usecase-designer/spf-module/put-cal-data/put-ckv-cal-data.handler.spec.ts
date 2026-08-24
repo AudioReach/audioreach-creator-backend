@@ -61,7 +61,6 @@ function makeDefRepo(
     ]),
     findBySystemId: jest.fn(),
     findByModuleIdAndProcId: jest.fn(),
-    findCalibrationParametersByDefinitionId: jest.fn(),
     ...overrides,
   } as unknown as jest.Mocked<ModuleDefinitionRepository>;
 }
