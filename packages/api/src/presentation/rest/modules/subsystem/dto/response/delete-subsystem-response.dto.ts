@@ -4,8 +4,8 @@
  */
 
 import {createZodDto} from 'nestjs-zod';
-import {MoveSubsystemComponentsDtoSchema} from '@arc/core';
+import {SubsystemSnapshotDtoSchema} from '@arc/core';
 
-export class MoveSubsystemComponentsResponseDto extends createZodDto(
-  MoveSubsystemComponentsDtoSchema,
+export class DeleteSubsystemResponseDto extends createZodDto(
+  SubsystemSnapshotDtoSchema,
 ) {}

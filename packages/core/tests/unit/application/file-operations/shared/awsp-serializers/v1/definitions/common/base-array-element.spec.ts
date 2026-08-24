@@ -8,7 +8,7 @@ import {AwspConfigElementArray} from '../../../../../../../../../src/application
 
 describe('BaseArrayElement', () => {
   const testData = {
-    elementType: 'ConfigElementArray',
+    elementType: 'ElementArray',
     name: 'TestArrayElement',
     arrayLength: 10,
     arrayLenFormulaStr: '10',
@@ -27,7 +27,7 @@ describe('BaseArrayElement', () => {
 
       expect(instance).toBeInstanceOf(AwspConfigElementArray);
       expect(typeof instance.toJSON).toBe('function');
-      expect(instance.elementType).toBe('ConfigElementArray');
+      expect(instance.elementType).toBe('ElementArray');
       expect(instance.name).toBe('TestArrayElement');
       expect(instance.arrayLength).toBe(10);
     });
@@ -38,7 +38,7 @@ describe('BaseArrayElement', () => {
       const instance = AwspConfigElementArray.fromJSON(testData);
       const json = instance.toJSON();
 
-      expect(json.elementType).toBe('ConfigElementArray');
+      expect(json.elementType).toBe('ElementArray');
       expect(json.name).toBe('TestArrayElement');
       expect(json.arrayLength).toBe(10);
     });

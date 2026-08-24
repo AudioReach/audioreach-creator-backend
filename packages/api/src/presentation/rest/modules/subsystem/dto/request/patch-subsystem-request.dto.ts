@@ -22,19 +22,19 @@ export class PatchSubsystemRequestDto {
       'Target number of input data ports. The API will add or remove input DataPort entities to reach this count.',
     required: false,
   })
-  maxInputDataPortsSupported?: number;
+  inputDataPortCount?: number;
 
   @ApiProperty({
     description:
       'Target number of output data ports. The API will add or remove output DataPort entities to reach this count.',
     required: false,
   })
-  maxOutputDataPortsSupported?: number;
+  outputDataPortCount?: number;
 
   @ApiProperty({
     description:
       'Target number of control ports. The API will add or remove ControlPort entities to reach this count.',
     required: false,
   })
-  maxControlPortsSupported?: number;
+  controlPortCount?: number;
 }

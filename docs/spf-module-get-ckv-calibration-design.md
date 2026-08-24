@@ -20,7 +20,7 @@
     - [2.4 CKV Calibration Read Models](#24-ckv-calibration-read-models)
     - [2.5 Binary Parameter Parser](#25-binary-parameter-parser)
       - [2.5.1 Function Interface](#251-function-interface)
-      - [2.5.2 Output Type: ParsedElementData Discriminated Union](#252-output-type-parsedelementdata-discriminated-union)
+      - [2.5.2 Output Type: ElementData Discriminated Union](#252-output-type-elementdata-discriminated-union)
       - [2.5.3 Binary Data Reader](#253-binary-data-reader)
       - [2.5.4 Formula Evaluator](#254-formula-evaluator)
   - [3. Infrastructure Layer (Database & Session Management)](#3-infrastructure-layer-database--session-management)
@@ -66,7 +66,7 @@ graph TD
             CkvReadModel[CkvReadModel]
             ParamCalReadModel[ParameterPayloadReadModel]
             ParamDefReadModel[ParameterDefinitionReadModel]
-            ParameterDataParser[ParameterDataParser<br/>Binary → ParsedElementData]
+            ParameterDataParser[ParameterDataParser<br/>Binary → ElementData]
             ParamCalDataModel[ParameterCalibrationReadModel]
             CkvCalModel[CkvCalibrationReadModel]
 
@@ -191,12 +191,10 @@ packages/core/src/application/
         │   ├── get-ckv-cal-data.query.ts                (new) # GetCkvCalibrationDataQuery definition
         │   ├── get-ckv-cal-data.handler.ts              (new) # GetCkvCalibrationDataHandler
         │   └── ckv-calibration-read-model.ts            (new) # Merged application models (ParameterCalibrationReadModel, CkvCalibrationReadModel)
-        └── param-parser/                            # (all files below are new)
-            ├── index.ts                                 (new) # Barrel export — re-exports all public symbols from types/ and parse-elements.ts
+        └── shared/                                  # (all files below are new)
+            ├── index.ts                                 (new) # Barrel export — re-exports all public symbols from element-definition.ts and parse-elements.ts
             ├── parse-elements.ts                        (new) # parseParameterData function — entry point for binary parameter parsing
-            ├── types/
-            │   ├── element-definition.ts                (new) # PARAMETER_ELEMENT_TYPE, ParameterElementType, ConfigElement, StructElement, ElementArray, DefinitionElement
-            │   └── parsed-element-data.ts               (new) # ParsedElementBase + ParsedElementData discriminated union (schema + data types)
+            ├── element-definition.ts                    (new) # PARAMETER_ELEMENT_TYPE, ParameterElementType, ConfigElement, StructElement, ElementArray, DefinitionElement
             └── utils/
                 ├── binary-data-reader.ts                (new) # BinaryDataReader — sequential DataView-based binary reader
                 └── formular-evaluator.ts                (new) # evaluateFormula — recursive descent expression evaluator for arrayLenFormulaStr
@@ -232,13 +230,13 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
 3. `get-ckv-cal-data.handler.ts` → Orchestrates the workflow (resolves IDs, parallel fetch, merge, parse)
 4. `db-ckv-calibration-query-service.ts` → Fetches `CkvReadModel` and `ParameterPayloadReadModel[]` with session overlay
 5. `db-spf-module-definition-query-service.ts` → Fetches `ParameterDefinitionReadModel[]` via `queryParameterDefinitions`
-6. `parse-elements.ts` (`parseParameterData`) → Decodes binary payload → `ParsedElementData[]`
+6. `parse-elements.ts` (`parseParameterData`) → Decodes binary payload → `ElementData[]`
 
 **Data Flow:**
 1. `CkvQueryService.getCkv()` → `CkvReadModel` (Infrastructure → Core)
 2. `CkvQueryService.getCkvPayloads()` → `ParameterPayloadReadModel[]` (Infrastructure → Core)
 3. `SpfModuleDefinitionQueryService.queryParameterDefinitions()` → `ParameterDefinitionReadModel[]` (Infrastructure → Core)
-4. `parseParameterData()` → `ParsedElementData[]` (binary decode)
+4. `parseParameterData()` → `ElementData[]` (binary decode)
 5. `buildParameterDataModels()` → `ParameterCalibrationReadModel[]` (merge + parse)
 6. `GetCkvCalibrationDataHandler` → `CkvCalibrationReadModel` (final output, Core → Presentation)
 7. Controller → `SpfModuleCalDataResponseDto` (DTO transformation, Presentation)
@@ -262,7 +260,7 @@ The SPF Module Get Calibration Data endpoint follows a structured workflow orche
    - `SpfModuleDefinitionQueryService.queryParameterDefinitions()` → `ParameterDefinitionReadModel[]` (one row per parameter: schema metadata)
 4. **Binary Parsing & Merge**: `buildParameterDataModels()` joins `ParameterPayloadReadModel[]` with `ParameterDefinitionReadModel[]` on `parameterSystemId` → `systemId`, decodes each binary payload via `parseParameterData()`, and produces `ParameterCalibrationReadModel[]`.
 5. **Output Assembly**: The handler wraps `CkvReadModel` + `ParameterCalibrationReadModel[]` into `CkvCalibrationReadModel` and returns it to the controller.
-6. **Response Transformation**: The controller transforms `CkvCalibrationReadModel` into `SpfModuleCalDataResponseDto` (mapping `ParsedElementData[]` → element DTOs) and returns HTTP 200.
+6. **Response Transformation**: The controller transforms `CkvCalibrationReadModel` into `SpfModuleCalDataResponseDto` (mapping `ElementData[]` → element DTOs) and returns HTTP 200.
 
 All three data reads in step 3 go through the Infrastructure Layer with session-aware overlay support:
 - **Read-Only Mode**: Direct database queries when no active editing session exists
@@ -360,7 +358,7 @@ sequenceDiagram
     Note over Handler: Step 4 — buildParameterDataModels()<br/>Join ParameterPayloadReadModel[] + ParameterDefinitionReadModel[] on parameterSystemId → systemId
     loop For each ParameterPayloadReadModel
         Handler->>ParamParser: parseParameterData(payload, elementsStructure ?? '')
-        ParamParser-->>Handler: ParsedElementData[] or null if payload is null
+        ParamParser-->>Handler: ElementData[] or null if payload is null
         Handler->>Handler: Build ParameterCalibrationReadModel
     end
 
@@ -413,7 +411,7 @@ private transformToCalibrationDataDto(
 ): SpfModuleCalDataResponseDto {
   // Transform CkvRowReadModel → CKV DTO (keyValuePairs, uiPersistence, changeInfo)
   // Transform ParameterCalibrationReadModel[] → ParameterDetailDto[]
-  //   For each parameter, transform ParsedElementData[] → element DTOs:
+  //   For each parameter, transform ElementData[] → element DTOs:
   //     PARAMETER_ELEMENT_TYPE.ConfigElement  → ConfigElementDto  (value, dataType, ranges, etc.)
   //     PARAMETER_ELEMENT_TYPE.ElementArray   → ElementArrayDto   (template, length, lengthFormula, value[])
   //     PARAMETER_ELEMENT_TYPE.Struct         → StructDto         (children recursively transformed)
@@ -635,7 +633,7 @@ This private method is the merge point between the two DB read models and the bi
         throw new ParameterDefinitionMissingError(p.parameterSystemId);
       }
 
-      const parsedData: ParsedElementData[] | null =
+      const parsedData: ElementData[] | null =
         p.payload !== null && def !== undefined
           ? parseParameterData(p.payload, def.elementsStructure)
           : null;
@@ -660,7 +658,7 @@ This private method is the merge point between the two DB read models and the bi
 2. **Payload absent (`null`)** — if `p.payload` is `null`, `parsedData` stays `null` and the upper layer knows no binary data is stored for this CKV parameter.
 3. **Payload present, definition missing** — `CkvParameterPayload.parameterSystemId` is a FK to `SpfModuleParameterDefinition`. A non-null payload without a matching definition is a database integrity violation. `buildParameterDataModels` throws `ParameterDefinitionMissingError(p.parameterSystemId)` (error code `ERR_4005`) rather than silently returning `null`, which would be indistinguishable from a legitimately absent payload. The controller catches this error and maps it to HTTP 500.
 4. **Binary parsing** — if `p.payload` is not null and `def` is present, calls `parseParameterData(p.payload, def.elementsStructure)`.
-5. **Parse failure fallback** — `parseParameterData` handles all parse errors internally (malformed `elementsStructure` JSON, buffer overflow, unknown element type) and always returns a valid `ParsedElementData[]`. On failure it returns `[{ type: 'ConfigElement', name: 'Failed to parse payload', dataType: 'RawData', isReadOnly: true, value: <hexString> }]`. The handler calls it without a try/catch and always receives a uniform array with no branching needed.
+5. **Parse failure fallback** — `parseParameterData` handles all parse errors internally (malformed `elementsStructure` JSON, buffer overflow, unknown element type) and always returns a valid `ElementData[]`. On failure it returns `[{ type: 'ConfigElement', name: 'Failed to parse payload', dataType: 'RawData', isReadOnly: true, value: <hexString> }]`. The handler calls it without a try/catch and always receives a uniform array with no branching needed.
 6. **Output** — returns `ParameterCalibrationReadModel[]` combining definition metadata (`name`, `description`, `isReadOnly`, `isHidden`, `pidType`) with the decoded `parsedData`, ready for the controller to transform into response DTOs.
 7. **TODO (future) — PID policy validation** — Currently, PID policy for CKV does not exist in the database. In the future, a new table may be added to hold PID policy per CKV. Once that table exists, `GetCkvCalibrationDataHandler` should also query the PID policy for the CKV (in parallel with the existing three reads). Before calling `buildParameterDataModels`, the handler should validate the PID policy against the parameter payloads. If the PID policy does not match a parameter's payload, that parameter should still be included in the response but surfaced as a warning via `ApiResult.warnings` rather than silently dropped or treated as an error.
 
@@ -761,7 +759,7 @@ export interface ParameterCalibrationReadModel {
   pidType: string;
   // null when p.payload is null (no binary data stored for this CKV parameter)
   // non-null array when p.payload exists (parsed result, or _raw fallback if elementsStructure is missing/invalid)
-  parsedData: ParsedElementData[] | null;
+  parsedData: ElementData[] | null;
 }
 
 // --- Final return type of GetCkvCalibrationDataHandler ---
@@ -775,16 +773,16 @@ export interface CkvCalibrationReadModel {
 **Why `ParameterCalibrationReadModel` is needed?**
 `ParameterPayloadReadModel` (DB read model) carries only the raw binary `payload` and a foreign key (`parameterSystemId`). `ParameterDefinitionReadModel` (DB read model) carries the schema metadata (`name`, `description`, `elementsStructure`, `defaultData`, etc.) but no calibration value. Neither alone is sufficient for the upper layer. The handler merges them — joining on `parameterSystemId` → `systemId` and parsing the binary payload using `elementsStructure` as the schema — to produce `ParameterCalibrationReadModel`, which contains both definition metadata and decoded calibration values in a single type ready for the controller to transform into a response DTO.
 
-**Why `ParsedElementData[]` instead of a raw JSON string?**
-`parsedData` is the result of binary parsing — it is already a structured TypeScript object. Storing it as a JSON string would require `JSON.parse()` at every consumer, lose all type safety, and embed a string-within-JSON in the HTTP response (a double-encoding anti-pattern). `ParsedElementData[]` gives the controller full typed access to individual fields (`value`, `type`, `name`, etc.) for DTO transformation, and is serialized to JSON automatically when the HTTP response is built.
+**Why `ElementData[]` instead of a raw JSON string?**
+`parsedData` is the result of binary parsing — it is already a structured TypeScript object. Storing it as a JSON string would require `JSON.parse()` at every consumer, lose all type safety, and embed a string-within-JSON in the HTTP response (a double-encoding anti-pattern). `ElementData[]` gives the controller full typed access to individual fields (`value`, `type`, `name`, etc.) for DTO transformation, and is serialized to JSON automatically when the HTTP response is built.
 
 #### 2.5 Binary Parameter Parser
 
-**File:** `packages/core/src/application/usecase-designer/spf-module/param-parser/parse-elements.ts` (new)
+**File:** `packages/core/src/application/usecase-designer/shared/parse-elements.ts` (new)
 
 **Responsibilities:**
-- Parse a binary `payload` (or `defaultData` fallback) into `ParsedElementData[]` using `elementsStructure` (JSON string) as the schema.
-- On parse failure, return a single opaque `ConfigElement` whose `value` is the hex string of the payload bytes, so the upper layer always receives a valid `ParsedElementData[]` with no special handling required.
+- Parse a binary `payload` (or `defaultData` fallback) into `ElementData[]` using `elementsStructure` (JSON string) as the schema.
+- On parse failure, return a single opaque `ConfigElement` whose `value` is the hex string of the payload bytes, so the upper layer always receives a valid `ElementData[]` with no special handling required.
 
 **Key Features:**
 - **Structure-Driven Parsing:** Uses `elementsStructure` (JSON) to know the field layout of the binary data
@@ -800,20 +798,20 @@ export interface CkvCalibrationReadModel {
  * Parse binary parameter data using the parameter definition structure.
  * @param payload        - Binary data to parse
  * @param elementsStructure - JSON string describing the field layout (validated in DB layer)
- * @returns ParsedElementData[] — one entry per top-level element in the structure.
+ * @returns ElementData[] — one entry per top-level element in the structure.
  *          On any error, returns a single opaque ConfigElement with
  *          name 'Failed to parse payload', dataType 'RawData', and value set to the hex string of the payload bytes.
  */
 export function parseParameterData(
   payload: Uint8Array,
   elementsStructure: string,
-): ParsedElementData[] {
+): ElementData[] {
   try {
     // elementsStructure is validated in the DB layer before being stored;
     // cast directly to DefinitionElement[] without re-validating.
     const definitions = JSON.parse(elementsStructure) as DefinitionElement[];
     const reader = new BinaryDataReader(payload);
-    const parsed: ParsedElementData[] = [];
+    const parsed: ElementData[] = [];
     for (const element of definitions) {
       parsed.push(parseElement(element, reader, parsed));
     }
@@ -830,8 +828,8 @@ export function parseParameterData(
 3. Iterates over each definition element and dispatches to the appropriate private parser based on `elementType`:
    - `parseConfigElement` — reads a single scalar value from the reader based on `dataType` (UInt8/16/32, Int8/16/32, Float, Double, RawData) and returns a `ConfigElementData`.
    - `parseStruct` — recursively parses each child element in `elements` and returns a `StructData`.
-   - `parseElementArray` — evaluates `arrayLenFormulaStr` or uses `arrayLength` to determine item count; for each item, parses it according to `template`; returns an `ElementArrayData` with `value: ParsedElementData[]`. When a template element has no `name`, the parser assigns a generated name: the `ElementArray`'s own `name` for the template schema (e.g., `"filter_coeffs"`), and `"<arrayName>[<index>]"` for each parsed item (e.g., `"filter_coeffs[0]"`).
-4. Returns the collected `ParsedElementData[]`.
+   - `parseElementArray` — evaluates `arrayLenFormulaStr` or uses `arrayLength` to determine item count; for each item, parses it according to `template`; returns an `ElementArrayData` with `value: ElementData[]`. When a template element has no `name`, the parser assigns a generated name: the `ElementArray`'s own `name` for the template schema (e.g., `"filter_coeffs"`), and `"<arrayName>[<index>]"` for each parsed item (e.g., `"filter_coeffs[0]"`).
+4. Returns the collected `ElementData[]`.
 5. If any step throws (malformed JSON, buffer overflow), the catch block returns `[{ type: 'ConfigElement', name: 'Failed to parse payload', dataType: 'RawData', isReadOnly: true, value: <hexString> }]` so the caller always receives a valid array.
 
 **Supported Element Types (`elementType` in `elementsStructure` JSON):**
@@ -839,14 +837,14 @@ export function parseParameterData(
 - `Struct` → named group of child elements (recursive); each child is a `DefinitionElement`
 - `ElementArray` → array of items, each item described by `template.elements` (a mixed list of `ConfigElement`, `Struct`, and nested `ElementArray`); length driven by `arrayLength` (static) or `arrayLenFormulaStr` (dynamic formula)
 
-##### 2.5.2 Output Type: `ParsedElementData` Discriminated Union
+##### 2.5.2 Output Type: `ElementData` Discriminated Union
 
-**File:** `packages/core/src/application/usecase-designer/spf-module/param-parser/types/parsed-element-data.ts` (new)
+**File:** `packages/core/src/domain/entities/definitions/common/types/element-data.ts`
 
-**`PARAMETER_ELEMENT_TYPE` const** — defined in `types/element-definition.ts` as the single source of truth for the `elementType` discriminator values used in both the DB-layer JSON schema and the `ParsedElementData` type fields:
+**`PARAMETER_ELEMENT_TYPE` const** — defined in `element-definition.ts` as the single source of truth for the `elementType` discriminator values used in both the DB-layer JSON schema and the `ElementData` type fields:
 
 ```typescript
-// packages/core/src/application/usecase-designer/spf-module/param-parser/types/element-definition.ts
+// packages/core/src/application/usecase-designer/shared/element-definition.ts
 export const PARAMETER_ELEMENT_TYPE = {
   ConfigElement: 'ConfigElement',
   Struct: 'Struct',
@@ -854,14 +852,14 @@ export const PARAMETER_ELEMENT_TYPE = {
 } as const;
 ```
 
-The `DefinitionElement` interfaces (`ConfigElement`, `StructElement`, `ElementArray`) that describe the DB-layer JSON structure are exported from `types/element-definition.ts` and imported by `parse-elements.ts`. `ParsedElementBase` is defined and exported from `types/parsed-element-data.ts`.
+The `DefinitionElement` interfaces (`ConfigElement`, `StructElement`, `ElementArray`) that describe the DB-layer JSON structure are exported from `element-definition.ts` and imported by `parse-elements.ts`. `ElementDataBase` is defined and exported from `element-data.ts`.
 
 
-Two separate type families are defined: `ParsedElementSchema` for schema descriptors (used in `template`) and `ParsedElementData` for parsed results (value fields required). This split gives the TypeScript compiler full precision — it is impossible to accidentally use a schema descriptor where a parsed result is expected, and vice versa.
+Two separate type families are defined: `ParsedElementSchema` for schema descriptors (used in `template`) and `ElementData` for parsed results (value fields required). This split gives the TypeScript compiler full precision — it is impossible to accidentally use a schema descriptor where a parsed result is expected, and vice versa.
 
 ```typescript
 // ── Shared base fields present on every element variant ──────────────────────
-interface ParsedElementBase {
+interface ElementDataBase {
   name: string;
   description?: string;
   group?: string;
@@ -876,7 +874,7 @@ interface ParsedElementBase {
 // ── ConfigElementSchema ───────────────────────────────────────────────────────
 // Schema descriptor for a scalar element — carries display/constraint metadata
 // but no actual value. Used as template for ConfigElementArray items.
-export interface ConfigElementSchema extends ParsedElementBase {
+export interface ConfigElementSchema extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.ConfigElement;  // 'ConfigElement'
   dataType: string;                    // e.g. 'UInt8', 'Float', 'Double' — required for UI rendering
   unit?: string;                       // unitStr
@@ -895,7 +893,7 @@ export interface ConfigElementSchema extends ParsedElementBase {
 // Schema descriptor for a struct — carries structureType and child schemas but no actual values.
 // structureType is the C type struct name (e.g. 'limiter_config_param_t'),
 // which may differ from the element's name (e.g. 'limiter').
-export interface StructSchema extends ParsedElementBase {
+export interface StructSchema extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.Struct;  // 'Struct'
   structureType: string;               // C type struct name (required)
   children: ParsedElementSchema[];     // Child element schemas (no values)
@@ -904,7 +902,7 @@ export interface StructSchema extends ParsedElementBase {
 // ── ElementArraySchema ────────────────────────────────────────────────────────
 // Schema descriptor for a nested ElementArray — carries template + length info
 // but no actual values. Used as template when an ElementArray contains nested ElementArrays.
-export interface ElementArraySchema extends ParsedElementBase {
+export interface ElementArraySchema extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.ElementArray;  // 'ElementArray'
   template: ParsedElementSchema;  // schema of one item with default value
   length?: number;                // static array length (arrayLength)
@@ -940,15 +938,15 @@ export interface ConfigElementData extends ConfigElementSchema {
 // Each value[i] is one parsed item (ConfigElementData, StructData, or ElementArrayData).
 // length is the resolved array length (static arrayLength or formula-evaluated).
 // arrayLenFormulaStr is present only for dynamic arrays; absent for static arrays.
-export interface ElementArrayData extends ParsedElementBase {
+export interface ElementArrayData extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.ElementArray;  // 'ElementArray'
   // template holds the original element definition from elementsStructure JSON (e.g. ConfigElementSchema
   // with dataType, defaultValue, min, max, rangeList, etc., or StructSchema with children, or a nested
   // ElementArraySchema). It carries no parsed value — it is the schema descriptor as-is from the
   // parameter definition, preserved so the UI can render the correct input control and constraints
   // when adding a new entry to a dynamic array.
-  template: ParsedElementSchema;
-  value: ParsedElementData[];     // Parsed items; each entry is one item; empty [] when length = 0
+  template: ElementData[];
+  value: ElementData[];     // Parsed items; each entry is one item; empty [] when length = 0
   length: number;                 // Actual array length
   arrayLenFormulaStr?: string;    // Formula expression for dynamic arrays; absent for static arrays
 }
@@ -957,14 +955,14 @@ export interface ElementArrayData extends ParsedElementBase {
 // Produced by: parseStruct (elementType = 'Struct')
 // Represents a named group of child elements parsed recursively.
 // isReadOnly is always false at the struct level; read-only status is per-child.
-export interface StructData extends ParsedElementBase {
+export interface StructData extends ElementDataBase {
   type: typeof PARAMETER_ELEMENT_TYPE.Struct;  // 'Struct'
   structureType: string;       // C type struct name (required)
-  value: ParsedElementData[];  // Recursively parsed child elements (required; always non-empty)
+  value: ElementData[];  // Recursively parsed child elements (required; always non-empty)
 }
 
 // ── Data union ────────────────────────────────────────────────────────────────
-export type ParsedElementData = ConfigElementData | StructData | ElementArrayData;
+export type ElementData = ConfigElementData | StructData | ElementArrayData;
 ```
 
 **Type summary:**
@@ -972,20 +970,20 @@ export type ParsedElementData = ConfigElementData | StructData | ElementArrayDat
 | Type family | Types | `value` field | Used for |
 |---|---|---|---|
 | `ParsedElementSchema` | `ConfigElementSchema`, `StructSchema`, `ElementArraySchema` | absent | `ElementArrayData.template`; `StructSchema.children`; `ElementArraySchema.template` |
-| `ParsedElementData` | `ConfigElementData`, `StructData`, `ElementArrayData` | required | Output of `parseParameterData`; `StructData.value`; `ElementArrayData.value` |
+| `ElementData` | `ConfigElementData`, `StructData`, `ElementArrayData` | required | Output of `parseParameterData`; `StructData.value`; `ElementArrayData.value` |
 
-**`value` field by `ParsedElementData` variant:**
+**`value` field by `ElementData` variant:**
 
 | `type` | `value` TypeScript type | Content |
 |---|---|---|
 | `PARAMETER_ELEMENT_TYPE.ConfigElement` (`'ConfigElement'`) | `string` (required) | Scalar numeric value converted to string via `.toString()` |
-| `PARAMETER_ELEMENT_TYPE.Struct` (`'Struct'`) | `ParsedElementData[]` (required) | Recursively parsed child elements; always non-empty |
-| `PARAMETER_ELEMENT_TYPE.ElementArray` (`'ElementArray'`) | `ParsedElementData[]` (required) | Parsed items; each entry is one item (`ConfigElementData`, `StructData`, or `ElementArrayData`); empty `[]` when length = 0 |
+| `PARAMETER_ELEMENT_TYPE.Struct` (`'Struct'`) | `ElementData[]` (required) | Recursively parsed child elements; always non-empty |
+| `PARAMETER_ELEMENT_TYPE.ElementArray` (`'ElementArray'`) | `ElementData[]` (required) | Parsed items; each entry is one item (`ConfigElementData`, `StructData`, or `ElementArrayData`); empty `[]` when length = 0 |
 
 
 ##### 2.5.3 Binary Data Reader
 
-**File:** `packages/core/src/application/usecase-designer/spf-module/param-parser/utils/binary-data-reader.ts` (new)
+**File:** `packages/core/src/application/usecase-designer/shared/utils/binary-data-reader.ts` (new)
 
 ```typescript
 export class BinaryDataReader {
@@ -1009,7 +1007,7 @@ export class BinaryDataReader {
 
 ##### 2.5.4 Formula Evaluator
 
-**File:** `packages/core/src/application/usecase-designer/spf-module/param-parser/utils/formular-evaluator.ts` (new)
+**File:** `packages/core/src/application/usecase-designer/shared/utils/formular-evaluator.ts` (new)
 
 Recursive descent expression evaluator used by `ParameterDataParser` to resolve `arrayLenFormulaStr` into a concrete array length at parse time.
 
@@ -1444,7 +1442,7 @@ const def = defMap.get(p.parameterSystemId);     // matched ParameterDefinitionR
 | DB read (CKV) | `CkvReadModel` |
 | DB read (payloads) | `ParameterPayloadReadModel[]` |
 | DB read (definitions) | `ParameterDefinitionReadModel[]` |
-| After binary parse | `ParsedElementData[]` per parameter |
+| After binary parse | `ElementData[]` per parameter |
 | After merge | `ParameterCalibrationReadModel[]` |
 | Final handler output | `CkvCalibrationReadModel` |
 | Controller output | `SpfModuleCalDataResponseDto` |
@@ -1457,7 +1455,7 @@ const def = defMap.get(p.parameterSystemId);     // matched ParameterDefinitionR
 
 #### `parseParameterData` — `parse-elements.spec.ts`
 
-**Location:** `param-parser/`
+**Location:** `shared/`
 
 | Test case | Description |
 |---|---|
@@ -1481,7 +1479,7 @@ const def = defMap.get(p.parameterSystemId);     // matched ParameterDefinitionR
 
 #### `evaluateFormula` — `formula-evaluator.spec.ts`
 
-**Location:** `param-parser/`
+**Location:** `shared/`
 
 | Test case | Description |
 |---|---|
@@ -1497,7 +1495,7 @@ const def = defMap.get(p.parameterSystemId);     // matched ParameterDefinitionR
 
 #### `BinaryDataReader` — `binary-data-reader.spec.ts`
 
-**Location:** `param-parser/`
+**Location:** `shared/`
 
 | Test case | Description |
 |---|---|

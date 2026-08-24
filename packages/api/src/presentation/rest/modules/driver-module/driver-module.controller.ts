@@ -259,7 +259,7 @@ export class DriverModuleController extends BaseController {
       '- `pid`: Parameter ID\n' +
       '- `name`: Human-readable parameter name\n' +
       '- `description`: Description of the parameter\n' +
-      '- `elements`: Array of calibration elements (ConfigElement, ConfigElementArray, Struct, StructArray)',
+      '- `elements`: Array of calibration elements (ConfigElement, ElementArray, Struct, StructArray)',
     responses: [
       {
         status: HttpStatus.OK,

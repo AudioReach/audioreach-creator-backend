@@ -10,6 +10,13 @@ import {Node, NodeType} from '../node/node.js';
 import type {DataPort} from '../node/entities/data-port.js';
 import type {ControlPort} from '../node/entities/control-port.js';
 
+export interface SpfModuleBase {
+  systemId: number;
+  definitionSystemId: number;
+  containerSystemId: number;
+  subgraphSystemId: number;
+}
+
 export class DuplicateTagExceptionError extends Error {
   constructor(
     readonly idType: 'systemId' | 'tagDefinitionSystemId',
@@ -33,7 +40,7 @@ export interface SpfModuleInit {
   controlPorts: ControlPort[];
 }
 
-export class SpfModule extends Node {
+export class SpfModule extends Node implements SpfModuleBase {
   private readonly tagIds = new Set<string>();
   private readonly ckvCollection = new CkvCollection();
 

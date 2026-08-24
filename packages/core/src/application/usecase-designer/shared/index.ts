@@ -5,3 +5,4 @@
 export * from './element-definition.js';
 export * from '../../../domain/entities/definitions/common/types/element-data.js';
 export * from './parse-elements.js';
+export * from './serialize-elements.js';

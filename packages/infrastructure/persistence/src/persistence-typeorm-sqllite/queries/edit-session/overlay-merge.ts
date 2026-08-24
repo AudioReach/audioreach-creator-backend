@@ -47,6 +47,7 @@ export interface OverlayMerge {
   applyToCollection<T extends {systemId: number}>(
     baseRows: T[],
     pendingRows: EditActionRow[],
+    createFilter?: (newValue: Record<string, unknown>) => boolean,
   ): OverlayResult<T>[];
 }
 
@@ -75,6 +76,7 @@ export class OverlayMergeImpl implements OverlayMerge {
   applyToCollection<T extends {systemId: number}>(
     baseRows: T[],
     pendingRows: EditActionRow[],
+    createFilter?: (newValue: Record<string, unknown>) => boolean,
   ): OverlayResult<T>[] {
     const pendingBySystemId = groupByTargetSystemId(pendingRows);
     const baseSystemIds = new Set(baseRows.map(r => r.systemId));
@@ -88,11 +90,30 @@ export class OverlayMergeImpl implements OverlayMerge {
 
     for (const [systemId, rows] of pendingBySystemId) {
       if (baseSystemIds.has(systemId)) continue;
+      if (
+        createFilter !== undefined &&
+        !this.passesCreateFilter(rows, createFilter)
+      )
+        continue;
       const result = this.applyToSingle<T>(null, rows);
       if (result !== null) results.push(result);
     }
 
     return results;
+  }
+
+  private passesCreateFilter(
+    rows: EditActionRow[],
+    createFilter: (newValue: Record<string, unknown>) => boolean,
+  ): boolean {
+    const createRow = rows.find(r => r.operation === CHANGE_OPERATION.Create);
+    if (!createRow) return false;
+    const raw = createRow.newValue;
+    const newValue: Record<string, unknown> =
+      typeof raw === 'string'
+        ? (JSON.parse(raw) as Record<string, unknown>)
+        : (raw as Record<string, unknown>);
+    return createFilter(newValue);
   }
 
   private foldRows<T extends {systemId: number}>(
@@ -115,6 +136,12 @@ export class OverlayMergeImpl implements OverlayMerge {
       }
       if (row.operation === CHANGE_OPERATION.Create) {
         operation = CHANGE_OPERATION.Create;
+        // systemId is never stored in newValue — it is the targetSystemId of
+        // the CREATE action. Inject it so synthesised rows carry the correct id.
+        // Only inject if not yet set (guards against duplicate CREATE rows).
+        if (baseRow === null && !('systemId' in effective)) {
+          effective.systemId = row.targetSystemId;
+        }
       }
       this.fieldPathReducer.applyRow(effective, row);
       diffEntries.push(

@@ -50,6 +50,22 @@ export type WriteDeleteSpec = {
   source?: Source;
 };
 
+// ── Internal row type ─────────────────────────────────────────────────────────
+
+type EditActionRow = {
+  sessionId: number;
+  aggregateId: number;
+  targetSystemId: number;
+  targetTable: EntityName;
+  operation: string;
+  fieldPath: string | null;
+  newValue: Record<string, unknown>;
+  source: string;
+  changeStatus: string;
+  groupId: string | null;
+  linkedEntityGroupId: string | null;
+};
+
 // ── Writer ────────────────────────────────────────────────────────────────────
 
 /**
@@ -104,6 +120,80 @@ export class PendingChangeWriter {
         manager,
       );
     }
+  }
+
+  async writeDeltaBatch(
+    specs: WriteDeltaSpec[],
+    sessionId: number,
+    groupId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    if (specs.length === 0) return;
+
+    const rows: EditActionRow[] = [];
+
+    for (const spec of specs) {
+      // Per-slot writes are not yet implemented in batch mode — they require a
+      // different path (no read-modify-write, just supersede + insert per slot).
+      // Extend this method when per-slot batch support is needed.
+      if (spec.fieldGroup !== undefined) {
+        throw new Error(
+          'writeDeltaBatch only supports accumulator mode (fieldGroup must be omitted)',
+        );
+      }
+      // cache=true is invalid for accumulator mode: accumulator requires a
+      // read-modify-write (fetch → merge → supersede) that cannot be deferred.
+      // If per-slot support is added above, cache=true would be valid for that
+      // path since per-slot writes have no merge step.
+      if (spec.cache === true) {
+        throw new Error('writeDeltaBatch does not support cache=true');
+      }
+
+      const source = spec.source ?? SOURCE.Manual;
+      const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
+
+      const existing = await this.queryService.findCurrentRow(
+        sessionId,
+        spec.targetSystemId,
+        null,
+      );
+
+      const mergedPayload: Record<string, unknown> = existing
+        ? {...(existing.newValue as Record<string, unknown>), ...spec.delta}
+        : {...spec.delta};
+
+      if (existing) {
+        await this.supersedeCurrent(
+          sessionId,
+          spec.targetSystemId,
+          null,
+          manager,
+        );
+      } else {
+        await this.captureBaseVersion(
+          sessionId,
+          spec.targetTable,
+          spec.targetSystemId,
+          manager,
+        );
+      }
+
+      rows.push({
+        sessionId,
+        aggregateId: spec.aggregateId,
+        targetSystemId: spec.targetSystemId,
+        targetTable: spec.targetTable,
+        operation: CHANGE_OPERATION.Update,
+        fieldPath: null,
+        newValue: mergedPayload,
+        source,
+        changeStatus,
+        groupId,
+        linkedEntityGroupId: spec.linkedEntityGroupId ?? null,
+      });
+    }
+
+    await this.insertRows(rows, manager);
   }
 
   async writeCreate(
@@ -327,19 +417,7 @@ export class PendingChangeWriter {
   }
 
   private async insertRow(
-    row: {
-      sessionId: number;
-      aggregateId: number;
-      targetSystemId: number;
-      targetTable: EntityName;
-      operation: string;
-      fieldPath: string | null;
-      newValue: Record<string, unknown>;
-      source: string;
-      changeStatus: string;
-      groupId: string | null;
-      linkedEntityGroupId: string | null;
-    },
+    row: EditActionRow,
     manager: EntityManager,
   ): Promise<void> {
     // eslint-disable-next-line custom/no-raw-persistence-queries -- manual JSON serialization of newValue requires raw INSERT; manager.insert() does not support column-level JSON.stringify
@@ -358,6 +436,39 @@ export class PendingChangeWriter {
         row.groupId,
         row.linkedEntityGroupId,
       ],
+    );
+  }
+
+  private async insertRows(
+    rows: EditActionRow[],
+    manager: EntityManager,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const params: unknown[] = [];
+    const placeholders: string[] = [];
+    for (const [i, row] of rows.entries()) {
+      const b = i * 11;
+      placeholders.push(
+        `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9}, $${b + 10}, $${b + 11})`,
+      );
+      params.push(
+        row.sessionId,
+        row.aggregateId,
+        row.targetSystemId,
+        row.targetTable,
+        row.operation,
+        row.fieldPath,
+        JSON.stringify(serializeBlobs(row.newValue)),
+        row.source,
+        row.changeStatus,
+        row.groupId,
+        row.linkedEntityGroupId,
+      );
+    }
+    // eslint-disable-next-line custom/no-raw-persistence-queries -- multi-row INSERT requires raw SQL; manager.insert() does not support column-level JSON.stringify
+    await manager.query(
+      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ${placeholders.join(', ')}`,
+      params,
     );
   }
 }

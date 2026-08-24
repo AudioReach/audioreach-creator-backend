@@ -174,4 +174,28 @@ export const IssueFactory = {
       },
     };
   },
+
+  paramPayloadNotFound(paramSystemId: number): Issue {
+    return {
+      code: ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND,
+      message: `Parameter ${paramSystemId}: no existing payload row (update-only)`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  paramReadOnly(paramSystemId: number): Issue {
+    return {
+      code: ISSUE_CODE.PARAM_READ_ONLY,
+      message: `Parameter ${paramSystemId}: parameter is read-only`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  paramSerializationFailed(paramSystemId: number, error: string): Issue {
+    return {
+      code: ISSUE_CODE.PARAM_SERIALIZATION_FAILED,
+      message: `Parameter ${paramSystemId}: ${error}`,
+      severity: IssueSeverity.Error,
+    };
+  },
 } as const;

@@ -2,7 +2,10 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import {parseParameterData} from '../../../../../../src/application/usecase-designer/shared/parse-elements.js';
+import {
+  parseParameterData,
+  parseMinMax,
+} from '../../../../../../src/application/usecase-designer/shared/parse-elements.js';
 import type {
   ConfigElementData,
   ElementArrayData,
@@ -92,7 +95,7 @@ describe('parseParameterData', () => {
       ]);
       const structure = JSON.stringify([
         {
-          elementType: 'ConfigElementArray',
+          elementType: 'ElementArray',
           name: 'filter_coeffs',
           arrayLength: 2,
           dataType: 'UInt32',
@@ -187,7 +190,7 @@ describe('parseParameterData', () => {
       const payload = new Uint8Array([0x01, 0x00, 0x02, 0x00, 0x03, 0x00]);
       const structure = JSON.stringify([
         {
-          elementType: 'ConfigElementArray',
+          elementType: 'ElementArray',
           name: 'coeff',
           arrayLength: 3,
           dataType: 'UInt16',
@@ -249,7 +252,7 @@ describe('parseParameterData', () => {
               isReadOnly: false,
             },
             {
-              elementType: 'ConfigElementArray',
+              elementType: 'ElementArray',
               name: 'filters',
               arrayLenFormulaStr: 'num_filters',
               dataType: 'UInt16',
@@ -308,7 +311,7 @@ describe('parseParameterData', () => {
                 isReadOnly: false,
               },
               {
-                elementType: 'ConfigElementArray',
+                elementType: 'ElementArray',
                 name: 'coeffs',
                 arrayLenFormulaStr: 'num_coeffs',
                 dataType: 'UInt16',
@@ -361,7 +364,7 @@ describe('parseParameterData', () => {
           isReadOnly: false,
         },
         {
-          elementType: 'ConfigElementArray',
+          elementType: 'ElementArray',
           name: 'data',
           arrayLenFormulaStr: 'count',
           dataType: 'UInt16',
@@ -391,7 +394,7 @@ describe('parseParameterData', () => {
       );
 
       const paramStructure =
-        '[{"elementType":"ConfigElement","name":"num_bands","description":"Number of bands.","defaultValue":"1","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5},{"elementType":"ConfigElement","name":"limiter_mode","description":"Specifies whether Limiter mode is bypassed for subbands.","defaultValue":"1","dataType":"UInt32","displayType":"DropDown","policy":"Advanced","isReadOnly":false,"precision":5},{"elementType":"ConfigElement","name":"limiter_delay","description":"Limiter delay in samples.","defaultValue":"262","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5},{"elementType":"ConfigElement","name":"limiter_history_winlen","description":"Length of history window","defaultValue":"2884","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5},{"elementType":"ConfigElement","name":"num_config","description":"Specifies the different sets of mbdrc configurations.","defaultValue":"1","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5},{"elementType":"ConfigElementArray","name":"drc_delay","description":"DRC delay in samples.","groupSet":0,"displayType":"TextBox","policy":"Advanced","isReadOnly":false,"arrayLength":0,"arrayLenFormulaStr":"num_bands","dataType":"UInt32"},{"elementType":"StructArray","name":"config_data","description":"Specifies the different sets of mbdrc configurations","keyStructureDefinition":{"structureType":"iir_mbdrc_per_ch_config_params_t","children":[{"defaultValue":"4294967294","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"channel_mask_lsb","description":"Lower 32 bits of the channel mask."},{"defaultValue":"4294967295","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"channel_mask_msb","description":"Upper 32 bits of the channel mask."},{"structureType":"limiter_config_param_t","children":[{"defaultValue":"93945856","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"27","precision":5,"elementType":"ConfigElement","name":"limiter_threshold","description":"Threshold in decibels for the limiter output."},{"defaultValue":"256","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"limiter_makeup_gain","description":"Makeup gain in decibels for the limiter output."},{"defaultValue":"32440","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"limiter_gc","description":"Limiter gain recovery coefficient."},{"defaultValue":"82","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"limiter_max_wait","description":"Maximum limiter waiting time in samples."},{"defaultValue":"188099735","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"gain_attack","description":"Limiter gain attack time"},{"defaultValue":"32559427","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"gain_release","description":"Limiter gain release time"},{"defaultValue":"32768","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"attack_coef","description":"Limiter gain attack time speed coef"},{"defaultValue":"32768","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"release_coef","description":"Limiter gain release time speed coef"},{"defaultValue":"93945856","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"27","precision":5,"elementType":"ConfigElement","name":"hard_threshold","description":"Hard Threshold in decibels for the limiter output."}],"elementType":"Struct","name":"limiter","description":"..."},{"keyStructureDefinition":{"structureType":"subband_drc_config_params_t","children":[{"defaultValue":"1","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"drc_mode","description":"Specifies whether DRC mode is bypassed for subbands."},{"defaultValue":"1","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"drc_linked_flag","description":"Specifies whether all stereo channels have the same applied dynamics."},{"defaultValue":"1","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"drc_down_sample_level","description":"DRC down sample level."},{"defaultValue":"298","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"16","precision":5,"elementType":"ConfigElement","name":"drc_rms_time_avg_const","description":"RMS signal energy time-averaging constant."},{"defaultValue":"4096","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"12","precision":5,"elementType":"ConfigElement","name":"drc_makeup_gain","description":"DRC makeup gain in decibels."},{"defaultValue":"3877","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"7","precision":5,"elementType":"ConfigElement","name":"down_expdr_threshold","description":"Down expander threshold."},{"defaultValue":"-102","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"down_expdr_slope","description":"Down expander slope."},{"defaultValue":"18855","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"14","precision":5,"elementType":"ConfigElement","name":"down_expdr_hysteresis","description":"Down expander hysteresis constant."},{"defaultValue":"15690611","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_expdr_attack","description":"Down expander attack constant."},{"defaultValue":"39011832","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_expdr_release","description":"Down expander release constant."},{"defaultValue":"-50331648","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"23","precision":5,"elementType":"ConfigElement","name":"down_expdr_min_gain_db","description":"Down expander minimum gain."},{"defaultValue":"3877","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"7","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_threshold","description":"Up compressor threshold."},{"defaultValue":"0","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_slope","description":"Up compressor slope."},{"defaultValue":"7859688","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_attack","description":"Up compressor attack constant."},{"defaultValue":"7859688","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_release","description":"Up compressor release constant."},{"defaultValue":"18855","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"14","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_hysteresis","description":"Up compressor hysteresis constant."},{"defaultValue":"9637","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"7","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_threshold","description":"Down compressor threshold."},{"defaultValue":"62259","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_slope","description":"Down compressor slope."},{"defaultValue":"18855","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"14","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_hysteresis","description":"Down compressor hysteresis constant."},{"defaultValue":"77314964","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_attack","description":"Down compressor attack constant."},{"defaultValue":"1574244","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_release","description":"Down compressor release constant."}],"elementType":"Struct","name":"subband_drc","description":"..."},"arrayLength":0,"arrayLenFormulaStr":"iir_mbdrc_config_params_t::num_bands","elementType":"StructArray","name":"subband_drc","description":"..."},{"keyStructureDefinition":{"structureType":"iir_filter_config_params_t","children":[{"defaultValue":"3","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"num_even_stages","description":"even filter stages;"},{"defaultValue":"2","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"num_odd_stages","description":"odd filter stages"},{"displayType":"TextBox","policy":"Advanced","isReadOnly":false,"arrayLength":10,"elementType":"ConfigElementArray","name":"iir_coeffs","description":"IIR filter coefficients.","dataType":"UInt32"}],"elementType":"Struct","name":"iir_filter","description":"..."},"arrayLength":0,"arrayLenFormulaStr":"(iir_mbdrc_config_params_t::num_bands)- 1","elementType":"StructArray","name":"iir_filter","description":"..."},{"displayType":"TextBox","policy":"Advanced","isReadOnly":false,"arrayLength":0,"arrayLenFormulaStr":"iir_mbdrc_config_params_t::num_bands","elementType":"ConfigElementArray","name":"mute_flag","description":"...","groupSet":0,"dataType":"UInt32"}],"elementType":"Struct","name":"config_data","description":"Specifies the different sets of mbdrc configurations"},"arrayLength":0,"arrayLenFormulaStr":"num_config"}]';
+        '[{"elementType":"ConfigElement","name":"num_bands","description":"Number of bands.","defaultValue":"1","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5},{"elementType":"ConfigElement","name":"limiter_mode","description":"Specifies whether Limiter mode is bypassed for subbands.","defaultValue":"1","dataType":"UInt32","displayType":"DropDown","policy":"Advanced","isReadOnly":false,"precision":5},{"elementType":"ConfigElement","name":"limiter_delay","description":"Limiter delay in samples.","defaultValue":"262","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5},{"elementType":"ConfigElement","name":"limiter_history_winlen","description":"Length of history window","defaultValue":"2884","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5},{"elementType":"ConfigElement","name":"num_config","description":"Specifies the different sets of mbdrc configurations.","defaultValue":"1","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5},{"elementType":"ElementArray","name":"drc_delay","description":"DRC delay in samples.","groupSet":0,"displayType":"TextBox","policy":"Advanced","isReadOnly":false,"arrayLength":0,"arrayLenFormulaStr":"num_bands","dataType":"UInt32"},{"elementType":"StructArray","name":"config_data","description":"Specifies the different sets of mbdrc configurations","keyStructureDefinition":{"structureType":"iir_mbdrc_per_ch_config_params_t","children":[{"defaultValue":"4294967294","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"channel_mask_lsb","description":"Lower 32 bits of the channel mask."},{"defaultValue":"4294967295","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"channel_mask_msb","description":"Upper 32 bits of the channel mask."},{"structureType":"limiter_config_param_t","children":[{"defaultValue":"93945856","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"27","precision":5,"elementType":"ConfigElement","name":"limiter_threshold","description":"Threshold in decibels for the limiter output."},{"defaultValue":"256","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"limiter_makeup_gain","description":"Makeup gain in decibels for the limiter output."},{"defaultValue":"32440","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"limiter_gc","description":"Limiter gain recovery coefficient."},{"defaultValue":"82","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"limiter_max_wait","description":"Maximum limiter waiting time in samples."},{"defaultValue":"188099735","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"gain_attack","description":"Limiter gain attack time"},{"defaultValue":"32559427","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"gain_release","description":"Limiter gain release time"},{"defaultValue":"32768","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"attack_coef","description":"Limiter gain attack time speed coef"},{"defaultValue":"32768","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"15","precision":5,"elementType":"ConfigElement","name":"release_coef","description":"Limiter gain release time speed coef"},{"defaultValue":"93945856","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"27","precision":5,"elementType":"ConfigElement","name":"hard_threshold","description":"Hard Threshold in decibels for the limiter output."}],"elementType":"Struct","name":"limiter","description":"..."},{"keyStructureDefinition":{"structureType":"subband_drc_config_params_t","children":[{"defaultValue":"1","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"drc_mode","description":"Specifies whether DRC mode is bypassed for subbands."},{"defaultValue":"1","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"drc_linked_flag","description":"Specifies whether all stereo channels have the same applied dynamics."},{"defaultValue":"1","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"drc_down_sample_level","description":"DRC down sample level."},{"defaultValue":"298","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"16","precision":5,"elementType":"ConfigElement","name":"drc_rms_time_avg_const","description":"RMS signal energy time-averaging constant."},{"defaultValue":"4096","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"12","precision":5,"elementType":"ConfigElement","name":"drc_makeup_gain","description":"DRC makeup gain in decibels."},{"defaultValue":"3877","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"7","precision":5,"elementType":"ConfigElement","name":"down_expdr_threshold","description":"Down expander threshold."},{"defaultValue":"-102","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"down_expdr_slope","description":"Down expander slope."},{"defaultValue":"18855","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"14","precision":5,"elementType":"ConfigElement","name":"down_expdr_hysteresis","description":"Down expander hysteresis constant."},{"defaultValue":"15690611","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_expdr_attack","description":"Down expander attack constant."},{"defaultValue":"39011832","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_expdr_release","description":"Down expander release constant."},{"defaultValue":"-50331648","dataType":"Int32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"23","precision":5,"elementType":"ConfigElement","name":"down_expdr_min_gain_db","description":"Down expander minimum gain."},{"defaultValue":"3877","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"7","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_threshold","description":"Up compressor threshold."},{"defaultValue":"0","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_slope","description":"Up compressor slope."},{"defaultValue":"7859688","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_attack","description":"Up compressor attack constant."},{"defaultValue":"7859688","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_release","description":"Up compressor release constant."},{"defaultValue":"18855","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"14","precision":5,"elementType":"ConfigElement","name":"up_cmpsr_hysteresis","description":"Up compressor hysteresis constant."},{"defaultValue":"9637","dataType":"Int16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"7","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_threshold","description":"Down compressor threshold."},{"defaultValue":"62259","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"8","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_slope","description":"Down compressor slope."},{"defaultValue":"18855","dataType":"UInt16","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"14","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_hysteresis","description":"Down compressor hysteresis constant."},{"defaultValue":"77314964","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_attack","description":"Down compressor attack constant."},{"defaultValue":"1574244","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"qFormat":"31","precision":5,"elementType":"ConfigElement","name":"down_cmpsr_release","description":"Down compressor release constant."}],"elementType":"Struct","name":"subband_drc","description":"..."},"arrayLength":0,"arrayLenFormulaStr":"iir_mbdrc_config_params_t::num_bands","elementType":"StructArray","name":"subband_drc","description":"..."},{"keyStructureDefinition":{"structureType":"iir_filter_config_params_t","children":[{"defaultValue":"3","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"num_even_stages","description":"even filter stages;"},{"defaultValue":"2","dataType":"UInt32","displayType":"TextBox","policy":"Advanced","isReadOnly":false,"precision":5,"elementType":"ConfigElement","name":"num_odd_stages","description":"odd filter stages"},{"displayType":"TextBox","policy":"Advanced","isReadOnly":false,"arrayLength":10,"elementType":"ElementArray","name":"iir_coeffs","description":"IIR filter coefficients.","dataType":"UInt32"}],"elementType":"Struct","name":"iir_filter","description":"..."},"arrayLength":0,"arrayLenFormulaStr":"(iir_mbdrc_config_params_t::num_bands)- 1","elementType":"StructArray","name":"iir_filter","description":"..."},{"displayType":"TextBox","policy":"Advanced","isReadOnly":false,"arrayLength":0,"arrayLenFormulaStr":"iir_mbdrc_config_params_t::num_bands","elementType":"ElementArray","name":"mute_flag","description":"...","groupSet":0,"dataType":"UInt32"}],"elementType":"Struct","name":"config_data","description":"Specifies the different sets of mbdrc configurations"},"arrayLength":0,"arrayLenFormulaStr":"num_config"}]';
       const result = parseParameterData(payload, paramStructure);
 
       // ── Top-level: 7 elements (5 scalars + drc_delay array + config_data struct-array) ──
@@ -422,7 +425,7 @@ describe('parseParameterData', () => {
         value: '1',
       });
 
-      // ── drc_delay: ConfigElementArray driven by num_bands=5 ──
+      // ── drc_delay: ElementArray driven by num_bands=5 ──
       const drcDelay = result[5] as ElementArrayData;
       expect(drcDelay).toMatchObject({
         type: PARAMETER_ELEMENT_TYPE.ElementArray,
@@ -490,14 +493,14 @@ describe('parseParameterData', () => {
       expect(iirFilter0.type).toBe(PARAMETER_ELEMENT_TYPE.Struct);
       expect(iirFilter0.value).toHaveLength(3);
 
-      // iir_coeffs: ConfigElementArray with fixed arrayLength=10
+      // iir_coeffs: ElementArray with fixed arrayLength=10
       const iirCoeffs = iirFilter0.value[2] as ElementArrayData;
       expect(iirCoeffs.type).toBe(PARAMETER_ELEMENT_TYPE.ElementArray);
       expect(iirCoeffs.name).toBe('iir_coeffs');
       expect(iirCoeffs.length).toBe(10);
       expect(iirCoeffs.value).toHaveLength(10);
 
-      // ── mute_flag: ConfigElementArray driven by num_bands=5 ──
+      // ── mute_flag: ElementArray driven by num_bands=5 ──
       const muteFlag = configData0.value[5] as ElementArrayData;
       expect(muteFlag.type).toBe(PARAMETER_ELEMENT_TYPE.ElementArray);
       expect(muteFlag.name).toBe('mute_flag');
@@ -559,5 +562,47 @@ describe('parseParameterData', () => {
         value: '',
       });
     });
+  });
+});
+
+describe('parseMinMax', () => {
+  it('returns undefined for absent value', () => {
+    expect(parseMinMax(undefined, 'UInt32')).toBeUndefined();
+  });
+
+  it('parses decimal integer strings', () => {
+    expect(parseMinMax('100', 'UInt32')).toBe(100);
+    expect(parseMinMax('-32768', 'Int16')).toBe(-32768);
+  });
+
+  it('parses unsigned hex strings without sign extension', () => {
+    expect(parseMinMax('0x0000000A', 'UInt32')).toBe(10);
+    expect(parseMinMax('0xFFFFFFFF', 'UInt32')).toBe(4294967295);
+  });
+
+  it("applies two's complement for Int8 hex values", () => {
+    expect(parseMinMax('0x80', 'Int8')).toBe(-128);
+    expect(parseMinMax('0xFF', 'Int8')).toBe(-1);
+    expect(parseMinMax('0x7F', 'Int8')).toBe(127);
+  });
+
+  it("applies two's complement for Int16 hex values", () => {
+    expect(parseMinMax('0x8000', 'Int16')).toBe(-32768);
+    expect(parseMinMax('0xFFFF', 'Int16')).toBe(-1);
+    expect(parseMinMax('0x7FFF', 'Int16')).toBe(32767);
+  });
+
+  it("applies two's complement for Int32 hex values", () => {
+    expect(parseMinMax('0x80000000', 'Int32')).toBe(-2147483648);
+    expect(parseMinMax('0xFFFFFFFF', 'Int32')).toBe(-1);
+    expect(parseMinMax('0x7FFFFFFF', 'Int32')).toBe(2147483647);
+  });
+
+  it("applies two's complement for Int64 hex boundary value 0x8000000000000000", () => {
+    expect(parseMinMax('0x8000000000000000', 'Int64')).toBe(-(2 ** 63));
+  });
+
+  it('returns undefined for inapplicable types', () => {
+    expect(parseMinMax('0xFF', 'RawData')).toBeUndefined();
   });
 });

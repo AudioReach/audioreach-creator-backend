@@ -19,7 +19,7 @@ import {
   Query,
 } from '@nestjs/common';
 import {ApiTags, ApiQuery, ApiExtraModels, ApiParam} from '@nestjs/swagger';
-import {SubsystemResponseDto} from '../subsystem/dto/subsystem.dto.js';
+import {UpdateSubsystemResponseDto as SubsystemResponseDto} from '../subsystem/dto/response/update-subsystem-response.dto.js';
 import {BaseController} from '../base/base.controller.js';
 import {
   UsecaseResponseDto,

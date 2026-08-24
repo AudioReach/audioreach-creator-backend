@@ -9,7 +9,7 @@ import {BaseDefinition} from './base-definition.js';
  * Represents a base element with identification and advanced configuration.
  */
 export abstract class AwspBaseElement extends BaseDefinition {
-  /** Element type (e.g., ConfigElement, ConfigElementArray, Struct, StructArray) (required) */
+  /** Element type (e.g., ConfigElement, ElementArray, Struct, StructArray) (required) */
   elementType!: string;
 
   /** Name of the element (required) */

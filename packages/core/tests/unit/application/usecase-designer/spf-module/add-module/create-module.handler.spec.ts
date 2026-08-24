@@ -50,7 +50,6 @@ function makeDefRepo(definition = makeDefinition()) {
   return {
     findBySystemId: jest.fn().mockResolvedValue(definition),
     findByModuleIdAndProcId: jest.fn().mockResolvedValue(definition),
-    findCalibrationParametersByDefinitionId: jest.fn().mockResolvedValue([]),
   } as unknown as ModuleDefinitionRepository;
 }
 
