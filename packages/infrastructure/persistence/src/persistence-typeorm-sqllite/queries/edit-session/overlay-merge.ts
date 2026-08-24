@@ -90,23 +90,30 @@ export class OverlayMergeImpl implements OverlayMerge {
 
     for (const [systemId, rows] of pendingBySystemId) {
       if (baseSystemIds.has(systemId)) continue;
-      if (createFilter !== undefined) {
-        const createRow = rows.find(
-          r => r.operation === CHANGE_OPERATION.Create,
-        );
-        if (!createRow) continue;
-        const raw = createRow.newValue;
-        const newValue: Record<string, unknown> =
-          typeof raw === 'string'
-            ? (JSON.parse(raw) as Record<string, unknown>)
-            : (raw as Record<string, unknown>);
-        if (!createFilter(newValue)) continue;
-      }
+      if (
+        createFilter !== undefined &&
+        !this.passesCreateFilter(rows, createFilter)
+      )
+        continue;
       const result = this.applyToSingle<T>(null, rows);
       if (result !== null) results.push(result);
     }
 
     return results;
+  }
+
+  private passesCreateFilter(
+    rows: EditActionRow[],
+    createFilter: (newValue: Record<string, unknown>) => boolean,
+  ): boolean {
+    const createRow = rows.find(r => r.operation === CHANGE_OPERATION.Create);
+    if (!createRow) return false;
+    const raw = createRow.newValue;
+    const newValue: Record<string, unknown> =
+      typeof raw === 'string'
+        ? (JSON.parse(raw) as Record<string, unknown>)
+        : (raw as Record<string, unknown>);
+    return createFilter(newValue);
   }
 
   private foldRows<T extends {systemId: number}>(
