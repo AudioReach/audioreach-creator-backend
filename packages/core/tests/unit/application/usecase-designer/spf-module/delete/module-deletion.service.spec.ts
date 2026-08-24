@@ -75,15 +75,21 @@ function createFixture(options?: {
     }),
   };
   const subgraphRepository = {
-    findByIds: jest.fn().mockResolvedValue([
-      {
-        systemId: 300,
-        subgraphId: 1,
-        name: 'sg',
-        isImported: options?.imported ?? false,
-        fileSystemId: 7,
-      },
-    ]),
+    getAggregates: jest.fn().mockResolvedValue(
+      new Map([
+        [
+          300,
+          {
+            systemId: 300,
+            naturalId: 1,
+            name: 'sg',
+            isImported: options?.imported ?? false,
+            fileSystemId: 7,
+            properties: [],
+          },
+        ],
+      ]),
+    ),
     deleteSubgraph: jest.fn(),
   };
   const dataLinkRepository = {

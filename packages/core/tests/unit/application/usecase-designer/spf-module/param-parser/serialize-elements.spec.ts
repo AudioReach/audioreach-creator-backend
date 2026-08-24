@@ -4,7 +4,7 @@
  */
 
 import {serializeParameterData} from '../../../../../../src/application/usecase-designer/shared/serialize-elements.js';
-import type {ParameterDefinitionBase} from '../../../../../../src/application/ports/persistence/repositories/module/module-definition.repository.js';
+import type {ParameterDefinitionBase} from '../../../../../../src/application/ports/persistence/repositories/shared/parameter-definition-base.js';
 
 function scalarDef(dataType: string, min?: string, max?: string): string {
   return JSON.stringify([{elementType: 'ConfigElement', dataType, min, max}]);

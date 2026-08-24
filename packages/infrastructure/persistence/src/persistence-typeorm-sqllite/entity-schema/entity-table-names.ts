@@ -38,6 +38,7 @@ export const ENTITY_NAMES = {
   StaticIntentDefinition: 'StaticIntentDefinition',
   ModuleDefinitionContainerTypeLink: 'ModuleDefinitionContainerTypeLink',
   SubgraphPropertyDefinition: 'SubgraphProperty',
+  VcpmModuleAttribute: 'VcpmModuleAttribute',
   VcpmModuleDefinition: 'VcpmModuleDefinition',
   VcpmModuleParameterDefinition: 'VcpmModuleParameterDefinition',
 

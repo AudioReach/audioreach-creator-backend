@@ -18,7 +18,7 @@ import type {KeyVectorInput} from '../../../../../domain/entities/usecase-data/u
 import type {UiMetadata} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {parseKeyValueString} from '../../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import {PARSED_CHUNK_TYPES} from '../../../shared/constants/chunk-types.js';
-import {SPF_VCPM_MODULE_ID} from '../../../shared/constants/spf-ids.js';
+import {SPF_VCPM_MODULE_ID} from '../../../../../domain/entities/definitions/spf-ids.js';
 import type {
   VoiceCalibrationChunk,
   VoiceSubgraphCalTable,

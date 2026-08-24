@@ -731,4 +731,129 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       this.manager,
     );
   }
+
+  async DeleteAllCkvData(
+    _moduleSystemId: number,
+    _fileSystemId: number,
+  ): Promise<void> {
+    // TODO
+  }
+
+  async DeleteAllTkvData(
+    moduleSystemId: number,
+    _fileSystemId: number,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const tkvDeleteTargets = await this.readTkvDeleteTargets(
+      moduleSystemId,
+      session.sessionId,
+    );
+    await this.writeTkvDeletes(
+      tkvDeleteTargets,
+      moduleSystemId,
+      session.sessionId,
+      groupId,
+    );
+  }
+
+  private async readTkvDeleteTargets(
+    moduleSystemId: number,
+    sessionId: number,
+  ): Promise<
+    Array<{
+      tagMapSystemId: number;
+      tkvs: Array<{tkvId: number; payloadIds: number[]}>;
+    }>
+  > {
+    const tagMaps = await this.tkvOverlayFetcher.fetchMany(
+      moduleSystemId,
+      sessionId,
+      CONFIGURATION_INCLUDES.FullDetails,
+    );
+    if (tagMaps.length === 0) return [];
+
+    const allTkvs = tagMaps.flatMap(tm => tm.tkvs ?? []);
+    if (allTkvs.length === 0) {
+      return tagMaps.map(tm => ({tagMapSystemId: tm.systemId, tkvs: []}));
+    }
+
+    // Batch-fetch all TKV payloads in one query
+    const tkvIds = allTkvs.map(t => t.systemId);
+    const allPayloads = await this.manager
+      .getRepository(ENTITY_NAMES.TkvParameterPayload)
+      .createQueryBuilder('p')
+      .select('p.systemId', 'systemId')
+      .addSelect('p.tkvSystemId', 'tkvSystemId')
+      .where('p.tkvSystemId IN (:...ids)', {ids: tkvIds})
+      .getRawMany<{systemId: number; tkvSystemId: number}>();
+
+    const payloadsByTkv = new Map<number, number[]>();
+    for (const p of allPayloads) {
+      const list = payloadsByTkv.get(p.tkvSystemId) ?? [];
+      list.push(p.systemId);
+      payloadsByTkv.set(p.tkvSystemId, list);
+    }
+
+    return tagMaps.map(tagMap => ({
+      tagMapSystemId: tagMap.systemId,
+      tkvs: (tagMap.tkvs ?? []).map(tkv => ({
+        tkvId: tkv.systemId,
+        payloadIds: payloadsByTkv.get(tkv.systemId) ?? [],
+      })),
+    }));
+  }
+
+  private async writeTkvDeletes(
+    targets: Array<{
+      tagMapSystemId: number;
+      tkvs: Array<{tkvId: number; payloadIds: number[]}>;
+    }>,
+    moduleSystemId: number,
+    sessionId: number,
+    groupId: string,
+  ): Promise<void> {
+    await Promise.all(
+      targets.map(async target => {
+        // Delete TKV payloads + TKV rows, then the ModuleTagIdMap row
+        await Promise.all(
+          target.tkvs.map(async tkv => {
+            await Promise.all(
+              tkv.payloadIds.map(payloadId =>
+                this.writer.writeDelete(
+                  {
+                    targetTable: ENTITY_NAMES.TkvParameterPayload,
+                    targetSystemId: payloadId,
+                    aggregateId: target.tagMapSystemId,
+                  },
+                  sessionId,
+                  groupId,
+                  this.manager,
+                ),
+              ),
+            );
+            await this.writer.writeDelete(
+              {
+                targetTable: ENTITY_NAMES.Tkv,
+                targetSystemId: tkv.tkvId,
+                aggregateId: target.tagMapSystemId,
+              },
+              sessionId,
+              groupId,
+              this.manager,
+            );
+          }),
+        );
+        await this.writer.writeDelete(
+          {
+            targetTable: ENTITY_NAMES.ModuleTagIdMap,
+            targetSystemId: target.tagMapSystemId,
+            aggregateId: moduleSystemId,
+          },
+          sessionId,
+          groupId,
+          this.manager,
+        );
+      }),
+    );
+  }
 }

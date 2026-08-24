@@ -60,13 +60,21 @@ function createUow(options: {
   controlLinks: readonly unknown[];
   committedUsecases?: readonly unknown[];
 }) {
-  const findByIds = jest.fn(async () => [...options.subgraphs]);
+  const getAggregates = jest.fn(
+    async () =>
+      new Map(
+        options.subgraphs.map(value => {
+          const systemId = (value as {systemId: number}).systemId;
+          return [systemId, value];
+        }),
+      ),
+  );
   const findDataLinks = jest.fn(async () => [...options.dataLinks]);
   const findControlLinks = jest.fn(async () => [...options.controlLinks]);
   const findAll = jest.fn(async () => [...(options.committedUsecases ?? [])]);
   return {
     uow: {
-      getSubgraphRepository: () => ({findByIds}),
+      getSubgraphRepository: () => ({getAggregates}),
       getDataLinkRepository: () => ({
         findIntraUcLinksByFile: findDataLinks,
       }),
@@ -75,7 +83,7 @@ function createUow(options: {
       }),
       getUsecaseRepository: () => ({findAll}),
     },
-    findByIds,
+    getAggregates,
     findDataLinks,
     findControlLinks,
     findAll,
@@ -115,7 +123,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
         ],
       }),
     );
-    expect(catalog.findByIds).not.toHaveBeenCalled();
+    expect(catalog.getAggregates).not.toHaveBeenCalled();
     expect(catalog.findDataLinks).not.toHaveBeenCalled();
     expect(catalog.findControlLinks).not.toHaveBeenCalled();
     expect(catalog.findAll).not.toHaveBeenCalled();
@@ -151,7 +159,7 @@ describe('RoutingGraphSnapshotBuilder', () => {
     const result = await builder.build(input, catalog.uow as never);
 
     expect(result.kind).toBe(RESULT_KIND.Ok);
-    expect(catalog.findByIds).toHaveBeenCalledTimes(1);
+    expect(catalog.getAggregates).toHaveBeenCalledTimes(1);
     expect(catalog.findDataLinks).toHaveBeenCalledTimes(1);
     expect(catalog.findControlLinks).toHaveBeenCalledTimes(1);
     expect(catalog.findAll).toHaveBeenCalledWith(7, {

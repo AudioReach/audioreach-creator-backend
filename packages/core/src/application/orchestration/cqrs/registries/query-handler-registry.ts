@@ -94,6 +94,8 @@ import {GetControlLinksByModulePortQuery} from '../../../usecase-designer/contro
 import {GetControlLinksByModulePortHandler} from '../../../usecase-designer/control-links/get-by-module-port/get-control-links-by-module-port.handler.js';
 import {GetSubgraphLinksQuery} from '../../../usecase-designer/subgraph-links/get/get-subgraph-links.query.js';
 import {GetSubgraphLinksHandler} from '../../../usecase-designer/subgraph-links/get/get-subgraph-links.handler.js';
+import {GetSubgraphPropertyQuery} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.query.js';
+import {GetSubgraphPropertyHandler} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -355,6 +357,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetSubgraphLinksQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetSubgraphLinksHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSubgraphPropertyQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSubgraphPropertyHandler(deps.queryServices),
     });
   }
 }
