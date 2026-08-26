@@ -23,6 +23,7 @@ export interface SpfModuleBase {
   containerSystemId: number;
   definitionSystemId: number;
   fileSystemId: number;
+  heapId: number | null;
 }
 
 export interface SpfModuleRow extends EntityBaseRow, SpfModuleBase {
@@ -56,6 +57,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
     definitionSystemId: {name: 'definition_system_id', type: 'integer'},
 
     fileSystemId: {name: 'file_system_id', type: 'integer'},
+    heapId: {name: 'heap_id', type: 'integer', nullable: true},
   },
   relations: {
     //  bind relation to the FK column via joinColumn

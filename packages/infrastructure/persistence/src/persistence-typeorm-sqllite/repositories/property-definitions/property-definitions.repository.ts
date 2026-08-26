@@ -8,8 +8,21 @@ import type {
   SubgraphPropertyDefinitionRecord,
   ContainerPropertyDefinitionRecord,
 } from '@arc/core';
+import type {EntityManager} from 'typeorm';
+import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import {ContainerPropertyDefinitionFetcher} from '../../fetchers/definitions/container-property-definition-fetcher.js';
 
 export class TypeOrmPropertyDefinitionsRepository implements PropertyDefinitionsRepository {
+  private readonly containerPropertyDefinitionFetcher: ContainerPropertyDefinitionFetcher;
+
+  constructor(
+    manager: EntityManager,
+    editActionsSvc = new EditActionsQueryService(manager),
+  ) {
+    this.containerPropertyDefinitionFetcher =
+      new ContainerPropertyDefinitionFetcher(manager, editActionsSvc);
+  }
+
   findSubgraphPropertyDefinitions(
     _fileSystemId: number,
   ): Promise<SubgraphPropertyDefinitionRecord[]> {
@@ -26,5 +39,27 @@ export class TypeOrmPropertyDefinitionsRepository implements PropertyDefinitions
     // WHERE file_system_id = _fileSystemId and return {systemId, propertyId, elementsStructure}.
     // See: docs/edit-crud/design/add-module-calibration-defaults-design.md §8
     return Promise.resolve([]);
+  }
+
+  async findContainerPropertyDefinition(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<ContainerPropertyDefinitionRecord | null> {
+    // Definitions are immutable reference data for command reads, so the
+    // repository intentionally requests the baseline layer. Query handlers
+    // resolve and pass an active session when overlay behavior is required.
+    const row = await this.containerPropertyDefinitionFetcher.fetchOne(
+      propertySystemId,
+      fileSystemId,
+      null,
+    );
+
+    if (row === null) return null;
+
+    return {
+      systemId: row.systemId,
+      propertyId: row.propertyId,
+      elementsStructure: row.elementsStructure ?? '',
+    };
   }
 }

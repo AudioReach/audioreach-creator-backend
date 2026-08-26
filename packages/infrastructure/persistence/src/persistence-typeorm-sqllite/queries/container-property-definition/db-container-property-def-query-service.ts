@@ -148,6 +148,37 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
 
   // ── Private read model mappers ─────────────────────────────────────────────
 
+  async getContainerPropertyDefinitionWithElements(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      const match = rows.find(row => row.systemId === propertySystemId);
+      return match
+        ? Result.ok(this.toDetailWithElementsReadModel(match))
+        : Result.fail({
+            code: ERROR_CODES.ENTITY_NOT_FOUND,
+            message: `ContainerPropertyDefinition not found for systemId=${propertySystemId}`,
+            severity: IssueSeverity.Error,
+          });
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load container property definition with elements',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
   private toSummaryReadModel(
     row: ContainerPropertyBase,
   ): PropertyDefinitionSummaryReadModel {

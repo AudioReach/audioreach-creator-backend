@@ -62,4 +62,17 @@ export class ContainerPropertyDefinitionFetcher {
       )
       .map(r => r.effective as unknown as ContainerPropertyBase);
   }
+
+  /**
+   * Returns one container property definition by system ID.
+   * Uses the same baseline query and optional session overlay as fetchAll.
+   */
+  async fetchOne(
+    propertySystemId: number,
+    fileSystemId: number,
+    sessionId: number | null,
+  ): Promise<ContainerPropertyBase | null> {
+    const rows = await this.fetchAll(fileSystemId, sessionId);
+    return rows.find(row => row.systemId === propertySystemId) ?? null;
+  }
 }

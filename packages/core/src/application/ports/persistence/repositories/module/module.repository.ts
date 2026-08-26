@@ -25,6 +25,19 @@ export interface CkvPayloadUpdate {
 }
 
 /**
+ * Projection of an SpfModule used for container-level operations:
+ * capability validation and heap cascade.
+ */
+export interface ModuleForContainer {
+  /** PK of SpfModule — used as aggregateId when staging heap cascade writes. */
+  moduleSystemId: number;
+  /** Container type IDs supported by this module's definition — used for capability intersection. */
+  containerTypeIds: number[];
+  /** Human-readable display name from SpfModuleDefinition — used in capability mismatch error messages. */
+  displayName: string;
+}
+
+/**
  * Write-side port for the SpfModule aggregate.
  *
  * findModuleForPatch must load intents for each control port so the handler
@@ -107,4 +120,21 @@ export interface ModuleRepository {
     payloadUpdates: CkvPayloadUpdate[],
     uiPersistence?: string,
   ): Promise<void>;
+
+  /**
+   * Returns all non-deleted modules belonging to a container.
+   * Overlay-aware: excludes pending DELETEs, includes pending CREATEs.
+   * Used by capability validation and heap cascade in UpdateContainerPropertyHandler.
+   */
+  getModulesByContainerId(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<ModuleForContainer[]>;
+
+  /**
+   * Stages a heapId update on a SpfModule row via edit_actions.
+   * targetTable = SpfModule; aggregateId = moduleSystemId.
+   * All cascade writes for one API call share the same groupId (stamped by CommandBus).
+   */
+  updateHeapId(moduleSystemId: number, heapId: number): Promise<void>;
 }

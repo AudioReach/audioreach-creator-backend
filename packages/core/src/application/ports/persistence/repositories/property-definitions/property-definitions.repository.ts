@@ -44,4 +44,14 @@ export interface PropertyDefinitionsRepository {
   findContainerPropertyDefinitions(
     fileSystemId: number,
   ): Promise<ContainerPropertyDefinitionRecord[]>;
+
+  /**
+   * Returns one container property definition by system ID for the file.
+   * Used by command handlers that need elementsStructure before staging a
+   * property-data write.
+   */
+  findContainerPropertyDefinition(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<ContainerPropertyDefinitionRecord | null>;
 }

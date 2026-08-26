@@ -105,7 +105,7 @@ export class SpfModuleDefinitionFetcher {
   /**
    * Returns the system IDs of SpfModuleDefinitions matching the given filters
    * from the baseline table. Used by list query methods to scope subsequent
-   * fetcher calls — same pattern as ModuleNodeOverlayFetcher.loadBaselineNodeIdsForSubgraph.
+   * fetcher calls — same pattern as the other overlay fetchers.
    *
    * JOINs for processorNaturalId and parameterNaturalId are for filtering only;
    * no data is returned from those tables.
