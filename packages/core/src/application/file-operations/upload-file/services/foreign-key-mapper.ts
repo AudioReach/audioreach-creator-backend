@@ -146,7 +146,6 @@ export class ForeignKeyMapper {
       action: 'foreign_key_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
-      timestamp: new Date(),
     });
   }*/
 

@@ -59,11 +59,10 @@ export class CommandBus {
     const {uow, release} = await this.uowFactory();
 
     this.logger?.logDebug({
-      msg: 'UnitOfWork created for command execution',
-      action: 'uow-created',
+      msg: 'uow-created',
+      description: 'UnitOfWork created for command execution',
       component: 'CommandBus',
       tag: 'uow-lifecycle',
-      timestamp: new Date(),
     });
 
     // Stamp WriteContext only when a session is present (Case 1 + 2).
@@ -78,31 +77,28 @@ export class CommandBus {
       // Safety check: ensure transaction is closed
       if (uow.isInTransaction()) {
         this.logger?.logWarn({
-          msg: `Handler ${command.constructor.name} left transaction open. Auto-rolling back.`,
-          action: 'auto-rollback',
+          msg: 'auto-rollback',
+          description: `Handler ${command.constructor.name} left transaction open. Auto-rolling back.`,
           component: 'CommandBus',
           tag: 'transaction-safety',
-          timestamp: new Date(),
         });
         await uow.rollback();
       }
 
       this.logger?.logDebug({
-        msg: `Command executed successfully: ${command.constructor.name}`,
-        action: 'command-execution-success',
+        msg: 'command-execution-success',
+        description: `Command executed successfully: ${command.constructor.name}`,
         component: 'CommandBus',
         tag: 'command-execution',
-        timestamp: new Date(),
       });
 
       return result;
     } catch (error) {
       this.logger?.logError({
-        msg: `Command execution failed: ${command.constructor.name}`,
-        action: 'command-execution-error',
+        msg: 'command-execution-error',
+        description: `Command execution failed: ${command.constructor.name}`,
         component: 'CommandBus',
         tag: 'command-execution',
-        timestamp: new Date(),
         error: error instanceof Error ? error : new Error(String(error)),
       });
 
@@ -111,20 +107,18 @@ export class CommandBus {
         if (uow.isInTransaction()) {
           await uow.rollback();
           this.logger?.logDebug({
-            msg: 'Transaction rolled back due to error',
-            action: 'error-rollback',
+            msg: 'error-rollback',
+            description: 'Transaction rolled back due to error',
             component: 'CommandBus',
             tag: 'transaction-rollback',
-            timestamp: new Date(),
           });
         }
       } catch (rollbackError) {
         this.logger?.logError({
-          msg: 'Failed to rollback transaction after error',
-          action: 'rollback-error',
+          msg: 'rollback-error',
+          description: 'Failed to rollback transaction after error',
           component: 'CommandBus',
           tag: 'transaction-rollback',
-          timestamp: new Date(),
           error:
             rollbackError instanceof Error
               ? rollbackError

@@ -5,9 +5,10 @@
 
 import {jest} from '@jest/globals';
 import {PinoLogService} from '../../src/pino-log.service.js';
-import type {LogData1} from '@arc/core';
+import {LogSource} from '@arc/core';
+import type {LogData} from '@arc/core';
 
-const makeData = (): LogData1 => ({
+const makeData = (): LogData => ({
   msg: 'test-msg',
   description: 'test description',
   timestamp: new Date('2026-01-01T00:00:00Z'),
@@ -72,5 +73,22 @@ describe('PinoLogService', () => {
     const data = makeData();
     svc.logCritical(data);
     expect(pino.fatal).toHaveBeenCalledWith(data);
+  });
+
+  it('defaults source and timestamp when they are omitted', () => {
+    const pino = makePinoLogger();
+    const svc = new PinoLogService(pino as never);
+    const data: LogData = {
+      msg: 'test-msg',
+      description: 'test description',
+      component: 'TestComponent',
+      tag: 'test-tag',
+    };
+
+    svc.logInfo(data);
+
+    const loggedData = (pino.info as jest.Mock).mock.calls[0][0] as LogData;
+    expect(loggedData.source).toBe(LogSource.Server);
+    expect(loggedData.timestamp).toBeInstanceOf(Date);
   });
 });

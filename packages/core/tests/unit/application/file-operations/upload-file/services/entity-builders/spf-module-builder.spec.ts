@@ -295,10 +295,10 @@ describe('SpfModuleBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining(
+            msg: 'spf_module_building_complete',
+            description: expect.stringContaining(
               'Successfully built 1 SPF modules with system IDs assigned',
             ),
-            action: 'spf_module_building_complete',
             component: 'SpfModuleBuilder',
           }),
         );
@@ -520,8 +520,10 @@ describe('SpfModuleBuilder', () => {
 
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to convert module instance'),
-            action: 'spf_module_conversion_failed',
+            msg: 'spf_module_conversion_failed',
+            description: expect.stringContaining(
+              'Failed to convert module instance',
+            ),
             component: 'SpfModuleBuilder',
           }),
         );
@@ -724,8 +726,9 @@ describe('SpfModuleBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'Successfully built 2 SPF modules with system IDs assigned, 0 failed',
-            action: 'spf_module_building_complete',
+            msg: 'spf_module_building_complete',
+            description:
+              'Successfully built 2 SPF modules with system IDs assigned, 0 failed',
             component: 'SpfModuleBuilder',
             tag: 'spf-module-building',
           }),

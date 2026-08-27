@@ -48,11 +48,10 @@ export class AwspFileOrchestrator {
     const startTime = Date.now();
 
     this.logger?.logInfo({
-      msg: 'AWSP parsing started',
-      action: 'parse_awsp_start',
+      msg: 'awsp_parsing_started',
+      description: 'AWSP parsing started',
       component: 'AwspFileOrchestrator',
       tag: 'parsing',
-      timestamp: new Date(),
     });
 
     try {
@@ -95,31 +94,28 @@ export class AwspFileOrchestrator {
       parsedAwsp.setUiMetadata(uiMetadata);
 
       this.logger?.logInfo({
-        msg: `Configuration parsed successfully with portStrategy: ${configurationData.portStrategy}, defaultProcessorDomain: ${configurationData.defaultProcessorDomain}`,
-        action: 'parse_configuration_success',
+        msg: 'awsp_configuration_parsed',
+        description: `Configuration parsed successfully with portStrategy: ${configurationData.portStrategy}, defaultProcessorDomain: ${configurationData.defaultProcessorDomain}`,
         component: 'AwspFileOrchestrator',
         tag: 'parsing',
-        timestamp: new Date(),
       });
 
       const duration = Date.now() - startTime;
       this.logger?.logInfo({
-        msg: `AWSP parsing completed in ${duration}ms`,
-        action: 'parse_awsp_complete',
+        msg: 'awsp_parsing_completed',
+        description: `AWSP parsing completed in ${duration}ms`,
         component: 'AwspFileOrchestrator',
         tag: 'parsing',
-        timestamp: new Date(),
       });
 
       return parsedAwsp;
     } catch (error) {
       this.logger?.logError({
-        msg: 'AWSP parsing failed',
-        action: 'parse_awsp_failed',
+        msg: 'awsp_parsing_failed',
+        description: 'AWSP parsing failed',
         component: 'AwspFileOrchestrator',
         tag: 'parsing',
-        error: error as Error,
-        timestamp: new Date(),
+        error: error instanceof Error ? error : new Error(String(error)),
       });
 
       if (error instanceof AwspUnsupportedVersionError) {
@@ -146,12 +142,14 @@ export class AwspFileOrchestrator {
         } catch (cleanupError) {
           // Log cleanup error but don't throw - parsing was successful
           this.logger?.logError({
-            msg: 'Failed to delete unzipped folder',
-            action: 'cleanup_failed',
+            msg: 'awsp_cleanup_failed',
+            description: 'Failed to delete unzipped folder',
             component: 'AwspFileOrchestrator',
             tag: 'cleanup',
-            error: cleanupError as Error,
-            timestamp: new Date(),
+            error:
+              cleanupError instanceof Error
+                ? cleanupError
+                : new Error(String(cleanupError)),
           });
         }
       }

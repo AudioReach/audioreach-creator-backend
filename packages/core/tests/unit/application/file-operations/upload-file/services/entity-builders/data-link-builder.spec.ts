@@ -119,8 +119,8 @@ describe('DataLinkBuilder', () => {
         expect(result).toEqual([]);
         expect(mockLogger.logDebug).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'No data link properties provided for building',
-            action: 'no_data_link_properties',
+            msg: 'no_data_link_properties',
+            description: 'No data link properties provided for building',
           }),
         );
       });
@@ -158,8 +158,10 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(2);
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('3 total → 2 unique properties'),
-            action: 'data_link_deduplication',
+            msg: 'data_link_deduplication',
+            description: expect.stringContaining(
+              '3 total → 2 unique properties',
+            ),
           }),
         );
       });
@@ -179,8 +181,8 @@ describe('DataLinkBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('system IDs assigned'),
-            action: 'data_link_building_complete',
+            msg: 'data_link_building_complete',
+            description: expect.stringContaining('system IDs assigned'),
             component: 'DataLinkBuilder',
           }),
         );
@@ -292,8 +294,8 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to map source module'),
-            action: 'source_module_mapping_failed',
+            msg: 'source_module_mapping_failed',
+            description: expect.stringContaining('Failed to map source module'),
           }),
         );
       });
@@ -322,8 +324,10 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to map destination module'),
-            action: 'destination_module_mapping_failed',
+            msg: 'destination_module_mapping_failed',
+            description: expect.stringContaining(
+              'Failed to map destination module',
+            ),
           }),
         );
       });
@@ -351,8 +355,8 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to map source port'),
-            action: 'source_port_mapping_failed',
+            msg: 'source_port_mapping_failed',
+            description: expect.stringContaining('Failed to map source port'),
           }),
         );
       });
@@ -380,8 +384,10 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to map destination port'),
-            action: 'destination_port_mapping_failed',
+            msg: 'destination_port_mapping_failed',
+            description: expect.stringContaining(
+              'Failed to map destination port',
+            ),
           }),
         );
       });
@@ -450,8 +456,8 @@ describe('DataLinkBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Unexpected error converting'),
-            action: 'data_link_conversion_error',
+            msg: 'data_link_conversion_error',
+            description: expect.stringContaining('Unexpected error converting'),
           }),
         );
       });
@@ -480,8 +486,9 @@ describe('DataLinkBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'Data link deduplication: 2 total → 1 unique properties (1 duplicates removed)',
-            action: 'data_link_deduplication',
+            msg: 'data_link_deduplication',
+            description:
+              'Data link deduplication: 2 total → 1 unique properties (1 duplicates removed)',
             component: 'DataLinkBuilder',
           }),
         );

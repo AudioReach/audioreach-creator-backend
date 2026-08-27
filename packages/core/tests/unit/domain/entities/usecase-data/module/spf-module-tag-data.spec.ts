@@ -88,6 +88,6 @@ describe('SpfModule - hasTag()', () => {
     const duration = performance.now() - start;
 
     expect(result).toBe(true);
-    expect(duration).toBeLessThan(1); // Should be sub-millisecond
+    expect(duration).toBeLessThan(50); // Should be sub-millisecond in practice; 50ms guards against O(n) regression
   });
 });

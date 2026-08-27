@@ -67,11 +67,10 @@ export class SubgraphBuilder {
     this.deduplicateNames(result.entities);
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} subgraphs with system IDs assigned, ${result.issues.length} failed`,
-      action: 'subgraph_building_complete',
+      msg: 'subgraph_building_complete',
+      description: `Successfully built ${result.entities.length} subgraphs with system IDs assigned, ${result.issues.length} failed`,
       component: 'SubgraphBuilder',
       tag: 'subgraph-building',
-      timestamp: new Date(),
     });
 
     return result;
@@ -131,11 +130,10 @@ export class SubgraphBuilder {
         issues.push(issue);
 
         this.logger?.logWarn({
-          msg: `Failed to convert subgraph property (ID: ${subgraphProperty.subgraphId}): ${errorMessage}`,
-          action: 'subgraph_conversion_failed',
+          msg: 'subgraph_conversion_failed',
+          description: `Failed to convert subgraph property (ID: ${subgraphProperty.subgraphId}): ${errorMessage}`,
           component: 'SubgraphBuilder',
           tag: 'subgraph-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -163,11 +161,10 @@ export class SubgraphBuilder {
 
       if (propertySystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Subgraph property definition not found for propertyId ${propertyId} in subgraph ${subgraphPropertyData.subgraphId}`,
-          action: 'property_definition_not_found',
+          msg: 'property_definition_not_found',
+          description: `Subgraph property definition not found for propertyId ${propertyId} in subgraph ${subgraphPropertyData.subgraphId}`,
           component: 'SubgraphBuilder',
           tag: 'subgraph-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -190,11 +187,10 @@ export class SubgraphBuilder {
         );
         if (vsId === undefined) {
           this.logger?.logWarn({
-            msg: `SGKV value not found for key=0x${keyId.toString(16)} value=0x${valueId.toString(16)} in subgraph ${name}`,
-            action: 'sgkv_value_not_found',
+            msg: 'sgkv_value_not_found',
+            description: `SGKV value not found for key=0x${keyId.toString(16)} value=0x${valueId.toString(16)} in subgraph ${name}`,
             component: 'SubgraphBuilder',
             tag: 'subgraph-building',
-            timestamp: new Date(),
           });
         } else {
           valueSystemIds.push(vsId);
@@ -205,11 +201,10 @@ export class SubgraphBuilder {
         const fingerprint = [...valueSystemIds].sort((a, b) => a - b).join(',');
         if (seenFingerprints.has(fingerprint)) {
           this.logger?.logWarn({
-            msg: `Duplicate SGKV skipped for subgraph ${name} (keyValue="${kv.keyValue}")`,
-            action: 'sgkv_duplicate_skipped',
+            msg: 'sgkv_duplicate_skipped',
+            description: `Duplicate SGKV skipped for subgraph ${name} (keyValue="${kv.keyValue}")`,
             component: 'SubgraphBuilder',
             tag: 'subgraph-building',
-            timestamp: new Date(),
           });
           continue;
         }
@@ -270,11 +265,10 @@ export class SubgraphBuilder {
     for (const [original, renamed] of duplicateGroups) {
       const renamedList = renamed.map(n => `"${n}"`).join(', ');
       this.logger?.logWarn({
-        msg: `Duplicate subgraph name "${original}" found — renamed to ${renamedList}`,
-        action: 'subgraph_name_deduplicated',
+        msg: 'subgraph_name_deduplicated',
+        description: `Duplicate subgraph name "${original}" found — renamed to ${renamedList}`,
         component: 'SubgraphBuilder',
         tag: 'subgraph-building',
-        timestamp: new Date(),
       });
     }
   }

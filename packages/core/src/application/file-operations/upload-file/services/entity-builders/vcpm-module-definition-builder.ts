@@ -63,11 +63,10 @@ export class VcpmModuleDefinitionBuilder {
     }
 
     this.logger?.logDebug({
-      msg: `Building ${awspModuleDefinitions.length} VCPM module definitions`,
-      action: 'vcpm_module_definition_building_start',
+      msg: 'vcpm_module_definition_building_start',
+      description: `Building ${awspModuleDefinitions.length} VCPM module definitions`,
       component: 'VcpmModuleDefinitionBuilder',
       tag: 'vcpm-module-definitions',
-      timestamp: new Date(),
     });
 
     const entities: VcpmModuleDefinition[] = [];
@@ -100,11 +99,10 @@ export class VcpmModuleDefinitionBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} VCPM module definitions with system IDs assigned, ${issues.length} failures`,
-      action: 'vcpm_module_definition_building_complete',
+      msg: 'vcpm_module_definition_building_complete',
+      description: `Successfully built ${entities.length} VCPM module definitions with system IDs assigned, ${issues.length} failures`,
       component: 'VcpmModuleDefinitionBuilder',
       tag: 'vcpm-module-definitions',
-      timestamp: new Date(),
     });
 
     return {

@@ -131,11 +131,10 @@ export class DownloadFileOrchestrator {
     );
     if (readMetrics) {
       this.logger?.logInfo({
-        msg: `readAllEntitiesForFile completed in ${readMetrics.duration.toFixed(1)}ms`,
-        action: 'download-read-performance',
+        msg: 'read_all_entities_completed',
+        description: `readAllEntitiesForFile completed in ${readMetrics.duration.toFixed(1)}ms`,
         component: 'DownloadFileOrchestrator',
         tag: 'download-file',
-        timestamp: new Date(),
       });
     }
 
@@ -149,11 +148,10 @@ export class DownloadFileOrchestrator {
     );
     if (serializeMetrics) {
       this.logger?.logInfo({
-        msg: `serialize completed in ${serializeMetrics.duration.toFixed(1)}ms`,
-        action: 'download-serialize-performance',
+        msg: 'serialize_completed',
+        description: `serialize completed in ${serializeMetrics.duration.toFixed(1)}ms`,
         component: 'DownloadFileOrchestrator',
         tag: 'download-file',
-        timestamp: new Date(),
       });
     }
 
@@ -162,11 +160,10 @@ export class DownloadFileOrchestrator {
     );
     if (totalMetrics) {
       this.logger?.logInfo({
-        msg: `download-file total: ${totalMetrics.duration.toFixed(1)}ms`,
-        action: 'download-total-performance',
+        msg: 'download_file_total',
+        description: `download-file total: ${totalMetrics.duration.toFixed(1)}ms`,
         component: 'DownloadFileOrchestrator',
         tag: 'download-file',
-        timestamp: new Date(),
       });
     }
 

@@ -42,11 +42,10 @@ export class ControlLinkBuilder {
     // Input validation
     if (!controlLinkProperties || controlLinkProperties.length === 0) {
       this.logger?.logDebug({
-        msg: 'No control link properties provided for building',
-        action: 'no_control_link_properties',
+        msg: 'no_control_link_properties',
+        description: 'No control link properties provided for building',
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',
-        timestamp: new Date(),
       });
       return {
         controlLinks: [],
@@ -60,11 +59,10 @@ export class ControlLinkBuilder {
     );
 
     this.logger?.logInfo({
-      msg: `Control link deduplication: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
-      action: 'control_link_deduplication',
+      msg: 'control_link_deduplication',
+      description: `Control link deduplication: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
       component: 'ControlLinkBuilder',
       tag: 'control-link-building',
-      timestamp: new Date(),
     });
 
     // STEP 2: Build ControlLink objects and collect intents
@@ -83,11 +81,10 @@ export class ControlLinkBuilder {
 
     // STEP 5: Performance and results logging
     this.logger?.logInfo({
-      msg: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated), ${controlPortIntents.size} control ports with intents, system IDs assigned`,
-      action: 'control_link_building_complete',
+      msg: 'control_link_building_complete',
+      description: `Control link building complete: ${controlLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${errorCount} failed (${duplicateCount} duplicates eliminated), ${controlPortIntents.size} control ports with intents, system IDs assigned`,
       component: 'ControlLinkBuilder',
       tag: 'control-link-building',
-      timestamp: new Date(),
     });
 
     return {
@@ -220,11 +217,10 @@ export class ControlLinkBuilder {
       return {success: true, controlLink};
     } catch (error) {
       this.logger?.logWarn({
-        msg: `Failed to convert control link property (peer1: ${property.peer1InstanceId}, peer2: ${property.peer2InstanceId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
-        action: 'control_link_conversion_failed',
+        msg: 'control_link_conversion_failed',
+        description: `Failed to convert control link property (peer1: ${property.peer1InstanceId}, peer2: ${property.peer2InstanceId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',
-        timestamp: new Date(),
       });
       return {success: false};
     }
@@ -326,22 +322,20 @@ export class ControlLinkBuilder {
 
     if (sourceSgId === undefined) {
       this.logger?.logWarn({
-        msg: `Failed to resolve source subgraph for control link module instance ${property.peer1InstanceId}`,
-        action: 'source_subgraph_mapping_failed',
+        msg: 'source_subgraph_mapping_failed',
+        description: `Failed to resolve source subgraph for control link module instance ${property.peer1InstanceId}`,
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',
-        timestamp: new Date(),
       });
       return null;
     }
 
     if (destSgId === undefined) {
       this.logger?.logWarn({
-        msg: `Failed to resolve dest subgraph for control link module instance ${property.peer2InstanceId}`,
-        action: 'dest_subgraph_mapping_failed',
+        msg: 'dest_subgraph_mapping_failed',
+        description: `Failed to resolve dest subgraph for control link module instance ${property.peer2InstanceId}`,
         component: 'ControlLinkBuilder',
         tag: 'control-link-building',
-        timestamp: new Date(),
       });
       return null;
     }

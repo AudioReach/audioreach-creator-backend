@@ -221,11 +221,10 @@ export class EntityBuilderService {
 
     if (!subgraphDataChunk) {
       this.logger?.logError({
-        msg: 'No subgraph data chunk found in ACDB data',
-        action: 'no_subgraph_data_chunk',
+        msg: 'no_subgraph_data_chunk',
+        description: 'No subgraph data chunk found in ACDB data',
         component: 'EntityBuilderService',
         tag: 'acdb-processing',
-        timestamp: new Date(),
       });
       return {entities: [], issues: []};
     }
@@ -259,11 +258,10 @@ export class EntityBuilderService {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} subgraphs from ACDB with system IDs assigned (${result.issues.length} issues)`,
-      action: 'acdb_subgraphs_complete',
+      msg: 'acdb_subgraphs_complete',
+      description: `Successfully built ${result.entities.length} subgraphs from ACDB with system IDs assigned (${result.issues.length} issues)`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -297,11 +295,10 @@ export class EntityBuilderService {
 
     if (!subgraphDataChunk) {
       this.logger?.logError({
-        msg: 'No subgraph data chunk found for containers',
-        action: 'no_subgraph_data_chunk_containers',
+        msg: 'no_subgraph_data_chunk_containers',
+        description: 'No subgraph data chunk found for containers',
         component: 'EntityBuilderService',
         tag: 'acdb-processing',
-        timestamp: new Date(),
       });
       return {entities: [], issues: []};
     }
@@ -321,11 +318,10 @@ export class EntityBuilderService {
     this.containerProcessorMap = result.containerProcessorMap;
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} containers from ACDB with system IDs assigned (${result.issues.length} issues)`,
-      action: 'acdb_containers_complete',
+      msg: 'acdb_containers_complete',
+      description: `Successfully built ${result.entities.length} containers from ACDB with system IDs assigned (${result.issues.length} issues)`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -452,11 +448,10 @@ export class EntityBuilderService {
     modulesWithActivePorts: number,
   ): void {
     this.logger?.logInfo({
-      msg: `Analyzed ${totalLinks} control links, found ${modulesWithActivePorts} modules with active control ports`,
-      action: 'active_control_ports_analyzed',
+      msg: 'active_control_ports_analyzed',
+      description: `Analyzed ${totalLinks} control links, found ${modulesWithActivePorts} modules with active control ports`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
   }
 
@@ -476,11 +471,10 @@ export class EntityBuilderService {
 
     if (!subgraphDataChunk) {
       this.logger?.logError({
-        msg: 'No subgraph data chunk found for modules',
-        action: 'no_subgraph_data_chunk_modules',
+        msg: 'no_subgraph_data_chunk_modules',
+        description: 'No subgraph data chunk found for modules',
         component: 'EntityBuilderService',
         tag: 'acdb-processing',
-        timestamp: new Date(),
       });
       return {entities: [], issues: []};
     }
@@ -528,11 +522,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} SPF modules from ACDB with system IDs and calibration data assigned (${result.issues.length} issues)`,
-      action: 'acdb_spf_modules_complete',
+      msg: 'acdb_spf_modules_complete',
+      description: `Successfully built ${result.entities.length} SPF modules from ACDB with system IDs and calibration data assigned (${result.issues.length} issues)`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     const uiMetadata = parsedAwsp.getUiMetadata();
@@ -614,11 +607,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${dataLinks.length} data links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph)`,
-      action: 'acdb_data_links_complete',
+      msg: 'acdb_data_links_complete',
+      description: `Successfully built ${dataLinks.length} data links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph)`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     return dataLinks;
@@ -682,11 +674,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.controlLinks.length} control links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph), extracted intents for ${result.controlPortIntents.size} control ports`,
-      action: 'acdb_control_links_complete',
+      msg: 'acdb_control_links_complete',
+      description: `Successfully built ${result.controlLinks.length} control links from ACDB (${intraSubgraphCount} intra-subgraph, ${interSubgraphCount} inter-subgraph), extracted intents for ${result.controlPortIntents.size} control ports`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -728,11 +719,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${usecases.length} usecases from ACDB with system IDs assigned`,
-      action: 'acdb_usecases_complete',
+      msg: 'acdb_usecases_complete',
+      description: `Successfully built ${usecases.length} usecases from ACDB with system IDs assigned`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     return usecases;
@@ -759,11 +749,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} key definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
-      action: 'awsp_key_definitions_complete',
+      msg: 'awsp_key_definitions_complete',
+      description: `Successfully built ${result.entities.length} key definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -790,11 +779,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} tag definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
-      action: 'awsp_tag_definitions_complete',
+      msg: 'awsp_tag_definitions_complete',
+      description: `Successfully built ${result.entities.length} tag definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -838,11 +826,10 @@ export class EntityBuilderService {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} processor definitions from AWSP with system IDs assigned`,
-      action: 'awsp_processor_definitions_complete',
+      msg: 'awsp_processor_definitions_complete',
+      description: `Successfully built ${entities.length} processor definitions from AWSP with system IDs assigned`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return {
@@ -888,11 +875,10 @@ export class EntityBuilderService {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} container type definitions from AWSP with system IDs assigned`,
-      action: 'awsp_container_type_definitions_complete',
+      msg: 'awsp_container_type_definitions_complete',
+      description: `Successfully built ${entities.length} container type definitions from AWSP with system IDs assigned`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return {
@@ -948,11 +934,10 @@ export class EntityBuilderService {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} subgraph property definitions from AWSP with system IDs assigned`,
-      action: 'awsp_subgraph_property_definitions_complete',
+      msg: 'awsp_subgraph_property_definitions_complete',
+      description: `Successfully built ${entities.length} subgraph property definitions from AWSP with system IDs assigned`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return {
@@ -1014,11 +999,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} SPF module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
-      action: 'awsp_spf_module_definitions_complete',
+      msg: 'awsp_spf_module_definitions_complete',
+      description: `Successfully built ${result.entities.length} SPF module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -1048,11 +1032,10 @@ export class EntityBuilderService {
       );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} driver module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
-      action: 'awsp_driver_module_definitions_complete',
+      msg: 'awsp_driver_module_definitions_complete',
+      description: `Successfully built ${result.entities.length} driver module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -1080,11 +1063,10 @@ export class EntityBuilderService {
       );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} VCPM module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
-      action: 'awsp_vcpm_module_definitions_complete',
+      msg: 'awsp_vcpm_module_definitions_complete',
+      description: `Successfully built ${result.entities.length} VCPM module definitions from AWSP with system IDs assigned, ${result.issues.length} issues`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -1124,11 +1106,10 @@ export class EntityBuilderService {
     );
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} driver modules from ACDB with system IDs assigned, ${result.issues.length} issues`,
-      action: 'acdb_driver_modules_complete',
+      msg: 'acdb_driver_modules_complete',
+      description: `Successfully built ${result.entities.length} driver modules from ACDB with system IDs assigned, ${result.issues.length} issues`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     return result;
@@ -1166,11 +1147,10 @@ export class EntityBuilderService {
 
       if (processorSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Processor definition ID ${processorId} not found in foreign key mapper for module manager entry`,
-          action: 'processor_mapping_not_found_mmgr',
+          msg: 'processor_mapping_not_found_mmgr',
+          description: `Processor definition ID ${processorId} not found in foreign key mapper for module manager entry`,
           component: 'EntityBuilderService',
           tag: 'acdb-processing',
-          timestamp: new Date(),
         });
         continue; // Skip this processor if not found
       }
@@ -1186,11 +1166,10 @@ export class EntityBuilderService {
 
         if (moduleDefinitionSystemId === undefined) {
           this.logger?.logWarn({
-            msg: `Module definition ID ${moduleId} not found in foreign key mapper for module manager entry`,
-            action: 'module_definition_mapping_not_found_mmgr',
+            msg: 'module_definition_mapping_not_found_mmgr',
+            description: `Module definition ID ${moduleId} not found in foreign key mapper for module manager entry`,
             component: 'EntityBuilderService',
             tag: 'acdb-processing',
-            timestamp: new Date(),
           });
           continue; // Skip this module if not found
         }
@@ -1214,11 +1193,10 @@ export class EntityBuilderService {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} module manager data entries from ACDB with system IDs assigned`,
-      action: 'acdb_module_manager_data_complete',
+      msg: 'acdb_module_manager_data_complete',
+      description: `Successfully built ${entities.length} module manager data entries from ACDB with system IDs assigned`,
       component: 'EntityBuilderService',
       tag: 'acdb-processing',
-      timestamp: new Date(),
     });
 
     return entities;
@@ -1270,11 +1248,10 @@ export class EntityBuilderService {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} container property definitions from AWSP with system IDs assigned`,
-      action: 'awsp_container_property_definitions_complete',
+      msg: 'awsp_container_property_definitions_complete',
+      description: `Successfully built ${entities.length} container property definitions from AWSP with system IDs assigned`,
       component: 'EntityBuilderService',
       tag: 'awsp-processing',
-      timestamp: new Date(),
     });
 
     return {

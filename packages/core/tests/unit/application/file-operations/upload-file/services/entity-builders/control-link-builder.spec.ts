@@ -125,8 +125,8 @@ describe('ControlLinkBuilder', () => {
         expect(result.controlPortIntents.size).toBe(0);
         expect(mockLogger.logDebug).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'No control link properties provided for building',
-            action: 'no_control_link_properties',
+            msg: 'no_control_link_properties',
+            description: 'No control link properties provided for building',
           }),
         );
       });
@@ -170,8 +170,10 @@ describe('ControlLinkBuilder', () => {
         expect(result.controlLinks).toHaveLength(2);
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('3 total → 2 unique properties'),
-            action: 'control_link_deduplication',
+            msg: 'control_link_deduplication',
+            description: expect.stringContaining(
+              '3 total → 2 unique properties',
+            ),
           }),
         );
       });
@@ -263,8 +265,8 @@ describe('ControlLinkBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('system IDs assigned'),
-            action: 'control_link_building_complete',
+            msg: 'control_link_building_complete',
+            description: expect.stringContaining('system IDs assigned'),
             component: 'ControlLinkBuilder',
           }),
         );
@@ -414,8 +416,10 @@ describe('ControlLinkBuilder', () => {
         expect(result.controlLinks).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to convert control link'),
-            action: 'control_link_conversion_failed',
+            msg: 'control_link_conversion_failed',
+            description: expect.stringContaining(
+              'Failed to convert control link',
+            ),
           }),
         );
       });
@@ -522,8 +526,9 @@ describe('ControlLinkBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'Control link deduplication: 2 total → 1 unique properties (1 duplicates removed)',
-            action: 'control_link_deduplication',
+            msg: 'control_link_deduplication',
+            description:
+              'Control link deduplication: 2 total → 1 unique properties (1 duplicates removed)',
             component: 'ControlLinkBuilder',
           }),
         );

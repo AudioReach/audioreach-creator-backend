@@ -124,6 +124,43 @@ describe('CommandBus', () => {
   });
 
   describe('Error Handling', () => {
+    it('logs the original error object including its stack', async () => {
+      const error = new Error('Handler execution failed');
+      const logger = {
+        logVerbose: jest.fn(),
+        logDebug: jest.fn(),
+        logInfo: jest.fn(),
+        logWarn: jest.fn(),
+        logError: jest.fn(),
+        logCritical: jest.fn(),
+      };
+      const handler = {handle: jest.fn().mockRejectedValue(error)};
+      mockRegistry.getCommandHandlerFactory.mockReturnValue({
+        create: jest.fn().mockReturnValue(handler),
+      });
+      const loggingCommandBus = new CommandBus(
+        mockRegistry,
+        mockIdGeneration,
+        mockNaturalIdGeneration,
+        mockFileSystem,
+        mockUowFactory,
+        undefined,
+        undefined,
+        logger,
+      );
+
+      await expect(
+        loggingCommandBus.execute(new TestCommand('test-data')),
+      ).rejects.toBe(error);
+
+      expect(logger.logError).toHaveBeenCalledWith(
+        expect.objectContaining({error}),
+      );
+      expect(
+        (logger.logError.mock.calls[0][0] as {error: Error}).error.stack,
+      ).toBe(error.stack);
+    });
+
     it('should throw exception when handler not found', async () => {
       // Given: CommandBus with registry that throws exception
       const failingRegistry = createMockRegistryWithMissingHandler();

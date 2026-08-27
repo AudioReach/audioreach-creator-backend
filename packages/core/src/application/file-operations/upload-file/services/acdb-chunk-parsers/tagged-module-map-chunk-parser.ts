@@ -139,12 +139,11 @@ export class TaggedModuleMapChunkParser extends BaseChunkParser<TaggedModuleMapC
     if (!defData) {
       const errorMsg = 'TAGGED_MODULES_DEF chunk is required';
       this.logger?.logError({
-        msg: errorMsg,
-        action: 'parse_tagged_module_map_failed',
+        msg: 'parse_tagged_module_map_failed',
+        description: errorMsg,
         component: 'TaggedModuleMapChunkParser',
         tag: 'tagged-module-map-parsing',
         error: new Error(errorMsg),
-        timestamp: new Date(),
       });
       throw new Error(errorMsg);
     }
@@ -174,12 +173,11 @@ export class TaggedModuleMapChunkParser extends BaseChunkParser<TaggedModuleMapC
         offset = result.newOffset;
       } catch (error) {
         this.logger?.logError({
-          msg: `Failed to parse tagged module entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'parse_tagged_module_entry_failed',
+          msg: 'parse_tagged_module_entry_failed',
+          description: `Failed to parse tagged module entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'TaggedModuleMapChunkParser',
           tag: 'tagged-module-map-parsing',
-          error: error as Error,
-          timestamp: new Date(),
+          error: error instanceof Error ? error : new Error(String(error)),
         });
         throw error;
       }

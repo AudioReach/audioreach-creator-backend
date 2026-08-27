@@ -50,11 +50,10 @@ export class TagDefinitionBuilder {
 
           if (keySystemId === undefined) {
             this.logger?.logWarn({
-              msg: `Key definition system ID not found for key ${supportedKey.id} in tag ${awspTagDef.id}`,
-              action: 'key_definition_resolution_failed',
+              msg: 'key_definition_resolution_failed',
+              description: `Key definition system ID not found for key ${supportedKey.id} in tag ${awspTagDef.id}`,
               component: 'TagDefinitionBuilder',
               tag: 'tag-definition-building',
-              timestamp: new Date(),
             });
             continue;
           }
@@ -91,11 +90,10 @@ export class TagDefinitionBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Built ${entities.length} tag definitions with system IDs assigned`,
-      action: 'tag_definitions_built',
+      msg: 'tag_definitions_built',
+      description: `Built ${entities.length} tag definitions with system IDs assigned`,
       component: 'TagDefinitionBuilder',
       tag: 'tag-definition-building',
-      timestamp: new Date(),
     });
 
     return {

@@ -114,8 +114,8 @@ describe('UsecaseBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('system IDs assigned'),
-            action: 'usecase_conversion_complete',
+            msg: 'usecase_conversion_complete',
+            description: expect.stringContaining('system IDs assigned'),
             component: 'UsecaseBuilder',
           }),
         );
@@ -246,7 +246,7 @@ describe('UsecaseBuilder', () => {
         expect(result[0].subgraphSystemIds).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            action: 'subgraph_mapping_missing',
+            msg: 'subgraph_mapping_missing',
           }),
         );
       });
@@ -271,8 +271,10 @@ describe('UsecaseBuilder', () => {
         expect(result).toHaveLength(0);
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to convert usecase entry'),
-            action: 'usecase_conversion_failed',
+            msg: 'usecase_conversion_failed',
+            description: expect.stringContaining(
+              'Failed to convert usecase entry',
+            ),
           }),
         );
       });
@@ -358,8 +360,9 @@ describe('UsecaseBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'Converted 1 usecases successfully, 1 failed, system IDs assigned',
-            action: 'usecase_conversion_complete',
+            msg: 'usecase_conversion_complete',
+            description:
+              'Converted 1 usecases successfully, 1 failed, system IDs assigned',
           }),
         );
       });

@@ -361,12 +361,11 @@ export class AudioCalibrationChunkParser extends BaseChunkParser<AudioCalibratio
       const errorMsg =
         'CALIBRATION_KEY_TABLE, CALIBRATION_DATA_LUT, CALIBRATION_DATA_DEF, and CALIBRATION_DATA_DOT chunks are required';
       this.logger?.logError({
-        msg: errorMsg,
-        action: 'parse_audio_calibration_failed',
+        msg: 'parse_audio_calibration_failed',
+        description: errorMsg,
         component: 'AudioCalibrationChunkParser',
         tag: 'calibration-parsing',
         error: new Error(errorMsg),
-        timestamp: new Date(),
       });
       throw new Error(errorMsg);
     }
@@ -399,12 +398,11 @@ export class AudioCalibrationChunkParser extends BaseChunkParser<AudioCalibratio
         offset = result.newOffset;
       } catch (error) {
         this.logger?.logError({
-          msg: `Failed to parse audio calibration entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'parse_audio_calibration_entry_failed',
+          msg: 'parse_audio_calibration_entry_failed',
+          description: `Failed to parse audio calibration entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'AudioCalibrationChunkParser',
           tag: 'calibration-parsing',
-          error: error as Error,
-          timestamp: new Date(),
+          error: error instanceof Error ? error : new Error(String(error)),
         });
         throw error;
       }

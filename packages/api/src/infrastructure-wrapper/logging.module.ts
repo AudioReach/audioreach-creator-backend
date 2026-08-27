@@ -65,7 +65,7 @@ import {LoggingDataSourceProvider} from './database/providers/logging-data-sourc
       inject: [LoggerFactory, ConsoleTransport, FileTransport, SQLiteTransport],
     },
     {
-      provide: 'LOGGER1',
+      provide: 'LOGGER',
       useFactory: (pinoLogger: ReturnType<LoggerFactory['createLogger']>) =>
         new PinoLogService(pinoLogger),
       inject: ['PINO_LOGGER'],
@@ -77,6 +77,6 @@ import {LoggingDataSourceProvider} from './database/providers/logging-data-sourc
       inject: ['LOGGING_DATA_SOURCE'],
     },
   ],
-  exports: ['LOGGER1', 'LOG_QUERY_SERVICE'],
+  exports: ['LOGGER', 'LOG_QUERY_SERVICE'],
 })
 export class LoggingModule {}

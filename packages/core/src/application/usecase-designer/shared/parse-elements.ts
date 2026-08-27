@@ -277,10 +277,9 @@ export function parseParameterData(
   } catch (error) {
     logger?.logWarn({
       component: 'parseParameterData',
-      action: 'parse-parameter-data',
       tag: 'param-parser',
-      timestamp: new Date(),
-      msg: `Failed to parse parameter data, falling back to raw hex: ${
+      msg: 'parse_parameter_data_failed',
+      description: `Failed to parse parameter data, falling back to raw hex: ${
         error instanceof Error ? error.message : String(error)
       }`,
     });

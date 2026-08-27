@@ -52,11 +52,10 @@ export class DriverModuleBuilder {
     }
 
     this.logger?.logDebug({
-      msg: `Building ${moduleDefinitionIds.length} driver modules`,
-      action: 'driver_module_building_start',
+      msg: 'driver_module_building_start',
+      description: `Building ${moduleDefinitionIds.length} driver modules`,
       component: 'DriverModuleBuilder',
       tag: 'driver-modules',
-      timestamp: new Date(),
     });
 
     const entities: DriverModule[] = [];
@@ -117,11 +116,10 @@ export class DriverModuleBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} driver modules with system IDs assigned, ${issues.length} failures`,
-      action: 'driver_module_building_complete',
+      msg: 'driver_module_building_complete',
+      description: `Successfully built ${entities.length} driver modules with system IDs assigned, ${issues.length} failures`,
       component: 'DriverModuleBuilder',
       tag: 'driver-modules',
-      timestamp: new Date(),
     });
 
     return {
@@ -165,11 +163,10 @@ export class DriverModuleBuilder {
     } catch (error) {
       // Log warning but don't fail the entire build
       this.logger?.logWarn({
-        msg: `Failed to attach calibration data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        action: 'calibration_attachment_failed',
+        msg: 'calibration_attachment_failed',
+        description: `Failed to attach calibration data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         component: 'DriverModuleBuilder',
         tag: 'calibration-attachment',
-        timestamp: new Date(),
       });
     }
   }

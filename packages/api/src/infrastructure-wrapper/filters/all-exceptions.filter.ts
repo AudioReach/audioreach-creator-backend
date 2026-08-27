@@ -50,9 +50,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const logContext = {
       component: 'ExceptionFilter',
-      action: 'handleException',
-      msg: `${request.method} ${request.url} failed with status ${status}`,
-      timestamp: new Date(),
+      msg: 'handleException',
+      description: `${request.method} ${request.url} failed with status ${status}`,
       tag: 'exception',
       error:
         exception instanceof Error ? exception : new Error(String(exception)),

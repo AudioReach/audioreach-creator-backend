@@ -79,21 +79,19 @@ export class UsecaseBuilder {
       } catch (error) {
         errorCount++;
         this.logger?.logWarn({
-          msg: `Failed to convert usecase entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'usecase_conversion_failed',
+          msg: 'usecase_conversion_failed',
+          description: `Failed to convert usecase entry ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
-          timestamp: new Date(),
         });
       }
     }
 
     this.logger?.logInfo({
-      msg: `Converted ${successCount} usecases successfully, ${errorCount} failed, system IDs assigned`,
-      action: 'usecase_conversion_complete',
+      msg: 'usecase_conversion_complete',
+      description: `Converted ${successCount} usecases successfully, ${errorCount} failed, system IDs assigned`,
       component: 'UsecaseBuilder',
       tag: 'usecase-building',
-      timestamp: new Date(),
     });
 
     return usecases;
@@ -116,11 +114,10 @@ export class UsecaseBuilder {
       );
       if (sgSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `No subgraph mapping found for natural subgraph ID ${naturalSgId} in usecase ${index}`,
-          action: 'subgraph_mapping_missing',
+          msg: 'subgraph_mapping_missing',
+          description: `No subgraph mapping found for natural subgraph ID ${naturalSgId} in usecase ${index}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
-          timestamp: new Date(),
         });
       } else {
         subgraphSystemIds.push(sgSystemId);
@@ -142,11 +139,10 @@ export class UsecaseBuilder {
         });
       } else {
         this.logger?.logWarn({
-          msg: `Failed to resolve subgraph pair (${pair.source}, ${pair.destination}) in usecase ${index}`,
-          action: 'subgraph_pair_mapping_missing',
+          msg: 'subgraph_pair_mapping_missing',
+          description: `Failed to resolve subgraph pair (${pair.source}, ${pair.destination}) in usecase ${index}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -198,20 +194,18 @@ export class UsecaseBuilder {
           valueSystemIds.push(valueSystemId);
         } else {
           this.logger?.logWarn({
-            msg: `No foreign key mapping found for key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}`,
-            action: 'missing_value_mapping',
+            msg: 'missing_value_mapping',
+            description: `No foreign key mapping found for key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}`,
             component: 'UsecaseBuilder',
             tag: 'foreign-key-mapping',
-            timestamp: new Date(),
           });
         }
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to map key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'key_value_mapping_failed',
+          msg: 'key_value_mapping_failed',
+          description: `Failed to map key-value pair (${keyValue.keyId}:${keyValue.value}) in usecase ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'UsecaseBuilder',
           tag: 'usecase-building',
-          timestamp: new Date(),
         });
       }
     }

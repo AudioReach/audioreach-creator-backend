@@ -6,6 +6,7 @@
 import {Worker} from 'node:worker_threads';
 import * as os from 'node:os';
 import type {WorkerPoolPort, WorkerTask, WorkerResult, Logger} from '@arc/core';
+import {LogSource} from '@arc/core';
 
 // Default worker pool size: CPU count - 1 (leave one for main thread)
 const DEFAULT_WORKER_POOL_SIZE = Math.max(1, os.cpus().length - 1);
@@ -105,11 +106,10 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         if (this.logger) {
           this.logger.logError({
             component: 'WorkerPool',
-            action: 'worker_error',
             tag: 'worker-lifecycle',
-            msg: `Worker ${i} encountered an error`,
-            timestamp: new Date(),
-            error,
+            msg: 'worker_error',
+            description: `Worker ${i} encountered an error`,
+            error: error instanceof Error ? error : new Error(String(error)),
           });
         } else {
           console.error(`Worker ${i} error:`, error);
@@ -121,11 +121,10 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
           if (this.logger) {
             this.logger.logError({
               component: 'WorkerPool',
-              action: 'worker_exit',
               tag: 'worker-lifecycle',
-              msg: `Worker ${i} exited with non-zero code: ${code}`,
-              timestamp: new Date(),
-              error: new Error(`Worker exited with code ${code}`),
+              msg: 'worker_exit',
+              description: `Worker ${i} exited with non-zero code: ${code}`,
+              error: `Worker exited with code ${code}`,
             });
           } else {
             console.error(`Worker ${i} exited with code ${code}`);
@@ -168,32 +167,23 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         // Log worker task errors if the result indicates failure
         if (!result.success && result.errorDetails && this.logger) {
           const errorDetails = result.errorDetails;
+          const workerError = new Error(result.error ?? 'Unknown worker error');
+          workerError.name = errorDetails.type ?? workerError.name;
+          if (errorDetails.stack) {
+            workerError.stack = errorDetails.stack;
+          }
+
           this.logger.logError({
             component: 'WorkerPool',
-            action: 'worker_task_error',
             tag: 'worker-task',
-            msg: `Worker task failed: ${result.error ?? 'Unknown error'}`,
-            timestamp: new Date(),
-            error: new Error(result.error ?? 'Unknown worker error'),
-            clientId: errorDetails.context?.clientId as string | undefined,
+            msg: 'worker_task_error',
+            description: `Worker task failed: ${result.error ?? 'Unknown error'}`,
+            source:
+              (errorDetails.context?.clientId as string | undefined) ??
+              LogSource.Server,
+            error: workerError,
             projectId: errorDetails.context?.projectId as string | undefined,
           });
-
-          // Log additional context if available
-          if (errorDetails.stack) {
-            this.logger.logError({
-              component: 'WorkerPool',
-              action: 'worker_task_stack_trace',
-              tag: 'worker-task',
-              msg: `Stack trace for handler ${errorDetails.handlerKey ?? 'unknown'} in ${errorDetails.workerId ?? 'unknown'}`,
-              timestamp: new Date(),
-              error: {
-                name: errorDetails.type ?? 'Error',
-                message: result.error ?? 'Unknown error',
-                stack: errorDetails.stack,
-              } as Error,
-            });
-          }
         }
 
         this.availableWorkers.push(worker);
@@ -209,11 +199,10 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         if (this.logger) {
           this.logger.logError({
             component: 'WorkerPool',
-            action: 'task_execution_error',
             tag: 'worker-task',
-            msg: `Task execution failed for handler: ${task.handlerKey}`,
-            timestamp: new Date(),
-            error,
+            msg: 'task_execution_error',
+            description: `Task execution failed for handler: ${task.handlerKey}`,
+            error: error instanceof Error ? error : new Error(String(error)),
           });
         }
 
@@ -235,10 +224,9 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
         if (this.logger) {
           this.logger.logError({
             component: 'WorkerPool',
-            action: 'task_timeout',
             tag: 'worker-task',
-            msg: `Task timeout for handler: ${task.handlerKey}`,
-            timestamp: new Date(),
+            msg: 'task_timeout',
+            description: `Task timeout for handler: ${task.handlerKey}`,
             error: timeoutError,
           });
         }

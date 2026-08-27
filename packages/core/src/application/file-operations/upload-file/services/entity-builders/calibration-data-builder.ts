@@ -96,11 +96,10 @@ export class CalibrationDataBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Built calibration data: ${kvDataWithModules.length} KvData entries for ${kvDataByModule.size} modules`,
-      action: 'calibration_data_built',
+      msg: 'calibration_data_built',
+      description: `Built calibration data: ${kvDataWithModules.length} KvData entries for ${kvDataByModule.size} modules`,
       component: 'CalibrationDataBuilder',
       tag: 'calibration-building',
-      timestamp: new Date(),
     });
 
     return kvDataByModule;
@@ -193,11 +192,10 @@ export class CalibrationDataBuilder {
     );
     if (!ckvLutTbl) {
       this.logger?.logWarn({
-        msg: `CKV LUT table not found for offset ${calDataObj.offsetVoiceCkvLookupTable}`,
-        action: 'missing_ckv_lut_table',
+        msg: 'missing_ckv_lut_table',
+        description: `CKV LUT table not found for offset ${calDataObj.offsetVoiceCkvLookupTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -208,11 +206,10 @@ export class CalibrationDataBuilder {
     );
     if (!defEntry) {
       this.logger?.logWarn({
-        msg: `DEF entry not found for offset ${calDataObj.offsetVoiceCalDefinitionTable}`,
-        action: 'missing_def_entry',
+        msg: 'missing_def_entry',
+        description: `DEF entry not found for offset ${calDataObj.offsetVoiceCalDefinitionTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -223,11 +220,10 @@ export class CalibrationDataBuilder {
     );
     if (!dotEntry) {
       this.logger?.logWarn({
-        msg: `DOT entry not found for offset ${calDataObj.offsetVoiceCalDefinitionTable}`,
-        action: 'missing_dot_entry',
+        msg: 'missing_dot_entry',
+        description: `DOT entry not found for offset ${calDataObj.offsetVoiceCalDefinitionTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -241,11 +237,10 @@ export class CalibrationDataBuilder {
 
     if (keyIds.length > 0 && valueSystemIds.length === 0) {
       this.logger?.logWarn({
-        msg: 'Failed to resolve value system IDs for voice calibration',
-        action: 'value_resolution_failed',
+        msg: 'value_resolution_failed',
+        description: 'Failed to resolve value system IDs for voice calibration',
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -291,11 +286,10 @@ export class CalibrationDataBuilder {
     );
     if (!calKeyTbl) {
       this.logger?.logWarn({
-        msg: `Calibration key table not found for offset ${ckvDataTbl.offsetVoiceCalKeyTable}`,
-        action: 'missing_cal_key_table',
+        msg: 'missing_cal_key_table',
+        description: `Calibration key table not found for offset ${ckvDataTbl.offsetVoiceCalKeyTable}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return {keyVectorInputs, kvDataWithModules};
     }
@@ -321,11 +315,10 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: `Failed to process calibration data object: ${errorMessage}`,
-          action: 'cal_data_obj_processing_failed',
+          msg: 'cal_data_obj_processing_failed',
+          description: `Failed to process calibration data object: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -363,11 +356,10 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: `Failed to process voice CKV data table: ${errorMessage}`,
-          action: 'voice_ckv_data_tbl_processing_failed',
+          msg: 'voice_ckv_data_tbl_processing_failed',
+          description: `Failed to process voice CKV data table: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -404,11 +396,10 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: `Failed to process voice calibration for subgraph ${sgCalTbl.subgraphId}: ${errorMessage}`,
-          action: 'voice_calibration_processing_failed',
+          msg: 'voice_calibration_processing_failed',
+          description: `Failed to process voice calibration for subgraph ${sgCalTbl.subgraphId}: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -455,22 +446,20 @@ export class CalibrationDataBuilder {
     );
     if (!datapoolChunk) {
       this.logger?.logWarn({
-        msg: 'Datapool chunk not found for calibration',
-        action: 'missing_datapool_chunk',
+        msg: 'missing_datapool_chunk',
+        description: 'Datapool chunk not found for calibration',
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return payloads;
     }
 
     if (defAndOffset.pairs.length !== defAndOffset.offsets.length) {
       this.logger?.logWarn({
-        msg: `DEF and DOT entry count mismatch: ${defAndOffset.pairs.length} vs ${defAndOffset.offsets.length}`,
-        action: 'count_mismatch',
+        msg: 'count_mismatch',
+        description: `DEF and DOT entry count mismatch: ${defAndOffset.pairs.length} vs ${defAndOffset.offsets.length}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return payloads;
     }
@@ -526,11 +515,10 @@ export class CalibrationDataBuilder {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
         this.logger?.logWarn({
-          msg: `Failed to process audio calibration for subgraph ${sgLutEntry.subgraphId}: ${errorMessage}`,
-          action: 'audio_calibration_processing_failed',
+          msg: 'audio_calibration_processing_failed',
+          description: `Failed to process audio calibration for subgraph ${sgLutEntry.subgraphId}: ${errorMessage}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -563,11 +551,10 @@ export class CalibrationDataBuilder {
       );
       if (!keyIds) {
         this.logger?.logWarn({
-          msg: `Key table not found for offset ${calKeyTableEntry.offsetCalKeyTable}`,
-          action: 'missing_key_table',
+          msg: 'missing_key_table',
+          description: `Key table not found for offset ${calKeyTableEntry.offsetCalKeyTable}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -578,11 +565,10 @@ export class CalibrationDataBuilder {
       );
       if (!ckvLutTbl) {
         this.logger?.logWarn({
-          msg: `CKV LUT table not found for offset ${calKeyTableEntry.offsetCalLookupTable}`,
-          action: 'missing_ckv_lut_table',
+          msg: 'missing_ckv_lut_table',
+          description: `CKV LUT table not found for offset ${calKeyTableEntry.offsetCalLookupTable}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -633,11 +619,11 @@ export class CalibrationDataBuilder {
 
       if (keyIds.length > 0 && valueSystemIds.length === 0) {
         this.logger?.logWarn({
-          msg: 'Failed to resolve value system IDs for audio calibration',
-          action: 'value_resolution_failed',
+          msg: 'value_resolution_failed',
+          description:
+            'Failed to resolve value system IDs for audio calibration',
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -655,11 +641,10 @@ export class CalibrationDataBuilder {
 
       if (!defEntry || !dotEntry) {
         this.logger?.logWarn({
-          msg: `Missing DEF or DOT entry for offsets: DEF=${ckvEntry.offsetCalDefinition}, DOT=${ckvEntry.offsetCalDataOffset}`,
-          action: 'missing_def_or_dot_entry',
+          msg: 'missing_def_or_dot_entry',
+          description: `Missing DEF or DOT entry for offsets: DEF=${ckvEntry.offsetCalDefinition}, DOT=${ckvEntry.offsetCalDataOffset}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -712,11 +697,10 @@ export class CalibrationDataBuilder {
 
     if (!datapoolChunk) {
       this.logger?.logWarn({
-        msg: 'Datapool chunk not found — skipping VCPM data attachment',
-        action: 'vcpm_missing_datapool',
+        msg: 'vcpm_missing_datapool',
+        description: 'Datapool chunk not found — skipping VCPM data attachment',
         component: 'CalibrationDataBuilder',
         tag: 'vcpm-building',
-        timestamp: new Date(),
       });
       return;
     }
@@ -728,11 +712,10 @@ export class CalibrationDataBuilder {
 
     if (vcpmDefinitionSystemId === undefined) {
       this.logger?.logWarn({
-        msg: `VCPM module definition not found for voiceModuleInstanceId=${voiceCalChunk.voiceModuleInstanceId} — skipping VCPM data attachment`,
-        action: 'vcpm_definition_not_found',
+        msg: 'vcpm_definition_not_found',
+        description: `VCPM module definition not found for voiceModuleInstanceId=${voiceCalChunk.voiceModuleInstanceId} — skipping VCPM data attachment`,
         component: 'CalibrationDataBuilder',
         tag: 'vcpm-building',
-        timestamp: new Date(),
       });
       return;
     }
@@ -743,11 +726,10 @@ export class CalibrationDataBuilder {
       const subgraph = subgraphByNaturalId.get(sgCalTbl.subgraphId);
       if (!subgraph) {
         this.logger?.logWarn({
-          msg: `Subgraph not found for subgraphId=${sgCalTbl.subgraphId} — skipping VCPM data for this subgraph`,
-          action: 'vcpm_subgraph_not_found',
+          msg: 'vcpm_subgraph_not_found',
+          description: `Subgraph not found for subgraphId=${sgCalTbl.subgraphId} — skipping VCPM data for this subgraph`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -765,21 +747,19 @@ export class CalibrationDataBuilder {
         subgraph.setVcpmDataInstance(vcpmInstance);
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to build VCPM instance for subgraphId=${sgCalTbl.subgraphId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'vcpm_instance_build_failed',
+          msg: 'vcpm_instance_build_failed',
+          description: `Failed to build VCPM instance for subgraphId=${sgCalTbl.subgraphId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
-          timestamp: new Date(),
         });
       }
     }
 
     this.logger?.logInfo({
-      msg: `Attached VCPM data to ${subgraphs.filter(s => s.vcpmDataInstance !== null).length} subgraphs`,
-      action: 'vcpm_data_attached',
+      msg: 'vcpm_data_attached',
+      description: `Attached VCPM data to ${subgraphs.filter(s => s.vcpmDataInstance !== null).length} subgraphs`,
       component: 'CalibrationDataBuilder',
       tag: 'vcpm-building',
-      timestamp: new Date(),
     });
   }
 
@@ -852,11 +832,10 @@ export class CalibrationDataBuilder {
         );
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to process VCPM cal data object: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'vcpm_cal_data_obj_failed',
+          msg: 'vcpm_cal_data_obj_failed',
+          description: `Failed to process VCPM cal data object: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -969,11 +948,10 @@ export class CalibrationDataBuilder {
 
       if (paramSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `VCPM param definition not found for paramId=${paramId}`,
-          action: 'vcpm_param_not_found',
+          msg: 'vcpm_param_not_found',
+          description: `VCPM param definition not found for paramId=${paramId}`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -1000,11 +978,10 @@ export class CalibrationDataBuilder {
     const data = datapoolChunk.getDataAtOffset(dataOffset);
     if (!data) {
       this.logger?.logWarn({
-        msg: `No data found at datapool offset ${dataOffset}`,
-        action: 'datapool_offset_not_found',
+        msg: 'datapool_offset_not_found',
+        description: `No data found at datapool offset ${dataOffset}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -1073,11 +1050,10 @@ export class CalibrationDataBuilder {
 
       if (valueSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Failed to resolve value system ID for keyId=${keyIds[i]}, valueId=${valueIds[i]}`,
-          action: 'value_resolution_failed',
+          msg: 'value_resolution_failed',
+          description: `Failed to resolve value system ID for keyId=${keyIds[i]}, valueId=${valueIds[i]}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
       } else {
         valueSystemIds.push(valueSystemId);
@@ -1149,11 +1125,10 @@ export class CalibrationDataBuilder {
     );
     if (!moduleSystemId) {
       this.logger?.logWarn({
-        msg: `Failed to resolve module system ID for instance ${moduleInstanceId}`,
-        action: 'module_resolution_failed',
+        msg: 'module_resolution_failed',
+        description: `Failed to resolve module system ID for instance ${moduleInstanceId}`,
         component: 'CalibrationDataBuilder',
         tag: 'calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -1195,11 +1170,10 @@ export class CalibrationDataBuilder {
 
       if (!moduleDefinitionSystemId) {
         this.logger?.logWarn({
-          msg: `Failed to resolve module definition system ID for instance ${moduleInstanceId} (systemId: ${moduleSystemId})`,
-          action: 'module_definition_resolution_failed',
+          msg: 'module_definition_resolution_failed',
+          description: `Failed to resolve module definition system ID for instance ${moduleInstanceId} (systemId: ${moduleSystemId})`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -1211,11 +1185,10 @@ export class CalibrationDataBuilder {
 
       if (parameterSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Failed to resolve parameter system ID for param ${payload.parameterId} in module definition ${moduleDefinitionSystemId}`,
-          action: 'parameter_resolution_failed',
+          msg: 'parameter_resolution_failed',
+          description: `Failed to resolve parameter system ID for param ${payload.parameterId} in module definition ${moduleDefinitionSystemId}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -1250,11 +1223,10 @@ export class CalibrationDataBuilder {
       const payload = payloadByUuid.get(persistence.payloadId);
       if (!payload) {
         this.logger?.logError({
-          msg: `payloadId ${persistence.payloadId} not found in payloadMap for module 0x${instanceId.toString(16)}`,
-          action: 'ckv_payload_not_found',
+          msg: 'ckv_payload_not_found',
+          description: `payloadId ${persistence.payloadId} not found in payloadMap for module 0x${instanceId.toString(16)}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -1286,11 +1258,10 @@ export class CalibrationDataBuilder {
         match.uiPersistence = payload;
       } else {
         this.logger?.logError({
-          msg: `No matching CKV for module 0x${instanceId.toString(16)} payloadId=${persistence.payloadId} calKeyValue=${persistence.calKeyValue ?? '(zero-CKV)'}`,
-          action: 'ckv_match_not_found',
+          msg: 'ckv_match_not_found',
+          description: `No matching CKV for module 0x${instanceId.toString(16)} payloadId=${persistence.payloadId} calKeyValue=${persistence.calKeyValue ?? '(zero-CKV)'}`,
           component: 'CalibrationDataBuilder',
           tag: 'calibration-building',
-          timestamp: new Date(),
         });
       }
     }

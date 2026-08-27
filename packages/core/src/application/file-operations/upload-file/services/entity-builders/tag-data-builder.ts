@@ -60,11 +60,11 @@ export class TagDataBuilder {
     // Validate AWSP tag definitions are provided
     if (!awspTagDefinitions || awspTagDefinitions.length === 0) {
       this.logger?.logWarn({
-        msg: 'No AWSP tag definitions provided - cannot resolve tag key values',
-        action: 'missing_awsp_tag_definitions',
+        msg: 'missing_awsp_tag_definitions',
+        description:
+          'No AWSP tag definitions provided - cannot resolve tag key values',
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return new Map();
     }
@@ -74,11 +74,11 @@ export class TagDataBuilder {
     );
     if (!datapoolChunk) {
       this.logger?.logWarn({
-        msg: 'Datapool chunk not found - cannot extract tag data payloads',
-        action: 'missing_datapool_chunk',
+        msg: 'missing_datapool_chunk',
+        description:
+          'Datapool chunk not found - cannot extract tag data payloads',
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return new Map();
     }
@@ -106,21 +106,19 @@ export class TagDataBuilder {
         }
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to process tag data for subgraph ${tagIndexEntry.subgraphId}, tag ${tagIndexEntry.tagId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'tag_data_processing_failed',
+          msg: 'tag_data_processing_failed',
+          description: `Failed to process tag data for subgraph ${tagIndexEntry.subgraphId}, tag ${tagIndexEntry.tagId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'TagDataBuilder',
           tag: 'tag-data-building',
-          timestamp: new Date(),
         });
       }
     }
 
     this.logger?.logInfo({
-      msg: `Built tag data for ${tagDataByModule.size} modules`,
-      action: 'tag_data_built',
+      msg: 'tag_data_built',
+      description: `Built tag data for ${tagDataByModule.size} modules`,
       component: 'TagDataBuilder',
       tag: 'tag-data-building',
-      timestamp: new Date(),
     });
 
     return tagDataByModule;
@@ -188,11 +186,10 @@ export class TagDataBuilder {
     );
     if (!tagDefinitionSystemId) {
       this.logger?.logWarn({
-        msg: `Tag definition system ID not found for tag ${tagId}`,
-        action: 'tag_definition_resolution_failed',
+        msg: 'tag_definition_resolution_failed',
+        description: `Tag definition system ID not found for tag ${tagId}`,
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
     }
     return tagDefinitionSystemId;
@@ -255,11 +252,10 @@ export class TagDataBuilder {
   ): number[] {
     if (!tagDefinition || !tagDefinition.keys) {
       this.logger?.logWarn({
-        msg: `Tag definition not found or has no supported keys for tagId ${tagId}`,
-        action: 'tag_definition_not_found',
+        msg: 'tag_definition_not_found',
+        description: `Tag definition not found or has no supported keys for tagId ${tagId}`,
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return [];
     }
@@ -272,11 +268,10 @@ export class TagDataBuilder {
 
       if (!supportedKey) {
         this.logger?.logWarn({
-          msg: `No supported key at position ${i} for tag ${tagId}`,
-          action: 'supported_key_missing',
+          msg: 'supported_key_missing',
+          description: `No supported key at position ${i} for tag ${tagId}`,
           component: 'TagDataBuilder',
           tag: 'tag-data-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -289,11 +284,10 @@ export class TagDataBuilder {
 
       if (valueSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Value system ID not found for value ${valueNaturalId} in key ${supportedKey.id} for tag ${tagId}`,
-          action: 'value_resolution_failed',
+          msg: 'value_resolution_failed',
+          description: `Value system ID not found for value ${valueNaturalId} in key ${supportedKey.id} for tag ${tagId}`,
           component: 'TagDataBuilder',
           tag: 'tag-data-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -325,11 +319,10 @@ export class TagDataBuilder {
     );
     if (!moduleSystemId) {
       this.logger?.logWarn({
-        msg: `Module system ID not found for instance ${moduleInstanceId}`,
-        action: 'module_resolution_failed',
+        msg: 'module_resolution_failed',
+        description: `Module system ID not found for instance ${moduleInstanceId}`,
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return;
     }
@@ -340,11 +333,10 @@ export class TagDataBuilder {
     );
     if (!moduleDefinitionSystemId) {
       this.logger?.logWarn({
-        msg: `Module definition system ID not found for instance ${moduleInstanceId}`,
-        action: 'module_definition_resolution_failed',
+        msg: 'module_definition_resolution_failed',
+        description: `Module definition system ID not found for instance ${moduleInstanceId}`,
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return;
     }
@@ -369,11 +361,10 @@ export class TagDataBuilder {
       );
       if (parameterSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Parameter system ID not found for module ${moduleInstanceId}, param ${paramId}`,
-          action: 'parameter_resolution_failed',
+          msg: 'parameter_resolution_failed',
+          description: `Parameter system ID not found for module ${moduleInstanceId}, param ${paramId}`,
           component: 'TagDataBuilder',
           tag: 'tag-data-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -381,11 +372,10 @@ export class TagDataBuilder {
       const payloadData = datapoolChunk.getDataAtOffset(dataOffset);
       if (!payloadData) {
         this.logger?.logWarn({
-          msg: `No data found at datapool offset ${dataOffset}`,
-          action: 'datapool_offset_not_found',
+          msg: 'datapool_offset_not_found',
+          description: `No data found at datapool offset ${dataOffset}`,
           component: 'TagDataBuilder',
           tag: 'tag-data-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -397,11 +387,10 @@ export class TagDataBuilder {
 
     if (kvData.parameterPayloads.length === 0) {
       this.logger?.logWarn({
-        msg: `No valid parameter payloads for module instance ${moduleInstanceId}`,
-        action: 'no_valid_payloads',
+        msg: 'no_valid_payloads',
+        description: `No valid parameter payloads for module instance ${moduleInstanceId}`,
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return;
     }
@@ -458,11 +447,10 @@ export class TagDataBuilder {
 
     if (!tagDefinition || !tagDefinition.keys) {
       this.logger?.logWarn({
-        msg: `Tag definition not found or has no supported keys for tagId ${tagIndexEntry.tagId}`,
-        action: 'tag_definition_not_found',
+        msg: 'tag_definition_not_found',
+        description: `Tag definition not found or has no supported keys for tagId ${tagIndexEntry.tagId}`,
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return;
     }
@@ -504,11 +492,10 @@ export class TagDataBuilder {
         );
       } catch (error) {
         this.logger?.logError({
-          msg: `Failed to process tag data for module instance ${moduleInstanceId}, tagId ${tagIndexEntry.tagId}, valueSystemIds [${valueSystemIds.join(', ')}], tagKeyValues [${tagKeyVectorEntry.tagKeyValues.join(', ')}]: ${error instanceof Error ? error.message : String(error)}`,
-          action: 'process_module_tag_data_failed',
+          msg: 'process_module_tag_data_failed',
+          description: `Failed to process tag data for module instance ${moduleInstanceId}, tagId ${tagIndexEntry.tagId}, valueSystemIds [${valueSystemIds.join(', ')}], tagKeyValues [${tagKeyVectorEntry.tagKeyValues.join(', ')}]: ${error instanceof Error ? error.message : String(error)}`,
           component: 'TagDataBuilder',
           tag: 'tag-data-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -526,11 +513,10 @@ export class TagDataBuilder {
       tagDataDotEntry.taggedDataOffsets.length
     ) {
       this.logger?.logWarn({
-        msg: `Tag DEF and DOT entry count mismatch: ${tagDataDefEntry.taggedIdEntries.length} vs ${tagDataDotEntry.taggedDataOffsets.length}`,
-        action: 'count_mismatch',
+        msg: 'count_mismatch',
+        description: `Tag DEF and DOT entry count mismatch: ${tagDataDefEntry.taggedIdEntries.length} vs ${tagDataDotEntry.taggedDataOffsets.length}`,
         component: 'TagDataBuilder',
         tag: 'tag-data-building',
-        timestamp: new Date(),
       });
       return false;
     }
@@ -570,11 +556,10 @@ export class TagDataBuilder {
         );
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to process tagged module entry for subgraph ${entry.subgraphId}, tag ${entry.tagId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'tagged_module_processing_failed',
+          msg: 'tagged_module_processing_failed',
+          description: `Failed to process tagged module entry for subgraph ${entry.subgraphId}, tag ${entry.tagId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'TagDataBuilder',
           tag: 'tagged-module-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -599,11 +584,10 @@ export class TagDataBuilder {
 
     if (!tagDefinitionSystemId) {
       this.logger?.logWarn({
-        msg: `Tag definition system ID not found for tag ${entry.tagId}`,
-        action: 'tag_definition_resolution_failed',
+        msg: 'tag_definition_resolution_failed',
+        description: `Tag definition system ID not found for tag ${entry.tagId}`,
         component: 'TagDataBuilder',
         tag: 'tagged-module-building',
-        timestamp: new Date(),
       });
       return;
     }
@@ -621,11 +605,10 @@ export class TagDataBuilder {
 
       if (!moduleSystemId) {
         this.logger?.logWarn({
-          msg: `Module system ID not found for instance ${pair.instanceId}`,
-          action: 'module_resolution_failed',
+          msg: 'module_resolution_failed',
+          description: `Module system ID not found for instance ${pair.instanceId}`,
           component: 'TagDataBuilder',
           tag: 'tagged-module-building',
-          timestamp: new Date(),
         });
         continue;
       }
