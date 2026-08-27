@@ -209,7 +209,9 @@ describe('parseParameterData', () => {
     });
 
     it('parses array of structs', () => {
-      const payload = new Uint8Array([0x0a, 0x14]);
+      const payload = new Uint8Array([
+        0x0a, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00,
+      ]);
       const structure = JSON.stringify([
         {
           elementType: 'StructArray',

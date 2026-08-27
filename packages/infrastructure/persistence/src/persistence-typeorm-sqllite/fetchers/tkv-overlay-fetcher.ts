@@ -37,10 +37,10 @@ export type ModuleTagIdMapFilters = {
 
 /**
  * Overlaid Tkv row with its tkv_values join-table entries.
- * tkv_values uses a composite PK and is never overlaid — returned as baseline.
+ * tkv_values comes from the baseline join or a session CREATE payload.
  */
 export interface OverlaidTkv extends TkvBase {
-  /** Baseline key-value association rows — NOT overlaid (composite PK). */
+  /** Baseline key-value rows, or synthesized rows for a session-created TKV. */
   values: TkvValuesBase[];
 }
 
@@ -65,8 +65,8 @@ export interface OverlaidModuleTagIdMap extends ModuleTagIdMapBase {
  * All three operations (CREATE/UPDATE/DELETE) are passed together to applyToCollection
  * at each level so a CREATE→UPDATE sequence is correctly applied.
  *
- * tkv_values uses a composite PK and is never staged in edit_actions — it is
- * always returned from the baseline only.
+ * tkv_values uses a composite PK and is not staged independently. A TKV CREATE
+ * carries valueDefinitionSystemIds so session reads can synthesize these rows.
  */
 export class TkvOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
@@ -167,7 +167,7 @@ export class TkvOverlayFetcher {
 
       return {
         ...tagMap,
-        tkvs: overlaidTkvs.map(tkv => ({...tkv, values: tkv.values ?? []})),
+        tkvs: overlaidTkvs.map(tkv => this.toOverlaidTkv(tkv)),
       };
     });
   }
@@ -272,6 +272,18 @@ export class TkvOverlayFetcher {
   }
 
   private toOverlaidTkv(r: TkvRow): OverlaidTkv {
-    return {...r, values: r.values ?? []};
+    const valueDefinitionSystemIds = (
+      r as TkvRow & {valueDefinitionSystemIds?: number[]}
+    ).valueDefinitionSystemIds;
+    return {
+      ...r,
+      values:
+        valueDefinitionSystemIds?.map(valueDefSystemId => ({
+          tkvSystemId: r.systemId,
+          valueDefSystemId,
+        })) ??
+        r.values ??
+        [],
+    };
   }
 }

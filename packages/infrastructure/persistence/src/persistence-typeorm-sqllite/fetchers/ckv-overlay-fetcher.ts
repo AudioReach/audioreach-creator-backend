@@ -40,10 +40,10 @@ export type CkvFilters = {
 
 /**
  * Overlaid Ckv row extending CkvBase (scalar columns only).
- * values is loaded via JOIN (baseline only — composite PK, not overlaid).
+ * values comes from the baseline join or a session CREATE payload.
  */
 export interface OverlaidCkv extends CkvBase {
-  /** Baseline key-value association rows — NOT overlaid (composite PK). */
+  /** Baseline key-value rows, or synthesized rows for a session-created CKV. */
   values: CkvValuesBase[];
 }
 
@@ -57,8 +57,8 @@ export interface OverlaidCkv extends CkvBase {
  * The aggregateId for all Ckv edit_actions is moduleSystemId (the owning
  * SpfModule's PK), not ckvSystemId.
  *
- * ckv_values uses a composite PK and is never staged in edit_actions — it is
- * loaded from the baseline only and included unchanged in OverlaidCkv.values.
+ * ckv_values uses a composite PK and is not staged independently. A CKV CREATE
+ * carries valueDefinitionSystemIds so session reads can synthesize these rows.
  */
 export class CkvOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
@@ -73,7 +73,7 @@ export class CkvOverlayFetcher {
    * Returns all overlaid Ckv rows for the given SpfModule.
    * Optional column-level filters (applied to SQL and to session-created rows
    * through one final effective-row predicate).
-   * Loads ckv_values via JOIN (baseline only — composite PK, not overlaid).
+   * Loads baseline ckv_values via JOIN and synthesizes values for CREATE actions.
    * All Ckv actions (CREATE/UPDATE/DELETE) are passed together to applyToCollection.
    */
   async fetchMany(
@@ -127,7 +127,7 @@ export class CkvOverlayFetcher {
    * Returns the overlaid Ckv row for the given ckvSystemId, or null if the
    * row was deleted in the session or does not exist.
    *
-   * Loads ckv_values via JOIN (baseline only — composite PK prevents overlay).
+   * Loads baseline ckv_values via JOIN and synthesizes values for CREATE actions.
    * Requires moduleSystemId as the aggregateId for session action lookup —
    * without it, CREATE-only entities (no base row) cannot be found.
    */
@@ -165,13 +165,10 @@ export class CkvOverlayFetcher {
 
     if (overlaid === null) return null;
 
-    return {
-      ...this.toOverlaidCkv(overlaid.effective),
-      values: (baseRow?.values ?? []).map(v => ({
-        ckvSystemId: v.ckvSystemId,
-        valueDefSystemId: v.valueDefSystemId,
-      })),
-    };
+    return this.toOverlaidCkv({
+      ...overlaid.effective,
+      values: baseRow?.values ?? [],
+    });
   }
 
   /**
@@ -194,14 +191,22 @@ export class CkvOverlayFetcher {
   }
 
   private toOverlaidCkv(row: CkvRow): OverlaidCkv {
+    const valueDefinitionSystemIds = (
+      row as CkvRow & {valueDefinitionSystemIds?: number[]}
+    ).valueDefinitionSystemIds;
     return {
       systemId: row.systemId,
       spfModuleSystemId: row.spfModuleSystemId,
       uiPersistence: row.uiPersistence ?? null,
-      values: (row.values ?? []).map(v => ({
-        ckvSystemId: v.ckvSystemId,
-        valueDefSystemId: v.valueDefSystemId,
-      })),
+      values:
+        valueDefinitionSystemIds?.map(valueDefSystemId => ({
+          ckvSystemId: row.systemId,
+          valueDefSystemId,
+        })) ??
+        (row.values ?? []).map(v => ({
+          ckvSystemId: v.ckvSystemId,
+          valueDefSystemId: v.valueDefSystemId,
+        })),
     };
   }
 }
