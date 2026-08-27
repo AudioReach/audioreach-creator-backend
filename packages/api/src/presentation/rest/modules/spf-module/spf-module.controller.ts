@@ -68,6 +68,26 @@ import {
   DeleteSpfModuleCommand,
   LINK_DELETION_MODE,
   isLinkDeletionMode,
+  AddCkvsCommand,
+  type AddCkvsResult,
+  RemoveCkvsCommand,
+  type RemoveCkvsResult,
+  AddTagsCommand,
+  type AddTagsResult,
+  RemoveTagsCommand,
+  type RemoveTagsResult,
+  AddTkvsCommand,
+  type AddTkvsResult,
+  RemoveTkvsCommand,
+  type RemoveTkvsResult,
+  AddCkvParametersCommand,
+  type AddCkvParametersResult,
+  RemoveCkvParametersCommand,
+  type RemoveCkvParametersResult,
+  AddTkvParametersCommand,
+  type AddTkvParametersResult,
+  RemoveTkvParametersCommand,
+  type RemoveTkvParametersResult,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
@@ -841,23 +861,26 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async addCkvs(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateCkvsRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<AddCkvsResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Adding CKVs to SPF module:',
-      spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+    const command = new AddCkvsCommand(spfModuleSystemId, request.ckvs);
+    const result = await this.commandBus.execute<Result<AddCkvsResult>>(
+      command,
+      session,
     );
-    throw new NotImplementedException(
-      'Add CKVs functionality is not implemented yet.',
-    );
+    return toApiResult(result, data => ({
+      addedCkvs: data.addedCkvs.map(c => ({
+        systemId: String(c.systemId),
+        keyValuePairs: [] as CkvResponseDto['keyValuePairs'],
+        supportedParameters: [],
+      })),
+      removedCkvSystemIds: data.removedCkvSystemIds.map(String),
+    }));
   }
 
   /**
@@ -891,22 +914,27 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async removeCkvs(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteCkvsRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CkvResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Removing CKVs from SPF module:',
+    const command = new RemoveCkvsCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      request.ckvSystemIds,
     );
-    throw new NotImplementedException(
-      'Remove CKVs functionality is not implemented yet.',
+    const result = await this.commandBus.execute<Result<RemoveCkvsResult>>(
+      command,
+      session,
+    );
+    return toApiResult(result, data =>
+      data.removedCkvSystemIds.map(id => ({
+        systemId: String(id),
+        keyValuePairs: [],
+        supportedParameters: [],
+      })),
     );
   }
 
@@ -941,22 +969,28 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async addTags(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateTagsRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<TagInfoResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Adding tags to SPF module:',
+    const command = new AddTagsCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      request.tagDefinitionSystemIds,
     );
-    throw new NotImplementedException(
-      'Add tags functionality is not implemented yet.',
+    const result = await this.commandBus.execute<Result<AddTagsResult>>(
+      command,
+      session,
+    );
+    return toApiResult(result, data =>
+      data.addedTagSystemIds.map(id => ({
+        systemId: String(id),
+        naturalId: 0,
+        tagName: '',
+        tkvs: [],
+      })),
     );
   }
 
@@ -991,22 +1025,28 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async removeTags(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteTagsRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<TagInfoResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Removing tags from SPF module:',
+    const command = new RemoveTagsCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      request.tagSystemIds,
     );
-    throw new NotImplementedException(
-      'Remove tags functionality is not implemented yet.',
+    const result = await this.commandBus.execute<Result<RemoveTagsResult>>(
+      command,
+      session,
+    );
+    return toApiResult(result, data =>
+      data.removedTagSystemIds.map(id => ({
+        systemId: String(id),
+        naturalId: 0,
+        tagName: '',
+        tkvs: [],
+      })),
     );
   }
 
@@ -1048,25 +1088,29 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async addTkvs(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Body() request: CreateTkvsRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<TkvResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Adding TKVs to tag:',
-      tagSystemId,
-      'in SPF module:',
+    const command = new AddTkvsCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      tagSystemId,
+      request.tkvs,
     );
-    throw new NotImplementedException(
-      'Add TKVs functionality is not implemented yet.',
+    const result = await this.commandBus.execute<Result<AddTkvsResult>>(
+      command,
+      session,
+    );
+    return toApiResult(result, data =>
+      data.addedTkvs.map(t => ({
+        systemId: String(t.systemId),
+        keyValuePairs: [] as TkvResponseDto['keyValuePairs'],
+        supportedParameters: [],
+      })),
     );
   }
 
@@ -1108,25 +1152,29 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async removeTkvs(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('tagSystemId') tagSystemId: string,
     @Body() request: DeleteTkvsRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<TkvResponseDto[]>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Removing TKVs from tag:',
-      tagSystemId,
-      'in SPF module:',
+    const command = new RemoveTkvsCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      tagSystemId,
+      request.tkvSystemIds,
     );
-    throw new NotImplementedException(
-      'Remove TKVs functionality is not implemented yet.',
+    const result = await this.commandBus.execute<Result<RemoveTkvsResult>>(
+      command,
+      session,
+    );
+    return toApiResult(result, data =>
+      data.removedTkvSystemIds.map(id => ({
+        systemId: String(id),
+        keyValuePairs: [],
+        supportedParameters: [],
+      })),
     );
   }
 
@@ -1160,18 +1208,12 @@ export class SpfModuleController extends BaseController {
     ],
   })
   async getCkvParameters(
-    @Param('projectId') projectId: string,
-    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Param('projectId') _projectId: string,
+    @Param('spfModuleSystemId') _spfModuleSystemId: string,
   ): Promise<ApiResult<CkvParametersResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Getting CKV parameters for SPF module:',
-      spfModuleSystemId,
-      'in project:',
-      projectId,
-    );
+    await Promise.resolve();
     throw new NotImplementedException(
-      'Get CKV parameters functionality is not implemented yet.',
+      'Get CKV parameters is not implemented yet.',
     );
   }
 
@@ -1206,23 +1248,21 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async addCkvParameters(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateCkvParametersRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CkvParametersResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Adding CKV parameters to SPF module:',
+    const command = new AddCkvParametersCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      request.parameterSystemIds,
     );
-    throw new NotImplementedException(
-      'Add CKV parameters functionality is not implemented yet.',
-    );
+    const result = await this.commandBus.execute<
+      Result<AddCkvParametersResult>
+    >(command, session);
+    return toApiResult(result, () => ({parameters: []}));
   }
 
   /**
@@ -1256,23 +1296,25 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async removeCkvParameters(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: DeleteCkvParametersRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<CkvParameterRemovalResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Removing CKV parameters from SPF module:',
+    const command = new RemoveCkvParametersCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      request.parameterSystemIds,
     );
-    throw new NotImplementedException(
-      'Remove CKV parameters functionality is not implemented yet.',
-    );
+    const result = await this.commandBus.execute<
+      Result<RemoveCkvParametersResult>
+    >(command, session);
+    return toApiResult(result, data => ({
+      removedParameterSystemIds: data.removedParameterSystemIds.map(String),
+      removedCkvSystemIds: data.removedCkvSystemIds.map(String),
+      affectedCkvSystemIds: data.affectedCkvSystemIds.map(String),
+    }));
   }
 
   /**
@@ -1306,18 +1348,12 @@ export class SpfModuleController extends BaseController {
     ],
   })
   async getTkvParameters(
-    @Param('projectId') projectId: string,
-    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Param('projectId') _projectId: string,
+    @Param('spfModuleSystemId') _spfModuleSystemId: string,
   ): Promise<ApiResult<TkvParametersResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Getting TKV parameters for SPF module:',
-      spfModuleSystemId,
-      'in project:',
-      projectId,
-    );
+    await Promise.resolve();
     throw new NotImplementedException(
-      'Get TKV parameters functionality is not implemented yet.',
+      'Get TKV parameters is not implemented yet.',
     );
   }
 
@@ -1352,23 +1388,21 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async addTkvParameters(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: CreateTkvParametersRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<TkvParametersResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Adding TKV parameters to SPF module:',
+    const command = new AddTkvParametersCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      request.updates,
     );
-    throw new NotImplementedException(
-      'Add TKV parameters functionality is not implemented yet.',
-    );
+    const result = await this.commandBus.execute<
+      Result<AddTkvParametersResult>
+    >(command, session);
+    return toApiResult(result, () => ({tkvParameters: []}));
   }
 
   /**
@@ -1402,23 +1436,21 @@ export class SpfModuleController extends BaseController {
       },
     ],
   })
+  @UseGuards(SessionGuard)
   async removeTkvParameters(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Body() request: RemoveTkvParametersRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<TkvParameterRemovalResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Removing TKV parameters from SPF module:',
+    const command = new RemoveTkvParametersCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with request:',
-      request,
+      request.updates,
     );
-    throw new NotImplementedException(
-      'Remove TKV parameters functionality is not implemented yet.',
-    );
+    const result = await this.commandBus.execute<
+      Result<RemoveTkvParametersResult>
+    >(command, session);
+    return toApiResult(result, () => ({updates: []}));
   }
 
   /**

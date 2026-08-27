@@ -9,6 +9,7 @@ export interface ParameterDefinitionBase {
   systemId: number;
   isReadOnly: boolean;
   elementsStructure: string; // JSON — parsed by serializeParameterData
+  toolPolicy: string; // First entry of spf_module_parameter_definition.tool_policies JSON array
 }
 
 export interface ModuleDefinitionRepository {
