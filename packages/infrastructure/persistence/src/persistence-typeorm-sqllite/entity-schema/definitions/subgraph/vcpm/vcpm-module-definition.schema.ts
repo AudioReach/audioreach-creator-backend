@@ -11,6 +11,7 @@ import {EntitySchema} from 'typeorm';
 import type {VcpmModuleParameterDefinitionRow} from './vcpm-module-parameter-definition.schema.js';
 import type {VcpmInstanceRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
 import type {VcpmModuleAttributeRow} from './vcpm-module-attribute.schema.js';
+import type {ArcDbFileRow} from '../../../project-data/arc-db-file.schema.js';
 
 export interface VcpmModuleDefinitionRow extends EntityBaseRow {
   moduleDefinitionId: number;
@@ -24,6 +25,7 @@ export interface VcpmModuleDefinitionRow extends EntityBaseRow {
   parameters: VcpmModuleParameterDefinitionRow[];
   vcpmInstances?: VcpmInstanceRow[];
   attributes?: VcpmModuleAttributeRow[];
+  file?: ArcDbFileRow;
 }
 
 export const VcpmModuleDefinitionSchema =
@@ -64,15 +66,6 @@ export const VcpmModuleDefinitionSchema =
       },
     },
     relations: {
-      // file: {
-      //   type: 'many-to-one',
-      //   target: 'File',
-      //   joinColumn: {
-      //     name: 'file_system_id',
-      //     referencedColumnName: 'fileSystemId'
-      //   }
-      // },
-
       parameters: {
         type: 'one-to-many',
         target: 'VcpmModuleParameterDefinition',
@@ -89,6 +82,12 @@ export const VcpmModuleDefinitionSchema =
         target: 'VcpmModuleAttribute',
         inverseSide: 'vcpmModuleDefinition',
         cascade: ['insert', 'update'],
+      },
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+        onDelete: 'CASCADE',
       },
     },
   });

@@ -3,6 +3,16 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {SessionMode} from '../../../../shared/change-vocabulary.js';
+
+export interface ProjectSummary {
+  systemId: number;
+  name: string;
+  description: string;
+  type: string;
+  sessionMode: SessionMode;
+}
+
 /**
  * Query service interface for project queries
  */
@@ -44,4 +54,16 @@ export interface ProjectQueryService {
     modifiedDate: number;
     oemInfo: string;
   }>;
+
+  /**
+   * Get all projects with their current session mode (READONLY if no active session).
+   * Uses a single LEFT JOIN query to avoid N+1.
+   */
+  getAllProjectsWithSessionMode(): Promise<ProjectSummary[]>;
+
+  /**
+   * Get a single project with its current session mode.
+   * Returns null if the project does not exist.
+   */
+  getProjectWithSessionMode(projectId: number): Promise<ProjectSummary | null>;
 }

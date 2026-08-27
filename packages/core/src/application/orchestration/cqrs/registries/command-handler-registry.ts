@@ -101,6 +101,10 @@ import {DeleteControlLinkCommand} from '../../../usecase-designer/control-links/
 import {DeleteControlLinkHandler} from '../../../usecase-designer/control-links/delete/delete-control-link.handler.js';
 import {PutCkvCalDataCommand} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
 import {PutCkvCalDataHandler} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.js';
+import {UpdateProjectCommand} from '../../../project/update/update-project.command.js';
+import {UpdateProjectHandler} from '../../../project/update/update-project.handler.js';
+import {DeleteProjectCommand} from '../../../project/delete/delete-project.command.js';
+import {DeleteProjectHandler} from '../../../project/delete/delete-project.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -260,6 +264,14 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(PutCkvCalDataCommand, {
       create: deps => new PutCkvCalDataHandler(deps.uow, deps.logger),
+    });
+
+    this.commandHandlerFactories.set(UpdateProjectCommand, {
+      create: deps => new UpdateProjectHandler(deps.uow, deps.queryServices),
+    });
+
+    this.commandHandlerFactories.set(DeleteProjectCommand, {
+      create: deps => new DeleteProjectHandler(deps.uow, deps.queryServices),
     });
   }
 }

@@ -471,6 +471,14 @@ export * from './application/file-operations/download-file/download-file.query.j
 export * from './application/file-operations/download-file/download-file.handler.js';
 export * from './application/project/project-file-properties.query.js';
 export * from './application/project/project-file-properties.handler.js';
+export * from './application/project/get-all/get-projects.query.js';
+export * from './application/project/get-all/get-projects.handler.js';
+export * from './application/project/get/get-project.query.js';
+export * from './application/project/get/get-project.handler.js';
+export * from './application/project/update/update-project.command.js';
+export * from './application/project/update/update-project.handler.js';
+export * from './application/project/delete/delete-project.command.js';
+export * from './application/project/delete/delete-project.handler.js';
 export * from './application/ports/file-system/file-system.port.js';
 export * from './application/file-operations/upload-file/types/chunk-parse.types.js';
 export * from './application/file-operations/upload-file/types/entity-builder.types.js';

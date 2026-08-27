@@ -44,6 +44,10 @@ import {
   Result,
   StartSessionCommand,
   EndSessionCommand,
+  GetProjectsQuery,
+  GetProjectQuery,
+  UpdateProjectCommand,
+  DeleteProjectCommand,
 } from '@arc/core';
 import type {
   PathRef,
@@ -54,6 +58,7 @@ import type {
   SessionResult,
   ActiveSession,
   SessionMode as CoreSessionMode,
+  ProjectInfoResult,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -330,11 +335,29 @@ export class ProjectController {
   async getProjects(
     @Request() req: AuthenticatedRequest,
   ): Promise<ApiResult<ProjectInfoResponseDto[]>> {
-    // Extract client ID from JWT token
     const clientId = req.user?.clientId;
-    console.log('Getting projects for client:', clientId);
-    await Promise.resolve();
-    throw new NotImplementedException('getProjects is not implemented yet');
+    this.logger.logInfo({
+      component: 'ProjectController',
+      action: 'getProjects',
+      msg: 'Fetching all projects',
+      clientId,
+      timestamp: new Date(),
+      tag: 'project',
+    });
+
+    const results = await this.queryBus.execute<ProjectInfoResult[]>(
+      new GetProjectsQuery(),
+    );
+
+    const dtos: ProjectInfoResponseDto[] = results.map(r => ({
+      projectId: String(r.projectId),
+      name: r.name,
+      description: r.description,
+      projectType: ProjectType.Offline,
+      sessionMode: (r.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    }));
+
+    return toApiResult(Result.ok(dtos));
   }
 
   @Get('/:projectId')
@@ -375,10 +398,21 @@ export class ProjectController {
     },
   })
   async getProject(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('getProject is not implemented yet');
+    const result = await this.queryBus.execute<ProjectInfoResult>(
+      new GetProjectQuery(Number(projectId)),
+    );
+
+    const dto: ProjectInfoResponseDto = {
+      projectId: String(result.projectId),
+      name: result.name,
+      description: result.description,
+      projectType: ProjectType.Offline,
+      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    };
+
+    return toApiResult(Result.ok(dto));
   }
 
   @Patch('/:projectId')
@@ -437,13 +471,26 @@ export class ProjectController {
     },
   })
   async updateProjectInfo(
-    @Param('projectId') _projectId: string,
-    @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
+    @Param('projectId') projectId: string,
+    @Body() updateProjectInfoRequest: ProjectInfoUpdateDto,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'updateProjectInfo is not implemented yet',
+    const result = await this.commandBus.execute<ProjectInfoResult>(
+      new UpdateProjectCommand(
+        Number(projectId),
+        updateProjectInfoRequest.name,
+        updateProjectInfoRequest.description,
+      ),
     );
+
+    const dto: ProjectInfoResponseDto = {
+      projectId: String(result.projectId),
+      name: result.name,
+      description: result.description,
+      projectType: ProjectType.Offline,
+      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    };
+
+    return toApiResult(Result.ok(dto));
   }
 
   @Post('/:projectId/connect')
@@ -484,12 +531,21 @@ export class ProjectController {
     },
   })
   async connectToProject(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'connectToProject is not implemented yet',
+    const result = await this.queryBus.execute<ProjectInfoResult>(
+      new GetProjectQuery(Number(projectId)),
     );
+
+    const dto: ProjectInfoResponseDto = {
+      projectId: String(result.projectId),
+      name: result.name,
+      description: result.description,
+      projectType: ProjectType.Offline,
+      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    };
+
+    return toApiResult(Result.ok(dto));
   }
 
   @Post('/:projectId/disconnect')
@@ -531,12 +587,21 @@ export class ProjectController {
     },
   })
   async disconnectFromProject(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'disconnectFromProject is not implemented yet',
+    const result = await this.queryBus.execute<ProjectInfoResult>(
+      new GetProjectQuery(Number(projectId)),
     );
+
+    const dto: ProjectInfoResponseDto = {
+      projectId: String(result.projectId),
+      name: result.name,
+      description: result.description,
+      projectType: ProjectType.Offline,
+      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    };
+
+    return toApiResult(Result.ok(dto));
   }
 
   /**
@@ -749,10 +814,10 @@ export class ProjectController {
       ],
     },
   })
-  async deleteProject(@Param('projectId') _projectId: string): Promise<void> {
-    // ToDo: Add Code to delete Project Logs
-    await Promise.resolve();
-    throw new NotImplementedException('deleteProject is not implemented yet');
+  async deleteProject(@Param('projectId') projectId: string): Promise<void> {
+    await this.commandBus.execute<void>(
+      new DeleteProjectCommand(Number(projectId)),
+    );
   }
 
   //TODO: Add this API when diff-merge is needed

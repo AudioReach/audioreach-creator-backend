@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1788093142030 implements MigrationInterface {
-  name = 'InitialCreate1788093142030';
+export class InitialCreate1788339565069 implements MigrationInterface {
+  name = 'InitialCreate1788339565069';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -469,6 +469,26 @@ export class InitialCreate1788093142030 implements MigrationInterface {
       `CREATE INDEX "IDX_06f2962641e6632eb9a7ac63da" ON "use_case_categories" ("category_system_id") `,
     );
     await queryRunner.query(
+      `CREATE TABLE "temporary_processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_4105be16af5cb88804e873ad449" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_processor_definitions"("system_id", "created_at", "updated_at", "version", "processor_definition_id", "name", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "processor_definition_id", "name", "file_system_id" FROM "processor_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "processor_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_processor_definitions" RENAME TO "processor_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_container_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, CONSTRAINT "FK_2974b503ed9831b09a91e42b9c1" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_container_property_definitions"("system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure" FROM "container_property_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "container_property_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_container_property_definitions" RENAME TO "container_property_definitions"`,
+    );
+    await queryRunner.query(
       `CREATE TABLE "temporary_arc_keys" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "key_id" integer NOT NULL, "name" text NOT NULL, "enum_member" text, "enum_name" text, "description" text, "is_voice" boolean, "is_dynamic" boolean, "is_calibration_key" boolean, "is_graph_key" boolean, "speciality_key_value" text, "cal_key_enum_member" text, "graph_key_enum_member" text, CONSTRAINT "FK_d236cb5f4166104e54da9a1d885" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
@@ -491,6 +511,16 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_arc_values_keys_system_id" ON "arc_values" ("keys_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_driver_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL, CONSTRAINT "FK_03023f7fbca50f3127e1d95d04e" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_driver_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "description", "group_name", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "description", "group_name", "file_system_id" FROM "driver_module_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "driver_module_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_driver_module_definitions" RENAME TO "driver_module_definitions"`,
     );
     await queryRunner.query(
       `DROP INDEX "idx_module_param_defs_driver_module_def_id"`,
@@ -591,6 +621,16 @@ export class InitialCreate1788093142030 implements MigrationInterface {
       `ALTER TABLE "temporary_module_parameter_attributes" RENAME TO "module_parameter_attributes"`,
     );
     await queryRunner.query(
+      `CREATE TABLE "temporary_module_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_category_type" varchar(255), "property_structure" text NOT NULL, CONSTRAINT "FK_b8a46d29befa654418e6e5f8ada" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_module_property_definitions"("system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_category_type", "property_structure") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_category_type", "property_structure" FROM "module_property_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "module_property_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_module_property_definitions" RENAME TO "module_property_definitions"`,
+    );
+    await queryRunner.query(
       `CREATE TABLE "temporary_spf_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "mod_search_keys" text, "stack_size" integer NOT NULL DEFAULT (0), "file_system_id" integer NOT NULL, "metadata" text, "is_loaded_at_bootup" boolean NOT NULL DEFAULT (0), "processor_system_id" integer NOT NULL, "module_definition_system_id" integer, CONSTRAINT "REL_e5a9714fba21e5202c09bcfb7e" UNIQUE ("module_definition_system_id"), CONSTRAINT "FK_e62091f259a92cc55156fdc0101" FOREIGN KEY ("processor_system_id") REFERENCES "processor_definitions" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_e5a9714fba21e5202c09bcfb7e4" FOREIGN KEY ("module_definition_system_id") REFERENCES "module_definition_meta_data" ("system_id") ON DELETE NO ACTION ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
@@ -667,6 +707,26 @@ export class InitialCreate1788093142030 implements MigrationInterface {
       `CREATE INDEX "idx_static_intent_defs_port_id" ON "static_intent_definitions" ("static_control_port_definition_system_id") `,
     );
     await queryRunner.query(
+      `CREATE TABLE "temporary_subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL, CONSTRAINT "FK_03245d64859911ba5749f1ad3a8" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_subgraph_property_definitions"("system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice" FROM "subgraph_property_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "subgraph_property_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_subgraph_property_definitions" RENAME TO "subgraph_property_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL, CONSTRAINT "FK_ca4f5cdb1f4ce4fe319bd859591" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_vcpm_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id" FROM "vcpm_module_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "vcpm_module_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_vcpm_module_definitions" RENAME TO "vcpm_module_definitions"`,
+    );
+    await queryRunner.query(
       `DROP INDEX "idx_module_param_defs_vcpm_module_def_id"`,
     );
     await queryRunner.query(
@@ -681,6 +741,16 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_vcpm_module_def_id" ON "vcpm_module_parameter_definitions" ("vcpm_module_definition_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_tag_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "tag_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "is_voice" boolean NOT NULL, "c_header_enum_name" varchar(255), "c_header_enum_value" varchar(255), "file_system_id" integer NOT NULL, CONSTRAINT "FK_1016c44c8dd9817f46e46fe4a56" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_tag_definitions"("system_id", "created_at", "updated_at", "version", "tag_id", "name", "description", "is_voice", "c_header_enum_name", "c_header_enum_value", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "tag_id", "name", "description", "is_voice", "c_header_enum_name", "c_header_enum_value", "file_system_id" FROM "tag_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "tag_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_tag_definitions" RENAME TO "tag_definitions"`,
     );
     await queryRunner.query(`DROP INDEX "idx_tag_key_def_links_tag_def_id"`);
     await queryRunner.query(
@@ -1372,6 +1442,24 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "temporary_session_entity_versions" RENAME TO "session_entity_versions"`,
     );
+    await queryRunner.query(`DROP INDEX "idx_restore_points_session"`);
+    await queryRunner.query(`DROP INDEX "idx_restore_points_file"`);
+    await queryRunner.query(
+      `CREATE TABLE "temporary_restore_points" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer, "file_system_id" integer NOT NULL, "restore_type" varchar CHECK( "restore_type" IN ('EDIT_SNAPSHOT','FULL_SNAPSHOT') ) NOT NULL, "snapshot_data" text NOT NULL, "description" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "FK_1d0fb7627cbb2ddc8c7489d8f3a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_restore_points"("system_id", "session_id", "file_system_id", "restore_type", "snapshot_data", "description", "created_at") SELECT "system_id", "session_id", "file_system_id", "restore_type", "snapshot_data", "description", "created_at" FROM "restore_points"`,
+    );
+    await queryRunner.query(`DROP TABLE "restore_points"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_restore_points" RENAME TO "restore_points"`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_restore_points_session" ON "restore_points" ("session_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_restore_points_file" ON "restore_points" ("file_system_id") `,
+    );
     await queryRunner.query(`DROP INDEX "idx_project_sessions_file"`);
     await queryRunner.query(`DROP INDEX "idx_project_sessions_status"`);
     await queryRunner.query(
@@ -1409,6 +1497,16 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_session_commits_session" ON "session_commits" ("session_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "temporary_validation_preferences" ("file_system_id" integer PRIMARY KEY NOT NULL, "preferences" text NOT NULL DEFAULT ('{"overrides":{},"suppressions":{}}'), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "FK_36e9590d73c73cea89808c485ca" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "temporary_validation_preferences"("file_system_id", "preferences", "updated_at") SELECT "file_system_id", "preferences", "updated_at" FROM "validation_preferences"`,
+    );
+    await queryRunner.query(`DROP TABLE "validation_preferences"`);
+    await queryRunner.query(
+      `ALTER TABLE "temporary_validation_preferences" RENAME TO "validation_preferences"`,
     );
     await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
@@ -1449,6 +1547,16 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "IDX_d5b97ccc404cecb9166a453280" ON "use_case_categories" ("use_case_system_id") `,
     );
+    await queryRunner.query(
+      `ALTER TABLE "validation_preferences" RENAME TO "temporary_validation_preferences"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "validation_preferences" ("file_system_id" integer PRIMARY KEY NOT NULL, "preferences" text NOT NULL DEFAULT ('{"overrides":{},"suppressions":{}}'), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "validation_preferences"("file_system_id", "preferences", "updated_at") SELECT "file_system_id", "preferences", "updated_at" FROM "temporary_validation_preferences"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_validation_preferences"`);
     await queryRunner.query(`DROP INDEX "idx_session_commits_session"`);
     await queryRunner.query(
       `ALTER TABLE "session_commits" RENAME TO "temporary_session_commits"`,
@@ -1486,6 +1594,24 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_project_sessions_file" ON "project_sessions" ("file_system_id") `,
+    );
+    await queryRunner.query(`DROP INDEX "idx_restore_points_file"`);
+    await queryRunner.query(`DROP INDEX "idx_restore_points_session"`);
+    await queryRunner.query(
+      `ALTER TABLE "restore_points" RENAME TO "temporary_restore_points"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "restore_points" ("system_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer, "file_system_id" integer NOT NULL, "restore_type" varchar CHECK( "restore_type" IN ('EDIT_SNAPSHOT','FULL_SNAPSHOT') ) NOT NULL, "snapshot_data" text NOT NULL, "description" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "restore_points"("system_id", "session_id", "file_system_id", "restore_type", "snapshot_data", "description", "created_at") SELECT "system_id", "session_id", "file_system_id", "restore_type", "snapshot_data", "description", "created_at" FROM "temporary_restore_points"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_restore_points"`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_restore_points_file" ON "restore_points" ("file_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_restore_points_session" ON "restore_points" ("session_id") `,
     );
     await queryRunner.query(
       `ALTER TABLE "session_entity_versions" RENAME TO "temporary_session_entity_versions"`,
@@ -2180,6 +2306,16 @@ export class InitialCreate1788093142030 implements MigrationInterface {
       `CREATE INDEX "idx_tag_key_def_links_tag_def_id" ON "tag_key_def_links" ("tag_definition_system_id") `,
     );
     await queryRunner.query(
+      `ALTER TABLE "tag_definitions" RENAME TO "temporary_tag_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tag_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "tag_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "is_voice" boolean NOT NULL, "c_header_enum_name" varchar(255), "c_header_enum_value" varchar(255), "file_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "tag_definitions"("system_id", "created_at", "updated_at", "version", "tag_id", "name", "description", "is_voice", "c_header_enum_name", "c_header_enum_value", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "tag_id", "name", "description", "is_voice", "c_header_enum_name", "c_header_enum_value", "file_system_id" FROM "temporary_tag_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_tag_definitions"`);
+    await queryRunner.query(
       `DROP INDEX "idx_module_param_defs_vcpm_module_def_id"`,
     );
     await queryRunner.query(
@@ -2196,6 +2332,28 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_vcpm_module_def_id" ON "vcpm_module_parameter_definitions" ("vcpm_module_definition_system_id") `,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "vcpm_module_definitions" RENAME TO "temporary_vcpm_module_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "vcpm_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "display_name" varchar(255), "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "vcpm_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "file_system_id" FROM "temporary_vcpm_module_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_vcpm_module_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "subgraph_property_definitions" RENAME TO "temporary_subgraph_property_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "subgraph_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text, "is_voice" boolean NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "subgraph_property_definitions"("system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure", "is_voice" FROM "temporary_subgraph_property_definitions"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE "temporary_subgraph_property_definitions"`,
     );
     await queryRunner.query(`DROP INDEX "idx_static_intent_defs_port_id"`);
     await queryRunner.query(
@@ -2279,6 +2437,18 @@ export class InitialCreate1788093142030 implements MigrationInterface {
       `INSERT INTO "spf_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "display_name", "description", "group_name", "mod_search_keys", "stack_size", "file_system_id", "metadata", "is_loaded_at_bootup", "processor_system_id", "module_definition_system_id" FROM "temporary_spf_module_definitions"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_spf_module_definitions"`);
+    await queryRunner.query(
+      `ALTER TABLE "module_property_definitions" RENAME TO "temporary_module_property_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "module_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_category_type" varchar(255), "property_structure" text NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "module_property_definitions"("system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_category_type", "property_structure") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_category_type", "property_structure" FROM "temporary_module_property_definitions"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE "temporary_module_property_definitions"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "module_parameter_attributes" RENAME TO "temporary_module_parameter_attributes"`,
     );
@@ -2385,6 +2555,16 @@ export class InitialCreate1788093142030 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "idx_module_param_defs_driver_module_def_id" ON "driver_module_parameter_definitions" ("driver_module_definition_system_id") `,
     );
+    await queryRunner.query(
+      `ALTER TABLE "driver_module_definitions" RENAME TO "temporary_driver_module_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "driver_module_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "module_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "description" text, "group_name" varchar(255), "file_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "driver_module_definitions"("system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "description", "group_name", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "module_definition_id", "name", "description", "group_name", "file_system_id" FROM "temporary_driver_module_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_driver_module_definitions"`);
     await queryRunner.query(`DROP INDEX "idx_arc_values_keys_system_id"`);
     await queryRunner.query(
       `ALTER TABLE "arc_values" RENAME TO "temporary_arc_values"`,
@@ -2409,6 +2589,28 @@ export class InitialCreate1788093142030 implements MigrationInterface {
       `INSERT INTO "arc_keys"("system_id", "created_at", "updated_at", "version", "file_system_id", "key_id", "name", "enum_member", "enum_name", "description", "is_voice", "is_dynamic", "is_calibration_key", "is_graph_key", "speciality_key_value", "cal_key_enum_member", "graph_key_enum_member") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "key_id", "name", "enum_member", "enum_name", "description", "is_voice", "is_dynamic", "is_calibration_key", "is_graph_key", "speciality_key_value", "cal_key_enum_member", "graph_key_enum_member" FROM "temporary_arc_keys"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_arc_keys"`);
+    await queryRunner.query(
+      `ALTER TABLE "container_property_definitions" RENAME TO "temporary_container_property_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "container_property_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "property_id" integer NOT NULL, "name" varchar(255), "description" text, "max_size" integer NOT NULL, "property_type" varchar CHECK( "property_type" IN ('SPF','DRIVER') ) NOT NULL, "elements_structure" text)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "container_property_definitions"("system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "property_id", "name", "description", "max_size", "property_type", "elements_structure" FROM "temporary_container_property_definitions"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE "temporary_container_property_definitions"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "processor_definitions" RENAME TO "temporary_processor_definitions"`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "processor_definitions" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "processor_definition_id" integer NOT NULL, "name" varchar(255) NOT NULL, "file_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `INSERT INTO "processor_definitions"("system_id", "created_at", "updated_at", "version", "processor_definition_id", "name", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "processor_definition_id", "name", "file_system_id" FROM "temporary_processor_definitions"`,
+    );
+    await queryRunner.query(`DROP TABLE "temporary_processor_definitions"`);
     await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
     await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(`DROP TABLE "use_case_categories"`);

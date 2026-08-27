@@ -94,6 +94,13 @@ export class TypeOrmProjectRepository implements ProjectRepository {
     await this.manager.delete(ProjectSchema, {systemId});
   }
 
+  async updateProject(
+    systemId: number,
+    updates: {name?: string; description?: string},
+  ): Promise<void> {
+    await this.manager.update(ProjectSchema, {systemId}, updates);
+  }
+
   async updateFileHeader(
     fileSystemId: number,
     headerData: FileHeaderData,
