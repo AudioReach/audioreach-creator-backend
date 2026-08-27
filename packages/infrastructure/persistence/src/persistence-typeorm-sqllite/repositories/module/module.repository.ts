@@ -15,13 +15,15 @@ import type {
 import {SpfModule, DataPort, ControlPort} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import {ModuleNodeOverlayFetcher} from '../../fetchers/module-node-overlay-fetcher.js';
+import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
-  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
+  private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
+  private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly portFetcher: PortOverlayFetcher;
   private readonly ckvOverlayFetcher: CkvOverlayFetcher;
 
@@ -31,10 +33,8 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     private readonly uow: UnitOfWork,
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
-    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
-      manager,
-      editActionsQs,
-    );
+    this.spfModuleFetcher = new SpfModuleOverlayFetcher(manager, editActionsQs);
+    this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
     this.portFetcher = new PortOverlayFetcher(manager, editActionsQs);
     this.ckvOverlayFetcher = new CkvOverlayFetcher(manager, editActionsQs);
   }
@@ -44,12 +44,19 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     fileSystemId: number,
   ): Promise<SpfModule | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const moduleNode = await this.moduleNodeFetcher.fetchOne(
-      systemId,
-      fileSystemId,
-      sessionId,
-    );
-    if (moduleNode === null) return null;
+    const [spfRows, nodeRows] = await Promise.all([
+      this.spfModuleFetcher.fetchMany(fileSystemId, sessionId, {
+        systemId: systemId,
+      }),
+      this.nodeFetcher.fetchMany([systemId], fileSystemId, sessionId),
+    ]);
+    const nodeMap = new Map(nodeRows.map(n => [n.systemId, n]));
+    const spf = spfRows.at(0);
+    if (spf === undefined) return null;
+    const moduleNode = {
+      ...spf,
+      parentId: nodeMap.get(spf.systemId)?.parentId ?? null,
+    };
     const dataPorts = await this.portFetcher.fetchDataPorts(
       systemId,
       fileSystemId,
@@ -313,12 +320,16 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     fileSystemId: number,
   ): Promise<SpfModuleBase | null> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const row = await this.moduleNodeFetcher.fetchOne(
-      spfModuleSystemId,
-      fileSystemId,
-      sessionId,
-    );
-    if (!row) return null;
+    const [spfRows, nodeRows] = await Promise.all([
+      this.spfModuleFetcher.fetchMany(fileSystemId, sessionId, {
+        systemId: spfModuleSystemId,
+      }),
+      this.nodeFetcher.fetchMany([spfModuleSystemId], fileSystemId, sessionId),
+    ]);
+    const nodeMap = new Map(nodeRows.map(n => [n.systemId, n]));
+    const spf = spfRows.at(0);
+    if (!spf) return null;
+    const row = {...spf, parentId: nodeMap.get(spf.systemId)?.parentId ?? null};
     return {
       systemId: row.systemId,
       definitionSystemId: row.definitionSystemId,

@@ -113,7 +113,13 @@ export class OverlayMergeImpl implements OverlayMerge {
       typeof raw === 'string'
         ? (JSON.parse(raw) as Record<string, unknown>)
         : (raw as Record<string, unknown>);
-    return createFilter(newValue);
+    // systemId is stored as targetSystemId on the action row, not inside newValue,
+    // because it is the PK of the entity being acted on — not a payload field.
+    // foldRows already injects it (effective.systemId = row.targetSystemId).
+    // Enriching here keeps createFilter consistent with the effective row shape,
+    // so callers can filter by systemId and correctly match session-created entities.
+    const enriched = {...newValue, systemId: createRow.targetSystemId};
+    return createFilter(enriched);
   }
 
   private foldRows<T extends {systemId: number}>(
