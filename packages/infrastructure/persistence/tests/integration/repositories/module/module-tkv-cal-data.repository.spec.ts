@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {CHANGE_STATUS, SOURCE} from '@arc/core';
+import {CHANGE_STATUS, SOURCE, KvData} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -207,6 +207,46 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
       const repo = makeRepo(qr, sessionId);
       expect(await repo.tkvExists(9999)).toBe(false);
     });
+
+    it('returns staged TKV key values under the owning tag', async () => {
+      const repo = makeRepo(qr, sessionId);
+      await repo.createTkv(
+        new KvData({
+          systemId: 61,
+          valueDefinitionSystemIds: [701, 702],
+          uiPersistence: null,
+        }),
+        TAG_MAP_ID,
+        MODULE_ID,
+      );
+
+      const tkvs = await repo.getAllTkvsForTag(TAG_MAP_ID, MODULE_ID);
+
+      expect(tkvs).toContainEqual({
+        systemId: 61,
+        moduleTagIdMapSystemId: TAG_MAP_ID,
+        valueDefinitionSystemIds: [701, 702],
+      });
+    });
+
+    it('stages payload deletes under the tag aggregate before deleting a TKV', async () => {
+      await seedPayload(ds);
+      const repo = makeRepo(qr, sessionId);
+
+      await repo.removeTkv(TKV_ID, TAG_MAP_ID);
+
+      const rows = (await ds.query(
+        `SELECT target_table, aggregate_id FROM edit_actions WHERE session_id = ? AND valid_until IS NULL ORDER BY change_id`,
+        [sessionId],
+      )) as Array<{target_table: string; aggregate_id: number}>;
+      expect(rows).toEqual([
+        {
+          target_table: ENTITY_NAMES.TkvParameterPayload,
+          aggregate_id: TAG_MAP_ID,
+        },
+        {target_table: ENTITY_NAMES.Tkv, aggregate_id: TAG_MAP_ID},
+      ]);
+    });
   });
 
   describe('getTkvPayloadEntries', () => {
@@ -223,6 +263,24 @@ describe('TypeOrmModuleRepository — TKV cal data methods', () => {
       const repo = makeRepo(qr, sessionId);
       const rows = await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID);
       expect(rows).toHaveLength(0);
+    });
+
+    it('hides a payload added and removed in the same session', async () => {
+      const repo = makeRepo(qr, sessionId);
+      await repo.addParameterToTkv(
+        TKV_ID,
+        TAG_MAP_ID,
+        PARAM_DEF_ID,
+        PAYLOAD_ID,
+        new Uint8Array([1]),
+      );
+      expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toHaveLength(
+        1,
+      );
+
+      await repo.removeParameterFromTkv(PAYLOAD_ID, TKV_ID, TAG_MAP_ID);
+
+      expect(await repo.getTkvPayloadEntries(TAG_MAP_ID, TKV_ID)).toEqual([]);
     });
   });
 

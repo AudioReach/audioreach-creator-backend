@@ -92,6 +92,55 @@ export class CkvParameterPayloadFetcher {
       .map(r => r.effective);
   }
 
+  /**
+   * Returns overlaid CkvParameterPayload rows for multiple ckvSystemIds in a
+   * single query, grouped by ckvSystemId. Avoids the N+1 pattern of calling
+   * fetchMany once per Ckv — one base-row query and one edit_actions lookup
+   * cover every Ckv in the module.
+   * aggregateId = moduleSystemId — payload edit_actions are scoped to the owning SpfModule.
+   */
+  async fetchManyForCkvs(
+    ckvSystemIds: readonly number[],
+    moduleSystemId: number,
+    sessionId: number | null,
+  ): Promise<Map<number, CkvParameterPayloadBase[]>> {
+    const result = new Map<number, CkvParameterPayloadBase[]>();
+    for (const ckvSystemId of ckvSystemIds) result.set(ckvSystemId, []);
+    if (ckvSystemIds.length === 0) return result;
+
+    const aggregateActions =
+      sessionId === null
+        ? []
+        : await this.editActionsSvc.getByAggregateId(sessionId, moduleSystemId);
+    const payloadActions = aggregateActions.filter(
+      action => action.targetTable === ENTITY_NAMES.CkvParameterPayload,
+    );
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.CkvParameterPayload)
+      .createQueryBuilder('payload')
+      .where('payload.ckvSystemId IN (:...ckvSystemIds)', {
+        ckvSystemIds: [...ckvSystemIds],
+      })
+      .getMany()) as CkvParameterPayloadRow[];
+
+    const base = baseRows.map(r => this.toBase(r));
+    const effective =
+      sessionId === null || payloadActions.length === 0
+        ? base
+        : this.overlay
+            .applyToCollection(base, payloadActions, {
+              matchesEffective: row => ckvSystemIds.includes(row.ckvSystemId),
+            })
+            .map(r => r.effective);
+
+    for (const payload of effective) {
+      const group = result.get(payload.ckvSystemId);
+      if (group) group.push(payload);
+      else result.set(payload.ckvSystemId, [payload]);
+    }
+    return result;
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private toBase(row: CkvParameterPayloadRow): CkvParameterPayloadBase {

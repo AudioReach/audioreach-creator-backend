@@ -11,7 +11,11 @@ export interface ParameterDefinitionBase {
 }
 
 export interface ModuleParameterDefinition extends ParameterDefinitionBase {
+  naturalId?: number;
+  name?: string;
+  description?: string;
   isReadOnly: boolean;
+  toolPolicy: string; // First entry of spf_module_parameter_definition.tool_policies JSON array
 }
 
 export interface ModuleDefinitionRepository {

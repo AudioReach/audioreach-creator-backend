@@ -303,8 +303,11 @@ function parseElement(
   switch (element.elementType) {
     case PARAMETER_ELEMENT_TYPE.ConfigElement:
       return parseConfigElement(element, reader);
-    case PARAMETER_ELEMENT_TYPE.Struct:
-      return parseStruct(element, reader, parsedSoFar);
+    case PARAMETER_ELEMENT_TYPE.Struct: {
+      const parsed = parseStruct(element, reader, parsedSoFar);
+      reader.align(4);
+      return parsed;
+    }
     case PARAMETER_ELEMENT_TYPE.ElementArray:
       return parseArrayElement(element, reader, parsedSoFar);
     case PARAMETER_ELEMENT_TYPE.StructArray:
@@ -434,11 +437,10 @@ function parseArrayElement(
   reader: BinaryDataReader,
   parsedSoFar: ElementData[],
 ): ElementArrayData {
-  const formulaLength = computeArrayLength(
-    element.arrayLenFormulaStr ?? '',
-    parsedSoFar,
-  );
-  const length = formulaLength > 0 ? formulaLength : (element.arrayLength ?? 0);
+  const trimmedFormula = element.arrayLenFormulaStr?.trim();
+  const length = trimmedFormula
+    ? computeArrayLength(trimmedFormula, parsedSoFar)
+    : (element.arrayLength ?? 0);
 
   const arrayName = element.name;
   const templateElement = buildTemplateElement(element.template, arrayName);
@@ -611,15 +613,15 @@ function parseTemplateItem(
 /**
  * Resolves an `arrayLenFormulaStr` expression to a concrete array length by
  * building a variable map from previously parsed `ConfigElement` values and
- * delegating to `evaluateFormula`. Returns `0` on any error.
+ * delegating to `evaluateFormula`. Throws on evaluation failure instead of
+ * silently falling back, so a bad formula surfaces via parseParameterData's
+ * raw-hex fallback rather than substituting a possibly-wrong static length
+ * or discarding a legitimately-computed 0.
  */
 function computeArrayLength(
   formula: string,
   parsedElements: ElementData[],
 ): number {
-  const trimmed = formula.trim();
-  if (!trimmed) return 0;
-
   const variables = new Map<string, number>();
   for (const el of parsedElements) {
     if (el.type === PARAMETER_ELEMENT_TYPE.ConfigElement) {
@@ -630,9 +632,5 @@ function computeArrayLength(
     }
   }
 
-  try {
-    return Math.trunc(evaluateFormula(trimmed, variables));
-  } catch {
-    return 0;
-  }
+  return Math.trunc(evaluateFormula(formula, variables));
 }

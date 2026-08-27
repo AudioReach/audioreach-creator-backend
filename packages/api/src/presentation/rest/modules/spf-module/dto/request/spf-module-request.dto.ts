@@ -190,9 +190,7 @@ export class DeleteTagsRequestDto {
   tagSystemIds!: string[];
 }
 
-/**
- * Single TKV creation item specifying value system IDs and optional parameters.
- */
+/** Single TKV creation item specifying its key-value definition IDs. */
 export class CreateTkvRequestItem {
   @ApiProperty({
     description:
@@ -204,15 +202,6 @@ export class CreateTkvRequestItem {
   @ArrayMinSize(1)
   @IsString({each: true})
   valueSystemIds!: string[];
-
-  @ApiProperty({
-    description: 'Array of parameter system IDs for this TKV.',
-    type: [String],
-    required: true,
-  })
-  @IsArray()
-  @IsString({each: true})
-  parameterSystemIds!: string[];
 }
 
 /**

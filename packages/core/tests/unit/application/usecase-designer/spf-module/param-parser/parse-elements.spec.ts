@@ -183,6 +183,48 @@ describe('parseParameterData', () => {
       expect(inner.type).toBe(PARAMETER_ELEMENT_TYPE.Struct);
       expect((inner.value[0] as ConfigElementData).value).toBe('10');
     });
+
+    it('skips struct-alignment padding before parsing a sibling that follows the struct', () => {
+      // Struct{x: UInt8, y: UInt8} occupies bytes [0-1], then serializeStruct's
+      // writer.align(4) pads bytes [2-3], placing sibling `z` at offset 4 rather
+      // than offset 2. parseStruct must skip that same padding on read.
+      const payload = new Uint8Array([
+        0x0a, 0x14, 0x00, 0x00, 0x2a, 0x00, 0x00, 0x00,
+      ]);
+      const structure = JSON.stringify([
+        {
+          elementType: PARAMETER_ELEMENT_TYPE.Struct,
+          name: 's',
+          isReadOnly: false,
+          structureType: 's_t',
+          elements: [
+            {
+              elementType: 'ConfigElement',
+              name: 'x',
+              dataType: 'UInt8',
+              isReadOnly: false,
+            },
+            {
+              elementType: 'ConfigElement',
+              name: 'y',
+              dataType: 'UInt8',
+              isReadOnly: false,
+            },
+          ],
+        },
+        {
+          elementType: 'ConfigElement',
+          name: 'z',
+          dataType: 'UInt32',
+          isReadOnly: false,
+        },
+      ]);
+      const result = parseParameterData(payload, structure);
+      const s = result[0] as StructData;
+      expect((s.value[0] as ConfigElementData).value).toBe('10');
+      expect((s.value[1] as ConfigElementData).value).toBe('20');
+      expect((result[1] as ConfigElementData).value).toBe('42');
+    });
   });
 
   describe('ElementArray', () => {
@@ -209,7 +251,9 @@ describe('parseParameterData', () => {
     });
 
     it('parses array of structs', () => {
-      const payload = new Uint8Array([0x0a, 0x14]);
+      const payload = new Uint8Array([
+        0x0a, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00,
+      ]);
       const structure = JSON.stringify([
         {
           elementType: 'StructArray',

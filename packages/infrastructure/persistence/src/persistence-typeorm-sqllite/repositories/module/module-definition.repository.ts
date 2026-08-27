@@ -174,8 +174,24 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     );
     return rows.map(r => ({
       systemId: r.systemId,
+      naturalId: r.naturalId,
+      name: r.name,
+      description: r.description,
       isReadOnly: r.isReadOnly,
       elementsStructure: r.elementsStructure,
+      toolPolicy: parseFirstToolPolicy(r.toolPolicies ?? ''),
     }));
+  }
+}
+
+function parseFirstToolPolicy(stored: string): string {
+  try {
+    const parsed: unknown = stored ? JSON.parse(stored) : [];
+    if (!Array.isArray(parsed)) return '';
+    if (parsed.includes('CALIBRATION')) return 'CALIBRATION';
+    const first: unknown = parsed[0];
+    return typeof first === 'string' ? first : '';
+  } catch {
+    return '';
   }
 }
