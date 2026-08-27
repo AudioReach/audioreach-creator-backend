@@ -219,7 +219,7 @@ export class SubgraphBuilder {
       systemId: 0,
       subgraphId: subgraphPropertyData.subgraphId,
       name,
-      isExported: false, //TODO: get from workspace
+      isImported: false, //TODO: get from workspace
       fileSystemId: 0,
       properties,
       sgkvs,

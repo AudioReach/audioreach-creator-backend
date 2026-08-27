@@ -4,9 +4,53 @@
  */
 
 import type {ControlLink} from '../../../../../domain/entities/usecase-data/links/control-link.js';
+import type {SubsystemControlLink} from '../../../../../domain/entities/usecase-data/links/subsystem-control-link.js';
+import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
+import type {EditOptions} from '../../edit-options.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
+export interface SubsystemControlRouteContext {
+  subsystemControlLinks: SubsystemControlLink[];
+  nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
+}
+
 export interface ControlLinkRepository {
+  findLinksConnectedToModule(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<ControlLink[]>;
+
+  findUnresolvedSubsystemLinksFromModule(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<SubsystemControlLink[]>;
+
+  findSubsystemControlRouteContext(
+    fileSystemId: number,
+  ): Promise<SubsystemControlRouteContext>;
+
+  /**
+   * Deletes the canonical link and every currently resolved subsystem segment
+   * associated with it. Unresolved segments are intentionally not included.
+   */
+  deleteAggregate(
+    controlLinkSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Deletes the specified subsystem segments. An unresolved segment is deleted
+   * directly. For a resolved segment, the canonical ControlLink is deleted and
+   * non-target sibling segments are updated to have a null ControlLink FK in
+   * the edit-action overlay so chain resolution can process them later.
+   */
+  deleteSubsystemControlLinks(
+    subsystemLinkSystemIds: number[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
   /**
    * Returns all control links whose src or dst port is in portSystemIds.
    * Empty input short-circuits — returns [] without querying the DB.

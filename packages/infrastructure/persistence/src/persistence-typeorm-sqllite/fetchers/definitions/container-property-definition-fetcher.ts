@@ -4,6 +4,7 @@
  */
 
 import type {EntityManager} from 'typeorm';
+import {CHANGE_OPERATION} from '@arc/core';
 import {OverlayMergeImpl} from '../../queries/edit-session/overlay-merge.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
@@ -59,7 +60,60 @@ export class ContainerPropertyDefinitionFetcher {
       .applyToCollection(
         baselineRows as unknown as Array<{systemId: number}>,
         actions,
+        newValue => newValue.fileSystemId === fileSystemId,
       )
       .map(r => r.effective as unknown as ContainerPropertyBase);
   }
+
+  /**
+   * Returns one container property definition by natural property ID with the
+   * active session overlay applied.
+   */
+  async fetchOneByPropertyId(
+    fileSystemId: number,
+    propertyId: number,
+    sessionId: number | null,
+  ): Promise<ContainerPropertyBase | null> {
+    const baselineRow = (await this.manager
+      .getRepository(ENTITY_NAMES.ContainerProperty)
+      .createQueryBuilder('cp')
+      .where(
+        'cp.fileSystemId = :fileSystemId AND cp.propertyId = :propertyId',
+        {fileSystemId, propertyId},
+      )
+      .getOne()) as ContainerPropertyBase | null;
+
+    if (sessionId === null) return baselineRow;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.ContainerProperty,
+    );
+    const createdAction = actions.find(
+      action =>
+        action.operation === CHANGE_OPERATION.Create &&
+        matchesPropertyId(action.newValue, fileSystemId, propertyId),
+    );
+    const systemId = baselineRow?.systemId ?? createdAction?.targetSystemId;
+    if (systemId === undefined) return null;
+
+    return (
+      this.overlay.applyToSingle(
+        baselineRow,
+        actions.filter(action => action.targetSystemId === systemId),
+      )?.effective ?? null
+    );
+  }
+}
+
+function matchesPropertyId(
+  value: unknown,
+  fileSystemId: number,
+  propertyId: number,
+): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  const property = value as Partial<ContainerPropertyBase>;
+  return (
+    property.fileSystemId === fileSystemId && property.propertyId === propertyId
+  );
 }

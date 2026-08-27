@@ -5,7 +5,7 @@
 
 import {Subgraph} from '../../../domain/entities/usecase-data/subgraph/subgraph.js';
 import {SubgraphPropertyData} from '../../../domain/entities/usecase-data/subgraph/value-objects/subgraph-property.js';
-import type {SubgraphPropertyDefinitionRecord} from '../../ports/persistence/repositories/property-definitions/property-definitions.repository.js';
+import type {SubgraphPropertyDefinition} from '../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 
 export interface SubgraphInit {
   systemId: number;
@@ -27,7 +27,7 @@ export interface SubgraphInit {
  */
 export function buildSubgraphWithDefaults(
   init: SubgraphInit,
-  propertyDefinitions: SubgraphPropertyDefinitionRecord[],
+  propertyDefinitions: SubgraphPropertyDefinition[],
 ): Subgraph {
   const properties = propertyDefinitions.map(
     propDef =>
@@ -41,7 +41,7 @@ export function buildSubgraphWithDefaults(
     systemId: init.systemId,
     subgraphId: init.subgraphId,
     name: init.name,
-    isExported: false,
+    isImported: false,
     fileSystemId: init.fileSystemId,
     properties,
   });

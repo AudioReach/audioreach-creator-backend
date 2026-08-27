@@ -79,6 +79,66 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     return overlaid.map(uc => this.hydrateOverlaid(uc));
   }
 
+  async removeSubgraphReferences(
+    subgraphSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<{affectedUseCaseSystemIds: number[]}> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const [memberships, pairs] = await Promise.all([
+      this.ucFetcher.getSubgraphMembershipRowsForSubgraph(
+        fileSystemId,
+        subgraphSystemId,
+        sessionId,
+      ),
+      this.ucFetcher.getSubgraphPairRowsForSubgraph(
+        fileSystemId,
+        subgraphSystemId,
+        sessionId,
+      ),
+    ]);
+
+    const affectedUseCaseSystemIds = [
+      ...new Set([
+        ...memberships.map(row => row.usecaseSystemId),
+        ...pairs.map(row => row.usecaseSystemId),
+      ]),
+    ].sort((a, b) => a - b);
+    if (memberships.length === 0 && pairs.length === 0) {
+      return {affectedUseCaseSystemIds};
+    }
+
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const row of memberships) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.UseCaseSubgraph,
+          targetSystemId: row.systemId,
+          aggregateId: row.usecaseSystemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    for (const row of pairs) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.UseCaseSubgraphPair,
+          targetSystemId: row.systemId,
+          aggregateId: row.usecaseSystemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+
+    return {affectedUseCaseSystemIds};
+  }
+
   // ── Writes ───────────────────────────────────────────────────────────────────
 
   async create(

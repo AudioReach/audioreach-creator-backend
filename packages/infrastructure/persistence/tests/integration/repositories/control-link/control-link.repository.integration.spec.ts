@@ -4,6 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
+import {CHANGE_OPERATION, CHANGE_STATUS, NodeType, SOURCE} from '@arc/core';
 import {
   SESSION_MODE,
   SESSION_STATUS,
@@ -16,6 +17,11 @@ import {
   getTestRepository,
 } from '../../helpers/test-database-setup.js';
 import {TypeOrmControlLinkRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/control-link/control-link.repository.js';
+import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
+import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
+import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -101,6 +107,56 @@ async function seedControlLink(
   );
 }
 
+async function seedSubsystemControlLink(
+  ds: DataSource,
+  systemId: number,
+  controlLinkSystemId: number,
+) {
+  await ds.query(
+    `INSERT INTO subsystem_control_links
+       (system_id, peer_nodeA_system_id, peer_nodeB_system_id,
+        nodeA_port_system_id, nodeB_port_system_id,
+        control_link_system_id, file_system_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      systemId,
+      NODE_A,
+      NODE_B,
+      PORT_CP_A,
+      PORT_CP_B,
+      controlLinkSystemId,
+      FILE_ID,
+    ],
+  );
+}
+
+async function seedUnresolvedSubsystemControlLink(
+  qr: QueryRunner,
+  sessionId: number,
+  systemId: number,
+) {
+  await qr.manager.getRepository(EditActionSchema).insert({
+    sessionId,
+    aggregateId: systemId,
+    targetSystemId: systemId,
+    targetTable: ENTITY_NAMES.SubsystemControlLink,
+    operation: CHANGE_OPERATION.Create,
+    fieldPath: '$',
+    newValue: {
+      peerNodeASystemId: NODE_A,
+      peerNodeBSystemId: NODE_B,
+      nodeAPortSystemId: PORT_CP_A,
+      nodeBPortSystemId: PORT_CP_B,
+      controlLinkSystemId: null,
+      fileSystemId: FILE_ID,
+    },
+    source: SOURCE.Manual,
+    changeStatus: CHANGE_STATUS.Staged,
+    groupId: 'existing-group',
+    linkedEntityGroupId: null,
+  });
+}
+
 function makeRepo(
   qr: QueryRunner,
   sessionId: number,
@@ -116,7 +172,24 @@ function makeRepo(
       groupId: 'test-group',
     }),
   } as any;
-  return new TypeOrmControlLinkRepository(qr.manager, uow);
+  return new TypeOrmControlLinkRepository(
+    new PendingChangeWriter(
+      new EditActionsQueryService(qr.manager),
+      new PendingChangeCache(),
+    ),
+    qr.manager,
+    uow,
+  );
+}
+
+async function getActiveActions(qr: QueryRunner, sessionId: number) {
+  return qr.manager
+    .getRepository(EditActionSchema)
+    .createQueryBuilder('editAction')
+    .where('editAction.sessionId = :sessionId', {sessionId})
+    .andWhere('editAction.validUntil IS NULL')
+    .orderBy('editAction.changeId', 'ASC')
+    .getMany();
 }
 
 describe('TypeOrmControlLinkRepository (integration)', () => {
@@ -160,5 +233,181 @@ describe('TypeOrmControlLinkRepository (integration)', () => {
   it('returns [] when no links exist for the given ports', async () => {
     const repo = makeRepo(qr, sessionId);
     expect(await repo.getLinksByPortSystemIds([9999], FILE_ID)).toEqual([]);
+  });
+
+  it('combines effective subsystem links with overlaid node types at repository level', async () => {
+    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+    await seedSubsystemControlLink(ds, 801, 800);
+    await qr.manager.getRepository(EditActionSchema).insert({
+      sessionId,
+      aggregateId: NODE_B,
+      targetSystemId: NODE_B,
+      targetTable: ENTITY_NAMES.Node,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'type',
+      newValue: NodeType.Subsystem,
+      source: SOURCE.Manual,
+      changeStatus: CHANGE_STATUS.Unstaged,
+      groupId: 'node-update',
+      linkedEntityGroupId: null,
+    });
+
+    const result = await makeRepo(
+      qr,
+      sessionId,
+    ).findSubsystemControlRouteContext(FILE_ID);
+
+    expect(result.subsystemControlLinks).toHaveLength(1);
+    expect(result.subsystemControlLinks[0].systemId).toBe(801);
+    expect(result.nodeTypeBySystemId).toEqual(
+      new Map([
+        [NODE_A, NodeType.Module],
+        [NODE_B, NodeType.Subsystem],
+      ]),
+    );
+  });
+
+  it('deletes a canonical link and every resolved subsystem segment', async () => {
+    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+    await seedSubsystemControlLink(ds, 801, 800);
+    await seedSubsystemControlLink(ds, 802, 800);
+
+    await makeRepo(qr, sessionId).deleteAggregate(800, FILE_ID);
+
+    const actions = await getActiveActions(qr, sessionId);
+    expect(
+      actions.map(action => ({
+        targetTable: action.targetTable,
+        targetSystemId: action.targetSystemId,
+        operation: action.operation,
+        groupId: action.groupId,
+      })),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          targetTable: ENTITY_NAMES.ControlLink,
+          targetSystemId: 800,
+          operation: CHANGE_OPERATION.Delete,
+          groupId: 'test-group',
+        },
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: 801,
+          operation: CHANGE_OPERATION.Delete,
+          groupId: 'test-group',
+        },
+        {
+          targetTable: ENTITY_NAMES.SubsystemControlLink,
+          targetSystemId: 802,
+          operation: CHANGE_OPERATION.Delete,
+          groupId: 'test-group',
+        },
+      ]),
+    );
+  });
+
+  it('deletes an unresolved segment without deleting a canonical link', async () => {
+    await seedUnresolvedSubsystemControlLink(qr, sessionId, 803);
+
+    await makeRepo(qr, sessionId).deleteSubsystemControlLinks([803], FILE_ID);
+
+    const actions = await getActiveActions(qr, sessionId);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 803 &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(1);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.ControlLink &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('deletes a resolved target and canonical link while nulling its sibling', async () => {
+    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+    await seedSubsystemControlLink(ds, 801, 800);
+    await seedSubsystemControlLink(ds, 802, 800);
+
+    await makeRepo(qr, sessionId).deleteSubsystemControlLinks([801], FILE_ID);
+
+    const actions = await getActiveActions(qr, sessionId);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 801 &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(1);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.ControlLink &&
+          action.targetSystemId === 800 &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(1);
+    expect(
+      actions.find(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 802 &&
+          action.operation === CHANGE_OPERATION.Update,
+      )?.newValue,
+    ).toEqual({controlLinkSystemId: null});
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 802 &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('deletes a shared canonical link once for multiple resolved targets', async () => {
+    await seedControlLink(ds, 800, PORT_CP_A, PORT_CP_B);
+    await seedSubsystemControlLink(ds, 801, 800);
+    await seedSubsystemControlLink(ds, 802, 800);
+    await seedSubsystemControlLink(ds, 803, 800);
+
+    await makeRepo(qr, sessionId).deleteSubsystemControlLinks(
+      [801, 802],
+      FILE_ID,
+    );
+
+    const actions = await getActiveActions(qr, sessionId);
+    expect(
+      actions.filter(
+        action =>
+          action.targetTable === ENTITY_NAMES.ControlLink &&
+          action.targetSystemId === 800 &&
+          action.operation === CHANGE_OPERATION.Delete,
+      ),
+    ).toHaveLength(1);
+    expect(
+      actions
+        .filter(
+          action =>
+            action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+            action.operation === CHANGE_OPERATION.Delete,
+        )
+        .map(action => action.targetSystemId)
+        .sort((left, right) => left - right),
+    ).toEqual([801, 802]);
+    expect(
+      actions.find(
+        action =>
+          action.targetTable === ENTITY_NAMES.SubsystemControlLink &&
+          action.targetSystemId === 803 &&
+          action.operation === CHANGE_OPERATION.Update,
+      )?.newValue,
+    ).toEqual({controlLinkSystemId: null});
   });
 });

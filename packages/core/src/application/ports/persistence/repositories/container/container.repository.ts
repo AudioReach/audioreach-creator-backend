@@ -5,9 +5,16 @@
 
 import type {EditOptions} from '../../edit-options.js';
 import type {Container} from '../../../../../domain/entities/usecase-data/container/container.js';
+import type {PropertyDefinition} from '../../../../../domain/entities/definitions/common/entities/property-definition.js';
 
 export interface ContainerRepository {
   containerExists(systemId: number, fileSystemId: number): Promise<boolean>;
+
+  deleteContainer(
+    containerSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
 
   /**
    * Returns the full Container including properties Map.
@@ -26,12 +33,19 @@ export interface ContainerRepository {
    */
   createContainer(container: Container, options?: EditOptions): Promise<void>;
 
+  /** Returns effective container property definitions for the active session. */
+  getPropertyDefinitions(fileSystemId: number): Promise<PropertyDefinition[]>;
+
+  /** Returns one effective container property definition by its natural ID. */
+  getPropertyDefinitionByPropertyId(
+    fileSystemId: number,
+    propertyId: number,
+  ): Promise<PropertyDefinition | null>;
+
   /**
    * Reads a single property blob from the effective container state
    * (committed rows + pending changes for the active session).
-   * Returns null when no property row exists for this propertySystemId.
-   * propertySystemId is the system_id of the property definition row
-   * (e.g. CONTAINER_PROP_ID_STACK_SIZE).
+   * Returns null when no property row exists for this property system ID.
    */
   getPropertyData(
     containerSystemId: number,
@@ -46,7 +60,8 @@ export interface ContainerRepository {
    * The row is expected to exist in the effective state — callers must ensure
    * the container was created with this property initialised (e.g. stack size
    * is always set to 0 at container creation time so this is always an update).
-   * propertySystemId is the system_id of the property definition row.
+   * propertySystemId is the generated system_id of the property definition
+   * row.
    */
   setPropertyData(
     containerSystemId: number,

@@ -5,6 +5,7 @@
 
 import type {EditOptions} from '../../edit-options.js';
 import type {Subgraph} from '../../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {SubgraphPropertyDefinition} from '../../../../../domain/entities/definitions/subgraph/subgraph-property-definitions.js';
 import type {KvPair} from '../shared/kv-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
@@ -22,12 +23,23 @@ export interface SgkvEntry {
 export interface SubgraphRepository {
   subgraphExists(systemId: number, fileSystemId: number): Promise<boolean>;
 
+  deleteSubgraph(
+    subgraphSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
   /**
    * Stages CREATE rows for the Subgraph aggregate root and all its
    * SubgraphPropertyData children.
    * All rows share the ambient groupId so the whole creation is one undo unit.
    */
   createSubgraph(subgraph: Subgraph, options?: EditOptions): Promise<void>;
+
+  /** Returns effective subgraph property definitions for the active session. */
+  getPropertyDefinitions(
+    fileSystemId: number,
+  ): Promise<SubgraphPropertyDefinition[]>;
 
   /**
    * Returns SgkvEntry objects for each SGKV belonging to the given SGs.

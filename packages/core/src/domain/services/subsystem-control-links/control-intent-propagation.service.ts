@@ -50,11 +50,80 @@ export interface PropagateResult {
   portsToFill: {portSystemId: number; intentIds: number[]}[];
 }
 
+export interface FindPortsToClearAfterDeletingLinksInput {
+  allSubsystemControlLinks: readonly {
+    systemId: number;
+    peerNodeASystemId: number;
+    peerNodeBSystemId: number;
+    nodeAPortSystemId: number;
+    nodeBPortSystemId: number;
+  }[];
+  deletedSubsystemControlLinkSystemIds: readonly number[];
+  nodeTypeMap: ReadonlyMap<number, NodeType>;
+}
+
+export interface IntentClearedControlPort {
+  subsystemSystemId: number;
+  controlPortSystemId: number;
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 export const ControlIntentPropagationService = {
+  findPortsToClearAfterDeletingLinks(
+    input: FindPortsToClearAfterDeletingLinksInput,
+  ): {portsToClear: IntentClearedControlPort[]} {
+    const deletedIds = new Set(input.deletedSubsystemControlLinkSystemIds);
+    const remaining = input.allSubsystemControlLinks.filter(
+      link => !deletedIds.has(link.systemId),
+    );
+    const {adjacency} = buildNodeGraph(remaining);
+    const {nodePortMap: preDeleteNodePortMap} = buildNodeGraph(
+      input.allSubsystemControlLinks,
+    );
+    const portToSubsystem = new Map<number, number>();
+    for (const link of input.allSubsystemControlLinks) {
+      if (
+        input.nodeTypeMap.get(link.peerNodeASystemId) === NodeType.Subsystem
+      ) {
+        portToSubsystem.set(link.nodeAPortSystemId, link.peerNodeASystemId);
+      }
+      if (
+        input.nodeTypeMap.get(link.peerNodeBSystemId) === NodeType.Subsystem
+      ) {
+        portToSubsystem.set(link.nodeBPortSystemId, link.peerNodeBSystemId);
+      }
+    }
+
+    const portsToClear = new Map<string, IntentClearedControlPort>();
+    const seenNodes = new Set<number>();
+    for (const deleted of input.allSubsystemControlLinks.filter(link =>
+      deletedIds.has(link.systemId),
+    )) {
+      for (const startNode of [
+        deleted.peerNodeASystemId,
+        deleted.peerNodeBSystemId,
+      ]) {
+        for (const port of collectPortsToClearForComponent(
+          startNode,
+          adjacency,
+          preDeleteNodePortMap,
+          input.nodeTypeMap,
+          portToSubsystem,
+          seenNodes,
+        )) {
+          portsToClear.set(
+            `${port.subsystemSystemId}:${port.controlPortSystemId}`,
+            port,
+          );
+        }
+      }
+    }
+    return {portsToClear: [...portsToClear.values()]};
+  },
+
   /**
    * Operation A — given the SubsystemControlLinks still present after a
    * deletion, find every subsystem-node port that now sits in a connected
@@ -190,6 +259,35 @@ type SclLink = {
 };
 
 type PortEntry = {peerPort: number; peerNode: number};
+
+function collectPortsToClearForComponent(
+  startNode: number,
+  adjacency: Map<number, number[]>,
+  preDeleteNodePortMap: Map<number, number[]>,
+  nodeTypeMap: ReadonlyMap<number, NodeType>,
+  portToSubsystem: ReadonlyMap<number, number>,
+  seenNodes: Set<number>,
+): IntentClearedControlPort[] {
+  if (seenNodes.has(startNode)) return [];
+  const {componentNodes, hasModule} = bfsComponent(
+    startNode,
+    adjacency,
+    new Map(nodeTypeMap),
+  );
+  for (const nodeSystemId of componentNodes) seenNodes.add(nodeSystemId);
+  if (hasModule) return [];
+
+  return collectUnanchoredPorts(
+    componentNodes,
+    preDeleteNodePortMap,
+    new Map(nodeTypeMap),
+  ).flatMap(controlPortSystemId => {
+    const subsystemSystemId = portToSubsystem.get(controlPortSystemId);
+    return subsystemSystemId === undefined
+      ? []
+      : [{subsystemSystemId, controlPortSystemId}];
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Private helpers — Op A

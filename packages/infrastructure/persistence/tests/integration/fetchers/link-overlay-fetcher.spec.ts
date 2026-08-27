@@ -139,6 +139,36 @@ async function seedControlLink(
   );
 }
 
+async function seedSubsystemDataLink(
+  ds: DataSource,
+  systemId: number,
+  dataLinkSystemId: number,
+) {
+  await ds.query(
+    `INSERT INTO subsystem_data_links
+       (system_id, source_node_system_id, destination_node_system_id,
+        source_port_system_id, destination_port_system_id,
+        data_link_system_id, file_system_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [systemId, NODE_A, NODE_B, DP_SRC, DP_DST, dataLinkSystemId, FILE_ID],
+  );
+}
+
+async function seedSubsystemControlLink(
+  ds: DataSource,
+  systemId: number,
+  controlLinkSystemId: number,
+) {
+  await ds.query(
+    `INSERT INTO subsystem_control_links
+       (system_id, peer_nodeA_system_id, peer_nodeB_system_id,
+        nodeA_port_system_id, nodeB_port_system_id,
+        control_link_system_id, file_system_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [systemId, NODE_A, NODE_B, CP_A, CP_B, controlLinkSystemId, FILE_ID],
+  );
+}
+
 async function seedEditAction(
   ds: DataSource,
   opts: {
@@ -318,6 +348,48 @@ describe('LinkOverlayFetcher (integration)', () => {
         $or: [{nodeAPortSystemId: CP_A}, {nodeBPortSystemId: CP_A}],
       });
       expect(result.find(l => l.systemId === linkId)).toBeUndefined();
+    });
+  });
+
+  describe('subsystem link loaders', () => {
+    it('returns a committed data segment whose overlay nulls its canonical FK', async () => {
+      const sessionId = await seedSession(ds);
+      await seedDataLink(ds, 700, DP_SRC, DP_DST);
+      await seedSubsystemDataLink(ds, 701, 700);
+      await seedEditAction(ds, {
+        sessionId,
+        targetSystemId: 701,
+        targetTable: ENTITY_NAMES.SubsystemDataLink,
+        operation: CHANGE_OPERATION.Update,
+        newValue: JSON.stringify({dataLinkSystemId: null}),
+      });
+
+      const rows = await fetcher.loadSubsystemDataLinkRows(FILE_ID, sessionId, {
+        dataLinkSystemId: null,
+      });
+
+      expect(rows.map(row => row.systemId)).toEqual([701]);
+    });
+
+    it('returns a committed control segment whose overlay nulls its canonical FK', async () => {
+      const sessionId = await seedSession(ds);
+      await seedControlLink(ds, 800, CP_A, CP_B);
+      await seedSubsystemControlLink(ds, 801, 800);
+      await seedEditAction(ds, {
+        sessionId,
+        targetSystemId: 801,
+        targetTable: ENTITY_NAMES.SubsystemControlLink,
+        operation: CHANGE_OPERATION.Update,
+        newValue: JSON.stringify({controlLinkSystemId: null}),
+      });
+
+      const rows = await fetcher.loadSubsystemControlLinkRows(
+        FILE_ID,
+        sessionId,
+        {controlLinkSystemId: null},
+      );
+
+      expect(rows.map(row => row.systemId)).toEqual([801]);
     });
   });
 });

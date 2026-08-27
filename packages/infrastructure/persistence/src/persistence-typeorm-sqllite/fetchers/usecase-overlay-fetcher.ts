@@ -315,6 +315,95 @@ export class UsecaseOverlayFetcher {
       .map(result => result.effective);
   }
 
+  /**
+   * Returns effective membership rows that reference one subgraph. The
+   * baseline query is scoped through UseCase.fileSystemId; relation tables do
+   * not carry file scope themselves.
+   */
+  async getSubgraphMembershipRowsForSubgraph(
+    fileSystemId: number,
+    subgraphSystemId: number,
+    sessionId: number | null,
+  ): Promise<UseCaseSubgraphBase[]> {
+    const usecases = await this.fetchMany(fileSystemId, sessionId);
+    const usecaseIds = usecases.map(uc => uc.systemId);
+    if (usecaseIds.length === 0) return [];
+
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.UseCaseSubgraph)
+      .createQueryBuilder('ucs')
+      .innerJoin(
+        ENTITY_NAMES.UseCase,
+        'uc',
+        'uc.systemId = ucs.usecaseSystemId AND uc.fileSystemId = :fileSystemId',
+        {fileSystemId},
+      )
+      .where('ucs.usecaseSystemId IN (:...usecaseIds)', {usecaseIds})
+      .getMany()) as UseCaseSubgraphBase[];
+
+    const rows =
+      sessionId === null
+        ? baseRows
+        : this.overlay
+            .applyToCollection(
+              baseRows,
+              await this.editActionsSvc.getByTable(
+                sessionId,
+                ENTITY_NAMES.UseCaseSubgraph,
+              ),
+              payload => usecaseIds.includes(payload.usecaseSystemId as number),
+            )
+            .map(result => result.effective);
+
+    return rows.filter(row => row.subgraphSystemId === subgraphSystemId);
+  }
+
+  /**
+   * Returns effective pair rows that reference one subgraph on either side.
+   * The two endpoint cases are handled by one batched reverse query.
+   */
+  async getSubgraphPairRowsForSubgraph(
+    fileSystemId: number,
+    subgraphSystemId: number,
+    sessionId: number | null,
+  ): Promise<UseCaseSubgraphPairBase[]> {
+    const usecases = await this.fetchMany(fileSystemId, sessionId);
+    const usecaseIds = usecases.map(uc => uc.systemId);
+    if (usecaseIds.length === 0) return [];
+
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.UseCaseSubgraphPair)
+      .createQueryBuilder('ucsp')
+      .innerJoin(
+        ENTITY_NAMES.UseCase,
+        'uc',
+        'uc.systemId = ucsp.usecaseSystemId AND uc.fileSystemId = :fileSystemId',
+        {fileSystemId},
+      )
+      .where('ucsp.usecaseSystemId IN (:...usecaseIds)', {usecaseIds})
+      .getMany()) as UseCaseSubgraphPairBase[];
+
+    const rows =
+      sessionId === null
+        ? baseRows
+        : this.overlay
+            .applyToCollection(
+              baseRows,
+              await this.editActionsSvc.getByTable(
+                sessionId,
+                ENTITY_NAMES.UseCaseSubgraphPair,
+              ),
+              payload => usecaseIds.includes(payload.usecaseSystemId as number),
+            )
+            .map(result => result.effective);
+
+    return rows.filter(
+      row =>
+        row.sourceSubgraphSystemId === subgraphSystemId ||
+        row.destSubgraphSystemId === subgraphSystemId,
+    );
+  }
+
   private groupGkvByUsecase(
     rows: UsecaseGkvValuesBase[],
   ): Map<number, UsecaseGkvValuesBase[]> {

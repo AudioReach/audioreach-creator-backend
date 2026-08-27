@@ -4,10 +4,54 @@
  */
 
 import type {DataLink} from '../../../../../domain/entities/usecase-data/links/data-link.js';
+import type {SubsystemDataLink} from '../../../../../domain/entities/usecase-data/links/subsystem-data-link.js';
+import type {NodeType} from '../../../../../domain/entities/usecase-data/node/node.js';
+import type {EditOptions} from '../../edit-options.js';
 import type {LinksForPair, SubgraphPair} from '../shared/links-for-pair.js';
 import type {SessionChanged} from '../shared/session-changed.js';
 
+export interface SubsystemDataRouteContext {
+  subsystemDataLinks: SubsystemDataLink[];
+  nodeTypeBySystemId: ReadonlyMap<number, NodeType>;
+}
+
 export interface DataLinkRepository {
+  findLinksConnectedToModule(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<DataLink[]>;
+
+  findUnresolvedSubsystemLinksFromModule(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<SubsystemDataLink[]>;
+
+  findSubsystemDataRouteContext(
+    fileSystemId: number,
+  ): Promise<SubsystemDataRouteContext>;
+
+  /**
+   * Deletes the canonical link and every currently resolved subsystem segment
+   * associated with it. Unresolved segments are intentionally not included.
+   */
+  deleteAggregate(
+    dataLinkSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  /**
+   * Deletes the specified subsystem segments. An unresolved segment is deleted
+   * directly. For a resolved segment, the canonical DataLink is deleted and
+   * non-target sibling segments are updated to have a null DataLink FK in the
+   * edit-action overlay so chain resolution can process them later.
+   */
+  deleteSubsystemDataLinks(
+    subsystemLinkSystemIds: number[],
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
   /**
    * Returns all data links whose src or dst port is in portSystemIds.
    * Empty input short-circuits — returns [] without querying the DB.

@@ -15,6 +15,7 @@ import {TypeOrmSubgraphRepository} from '../../../../src/persistence-typeorm-sql
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -31,6 +32,7 @@ import {
   beforeEach,
   afterEach,
 } from '@jest/globals';
+import {SubgraphPropertyDefinition} from '@arc/core';
 
 const FILE_ID = 100;
 const SG_A = 0xa000_0001;
@@ -191,6 +193,57 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
 
       const result = await makeRepo(qr.manager).getSgkvs(FILE_ID, [SG_A, 9999]);
       expect(result.map(s => s.sgkvSystemId)).not.toContain(700);
+    });
+  });
+
+  describe('getPropertyDefinitions', () => {
+    it('returns overlaid subgraph property definitions as domain entities', async () => {
+      await ds.query(
+        `INSERT INTO subgraph_property_definitions
+          (system_id, file_system_id, property_id, name, description, max_size, property_type, elements_structure, is_voice)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          900,
+          FILE_ID,
+          0x08_00_10_12,
+          'Subgraph Property',
+          'Base description',
+          4,
+          'SPF',
+          '{}',
+          1,
+        ],
+      );
+      const sessionId = await seedSession(ds);
+      await new PendingChangeWriter(
+        new EditActionsQueryService(qr.manager),
+        new PendingChangeCache(),
+      ).writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SubgraphPropertyDefinition,
+          targetSystemId: 900,
+          aggregateId: 900,
+          delta: {name: 'Effective Subgraph Property'},
+        },
+        sessionId,
+        'definition-update',
+        qr.manager,
+      );
+
+      const definitions = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).getPropertyDefinitions(FILE_ID);
+
+      expect(definitions).toHaveLength(1);
+      expect(definitions[0]).toBeInstanceOf(SubgraphPropertyDefinition);
+      expect(definitions[0]).toMatchObject({
+        systemId: 900,
+        propertyId: 0x08_00_10_12,
+        name: 'Effective Subgraph Property',
+        type: 'SPF',
+        isVoice: true,
+      });
     });
   });
 

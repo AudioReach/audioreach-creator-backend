@@ -13,6 +13,7 @@ import {
   DomainRuleViolationException,
   PORT_IO_TYPE,
   MODULE_PORT_STRATEGIES,
+  CONTAINER_PROP_ID_STACK_SIZE,
 } from '@arc/core';
 import type {
   UnitOfWork,
@@ -52,6 +53,7 @@ function makeModuleRepo(
 ): ModuleRepository {
   return {
     findModuleForPatch: jest.fn().mockResolvedValue(makeModule()),
+    getModulesWithStackSizeByContainer: jest.fn().mockResolvedValue([]),
     renameModule: jest.fn().mockResolvedValue(undefined),
     changeContainer: jest.fn().mockResolvedValue(undefined),
     addDataPort: jest.fn().mockResolvedValue(undefined),
@@ -69,6 +71,18 @@ function makeContainerRepo(
   return {
     containerExists: jest.fn().mockResolvedValue(true),
     getContainerById: jest.fn().mockResolvedValue(null),
+    getPropertyDefinitionByPropertyId: jest.fn().mockResolvedValue({
+      systemId: 900,
+      fileSystemId: FILE_ID,
+      propertyId: CONTAINER_PROP_ID_STACK_SIZE,
+      name: 'Stack Size',
+      description: undefined,
+      maxSize: 4,
+      type: 'SPF',
+      elementsStructure: '',
+    }),
+    getPropertyData: jest.fn().mockResolvedValue(null),
+    setPropertyData: jest.fn().mockResolvedValue(undefined),
     createContainer: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -197,9 +211,16 @@ describe('PatchSpfModuleHandler', () => {
     uow = makeUow({moduleRepo});
     handler = new PatchSpfModuleHandler(uow, idGeneration);
     const cmd = new PatchSpfModuleCommand(MODULE_ID, 'alias');
-    await expect(handler.handle(cmd)).rejects.toThrow(
-      ResourceNotFoundException,
-    );
+    const rejection = handler.handle(cmd);
+    await expect(rejection).rejects.toThrow(ResourceNotFoundException);
+    await expect(rejection).rejects.toMatchObject({
+      issues: [
+        expect.objectContaining({
+          code: 'ENTITY_NOT_FOUND',
+          impactedEntity: {entityType: 'SpfModule', systemId: MODULE_ID},
+        }),
+      ],
+    });
     expect(uow.rollback).toHaveBeenCalled();
   });
 
@@ -236,6 +257,7 @@ describe('PatchSpfModuleHandler', () => {
         ),
     });
     const definition = {
+      stackSize: 8,
       containerTypesSystemIds: new Set([5]),
       dataPortGroups: [],
       staticControlPorts: [],
@@ -249,6 +271,11 @@ describe('PatchSpfModuleHandler', () => {
     const cmd = new PatchSpfModuleCommand(MODULE_ID, undefined, 42);
     await handler.handle(cmd);
     expect(containerRepo.createContainer).toHaveBeenCalled();
+    expect(containerRepo.setPropertyData).toHaveBeenCalledWith(
+      42,
+      900,
+      expect.any(Uint8Array),
+    );
   });
 
   it('containerId: calls changeContainer when target exists and properties match', async () => {
@@ -276,6 +303,7 @@ describe('PatchSpfModuleHandler', () => {
         ),
     });
     const definition = {
+      stackSize: 8,
       containerTypesSystemIds: new Set([5]),
       dataPortGroups: [],
       staticControlPorts: [],
@@ -290,6 +318,11 @@ describe('PatchSpfModuleHandler', () => {
     const cmd = new PatchSpfModuleCommand(MODULE_ID, undefined, 42);
     await handler.handle(cmd);
     expect(moduleRepo.changeContainer).toHaveBeenCalledWith(MODULE_ID, 42);
+    expect(containerRepo.setPropertyData).toHaveBeenCalledWith(
+      42,
+      900,
+      expect.any(Uint8Array),
+    );
   });
 
   it('containerId: throws DomainRuleViolationException on type incompatible', async () => {

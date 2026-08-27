@@ -70,18 +70,25 @@ export type {
   ModuleDefinitionRepository,
   ParameterDefinitionBase,
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
-export type {DataLinkRepository} from './application/ports/persistence/repositories/data-link/data-link.repository.js';
+export type {
+  DataLinkRepository,
+  SubsystemDataRouteContext,
+} from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
 export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
-export type {SubsystemRepository} from './application/ports/persistence/repositories/subsystem/subsystem.repository.js';
 export type {
-  PropertyDefinitionsRepository,
-  SubgraphPropertyDefinitionRecord,
-  ContainerPropertyDefinitionRecord,
-} from './application/ports/persistence/repositories/property-definitions/property-definitions.repository.js';
+  SubsystemControlPortRef,
+  SubsystemRepository,
+} from './application/ports/persistence/repositories/subsystem/subsystem.repository.js';
 // Module write path — commands (LLD2)
 export {PatchSpfModuleCommand} from './application/usecase-designer/spf-module/patch/patch-spf-module.command.js';
 export {CreateModuleCommand} from './application/usecase-designer/spf-module/create-module/create-module.command.js';
+export {DeleteSpfModuleCommand} from './application/usecase-designer/spf-module/delete/delete-spf-module.command.js';
+export {
+  LINK_DELETION_MODE,
+  isLinkDeletionMode,
+} from './application/usecase-designer/spf-module/delete/link-deletion-mode.js';
+export type {LinkDeletionMode} from './application/usecase-designer/spf-module/delete/link-deletion-mode.js';
 export {DeleteSpfModuleResultSchema} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
 export type {DeleteSpfModuleResult} from './application/usecase-designer/spf-module/dto/delete-spf-module-result.schema.js';
 

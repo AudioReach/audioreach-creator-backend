@@ -19,7 +19,6 @@ import type {
   ControlLinkRepository,
   SubgraphRepository,
   SubsystemRepository,
-  PropertyDefinitionsRepository,
   UsecaseRepository,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
@@ -36,7 +35,6 @@ import {
   TypeOrmControlLinkRepository,
   TypeOrmSubgraphRepository,
   TypeOrmSubsystemRepository,
-  TypeOrmPropertyDefinitionsRepository,
   TypeOrmUsecaseRepository,
   PendingChangeWriter,
   EditActionsQueryService,
@@ -162,11 +160,19 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getDataLinkRepository(): DataLinkRepository {
-    return new TypeOrmDataLinkRepository(this.queryRunner.manager, this);
+    return new TypeOrmDataLinkRepository(
+      this.getPendingChangeWriter(),
+      this.queryRunner.manager,
+      this,
+    );
   }
 
   getControlLinkRepository(): ControlLinkRepository {
-    return new TypeOrmControlLinkRepository(this.queryRunner.manager, this);
+    return new TypeOrmControlLinkRepository(
+      this.getPendingChangeWriter(),
+      this.queryRunner.manager,
+      this,
+    );
   }
 
   getSubgraphRepository(): SubgraphRepository {
@@ -178,7 +184,11 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getSubsystemRepository(): SubsystemRepository {
-    return new TypeOrmSubsystemRepository(this.queryRunner.manager);
+    return new TypeOrmSubsystemRepository(
+      this.getPendingChangeWriter(),
+      this.queryRunner.manager,
+      this,
+    );
   }
 
   getUsecaseRepository(): UsecaseRepository {
@@ -188,10 +198,6 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this,
       this.idGeneration,
     );
-  }
-
-  getPropertyDefinitionsRepository(): PropertyDefinitionsRepository {
-    return new TypeOrmPropertyDefinitionsRepository();
   }
 
   // ── Existing repositories ─────────────────────────────────────────────────

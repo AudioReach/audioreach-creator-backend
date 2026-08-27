@@ -24,6 +24,7 @@ import {DataPort} from '../../../../domain/entities/usecase-data/node/entities/d
 import {ControlPort} from '../../../../domain/entities/usecase-data/node/entities/control-port.js';
 import {resolvePortCountChange} from './resolve-port-count-change.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
+import {ContainerStackSizeService} from '../../container/services/container-stack-size.service.js';
 import {
   nextDataPortIds,
   nextControlPortIds,
@@ -43,10 +44,14 @@ export class PatchSpfModuleHandler implements CommandHandler<
   PatchSpfModuleCommand,
   {groupId: string}
 > {
+  private readonly stackSizeService: ContainerStackSizeService;
+
   constructor(
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
-  ) {}
+  ) {
+    this.stackSizeService = new ContainerStackSizeService(uow);
+  }
 
   async handle(command: PatchSpfModuleCommand): Promise<{groupId: string}> {
     const uow = this.uow;
@@ -77,6 +82,12 @@ export class PatchSpfModuleHandler implements CommandHandler<
       if (module === null) {
         throw new ResourceNotFoundException(
           `SpfModule ${spfModuleSystemId} not found.`,
+          [
+            IssueFactory.notFound(
+              ISSUE_ENTITY_TYPE.SpfModule,
+              spfModuleSystemId,
+            ),
+          ],
         );
       }
 
@@ -147,6 +158,12 @@ export class PatchSpfModuleHandler implements CommandHandler<
     if (!currentContainer) {
       throw new ResourceNotFoundException(
         `Existing container ${module.containerSystemId} not found.`,
+        [
+          IssueFactory.notFound(
+            ISSUE_ENTITY_TYPE.Container,
+            module.containerSystemId,
+          ),
+        ],
       );
     }
 
@@ -185,6 +202,12 @@ export class PatchSpfModuleHandler implements CommandHandler<
     if (!definition) {
       throw new ResourceNotFoundException(
         `SpfModuleDefinition ${module.definitionSystemId} not found.`,
+        [
+          IssueFactory.notFound(
+            ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+            module.definitionSystemId,
+          ),
+        ],
       );
     }
 
@@ -203,18 +226,16 @@ export class PatchSpfModuleHandler implements CommandHandler<
     }
 
     await moduleRepo.changeContainer(module.systemId, newContainerId);
-
-    // TODO(stack-size): Recalculate the new container's stack size after the module move.
-    // Use the property API once the module's stack size contribution is available:
-    //
-    //   const currentData = await containerRepo.getPropertyData(
-    //     newContainerId, CONTAINER_PROP_ID_STACK_SIZE, fileSystemId,
-    //   );
-    //   const currentStackSize = currentData ? decodeStackSize(currentData) : 0;
-    //   const newStackSize = computeNewStackSize(currentStackSize, module, ...);
-    //   await containerRepo.setPropertyData(
-    //     newContainerId, CONTAINER_PROP_ID_STACK_SIZE, encodeStackSize(newStackSize),
-    //   );
+    await this.stackSizeService.recalculateForContainer(
+      module.containerSystemId,
+      fileSystemId,
+      module.systemId,
+    );
+    await this.stackSizeService.updateOnAdd(
+      newContainerId,
+      definition.stackSize,
+      fileSystemId,
+    );
   }
 
   private async applyDataPortCountChange(
@@ -257,6 +278,12 @@ export class PatchSpfModuleHandler implements CommandHandler<
     if (!definition) {
       throw new ResourceNotFoundException(
         `SpfModuleDefinition ${module.definitionSystemId} not found.`,
+        [
+          IssueFactory.notFound(
+            ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+            module.definitionSystemId,
+          ),
+        ],
       );
     }
 
@@ -334,6 +361,12 @@ export class PatchSpfModuleHandler implements CommandHandler<
     if (!definition) {
       throw new ResourceNotFoundException(
         `SpfModuleDefinition ${module.definitionSystemId} not found.`,
+        [
+          IssueFactory.notFound(
+            ISSUE_ENTITY_TYPE.SpfModuleDefinition,
+            module.definitionSystemId,
+          ),
+        ],
       );
     }
 

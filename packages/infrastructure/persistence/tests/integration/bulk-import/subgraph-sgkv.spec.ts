@@ -87,7 +87,7 @@ function buildSubgraph(sgkvs: {id: number; values: number[]}[]): Subgraph {
     systemId: SUBGRAPH_SYS_ID,
     subgraphId: SUBGRAPH_NATURAL_ID,
     name: 'TestSubgraph',
-    isExported: false,
+    isImported: false,
     fileSystemId: FILE_ID,
     sgkvs: sgkvs.map(
       ({id, values}) =>

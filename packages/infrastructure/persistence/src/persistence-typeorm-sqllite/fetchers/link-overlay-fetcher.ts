@@ -11,10 +11,26 @@ import type {EditActionsQueryService} from '../queries/edit-session/edit-actions
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {ControlLinkBase} from '../entity-schema/usecase-data/Links/control-link.js';
 import type {DataLinkBase} from '../entity-schema/usecase-data/Links/data-link.js';
+import type {SubsystemControlLinkRow} from '../entity-schema/usecase-data/Links/subsystem-control-link.schema.js';
+import type {SubsystemDataLinkRow} from '../entity-schema/usecase-data/Links/subsystem-data-link.schema.js';
 import {
   applyEntityFilters,
   matchesEntityFilters,
 } from '../queries/shared/filter-utils.js';
+
+export type EffectiveSubsystemDataLinkRow = Omit<
+  SubsystemDataLinkRow,
+  'dataLinkSystemId'
+> & {
+  dataLinkSystemId: number | null;
+};
+
+export type EffectiveSubsystemControlLinkRow = Omit<
+  SubsystemControlLinkRow,
+  'controlLinkSystemId'
+> & {
+  controlLinkSystemId: number | null;
+};
 
 /**
  * Optional column-level filters for DataLink queries.
@@ -64,6 +80,28 @@ export type ControlLinkFilters = {
   sourceSubgraphSystemId?: number | number[];
   destSubgraphSystemId?: number | number[];
   $or?: ControlLinkFilters[];
+};
+
+type NullableIdFilter = number | null | number[];
+
+export type SubsystemDataLinkFilters = {
+  systemId?: number | number[];
+  sourceNodeSystemId?: number | number[];
+  destinationNodeSystemId?: number | number[];
+  sourcePortSystemId?: number | number[];
+  destinationPortSystemId?: number | number[];
+  dataLinkSystemId?: NullableIdFilter;
+  $or?: SubsystemDataLinkFilters[];
+};
+
+export type SubsystemControlLinkFilters = {
+  systemId?: number | number[];
+  peerNodeASystemId?: number | number[];
+  peerNodeBSystemId?: number | number[];
+  nodeAPortSystemId?: number | number[];
+  nodeBPortSystemId?: number | number[];
+  controlLinkSystemId?: NullableIdFilter;
+  $or?: SubsystemControlLinkFilters[];
 };
 
 /**
@@ -150,6 +188,66 @@ export class LinkOverlayFetcher {
       sessionId,
       filters,
     );
+  }
+
+  /**
+   * Loads effective subsystem DataLink segments for a file. A null
+   * dataLinkSystemId matches unresolved CREATE/update payloads.
+   */
+  async loadSubsystemDataLinkRows(
+    fileSystemId: number,
+    sessionId: number | null,
+    filters?: SubsystemDataLinkFilters,
+  ): Promise<EffectiveSubsystemDataLinkRow[]> {
+    const qb = this.manager
+      .getRepository(ENTITY_NAMES.SubsystemDataLink)
+      .createQueryBuilder('sdl')
+      .where('sdl.fileSystemId = :fileSystemId', {fileSystemId});
+    const baseRows = (await qb.getMany()) as SubsystemDataLinkRow[];
+    if (sessionId === null)
+      return this.filterSubsystemRows(baseRows, fileSystemId, filters);
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.SubsystemDataLink,
+    );
+    const rows =
+      actions.length > 0
+        ? this.overlayMerge
+            .applyToCollection(baseRows, actions)
+            .map(r => r.effective)
+        : baseRows;
+    return this.filterSubsystemRows(rows, fileSystemId, filters);
+  }
+
+  /**
+   * Loads effective subsystem ControlLink segments for a file. A null
+   * controlLinkSystemId matches unresolved CREATE/update payloads.
+   */
+  async loadSubsystemControlLinkRows(
+    fileSystemId: number,
+    sessionId: number | null,
+    filters?: SubsystemControlLinkFilters,
+  ): Promise<EffectiveSubsystemControlLinkRow[]> {
+    const qb = this.manager
+      .getRepository(ENTITY_NAMES.SubsystemControlLink)
+      .createQueryBuilder('scl')
+      .where('scl.fileSystemId = :fileSystemId', {fileSystemId});
+    const baseRows = (await qb.getMany()) as SubsystemControlLinkRow[];
+    if (sessionId === null)
+      return this.filterSubsystemRows(baseRows, fileSystemId, filters);
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.SubsystemControlLink,
+    );
+    const rows =
+      actions.length > 0
+        ? this.overlayMerge
+            .applyToCollection(baseRows, actions)
+            .map(r => r.effective)
+        : baseRows;
+    return this.filterSubsystemRows(rows, fileSystemId, filters);
   }
 
   /**
@@ -344,5 +442,22 @@ export class LinkOverlayFetcher {
   private dedup<T extends {systemId: number}>(rows: T[]): T[] {
     const seen = new Set<number>();
     return rows.filter(r => !seen.has(r.systemId) && seen.add(r.systemId));
+  }
+
+  private filterSubsystemRows<
+    T extends {systemId: number; fileSystemId: number},
+  >(
+    rows: T[],
+    fileSystemId: number,
+    filters?: SubsystemDataLinkFilters | SubsystemControlLinkFilters,
+  ): T[] {
+    return this.dedup(
+      rows.filter(
+        row =>
+          row.fileSystemId === fileSystemId &&
+          (filters === undefined ||
+            matchesEntityFilters(row as Record<string, unknown>, filters)),
+      ),
+    );
   }
 }

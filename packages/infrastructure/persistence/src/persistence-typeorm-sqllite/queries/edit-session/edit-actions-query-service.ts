@@ -146,11 +146,13 @@ export class EditActionsQueryService {
   async findCurrentRow(
     sessionId: number,
     targetSystemId: number,
+    targetTable: EntityName,
     fieldPath: string | null,
   ): Promise<EditActionRow | null> {
     const qb = this.baseQb()
       .where('ea.sessionId = :sessionId', {sessionId})
       .andWhere('ea.targetSystemId = :targetSystemId', {targetSystemId})
+      .andWhere('ea.targetTable = :targetTable', {targetTable})
       .andWhere('ea.validUntil IS NULL');
 
     if (fieldPath === null) {

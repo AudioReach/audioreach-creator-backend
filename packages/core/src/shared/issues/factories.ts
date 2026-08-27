@@ -103,6 +103,18 @@ export const IssueFactory = {
     };
   },
 
+  moduleInImportedSubgraph(moduleSystemId: number): Issue {
+    return {
+      code: ISSUE_CODE.MOD_SUBGRAPH_IMPORTED,
+      message: `SPF module ${moduleSystemId} belongs to an imported subgraph.`,
+      severity: IssueSeverity.Error,
+      impactedEntity: {
+        entityType: ISSUE_ENTITY_TYPE.SpfModule,
+        systemId: moduleSystemId,
+      },
+    };
+  },
+
   portCountExceedsDefinition(
     portDirection: string,
     requested: number,

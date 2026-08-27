@@ -13,7 +13,7 @@ export interface SubgraphInit {
   systemId: number;
   subgraphId: number;
   name: string;
-  isExported: boolean;
+  isImported: boolean;
   fileSystemId: number;
   sgkvs?: readonly Sgkv[];
   properties?: readonly SubgraphPropertyData[];
@@ -26,7 +26,7 @@ export class Subgraph {
   systemId: number;
   readonly subgraphId: number;
   name: string;
-  readonly isExported: boolean;
+  readonly isImported: boolean;
   fileSystemId: number;
   vcpmDataInstance: VcpmInstance | null;
   readonly properties: SubgraphPropertyData[] = [];
@@ -36,7 +36,7 @@ export class Subgraph {
     this.systemId = initParams.systemId;
     this.subgraphId = initParams.subgraphId;
     this.name = initParams.name;
-    this.isExported = initParams.isExported;
+    this.isImported = initParams.isImported;
     this.fileSystemId = initParams.fileSystemId;
     this.vcpmDataInstance = null;
     for (const property of initParams.properties ?? []) {

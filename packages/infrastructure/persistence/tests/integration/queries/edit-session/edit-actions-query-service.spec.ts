@@ -326,7 +326,12 @@ describe('EditActionsQueryService integration', () => {
     it('returns null when no active row exists for the slot', async () => {
       const {fileSystemId} = await createFileDependency();
       const session = await createSession(fileSystemId);
-      const row = await service.findCurrentRow(session.sessionId, 999, 'alias');
+      const row = await service.findCurrentRow(
+        session.sessionId,
+        999,
+        ENTITY_NAMES.SpfModule,
+        'alias',
+      );
       expect(row).toBeNull();
     });
 
@@ -342,7 +347,12 @@ describe('EditActionsQueryService integration', () => {
         fieldPath: 'alias',
       });
 
-      const row = await service.findCurrentRow(session.sessionId, 801, 'alias');
+      const row = await service.findCurrentRow(
+        session.sessionId,
+        801,
+        ENTITY_NAMES.SpfModule,
+        'alias',
+      );
       expect(row).not.toBeNull();
       expect(row!.targetSystemId).toBe(801);
       expect(row!.fieldPath).toBe('alias');
@@ -361,7 +371,12 @@ describe('EditActionsQueryService integration', () => {
         validUntil: new Date(),
       });
 
-      const row = await service.findCurrentRow(session.sessionId, 901, 'alias');
+      const row = await service.findCurrentRow(
+        session.sessionId,
+        901,
+        ENTITY_NAMES.SpfModule,
+        'alias',
+      );
       expect(row).toBeNull();
     });
 
@@ -377,7 +392,12 @@ describe('EditActionsQueryService integration', () => {
         fieldPath: null,
       });
 
-      const row = await service.findCurrentRow(session.sessionId, 902, null);
+      const row = await service.findCurrentRow(
+        session.sessionId,
+        902,
+        ENTITY_NAMES.SpfModule,
+        null,
+      );
       expect(row).not.toBeNull();
       expect(row!.fieldPath).toBeNull();
     });

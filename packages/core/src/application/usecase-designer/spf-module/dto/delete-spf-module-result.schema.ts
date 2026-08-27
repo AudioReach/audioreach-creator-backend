@@ -4,7 +4,6 @@
  */
 
 import {z} from 'zod';
-import {ComponentChangeSummarySchema} from '../../../shared/dto/component-change-summary-dto.js';
 
 /**
  * Result schema for DELETE /spf-modules/:id.
@@ -16,8 +15,40 @@ import {ComponentChangeSummarySchema} from '../../../shared/dto/component-change
  * - dataLinks:  IDs of all DataLinks cascade-deleted from the module's data ports
  * - controlLinks: IDs of all ControlLinks cascade-deleted from the module's control ports
  */
-export const DeleteSpfModuleResultSchema = ComponentChangeSummarySchema.pick({
-  deleted: true,
-}).required({deleted: true});
+const DeletedIdSchema = z.object({
+  systemId: z.string(),
+});
+
+const DeletedLinkSchema = z.object({
+  systemId: z.string(),
+  subsystemLinks: z.array(DeletedIdSchema).optional(),
+});
+
+const UpdatedSubsystemSchema = z.object({
+  systemId: z.string(),
+  intentsClearedControlPorts: z.array(DeletedIdSchema),
+});
+
+const UpdatedContainerSchema = z.object({
+  systemId: z.string(),
+  stackSize: z.number().int().nonnegative(),
+});
+
+export const DeleteSpfModuleResultSchema = z.object({
+  deleted: z.object({
+    spfModules: z.array(DeletedIdSchema),
+    subgraphs: z.array(DeletedIdSchema),
+    containers: z.array(DeletedIdSchema),
+    dataLinks: z.array(DeletedLinkSchema),
+    controlLinks: z.array(DeletedLinkSchema),
+    unresolvedSubsystemDataLinks: z.array(DeletedIdSchema).optional(),
+    unresolvedSubsystemControlLinks: z.array(DeletedIdSchema).optional(),
+  }),
+  updated: z.object({
+    containers: z.array(UpdatedContainerSchema),
+    usecases: z.array(DeletedIdSchema),
+    subsystems: z.array(UpdatedSubsystemSchema).optional(),
+  }),
+});
 
 export type DeleteSpfModuleResult = z.infer<typeof DeleteSpfModuleResultSchema>;

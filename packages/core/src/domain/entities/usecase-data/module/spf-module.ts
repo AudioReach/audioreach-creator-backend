@@ -15,6 +15,7 @@ export interface SpfModuleBase {
   definitionSystemId: number;
   containerSystemId: number;
   subgraphSystemId: number;
+  alias?: string;
 }
 
 export class DuplicateTagExceptionError extends Error {

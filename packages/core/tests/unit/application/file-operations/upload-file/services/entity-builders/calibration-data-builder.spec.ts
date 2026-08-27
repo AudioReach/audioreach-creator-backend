@@ -327,7 +327,7 @@ describe('CalibrationDataBuilder', () => {
         subgraphId,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: `sg_${subgraphId}`,
-        isExported: false,
+        isImported: false,
       });
     }
 
@@ -970,7 +970,7 @@ describe('CalibrationDataBuilder', () => {
         subgraphId: 999,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: 'sg_999',
-        isExported: false,
+        isImported: false,
       });
 
       // Must NOT throw DuplicateCkvExceptionError
@@ -1076,7 +1076,7 @@ describe('CalibrationDataBuilder', () => {
         subgraphId: 999,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: 'sg_999',
-        isExported: false,
+        isImported: false,
       });
 
       // Must NOT throw — two CalDataObjs each produce their own KvData
@@ -1163,7 +1163,7 @@ describe('CalibrationDataBuilder', () => {
         subgraphId: 999,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: 'sg_999',
-        isExported: false,
+        isImported: false,
       });
 
       await builder.attachVcpmDataToSubgraphs(
@@ -1185,7 +1185,7 @@ describe('CalibrationDataBuilder', () => {
       const warnCalls = (mockLogger.logWarn as jest.Mock).mock.calls;
       const spuriousWarn = warnCalls.some(
         (args: unknown[]) =>
-          (args[0] as {action?: string}).action === 'vcpm_param_not_found',
+          (args[0] as {msg?: string}).msg === 'vcpm_param_not_found',
       );
       expect(spuriousWarn).toBe(false);
     });

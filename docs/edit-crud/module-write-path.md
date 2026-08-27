@@ -36,7 +36,7 @@
   - Port-count validation (against definition max) + LIFO unused-port removal on PATCH port-count decrease.
   - Wiring in `UnitOfWork`, command handler registry.
 - **Out of scope:**
-  - Module DELETE and last-module cascade (LLD5).
+  - Module DELETE and last-module cascade (LLD5; see `../module-write/requirements/delete-module-requirements.md` and `../module-write/design/delete-module-design.md`).
   - Read overlay updates for module GETs (LLD3).
   - Commit service, stage/unstage APIs (LLD4).
   - Property-data seeding for auto-created Subgraph and Container (deferred; see §10 open question).
@@ -302,7 +302,7 @@ class AddModuleHandler {
 Handlers access them as `this.idGeneration` and `this.naturalIdGeneration`. Not through UoW — natural ID and systemId allocation are separate concerns from transactional state.
 
 **Post-commit / release:**
-- Deferred to Commit LLD and Delete Module LLD (LLD5). Both `IdGenerationPort` and `NaturalIdGenerationPort` support `release()` for freeing IDs after DELETE. LLD2's Add Module allocates but does not release.
+- Deferred to Commit LLD and Delete Module LLD (LLD5). LLD2's Add Module allocates IDs but does not release or reuse IDs after DELETE.
 
 ---
 
@@ -397,7 +397,7 @@ packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories
 
 - Constructed per-request from `TypeOrmUnitOfWork` with `PendingChangeWriter` (shared) + `QueryRunner` (per-transaction).
 - `moduleExists` — TypeORM SELECT `1` from `spf_modules` filtered by `(systemId, fileSystemId)`.
-- `findModuleForPatch` — reads `spf_modules` + joined `data_ports` + `control_ports` for this module. **Uses raw committed state** — no overlay merge (PATCH handler runs inside the transaction that just staged the writes; committed baseline is what matters for count math).
+- `findModuleForPatch` — reads `spf_modules` + joined `data_ports` + `control_ports` for this module with effective-state overlay applied. Write handlers must see committed data plus all active `STAGED` and `UNSTAGED` edit-actions so sequential writes in one session operate on the user's current graph.
 - `renameModule` → `writer.writeDelta({ targetTable: SpfModule, targetSystemId: moduleSystemId, aggregateId: moduleSystemId, delta: { alias: newAlias }, ...options })`.
 - `changeContainer` → same pattern with `{ containerSystemId: newContainerSystemId }`.
 - `addDataPort` → `writer.writeCreate({ targetTable: DataPort, targetSystemId: port.systemId, aggregateId: moduleSystemId, payload: {...port fields..., nodeSystemId: moduleSystemId}, ...options })`.
@@ -449,12 +449,18 @@ export interface IControlLinkReadRepository {
 ### 6a.2 Adapters
 
 - Simple SELECT on `data_links` / `control_links` filtering by src or dst port systemId in the given list.
-- No overlay — the PATCH handler wants raw committed link state to determine linkage.
+- Overlay-aware — the PATCH handler must consider committed links plus all active `STAGED` and `UNSTAGED` edit-actions when determining whether a port is linked.
 - Empty input array → empty result (no query).
 
 ### 6a.3 Usage
 
 Called by `PatchSpfModuleHandler` during port-count decrease flow. Handler computes which ports are unused by comparing the module's port systemIds against the linked-port set returned by these repos. See §11.2 for the full handler flow.
+
+### 6a.4 Delete Module follow-on
+
+Delete Module extends the same repository family with write methods for deleting canonical links and their subsystem link segments. Its read methods must be effective-state aware: committed rows plus active `STAGED` and `UNSTAGED` edit-actions. Link deletion is based on module or port endpoints; `subgraphId` columns on links are not ownership references.
+
+Detailed design: `../module-write/design/delete-module-design.md`.
 
 ---
 

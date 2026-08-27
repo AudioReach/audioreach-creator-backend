@@ -70,6 +70,12 @@ export interface StructuralDelta {
  * engine and manual-UC flow.
  */
 export interface UsecaseRepository {
+  removeSubgraphReferences(
+    subgraphSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<{affectedUseCaseSystemIds: number[]}>;
+
   /**
    * Returns the UCs on `fileSystemId` whose `systemId` is in `ucSystemIds`.
    * Empty input → []. Missing IDs are silently omitted.

@@ -4969,6 +4969,19 @@
               "example": "12345",
               "type": "string"
             }
+          },
+          {
+            "name": "linkDeletionMode",
+            "required": false,
+            "in": "query",
+            "description": "Delete every route segment (full, default) or only segments incident to the module (segmentOnly).",
+            "schema": {
+              "enum": [
+                "full",
+                "segmentOnly"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -16278,38 +16291,214 @@
               "spfModules": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
                 }
               },
               "subgraphs": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
                 }
               },
               "containers": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
                 }
               },
               "dataLinks": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    },
+                    "subsystemLinks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "systemId"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
                 }
               },
               "controlLinks": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    },
+                    "subsystemLinks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "systemId"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              },
+              "unresolvedSubsystemDataLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              },
+              "unresolvedSubsystemControlLinks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
                 }
               }
-            }
+            },
+            "required": [
+              "spfModules",
+              "subgraphs",
+              "containers",
+              "dataLinks",
+              "controlLinks"
+            ]
+          },
+          "updated": {
+            "type": "object",
+            "properties": {
+              "containers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    },
+                    "stackSize": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "systemId",
+                    "stackSize"
+                  ]
+                }
+              },
+              "usecases": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "systemId"
+                  ]
+                }
+              },
+              "subsystems": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "systemId": {
+                      "type": "string"
+                    },
+                    "intentsClearedControlPorts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "systemId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "systemId"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "systemId",
+                    "intentsClearedControlPorts"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "containers",
+              "usecases"
+            ]
           }
         },
         "required": [
-          "deleted"
+          "deleted",
+          "updated"
         ]
       },
       "ConfigElementSummaryDto": {

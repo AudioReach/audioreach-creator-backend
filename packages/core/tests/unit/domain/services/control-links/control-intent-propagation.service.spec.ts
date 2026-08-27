@@ -359,3 +359,46 @@ describe('ControlIntentPropagationService.cascadePropagate (spec §11.8 Op B)', 
     });
   });
 });
+
+describe('ControlIntentPropagationService.findPortsToClearAfterDeletingLinks', () => {
+  it('clears a subsystem port that becomes fully isolated', () => {
+    const result =
+      ControlIntentPropagationService.findPortsToClearAfterDeletingLinks({
+        allSubsystemControlLinks: [
+          {
+            systemId: 1,
+            ...scl(1, 10, 100, 200),
+          },
+        ],
+        deletedSubsystemControlLinkSystemIds: [1],
+        nodeTypeMap: nodeTypeMap([
+          [1, 'module'],
+          [10, 'subsystem'],
+        ]),
+      });
+
+    expect(result.portsToClear).toEqual([
+      {subsystemSystemId: 10, controlPortSystemId: 200},
+    ]);
+  });
+
+  it('retains ports in a component that still reaches a module', () => {
+    const result =
+      ControlIntentPropagationService.findPortsToClearAfterDeletingLinks({
+        allSubsystemControlLinks: [
+          {systemId: 1, ...scl(1, 10, 100, 200)},
+          {systemId: 2, ...scl(10, 20, 201, 300)},
+          {systemId: 3, ...scl(20, 2, 301, 400)},
+        ],
+        deletedSubsystemControlLinkSystemIds: [2],
+        nodeTypeMap: nodeTypeMap([
+          [1, 'module'],
+          [10, 'subsystem'],
+          [2, 'module'],
+          [20, 'subsystem'],
+        ]),
+      });
+
+    expect(result.portsToClear).toEqual([]);
+  });
+});

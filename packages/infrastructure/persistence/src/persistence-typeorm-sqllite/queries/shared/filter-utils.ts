@@ -50,6 +50,8 @@ export function applyEntityFilters(
     const p = `${key}${_paramSuffix}`;
     if (Array.isArray(val)) {
       qb.andWhere(`${alias}.${key} IN (:...${p})`, {[p]: val});
+    } else if (val === null) {
+      qb.andWhere(`${alias}.${key} IS NULL`);
     } else {
       qb.andWhere(`${alias}.${key} = :${p}`, {[p]: val});
     }

@@ -3,7 +3,7 @@
  SPDX-License-Identifier: BSD-3-Clause
 -->
 
-# Modification Framework — Overall Design
+# Modification Framework - Overall Design
 
 **Status:** Draft
 **Owner:** Nithin Simon
@@ -13,6 +13,9 @@
 **Reader's map:**
 - Start here. This doc establishes vocabulary, storage model, layering, and cross-cutting invariants that every downstream LLD references.
 - Then read the LLD relevant to the change you are making. LLDs live in this same folder.
+- Delete Module lives under `docs/module-write/` because it is part of the module write surface:
+  - Requirements: `docs/module-write/requirements/delete-module-requirements.md`
+  - Design: `docs/module-write/design/delete-module-design.md`
 
 ---
 
@@ -59,7 +62,7 @@ The source of truth is `docs/superpowers/specs/2026-07-04-modification-framework
 | Aggregate scoping | REQ-AGG-01…03 | LLD1 (Foundation), LLD2 (Module Write Path) |
 | API-call atomic groups | REQ-ATO-01…05 | LLD1 (Foundation) |
 | Module modifications | REQ-MOD-01…04, REQ-PORT-01…03, REQ-ADD-01…08, REQ-VAL-01…02 | LLD2 (Module Write Path) |
-| Delete Module cascade | REQ-DEL-01 | LLD5 (Delete Module) |
+| Delete Module cascade | REQ-DEL-01 | LLD5 (Delete Module; `docs/module-write/design/delete-module-design.md`) |
 | Commit | REQ-CMT-01…07 | LLD4 (Commit + Stage/Unstage) |
 | Undo / Redo | REQ-UNDO-01…05 | Deferred (Undo/Redo LLD) |
 | DiffMerge workflow | REQ-TM-01…06 | LLD6a (DiffMerge Foundation) |
@@ -237,9 +240,10 @@ An aggregate root is an entity whose `systemId` is the scoping key for a set of 
 
 | Aggregate root | Owned children (edit-action scope) | Notes |
 |---|---|---|
-| `SpfModule` | `Node` (module type), `DataPort`, `ControlPort`, `Intent`, `SpfModulePropertiesData` | Node has the same systemId as its module (1:1 relation). Ports and property data are the module's owned children for edit purposes. |
+| `SpfModule` | `Node` (module type), `DataPort`, `ControlPort`, `Intent`, module CKV/TKV rows and their payload/value-association rows | Node has the same systemId as its module (1:1 relation). Ports, Intents, and module-owned CKV/TKV instance rows are the module's owned children for edit purposes. `spf_module_properties_data` is not part of new module-write behavior. |
 | `Subgraph` | `SubgraphPropertyData` | Property data rows are the subgraph's owned children. |
 | `Container` | `ContainerPropertyData` | Same pattern as Subgraph. |
+| `UseCase` | UseCase GKV rows, `use_case_subgraphs`, `use_case_subgraph_pairs` | Relationship rows remain domain relationships in core. When those rows need edit-actions, persistence gives each relationship row a generated internal `system_id` while preserving natural uniqueness constraints. |
 | `SpfModuleDefinition` | `SpfModuleParameterDefinition` (with its `elementsStructure` addressable via element-path fieldPaths), `DataPortDefinition`, `DataPortGroupDefinition`, `StaticControlPortDefinition`, `StaticIntentDefinition`, `DynamicIntentDefinition`, `ModuleAttribute`, `ModulePropertyDefinition`, `ModuleDefinitionMetaData` | DIFF_MERGE-only writes. ParameterDefinition is part of this aggregate; individual elements are addressed via element-path fieldPaths within the aggregate. |
 | `KeyDefinition` | `ValueDefinition` | DIFF_MERGE-only writes. |
 
@@ -264,6 +268,12 @@ Every pending change carries the root's systemId in `aggregateId`, regardless of
 - Change on definition D's parameter PD's element `gain` → `aggregateId = D`, `targetTable = SpfModuleParameterDefinition`, `targetSystemId = PD`, `fieldPath = "elements[gain]"`. For a nested element (e.g., `left` inside a `stereoEq` struct), the path traverses the tree: `fieldPath = "elements[stereoEq].elements[left]"`. Path syntax is decided by LLD6c.
 
 The read overlay uses `aggregateId` to fetch all pending changes for a given root in one indexed query (see §8).
+
+### Relationship-row edit identity
+
+Join tables that must be created, updated, or deleted through edit-actions need a concrete target identity. If the natural key is multi-column, persistence may add a generated `system_id` for edit addressing while keeping the natural uniqueness constraint as the domain invariant.
+
+Example: Delete Module removes `use_case_subgraphs` and `use_case_subgraph_pairs` rows when it deletes an empty subgraph. Those relationship tables therefore need persistence-only generated `system_id` values for `edit_actions.targetSystemId`, base-version capture, and overlay processing. Core continues to expose relationships through domain IDs (`useCaseSystemId`, `subgraphSystemId`, source/destination subgraph IDs); it does not expose or reason about the generated row identity.
 
 ---
 
@@ -326,6 +336,8 @@ edit_actions INSERT (single row, or bulk via PendingChangeCache)
 ```
 
 The handler never sees row shape, `fieldPath`, or `aggregateId`. It calls domain-verb methods like `renameModule(moduleId, newAlias, uow)` and lets persistence translate. The `stage*` verb prefix is intentionally avoided — recording a pending change and staging it (flipping `changeStatus = STAGED`) are separate operations. Edit-repo methods record pending changes; whether those pending rows end up STAGED or UNSTAGED depends on `source` + mode.
+
+For aggregate deletes, the same boundary applies. Core decides that an entity should be deleted and calls a domain operation such as `deleteModule(...)`, `deleteContainer(...)`, or `deleteSubgraph(...)`; the persistence adapter enumerates the concrete rows owned by that aggregate and records the corresponding edit-actions. Core must not know table names or persistence-only child-row identifiers.
 
 ### Options-bag repo API
 
@@ -462,7 +474,7 @@ Later rows win per addressed slot. `createdAt` order is the primary key for dete
 
 ### Aggregate composition
 
-Multi-table aggregates (e.g., an SpfModule aggregate spans `spf_modules`, `nodes`, `data_ports`, `control_ports`, `spf_module_properties_data`) are assembled inside the persistence read-service adapter. Core sees the domain-shaped snapshot — a typed aggregate object with owned children as arrays. The adapter fetches each child table, applies overlay, attaches children to the root.
+Multi-table aggregates (e.g., an SpfModule aggregate spans `spf_modules`, `nodes`, `data_ports`, `control_ports`, Intents, and module-owned CKV/TKV rows) are assembled inside the persistence read-service adapter. Core sees the domain-shaped snapshot — a typed aggregate object with owned children as arrays. The adapter fetches each child table, applies overlay, attaches children to the root.
 
 Persistence adapter imports domain types (e.g., `DataPort`, `ControlPort`) from core for its return shape. Core does not see `targetTable` or row-level pending change structure.
 
@@ -582,6 +594,20 @@ Server expands to a concrete row set based on `by`, then UPDATEs `changeStatus`.
 | `changeIds` | Direct: `WHERE changeId IN (?) AND validUntil IS NULL` |
 | `groupIds` | `WHERE groupId IN (?) AND validUntil IS NULL` |
 | `linkedEntityGroupIds` | `WHERE linkedEntityGroupId IN (?) AND validUntil IS NULL` |
+
+### Directed selection dependencies
+
+Some selectable changes are valid only when other changes are selected with them. The general rule is directed:
+
+```text
+A requires B
+```
+
+Staging A also stages B and its transitive requirements. Unstaging B also unstages A and its transitive dependents. The reverse operations are intentionally asymmetric: staging B does not stage A, and unstaging A does not unstage B.
+
+Dependency discovery belongs in core services that operate on domain-shaped change descriptors. Persistence supplies pending-change snapshots, reconstructable before/after state, and bulk status updates. `IChangeStatusRepository` remains a generic status mutator for resolved `changeId` values; it has no entity-specific cascade logic.
+
+Detailed design: `docs/edit-crud/design/change-selection-dependencies-design.md`.
 
 ### Cross-entity atomic group enforcement (I6, REQ-ACG-02)
 
@@ -894,8 +920,8 @@ Parallel-eligible drafting after LLD4 lands:
 | **LLD1 — Foundation** | 1 PR | Schema + migration (`edit_actions` reshape + `session_entity_versions` side-table), `PendingChangeWriter`, `EditActionsQueryService`, `OverlayMerge`, `PendingChangeCache`, `SessionGuard`, session hand-off via `execute(cmd, {session})` (Pattern A), `WriteContext` on UoW + `groupId` stamping, `CommandBus` mode check. |
 | **LLD2 — Module Write Path** | 1 PR | `IModuleEditRepository`, `ISubgraphEditRepository`, `IContainerEditRepository`, `IModuleDefinitionEditRepository`. SET / Add handlers (`SetModuleAlias`, `SetModuleContainer`, `AddDataPort`, `AddControlPort`). Add Module three variants with auto-created Subgraph and Container. Existence validation via read ports. |
 | **LLD3 — Read Overlay + Designer Visual Diff** | 1 PR | Rewrite of `DbSpfModuleQueryService` and peer query services (Subgraph, Container, Node) to use the new `OverlayMerge`. `?includeDiff=true` support across entity GET endpoints. `pendingChangeStatus` on entity DTOs. `diffEntity` DTO. Designer-mode single accumulated `changeUnit` per entity. |
-| **LLD4 — Commit + Stage/Unstage** | 1 PR (may split into 4a/4b if size warrants) | `ICommitService` + implementation — hand-written per-aggregate ordering, DB-error → `ValidationIssue` mapping, auto-generated `session_commits` description, partial-success vs full-rollback policy (may require REQ-CMT-01 revision). Optional CI-time FK-consistency check using TypeORM metadata as a safety net. Conflict detection → `ValidationReport`. Optional COMMIT-group validation gate. `IChangeStatusRepository`. Stage / Unstage handlers + APIs (needed by auto-routing). `session_commits` write. Post-commit cleanup. |
-| **LLD5 — Delete Module** | 1 PR | `deleteModule` on `IModuleEditRepository`. Last-module cascade for Subgraph and Container + their property data. Cross-references handling for DataLink / ControlLink (delete or reject). REQ-DEL-01. |
+| **LLD4 — Commit + Stage/Unstage** | 1 PR (may split into 4a/4b if size warrants) | `ICommitService` + implementation — hand-written per-aggregate ordering, DB-error → `ValidationIssue` mapping, auto-generated `session_commits` description, partial-success vs full-rollback policy (may require REQ-CMT-01 revision). Optional CI-time FK-consistency check using TypeORM metadata as a safety net. Conflict detection → `ValidationReport`. Optional COMMIT-group validation gate. `IChangeStatusRepository`, `ChangeSelectionService`, directed dependency planning, Stage / Unstage handlers + APIs (needed by auto-routing and DiffMerge-dependent deletes). `session_commits` write. Post-commit cleanup. |
+| **LLD5 — Delete Module** | 1 PR | `DeleteSpfModuleCommand` and controller stub replacement. Module aggregate delete by root ID. Connected DataLink / ControlLink cascade. Subsystem link cleanup without edit-time boundary port deletion. Stale routed-control intent cleanup. Empty Container/Subgraph cleanup, UseCase relationship removal, stack-size recalculation. Initial `Designer` mode only; `DiffMerge` enablement waits for change-selection dependencies. |
 | **LLD6a — DiffMerge Foundation** | 1 PR | `DiffCompareService` orchestrator + per-aggregate comparers (Module / Subgraph / Container / Node). `DiffStager`. Apply-diff handler. Change summary DTO + API. Compare-only endpoint. Wipe-by-source on re-apply. DIFF_MERGE manual write path (REQ-SESS-12). Cross-entity atomic groups (server-enforced staging). |
 | **LLD6b — DiffMerge Definitions** | 1 PR | `IKeyDefinitionEditRepository`, `IValueDefinitionEditRepository`, `ISpfModuleDefinitionEditRepository`. Definition-scoped comparers. Reference-file definition import (REQ-DEF-01…03). DIFF_MERGE definition CREATE/UPDATE (REQ-DEF-04…06). |
 | **LLD6c — ParameterDefinition Elements** | 1 PR | Element-path fieldPath handling. `updateElement` (or equivalent) exposed under the `SpfModuleDefinition` aggregate's edit repo — ParameterDefinition is part of that aggregate. Element-splicing reducer at commit for `elementsStructure` (parse serialized column, replace element by ID, re-serialize). |

@@ -75,7 +75,7 @@ describe('SubgraphBuilder', () => {
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
         expect(result.entities[0].subgraphId).toBe(1);
         expect(result.entities[0].name).toBe('Subgraph_1');
-        expect(result.entities[0].isExported).toBe(false);
+        expect(result.entities[0].isImported).toBe(false);
 
         // Verify second subgraph
         expect(result.entities[1].systemId).toBeGreaterThan(0);
@@ -233,7 +233,7 @@ describe('SubgraphBuilder', () => {
         expect(result.entities[0].name).toBe('Subgraph_123');
       });
 
-      it('should set isExported to false by default', async () => {
+      it('should set isImported to false by default', async () => {
         const properties: AcdbSubgraphProperties[] = [
           {
             subgraphId: 1,
@@ -246,7 +246,7 @@ describe('SubgraphBuilder', () => {
           TEST_FILE_SYSTEM_ID,
         );
 
-        expect(result.entities[0].isExported).toBe(false);
+        expect(result.entities[0].isImported).toBe(false);
       });
     });
 

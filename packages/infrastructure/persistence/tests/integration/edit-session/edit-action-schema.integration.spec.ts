@@ -124,10 +124,43 @@ describe('EditActionSchema — integration', () => {
 
     await repo.save(repo.create(base));
 
-    // Second INSERT with same (session_id, target_system_id, field_path) and validUntil IS NULL
-    // must be rejected by the unique index.
+    // Second INSERT with the same target table, system ID, field path, and
+    // validUntil IS NULL must be rejected by the unique index.
     await expect(
       repo.save(repo.create({...base, groupId: 'g2'})),
     ).rejects.toThrow();
+  });
+
+  it('allows the same system ID and field path across different target tables', async () => {
+    const ds = getTestDataSource();
+    const repo = ds.getRepository(EditActionSchema);
+    const sessionRepo = ds.getRepository(ProjectSessionSchema);
+
+    const fileId = await createFile();
+    const session = await sessionRepo.save({
+      fileSystemId: fileId,
+      clientId: 'test-client-3',
+      sessionMode: 'DESIGNER',
+      status: 'ACTIVE',
+    });
+
+    const base = {
+      targetSystemId: 100,
+      aggregateId: 100,
+      sessionId: session.sessionId,
+      operation: CHANGE_OPERATION.Delete,
+      fieldPath: null,
+      newValue: {},
+      source: SOURCE.Manual,
+      changeStatus: CHANGE_STATUS.Staged,
+      groupId: 'same-id-group',
+      linkedEntityGroupId: null,
+      validUntil: null,
+    };
+
+    await repo.save(repo.create({...base, targetTable: 'SpfModule'}));
+    await expect(
+      repo.save(repo.create({...base, targetTable: 'Node'})),
+    ).resolves.toBeDefined();
   });
 });

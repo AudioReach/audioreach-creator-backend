@@ -143,7 +143,6 @@ export class ForeignKeyMapper {
 
     this.logger?.logInfo({
       msg: `Stored foreign key mappings: ${keyMappingsCount} keys, ${valueMappingsCount} values`,
-      action: 'foreign_key_mappings_stored',
       component: 'ForeignKeyMapper',
       tag: 'foreign-key-mapping',
     });

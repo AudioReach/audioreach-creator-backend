@@ -155,6 +155,7 @@ export class PendingChangeWriter {
       const existing = await this.queryService.findCurrentRow(
         sessionId,
         spec.targetSystemId,
+        spec.targetTable,
         null,
       );
 
@@ -166,6 +167,7 @@ export class PendingChangeWriter {
         await this.supersedeCurrent(
           sessionId,
           spec.targetSystemId,
+          spec.targetTable,
           null,
           manager,
         );
@@ -235,7 +237,13 @@ export class PendingChangeWriter {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source);
 
-    await this.supersedeCurrent(sessionId, spec.targetSystemId, null, manager);
+    await this.supersedeCurrent(
+      sessionId,
+      spec.targetSystemId,
+      spec.targetTable,
+      null,
+      manager,
+    );
 
     const row = {
       sessionId,
@@ -298,6 +306,7 @@ export class PendingChangeWriter {
     const existing = await this.queryService.findCurrentRow(
       sessionId,
       spec.targetSystemId,
+      spec.targetTable,
       null,
     );
 
@@ -309,6 +318,7 @@ export class PendingChangeWriter {
       await this.supersedeCurrent(
         sessionId,
         spec.targetSystemId,
+        spec.targetTable,
         null,
         manager,
       );
@@ -364,6 +374,7 @@ export class PendingChangeWriter {
     await this.supersedeCurrent(
       sessionId,
       spec.targetSystemId,
+      spec.targetTable,
       fieldGroup,
       manager,
     );
@@ -378,18 +389,25 @@ export class PendingChangeWriter {
   private async supersedeCurrent(
     sessionId: number,
     targetSystemId: number,
+    targetTable: EntityName,
     fieldPath: string | null,
     manager: EntityManager,
   ): Promise<void> {
     const fieldPathClause =
-      fieldPath === null ? 'field_path IS NULL' : 'field_path = $4';
+      fieldPath === null ? 'field_path IS NULL' : 'field_path = $5';
     const params: unknown[] =
       fieldPath === null
-        ? [new Date().toISOString(), sessionId, targetSystemId]
-        : [new Date().toISOString(), sessionId, targetSystemId, fieldPath];
+        ? [new Date().toISOString(), sessionId, targetSystemId, targetTable]
+        : [
+            new Date().toISOString(),
+            sessionId,
+            targetSystemId,
+            targetTable,
+            fieldPath,
+          ];
     // eslint-disable-next-line custom/no-raw-persistence-queries -- dynamic fieldPath clause (null vs value) cannot be expressed with TypeORM QueryBuilder
     await manager.query(
-      `UPDATE edit_actions SET valid_until = $1 WHERE session_id = $2 AND target_system_id = $3 AND ${fieldPathClause} AND valid_until IS NULL`,
+      `UPDATE edit_actions SET valid_until = $1 WHERE session_id = $2 AND target_system_id = $3 AND target_table = $4 AND ${fieldPathClause} AND valid_until IS NULL`,
       params,
     );
   }

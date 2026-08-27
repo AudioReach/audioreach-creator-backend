@@ -65,12 +65,13 @@ These requirements define **what** the write path of the AudioReach Creator Back
 | **STAGED / UNSTAGED** | The two change-status values for an edit-action. STAGED = will be applied at commit. UNSTAGED = pending user selection (DiffMerge) or algorithm proposal (auto-routing). |
 | **Aggregate root** | The domain entity whose `systemId` scopes reads of a set of related pending changes. A module is the aggregate root for its Node, DataPorts, ControlPorts. Subgraphs and Containers are their own aggregate roots. Definition entities are their own aggregate roots for their owned property/key-value rows. |
 | **Aggregate scoping (reference: `aggregateId`)** | The mechanism by which the read overlay retrieves every pending change for an aggregate root and its owned entities. In the reference schema this is a stored `aggregateId` column; the requirement is efficient aggregate-scoped reads, not the column itself. |
-| **API-call atomic group (reference: `groupId`)** | The set of pending changes produced by a single API call, which must undo/redo/stage/unstage together. The API returns a tracking handle to the client — the reference schema uses a shared `groupId` UUID; alternatives include returning a list of change identifiers. |
+| **API-call atomic group (reference: `groupId`)** | The set of pending changes produced by a single API call. The group is the atomic boundary for undo and redo. It may also be supplied as a Stage or Unstage request's initial selection set, but API-call membership alone does not force every member to retain the same `changeStatus`. |
 | **`baseVersion`** | The reference-schema name for the captured version reference used at commit time for optimistic-lock drift detection. The requirement is drift detection; the specific storage representation is design. |
 | **Accumulated effective state** | The union of all pending field changes for one entity in one session, as seen through the read overlay. The mechanism (accumulated payload on one row, delta chain, snapshot, per-field rows) is design. |
 | **Reference / Base / Target** | The three files in a three-way DiffMerge workflow. Reference = original baseline; Base = evolved-from-reference source; Target = destination that receives selected changes. |
 | **Change unit** | A user-selectable unit of change in DiffMerge. May cover one field, several grouped fields on an entity, or several entities across tables (atomic cross-entity group). |
 | **Atomic cross-entity group** | A set of edit-actions across different entities/tables that must be staged and unstaged together, expressed by a shared identifier assigned by the diff-compare tool. |
+| **Selection dependency** | A directed relationship `A requires B` between change units. Staging A requires B to be staged; unstaging B requires A to be unstaged. The reverse implications do not apply unless separately encoded. |
 
 ---
 
@@ -116,7 +117,7 @@ These requirements define **what** the write path of the AudioReach Creator Back
 
 ### 4.1 Persistence and Retention
 
-**REQ-EA-01 (Persistence of pending changes):** Every user-initiated or algorithm-initiated change to a project's state during a session shall be persisted for the duration of the session, together with enough associated metadata to satisfy every requirement in this document — including reconstruction of effective read state (§4.4), commit-time conflict detection (§4.5), staging vs. unstaged distinction (§4.2), API-call atomic undo/redo (§6), aggregate-scoped reads (§5), and DiffMerge selection granularity (§10).
+**REQ-EA-01 (Persistence of pending changes):** Every user-initiated or algorithm-initiated change to a project's state during a session shall be persisted for the duration of the session, together with enough associated metadata to satisfy every requirement in this document — including reconstruction of effective read state (§4.4), commit-time conflict detection (§4.5), staging vs. unstaged distinction (§4.2), API-call atomic undo/redo (§6), aggregate-scoped reads (§5), DiffMerge selection granularity (§10), and directed selection dependencies (§12).
 
 **REQ-EA-02 (Effective pending state per entity is queryable):** The system shall be able to determine, for any entity being edited in a session, the current effective pending state of that entity (as it would appear in the read overlay) at any time. Whether this maps to a single "current" row per entity, several rows per entity (one per changed field or one per user action), or another representation, is a design decision.
 
@@ -181,11 +182,11 @@ These requirements describe **what must be true** for reads and commits, not how
 
 **REQ-ATO-01 (Atomicity of an API call):** Every user-initiated write API call shall be reversible as a single undo step from the client's perspective. All pending changes the call produces internally — regardless of how many entities, tables, or aggregate roots they span — shall revert on undo, and reapply on redo, as one indivisible unit.
 
-**REQ-ATO-02 (Tracking handle returned to client):** Every write API call that produces one or more pending changes shall return to the client a tracking handle sufficient for the client to later request undo, redo, staging, or unstaging of the entire call. The representation of this handle (a single group identifier, a list of change identifiers, or another form) is a design decision; the requirement is that the client's undo/redo/stage/unstage requests can address the call as a whole without knowing its internal decomposition.
+**REQ-ATO-02 (Tracking handle returned to client):** Every write API call that produces one or more pending changes shall return to the client a tracking handle sufficient for the client to later request undo or redo of the entire call. Stage and Unstage APIs may also accept this handle to use every member of the API call as an initial selection set. Stage and Unstage shall then apply atomic selection-group and directed-dependency rules; they are not intrinsically bounded to the API-call group.
 
 **REQ-ATO-03 (Groups are fixed at API-call time):** The set of pending changes bound together by an API call's tracking handle shall be fixed at the moment the API call completes. Subsequent unrelated modifications shall not be added to a prior call's group. Each API call produces its own group (or its own list of change IDs).
 
-**REQ-ATO-04 (Single-change API calls):** When an API call produces exactly one pending change, the tracking handle may degenerate to that single change's identifier. The client shall not need to distinguish single-change from multi-change calls in its undo/redo/stage/unstage code paths.
+**REQ-ATO-04 (Single-change API calls):** When an API call produces exactly one pending change, the tracking handle may degenerate to that single change's identifier. The client shall not need to distinguish single-change from multi-change calls in its undo/redo code paths. Stage and Unstage requests operate on change-unit or group identifiers and apply the selection rules in §12.
 
 **REQ-ATO-05 (Undo/redo atomicity):** Undo and redo operations shall respect API-call atomicity: activating or deactivating any pending change that belongs to an API-call group shall move every pending change in that group together as one logical step (see §8.2).
 
@@ -344,6 +345,8 @@ The specific storage strategy that achieves the above (superseding the current e
 
 ## 12. DiffMerge — Staging and Unstaging
 
+> The dependency-aware selection behavior in this section is implemented with the DiffMerge Stage/Unstage capability. A Designer write operation may be delivered before this capability, but it shall not be enabled in `DIFF_MERGE` when its correctness can depend on selecting existing `UNSTAGED` changes until the dependency mechanism is available.
+
 **REQ-ST-01:** Each independently-selectable change unit shall carry a unique identifier that the UI uses to call Stage and Unstage APIs.
 
 **REQ-ST-02:** The Stage API shall accept a list of change identifiers and stage all of them atomically in one call.
@@ -357,6 +360,24 @@ The specific storage strategy that achieves the above (superseding the current e
 **REQ-ST-06:** The read overlay shall always include both `STAGED` and `UNSTAGED` pending changes. The user shall see a full preview of what the Target file would look like with all proposed changes applied, regardless of which have been selected.
 
 **REQ-ST-07:** Only `STAGED` change units shall be applied to the Target file at commit. `UNSTAGED` change units shall not be applied and shall be discarded at session end.
+
+**REQ-ST-08 (Directed selection dependencies):** The system shall support directed dependencies between change units. For a dependency `A requires B`, A is the dependent change unit and B is the required change unit. Dependency direction shall be independent of API-call `groupId`, aggregate ownership, and atomic cross-entity grouping. Dependencies may be derived from current pending state and retained history rather than stored separately, provided selection planning produces consistent results.
+
+**REQ-ST-09 (Forward staging closure):** Staging one or more root change units shall also stage every transitively required change unit. For `A requires B` and `B requires C`, staging A shall stage A, B, and C atomically.
+
+**REQ-ST-10 (Reverse-dependent unstaging closure):** Unstaging one or more root change units shall also unstage every change unit that transitively depends on them. For `A requires B`, unstaging B shall unstage both B and A atomically.
+
+**REQ-ST-11 (Asymmetric reverse behavior):** Unstaging a dependent change unit shall not, by itself, unstage its required change units. For example, when a module deletion requires a link deletion, unstaging the module deletion may leave the independently valid link deletion staged.
+
+**REQ-ST-12 (Atomic groups within dependency traversal):** When dependency traversal reaches a member of an atomic cross-entity group, the whole atomic group shall participate in the selection operation. Dependency traversal shall continue from every member included through this expansion.
+
+**REQ-ST-13 (Tombstone and history support):** Dependency discovery and traversal shall not rely only on entities visible in the effective read overlay. The system shall retain enough change metadata to resolve dependencies involving pending deletes, superseded changes, and entities that exist only through pending creates.
+
+**REQ-ST-14 (Identity preservation):** Automatically staging or unstaging a change unit shall change only its selection status. It shall not move the change into the initiating API call's `groupId`, rewrite its source, or otherwise change its ownership or history identity.
+
+**REQ-ST-15 (Transactional and idempotent selection):** Dependency expansion and all resulting status updates shall execute atomically within one transaction. Repeating the same Stage or Unstage request shall produce the same final selection state without creating duplicate dependency relationships or edit actions.
+
+**REQ-ST-16 (Cycle safety):** Dependency traversal shall terminate safely when the dependency graph contains cycles. Every reached change unit shall be updated at most once per Stage or Unstage operation.
 
 ---
 
@@ -474,7 +495,7 @@ The specific storage strategy that achieves the above (superseding the current e
 
 **I4 — Aggregate scoping:** Every pending change is attributable to an aggregate root such that aggregate-scoped reads (§5) return every pending change for a root and its owned entities.
 
-**I5 — API-call atomicity:** Every pending change produced by a single API call is undone, redone, staged, and unstaged as a single logical unit, regardless of how many entities, tables, or aggregate roots it spans (§6).
+**I5 — API-call and selection boundaries:** Every pending change produced by a single API call is undone and redone as one logical unit (§6). Stage and Unstage operate on their requested roots, atomic selection groups, and directed dependency closure (§§11-12); API-call membership alone does not force equal selection status.
 
 **I6 — Atomic-group all-or-nothing:** Every DiffMerge atomic cross-entity group shall be fully staged or fully unstaged. Partial selection is invalid.
 
@@ -532,7 +553,7 @@ The specific storage strategy that achieves the above (superseding the current e
 
 **OQ-7 — DTO-level tension: Designer accumulation vs DiffMerge field-level granularity — RESOLVED:** Storage uses a `fieldPath` addressing scheme that lets each pending-change row target any atomicity granularity — `null` or `"$"` for whole-entity accumulator (Designer default; subsequent SETs merge via read-modify-write into a single active row per entity), a scalar column name for independent per-field granularity (DiffMerge default when the tool marks fields independent), a custom named group for multi-column atomic units, or an element path like `elements[id]` for sub-column atomicity in serialized-string columns. Supersession is keyed by `(sessionId, targetSystemId, fieldPath) WHERE validUntil IS NULL`. Both DTO projections — Designer's single accumulated change unit (REQ-DM-03) and DiffMerge's independently-selectable per-field units (REQ-CG-01) — are naturally supported by the same underlying storage without read-time transformation. The commit reducer dispatches on `fieldPath` shape (scalar column, `"$"` full row, named group of columns, or element-in-serialized-column) rather than on any interpretation of custom field names.
 
-**OQ-8 — API-call tracking handle representation — RESOLVED:** Every write API call returns both a `groupId` (a UUID stamped by the write handler on every pending-change row the call produces) and the list of `changeId`s produced. The client may address the call by either form. The Stage, Unstage, Undo, and Redo APIs accept either `groupId`s or `changeId`s (or a mix) and expand internally to the same row set. This degenerates cleanly for single-change API calls (the `changeId` list has one entry).
+**OQ-8 — API-call tracking handle representation — RESOLVED:** Every write API call returns both a `groupId` (a UUID stamped by the write handler on every pending-change row the call produces) and the list of `changeId`s produced. Undo and Redo use `groupId` as the API-call atomic boundary. Stage and Unstage accept `groupId`s, change-unit identifiers, or a mix as their initial selection set, then expand that set through atomic groups and directed dependencies according to §§11-12. This degenerates cleanly for single-change API calls.
 
 ---
 

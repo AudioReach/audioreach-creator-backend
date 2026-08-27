@@ -5,15 +5,17 @@
 
 import type {EntityManager} from 'typeorm';
 import type {ContainerRepository, UnitOfWork, EditOptions} from '@arc/core';
-import {Container, ContainerPropertyValue} from '@arc/core';
+import {Container, ContainerPropertyValue, PropertyDefinition} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
 import {ContainerPropertyDataFetcher} from '../../fetchers/container-property-data-fetcher.js';
+import {ContainerPropertyDefinitionFetcher} from '../../fetchers/definitions/container-property-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmContainerRepository implements ContainerRepository {
   private readonly containerFetcher: ContainerOverlayFetcher;
+  private readonly propertyDefinitionFetcher: ContainerPropertyDefinitionFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -25,6 +27,10 @@ export class TypeOrmContainerRepository implements ContainerRepository {
       manager,
       editActionsQs,
       new ContainerPropertyDataFetcher(manager, editActionsQs),
+    );
+    this.propertyDefinitionFetcher = new ContainerPropertyDefinitionFetcher(
+      manager,
+      editActionsQs,
     );
   }
 
@@ -39,6 +45,45 @@ export class TypeOrmContainerRepository implements ContainerRepository {
         fileSystemId,
         sessionId,
       )) !== null
+    );
+  }
+
+  async deleteContainer(
+    containerSystemId: number,
+    _fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const container = await this.containerFetcher.fetchOne(
+      containerSystemId,
+      session.fileSystemId,
+      session.sessionId,
+    );
+    if (!container) return;
+
+    for (const property of container.properties) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.ContainerPropertyData,
+          targetSystemId: property.systemId,
+          aggregateId: containerSystemId,
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.Container,
+        targetSystemId: containerSystemId,
+        aggregateId: containerSystemId,
+        ...options,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
     );
   }
 
@@ -111,6 +156,31 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     }
   }
 
+  async getPropertyDefinitions(
+    fileSystemId: number,
+  ): Promise<PropertyDefinition[]> {
+    const definitions = await this.propertyDefinitionFetcher.fetchAll(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+    );
+    return definitions
+      .toSorted((left, right) => left.systemId - right.systemId)
+      .map(definition => this.toPropertyDefinition(definition));
+  }
+
+  async getPropertyDefinitionByPropertyId(
+    fileSystemId: number,
+    propertyId: number,
+  ): Promise<PropertyDefinition | null> {
+    const definition =
+      await this.propertyDefinitionFetcher.fetchOneByPropertyId(
+        fileSystemId,
+        propertyId,
+        this.uow.getWriteContext().session.sessionId,
+      );
+    return definition ? this.toPropertyDefinition(definition) : null;
+  }
+
   async getPropertyData(
     containerSystemId: number,
     propertySystemId: number,
@@ -171,5 +241,27 @@ export class TypeOrmContainerRepository implements ContainerRepository {
       groupId,
       this.manager,
     );
+  }
+
+  private toPropertyDefinition(definition: {
+    systemId: number;
+    fileSystemId: number;
+    propertyId: number;
+    name: string;
+    description?: string;
+    maxSize: number;
+    propertyType: PropertyDefinition['type'];
+    elementsStructure: string;
+  }): PropertyDefinition {
+    return new PropertyDefinition({
+      systemId: definition.systemId,
+      fileSystemId: definition.fileSystemId,
+      propertyId: definition.propertyId,
+      name: definition.name ?? '',
+      description: definition.description ?? undefined,
+      maxSize: definition.maxSize,
+      type: definition.propertyType,
+      elementsStructure: definition.elementsStructure ?? '',
+    });
   }
 }

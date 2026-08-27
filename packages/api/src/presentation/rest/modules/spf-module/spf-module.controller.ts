@@ -61,6 +61,9 @@ import {
   type SpfModuleDto,
   type ActiveSession,
   type ParameterDto,
+  DeleteSpfModuleCommand,
+  LINK_DELETION_MODE,
+  isLinkDeletionMode,
 } from '@arc/core';
 import {PartialSuccessInterceptor} from '../../common/interceptors/partial-success.interceptor.js';
 import {toApiResult} from '../../common/result/to-api-result.js';
@@ -1400,6 +1403,7 @@ export class SpfModuleController extends BaseController {
    * Returns the deleted module system ID and any container or subgraph that was
    * cascade-deleted because this was the last module in its container.
    */
+  @UseGuards(SessionGuard)
   @Delete('/:spfModuleSystemId')
   @ApiParam({
     name: 'spfModuleSystemId',
@@ -1407,6 +1411,13 @@ export class SpfModuleController extends BaseController {
     type: String,
     description: 'System id of an SPF module',
     example: '12345',
+  })
+  @ApiQuery({
+    name: 'linkDeletionMode',
+    required: false,
+    enum: [LINK_DELETION_MODE.Full, LINK_DELETION_MODE.SegmentOnly],
+    description:
+      'Delete every route segment (full, default) or only segments incident to the module (segmentOnly).',
   })
   @ApiDocumentationWithExample({
     summary: 'Delete an SPF module',
@@ -1427,18 +1438,29 @@ export class SpfModuleController extends BaseController {
     ],
   })
   async deleteSpfModule(
-    @Param('projectId') projectId: string,
-    @Param('spfModuleSystemId') spfModuleSystemId: string,
+    @Param('projectId', ParseIntPipe) _projectId: number,
+    @Param('spfModuleSystemId', ParseIntPipe) spfModuleSystemId: number,
+    @ArcSession() session: ActiveSession,
+    @Query('linkDeletionMode') linkDeletionMode?: string,
   ): Promise<ApiResult<RemoveSpfModuleResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Deleting SPF module:',
-      spfModuleSystemId,
-      'in project:',
-      projectId,
+    if (
+      linkDeletionMode !== undefined &&
+      !isLinkDeletionMode(linkDeletionMode)
+    ) {
+      throw new BadRequestException(
+        'linkDeletionMode must be either "full" or "segmentOnly".',
+      );
+    }
+    const commandResult = await this.commandBus.execute<{
+      groupId: string;
+      response: RemoveSpfModuleResponseDto;
+    }>(
+      new DeleteSpfModuleCommand(
+        spfModuleSystemId,
+        linkDeletionMode ?? LINK_DELETION_MODE.Full,
+      ),
+      session,
     );
-    throw new NotImplementedException(
-      'Delete SPF module functionality is not implemented yet.',
-    );
+    return {data: commandResult.response};
   }
 }

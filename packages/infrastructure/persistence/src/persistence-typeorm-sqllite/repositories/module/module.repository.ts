@@ -12,22 +12,32 @@ import type {
   ExistingPayloadRow,
   CkvPayloadUpdate,
 } from '@arc/core';
-import {SpfModule, DataPort, ControlPort} from '@arc/core';
+import {
+  CONFIGURATION_INCLUDES,
+  SpfModule,
+  DataPort,
+  ControlPort,
+} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
+import {SpfModuleDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-fetcher.js';
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
 import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-fetcher.js';
+import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
+import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
+  private readonly spfModuleDefinitionFetcher: SpfModuleDefinitionFetcher;
   private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly portFetcher: PortOverlayFetcher;
   private readonly ckvOverlayFetcher: CkvOverlayFetcher;
+  private readonly tkvOverlayFetcher: TkvOverlayFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -36,6 +46,10 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   ) {
     const editActionsQs = new EditActionsQueryService(manager);
     this.spfModuleFetcher = new SpfModuleOverlayFetcher(manager, editActionsQs);
+    this.spfModuleDefinitionFetcher = new SpfModuleDefinitionFetcher(
+      manager,
+      editActionsQs,
+    );
     this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
     this.portFetcher = new PortOverlayFetcher(
       manager,
@@ -47,6 +61,183 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       editActionsQs,
       new CkvParameterPayloadFetcher(manager, editActionsQs),
     );
+    this.tkvOverlayFetcher = new TkvOverlayFetcher(
+      manager,
+      editActionsQs,
+      new TkvParameterPayloadFetcher(manager, editActionsQs),
+    );
+  }
+
+  async findModuleById(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase | null> {
+    const rows = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+      {systemId},
+    );
+    const row = rows.at(0);
+    return row ? this.toModuleBase(row) : null;
+  }
+
+  async findModulesByContainerId(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase[]> {
+    const rows = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+      {containerSystemId},
+    );
+    return rows.map(row => this.toModuleBase(row));
+  }
+
+  async findModulesBySubgraphId(
+    subgraphSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase[]> {
+    const rows = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+      {subgraphSystemId},
+    );
+    return rows.map(row => this.toModuleBase(row));
+  }
+
+  private toModuleBase(row: {
+    systemId: number;
+    definitionSystemId: number;
+    containerSystemId: number;
+    subgraphSystemId: number;
+    alias?: string | null;
+  }): SpfModuleBase {
+    return {
+      systemId: row.systemId,
+      definitionSystemId: row.definitionSystemId,
+      containerSystemId: row.containerSystemId,
+      subgraphSystemId: row.subgraphSystemId,
+      alias: row.alias ?? undefined,
+    };
+  }
+
+  async getModulesWithStackSizeByContainer(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<Array<{moduleSystemId: number; stackSize: number}>> {
+    const modules = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      this.uow.getWriteContext().session.sessionId,
+      {containerSystemId},
+    );
+    const definitionSystemIds = [
+      ...new Set(modules.map(module => module.definitionSystemId)),
+    ];
+    if (definitionSystemIds.length === 0) return [];
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const definitions = await Promise.all(
+      definitionSystemIds.map(definitionSystemId =>
+        this.spfModuleDefinitionFetcher.fetchOne(
+          definitionSystemId,
+          fileSystemId,
+          sessionId,
+        ),
+      ),
+    );
+    const stackSizes = new Map(
+      definitions.flatMap(definition =>
+        definition
+          ? [[definition.systemId, Number(definition.stackSize)] as const]
+          : [],
+      ),
+    );
+    return modules.flatMap(module => {
+      const stackSize = stackSizes.get(module.definitionSystemId);
+      return stackSize === undefined
+        ? []
+        : [{moduleSystemId: module.systemId, stackSize}];
+    });
+  }
+
+  async deleteModule(
+    moduleSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const sessionId = session.sessionId;
+    const [dataPorts, controlPorts, ckvs, tagMaps] = await Promise.all([
+      this.portFetcher.fetchDataPorts(moduleSystemId, fileSystemId, sessionId),
+      this.portFetcher.fetchControlPortsWithIntents(
+        moduleSystemId,
+        fileSystemId,
+        sessionId,
+      ),
+      this.ckvOverlayFetcher.fetchMany(moduleSystemId, sessionId),
+      this.tkvOverlayFetcher.fetchMany(
+        moduleSystemId,
+        sessionId,
+        CONFIGURATION_INCLUDES.FullDetails,
+      ),
+    ]);
+    const ckvPayloadArrays = await Promise.all(
+      ckvs.map(ckv =>
+        this.ckvOverlayFetcher.fetchPayloads(
+          ckv.systemId,
+          moduleSystemId,
+          sessionId,
+        ),
+      ),
+    );
+    const ckvPayloads = ckvPayloadArrays.flat();
+    const tkvs = tagMaps.flatMap(tagMap => tagMap.tkvs);
+    const tkvPayloadArrays = await Promise.all(
+      tkvs.map(tkv =>
+        this.tkvOverlayFetcher.fetchPayloads(tkv.systemId, sessionId),
+      ),
+    );
+    const tkvPayloads = tkvPayloadArrays.flat();
+
+    const deleteRow = async (
+      targetTable: keyof typeof ENTITY_NAMES,
+      targetSystemId: number,
+      aggregateId = moduleSystemId,
+    ): Promise<void> => {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES[targetTable],
+          targetSystemId,
+          aggregateId,
+          ...options,
+        },
+        sessionId,
+        groupId,
+        this.manager,
+      );
+    };
+
+    for (const intent of controlPorts.flatMap(port => port.intents)) {
+      await deleteRow('Intent', intent.systemId);
+    }
+    for (const port of dataPorts) {
+      await deleteRow('DataPort', port.systemId);
+    }
+    for (const port of controlPorts) {
+      await deleteRow('ControlPort', port.systemId);
+    }
+    for (const payload of ckvPayloads) {
+      await deleteRow('CkvParameterPayload', payload.systemId);
+    }
+    for (const payload of tkvPayloads) {
+      await deleteRow('TkvParameterPayload', payload.systemId);
+    }
+    for (const ckv of ckvs) await deleteRow('Ckv', ckv.systemId);
+    for (const tkv of tkvs) await deleteRow('Tkv', tkv.systemId);
+    for (const tagMap of tagMaps) {
+      await deleteRow('ModuleTagIdMap', tagMap.systemId);
+    }
+    await deleteRow('SpfModule', moduleSystemId);
+    await deleteRow('Node', moduleSystemId);
   }
 
   async findModuleForPatch(

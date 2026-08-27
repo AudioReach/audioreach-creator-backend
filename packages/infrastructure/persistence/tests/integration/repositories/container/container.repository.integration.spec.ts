@@ -182,4 +182,54 @@ describe('TypeOrmContainerRepository (integration)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].target_system_id).toBe(50);
   });
+
+  it('loads effective container property definitions as domain entities', async () => {
+    await ds.query(
+      `INSERT INTO container_property_definitions
+        (system_id, file_system_id, property_id, name, description, max_size, property_type, elements_structure)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        900,
+        FILE_ID,
+        0x08_00_10_13,
+        'Stack Size',
+        'Maximum module stack size',
+        4,
+        'SPF',
+        '{}',
+      ],
+    );
+
+    const sessionId = await seedSession(ds);
+    await makeWriter(qr.manager).writeDelta(
+      {
+        targetTable: ENTITY_NAMES.ContainerProperty,
+        targetSystemId: 900,
+        aggregateId: 900,
+        delta: {name: 'Effective Stack Size'},
+      },
+      sessionId,
+      'definition-update',
+      qr.manager,
+    );
+
+    const repository = makeRepo(qr, sessionId);
+    const definition = await repository.getPropertyDefinitionByPropertyId(
+      FILE_ID,
+      0x08_00_10_13,
+    );
+    const definitions = await repository.getPropertyDefinitions(FILE_ID);
+
+    expect(definition).toMatchObject({
+      systemId: 900,
+      fileSystemId: FILE_ID,
+      propertyId: 0x08_00_10_13,
+      name: 'Effective Stack Size',
+      description: 'Maximum module stack size',
+      maxSize: 4,
+      type: 'SPF',
+      elementsStructure: '{}',
+    });
+    expect(definitions).toEqual([definition]);
+  });
 });

@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1788339565069 implements MigrationInterface {
-  name = 'InitialCreate1788339565069';
+export class InitialCreate1788842125279 implements MigrationInterface {
+  name = 'InitialCreate1788842125279';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -406,10 +406,10 @@ export class InitialCreate1788339565069 implements MigrationInterface {
       `CREATE TABLE "edit_actions" ("change_id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" integer NOT NULL, "aggregate_id" integer NOT NULL DEFAULT (0), "target_system_id" integer NOT NULL, "target_table" varchar(100) NOT NULL, "operation" varchar CHECK( "operation" IN ('NONE','CREATE','UPDATE','DELETE') ) NOT NULL, "field_path" varchar, "new_value" text, "source" varchar CHECK( "source" IN ('MANUAL','DIFF_TOOL','AUTO_ROUTING') ) NOT NULL, "change_status" varchar CHECK( "change_status" IN ('STAGED','UNSTAGED') ) NOT NULL DEFAULT ('STAGED'), "group_id" text, "linked_entity_group_id" varchar, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "valid_until" datetime)`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
@@ -1412,10 +1412,10 @@ export class InitialCreate1788339565069 implements MigrationInterface {
       `ALTER TABLE "temporary_edit_actions" RENAME TO "edit_actions"`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
@@ -1656,10 +1656,10 @@ export class InitialCreate1788339565069 implements MigrationInterface {
       `CREATE INDEX "idx_edit_actions_agg_active" ON "edit_actions" ("session_id", "aggregate_id") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current_null_path" ON "edit_actions" ("session_id", "target_table", "target_system_id") WHERE "valid_until" IS NULL AND "field_path" IS NULL`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
+      `CREATE UNIQUE INDEX "uniq_edit_actions_current" ON "edit_actions" ("session_id", "target_table", "target_system_id", "field_path") WHERE "valid_until" IS NULL`,
     );
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
     await queryRunner.query(

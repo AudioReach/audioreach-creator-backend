@@ -21,6 +21,7 @@ import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqlli
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -105,6 +106,24 @@ async function seedDataPort(ds: DataSource, portSystemId: number) {
   );
 }
 
+async function seedControlPort(ds: DataSource, portSystemId: number) {
+  await ds.query(
+    `INSERT INTO control_ports (system_id, port_id, is_static, node_system_id) VALUES (?, 1, 0, ?)`,
+    [portSystemId, MODULE_ID],
+  );
+}
+
+async function seedIntent(
+  ds: DataSource,
+  intentSystemId: number,
+  portSystemId: number,
+) {
+  await ds.query(
+    `INSERT INTO intents (system_id, intent_id, control_port_system_id) VALUES (?, 1, ?)`,
+    [intentSystemId, portSystemId],
+  );
+}
+
 function makeWriter(manager: QueryRunner['manager']): PendingChangeWriter {
   return new PendingChangeWriter(
     new EditActionsQueryService(manager),
@@ -135,6 +154,16 @@ function makeRepo(
     manager,
     makeUow(sessionId),
   );
+}
+
+async function getActiveActions(qr: QueryRunner, sessionId: number) {
+  return qr.manager
+    .getRepository(EditActionSchema)
+    .createQueryBuilder('editAction')
+    .where('editAction.sessionId = :sessionId', {sessionId})
+    .andWhere('editAction.validUntil IS NULL')
+    .orderBy('editAction.changeId', 'ASC')
+    .getMany();
 }
 
 describe('TypeOrmModuleRepository (integration)', () => {
@@ -184,6 +213,58 @@ describe('TypeOrmModuleRepository (integration)', () => {
       const module = await repo.findModuleForPatch(MODULE_ID, FILE_ID);
       expect(module!.dataPorts).toHaveLength(1);
       expect(module!.dataPorts[0].systemId).toBe(600);
+    });
+  });
+
+  describe('effective module reads', () => {
+    it('treats an active module delete action as absent', async () => {
+      await seedModule(ds);
+      const sessionId = await seedSession(ds);
+      await qr.manager.getRepository(EditActionSchema).insert({
+        sessionId,
+        aggregateId: MODULE_ID,
+        targetSystemId: MODULE_ID,
+        targetTable: ENTITY_NAMES.SpfModule,
+        operation: CHANGE_OPERATION.Delete,
+        fieldPath: null,
+        newValue: null,
+        source: SOURCE.Manual,
+        changeStatus: CHANGE_STATUS.Unstaged,
+        groupId: 'existing-delete',
+        linkedEntityGroupId: null,
+      });
+
+      expect(
+        await makeRepo(qr.manager, sessionId).findModuleById(
+          MODULE_ID,
+          FILE_ID,
+        ),
+      ).toBeNull();
+    });
+  });
+
+  describe('getModulesWithStackSizeByContainer', () => {
+    it('uses the effective stack size from the overlaid module definition', async () => {
+      await seedModule(ds);
+      const sessionId = await seedSession(ds);
+      await makeWriter(qr.manager).writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SpfModuleDefinition,
+          targetSystemId: DEF_ID,
+          aggregateId: DEF_ID,
+          delta: {stackSize: 12},
+        },
+        sessionId,
+        'definition-update',
+        qr.manager,
+      );
+
+      const result = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).getModulesWithStackSizeByContainer(CONTAINER_ID, FILE_ID);
+
+      expect(result).toEqual([{moduleSystemId: MODULE_ID, stackSize: 12}]);
     });
   });
 
@@ -241,6 +322,67 @@ describe('TypeOrmModuleRepository (integration)', () => {
         [sessionId, 600, CHANGE_OPERATION.Delete],
       );
       expect(rows).toHaveLength(1);
+    });
+  });
+
+  describe('deleteModule', () => {
+    it('records deletes for module-owned rows under one operation group', async () => {
+      await seedModule(ds);
+      await seedDataPort(ds, 600);
+      await seedControlPort(ds, 601);
+      await seedIntent(ds, 701, 601);
+      const sessionId = await seedSession(ds);
+
+      await makeRepo(qr.manager, sessionId).deleteModule(MODULE_ID, FILE_ID);
+
+      const actions = await getActiveActions(qr, sessionId);
+      const deletes = actions.filter(
+        action => action.operation === CHANGE_OPERATION.Delete,
+      );
+      expect(
+        deletes.map(action => ({
+          targetTable: action.targetTable,
+          targetSystemId: action.targetSystemId,
+          aggregateId: action.aggregateId,
+          groupId: action.groupId,
+        })),
+      ).toEqual(
+        expect.arrayContaining([
+          {
+            targetTable: ENTITY_NAMES.Intent,
+            targetSystemId: 701,
+            aggregateId: MODULE_ID,
+            groupId: 'test-group',
+          },
+          {
+            targetTable: ENTITY_NAMES.DataPort,
+            targetSystemId: 600,
+            aggregateId: MODULE_ID,
+            groupId: 'test-group',
+          },
+          {
+            targetTable: ENTITY_NAMES.ControlPort,
+            targetSystemId: 601,
+            aggregateId: MODULE_ID,
+            groupId: 'test-group',
+          },
+          {
+            targetTable: ENTITY_NAMES.SpfModule,
+            targetSystemId: MODULE_ID,
+            aggregateId: MODULE_ID,
+            groupId: 'test-group',
+          },
+          {
+            targetTable: ENTITY_NAMES.Node,
+            targetSystemId: MODULE_ID,
+            aggregateId: MODULE_ID,
+            groupId: 'test-group',
+          },
+        ]),
+      );
+      expect(new Set(deletes.map(action => action.groupId))).toEqual(
+        new Set(['test-group']),
+      );
     });
   });
 });

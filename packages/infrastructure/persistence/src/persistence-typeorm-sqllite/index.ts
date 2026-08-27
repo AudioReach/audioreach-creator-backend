@@ -27,4 +27,3 @@ export {TypeOrmControlLinkRepository} from './repositories/control-link/control-
 export {TypeOrmSubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
 export {TypeOrmSubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
 export {TypeOrmUsecaseRepository} from './repositories/usecase/use-case.repository.js';
-export {TypeOrmPropertyDefinitionsRepository} from './repositories/property-definitions/property-definitions.repository.js';

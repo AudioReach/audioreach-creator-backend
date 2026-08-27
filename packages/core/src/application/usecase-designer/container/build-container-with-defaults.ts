@@ -5,6 +5,7 @@
 
 import {Container} from '../../../domain/entities/usecase-data/container/container.js';
 import {ContainerPropertyValue} from '../../../domain/entities/usecase-data/container/value-objects/container-property.js';
+import type {PropertyDefinition} from '../../../domain/entities/definitions/common/entities/property-definition.js';
 import {CONTAINER_PROP_ID_STACK_SIZE} from '../../file-operations/shared/constants/spf-ids.js';
 import {encodeStackSize} from '../../../domain/services/container-property/container-stack-size-codec.js';
 
@@ -14,8 +15,6 @@ export interface ContainerInit {
   containerTypeSystemId: number;
   fileSystemId: number;
 }
-
-import type {ContainerPropertyDefinitionRecord} from '../../ports/persistence/repositories/property-definitions/property-definitions.repository.js';
 
 /**
  * Builds a complete Container domain object with all property defaults seeded.
@@ -34,7 +33,7 @@ import type {ContainerPropertyDefinitionRecord} from '../../ports/persistence/re
  */
 export function buildContainerWithDefaults(
   init: ContainerInit,
-  propertyDefinitions: ContainerPropertyDefinitionRecord[],
+  propertyDefinitions: PropertyDefinition[],
 ): Container {
   const container = new Container(
     init.systemId,
@@ -43,11 +42,20 @@ export function buildContainerWithDefaults(
     init.fileSystemId,
   );
 
+  const stackSizeDefinition = propertyDefinitions.find(
+    propDef => propDef.propertyId === CONTAINER_PROP_ID_STACK_SIZE,
+  );
+  if (!stackSizeDefinition) {
+    throw new Error(
+      `Container property ${CONTAINER_PROP_ID_STACK_SIZE} is not defined in file ${init.fileSystemId}.`,
+    );
+  }
+
   // Stack size is always 0 at creation time — recalculated on module placement.
   container.properties.set(
-    CONTAINER_PROP_ID_STACK_SIZE,
+    stackSizeDefinition.systemId,
     new ContainerPropertyValue(
-      CONTAINER_PROP_ID_STACK_SIZE,
+      stackSizeDefinition.systemId,
       encodeStackSize(0),
     ),
   );

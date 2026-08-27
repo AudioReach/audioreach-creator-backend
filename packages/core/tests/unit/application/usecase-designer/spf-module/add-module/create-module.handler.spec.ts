@@ -6,7 +6,7 @@
 import {describe, it, expect, jest, beforeEach} from '@jest/globals';
 import {CreateModuleHandler} from '../../../../../../src/application/usecase-designer/spf-module/create-module/create-module.handler.js';
 import {CreateModuleCommand} from '../../../../../../src/application/usecase-designer/spf-module/create-module/create-module.command.js';
-import {ResourceNotFoundException} from '@arc/core';
+import {PropertyDefinition, ResourceNotFoundException} from '@arc/core';
 import type {
   UnitOfWork,
   ModuleRepository,
@@ -57,6 +57,7 @@ function makeSubgraphRepo(): SubgraphRepository {
   return {
     subgraphExists: jest.fn().mockResolvedValue(true),
     createSubgraph: jest.fn().mockResolvedValue(undefined),
+    getPropertyDefinitions: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -65,6 +66,28 @@ function makeContainerRepo(): ContainerRepository {
     containerExists: jest.fn().mockResolvedValue(true),
     getContainerById: jest.fn().mockResolvedValue(null),
     createContainer: jest.fn().mockResolvedValue(undefined),
+    getPropertyDefinitions: jest.fn().mockResolvedValue([
+      new PropertyDefinition({
+        systemId: 900,
+        fileSystemId: FILE_ID,
+        propertyId: 0x08_00_10_13,
+        name: 'Stack Size',
+        type: 'SPF',
+        elementsStructure: '',
+        maxSize: 4,
+      }),
+    ]),
+    getPropertyDefinitionByPropertyId: jest.fn().mockResolvedValue(
+      new PropertyDefinition({
+        systemId: 900,
+        fileSystemId: FILE_ID,
+        propertyId: 0x08_00_10_13,
+        name: 'Stack Size',
+        type: 'SPF',
+        elementsStructure: '',
+        maxSize: 4,
+      }),
+    ),
     getPropertyData: jest.fn().mockResolvedValue(null),
     setPropertyData: jest.fn().mockResolvedValue(undefined),
   };
@@ -132,10 +155,6 @@ function makeUow(
     getSubsystemRepository: jest
       .fn()
       .mockReturnValue(overrides.subsystemRepo ?? makeSubsystemRepo()),
-    getPropertyDefinitionsRepository: jest.fn().mockReturnValue({
-      findSubgraphPropertyDefinitions: jest.fn().mockResolvedValue([]),
-      findContainerPropertyDefinitions: jest.fn().mockResolvedValue([]),
-    }),
   } as unknown as UnitOfWork;
 }
 
@@ -201,7 +220,7 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
     const createdContainer = (
       containerRepo.createContainer as ReturnType<typeof jest.fn>
     ).mock.calls[0][0];
-    expect(createdContainer.properties.has(0x08001013)).toBe(true);
+    expect(createdContainer.properties.has(900)).toBe(true);
   });
 
   it('uses first containerTypesSystemIds entry for the new container', async () => {

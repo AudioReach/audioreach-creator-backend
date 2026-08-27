@@ -31,6 +31,32 @@ export interface CkvPayloadUpdate {
  * can compute intent availability without an extra query.
  */
 export interface ModuleRepository {
+  findModuleById(
+    systemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase | null>;
+
+  findModulesByContainerId(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase[]>;
+
+  findModulesBySubgraphId(
+    subgraphSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase[]>;
+
+  deleteModule(
+    moduleSystemId: number,
+    fileSystemId: number,
+    options?: EditOptions,
+  ): Promise<void>;
+
+  getModulesWithStackSizeByContainer(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<Array<{moduleSystemId: number; stackSize: number}>>;
+
   /**
    * Returns SpfModule with dataPorts and controlPorts (including intentIds)
    * loaded with session overlay applied. Returns null when not found.

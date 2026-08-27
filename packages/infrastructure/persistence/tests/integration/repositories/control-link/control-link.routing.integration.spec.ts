@@ -17,6 +17,9 @@ import {
   getTestRepository,
 } from '../../helpers/test-database-setup.js';
 import {TypeOrmControlLinkRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/control-link/control-link.repository.js';
+import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
+import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
+import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -133,7 +136,14 @@ function makeRepo(
       groupId: 'test-group',
     }),
   } as any;
-  return new TypeOrmControlLinkRepository(manager, uow);
+  return new TypeOrmControlLinkRepository(
+    new PendingChangeWriter(
+      new EditActionsQueryService(manager),
+      new PendingChangeCache(),
+    ),
+    manager,
+    uow,
+  );
 }
 
 describe('TypeOrmControlLinkRepository — routing methods (integration)', () => {

@@ -47,6 +47,22 @@ describe('IssueFactory', () => {
     });
   });
 
+  describe('moduleInImportedSubgraph', () => {
+    it('should identify the module and use the stable module-write code', () => {
+      const issue = IssueFactory.moduleInImportedSubgraph(42);
+
+      expect(issue.code).toBe('ARC-MOD-SUBGRAPH-IMPORTED');
+      expect(issue.message).toBe(
+        'SPF module 42 belongs to an imported subgraph.',
+      );
+      expect(issue.severity).toBe(IssueSeverity.Error);
+      expect(issue.impactedEntity).toEqual({
+        entityType: ISSUE_ENTITY_TYPE.SpfModule,
+        systemId: 42,
+      });
+    });
+  });
+
   describe('dbError', () => {
     it('should produce a DB_QUERY_FAILED issue with severity Error', () => {
       const issue = IssueFactory.dbError('connection timeout');

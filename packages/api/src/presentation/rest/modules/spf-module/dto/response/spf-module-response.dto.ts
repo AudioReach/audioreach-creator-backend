@@ -133,7 +133,8 @@ export class AddCkvsResponseDto {
  *
  * deleted.spfModules: always exactly one entry — the deleted module.
  * deleted.subgraphs:  one entry if this was the last module in its subgraph; absent otherwise.
- * deleted.containers: IDs of containers in the deleted subgraph that are cascade-deleted; absent otherwise.
+ * deleted.containers: the module container when it is cascade-deleted; absent otherwise.
+ * updated.containers: the surviving module container with its recalculated stack size; empty otherwise.
  * deleted.dataLinks:  IDs of all DataLinks cascade-deleted from the module's data ports.
  * deleted.controlLinks: IDs of all ControlLinks cascade-deleted from the module's control ports.
  */

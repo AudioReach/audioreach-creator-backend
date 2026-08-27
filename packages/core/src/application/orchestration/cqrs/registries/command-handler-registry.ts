@@ -105,6 +105,8 @@ import {UpdateProjectCommand} from '../../../project/update/update-project.comma
 import {UpdateProjectHandler} from '../../../project/update/update-project.handler.js';
 import {DeleteProjectCommand} from '../../../project/delete/delete-project.command.js';
 import {DeleteProjectHandler} from '../../../project/delete/delete-project.handler.js';
+import {DeleteSpfModuleCommand} from '../../../usecase-designer/spf-module/delete/delete-spf-module.command.js';
+import {DeleteSpfModuleHandler} from '../../../usecase-designer/spf-module/delete/delete-spf-module.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -262,6 +264,9 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(DeleteProjectCommand, {
       create: deps => new DeleteProjectHandler(deps.uow),
+    });
+    this.commandHandlerFactories.set(DeleteSpfModuleCommand, {
+      create: deps => new DeleteSpfModuleHandler(deps.uow, deps.logger),
     });
   }
 }

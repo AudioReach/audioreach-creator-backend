@@ -164,9 +164,8 @@ export class CreateModuleHandler implements CommandHandler<
         fileSystemId,
         NaturalIdType.SUBGRAPH,
       );
-      const sgPropDefs = await this.uow
-        .getPropertyDefinitionsRepository()
-        .findSubgraphPropertyDefinitions(fileSystemId);
+      const sgPropDefs =
+        await subgraphRepo.getPropertyDefinitions(fileSystemId);
       const subgraph = buildSubgraphWithDefaults(
         {
           systemId: subgraphSystemId,
@@ -208,9 +207,8 @@ export class CreateModuleHandler implements CommandHandler<
         fileSystemId,
         NaturalIdType.CONTAINER,
       );
-      const ctrPropDefs = await this.uow
-        .getPropertyDefinitionsRepository()
-        .findContainerPropertyDefinitions(fileSystemId);
+      const ctrPropDefs =
+        await containerRepo.getPropertyDefinitions(fileSystemId);
       const container = buildContainerWithDefaults(
         {
           systemId: containerSystemId,

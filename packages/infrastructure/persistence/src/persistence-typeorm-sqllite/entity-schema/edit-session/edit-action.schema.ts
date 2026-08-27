@@ -126,7 +126,7 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
   indices: [
     {
       name: 'uniq_edit_actions_current',
-      columns: ['sessionId', 'targetSystemId', 'fieldPath'],
+      columns: ['sessionId', 'targetTable', 'targetSystemId', 'fieldPath'],
       unique: true,
       where: '"valid_until" IS NULL',
     },
@@ -135,7 +135,7 @@ export const EditActionSchema = new EntitySchema<EditActionRow>({
       // index does NOT enforce uniqueness for accumulator rows (fieldPath IS NULL).
       // This separate index covers that case.
       name: 'uniq_edit_actions_current_null_path',
-      columns: ['sessionId', 'targetSystemId'],
+      columns: ['sessionId', 'targetTable', 'targetSystemId'],
       unique: true,
       where: '"valid_until" IS NULL AND "field_path" IS NULL',
     },
