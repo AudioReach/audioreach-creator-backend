@@ -54,7 +54,7 @@ import {DynamicIntentDefFetcher} from '../../fetchers/definitions/spf-module-def
 import type {DynamicIntentDefinitionBase} from '../../entity-schema/definitions/module/spf/dynamic-intent-definition.schema.js';
 import {SpfModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
 import type {SpfModuleParameterDefinitionBase} from '../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
-import {ModuleNodeOverlayFetcher} from '../../fetchers/module-node-overlay-fetcher.js';
+import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
 import {ProcessorDefinitionFetcher} from '../../fetchers/definitions/common/processor-definition-fetcher.js';
 import {ContainerTypeFetcher} from '../../fetchers/definitions/container/container-type-fetcher.js';
 import {ModuleManagerDataFetcher} from '../../fetchers/module-manager/module-manager-data-fetcher.js';
@@ -91,7 +91,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   private readonly staticPortFetcher: StaticControlPortDefFetcher;
   private readonly dynamicIntentFetcher: DynamicIntentDefFetcher;
   private readonly paramFetcher: SpfModuleParameterDefinitionFetcher;
-  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
+  private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
   private readonly processorFetcher: ProcessorDefinitionFetcher;
   private readonly containerTypeFetcher: ContainerTypeFetcher;
   private readonly moduleManagerFetcher: ModuleManagerDataFetcher;
@@ -120,7 +120,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       dataSource.manager,
       editActionsSvc,
     );
-    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
+    this.spfModuleFetcher = new SpfModuleOverlayFetcher(
       dataSource.manager,
       editActionsSvc,
     );
@@ -145,15 +145,23 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): Promise<Result<number>> {
     try {
       // definitionSystemId can change in a session — must apply overlay (FR-3).
-      // No fileSystemId is available here; moduleNodeFetcher.resolveDefinitionSystemId
-      // queries by systemId alone (globally unique PK — no file scope needed).
-      const sessionId =
-        await this.resolveSessionIdByModuleSystemId(spfModuleSystemId);
-      const definitionSystemId =
-        await this.moduleNodeFetcher.getDefinitionSystemId(
-          spfModuleSystemId,
-          sessionId,
-        );
+      const {fileSystemId, sessionId} =
+        await this.resolveSessionContextByModuleSystemId(spfModuleSystemId);
+      if (fileSystemId === null) {
+        return Result.fail({
+          code: ERROR_CODES.ENTITY_NOT_FOUND,
+          message: `SpfModule not found for systemId=${spfModuleSystemId} — cannot resolve definition system ID`,
+          severity: IssueSeverity.Error,
+        });
+      }
+      const spfRows = await this.spfModuleFetcher.fetchMany(
+        fileSystemId,
+        sessionId,
+        {
+          systemId: spfModuleSystemId,
+        },
+      );
+      const definitionSystemId = spfRows.at(0)?.definitionSystemId ?? null;
 
       if (definitionSystemId === null) {
         return Result.fail({
@@ -538,9 +546,9 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
    * Resolves sessionId scoped to the file that owns the given module.
    * Used by getModuleDefinitionSystemId where fileSystemId is not available.
    */
-  private async resolveSessionIdByModuleSystemId(
+  private async resolveSessionContextByModuleSystemId(
     moduleSystemId: number,
-  ): Promise<number | null> {
+  ): Promise<{fileSystemId: number | null; sessionId: number | null}> {
     // Look up fileSystemId from the module baseline row, then resolve session.
     const row = (await this.dataSource
       .getRepository(ENTITY_NAMES.SpfModule)
@@ -548,8 +556,12 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       .select('m.fileSystemId')
       .where('m.systemId = :id', {id: moduleSystemId})
       .getOne()) as {fileSystemId: number} | null;
-    if (!row) return null;
-    return resolveActiveSessionId(this.dataSource, row.fileSystemId);
+    if (!row) return {fileSystemId: null, sessionId: null};
+    const sessionId = await resolveActiveSessionId(
+      this.dataSource,
+      row.fileSystemId,
+    );
+    return {fileSystemId: row.fileSystemId, sessionId};
   }
 
   /**

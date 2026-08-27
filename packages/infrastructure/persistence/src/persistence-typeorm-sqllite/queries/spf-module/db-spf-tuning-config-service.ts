@@ -37,7 +37,7 @@ import {
   type OverlaidModuleTagIdMap,
   type OverlaidTkv,
 } from '../../fetchers/tkv-overlay-fetcher.js';
-import {ModuleNodeOverlayFetcher} from '../../fetchers/module-node-overlay-fetcher.js';
+import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
 import {SpfModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
 import type {SpfModuleParameterDefinitionBase} from '../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
 
@@ -45,7 +45,7 @@ import type {SpfModuleParameterDefinitionBase} from '../../entity-schema/definit
  * Database implementation of SpfTuningConfigService.
  *
  * All overlay delegated to fetchers (FR-3):
- *   ModuleNodeOverlayFetcher   — existence check for the SpfModule root
+ *   SpfModuleOverlayFetcher      — existence check for the SpfModule root
  *   CkvOverlayFetcher          — Ckv rows and CkvParameterPayload rows
  *   TkvOverlayFetcher          — ModuleTagIdMap + Tkv rows
  *   SpfModuleParameterDefinitionFetcher — parameter definitions for CkvParamReadModel
@@ -60,7 +60,7 @@ import type {SpfModuleParameterDefinitionBase} from '../../entity-schema/definit
 export class DbSpfTuningConfigService implements SpfTuningConfigService {
   private readonly ckvFetcher: CkvOverlayFetcher;
   private readonly tkvFetcher: TkvOverlayFetcher;
-  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
+  private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
   private readonly paramFetcher: SpfModuleParameterDefinitionFetcher;
 
   constructor(
@@ -71,7 +71,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   ) {
     this.ckvFetcher = new CkvOverlayFetcher(dataSource.manager, editActionsSvc);
     this.tkvFetcher = new TkvOverlayFetcher(dataSource.manager, editActionsSvc);
-    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
+    this.spfModuleFetcher = new SpfModuleOverlayFetcher(
       dataSource.manager,
       editActionsSvc,
     );
@@ -94,11 +94,12 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       );
 
       // Verify the SpfModule exists with session overlay — deleted module = not found.
-      const module = await this.moduleNodeFetcher.fetchOne(
-        spfModuleSystemId,
+      const spfRowsCkv = await this.spfModuleFetcher.fetchMany(
         fileSystemId,
         sessionId,
+        {systemId: spfModuleSystemId},
       );
+      const module = spfRowsCkv.at(0) ?? null;
       if (module === null) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,
@@ -177,11 +178,15 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       if (payloads.length === 0) return Result.ok([]);
 
       // Step 2 — load parameter definitions for the module's definition (FR-3).
-      // resolveDefinitionSystemId returns null if the module was deleted in session.
-      const defSystemId = await this.moduleNodeFetcher.getDefinitionSystemId(
-        moduleSystemId,
+      // fetchById returns null if the module was deleted in session.
+      const spfRows = await this.spfModuleFetcher.fetchMany(
+        fileSystemId,
         sessionId,
+        {
+          systemId: moduleSystemId,
+        },
       );
+      const defSystemId = spfRows.at(0)?.definitionSystemId ?? null;
       if (defSystemId === null) return Result.ok([]);
 
       const paramDefs =
@@ -225,11 +230,12 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       );
 
       // Verify the SpfModule exists with session overlay — deleted module = not found.
-      const module = await this.moduleNodeFetcher.fetchOne(
-        spfModuleSystemId,
+      const spfRowsTkv = await this.spfModuleFetcher.fetchMany(
         fileSystemId,
         sessionId,
+        {systemId: spfModuleSystemId},
       );
+      const module = spfRowsTkv.at(0) ?? null;
       if (module === null) {
         return Result.fail({
           code: ERROR_CODES.ENTITY_NOT_FOUND,

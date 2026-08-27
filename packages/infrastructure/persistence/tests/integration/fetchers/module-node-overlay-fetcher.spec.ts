@@ -17,7 +17,7 @@ import {
   getTestRepository,
 } from '../helpers/test-database-setup.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
-import {ModuleNodeOverlayFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/module-node-overlay-fetcher.js';
+import {SpfModuleOverlayFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/spf-module-overlay-fetcher.js';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -130,10 +130,10 @@ async function seedEditAction(
   );
 }
 
-describe('ModuleNodeOverlayFetcher (integration)', () => {
+describe('SpfModuleOverlayFetcher (integration)', () => {
   let ds: DataSource;
   let qr: QueryRunner;
-  let fetcher: ModuleNodeOverlayFetcher;
+  let fetcher: SpfModuleOverlayFetcher;
 
   beforeAll(async () => {
     await setupIntegrationTest();
@@ -147,7 +147,7 @@ describe('ModuleNodeOverlayFetcher (integration)', () => {
     await seedProjectAndFile(ds);
     qr = ds.createQueryRunner();
     await qr.connect();
-    fetcher = new ModuleNodeOverlayFetcher(
+    fetcher = new SpfModuleOverlayFetcher(
       qr.manager,
       new EditActionsQueryService(qr.manager),
     );
@@ -156,16 +156,22 @@ describe('ModuleNodeOverlayFetcher (integration)', () => {
     await qr.release();
   });
 
-  it('returns null when module not in DB and sessionId is null', async () => {
-    expect(await fetcher.fetchOne(MODULE_ID, FILE_ID, null)).toBeNull();
+  it('returns undefined when module not in DB and sessionId is null', async () => {
+    const result = await fetcher.fetchMany(FILE_ID, null, {
+      systemId: MODULE_ID,
+    });
+    expect(result.at(0)).toBeUndefined();
   });
 
   it('returns base module row when sessionId is null', async () => {
     await seedModule(ds, {alias: 'base-alias'});
-    const result = await fetcher.fetchOne(MODULE_ID, FILE_ID, null);
-    expect(result).not.toBeNull();
-    expect(result!.alias).toBe('base-alias');
-    expect(result!.systemId).toBe(MODULE_ID);
+    const result = await fetcher.fetchMany(FILE_ID, null, {
+      systemId: MODULE_ID,
+    });
+    const row = result.at(0);
+    expect(row).not.toBeUndefined();
+    expect(row!.alias).toBe('base-alias');
+    expect(row!.systemId).toBe(MODULE_ID);
   });
 
   it('applies UPDATE overlay to alias', async () => {
@@ -180,11 +186,13 @@ describe('ModuleNodeOverlayFetcher (integration)', () => {
       fieldPath: 'alias',
       newValue: '"new"',
     });
-    const result = await fetcher.fetchOne(MODULE_ID, FILE_ID, sessionId);
-    expect(result!.alias).toBe('new');
+    const result = await fetcher.fetchMany(FILE_ID, sessionId, {
+      systemId: MODULE_ID,
+    });
+    expect(result.at(0)!.alias).toBe('new');
   });
 
-  it('returns null when session DELETE tombstones the module', async () => {
+  it('returns empty when session DELETE tombstones the module', async () => {
     await seedModule(ds);
     const sessionId = await seedSession(ds);
     await seedEditAction(ds, {
@@ -195,13 +203,18 @@ describe('ModuleNodeOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Delete,
       newValue: '{}',
     });
-    expect(await fetcher.fetchOne(MODULE_ID, FILE_ID, sessionId)).toBeNull();
+    const result = await fetcher.fetchMany(FILE_ID, sessionId, {
+      systemId: MODULE_ID,
+    });
+    expect(result).toHaveLength(0);
   });
 
   it('returns base row unchanged for a session with no actions for this module', async () => {
     await seedModule(ds, {alias: 'stable'});
     const sessionId = await seedSession(ds);
-    const result = await fetcher.fetchOne(MODULE_ID, FILE_ID, sessionId);
-    expect(result!.alias).toBe('stable');
+    const result = await fetcher.fetchMany(FILE_ID, sessionId, {
+      systemId: MODULE_ID,
+    });
+    expect(result.at(0)!.alias).toBe('stable');
   });
 });

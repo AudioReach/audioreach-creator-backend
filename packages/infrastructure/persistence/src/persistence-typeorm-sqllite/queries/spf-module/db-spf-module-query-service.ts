@@ -21,9 +21,13 @@ import {
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {
-  ModuleNodeOverlayFetcher,
+  SpfModuleOverlayFetcher,
   type OverlaidSpfModule,
-} from '../../fetchers/module-node-overlay-fetcher.js';
+} from '../../fetchers/spf-module-overlay-fetcher.js';
+import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
+import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
+import {UseCaseCategoryFetcher} from '../../fetchers/usecase-category-fetcher.js';
+import {UsecaseGkvValuesFetcher} from '../../fetchers/usecase-gkv-values-fetcher.js';
 import {DbCkvCalibrationQueryService} from '../module-calibration/db-ckv-calibration-query-service.js';
 import type {SubgraphRow} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {ContainerRow} from '../../entity-schema/usecase-data/container/container.schema.js';
@@ -82,7 +86,7 @@ interface DefinitionCapabilityData {
  * resolve cross-table counts.
  *
  * Assembly order:
- *   Step 1: ModuleNodeOverlayFetcher — Node + SpfModule scalars with overlay
+ *   Step 1: SpfModuleOverlayFetcher + NodeOverlayFetcher — Node + SpfModule scalars with overlay
  *   Step 2: Per unique definition —
  *             SpfModuleDefinitionFetcher   (root; null = definition absent, FR-8 Rule 1)
  *             DataPortGroupFetcher         (port groups → data port names + max counts)
@@ -94,7 +98,9 @@ interface DefinitionCapabilityData {
 export class DbSpfModuleQueryService implements SpfModuleQueryService {
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly ckvQueryService: CkvQueryService;
-  private readonly moduleNodeFetcher: ModuleNodeOverlayFetcher;
+  private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
+  private readonly nodeFetcher: NodeOverlayFetcher;
+  private readonly usecaseFetcher: UsecaseOverlayFetcher;
   private readonly portFetcher: PortOverlayFetcher;
   private readonly defFetcher: SpfModuleDefinitionFetcher;
   private readonly portGroupFetcher: DataPortGroupFetcher;
@@ -103,7 +109,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
 
   constructor(
     private readonly dataSource: DataSource,
-    editActionsSvc: EditActionsQueryService,
+    editActionsQuerySvc: EditActionsQueryService,
     tuningConfigSvc: SpfTuningConfigService,
     keyValueDefQuerySvc: KeyValueDefQueryService,
     private readonly sessionRepo: ISessionRepository,
@@ -111,32 +117,42 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     this.spfTuningConfigService = tuningConfigSvc;
     this.ckvQueryService = new DbCkvCalibrationQueryService(
       dataSource,
-      editActionsSvc,
+      editActionsQuerySvc,
       keyValueDefQuerySvc,
     );
-    this.moduleNodeFetcher = new ModuleNodeOverlayFetcher(
+    this.spfModuleFetcher = new SpfModuleOverlayFetcher(
       dataSource.manager,
-      editActionsSvc,
+      editActionsQuerySvc,
+    );
+    this.nodeFetcher = new NodeOverlayFetcher(
+      dataSource.manager,
+      editActionsQuerySvc,
+    );
+    this.usecaseFetcher = new UsecaseOverlayFetcher(
+      dataSource.manager,
+      editActionsQuerySvc,
+      new UseCaseCategoryFetcher(dataSource.manager, editActionsQuerySvc),
+      new UsecaseGkvValuesFetcher(dataSource.manager, editActionsQuerySvc),
     );
     this.portFetcher = new PortOverlayFetcher(
       dataSource.manager,
-      editActionsSvc,
+      editActionsQuerySvc,
     );
     this.defFetcher = new SpfModuleDefinitionFetcher(
       dataSource.manager,
-      editActionsSvc,
+      editActionsQuerySvc,
     );
     this.portGroupFetcher = new DataPortGroupFetcher(
       dataSource.manager,
-      editActionsSvc,
+      editActionsQuerySvc,
     );
     this.staticPortFetcher = new StaticControlPortDefFetcher(
       dataSource.manager,
-      editActionsSvc,
+      editActionsQuerySvc,
     );
     this.linkFetcher = new LinkOverlayFetcher(
       dataSource.manager,
-      editActionsSvc,
+      editActionsQuerySvc,
     );
   }
 
@@ -168,26 +184,28 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     if (usecaseSystemIds.length === 0) return Result.ok([]);
 
     try {
-      const {nodeIds, subgraphIds} =
-        await this.moduleNodeFetcher.loadBaselineNodeIdsForUsecases(
-          usecaseSystemIds,
-          fileSystemId,
-        );
-
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      if (session) {
-        await this.moduleNodeFetcher.applySessionOverlayToNodesForUsecases(
+      const sessionId = session?.sessionId ?? null;
+
+      // Step 1: UseCase → Subgraph IDs (with UseCaseSubgraph session overlay).
+      const subgraphIds =
+        await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
           usecaseSystemIds,
-          subgraphIds,
-          nodeIds,
-          session.sessionId,
+          sessionId,
         );
-      }
+      if (subgraphIds.length === 0) return Result.ok([]);
 
-      if (nodeIds.size === 0) return Result.ok([]);
+      // Step 2: Subgraph → SpfModule (with SpfModule session overlay).
+      const modules = await this.spfModuleFetcher.fetchMany(
+        fileSystemId,
+        sessionId,
+        {subgraphSystemId: subgraphIds},
+      );
+      const nodeIds = modules.map(m => m.systemId);
+      if (nodeIds.length === 0) return Result.ok([]);
 
-      return this.getSpfModules([...nodeIds], fileSystemId);
+      return this.getSpfModules(nodeIds, fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -205,24 +223,18 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     fileSystemId: number,
   ): Promise<Result<SpfModuleReadModel[]>> {
     try {
-      const nodeIds =
-        await this.moduleNodeFetcher.loadBaselineNodeIdsForSubgraph(
-          subgraphId,
-          fileSystemId,
-        );
-
       const session =
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-      if (session) {
-        await this.moduleNodeFetcher.applySessionOverlayToNodesForSubgraph(
-          subgraphId,
-          nodeIds,
-          session.sessionId,
-        );
-      }
+      const sessionId = session?.sessionId ?? null;
 
-      if (nodeIds.size === 0) return Result.ok([]);
-      return this.getSpfModules([...nodeIds], fileSystemId);
+      const modules = await this.spfModuleFetcher.fetchMany(
+        fileSystemId,
+        sessionId,
+        {subgraphSystemId: subgraphId},
+      );
+      const nodeIds = modules.map(m => m.systemId);
+      if (nodeIds.length === 0) return Result.ok([]);
+      return this.getSpfModules(nodeIds, fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -529,12 +541,17 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     sessionId: number | null,
   ): Promise<Result<ModuleRootData[]>> {
     try {
-      const overlaidModules: OverlaidSpfModule[] =
-        await this.moduleNodeFetcher.fetchOverLayedSpfModules(
-          nodeSystemIds,
-          fileSystemId,
-          sessionId,
-        );
+      const [spfRows, nodeRows] = await Promise.all([
+        this.spfModuleFetcher.fetchMany(fileSystemId, sessionId, {
+          systemId: nodeSystemIds,
+        }),
+        this.nodeFetcher.fetchMany(nodeSystemIds, fileSystemId, sessionId),
+      ]);
+      const nodeMap = new Map(nodeRows.map(n => [n.systemId, n]));
+      const overlaidModules: OverlaidSpfModule[] = spfRows.map(sm => ({
+        ...sm,
+        parentId: nodeMap.get(sm.systemId)?.parentId ?? null,
+      }));
 
       if (overlaidModules.length === 0) return Result.ok([]);
 
