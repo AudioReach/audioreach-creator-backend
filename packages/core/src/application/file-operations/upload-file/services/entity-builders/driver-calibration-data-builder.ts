@@ -82,11 +82,10 @@ export class DriverCalibrationDataBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Built driver calibration data: ${dkvDataWithModules.length} DkvData entries for ${dkvDataByModule.size} modules`,
-      action: 'driver_calibration_data_built',
+      msg: 'driver_calibration_data_built',
+      description: `Built driver calibration data: ${dkvDataWithModules.length} DkvData entries for ${dkvDataByModule.size} modules`,
       component: 'DriverCalibrationDataBuilder',
       tag: 'driver-calibration-building',
-      timestamp: new Date(),
     });
 
     return dkvDataByModule;
@@ -157,11 +156,10 @@ export class DriverCalibrationDataBuilder {
         dkvDataWithModules.push(...result);
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to process module ${moduleLookup.moduleDefinitionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'module_processing_failed',
+          msg: 'module_processing_failed',
+          description: `Failed to process module ${moduleLookup.moduleDefinitionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'DriverCalibrationDataBuilder',
           tag: 'driver-calibration-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -189,11 +187,10 @@ export class DriverCalibrationDataBuilder {
 
       if (!keyIds) {
         this.logger?.logWarn({
-          msg: `Calibration key table not found for module ${moduleLookup.moduleDefinitionId}`,
-          action: 'missing_cal_key_table',
+          msg: 'missing_cal_key_table',
+          description: `Calibration key table not found for module ${moduleLookup.moduleDefinitionId}`,
           component: 'DriverCalibrationDataBuilder',
           tag: 'driver-calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -205,11 +202,10 @@ export class DriverCalibrationDataBuilder {
 
       if (!ckvLutTbl) {
         this.logger?.logWarn({
-          msg: `CKV LUT table not found for module ${moduleLookup.moduleDefinitionId}`,
-          action: 'missing_ckv_lut_table',
+          msg: 'missing_ckv_lut_table',
+          description: `CKV LUT table not found for module ${moduleLookup.moduleDefinitionId}`,
           component: 'DriverCalibrationDataBuilder',
           tag: 'driver-calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -253,11 +249,10 @@ export class DriverCalibrationDataBuilder {
     const defEntry = driverCalChunk.getCalDefinitionEntry(offsetCalDefTable);
     if (!defEntry) {
       this.logger?.logWarn({
-        msg: `DEF entry not found for offset ${offsetCalDefTable}`,
-        action: 'missing_def_entry',
+        msg: 'missing_def_entry',
+        description: `DEF entry not found for offset ${offsetCalDefTable}`,
         component: 'DriverCalibrationDataBuilder',
         tag: 'driver-calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -266,11 +261,10 @@ export class DriverCalibrationDataBuilder {
     const dotEntry = driverCalChunk.getCalDataOffsetEntry(offsetCalDataOffset);
     if (!dotEntry) {
       this.logger?.logWarn({
-        msg: `DOT entry not found for offset ${offsetCalDataOffset}`,
-        action: 'missing_dot_entry',
+        msg: 'missing_dot_entry',
+        description: `DOT entry not found for offset ${offsetCalDataOffset}`,
         component: 'DriverCalibrationDataBuilder',
         tag: 'driver-calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -284,11 +278,11 @@ export class DriverCalibrationDataBuilder {
 
     if (keyIds.length > 0 && valueSystemIds.length === 0) {
       this.logger?.logWarn({
-        msg: 'Failed to resolve value system IDs for driver calibration',
-        action: 'value_resolution_failed',
+        msg: 'value_resolution_failed',
+        description:
+          'Failed to resolve value system IDs for driver calibration',
         component: 'DriverCalibrationDataBuilder',
         tag: 'driver-calibration-building',
-        timestamp: new Date(),
       });
       return null;
     }
@@ -333,11 +327,10 @@ export class DriverCalibrationDataBuilder {
 
     if (!datapoolChunk) {
       this.logger?.logWarn({
-        msg: 'DATAPOOL chunk not found',
-        action: 'missing_datapool',
+        msg: 'missing_datapool',
+        description: 'DATAPOOL chunk not found',
         component: 'DriverCalibrationDataBuilder',
         tag: 'driver-calibration-building',
-        timestamp: new Date(),
       });
       return payloads;
     }
@@ -350,11 +343,10 @@ export class DriverCalibrationDataBuilder {
 
     if (!moduleDefinitionSystemId) {
       this.logger?.logWarn({
-        msg: `No driver module definition systemId mapping found for moduleDefinitionId ${moduleDefinitionId}`,
-        action: 'module_definition_mapping_not_found',
+        msg: 'module_definition_mapping_not_found',
+        description: `No driver module definition systemId mapping found for moduleDefinitionId ${moduleDefinitionId}`,
         component: 'DriverCalibrationDataBuilder',
         tag: 'driver-calibration-building',
-        timestamp: new Date(),
       });
       return payloads;
     }
@@ -373,11 +365,10 @@ export class DriverCalibrationDataBuilder {
 
       if (!paramDefSystemId) {
         this.logger?.logWarn({
-          msg: `No parameter definition systemId mapping found for moduleDefinitionId ${moduleDefinitionId}, parameterId ${calIdEntry.paramId}`,
-          action: 'param_mapping_not_found',
+          msg: 'param_mapping_not_found',
+          description: `No parameter definition systemId mapping found for moduleDefinitionId ${moduleDefinitionId}, parameterId ${calIdEntry.paramId}`,
           component: 'DriverCalibrationDataBuilder',
           tag: 'driver-calibration-building',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -416,11 +407,10 @@ export class DriverCalibrationDataBuilder {
 
     if (!moduleSystemId) {
       this.logger?.logWarn({
-        msg: `No driver module systemId mapping found for moduleDefinitionId ${moduleDefinitionId}`,
-        action: 'module_mapping_not_found',
+        msg: 'module_mapping_not_found',
+        description: `No driver module systemId mapping found for moduleDefinitionId ${moduleDefinitionId}`,
         component: 'DriverCalibrationDataBuilder',
         tag: 'driver-calibration-building',
-        timestamp: new Date(),
       });
       return dkvDataWithModules;
     }
@@ -442,11 +432,10 @@ export class DriverCalibrationDataBuilder {
         dkvData.addParameterPayload(paramData);
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to add parameter payload: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          action: 'param_payload_add_failed',
+          msg: 'param_payload_add_failed',
+          description: `Failed to add parameter payload: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'DriverCalibrationDataBuilder',
           tag: 'driver-calibration-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -477,11 +466,10 @@ export class DriverCalibrationDataBuilder {
 
       if (valueSystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Failed to resolve value system ID for keyId=${keyIds[i]}, valueId=${valueIds[i]}`,
-          action: 'value_resolution_failed',
+          msg: 'value_resolution_failed',
+          description: `Failed to resolve value system ID for keyId=${keyIds[i]}, valueId=${valueIds[i]}`,
           component: 'DriverCalibrationDataBuilder',
           tag: 'driver-calibration-building',
-          timestamp: new Date(),
         });
       } else {
         valueSystemIds.push(valueSystemId);

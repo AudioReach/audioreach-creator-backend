@@ -230,9 +230,8 @@ export class ProjectController {
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
     this.logger.logInfo({
       component: 'ProjectController',
-      action: 'uploadArcDbFiles',
-      msg: 'Method called',
-      timestamp: new Date(),
+      msg: 'uploadArcDbFiles',
+      description: 'Method called',
       tag: 'file-upload',
     });
     const acdb = files?.acdbFile?.[0];
@@ -632,10 +631,9 @@ export class ProjectController {
 
     this.logger.logInfo({
       component: 'ProjectController',
-      action: 'downloadArcDbFiles',
-      msg: 'Downloading files as multipart response',
+      msg: 'downloadArcDbFiles',
+      description: 'Downloading files as multipart response',
       projectId,
-      timestamp: new Date(),
       tag: 'file-download',
     });
 
@@ -661,10 +659,9 @@ export class ProjectController {
 
     this.logger.logInfo({
       component: 'ProjectController',
-      action: 'downloadArcDbFiles',
-      msg: 'Multipart response sent successfully',
+      msg: 'downloadArcDbFiles',
+      description: 'Multipart response sent successfully',
       projectId,
-      timestamp: new Date(),
       tag: 'file-download',
     });
   }

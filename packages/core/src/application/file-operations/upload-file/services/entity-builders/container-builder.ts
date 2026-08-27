@@ -66,11 +66,10 @@ export class ContainerBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} containers with system IDs assigned, ${result.issues.length} failed, extracted ${result.containerProcessorMap.size} processor mappings`,
-      action: 'container_building_complete',
+      msg: 'container_building_complete',
+      description: `Successfully built ${result.entities.length} containers with system IDs assigned, ${result.issues.length} failed, extracted ${result.containerProcessorMap.size} processor mappings`,
       component: 'ContainerBuilder',
       tag: 'container-building',
-      timestamp: new Date(),
     });
 
     return result;
@@ -136,11 +135,10 @@ export class ContainerBuilder {
         issues.push(issue);
 
         this.logger?.logWarn({
-          msg: `Failed to convert container property (ID: ${acdbContainer.containerId}): ${errorMessage}`,
-          action: 'container_conversion_failed',
+          msg: 'container_conversion_failed',
+          description: `Failed to convert container property (ID: ${acdbContainer.containerId}): ${errorMessage}`,
           component: 'ContainerBuilder',
           tag: 'container-building',
-          timestamp: new Date(),
         });
       }
     }
@@ -176,11 +174,10 @@ export class ContainerBuilder {
 
       if (propertySystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Container property definition not found for propertyId ${propertyId} in container ${acdbContainer.containerId}`,
-          action: 'property_definition_not_found',
+          msg: 'property_definition_not_found',
+          description: `Container property definition not found for propertyId ${propertyId} in container ${acdbContainer.containerId}`,
           component: 'ContainerBuilder',
           tag: 'container-building',
-          timestamp: new Date(),
         });
         // Skip this property if definition not found
         continue;

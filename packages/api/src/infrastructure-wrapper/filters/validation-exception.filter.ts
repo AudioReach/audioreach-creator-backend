@@ -39,37 +39,31 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     // Log detailed information about the validation error
     this.logger.logError({
       component: 'ValidationFilter',
-      action: 'validationFailed',
-      msg: 'Request validation failed',
-      timestamp: new Date(),
+      msg: 'validationFailed',
+      description: 'Request validation failed',
       tag: 'validation-error',
-      error: new Error(
-        `Validation errors: ${JSON.stringify(validationErrors, null, 2)}`,
-      ),
+      error: `Validation errors: ${JSON.stringify(validationErrors, null, 2)}`,
     });
 
     // Log the request body and query parameters
     this.logger.logDebug({
       component: 'ValidationFilter',
-      action: 'requestDetails',
-      msg: 'Request details for failed validation',
-      timestamp: new Date(),
+      msg: 'requestDetails',
+      description: 'Request details for failed validation',
       tag: 'validation-debug',
-      error: new Error(
-        JSON.stringify(
-          {
-            body: request.body as Record<string, unknown>,
-            query: request.query,
-            params: request.params,
-            files: request.files as unknown,
-            headers: this.sanitizeHeaders(
-              request.headers as Record<string, string | string[] | undefined>,
-            ),
-            contentType: request.headers['content-type'],
-          },
-          null,
-          2,
-        ),
+      error: JSON.stringify(
+        {
+          body: request.body as Record<string, unknown>,
+          query: request.query,
+          params: request.params,
+          files: request.files as unknown,
+          headers: this.sanitizeHeaders(
+            request.headers as Record<string, string | string[] | undefined>,
+          ),
+          contentType: request.headers['content-type'],
+        },
+        null,
+        2,
       ),
     });
 

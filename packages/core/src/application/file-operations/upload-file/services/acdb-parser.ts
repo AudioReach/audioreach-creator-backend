@@ -106,11 +106,10 @@ export class AcdbParser {
         // Log warning for unknown parser types but don't crash
         if (this.logger) {
           this.logger.logWarn({
-            msg: `Unknown parser type encountered: ${parserType}. Skipping parsing.`,
-            action: 'parse_unknown_chunk',
+            msg: 'acdb_unknown_parser_type',
+            description: `Unknown parser type encountered: ${parserType}. Skipping parsing.`,
             component: 'AcdbParser',
             tag: 'parsing',
-            timestamp: new Date(),
           });
         }
         // Throw error as this should not happen if orchestrator is working correctly

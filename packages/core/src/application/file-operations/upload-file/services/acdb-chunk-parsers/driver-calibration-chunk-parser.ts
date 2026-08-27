@@ -63,12 +63,11 @@ export class DriverCalibrationChunkParser extends BaseChunkParser<DriverCalibrat
       const errorMsg =
         'DRIVER_CALIBRATION_KEY_TABLE, DRIVER_CALIBRATION_DATA_TABLE, DRIVER_CALIBRATION_DATA_DEF, and DRIVER_CALIBRATION_DATA_DOT chunks are not present';
       this.logger?.logWarn({
-        msg: errorMsg,
-        action: 'parse_driver_calibration_not_found',
+        msg: 'parse_driver_calibration_not_found',
+        description: errorMsg,
         component: 'DriverCalibrationChunkParser',
         tag: 'calibration-parsing',
         error: new Error(errorMsg),
-        timestamp: new Date(),
       });
       return chunk; // Return empty chunk if dependencies are missing
     }
@@ -100,23 +99,21 @@ export class DriverCalibrationChunkParser extends BaseChunkParser<DriverCalibrat
         currentOffset = newOffset;
       } catch (error) {
         this.logger?.logWarn({
-          msg: `Failed to parse module lookup entry at offset ${currentOffset}`,
-          action: 'parse_module_entry_failed',
+          msg: 'parse_module_entry_failed',
+          description: `Failed to parse module lookup entry at offset ${currentOffset}`,
           component: 'DriverCalibrationChunkParser',
           tag: 'calibration-parsing',
-          error: error as Error,
-          timestamp: new Date(),
+          error: error instanceof Error ? error : new Error(String(error)),
         });
         // Continue with next entry
       }
     }
 
     this.logger?.logInfo({
-      msg: `Parsed ${chunk.moduleLookupEntries.length} driver calibration module entries`,
-      action: 'parse_driver_calibration_success',
+      msg: 'parse_driver_calibration_success',
+      description: `Parsed ${chunk.moduleLookupEntries.length} driver calibration module entries`,
       component: 'DriverCalibrationChunkParser',
       tag: 'calibration-parsing',
-      timestamp: new Date(),
     });
 
     return chunk;

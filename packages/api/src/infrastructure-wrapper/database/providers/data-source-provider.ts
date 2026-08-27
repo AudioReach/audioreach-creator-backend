@@ -4,7 +4,7 @@
  */
 
 import {getOrmBase} from '@arc/persistence';
-import type {Logger, LogData} from '@arc/core';
+import type {Logger} from '@arc/core';
 import {Injectable, Inject} from '@nestjs/common';
 import type {OnModuleInit, OnModuleDestroy} from '@nestjs/common';
 import {getDatabasePath} from '../database-path.js';
@@ -87,25 +87,21 @@ export class DataSourceProvider implements OnModuleInit, OnModuleDestroy {
   }
 
   private logInfo(msg: string): void {
-    const logData: LogData = {
-      msg,
-      timestamp: new Date(),
-      action: 'database_initialization',
+    this.logger.logInfo({
+      msg: 'database_initialization',
+      description: msg,
       component: 'DataSourceProvider',
       tag: 'database',
-    };
-    this.logger.logInfo(logData);
+    });
   }
 
   private logError(msg: string, error: Error): void {
-    const logData: LogData = {
-      msg,
-      timestamp: new Date(),
-      action: 'database_initialization',
+    this.logger.logError({
+      msg: 'database_initialization',
+      description: msg,
       component: 'DataSourceProvider',
       tag: 'database',
-      error,
-    };
-    this.logger.logError(logData);
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
   }
 }

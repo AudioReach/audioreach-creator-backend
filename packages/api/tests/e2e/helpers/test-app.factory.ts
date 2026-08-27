@@ -10,7 +10,9 @@ import {MockJwtStrategy} from './auth.helper.js';
 import {DataSource} from 'typeorm';
 import {NodeWorkerPoolSingleton} from '@arc/fs';
 import {DataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/data-source-provider.js';
+import {LoggingDataSourceProvider} from '../../../src/infrastructure-wrapper/database/providers/logging-data-source-provider.js';
 import {getOrmBase} from '@arc/persistence';
+import {getLoggingOrmBase} from '@arc/logger';
 import {NodeBlobBytesConverter} from '../../../src/infrastructure-wrapper/database/node-blob-converter.js';
 import {AllExceptionsFilter} from '../../../src/infrastructure-wrapper/filters/all-exceptions.filter.js';
 import {ValidationExceptionFilter} from '../../../src/infrastructure-wrapper/filters/validation-exception.filter.js';
@@ -102,6 +104,32 @@ export async function createTestApp(): Promise<INestApplication> {
     }
   }
 
+  class TestLoggingDataSourceProvider extends LoggingDataSourceProvider {
+    private testInstance: DataSource | null = null;
+
+    async getDataSource(): Promise<DataSource> {
+      if (this.testInstance) {
+        return this.testInstance;
+      }
+      const newDataSource = new DataSource({
+        type: 'sqlite',
+        database: ':memory:',
+        ...getLoggingOrmBase(),
+      });
+      await newDataSource.initialize();
+      await newDataSource.synchronize();
+      this.testInstance = newDataSource;
+      return newDataSource;
+    }
+
+    async onModuleDestroy() {
+      if (this.testInstance?.isInitialized) {
+        await this.testInstance.destroy();
+        this.testInstance = null;
+      }
+    }
+  }
+
   // Create test module with AppModule and override providers
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
@@ -110,6 +138,8 @@ export async function createTestApp(): Promise<INestApplication> {
     .useClass(MockJwtStrategy)
     .overrideProvider(DataSourceProvider)
     .useClass(TestDataSourceProvider)
+    .overrideProvider(LoggingDataSourceProvider)
+    .useClass(TestLoggingDataSourceProvider)
     .compile();
 
   const app = moduleFixture.createNestApplication();

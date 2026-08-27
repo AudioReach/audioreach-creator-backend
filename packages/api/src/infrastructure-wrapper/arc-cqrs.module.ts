@@ -37,7 +37,6 @@ import {
   NodeProfilerAdapter,
   createWorkerPool,
 } from '@arc/fs';
-import {ConsoleLoggerService} from './logger/index.js';
 import {SessionGuard} from '../guards/session-guard.js';
 import {LoggingModule} from './logging.module.js';
 
@@ -159,10 +158,6 @@ import {LoggingModule} from './logging.module.js';
       scope: Scope.REQUEST,
     },
     {
-      provide: 'LOGGER',
-      useClass: ConsoleLoggerService,
-    },
-    {
       provide: 'PROFILER',
       useFactory: () => new NodeProfilerAdapter(),
     },
@@ -199,7 +194,6 @@ import {LoggingModule} from './logging.module.js';
     'COMMAND_HANDLER_REGISTRY',
     'QUERY_HANDLER_REGISTRY',
     'DATA_SOURCE',
-    'LOGGER',
     LoggingModule,
     'PROFILER',
     'WORKER_POOL',

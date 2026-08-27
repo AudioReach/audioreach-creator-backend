@@ -9,9 +9,9 @@ import {plainToInstance} from 'class-transformer';
 import {LogController} from '../../../../../../src/presentation/rest/modules/logging/logging.controller.js';
 import {CreateLogEntryRequestDto} from '../../../../../../src/presentation/rest/modules/logging/dto/create-log-entry-request.dto.js';
 import {LogLevel} from '@arc/core';
-import type {Logger1, LogEntryReadModel} from '@arc/core';
+import type {Logger, LogEntryReadModel} from '@arc/core';
 
-const makeLogger = (): jest.Mocked<Logger1> => ({
+const makeLogger = (): jest.Mocked<Logger> => ({
   logVerbose: jest.fn(),
   logDebug: jest.fn(),
   logInfo: jest.fn(),

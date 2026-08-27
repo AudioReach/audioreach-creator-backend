@@ -83,11 +83,10 @@ export class SpfModuleBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Using port strategy: ${portStrategy}`,
-      action: 'port_strategy_selected',
+      msg: 'port_strategy_selected',
+      description: `Using port strategy: ${portStrategy}`,
       component: 'SpfModuleBuilder',
       tag: 'spf-module-building',
-      timestamp: new Date(),
     });
 
     // Step 1: Build entities (systemId = 0)
@@ -127,11 +126,10 @@ export class SpfModuleBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${result.entities.length} SPF modules with system IDs assigned, ${result.issues.length} failed`,
-      action: 'spf_module_building_complete',
+      msg: 'spf_module_building_complete',
+      description: `Successfully built ${result.entities.length} SPF modules with system IDs assigned, ${result.issues.length} failed`,
       component: 'SpfModuleBuilder',
       tag: 'spf-module-building',
-      timestamp: new Date(),
     });
 
     return result;
@@ -264,11 +262,10 @@ export class SpfModuleBuilder {
     } catch (error) {
       // Log warning but don't fail the entire build
       this.logger?.logWarn({
-        msg: `Failed to attach calibration data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        action: 'calibration_attachment_failed',
+        msg: 'calibration_attachment_failed',
+        description: `Failed to attach calibration data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         component: 'SpfModuleBuilder',
         tag: 'calibration-attachment',
-        timestamp: new Date(),
       });
     }
   }
@@ -336,11 +333,10 @@ export class SpfModuleBuilder {
    */
   private logTagDataSuccess(moduleCount: number): void {
     this.logger?.logInfo({
-      msg: `Attached tag data to ${moduleCount} SPF modules`,
-      action: 'tag_data_attached',
+      msg: 'tag_data_attached',
+      description: `Attached tag data to ${moduleCount} SPF modules`,
       component: 'SpfModuleBuilder',
       tag: 'tag-attachment',
-      timestamp: new Date(),
     });
   }
 
@@ -349,11 +345,10 @@ export class SpfModuleBuilder {
    */
   private logTagDataFailure(error: unknown): void {
     this.logger?.logWarn({
-      msg: `Failed to attach tag data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      action: 'tag_attachment_failed',
+      msg: 'tag_attachment_failed',
+      description: `Failed to attach tag data: ${error instanceof Error ? error.message : 'Unknown error'}`,
       component: 'SpfModuleBuilder',
       tag: 'tag-attachment',
-      timestamp: new Date(),
     });
   }
 
@@ -523,11 +518,10 @@ export class SpfModuleBuilder {
 
   private logConversionError(instanceId: number, error: unknown): void {
     this.logger?.logWarn({
-      msg: `Failed to convert module instance ${instanceId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      action: 'spf_module_conversion_failed',
+      msg: 'spf_module_conversion_failed',
+      description: `Failed to convert module instance ${instanceId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       component: 'SpfModuleBuilder',
       tag: 'spf-module-building',
-      timestamp: new Date(),
     });
   }
 

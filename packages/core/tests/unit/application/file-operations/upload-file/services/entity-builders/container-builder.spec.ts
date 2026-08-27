@@ -156,10 +156,10 @@ describe('ContainerBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining(
+            msg: 'container_building_complete',
+            description: expect.stringContaining(
               'Successfully built 1 containers with system IDs assigned',
             ),
-            action: 'container_building_complete',
             component: 'ContainerBuilder',
           }),
         );
@@ -342,10 +342,10 @@ describe('ContainerBuilder', () => {
 
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining(
+            msg: 'container_conversion_failed',
+            description: expect.stringContaining(
               'Failed to convert container property',
             ),
-            action: 'container_conversion_failed',
             component: 'ContainerBuilder',
           }),
         );
@@ -483,10 +483,10 @@ describe('ContainerBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining(
+            msg: 'container_building_complete',
+            description: expect.stringContaining(
               'Successfully built 2 containers with system IDs assigned, 0 failed',
             ),
-            action: 'container_building_complete',
             component: 'ContainerBuilder',
             tag: 'container-building',
           }),

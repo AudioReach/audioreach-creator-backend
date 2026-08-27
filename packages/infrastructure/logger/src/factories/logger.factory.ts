@@ -13,6 +13,17 @@ export class LoggerFactory {
     return pino(
       {
         level: config.level,
+        serializers: {
+          error(error: unknown): unknown {
+            if (error instanceof Error) {
+              return {
+                message: error.message,
+                stack: error.stack,
+              };
+            }
+            return error;
+          },
+        },
         formatters: {
           level(label: string): {level: string} {
             const map: Record<string, string> = {

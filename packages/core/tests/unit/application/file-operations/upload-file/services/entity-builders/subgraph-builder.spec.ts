@@ -160,10 +160,10 @@ describe('SubgraphBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining(
+            msg: 'subgraph_building_complete',
+            description: expect.stringContaining(
               'Successfully built 1 subgraphs with system IDs assigned',
             ),
-            action: 'subgraph_building_complete',
             component: 'SubgraphBuilder',
           }),
         );
@@ -378,8 +378,10 @@ describe('SubgraphBuilder', () => {
 
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('Failed to convert subgraph property'),
-            action: 'subgraph_conversion_failed',
+            msg: 'subgraph_conversion_failed',
+            description: expect.stringContaining(
+              'Failed to convert subgraph property',
+            ),
             component: 'SubgraphBuilder',
           }),
         );
@@ -517,8 +519,9 @@ describe('SubgraphBuilder', () => {
 
         expect(mockLogger.logInfo).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: 'Successfully built 2 subgraphs with system IDs assigned, 0 failed',
-            action: 'subgraph_building_complete',
+            msg: 'subgraph_building_complete',
+            description:
+              'Successfully built 2 subgraphs with system IDs assigned, 0 failed',
             component: 'SubgraphBuilder',
             tag: 'subgraph-building',
           }),
@@ -766,8 +769,8 @@ describe('SubgraphBuilder', () => {
 
         expect(mockLogger.logWarn).toHaveBeenCalledWith(
           expect.objectContaining({
-            msg: expect.stringContaining('RxPath'),
-            action: 'subgraph_name_deduplicated',
+            msg: 'subgraph_name_deduplicated',
+            description: expect.stringContaining('RxPath'),
           }),
         );
       });

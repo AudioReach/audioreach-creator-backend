@@ -101,4 +101,22 @@ describe('PinoLogService round-trip — level mapping', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].source).toBe(LogSource.Server);
   });
+
+  it('persists an Error with both message and stack', async () => {
+    const error = new Error('database connection failed');
+    error.stack = 'Error: database connection failed\n    at test.ts:1:1';
+
+    logger.logError(makeData({error}));
+    await sqliteTransport.flush();
+
+    const rows = (await dataSource.query(
+      `SELECT error FROM log_entries WHERE project_id = ?`,
+      ['proj-42'],
+    )) as {error: string}[];
+
+    expect(JSON.parse(rows[0].error)).toEqual({
+      message: error.message,
+      stack: error.stack,
+    });
+  });
 });

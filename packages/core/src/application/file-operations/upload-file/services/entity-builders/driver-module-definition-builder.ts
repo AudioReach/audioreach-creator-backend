@@ -46,11 +46,10 @@ export class DriverModuleDefinitionBuilder {
     }
 
     this.logger?.logDebug({
-      msg: `Building ${awspModuleDefinitions.length} driver module definitions`,
-      action: 'driver_module_definition_building_start',
+      msg: 'driver_module_definition_building_start',
+      description: `Building ${awspModuleDefinitions.length} driver module definitions`,
       component: 'DriverModuleDefinitionBuilder',
       tag: 'driver-module-definitions',
-      timestamp: new Date(),
     });
 
     const entities: DriverModuleDefinition[] = [];
@@ -83,11 +82,10 @@ export class DriverModuleDefinitionBuilder {
     }
 
     this.logger?.logInfo({
-      msg: `Successfully built ${entities.length} driver module definitions with system IDs assigned, ${issues.length} failures`,
-      action: 'driver_module_definition_building_complete',
+      msg: 'driver_module_definition_building_complete',
+      description: `Successfully built ${entities.length} driver module definitions with system IDs assigned, ${issues.length} failures`,
       component: 'DriverModuleDefinitionBuilder',
       tag: 'driver-module-definitions',
-      timestamp: new Date(),
     });
 
     return {

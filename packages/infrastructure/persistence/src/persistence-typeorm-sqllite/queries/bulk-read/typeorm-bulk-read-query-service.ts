@@ -112,11 +112,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       const t0 = performance.now();
       return promise.then(result => {
         this.logger?.logInfo({
-          msg: `db:${name} ${(performance.now() - t0).toFixed(1)}ms`,
-          action: 'download-db-performance',
+          msg: 'download-db-performance',
+          description: `db:${name} ${(performance.now() - t0).toFixed(1)}ms`,
           component: 'TypeOrmBulkReadQueryService',
           tag: 'download-file',
-          timestamp: new Date(),
         });
         return result;
       });

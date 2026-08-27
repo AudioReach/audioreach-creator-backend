@@ -24,21 +24,19 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
     this.logger.logInfo({
       component: 'RequestLogger',
-      action: 'incomingRequest',
-      msg: `${req.method} ${req.originalUrl}`,
-      timestamp: new Date(),
+      msg: 'incomingRequest',
+      description: `${req.method} ${req.originalUrl}`,
       tag: `request-${requestId}`,
-      clientId: this.extractClientId(req),
+      source: this.extractClientId(req),
     });
 
     // Log headers at debug level
     this.logger.logDebug({
       component: 'RequestLogger',
-      action: 'requestHeaders',
-      msg: `Headers: ${JSON.stringify(req.headers)}`,
-      timestamp: new Date(),
+      msg: 'requestHeaders',
+      description: `Headers: ${JSON.stringify(req.headers)}`,
       tag: `request-${requestId}`,
-      clientId: this.extractClientId(req),
+      source: this.extractClientId(req),
     });
 
     // For multipart/form-data requests, we can't easily log the body
@@ -46,11 +44,10 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     if (req.headers['content-type']?.includes('multipart/form-data')) {
       this.logger.logDebug({
         component: 'RequestLogger',
-        action: 'requestBody',
-        msg: 'Request contains multipart/form-data',
-        timestamp: new Date(),
+        msg: 'requestBody',
+        description: 'Request contains multipart/form-data',
         tag: `request-${requestId}`,
-        clientId: this.extractClientId(req),
+        source: this.extractClientId(req),
       });
     } else if (
       req.body &&
@@ -58,11 +55,10 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     ) {
       this.logger.logDebug({
         component: 'RequestLogger',
-        action: 'requestBody',
-        msg: `Body: ${JSON.stringify(req.body)}`,
-        timestamp: new Date(),
+        msg: 'requestBody',
+        description: `Body: ${JSON.stringify(req.body)}`,
         tag: `request-${requestId}`,
-        clientId: this.extractClientId(req),
+        source: this.extractClientId(req),
       });
     }
 
@@ -77,20 +73,18 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
       logger.logInfo({
         component: 'RequestLogger',
-        action: 'outgoingResponse',
-        msg: `${req.method} ${req.originalUrl} ${res.statusCode} - ${responseTime}ms`,
-        timestamp: new Date(),
+        msg: 'outgoingResponse',
+        description: `${req.method} ${req.originalUrl} ${res.statusCode} - ${responseTime}ms`,
         tag: `request-${requestId}`,
-        clientId: extractClientId(req),
+        source: extractClientId(req),
       });
 
       logger.logDebug({
         component: 'RequestLogger',
-        action: 'responseBody',
-        msg: `Body: ${typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody)}`,
-        timestamp: new Date(),
+        msg: 'responseBody',
+        description: `Body: ${typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody)}`,
         tag: `request-${requestId}`,
-        clientId: extractClientId(req),
+        source: extractClientId(req),
       });
 
       // 'this' here refers to the response object

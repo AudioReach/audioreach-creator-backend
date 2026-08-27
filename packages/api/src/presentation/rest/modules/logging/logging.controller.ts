@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import {ApiOperation, ApiParam, ApiTags} from '@nestjs/swagger';
 import {QueryBus, LogLevel, GetLogsByProjectQuery} from '@arc/core';
-import type {Logger1, LogData1, LogEntryReadModel} from '@arc/core';
+import type {Logger, LogData, LogEntryReadModel} from '@arc/core';
 import {CreateLogEntryRequestDto} from './dto/create-log-entry-request.dto.js';
 import {LogEntryResponseDto} from './dto/log-entry-response.dto.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
@@ -24,7 +24,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
 @Controller('arc-api/v1')
 export class LogController {
   constructor(
-    @Inject('LOGGER1') private readonly logger: Logger1,
+    @Inject('LOGGER') private readonly logger: Logger,
     private readonly queryBus: QueryBus,
   ) {}
 
@@ -32,7 +32,7 @@ export class LogController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({summary: 'Submit a client log entry'})
   log(@Body() dto: CreateLogEntryRequestDto): void {
-    const data: LogData1 = {
+    const data: LogData = {
       description: dto.description,
       timestamp: new Date(dto.timestamp),
       msg: dto.msg,

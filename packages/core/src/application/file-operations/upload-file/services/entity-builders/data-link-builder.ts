@@ -39,11 +39,10 @@ export class DataLinkBuilder {
     // Input validation
     if (!dataLinkProperties || dataLinkProperties.length === 0) {
       this.logger?.logDebug({
-        msg: 'No data link properties provided for building',
-        action: 'no_data_link_properties',
+        msg: 'no_data_link_properties',
+        description: 'No data link properties provided for building',
         component: 'DataLinkBuilder',
         tag: 'data-link-building',
-        timestamp: new Date(),
       });
       return [];
     }
@@ -71,11 +70,10 @@ export class DataLinkBuilder {
 
     // Log deduplication results
     this.logger?.logInfo({
-      msg: `Data link deduplication: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
-      action: 'data_link_deduplication',
+      msg: 'data_link_deduplication',
+      description: `Data link deduplication: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique properties (${duplicateCount} duplicates removed)`,
       component: 'DataLinkBuilder',
       tag: 'data-link-building',
-      timestamp: new Date(),
     });
 
     // STEP 2: Build DataLink objects only for unique properties (Efficient Processing)
@@ -120,11 +118,10 @@ export class DataLinkBuilder {
 
     // STEP 5: Performance and results logging
     this.logger?.logInfo({
-      msg: `Data link building complete: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${failureCount} failed (${duplicateCount} duplicates eliminated), system IDs assigned`,
-      action: 'data_link_building_complete',
+      msg: 'data_link_building_complete',
+      description: `Data link building complete: ${dataLinkProperties.length} total → ${uniqueProperties.size} unique → ${successCount} successful, ${failureCount} failed (${duplicateCount} duplicates eliminated), system IDs assigned`,
       component: 'DataLinkBuilder',
       tag: 'data-link-building',
-      timestamp: new Date(),
     });
 
     return dataLinks;
@@ -169,22 +166,20 @@ export class DataLinkBuilder {
       // Check if module mappings failed
       if (sourceNodeSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map source module instance ID ${property.sourceInstanceId} for data link`,
-          action: 'source_module_mapping_failed',
+          msg: 'source_module_mapping_failed',
+          description: `Failed to map source module instance ID ${property.sourceInstanceId} for data link`,
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
-          timestamp: new Date(),
         });
         return null;
       }
 
       if (destinationNodeSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map destination module instance ID ${property.destinationInstanceId} for data link`,
-          action: 'destination_module_mapping_failed',
+          msg: 'destination_module_mapping_failed',
+          description: `Failed to map destination module instance ID ${property.destinationInstanceId} for data link`,
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
-          timestamp: new Date(),
         });
         return null;
       }
@@ -202,22 +197,20 @@ export class DataLinkBuilder {
       // Check if port mappings failed
       if (sourcePortSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map source port ID ${property.sourcePortId} for module ${sourceNodeSystemId} in data link`,
-          action: 'source_port_mapping_failed',
+          msg: 'source_port_mapping_failed',
+          description: `Failed to map source port ID ${property.sourcePortId} for module ${sourceNodeSystemId} in data link`,
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
-          timestamp: new Date(),
         });
         return null;
       }
 
       if (destinationPortSystemId === null) {
         this.logger?.logWarn({
-          msg: `Failed to map destination port ID ${property.destinationPortId} for module ${destinationNodeSystemId} in data link`,
-          action: 'destination_port_mapping_failed',
+          msg: 'destination_port_mapping_failed',
+          description: `Failed to map destination port ID ${property.destinationPortId} for module ${destinationNodeSystemId} in data link`,
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
-          timestamp: new Date(),
         });
         return null;
       }
@@ -234,22 +227,20 @@ export class DataLinkBuilder {
 
       if (sourceSgId === undefined) {
         this.logger?.logWarn({
-          msg: `Failed to resolve source subgraph for module instance ${property.sourceInstanceId}`,
-          action: 'source_subgraph_mapping_failed',
+          msg: 'source_subgraph_mapping_failed',
+          description: `Failed to resolve source subgraph for module instance ${property.sourceInstanceId}`,
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
-          timestamp: new Date(),
         });
         return null;
       }
 
       if (destSgId === undefined) {
         this.logger?.logWarn({
-          msg: `Failed to resolve dest subgraph for module instance ${property.destinationInstanceId}`,
-          action: 'dest_subgraph_mapping_failed',
+          msg: 'dest_subgraph_mapping_failed',
+          description: `Failed to resolve dest subgraph for module instance ${property.destinationInstanceId}`,
           component: 'DataLinkBuilder',
           tag: 'data-link-building',
-          timestamp: new Date(),
         });
         return null;
       }
@@ -284,11 +275,10 @@ export class DataLinkBuilder {
       });
     } catch (error) {
       this.logger?.logWarn({
-        msg: `Unexpected error converting data link (${property.sourceInstanceId}:${property.sourcePortId}->${property.destinationInstanceId}:${property.destinationPortId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
-        action: 'data_link_conversion_error',
+        msg: 'data_link_conversion_error',
+        description: `Unexpected error converting data link (${property.sourceInstanceId}:${property.sourcePortId}->${property.destinationInstanceId}:${property.destinationPortId}): ${error instanceof Error ? error.message : 'Unknown error'}`,
         component: 'DataLinkBuilder',
         tag: 'data-link-building',
-        timestamp: new Date(),
       });
       return null;
     }

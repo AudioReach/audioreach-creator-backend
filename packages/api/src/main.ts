@@ -46,9 +46,8 @@ async function bootstrap() {
     setupSwagger(app);
     logger.logInfo({
       component: 'Bootstrap',
-      action: 'setupSwagger',
-      msg: `Swagger documentation available at: http://localhost:${port}/api/docs`,
-      timestamp: new Date(),
+      msg: 'setupSwagger',
+      description: `Swagger documentation available at: http://localhost:${port}/api/docs`,
       tag: 'startup',
     });
   }
@@ -56,9 +55,8 @@ async function bootstrap() {
   await app.listen(port);
   logger.logInfo({
     component: 'Bootstrap',
-    action: 'startup',
-    msg: `Application is running on: http://localhost:${port}/arc-api/v1`,
-    timestamp: new Date(),
+    msg: 'startup',
+    description: `Application is running on: http://localhost:${port}/arc-api/v1`,
     tag: 'startup',
   });
 }

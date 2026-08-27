@@ -126,11 +126,10 @@ export class AcdbFileOrchestrator {
     const startTime = Date.now();
 
     this.logger?.logInfo({
-      msg: 'ACDB parsing started',
-      action: 'parse_acdb_start',
+      msg: 'acdb_parsing_started',
+      description: 'ACDB parsing started',
       component: 'AcdbFileOrchestrator',
       tag: 'parsing',
-      timestamp: new Date(),
     });
 
     try {
@@ -168,22 +167,20 @@ export class AcdbFileOrchestrator {
 
       const duration = Date.now() - startTime;
       this.logger?.logInfo({
-        msg: `ACDB parsing completed in ${duration}ms`,
-        action: 'parse_acdb_complete',
+        msg: 'acdb_parsing_completed',
+        description: `ACDB parsing completed in ${duration}ms`,
         component: 'AcdbFileOrchestrator',
         tag: 'parsing',
-        timestamp: new Date(),
       });
 
       return Promise.resolve(result);
     } catch (error) {
       this.logger?.logError({
-        msg: 'ACDB parsing failed',
-        action: 'parse_acdb_failed',
+        msg: 'acdb_parsing_failed',
+        description: 'ACDB parsing failed',
         component: 'AcdbFileOrchestrator',
         tag: 'parsing',
-        error: error as Error,
-        timestamp: new Date(),
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -249,11 +246,10 @@ export class AcdbFileOrchestrator {
       // Check if parser can be executed (dependencies are met)
       if (!this.isParserAvailable(parserType, descriptors, parsedChunks)) {
         this.logger?.logInfo({
-          msg: `Skipping parser ${parserType}: missing dependencies`,
-          action: 'parse_chunk_skipped',
+          msg: 'acdb_chunk_skipped',
+          description: `Skipping parser ${parserType}: missing dependencies`,
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
-          timestamp: new Date(),
         });
         continue;
       }
@@ -273,20 +269,18 @@ export class AcdbFileOrchestrator {
         result.addChunk(parserType, chunk);
 
         this.logger?.logInfo({
-          msg: `Successfully parsed chunk: ${parserType}`,
-          action: 'parse_chunk_success',
+          msg: 'acdb_chunk_parsed',
+          description: `Successfully parsed chunk: ${parserType}`,
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
-          timestamp: new Date(),
         });
       } catch (error) {
         this.logger?.logError({
-          msg: `Failed to parse chunk: ${parserType}`,
-          action: 'parse_chunk_failed',
+          msg: 'acdb_chunk_parse_failed',
+          description: `Failed to parse chunk: ${parserType}`,
           component: 'AcdbFileOrchestrator',
           tag: 'parsing',
-          error: error as Error,
-          timestamp: new Date(),
+          error: error instanceof Error ? error : new Error(String(error)),
         });
         throw error;
       }

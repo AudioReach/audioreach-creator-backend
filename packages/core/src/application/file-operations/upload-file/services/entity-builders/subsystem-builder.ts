@@ -173,11 +173,10 @@ export class SubsystemBuilder {
         );
         if (subgraphSystemId === undefined) {
           this.logger?.logWarn({
-            msg: `Subgraph child ${child.id.toString(16)} of subsystem ${entry.name} not found in FK mapper — subgraph-to-subsystem mapping skipped`,
-            action: 'subsystem_child_subgraph_not_found',
+            msg: 'subsystem_child_subgraph_not_found',
+            description: `Subgraph child ${child.id.toString(16)} of subsystem ${entry.name} not found in FK mapper — subgraph-to-subsystem mapping skipped`,
             component: 'SubsystemBuilder',
             tag: 'subsystem-building',
-            timestamp: new Date(),
           });
         } else {
           this.subgraphToSubsystemMap.set(subgraphSystemId, subsystemSystemId);
@@ -248,11 +247,10 @@ export class SubsystemBuilder {
     );
 
     this.logger?.logInfo({
-      msg: `SubsystemBuilder: attached SLS for ${dataLinkPaths.filter(p => p !== null).length} data links, CSLS for ${controlLinkPaths.filter(p => p !== null).length} control links`,
-      action: 'subsystem_links_built',
+      msg: 'subsystem_links_built',
+      description: `SubsystemBuilder: attached SLS for ${dataLinkPaths.filter(p => p !== null).length} data links, CSLS for ${controlLinkPaths.filter(p => p !== null).length} control links`,
       component: 'SubsystemBuilder',
       tag: 'subsystem-links',
-      timestamp: new Date(),
     });
 
     // Step F: rebuild Subsystem entities with boundary ports populated
@@ -661,11 +659,10 @@ export class SubsystemBuilder {
     );
     if (parentId === undefined) {
       this.logger?.logWarn({
-        msg: `Parent subsystem ${parentNaturalId.toString(16)} not found in FK mapper for child ${entryId.toString(16)}`,
-        action: 'subsystem_parent_not_found',
+        msg: 'subsystem_parent_not_found',
+        description: `Parent subsystem ${parentNaturalId.toString(16)} not found in FK mapper for child ${entryId.toString(16)}`,
         component: 'SubsystemBuilder',
         tag: 'subsystem-building',
-        timestamp: new Date(),
       });
     }
     return parentId;
@@ -686,11 +683,10 @@ export class SubsystemBuilder {
       );
       if (keySystemId === undefined) {
         this.logger?.logWarn({
-          msg: `Key ${hex} not found in FK mapper for subsystem ${entry.name}`,
-          action: 'subsystem_filtered_key_not_found',
+          msg: 'subsystem_filtered_key_not_found',
+          description: `Key ${hex} not found in FK mapper for subsystem ${entry.name}`,
           component: 'SubsystemBuilder',
           tag: 'subsystem-building',
-          timestamp: new Date(),
         });
       } else {
         filteredKeySystemIds.push(keySystemId);
@@ -721,11 +717,10 @@ export class SubsystemBuilder {
 
     if (sorted.length < subsystems.length) {
       this.logger?.logWarn({
-        msg: `Cycle detected in subsystem hierarchy — ${subsystems.length - sorted.length} subsystems skipped`,
-        action: 'subsystem_cycle_detected',
+        msg: 'subsystem_cycle_detected',
+        description: `Cycle detected in subsystem hierarchy — ${subsystems.length - sorted.length} subsystems skipped`,
         component: 'SubsystemBuilder',
         tag: 'subsystem-building',
-        timestamp: new Date(),
       });
     }
     return sorted;
