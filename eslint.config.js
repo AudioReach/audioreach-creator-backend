@@ -175,6 +175,13 @@ export default [
           persistencePattern: 'persistence',
         },
       ],
+
+      'custom/no-query-services-in-command-handler': [
+        'error',
+        {
+          handlerPattern: '**/packages/core/src/application/**/*.handler.ts',
+        },
+      ],
     },
   },
 

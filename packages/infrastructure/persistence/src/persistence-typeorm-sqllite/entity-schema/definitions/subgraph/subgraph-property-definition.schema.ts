@@ -6,6 +6,7 @@
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface SubgraphPropertyBase {
@@ -23,6 +24,7 @@ export interface SubgraphPropertyBase {
 export interface SubgraphPropertyRow
   extends EntityBaseRow, SubgraphPropertyBase {
   // Relations
+  file?: ArcDbFileRow;
 }
 
 export const SubgraphPropertyDefinitionSchema =
@@ -67,6 +69,14 @@ export const SubgraphPropertyDefinitionSchema =
       isVoice: {
         type: 'boolean',
         name: 'is_voice',
+      },
+    },
+    relations: {
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+        onDelete: 'CASCADE',
       },
     },
   });

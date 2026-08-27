@@ -4,6 +4,7 @@
  */
 
 import {EntitySchema} from 'typeorm';
+import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 
 export interface ValidationPreferencesRow {
   /** Foreign key to arc_db_files.system_id */
@@ -11,6 +12,7 @@ export interface ValidationPreferencesRow {
   /** JSON blob: { overrides: Record<string, IssuePreference>, suppressions: Record<string, IssueSuppression> } */
   preferences: string;
   updatedAt: Date;
+  file?: ArcDbFileRow;
 }
 
 export const ValidationPreferencesSchema =
@@ -32,6 +34,17 @@ export const ValidationPreferencesSchema =
         type: 'datetime',
         name: 'updated_at',
         createDate: true,
+      },
+    },
+    relations: {
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {
+          name: 'file_system_id',
+          referencedColumnName: 'systemId',
+        },
+        onDelete: 'CASCADE',
       },
     },
   });

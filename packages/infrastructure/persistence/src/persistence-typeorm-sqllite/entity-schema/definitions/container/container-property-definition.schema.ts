@@ -7,6 +7,7 @@ import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import type {ContainerPropertyDataRow} from '../../usecase-data/container/container-property-data.js';
 import {EntitySchema} from 'typeorm';
 import {PROPERTY_TYPE, type PropertyType} from '@arc/core';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface ContainerPropertyBase {
@@ -24,6 +25,7 @@ export interface ContainerPropertyRow
   extends EntityBaseRow, ContainerPropertyBase {
   // Relations
   containerPropertyData?: ContainerPropertyDataRow[];
+  file?: ArcDbFileRow;
 }
 
 export const ContainerPropertyDefinitionSchema =
@@ -71,6 +73,12 @@ export const ContainerPropertyDefinitionSchema =
         type: 'one-to-many',
         target: 'ContainerPropertyData',
         inverseSide: 'containerProperty',
+      },
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+        onDelete: 'CASCADE',
       },
     },
   });

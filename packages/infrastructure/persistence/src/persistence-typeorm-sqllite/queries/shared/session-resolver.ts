@@ -5,6 +5,7 @@
 
 import type {DataSource} from 'typeorm';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {SESSION_STATUS} from '../../entity-schema/edit-session/project-session.schema.js';
 
 /**
  * Returns the active session ID for the given file, or null when no session
@@ -28,7 +29,7 @@ export async function resolveActiveSessionId(
     .createQueryBuilder('s')
     .select('s.sessionId')
     .where('s.fileSystemId = :fileSystemId', {fileSystemId})
-    .andWhere('s.status = :status', {status: 'ACTIVE'})
+    .andWhere('s.status = :status', {status: SESSION_STATUS.Active})
     .getOne()) as {sessionId: number} | null;
   return session?.sessionId ?? null;
 }

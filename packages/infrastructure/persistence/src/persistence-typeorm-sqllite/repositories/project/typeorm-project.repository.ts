@@ -21,9 +21,14 @@ import {
 import {ProjectSchema} from '../../entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../entity-schema/project-data/arc-db-file.schema.js';
 import {ConfigurationSchema} from '../../entity-schema/project-data/configuration.schema.js';
+import {ProjectFetcher} from '../../fetchers/project-fetcher.js';
 
 export class TypeOrmProjectRepository implements ProjectRepository {
-  constructor(private readonly manager: EntityManager) {}
+  private readonly fetcher: ProjectFetcher;
+
+  constructor(private readonly manager: EntityManager) {
+    this.fetcher = new ProjectFetcher(manager);
+  }
 
   async createOfflineProject(
     projectName: string,
@@ -90,8 +95,19 @@ export class TypeOrmProjectRepository implements ProjectRepository {
     );
   }
 
+  async projectExists(systemId: number): Promise<boolean> {
+    return this.fetcher.exists(systemId);
+  }
+
   async deleteProject(systemId: number): Promise<void> {
     await this.manager.delete(ProjectSchema, {systemId});
+  }
+
+  async updateProject(
+    systemId: number,
+    updates: {name?: string; description?: string},
+  ): Promise<void> {
+    await this.manager.update(ProjectSchema, {systemId}, updates);
   }
 
   async updateFileHeader(

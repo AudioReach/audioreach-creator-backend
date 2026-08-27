@@ -6,6 +6,7 @@
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {SpfModuleDefinitionRow} from '../module/spf/spf-module-definition.schema.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface ProcessorDefinitionBase {
@@ -18,6 +19,7 @@ export interface ProcessorDefinitionBase {
 export interface ProcessorDefinitionRow
   extends EntityBaseRow, ProcessorDefinitionBase {
   moduleDefinitions?: SpfModuleDefinitionRow[];
+  file?: ArcDbFileRow;
 }
 
 export const ProcessorDefinitionSchema =
@@ -45,6 +47,12 @@ export const ProcessorDefinitionSchema =
         type: 'one-to-many',
         target: 'SpfModuleDefinition',
         inverseSide: 'processor',
+      },
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+        onDelete: 'CASCADE',
       },
     },
   });

@@ -9,6 +9,7 @@ import {
 } from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {DriverModuleParameterDefinitionRow} from './driver-module-parameter-definition.schema.js';
+import type {ArcDbFileRow} from '../../../project-data/arc-db-file.schema.js';
 
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface DriverModuleDefinitionBase {
@@ -24,6 +25,7 @@ export interface DriverModuleDefinitionRow
   extends EntityBaseRow, DriverModuleDefinitionBase {
   // Relations
   parameters: DriverModuleParameterDefinitionRow[];
+  file?: ArcDbFileRow;
 }
 
 export const DriverModuleDefinitionSchema =
@@ -58,20 +60,17 @@ export const DriverModuleDefinitionSchema =
       },
     },
     relations: {
-      // file: {
-      //   type: 'many-to-one',
-      //   target: 'File',
-      //   joinColumn: {
-      //     name: 'file_system_id',
-      //     referencedColumnName: 'fileSystemId'
-      //   }
-      // },
-
       parameters: {
         type: 'one-to-many',
         target: 'DriverModuleParameterDefinition',
         inverseSide: 'driverModuleDefinition',
         cascade: ['insert', 'update'],
+      },
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+        onDelete: 'CASCADE',
       },
     },
   });

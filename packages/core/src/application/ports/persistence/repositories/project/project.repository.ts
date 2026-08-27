@@ -53,7 +53,18 @@ export interface ProjectRepository {
     dataLossIssues: ValidationIssue[],
   ): Promise<void>;
 
+  projectExists(systemId: number): Promise<boolean>;
+
   deleteProject(systemId: number): Promise<void>;
+
+  /**
+   * Update name and/or description for an existing project.
+   * At least one field must be provided by the caller.
+   */
+  updateProject(
+    systemId: number,
+    updates: {name?: string; description?: string},
+  ): Promise<void>;
 
   /**
    * Update ACDB header metadata for a file after parsing.

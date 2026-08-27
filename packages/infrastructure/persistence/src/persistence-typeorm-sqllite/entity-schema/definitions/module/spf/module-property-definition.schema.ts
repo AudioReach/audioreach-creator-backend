@@ -9,6 +9,7 @@ import {
 } from '../../../entity-base.js';
 import type {SpfModulePropertiesDataRow} from '../../../usecase-data/module/spf-module-properties-data.js';
 import {EntitySchema} from 'typeorm';
+import type {ArcDbFileRow} from '../../../project-data/arc-db-file.schema.js';
 
 export interface ModulePropertyRow extends EntityBaseRow {
   fileSystemId: number;
@@ -21,6 +22,7 @@ export interface ModulePropertyRow extends EntityBaseRow {
 
   // Relations
   spfModulePropertiesData?: SpfModulePropertiesDataRow[];
+  file?: ArcDbFileRow;
 }
 
 export const ModulePropertyDefinitionSchema =
@@ -68,6 +70,12 @@ export const ModulePropertyDefinitionSchema =
         type: 'one-to-many',
         target: 'SpfModulePropertiesData',
         inverseSide: 'propertyDefinition',
+      },
+      file: {
+        type: 'many-to-one',
+        target: 'ArcDbFile',
+        joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+        onDelete: 'CASCADE',
       },
     },
   });

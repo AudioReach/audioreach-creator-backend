@@ -8,6 +8,7 @@ import {type EntityName} from '../../entity-schema/entity-table-names.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 import type {ProjectSessionRow} from '../../entity-schema/edit-session/project-session.schema.js';
+import {SESSION_STATUS} from '../../entity-schema/edit-session/project-session.schema.js';
 import type {EntityManager, SelectQueryBuilder} from 'typeorm';
 
 /**
@@ -174,7 +175,7 @@ export class EditActionsQueryService {
       .getRepository(ENTITY_NAMES.ProjectSession)
       .createQueryBuilder('session')
       .where('session.fileSystemId = :fileSystemId', {fileSystemId})
-      .andWhere('session.status = :status', {status: 'ACTIVE'})
+      .andWhere('session.status = :status', {status: SESSION_STATUS.Active})
       .getOne() as Promise<ProjectSessionRow | null>;
   }
 

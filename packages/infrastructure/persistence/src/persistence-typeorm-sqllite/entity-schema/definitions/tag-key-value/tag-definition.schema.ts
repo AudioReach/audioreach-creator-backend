@@ -6,6 +6,7 @@
 import {BaseColumnSchemaPart, type EntityBaseRow} from '../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {TagKeyDefLinkRow} from './tag-key-def-link.schema.js';
+import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface TagDefinitionBase {
@@ -22,6 +23,7 @@ export interface TagDefinitionBase {
 export interface TagDefinitionRow extends EntityBaseRow, TagDefinitionBase {
   // Relations
   keys?: TagKeyDefLinkRow[];
+  file?: ArcDbFileRow;
 }
 
 export const TagDefinitionSchema = new EntitySchema<TagDefinitionRow>({
@@ -70,6 +72,12 @@ export const TagDefinitionSchema = new EntitySchema<TagDefinitionRow>({
       target: 'TagKeyDefLink',
       inverseSide: 'tagDefinition',
       cascade: ['insert', 'update'],
+    },
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {name: 'file_system_id', referencedColumnName: 'systemId'},
+      onDelete: 'CASCADE',
     },
   },
 });

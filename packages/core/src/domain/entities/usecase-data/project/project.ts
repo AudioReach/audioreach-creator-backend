@@ -19,14 +19,11 @@ export const PROJECT_TYPE = {
 
 export type ProjectType = (typeof PROJECT_TYPE)[keyof typeof PROJECT_TYPE];
 
-export class Project {
-  private readonly arcDbFilesIds = new Set<number>();
-
+export class ProjectBase {
   readonly systemId: number;
   readonly name: string;
   readonly description: string;
   readonly type: ProjectType;
-  readonly arcDbFiles: ArcDbFile[] = [];
 
   constructor(
     systemId: number,
@@ -39,6 +36,11 @@ export class Project {
     this.description = description;
     this.type = type;
   }
+}
+
+export class Project extends ProjectBase {
+  private readonly arcDbFilesIds = new Set<number>();
+  readonly arcDbFiles: ArcDbFile[] = [];
 
   addFile(arcDbFile: ArcDbFile) {
     if (this.arcDbFilesIds.has(arcDbFile.systemId)) {
