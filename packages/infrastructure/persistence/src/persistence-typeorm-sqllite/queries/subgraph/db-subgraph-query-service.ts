@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {DataSource} from 'typeorm';
+import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
 import {
   type SubgraphQueryService,
   type SubgraphReadModel,
@@ -19,8 +19,6 @@ import {
   CONFIGURATION_INCLUDES,
   RESULT_KIND,
 } from '@arc/core';
-import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
-import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 
 /**
  * Database implementation of SubgraphQueryService.
@@ -39,15 +37,11 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
   private readonly subgraphFetcher: SubgraphOverlayFetcher;
 
   constructor(
-    dataSource: DataSource,
-    editActionsSvc: EditActionsQueryService,
     private readonly sessionRepo: ISessionRepository,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
+    subgraphFetcher: SubgraphOverlayFetcher,
   ) {
-    this.subgraphFetcher = new SubgraphOverlayFetcher(
-      dataSource.manager,
-      editActionsSvc,
-    );
+    this.subgraphFetcher = subgraphFetcher;
   }
 
   async getAllSubgraphs(
@@ -59,7 +53,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
       const sessionId = session?.sessionId ?? null;
 
-      const subgraphs = await this.subgraphFetcher.getSubgraphs(
+      const subgraphs = await this.subgraphFetcher.fetchMany(
         fileSystemId,
         sessionId,
       );
@@ -188,7 +182,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         overlaid.properties.map(p => ({
           systemId: p.systemId,
           propertySystemId: p.propertySystemId,
-          payload: p.payload as Uint8Array | null,
+          payload: p.payload,
         })),
       );
     } catch (error) {

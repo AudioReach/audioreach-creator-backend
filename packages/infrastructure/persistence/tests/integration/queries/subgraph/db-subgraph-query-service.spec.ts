@@ -25,6 +25,9 @@ import {
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {TypeOrmSessionRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
 import {DbSubgraphQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/subgraph/db-subgraph-query-service.js';
+import {SubgraphOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-overlay-fetcher.js';
+import {SubgraphPropertyDataFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-property-data-fetcher.js';
+import {SubgraphSgkvFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-sgkv-fetcher.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -147,10 +150,20 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
     ds = getTestDataSource();
     await seedProjectAndFile(ds);
     svc = new DbSubgraphQueryService(
-      ds,
-      new EditActionsQueryService(ds.manager),
       new TypeOrmSessionRepository(ds.manager),
       {getKeyValueSummaryForGivenValues: async () => Result.ok([])} as any,
+      new SubgraphOverlayFetcher(
+        ds.manager,
+        new EditActionsQueryService(ds.manager),
+        new SubgraphPropertyDataFetcher(
+          ds.manager,
+          new EditActionsQueryService(ds.manager),
+        ),
+        new SubgraphSgkvFetcher(
+          ds.manager,
+          new EditActionsQueryService(ds.manager),
+        ),
+      ),
     );
   });
 
@@ -240,7 +253,7 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
       operation: CHANGE_OPERATION.Create,
       newValue: JSON.stringify({
         subgraphSystemId: SUBGRAPH_SYSTEM_ID,
-        subgraphPropertySystemId: 7,
+        propertySystemId: 7,
         payload: null,
       }),
     });

@@ -15,7 +15,7 @@ import {EntitySchema} from 'typeorm';
 export interface SubgraphPropertyDataBase {
   systemId: number;
   subgraphSystemId: number;
-  subgraphPropertySystemId: number;
+  propertySystemId: number;
   payload: Uint8Array | null;
 }
 
@@ -35,7 +35,7 @@ export const SubgraphPropertyDataSchema = (blobConverter: BlobBytesConverter) =>
         name: 'subgraph_system_id',
         type: 'integer',
       },
-      subgraphPropertySystemId: {
+      propertySystemId: {
         name: 'subgraph_property_system_id',
         type: 'integer',
       },
@@ -67,7 +67,7 @@ export const SubgraphPropertyDataSchema = (blobConverter: BlobBytesConverter) =>
     indices: [
       {
         name: 'uk_subgraph_property_data',
-        columns: ['subgraphSystemId', 'subgraphPropertySystemId'],
+        columns: ['subgraphSystemId', 'propertySystemId'],
         unique: true,
       },
     ],

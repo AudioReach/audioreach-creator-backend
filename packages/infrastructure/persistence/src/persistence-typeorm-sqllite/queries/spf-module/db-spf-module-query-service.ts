@@ -606,17 +606,29 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     sessionId: number | null,
   ): Promise<Map<number, number>> {
     if (portSystemIds.length === 0) return new Map();
-    const entries = await this.linkFetcher.fetchDataLinks(
-      portSystemIds,
+    const links = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,
       sessionId,
+      {
+        $or: [
+          {sourcePortSystemId: portSystemIds},
+          {destinationPortSystemId: portSystemIds},
+        ],
+      },
     );
+    const portSet = new Set(portSystemIds);
     const countMap = new Map<number, number>();
-    for (const entry of entries) {
-      countMap.set(
-        entry.portSystemId,
-        (countMap.get(entry.portSystemId) ?? 0) + 1,
-      );
+    for (const link of links) {
+      if (portSet.has(link.sourcePortSystemId))
+        countMap.set(
+          link.sourcePortSystemId,
+          (countMap.get(link.sourcePortSystemId) ?? 0) + 1,
+        );
+      if (portSet.has(link.destinationPortSystemId))
+        countMap.set(
+          link.destinationPortSystemId,
+          (countMap.get(link.destinationPortSystemId) ?? 0) + 1,
+        );
     }
     return countMap;
   }
@@ -631,17 +643,29 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     sessionId: number | null,
   ): Promise<Map<number, number>> {
     if (portSystemIds.length === 0) return new Map();
-    const entries = await this.linkFetcher.fetchControlLinks(
-      portSystemIds,
+    const links = await this.linkFetcher.loadControlLinkRows(
       fileSystemId,
       sessionId,
+      {
+        $or: [
+          {nodeAPortSystemId: portSystemIds},
+          {nodeBPortSystemId: portSystemIds},
+        ],
+      },
     );
+    const portSet = new Set(portSystemIds);
     const countMap = new Map<number, number>();
-    for (const entry of entries) {
-      countMap.set(
-        entry.portSystemId,
-        (countMap.get(entry.portSystemId) ?? 0) + 1,
-      );
+    for (const link of links) {
+      if (portSet.has(link.nodeAPortSystemId))
+        countMap.set(
+          link.nodeAPortSystemId,
+          (countMap.get(link.nodeAPortSystemId) ?? 0) + 1,
+        );
+      if (portSet.has(link.nodeBPortSystemId))
+        countMap.set(
+          link.nodeBPortSystemId,
+          (countMap.get(link.nodeBPortSystemId) ?? 0) + 1,
+        );
     }
     return countMap;
   }

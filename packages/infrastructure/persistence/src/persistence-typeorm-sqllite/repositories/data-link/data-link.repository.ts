@@ -26,10 +26,30 @@ export class TypeOrmDataLinkRepository implements DataLinkRepository {
     fileSystemId: number,
   ): Promise<{linkSystemId: number; portSystemId: number}[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    return this.linkFetcher.fetchDataLinks(
-      portSystemIds,
+    const links = await this.linkFetcher.loadDataLinkRows(
       fileSystemId,
       sessionId,
+      {
+        $or: [
+          {sourcePortSystemId: portSystemIds},
+          {destinationPortSystemId: portSystemIds},
+        ],
+      },
     );
+    const portSet = new Set(portSystemIds);
+    const entries: {linkSystemId: number; portSystemId: number}[] = [];
+    for (const link of links) {
+      if (portSet.has(link.sourcePortSystemId))
+        entries.push({
+          linkSystemId: link.systemId,
+          portSystemId: link.sourcePortSystemId,
+        });
+      if (portSet.has(link.destinationPortSystemId))
+        entries.push({
+          linkSystemId: link.systemId,
+          portSystemId: link.destinationPortSystemId,
+        });
+    }
+    return entries;
   }
 }

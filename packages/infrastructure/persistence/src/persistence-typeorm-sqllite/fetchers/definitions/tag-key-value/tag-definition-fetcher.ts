@@ -8,10 +8,14 @@ import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
-import type {TagDefinitionRow} from '../../../entity-schema/definitions/tag-key-value/tag-definition.schema.js';
-import type {TagKeyDefLinkRow} from '../../../entity-schema/definitions/tag-key-value/tag-key-def-link.schema.js';
-import type {TagDefinitionBase} from '../../../entity-schema/definitions/tag-key-value/tag-definition.schema.js';
-import type {TagKeyDefLinkBase} from '../../../entity-schema/definitions/tag-key-value/tag-key-def-link.schema.js';
+import type {
+  TagDefinitionRow,
+  TagDefinitionBase,
+} from '../../../entity-schema/definitions/tag-key-value/tag-definition.schema.js';
+import type {
+  TagKeyDefLinkRow,
+  TagKeyDefLinkBase,
+} from '../../../entity-schema/definitions/tag-key-value/tag-key-def-link.schema.js';
 
 /**
  * Overlaid scalar fields from tag_definitions with owned tag_key_def_links

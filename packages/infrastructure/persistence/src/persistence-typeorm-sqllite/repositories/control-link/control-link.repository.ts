@@ -26,10 +26,30 @@ export class TypeOrmControlLinkRepository implements ControlLinkRepository {
     fileSystemId: number,
   ): Promise<{linkSystemId: number; portSystemId: number}[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    return this.linkFetcher.fetchControlLinks(
-      portSystemIds,
+    const links = await this.linkFetcher.loadControlLinkRows(
       fileSystemId,
       sessionId,
+      {
+        $or: [
+          {nodeAPortSystemId: portSystemIds},
+          {nodeBPortSystemId: portSystemIds},
+        ],
+      },
     );
+    const portSet = new Set(portSystemIds);
+    const entries: {linkSystemId: number; portSystemId: number}[] = [];
+    for (const link of links) {
+      if (portSet.has(link.nodeAPortSystemId))
+        entries.push({
+          linkSystemId: link.systemId,
+          portSystemId: link.nodeAPortSystemId,
+        });
+      if (portSet.has(link.nodeBPortSystemId))
+        entries.push({
+          linkSystemId: link.systemId,
+          portSystemId: link.nodeBPortSystemId,
+        });
+    }
+    return entries;
   }
 }

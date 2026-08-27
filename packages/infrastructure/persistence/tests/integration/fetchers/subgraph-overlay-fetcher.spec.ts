@@ -18,6 +18,8 @@ import {
 } from '../helpers/test-database-setup.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {SubgraphOverlayFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/subgraph-overlay-fetcher.js';
+import {SubgraphPropertyDataFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/subgraph-property-data-fetcher.js';
+import {SubgraphSgkvFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/subgraph-sgkv-fetcher.js';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -153,6 +155,14 @@ describe('SubgraphOverlayFetcher (integration)', () => {
     fetcher = new SubgraphOverlayFetcher(
       qr.manager,
       new EditActionsQueryService(qr.manager),
+      new SubgraphPropertyDataFetcher(
+        qr.manager,
+        new EditActionsQueryService(qr.manager),
+      ),
+      new SubgraphSgkvFetcher(
+        qr.manager,
+        new EditActionsQueryService(qr.manager),
+      ),
     );
   });
   afterEach(async () => {
@@ -229,7 +239,7 @@ describe('SubgraphOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Create,
       newValue: JSON.stringify({
         subgraphSystemId: SUBGRAPH_ID,
-        subgraphPropertySystemId: 7,
+        propertySystemId: 7,
         payload: null,
       }),
     });
