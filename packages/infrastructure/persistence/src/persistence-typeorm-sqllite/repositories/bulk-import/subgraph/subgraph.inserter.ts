@@ -154,7 +154,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       rows.push({
         systemId,
         subgraphSystemId: entry.subgraph.systemId,
-        subgraphPropertySystemId: entry.prop.propertyDefinitionSystemId,
+        propertySystemId: entry.prop.propertyDefinitionSystemId,
         payload: entry.prop.getPayloadCopy()!,
       });
       contextBySystemId.set(systemId, {subgraph: entry.subgraph});

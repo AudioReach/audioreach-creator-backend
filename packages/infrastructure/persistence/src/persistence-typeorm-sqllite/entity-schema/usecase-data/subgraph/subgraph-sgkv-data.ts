@@ -9,15 +9,24 @@ import type {EntityBaseRow} from '../../entity-base.js';
 import type {SubgraphRow} from './subgraph.schema.js';
 import type {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
 
-export interface SgkvRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface SgkvBase {
+  systemId: number;
   subgraphSystemId: number;
+}
+
+export interface SgkvRow extends EntityBaseRow, SgkvBase {
   subgraph?: SubgraphRow;
   values?: SgkvValuesRow[];
 }
 
-export interface SgkvValuesRow {
+/** Composite-PK join table scalars — not overlaid. */
+export interface SgkvValuesBase {
   sgkvSystemId: number;
   valueDefSystemId: number;
+}
+
+export interface SgkvValuesRow extends SgkvValuesBase {
   sgkv?: SgkvRow;
   valueDef?: ValueDefinitionRow;
 }

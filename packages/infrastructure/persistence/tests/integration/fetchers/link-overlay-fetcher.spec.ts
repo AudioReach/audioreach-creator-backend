@@ -198,14 +198,18 @@ describe('LinkOverlayFetcher (integration)', () => {
   describe('fetchDataLinks', () => {
     it('returns base links when sessionId is null', async () => {
       await seedDataLink(ds, 500, DP_SRC, DP_DST);
-      const result = await fetcher.fetchDataLinks([DP_SRC], FILE_ID, null);
+      const result = await fetcher.loadDataLinkRows(FILE_ID, null, {
+        $or: [{sourcePortSystemId: DP_SRC}, {destinationPortSystemId: DP_SRC}],
+      });
       expect(result).toHaveLength(1);
-      expect(result[0].portSystemId).toBe(DP_SRC);
+      expect(
+        result[0].sourcePortSystemId === DP_SRC ||
+          result[0].destinationPortSystemId === DP_SRC,
+      ).toBe(true);
     });
 
-    it('returns [] immediately when portSystemIds is empty', async () => {
-      await seedDataLink(ds, 500, DP_SRC, DP_DST);
-      const result = await fetcher.fetchDataLinks([], FILE_ID, 99);
+    it('returns [] when no data links exist for the file', async () => {
+      const result = await fetcher.loadDataLinkRows(FILE_ID, null);
       expect(result).toEqual([]);
     });
 
@@ -223,11 +227,10 @@ describe('LinkOverlayFetcher (integration)', () => {
           fileSystemId: FILE_ID,
         }),
       });
-      const result = await fetcher.fetchDataLinks([DP_SRC], FILE_ID, sessionId);
-      expect(result).toContainEqual({
-        linkSystemId: newLinkSystemId,
-        portSystemId: DP_SRC,
+      const result = await fetcher.loadDataLinkRows(FILE_ID, sessionId, {
+        $or: [{sourcePortSystemId: DP_SRC}, {destinationPortSystemId: DP_SRC}],
       });
+      expect(result.some(l => l.systemId === newLinkSystemId)).toBe(true);
     });
 
     it('tombstones DELETE-staged data links', async () => {
@@ -241,8 +244,10 @@ describe('LinkOverlayFetcher (integration)', () => {
         operation: CHANGE_OPERATION.Delete,
         newValue: '{}',
       });
-      const result = await fetcher.fetchDataLinks([DP_SRC], FILE_ID, sessionId);
-      expect(result.find(l => l.linkSystemId === linkId)).toBeUndefined();
+      const result = await fetcher.loadDataLinkRows(FILE_ID, sessionId, {
+        $or: [{sourcePortSystemId: DP_SRC}, {destinationPortSystemId: DP_SRC}],
+      });
+      expect(result.find(l => l.systemId === linkId)).toBeUndefined();
     });
 
     it('returns base links unchanged for a different session', async () => {
@@ -262,15 +267,19 @@ describe('LinkOverlayFetcher (integration)', () => {
         [session1],
       );
       const session2 = await seedSession(ds);
-      const result = await fetcher.fetchDataLinks([DP_SRC], FILE_ID, session2);
-      expect(result.find(l => l.linkSystemId === linkId)).toBeDefined();
+      const result = await fetcher.loadDataLinkRows(FILE_ID, session2, {
+        $or: [{sourcePortSystemId: DP_SRC}, {destinationPortSystemId: DP_SRC}],
+      });
+      expect(result.find(l => l.systemId === linkId)).toBeDefined();
     });
   });
 
   describe('fetchControlLinks', () => {
     it('returns base control links when sessionId is null', async () => {
       await seedControlLink(ds, 600, CP_A, CP_B);
-      const result = await fetcher.fetchControlLinks([CP_A], FILE_ID, null);
+      const result = await fetcher.loadControlLinkRows(FILE_ID, null, {
+        $or: [{nodeAPortSystemId: CP_A}, {nodeBPortSystemId: CP_A}],
+      });
       expect(result).toHaveLength(1);
     });
 
@@ -288,15 +297,10 @@ describe('LinkOverlayFetcher (integration)', () => {
           fileSystemId: FILE_ID,
         }),
       });
-      const result = await fetcher.fetchControlLinks(
-        [CP_A],
-        FILE_ID,
-        sessionId,
-      );
-      expect(result).toContainEqual({
-        linkSystemId: newLinkId,
-        portSystemId: CP_A,
+      const result = await fetcher.loadControlLinkRows(FILE_ID, sessionId, {
+        $or: [{nodeAPortSystemId: CP_A}, {nodeBPortSystemId: CP_A}],
       });
+      expect(result.some(l => l.systemId === newLinkId)).toBe(true);
     });
 
     it('tombstones DELETE-staged control links', async () => {
@@ -310,12 +314,10 @@ describe('LinkOverlayFetcher (integration)', () => {
         operation: CHANGE_OPERATION.Delete,
         newValue: '{}',
       });
-      const result = await fetcher.fetchControlLinks(
-        [CP_A],
-        FILE_ID,
-        sessionId,
-      );
-      expect(result.find(l => l.linkSystemId === linkId)).toBeUndefined();
+      const result = await fetcher.loadControlLinkRows(FILE_ID, sessionId, {
+        $or: [{nodeAPortSystemId: CP_A}, {nodeBPortSystemId: CP_A}],
+      });
+      expect(result.find(l => l.systemId === linkId)).toBeUndefined();
     });
   });
 });

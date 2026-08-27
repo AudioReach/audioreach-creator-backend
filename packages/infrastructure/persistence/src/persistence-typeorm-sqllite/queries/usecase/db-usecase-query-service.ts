@@ -15,7 +15,6 @@ import type {
 } from '@arc/core';
 import {Result, IssueFactory, RESULT_KIND} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
@@ -44,19 +43,14 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
   constructor(
     private readonly dataSource: DataSource,
-    editActionsQuerySvc: EditActionsQueryService,
     private readonly keyValueDefQuerySvc: KeyValueDefQueryService,
     private readonly spfModuleQuerySvc: SpfModuleQueryService,
     private readonly sessionRepo: ISessionRepository,
+    usecaseFetcher: UsecaseOverlayFetcher,
+    linkFetcher: LinkOverlayFetcher,
   ) {
-    this.usecaseFetcher = new UsecaseOverlayFetcher(
-      dataSource.manager,
-      editActionsQuerySvc,
-    );
-    this.linkFetcher = new LinkOverlayFetcher(
-      dataSource.manager,
-      editActionsQuerySvc,
-    );
+    this.usecaseFetcher = usecaseFetcher;
+    this.linkFetcher = linkFetcher;
   }
 
   // ── getAllUseCases ────────────────────────────────────────────────────────────
@@ -167,7 +161,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
    *   - Modules: delegated to SpfModuleQueryService.findByUsecaseIds() (FR-4 —
    *     the module read model is assembled from many fetchers; the query service
    *     is the correct boundary)
-   *   - Links: LinkOverlayFetcher.fetchDataLinksByUsecaseIds/fetchControlLinksByUsecaseIds
+   *   - Links: LinkOverlayFetcher.loadBaseDataLinkRows/loadBaseControlLinkRows
    *     called directly (FR-4 — fetcher returns the raw fields needed; mapped via
    *     UseCaseQueryMappers)
    *
@@ -194,28 +188,43 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       fileSystemId,
     );
 
-    // Modules: query service (FR-4 — assembles SpfModuleReadModel from many fetchers).
-    // Links: fetcher directly (FR-4 — raw fields sufficient, mapped via UseCaseQueryMappers).
+    // Resolve subgraph IDs once — used by both link types (FR-3: via usecaseFetcher).
+    const subgraphIds =
+      await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
+        useCaseSystemIds,
+        sessionId,
+      );
+    const linkFilter =
+      subgraphIds.length > 0
+        ? {
+            $or: [
+              {sourceSubgraphSystemId: subgraphIds},
+              {destSubgraphSystemId: subgraphIds},
+            ],
+          }
+        : undefined;
+
+    // Modules: query service (FR-4). Links: fetcher with $or subgraph filter (FR-4).
     const [modulesResult, dataLinks, controlLinks] = await Promise.all([
       this.spfModuleQuerySvc.findByUsecaseIds(useCaseSystemIds, fileSystemId),
-      this.linkFetcher
-        .fetchDataLinksByUsecaseIds(useCaseSystemIds, fileSystemId, sessionId)
-        .then(links =>
-          links.map(dl =>
-            UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
-          ),
-        ),
-      this.linkFetcher
-        .fetchControlLinksByUsecaseIds(
-          useCaseSystemIds,
-          fileSystemId,
-          sessionId,
-        )
-        .then(links =>
-          links.map(cl =>
-            UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl),
-          ),
-        ),
+      linkFilter
+        ? this.linkFetcher
+            .loadDataLinkRows(fileSystemId, sessionId, linkFilter)
+            .then(links =>
+              links.map(dl =>
+                UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
+              ),
+            )
+        : Promise.resolve([]),
+      linkFilter
+        ? this.linkFetcher
+            .loadControlLinkRows(fileSystemId, sessionId, linkFilter)
+            .then(links =>
+              links.map(cl =>
+                UseCaseQueryMappers.mapToComponentControlLinkReadModel(cl),
+              ),
+            )
+        : Promise.resolve([]),
     ]);
 
     return {

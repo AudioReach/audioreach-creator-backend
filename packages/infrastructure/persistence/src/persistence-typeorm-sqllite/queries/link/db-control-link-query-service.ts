@@ -10,31 +10,28 @@ import type {
   ControlLinkReadModel,
 } from '@arc/core';
 import {Result as R, IssueFactory} from '@arc/core';
-import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {UseCaseQueryMappers} from '../usecase/usecase-query-mappers.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 
 /**
  * Database implementation of ControlLinkQueryService.
  *
- * All overlay delegated to LinkOverlayFetcher (FR-3):
- *   fetchControlLinksByUsecaseIds — INTRA_SUBGRAPH + INTRA_USECASE links for
- *     the given usecases (two parallel baseline queries, one overlay pass)
- *   fetchControlLinksBySubgraphId — all links where the subgraph is source OR
- *     destination (covers links from/to other usecases)
+ * Scoping logic (by usecase JOINs, by subgraph OR) lives here.
+ * Overlay (CREATE/UPDATE/DELETE) delegated to LinkOverlayFetcher.loadBaseControlLinkRows (FR-3).
  */
 export class DbControlLinkQueryService implements ControlLinkQueryService {
   private readonly linkFetcher: LinkOverlayFetcher;
+  private readonly usecaseFetcher: UsecaseOverlayFetcher;
 
   constructor(
     private readonly dataSource: DataSource,
-    editActionsQuerySvc: EditActionsQueryService,
+    usecaseFetcher: UsecaseOverlayFetcher,
+    linkFetcher: LinkOverlayFetcher,
   ) {
-    this.linkFetcher = new LinkOverlayFetcher(
-      dataSource.manager,
-      editActionsQuerySvc,
-    );
+    this.linkFetcher = linkFetcher;
+    this.usecaseFetcher = usecaseFetcher;
   }
 
   async findByUsecaseIds(
@@ -48,10 +45,24 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
         this.dataSource,
         fileSystemId,
       );
-      const links = await this.linkFetcher.fetchControlLinksByUsecaseIds(
-        usecaseSystemIds,
+
+      // Resolve subgraph IDs via the usecase fetcher (UseCase → Subgraph relation).
+      const subgraphIds =
+        await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
+          usecaseSystemIds,
+          sessionId,
+        );
+      if (subgraphIds.length === 0) return R.ok([]);
+
+      const links = await this.linkFetcher.loadControlLinkRows(
         fileSystemId,
         sessionId,
+        {
+          $or: [
+            {sourceSubgraphSystemId: subgraphIds},
+            {destSubgraphSystemId: subgraphIds},
+          ],
+        },
       );
       return R.ok(
         links.map(cl =>
@@ -78,10 +89,16 @@ export class DbControlLinkQueryService implements ControlLinkQueryService {
         this.dataSource,
         fileSystemId,
       );
-      const links = await this.linkFetcher.fetchControlLinksBySubgraphId(
-        subgraphId,
+
+      const links = await this.linkFetcher.loadControlLinkRows(
         fileSystemId,
         sessionId,
+        {
+          $or: [
+            {sourceSubgraphSystemId: subgraphId},
+            {destSubgraphSystemId: subgraphId},
+          ],
+        },
       );
       return R.ok(
         links.map(cl =>

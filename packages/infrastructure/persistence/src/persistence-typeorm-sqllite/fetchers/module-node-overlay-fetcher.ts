@@ -405,8 +405,10 @@ export class ModuleNodeOverlayFetcher {
       };
       if (!p.subgraphSystemId || !usecaseSystemIds.includes(p.usecaseSystemId!))
         continue;
-      if (a.operation === 'CREATE') subgraphIds.add(p.subgraphSystemId);
-      if (a.operation === 'DELETE') subgraphIds.delete(p.subgraphSystemId);
+      if (a.operation === CHANGE_OPERATION.Create)
+        subgraphIds.add(p.subgraphSystemId);
+      if (a.operation === CHANGE_OPERATION.Delete)
+        subgraphIds.delete(p.subgraphSystemId);
     }
 
     for (const a of spfCreates) {
