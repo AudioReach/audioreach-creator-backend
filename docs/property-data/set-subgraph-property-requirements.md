@@ -16,8 +16,8 @@
 
 Write endpoints for managing subgraph properties in the AudioReach usecase designer. Subgraph properties fall into two categories:
 
-- **Simple properties** — direct writes with no cascade (name, generic SPF/driver properties).
-- **Cascading properties** — writes that trigger side effects across the subgraph or across linked subgraphs (scenario, VSID, subgraph type, ASoC).
+- **Simple properties** — direct writes with no cascade (name, generic SPF/driver properties including sgtype).
+- **Cascading properties** — writes that trigger side effects across the subgraph or across linked subgraphs (scenario, VSID).
 
 All writes are staged and not applied to the canonical data until the caller invokes commit.
 
@@ -34,7 +34,6 @@ All writes are staged and not applied to the canonical data until the caller inv
 | Scenario | SPF property `SUB_GRAPH_PROP_ID_SCENARIO_ID` — determines if the subgraph is Audio or Voice. |
 | VSID | SPF property `SUB_GRAPH_PROP_ID_VSID` — Voice Session ID; shared across voice subgraphs linked by the same GKV. |
 | Subgraph Type | Driver property `SUBGRAPH_TYPE_DRIVER_PROP_ID` — determines if the subgraph is Stream, Device, or None. |
-| ASoC | Driver properties for ASoC topology. Either Stream (`ASoC_STREAM_PROPERTY`) or Device (`ASoC_DEVICE_PROPERTY`) — mutually exclusive. Set automatically with default data when subgraph type is changed; updated directly via the ASoC endpoint. |
 | Staged write | A pending change visible via overlay read but not yet committed to the canonical table. |
 
 ---
@@ -113,9 +112,6 @@ rejected → `400` with a message naming the correct dedicated endpoint:
 |---|---|
 | Scenario (`SUB_GRAPH_PROP_ID_SCENARIO_ID`) | `PATCH /subgraphs/:id/scenario` |
 | VSID (`SUB_GRAPH_PROP_ID_VSID`) | `PATCH /subgraphs/:id/vsid` |
-| ASoC Stream (`ASoC_STREAM_PROPERTY`) | `PATCH /subgraphs/:id/asoc` |
-| ASoC Device (`ASoC_DEVICE_PROPERTY`) | `PATCH /subgraphs/:id/asoc` |
-| Subgraph Type (`SUBGRAPH_TYPE_DRIVER_PROP_ID`) | `PATCH /subgraphs/:id/sgtype` |
 
 Guard is enforced in the command handler, not the controller.
 
@@ -276,174 +272,6 @@ Controller maps directly to `UpdateVsidResponseDto` — no re-query needed.
 
 ---
 
-## FR-SG-SGTYPE — PATCH /subgraphs/:id/sgtype
-
-### FR-SG-SGTYPE-01 — Endpoint definition
-
-`PATCH /arc-api/v1/projects/:projectId/subgraphs/:subgraphSystemId/sgtype`
-
-Request body uses the same elements format as the generic property endpoint:
-
-```json
-{
-  "elements": [
-    {
-      "type": "ConfigElement",
-      "name": "sg_type",
-      "value": "2"
-    }
-  ]
-}
-```
-
-### FR-SG-SGTYPE-02 — Subgraph existence
-
-`subgraphSystemId` must refer to a non-deleted subgraph in the session's file. → `404` if not found.
-
-### FR-SG-SGTYPE-03 — No-op on same value
-
-If the subgraph's current type already matches the incoming value, the handler returns
-immediately with no writes. → `200` with an empty `updatedProperties` list.
-
-### FR-SG-SGTYPE-04 — Device cascade
-
-When the new type resolves to `DEVICE`:
-1. Write the new subgraph type property value.
-2. Remove `ASoC_STREAM_PROPERTY` from the subgraph if present.
-3. Add `ASoC_DEVICE_PROPERTY` with its **default payload fetched from the property
-   definition in the DB**.
-
-### FR-SG-SGTYPE-05 — Stream cascade
-
-When the new type resolves to `STREAM`:
-1. Write the new subgraph type property value.
-2. Remove `ASoC_DEVICE_PROPERTY` from the subgraph if present.
-3. Add `ASoC_STREAM_PROPERTY` with its **default payload fetched from the property
-   definition in the DB**.
-
-### FR-SG-SGTYPE-06 — None cascade
-
-When the new type resolves to `NONE`:
-1. Write the new subgraph type property value.
-2. Remove `ASoC_STREAM_PROPERTY` from the subgraph if present.
-3. Remove `ASoC_DEVICE_PROPERTY` from the subgraph if present.
-
-### FR-SG-SGTYPE-07 — Staged write
-
-The subgraph type write and all cascaded ASoC property adds/removes are staged as one
-atomic operation sharing the same `groupId`. Visible immediately via overlay read before commit.
-
-### FR-SG-SGTYPE-08 — Response
-
-Handler returns `{ groupId: string }` plus the list of updated properties. Controller
-maps directly to `UpdateSgtypeResponseDto` — no re-query needed.
-
-```json
-{
-  "groupId": "string",
-  "updatedProperties": [
-    { "systemId": "string", "propertyId": 0, "propertyName": "string" }
-  ]
-}
-```
-
-→ `200`.
-
----
-
-## FR-SG-ASOC — PATCH /subgraphs/:id/asoc
-
-### FR-SG-ASOC-01 — Endpoint definition
-
-`PATCH /arc-api/v1/projects/:projectId/subgraphs/:subgraphSystemId/asoc`
-
-Request body uses the same elements format as the generic property endpoint. The handler
-infers which ASoC property (Stream or Device) to update from the subgraph's current type.
-
-Example for a Device subgraph:
-
-```json
-{
-  "elements": [
-    {
-      "type": "ConfigElement",
-      "name": "device_dai",
-      "value": "105"
-    }
-  ]
-}
-```
-
-Example for a Stream subgraph:
-
-```json
-{
-  "elements": [
-    {
-      "type": "ConfigElement",
-      "name": "streamId",
-      "value": "Multimedia"
-    },
-    {
-      "type": "ConfigElement",
-      "name": "default_sg_pcm_format",
-      "value": "1"
-    },
-    {
-      "type": "ConfigElement",
-      "name": "rate_min",
-      "value": "48000"
-    },
-    {
-      "type": "ConfigElement",
-      "name": "rate_max",
-      "value": "48000"
-    },
-    {
-      "type": "ConfigElement",
-      "name": "channel_min",
-      "value": "1"
-    },
-    {
-      "type": "ConfigElement",
-      "name": "channel_max",
-      "value": "1"
-    }
-  ]
-}
-```
-
-### FR-SG-ASOC-02 — Subgraph existence
-
-`subgraphSystemId` must refer to a non-deleted subgraph in the session's file. → `404` if not found.
-
-### FR-SG-ASOC-03 — No ASoC property present
-
-If the subgraph's current type is `NONE` — meaning no ASoC property is present — the
-request is rejected → `422` with message:
-
-```
-No ASoC property present on this subgraph. Set subgraph type first
-via PATCH /subgraphs/:id/sgtype.
-```
-
-### FR-SG-ASOC-04 — Write
-
-The incoming `elements` are written to the ASoC property (Stream or Device) determined
-by the subgraph's current type. No cascade — this is a direct property update.
-
-### FR-SG-ASOC-05 — Staged write
-
-The update is staged. Visible immediately via overlay read before commit.
-
-### FR-SG-ASOC-06 — Response
-
-Handler returns `{ groupId: string }`. Controller re-queries via
-`GetSubgraphPropertiesQuery` and returns `PropertyResponseDto` for the updated
-property. → `200`.
-
----
-
 ## Cross-Cutting Requirements
 
 ### FR-CCR-01 — Edit session required
@@ -474,9 +302,9 @@ handle for the API call — all `edit_actions` rows produced within the call sha
 ### FR-CCR-06 — Reserved property guard
 
 `PATCH /subgraphs/:id/properties/:propSystemId` must reject requests where
-`propertySystemId` maps to a reserved property (scenario, VSID, ASoC Stream, ASoC Device,
-subgraph type). Guard is enforced in the command handler, not the controller. →
-`400` with a message naming the correct dedicated endpoint.
+`propertySystemId` maps to a reserved property (scenario, VSID). Guard is enforced in
+the command handler, not the controller. → `400` with a message naming the correct
+dedicated endpoint.
 
 ---
 
@@ -487,9 +315,7 @@ subgraph type). Guard is enforced in the command handler, not the controller. �
 | I1 | A property written multiple times in the same session results in only one effective value — the latest write wins. |
 | I2 | Scenario cascade and the triggering scenario property write are atomic — either all steps succeed or none are applied. |
 | I3 | VSID propagation and all BFS-discovered subgraph writes are atomic — either all subgraphs are updated or none are. |
-| I4 | Subgraph type write and its ASoC cascade (add/remove) are atomic — either all succeed or none are applied. |
-| I5 | The generic property endpoint cannot write reserved property IDs — scenario, VSID, ASoC Stream, ASoC Device, and subgraph type always go through their dedicated endpoints. |
-| I6 | ASoC property elements cannot be updated when subgraph type is NONE — the subgraph type must be set first via `PATCH /subgraphs/:id/sgtype`. |
+| I4 | The generic property endpoint cannot write reserved property IDs — scenario and VSID always go through their dedicated endpoints. |
 
 ---
 
@@ -504,12 +330,13 @@ subgraph type). Guard is enforced in the command handler, not the controller. �
 | Generic property write targeting a reserved property ID | 400 |
 | VSID conflict across linked usecases | 422 |
 | Scenario VSID conflict during Audio → Voice cascade | 422 |
-| ASoC update when subgraph type is NONE | 422 |
 
 ---
 
 ## Out of Scope
 
+- **Subgraph type (`SUBGRAPH_TYPE_DRIVER_PROP_ID`)** — treated as a normal property, updated via `PATCH /subgraphs/:id/properties/:propSystemId`. No cascade, no dedicated endpoint.
+- **ASoC properties (`ASoC_STREAM_PROPERTY`, `ASoC_DEVICE_PROPERTY`)** — completely out of scope. No read or write endpoints in this feature.
 - **UI cache properties** (`AddUpdateSubGraphUiCacheProperty`, `RemoveSubGraphUiCacheProperty`) — no write endpoints needed.
 - **VCPM CKV endpoints** — covered separately in the design doc (FR#5–FR#7).
 - **Container ID change** — handled by `PATCH /subgraphs/:id/container-id`.
