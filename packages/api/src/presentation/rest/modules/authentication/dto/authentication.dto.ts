@@ -19,8 +19,8 @@ export class RegisterResponseDto {
   token!: string;
 
   @ApiProperty({description: 'Unique client identifier'})
-  clientId!: number;
+  clientId!: string;
 
   @ApiProperty({description: 'Client name'})
-  clientName!: string | number;
+  clientName!: string;
 }

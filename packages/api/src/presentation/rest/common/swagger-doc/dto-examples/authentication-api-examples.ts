@@ -19,7 +19,7 @@ export const RegisterResponseDataExample = {
   getExample(): RegisterResponseDto {
     return {
       token: 'jwt.token.here',
-      clientId: 1,
+      clientId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       clientName: 'client-123',
     };
   },

@@ -12,6 +12,7 @@ import {
   NotImplementedException,
   Param,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiExtraModels,
@@ -40,9 +41,12 @@ import {SubgraphPropertyDefinitionResponseDto} from './dto/subgraph-property-def
 import {ContainerPropertyDefinitionResponseDto} from './dto/container-property-definition-response.dto.js';
 import {ContainerPropertyDefinitionSummaryResponseDto} from './dto/container-property-definition-summary-response.dto.js';
 import {SubgraphPropertyDefinitionSummaryResponseDto} from './dto/subgraph-property-definition-summary-response.dto.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../../decorators/client-id.decorator.js';
 
 @ApiTags('property-definition')
 @Controller('arc-api/v1/projects')
+@UseGuards(AuthGuard('jwt'))
 @ApiExtraModels(ApiResult, SubgraphPropertyDefinitionResponseDto)
 @ApiExtraModels(ApiResult, SubgraphPropertyDefinitionSummaryResponseDto)
 @ApiExtraModels(ApiResult, ContainerPropertyDefinitionResponseDto)
@@ -90,6 +94,7 @@ export class PropertyDefinitionController {
   })
   async getSubgraphPropertyDefinitions(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('propertyDefinitionId') propertyDefinitionId?: string,
   ): Promise<ApiResult<SubgraphPropertyDefinitionSummaryResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
@@ -110,7 +115,7 @@ export class PropertyDefinitionController {
     const query = new GetAllSubgraphPropertyDefinitionsQuery(
       parsedProjectId,
       parsedPropertyDefinitionId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result =
@@ -157,6 +162,7 @@ export class PropertyDefinitionController {
   async getSubgraphPropertyDefinition(
     @Param('projectId') projectId: string,
     @Param('propertySystemId') propertySystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<SubgraphPropertyDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
@@ -173,7 +179,7 @@ export class PropertyDefinitionController {
     const query = new GetSubgraphPropertyDefinitionQuery(
       parsedProjectId,
       parsedPropertySystemId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const property =
@@ -255,6 +261,7 @@ export class PropertyDefinitionController {
   })
   async getContainerPropertyDefinitions(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('propertyDefinitionId') propertyDefinitionId?: string,
   ): Promise<ApiResult<ContainerPropertyDefinitionSummaryResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
@@ -275,7 +282,7 @@ export class PropertyDefinitionController {
     const query = new GetAllContainerPropertyDefinitionsQuery(
       parsedProjectId,
       parsedPropertyDefinitionId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result =
@@ -322,6 +329,7 @@ export class PropertyDefinitionController {
   async getContainerPropertyDefinition(
     @Param('projectId') projectId: string,
     @Param('propertySystemId') propertySystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ContainerPropertyDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
@@ -338,7 +346,7 @@ export class PropertyDefinitionController {
     const query = new GetContainerPropertyDefinitionQuery(
       parsedProjectId,
       parsedPropertySystemId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const property =

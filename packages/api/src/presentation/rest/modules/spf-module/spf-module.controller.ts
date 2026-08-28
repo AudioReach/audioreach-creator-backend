@@ -66,6 +66,8 @@ import {PartialSuccessInterceptor} from '../../common/interceptors/partial-succe
 import {toApiResult} from '../../common/result/to-api-result.js';
 import {SessionGuard} from '../../../../guards/session-guard.js';
 import {ArcSession} from '../../../../guards/arc-session.decorator.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
 import {CkvResponseDto} from './dto/shared/ckv-response.dto.js';
 import {TkvResponseDto} from './dto/shared/tkv-response.dto.js';
 import {TagInfoResponseDto} from './dto/shared/tag-info-response.dto.js';
@@ -85,6 +87,7 @@ import {
  */
 @ApiTags('spf-modules')
 @Controller('arc-api/v1/projects/:projectId/spf-modules')
+@UseGuards(AuthGuard('jwt'))
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
@@ -186,6 +189,7 @@ export class SpfModuleController extends BaseController {
   async querySpfModules(
     @Param('projectId') projectId: string,
     @Body() spfModuleSystemIds: SystemIdsRequestDto,
+    @ClientId() clientId: string,
     @Query('include') include?: string,
   ): Promise<ApiResult<SpfModuleResponseDto[]>> {
     const includeOptions = new Set(
@@ -206,7 +210,7 @@ export class SpfModuleController extends BaseController {
       Number.parseInt(projectId, 10), // radix 10 — see above
       includeOptions.has('ckvs'),
       includeOptions.has('tags'),
-      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+      clientId,
     );
 
     const result = await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
@@ -265,6 +269,7 @@ export class SpfModuleController extends BaseController {
     @Param('projectId', ParseIntPipe) projectId: number,
     @Body() request: CreateSpfModuleRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<SpfModuleResponseDto>> {
     const cmd = new CreateModuleCommand(
       Number(request.moduleDefinitionSystemId),
@@ -288,7 +293,7 @@ export class SpfModuleController extends BaseController {
       projectId,
       false,
       false,
-      'api-client',
+      clientId,
     );
     const readResult =
       await this.queryBus.execute<Result<SpfModuleDto[]>>(query);
@@ -366,9 +371,9 @@ export class SpfModuleController extends BaseController {
     @Param('projectId') projectId: string,
     @Param('spfModuleSystemId') spfModuleSystemId: string,
     @Param('ckvSystemId') ckvSystemId: string,
+    @ClientId() clientId: string,
     @Query('param-system-ids') paramSystemIds?: string,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {
-    const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
     const query = new GetCkvCalibrationDataQuery(
       projectId,
       spfModuleSystemId,
@@ -449,6 +454,7 @@ export class SpfModuleController extends BaseController {
     @Param('ckvSystemId') ckvSystemId: string,
     @Body() updateRequest: UpdateSpfModuleCalDataRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<CkvCalDataResponseDto>> {
     const command = new PutCkvCalDataCommand(
       spfModuleSystemId,
@@ -466,7 +472,6 @@ export class SpfModuleController extends BaseController {
 
     let data: CkvCalDataResponseDto | undefined;
     if (putResult.data.succeededParamSystemIds.length > 0) {
-      const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
       const query = new GetCkvCalibrationDataQuery(
         projectId,
         spfModuleSystemId,
@@ -753,6 +758,7 @@ export class SpfModuleController extends BaseController {
     @Param('spfModuleSystemId', ParseIntPipe) spfModuleSystemId: number,
     @Body() dto: PatchSpfModuleRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<SpfModuleResponseDto>> {
     const cmd = new PatchSpfModuleCommand(
       spfModuleSystemId,
@@ -770,7 +776,7 @@ export class SpfModuleController extends BaseController {
       projectId,
       false,
       false,
-      'api-client',
+      clientId,
     );
     const readResult =
       await this.queryBus.execute<Result<SpfModuleDto[]>>(query);

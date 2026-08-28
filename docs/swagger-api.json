@@ -36,7 +36,7 @@
                   "default": {
                     "value": {
                       "token": "jwt.token.here",
-                      "clientId": 1,
+                      "clientId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                       "clientName": "client-123"
                     }
                   }
@@ -8645,6 +8645,55 @@
           "control-links"
         ]
       }
+    },
+    "/arc-api/v1/logs": {
+      "post": {
+        "operationId": "LogController_log",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLogEntryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Submit a client log entry",
+        "tags": [
+          "Logging"
+        ]
+      }
+    },
+    "/arc-api/v1/projects/{projectId}/logs": {
+      "get": {
+        "operationId": "LogController_getLogs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get log entries for a project",
+        "tags": [
+          "Logging"
+        ]
+      }
     }
   },
   "info": {
@@ -8897,11 +8946,11 @@
             "description": "JWT token for authentication"
           },
           "clientId": {
-            "type": "number",
+            "type": "string",
             "description": "Unique client identifier"
           },
           "clientName": {
-            "type": "object",
+            "type": "string",
             "description": "Client name"
           }
         },
@@ -13304,9 +13353,9 @@
             "type": "string",
             "description": "Type of the usecase",
             "enum": [
-              "EC",
-              "ROUTED",
-              "MANUAL"
+              "CONNECTED",
+              "DISCONNECTED",
+              "EC"
             ]
           },
           "categories": {
@@ -17538,6 +17587,51 @@
           "properties"
         ],
         "description": "Control link property data"
+      },
+      "CreateLogEntryRequestDto": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "verbose",
+              "debug",
+              "info",
+              "warn",
+              "error",
+              "critical"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "component": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "description",
+          "timestamp",
+          "msg",
+          "component",
+          "tag"
+        ]
       }
     }
   }

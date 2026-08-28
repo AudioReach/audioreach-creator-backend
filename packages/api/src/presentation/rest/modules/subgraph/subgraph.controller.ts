@@ -57,6 +57,8 @@ import {ElementTemplateArraySummaryDto} from '../../common/dto/element-data/elem
 import {StructSummaryDto} from '../../common/dto/element-data/elements/struct-summary.dto.js';
 import {SessionGuard} from '../../../../guards/session-guard.js';
 import {ArcSession} from '../../../../guards/arc-session.decorator.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
 import {
   QueryBus,
   CommandBus,
@@ -88,7 +90,7 @@ import {
  */
 @ApiTags('subgraphs')
 @Controller('arc-api/v1/projects/:projectId/subgraphs')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 @ApiExtraModels(
   ConfigElementDto,
   ElementTemplateArrayDto,
@@ -225,11 +227,12 @@ export class SubgraphController extends BaseController {
   async getSubgraphProperties(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<SubgraphPropertiesResponseDto>> {
     const query = new GetSubgraphPropertiesQuery(
       Number.parseInt(projectId, 10),
       Number.parseInt(subgraphSystemId, 10),
-      'client-id',
+      clientId,
     );
     const result =
       await this.queryBus.execute<Result<SubgraphPropertiesResponseDto>>(query);
@@ -834,6 +837,7 @@ export class SubgraphController extends BaseController {
   async getComponentsForSubgraph(
     @Param('projectId') projectId: string,
     @Param('subgraphSystemId') subgraphSystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ComponentsResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     const parsedSubgraphId = Number.parseInt(subgraphSystemId, 10);
@@ -850,7 +854,7 @@ export class SubgraphController extends BaseController {
     const query = new GetComponentsQuery(
       {type: COMPONENT_SCOPE_TYPE.Subgraph, systemId: parsedSubgraphId},
       parsedProjectId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result =

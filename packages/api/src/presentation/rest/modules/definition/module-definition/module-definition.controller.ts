@@ -15,7 +15,7 @@ import {
   Patch,
   Put,
   Query,
-  //UseGuards,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {
@@ -48,10 +48,12 @@ import {SpfCustomModuleMetadataResponseDto} from './dto/spf-custom-module-metada
 import {DeleteSpfCustomModuleMetadataResponseDto} from './dto/delete-spf-custom-module-metadata-response.dto.js';
 import {UpdateSpfCustomModuleMetadataRequestDto} from './dto/update-spf-custom-module-metadata-request.dto.js';
 import {PatchSpfModuleDefinitionRequestDto} from './dto/patch-spf-module-definition-request.dto.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../../decorators/client-id.decorator.js';
 
 @ApiTags('module-definition')
 @Controller('arc-api/v1/projects')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiExtraModels(ApiResult, SpfModuleDefinitionResponseDto)
 @ApiExtraModels(ApiResult, DriverModuleDefinitionResponseDto)
@@ -135,6 +137,7 @@ export class ModuleDefinitionController {
   })
   async getAllSpfModuleDefinitions(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('processorId') processorId?: string,
     @Query('moduleDefinitionId') moduleDefinitionId?: string,
     @Query('parameterId') parameterId?: string,
@@ -153,7 +156,7 @@ export class ModuleDefinitionController {
         parameterNaturalId: parseOptionalInt(parameterId),
       },
       includeCustomData,
-      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+      clientId,
     );
 
     const result =
@@ -205,6 +208,7 @@ export class ModuleDefinitionController {
     @Param('projectId') projectId: string,
     @Param('moduleSystemId') moduleSystemId: string,
     @Query('includeCustomData') includeCustomData: boolean = false,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<SpfModuleDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
@@ -222,7 +226,7 @@ export class ModuleDefinitionController {
       parsedProjectId,
       parsedModuleSystemId,
       includeCustomData,
-      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+      clientId,
     );
 
     const result = await this.queryBus.execute<SpfModuleDefinitionDto>(query);
@@ -322,6 +326,7 @@ export class ModuleDefinitionController {
   async getSpfCustomModuleMetadata(
     @Param('projectId') projectId: string,
     @Param('moduleSystemId') moduleSystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<SpfCustomModuleMetadataResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
@@ -338,7 +343,7 @@ export class ModuleDefinitionController {
     const query = new GetSpfCustomModuleMetadataQuery(
       parsedProjectId,
       parsedModuleSystemId,
-      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+      clientId,
     );
 
     const result = await this.queryBus.execute<CustomModuleMetadataDto | null>(
@@ -491,6 +496,7 @@ export class ModuleDefinitionController {
   })
   async getAllDriverModuleDefinitions(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('moduleDefinitionId') moduleDefinitionId?: string,
     @Query('parameterId') parameterId?: string,
   ): Promise<ApiResult<DriverModuleDefinitionResponseDto[]>> {
@@ -503,7 +509,7 @@ export class ModuleDefinitionController {
       parsedProjectId,
       parseOptionalInt(moduleDefinitionId),
       parseOptionalInt(parameterId),
-      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+      clientId,
     );
 
     const result =
@@ -548,6 +554,7 @@ export class ModuleDefinitionController {
   async getDriverModuleDefinition(
     @Param('projectId') projectId: string,
     @Param('moduleSystemId') moduleSystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<DriverModuleDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
@@ -564,7 +571,7 @@ export class ModuleDefinitionController {
     const query = new GetDriverModuleDefinitionQuery(
       parsedProjectId,
       parsedModuleSystemId,
-      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+      clientId,
     );
 
     const result =
