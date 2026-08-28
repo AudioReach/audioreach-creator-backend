@@ -27,6 +27,117 @@ Requirements source: [../set-subgraph-property-requirements.md](../set-subgraph-
 
 ---
 
+## Section 0: Prerequisite — `serializeDefaultParameterData` in `serialize-elements.ts`
+
+**Context:** `build-subgraph-with-defaults.ts` seeds all `SubgraphPropertyData` blobs as `null` because the utility to build a default binary payload doesn't exist yet (see the `TODO(add-module-calibration-defaults)` comment). The `setPropertyData` infra method resolves the property row by calling `SubgraphPropertyDataFetcher.fetchMany` and throws if the row is not found — but the row _will_ exist since it is created at subgraph-creation time. The problem is its `payload` is `null`, which is valid for reads but means the blob column is empty. This is fine for reads but the section is called out here because the commit `a54340d` from the `feature/use-case-designer` branch already implements `serializeDefaultParameterData`; this PR should take those changes directly rather than waiting for that branch to merge.
+
+### 0.1 Files changed
+
+| File | Change |
+|---|---|
+| `packages/core/src/application/usecase-designer/shared/serialize-elements.ts` | Add `serializeDefaultParameterData` + `buildDefaultElements` helpers (ported from commit `a54340d`) |
+| `packages/core/src/application/usecase-designer/subgraph/build-subgraph-with-defaults.ts` | Replace `null` placeholder with `serializeDefaultParameterData(propDef)` |
+
+### 0.2 `serializeDefaultParameterData`
+
+**File:** `packages/core/src/application/usecase-designer/shared/serialize-elements.ts` (modified)
+
+Appended after the existing `serializeParameterData` function:
+
+```typescript
+/**
+ * Builds a binary blob from the default values declared in a parameter
+ * definition's elementsStructure. Used to seed property rows at entity
+ * creation time so they always have a valid (if default) payload.
+ */
+export function serializeDefaultParameterData(
+  definition: ParameterDefinitionBase,
+): SerializeResult {
+  let schema: DefinitionElement[];
+  try {
+    schema = convertParamDefinition(definition.elementsStructure);
+  } catch {
+    return {ok: false, error: 'Failed to parse elementsStructure JSON'};
+  }
+  const defaultInputs = schema.map(def => buildDefaultElement(def));
+  return serializeParameterData(definition, defaultInputs);
+}
+
+function buildDefaultElement(def: DefinitionElement): ElementCalData {
+  switch (def.elementType) {
+    case PARAMETER_ELEMENT_TYPE.ConfigElement:
+      return {
+        name: def.name ?? '',
+        description: def.description ?? '',
+        isReadOnly: def.isReadOnly ?? false,
+        type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+        dataType: def.dataType,
+        value: def.defaultValue ?? '0',
+      } satisfies ConfigElementData;
+
+    case PARAMETER_ELEMENT_TYPE.Struct:
+      return {
+        name: def.name,
+        description: def.description ?? '',
+        isReadOnly: false,
+        type: PARAMETER_ELEMENT_TYPE.Struct,
+        structType: def.structureType,
+        value: def.elements.map(e => buildDefaultElement(e)),
+      } satisfies StructData;
+
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
+    case PARAMETER_ELEMENT_TYPE.StructArray: {
+      const length = def.arrayLength ?? 0;
+      return {
+        name: def.name,
+        description: def.description ?? '',
+        isReadOnly: false,
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
+        template: [],
+        value: Array.from({length}, () => buildDefaultElement(def.template)),
+      } satisfies ElementArrayData;
+    }
+  }
+}
+```
+
+The `serializeParameterData` call in `serializeDefaultParameterData` reuses the existing serialization path — no duplication of write logic.
+
+**New imports needed** in `serialize-elements.ts`:
+```typescript
+import type {
+  ConfigElementData,
+  StructData,
+  ElementArrayData,
+} from '../../../domain/entities/definitions/common/types/element-data.js';
+```
+(These are already imported at the top of the file — verify before adding.)
+
+### 0.3 Wire into `build-subgraph-with-defaults.ts`
+
+**File:** `packages/core/src/application/usecase-designer/subgraph/build-subgraph-with-defaults.ts` (modified)
+
+Replace the `null` placeholder:
+
+```typescript
+import {serializeDefaultParameterData} from '../shared/serialize-elements.js';
+
+// inside buildSubgraphWithDefaults:
+const properties = propertyDefinitions.map(propDef => {
+  const serialized = serializeDefaultParameterData(propDef);
+  return new SubgraphPropertyData(
+    propDef.systemId,
+    serialized.ok ? serialized.value : null,
+  );
+});
+```
+
+`propDef` satisfies `ParameterDefinitionBase` (`systemId`, `isReadOnly`, `elementsStructure`) — the existing `SubgraphPropertyDefinitionRecord` type already extends it.
+
+If serialization fails for a given property definition (malformed `elementsStructure`), the blob falls back to `null` rather than throwing — matching the existing behaviour and avoiding a hard failure at subgraph creation time.
+
+---
+
 ## Section 1: Architecture & Call Flow
 
 The write path follows hexagonal + CQRS using **Command + CommandBus + UnitOfWork**. All three endpoints reuse existing command/handler stubs — the stubs are implemented (no new files for commands or handlers). The re-query after write uses the existing `GetSubgraphPropertiesQuery`.
@@ -58,14 +169,14 @@ flowchart TD
     D -->|Not allowed| C
     D -->|OK| E[subgraphExists → 404]
     E -->|Not found| F([HTTP 404])
-    E -->|Found| G[getSubgraphPropertyDefinition → 404 if not found]
+    E -->|Found| G[getSubgraphPropertyDefinitionWithElements → 404 if not found]
     G -->|Not found| F
     G -->|Found| H{Reserved property?}
     H -->|scenario or VSID| I([HTTP 400 — use dedicated endpoint])
     H -->|Not reserved| J[serializeParameterData → 400 if fail]
     J -->|Fail| K([HTTP 400])
     J -->|OK| L[setPropertyData on SubgraphPropertyData row]
-    L --> M[Re-query via GetSubgraphPropertiesQuery]
+    L --> M[Re-query via GetSubgraphPropertyQuery]
     M --> N([HTTP 200 PropertyResponseDto])
 ```
 
@@ -81,7 +192,7 @@ flowchart TD
     E -->|Not found| F([HTTP 404])
     E -->|Found| G[Read current VSID from overlay]
     G -->|Same value| H([HTTP 200 empty affectedSubgraphSystemIds])
-    G -->|Different| I[BFS across SGKVs → find all linked voice subgraphs]
+    G -->|Different| I[BFS via use_case_subgraphs + usecase_gkv_values → find all linked voice subgraphs]
     I --> J[setPropertyData for target + all BFS subgraphs atomically]
     J --> K([HTTP 200 UpdateVsidResponseDto with affectedSubgraphSystemIds])
 ```
@@ -93,9 +204,16 @@ Files annotated **(existing)** already exist; **(modified)** means an existing f
 #### Presentation Layer
 ```
 packages/api/src/presentation/rest/modules/subgraph/
-├── subgraph.controller.ts                                        (modified — implement name + property + vsid stubs)
-└── dto/
-    └── subgraph-request.dto.ts                                   (modified — add SetSubgraphNameRequestDto)
+└── subgraph.controller.ts                                        (modified — implement name + property + vsid stubs)
+```
+
+#### Core Shared
+```
+packages/core/src/application/usecase-designer/
+├── shared/
+│   └── serialize-elements.ts                                         (modified — add serializeDefaultParameterData + buildDefaultElement)
+└── subgraph/
+    └── build-subgraph-with-defaults.ts                               (modified — replace null placeholder with serializeDefaultParameterData)
 ```
 
 #### Core Layer
@@ -106,12 +224,16 @@ packages/core/src/application/
 ├── ports/persistence/query-services/subgraph-property-definition/
 │   └── subgraph-property-def-query-service.ts                    (modified — add getSubgraphPropertyDefinitionWithElements)
 ├── orchestration/cqrs/registries/
-│   └── command-handler-registry.ts                               (modified — inject queryServices into UpdateSubgraphPropertyHandler and UpdateSubgraphVsidHandler)
+│   ├── command-handler-registry.ts                               (modified — inject queryServices into UpdateSubgraphPropertyHandler and UpdateSubgraphVsidHandler)
+│   └── query-handler-registry.ts                                 (modified — register GetSubgraphPropertyHandler)
 └── usecase-designer/subgraph/
     ├── subgraph-property-ids/
     │   └── subgraph-property-ids.ts                              (new — SUB_GRAPH_PROP_ID_SCENARIO_ID, SUB_GRAPH_PROP_ID_VSID, scenario value constants)
     ├── dto/
     │   └── subgraph-write-result-types.ts                        (modified — add groupId to VsidUpdateDtoSchema)
+    ├── get-property/
+    │   ├── get-subgraph-property.query.ts                        (new — single property by propertyDefinitionSystemId)
+    │   └── get-subgraph-property.handler.ts                      (new — returns PropertyDataDto for single property)
     ├── patch/
     │   └── patch-subgraph.handler.ts                             (modified — implement setName logic, return { groupId })
     ├── update-property/
@@ -140,14 +262,14 @@ Presentation (API)
   PATCH /name:
     → @UseGuards(SessionGuard)
     → new PatchSubgraphCommand(subgraphSystemId, dto.name)
-    → CommandBus.execute(command, session) — returns void
+    → CommandBus.execute(command, session) — returns { groupId: string }
     → re-query via GetSubgraphPropertiesQuery → SubgraphPropertiesResponseDto → 200
 
   PATCH /properties/:propSystemId:
     → @UseGuards(SessionGuard)
     → new UpdateSubgraphPropertyCommand(subgraphSystemId, propSystemId, dto.elements)
     → CommandBus.execute(command, session) — returns void
-    → re-query via GetSubgraphPropertiesQuery, filter to single property → PropertyResponseDto → 200
+    → re-query via GetSubgraphPropertyQuery(projectId, subgraphSystemId, propSystemId) → PropertyDataDto → PropertyResponseDto → 200
 
   PATCH /vsid:
     → @UseGuards(SessionGuard)
@@ -165,7 +287,7 @@ Core (Application)
   UpdateSubgraphPropertyHandler:
     fileSystemId = uow.getWriteContext().session.fileSystemId
     1. subgraphExists(subgraphSystemId, fileSystemId) → 404 if false
-    2. queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyDefinition(
+    2. queryServices.subgraphPropertyDefQueryService.getSubgraphPropertyDefinitionWithElements(
          propertySystemId, fileSystemId) → 404 if fail
     3. Reserved guard: if propertyId === SCENARIO_ID or VSID_ID → throw InvalidOperationException → 400
     4. serializeParameterData(propDef, command.elements) → 400 if fail
@@ -195,7 +317,7 @@ Infrastructure (Persistence)
                    aggregateId: subgraphSystemId, delta: { name } })
 
   TypeOrmSubgraphRepository.setPropertyData:
-    → fetchOne(subgraphSystemId, fileSystemId, sessionId) to resolve prop row systemId
+    → SubgraphPropertyDataFetcher.fetchMany([subgraphSystemId], sessionId) to resolve prop row systemId
     → prop row not found → throw (property must exist at subgraph creation)
     → writeDelta({ targetTable: SubgraphPropertyData, targetSystemId: prop.systemId,
                    aggregateId: subgraphSystemId, delta: { payload: data } })
@@ -242,7 +364,7 @@ async patchSubgraph(
 
 ### 2.2 PATCH /properties/:propSystemId
 
-The existing `updateSubgraphProperty` stub is implemented. The return type is corrected from `SubgraphPropertiesResponseDto` to `PropertyResponseDto` (single property re-query):
+The existing `updateSubgraphProperty` stub is implemented. Uses a new `GetSubgraphPropertyQuery` (singular — by property definition systemId) for the re-query, mirroring the `GetContainerPropertyQuery` pattern from `set-container-property-design.md`:
 
 ```typescript
 @Patch('/:subgraphSystemId/properties/:propSystemId')
@@ -258,23 +380,18 @@ async updateSubgraphProperty(
     new UpdateSubgraphPropertyCommand(subgraphSystemId, propSystemId, dto.elements),
     session,
   );
-  const query = new GetSubgraphPropertiesQuery(
+  const query = new GetSubgraphPropertyQuery(
     Number.parseInt(projectId, 10),
     subgraphSystemId,
+    propSystemId,
     'api-client',
   );
-  const result = await this.queryBus.execute<Result<SubgraphPropertiesResponseDto>>(query);
-  // Extract the single updated property from the full properties response
-  if (result.kind === RESULT_KIND.Fail) return toApiResult(result);
-  const prop = result.data.properties.find(
-    p => p.systemId === String(propSystemId),
-  );
-  if (!prop) throw new ResourceNotFoundException(
-    `Property ${propSystemId} not found on subgraph ${subgraphSystemId}`,
-  );
-  return toApiResult(Result.ok(prop));
+  const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+  return toApiResult(result, data => mapPropertyToDto(data));
 }
 ```
+
+`GetSubgraphPropertyQuery` takes `(projectId, subgraphSystemId, propertyDefinitionSystemId, clientId)` — re-queries the single updated property by its definition systemId. `mapPropertyToDto` converts `PropertyDataDto` → `PropertyResponseDto` (same mapper used in the container LLD).
 
 ### 2.3 PATCH /vsid
 
@@ -396,9 +513,9 @@ export class UpdateSubgraphPropertyHandler implements CommandHandler<
       );
     }
 
-    // Step 2: property definition existence
+    // Step 2: property definition existence (with elementsStructure for serialization)
     const defResult = await this.queryServices.subgraphPropertyDefQueryService
-      .getSubgraphPropertyDefinition(command.propertySystemId, fileSystemId);
+      .getSubgraphPropertyDefinitionWithElements(command.propertySystemId, fileSystemId);
     if (defResult.kind === RESULT_KIND.Fail) {
       throw new ResourceNotFoundException(
         `Property definition ${command.propertySystemId} not found`,
@@ -467,7 +584,7 @@ export class UpdateSubgraphVsidCommand extends BaseCommand {
 
 **File:** `packages/core/src/application/usecase-designer/subgraph/update-vsid/update-subgraph-vsid.handler.ts` (modified)
 
-The BFS algorithm mirrors `UpdateVsidProperty` in the C# reference implementation:
+The BFS algorithm propagates the new VSID to all Voice subgraphs connected via the same non-zero-GKV usecases:
 
 1. Start with the target subgraph in a queue.
 2. For each subgraph dequeued: find all usecases containing it (`use_case_subgraphs`).
@@ -746,13 +863,104 @@ async getSubgraphPropertyDefinitionWithElements(
 
 ---
 
+### 3.9 GetSubgraphPropertyQuery and Handler (singular)
+
+Mirrors `GetContainerPropertyQuery` from `set-container-property-design.md` exactly.
+
+**Files:**
+- `packages/core/src/application/usecase-designer/subgraph/get-property/get-subgraph-property.query.ts` (new)
+- `packages/core/src/application/usecase-designer/subgraph/get-property/get-subgraph-property.handler.ts` (new)
+
+```typescript
+export class GetSubgraphPropertyQuery extends BaseQuery {
+  public readonly projectId: number;
+  public readonly subgraphSystemId: number;
+  public readonly propertySystemId: number; // property definition systemId
+
+  constructor(
+    projectId: number,
+    subgraphSystemId: number,
+    propertySystemId: number,
+    clientId: string,
+  ) {
+    super(clientId);
+    this.projectId = projectId;
+    this.subgraphSystemId = subgraphSystemId;
+    this.propertySystemId = propertySystemId;
+  }
+}
+```
+
+```typescript
+export class GetSubgraphPropertyHandler implements QueryHandler<
+  GetSubgraphPropertyQuery,
+  Promise<Result<PropertyDataDto>>
+> {
+  constructor(private readonly queryServices: QueryServices) {}
+
+  async handle(query: GetSubgraphPropertyQuery): Promise<Result<PropertyDataDto>> {
+    const fileSystemId = await this.queryServices.projectQueryService
+      .getFileIdByProjectId(query.projectId);
+
+    // Step 1: load all property payloads for the subgraph (overlay-aware)
+    const payloadsResult = await this.queryServices.subgraphQueryService
+      .findPropertyPayloads(query.subgraphSystemId, fileSystemId);
+    if (payloadsResult.kind === RESULT_KIND.Fail) {
+      throw new Error(payloadsResult.issues[0]?.message ?? 'Failed to load subgraph properties');
+    }
+    if (payloadsResult.data === null) {
+      throw new ResourceNotFoundException(`Subgraph ${query.subgraphSystemId} not found`);
+    }
+
+    // Step 2: find the specific property payload by definition systemId
+    const payload = payloadsResult.data.find(
+      p => p.propertySystemId === query.propertySystemId,
+    );
+    if (!payload) {
+      throw new ResourceNotFoundException(
+        `Property ${query.propertySystemId} not found on subgraph ${query.subgraphSystemId}`,
+      );
+    }
+
+    // Step 3: load definition with elementsStructure for parsing
+    const defResult = await this.queryServices.subgraphPropertyDefQueryService
+      .getSubgraphPropertyDefinitionWithElements(query.propertySystemId, fileSystemId);
+    if (defResult.kind === RESULT_KIND.Fail) {
+      throw new ResourceNotFoundException(`Property definition ${query.propertySystemId} not found`);
+    }
+
+    // Step 4: parse elements from binary payload
+    const elements = payload.payload !== null
+      ? parseParameterData(payload.payload, defResult.data.elementsStructure)
+      : [];
+
+    return Result.ok({
+      systemId: payload.systemId,
+      propertyId: defResult.data.propertyId,
+      propertyName: defResult.data.name,
+      elements,
+    });
+  }
+}
+```
+
+Registration in `query-handler-registry.ts`:
+```typescript
+this.queryHandlerFactories.set(GetSubgraphPropertyQuery, {
+  create: deps => new GetSubgraphPropertyHandler(deps.queryServices),
+});
+```
+
+---
+
 ## Section 4: Infrastructure Layer
 
 **File:** `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/subgraph/subgraph.repository.ts` (modified)
 
 ### 4.1 getSubgraphWithProperties
 
-Delegates to the existing `SubgraphOverlayFetcher.fetchOne` — no new SQL needed.
+Delegates to `SubgraphOverlayFetcher.fetchOne` — properties now returned as `SubgraphPropertyDataBase[]`
+via the injected `SubgraphPropertyDataFetcher`.
 
 ```typescript
 async getSubgraphWithProperties(
@@ -770,14 +978,16 @@ async getSubgraphWithProperties(
     systemId: overlaid.systemId,
     properties: overlaid.properties.map(p => ({
       systemId: p.systemId,
-      propertySystemId: p.propertySystemId,
+      propertySystemId: p.subgraphPropertySystemId,
       payload: p.payload as Uint8Array | null,
     })),
   };
 }
 ```
 
-`SubgraphOverlayFetcher` is constructed in the repository constructor — same pattern as `TypeOrmContainerRepository`.
+**Constructor note:** `SubgraphOverlayFetcher` now requires four dependencies:
+`manager, editActionsSvc, SubgraphPropertyDataFetcher, SubgraphSgkvFetcher`.
+The repository constructor must inject all four — same pattern as `TypeOrmContainerRepository`.
 
 ### 4.2 setName
 
@@ -803,7 +1013,8 @@ async setName(
 
 ### 4.3 setPropertyData
 
-Mirrors `TypeOrmContainerRepository.setPropertyData` exactly — resolves property row `systemId` via fetcher, then writes delta on `SubgraphPropertyData`.
+Uses `SubgraphPropertyDataFetcher.fetchMany` to resolve the property row `systemId` — avoids
+loading the full subgraph row just to find a property PK.
 
 ```typescript
 async setPropertyData(
@@ -812,18 +1023,14 @@ async setPropertyData(
   data: Uint8Array,
 ): Promise<void> {
   const {session, groupId} = this.uow.getWriteContext();
-  const overlaid = await this.subgraphFetcher.fetchOne(
-    subgraphSystemId,
-    session.fileSystemId,
+
+  // Resolve the SubgraphPropertyData row's systemId via the property data fetcher
+  const propRows = await this.propertyDataFetcher.fetchMany(
+    [subgraphSystemId],
     session.sessionId,
   );
-  if (!overlaid) {
-    throw new Error(
-      `Subgraph ${subgraphSystemId} not found in file ${session.fileSystemId}.`,
-    );
-  }
-  const prop = overlaid.properties.find(
-    p => p.propertySystemId === propertySystemId,
+  const prop = propRows.find(
+    p => p.subgraphPropertySystemId === propertySystemId,
   );
   if (!prop) {
     throw new Error(
@@ -918,6 +1125,27 @@ async getSubgraphIdsInSameUsecases(
 ## Section 5: Testing Strategy
 
 ### Unit Tests
+
+#### serializeDefaultParameterData
+
+**File:** `packages/core/tests/unit/application/usecase-designer/shared/serialize-default-parameter-data.spec.ts` (new)
+
+| Scenario | Expected outcome |
+|---|---|
+| Single `ConfigElement` with `defaultValue` | serialized blob contains that value |
+| Single `ConfigElement` with no `defaultValue` | serialized blob contains `0` |
+| `Struct` with nested `ConfigElement` children | all children use default values |
+| `ElementArray` with `arrayLength: 3` | three default items serialized |
+| Malformed `elementsStructure` JSON | returns `{ ok: false }` |
+
+#### buildSubgraphWithDefaults (updated)
+
+**File:** `packages/core/tests/unit/application/usecase-designer/subgraph/build-subgraph-with-defaults.spec.ts` (new or extend)
+
+| Scenario | Expected outcome |
+|---|---|
+| Valid `elementsStructure` | property blob is non-null `Uint8Array` |
+| Malformed `elementsStructure` | property blob falls back to `null` (no throw) |
 
 #### PatchSubgraphHandler
 
