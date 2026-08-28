@@ -31,6 +31,29 @@ Requirements source: [../set-subgraph-property-requirements.md](../set-subgraph-
 
 ---
 
+## Section 0: Prerequisite — `serializeDefaultParameterData` in `serialize-elements.ts`
+
+**Context:** This design calls `serializeDefaultParameterData` in four places:
+- `addProperty` (§4.1) — seeds a new `SubgraphPropertyData` blob with default values
+- `wipeCalData` (§4.4) — restores zero-CKV payload rows to factory defaults
+- `addVcpmCfgDefaultData` (§4.6) — seeds new `VcpmParameterPayload` blobs
+- Voice → Audio step c — seeds the clock scale factor property blob
+
+That function does not yet exist in the codebase. The unmerged commit `a54340d` on `feature/use-case-designer` implements it. **This PR must port those changes before any of the above infra methods can be implemented.**
+
+Full implementation details and the `build-subgraph-with-defaults.ts` wiring are documented in **`set-subgraph-property-design.md` Section 0** — that section is the authoritative source. The summary here is:
+
+### 0.1 Files changed
+
+| File | Change |
+|---|---|
+| `packages/core/src/application/usecase-designer/shared/serialize-elements.ts` | Add `serializeDefaultParameterData` + `buildDefaultElement` helpers (ported from commit `a54340d`) |
+| `packages/core/src/application/usecase-designer/subgraph/build-subgraph-with-defaults.ts` | Replace `null` placeholder with `serializeDefaultParameterData(propDef)` |
+
+See `set-subgraph-property-design.md §0.2–§0.3` for the full code.
+
+---
+
 ## Section 1: Architecture & Call Flow
 
 ### 1.1 High-Level Workflow Diagram
@@ -61,6 +84,15 @@ Files annotated **(existing)** already exist; **(modified)** means changed; **(n
 ```
 packages/api/src/presentation/rest/modules/subgraph/
 └── subgraph.controller.ts                                               (modified — implement setSubgraphScenario stub)
+```
+
+#### Core Shared
+```
+packages/core/src/application/usecase-designer/
+├── shared/
+│   └── serialize-elements.ts                                                (modified — add serializeDefaultParameterData + buildDefaultElement; see §0)
+└── subgraph/
+    └── build-subgraph-with-defaults.ts                                      (modified — replace null placeholder; see §0)
 ```
 
 #### Core Layer
@@ -129,13 +161,13 @@ Core (Application)
           d. wipeCalData for each module in subgraph
           e. for each VcpmModuleDefinition (via VcpmDefinitionQueryService):
                create VcpmInstance row + zero-CKV VcpmParameterPayload per parameter
-               using serializeDefaultPayload(elementsStructure)
+               using serializeDefaultParameterData(paramDef) — from serialize-elements.ts (PR a54340d)
           f. setPropertyData for scenario property (final step)
 
         Voice → Audio (steps in order):
           a. wipeCalData for each module in subgraph
           b. removeProperty for each IsVoice=true property
-          c. addProperty for SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR with serializeDefaultPayload
+          c. addProperty for SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR with serializeDefaultParameterData(clockScaleDef)
           d. SubgraphRepository.removeAllVcpmCfgData (deletes VcpmInstance + VcpmCkv + VcpmParameterPayload)
           e. setPropertyData for scenario property (final step)
         uow.commit()
@@ -153,14 +185,16 @@ Infrastructure (Persistence)
     → writeDelete on SubgraphPropertyData row
 
   TypeOrmModuleRepository.getModulesBySubgraphId:
-    → delegates to ModuleNodeOverlayFetcher.fetchModules({ subgraphSystemId })
+    → loadBaselineNodeIdsForSubgraph(subgraphSystemId, fileSystemId) → Set<number>
+    → applySessionOverlayToNodesForSubgraph(subgraphSystemId, nodeIds, sessionId)
+    → fetchOverLayedSpfModules([...nodeIds], fileSystemId, sessionId)
     → returns SpfModuleBase[] (overlay-aware)
 
   TypeOrmModuleRepository.wipeCalData:
-    → for each non-zero CKV: writeDelete on CkvParameterPayload rows
-    → for each TKV: writeDelete on TKV rows
-    → for each tagged module entry: writeDelete
-    → for each calibration parameter: writeCreate zero-CKV default payload row
+    → for each non-zero CKV: writeDelete on CkvParameterPayload rows + Ckv row
+    → for each TKV: writeDelete on TkvParameterPayload rows + Tkv row
+    → for each tagged module entry: writeDelete on ModuleTagIdMap row
+    → for each existing zero-CKV payload row: writeDelta to restore default value
 ```
 
 ---
@@ -354,7 +388,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
         for (const def of voiceDefs) {
           if (existingPropIds.has(def.systemId)) continue;
           const newSystemId = await this.uow.getSubgraphRepository()
-            .addProperty(command.subgraphSystemId, def.systemId, def.elementsStructure);
+            .addProperty(command.subgraphSystemId, def.systemId, def);
           propertiesAdded.push({systemId: String(newSystemId), propertyId: def.propertyId, propertyName: def.name});
         }
 
@@ -423,7 +457,7 @@ export class UpdateSubgraphScenarioHandler implements CommandHandler<
         // c. Add clock scale factor with default payload from elementsStructure defaultValue fields
         if (clockScaleDef) {
           const newSystemId = await this.uow.getSubgraphRepository()
-            .addProperty(command.subgraphSystemId, clockScaleDef.systemId, clockScaleDef.elementsStructure);
+            .addProperty(command.subgraphSystemId, clockScaleDef.systemId, clockScaleDef);
           propertiesAdded.push({systemId: String(newSystemId), propertyId: clockScaleDef.propertyId, propertyName: clockScaleDef.name});
         }
 
@@ -528,11 +562,11 @@ export interface SubgraphRepository {
 
   // Stages a CREATE for a new SubgraphPropertyData row with default payload.
   // Returns the new row's systemId (needed for mutation log).
-  // elementsStructure used to generate the default binary payload.
+  // definition is used to generate the default binary payload via serializeDefaultParameterData.
   addProperty(
     subgraphSystemId: number,
     propertyDefinitionSystemId: number,
-    elementsStructure: string,
+    definition: SubgraphPropertyDefinitionWithElementsReadModel,
   ): Promise<number>;
 
   // Stages a DELETE on an existing SubgraphPropertyData row.
@@ -549,7 +583,7 @@ export interface SubgraphRepository {
 
   // Stages CREATE for VcpmInstance + zero-CKV VcpmParameterPayload rows for each
   // VCPM module definition. Default payload derived from each parameter's elementsStructure
-  // via serializeDefaultPayload. Used by Audio → Voice cascade step e.
+  // via serializeDefaultParameterData(param). Used by Audio → Voice cascade step e.
   addVcpmCfgDefaultData(
     subgraphSystemId: number,
     vcpmDefs: VcpmModuleDefinitionWithParamsReadModel[],
@@ -600,12 +634,12 @@ export interface ModuleRepository {
 async addProperty(
   subgraphSystemId: number,
   propertyDefinitionSystemId: number,
-  elementsStructure: string,
+  definition: SubgraphPropertyDefinitionWithElementsReadModel,
 ): Promise<number> {
   const {session, groupId} = this.uow.getWriteContext();
   const newSystemId = await this.idGeneration.generateId(ENTITY_NAMES.SubgraphPropertyData);
-  // Default payload derived from each ConfigElement's defaultValue in elementsStructure.
-  const defaultPayload = serializeDefaultPayload(elementsStructure);
+  // Default payload derived from each ConfigElement's defaultValue via serializeDefaultParameterData.
+  const defaultPayload = serializeDefaultParameterData(definition); // definition: ParameterDefinitionBase
   await this.writer.writeCreate(
     {
       targetTable:    ENTITY_NAMES.SubgraphPropertyData,
@@ -650,19 +684,39 @@ async removeProperty(
 
 ### 4.3 TypeOrmModuleRepository — getModulesBySubgraphId
 
-Delegates to the existing `ModuleNodeOverlayFetcher.fetchModules` with `subgraphSystemId` filter:
+Uses the two-step pattern on `ModuleNodeOverlayFetcher` — `loadBaselineNodeIdsForSubgraph`
+then `applySessionOverlayToNodesForSubgraph` then `fetchOverLayedSpfModules`:
 
 ```typescript
 async getModulesBySubgraphId(
   subgraphSystemId: number,
   fileSystemId: number,
 ): Promise<SpfModuleBase[]> {
-  const sessionId = this.uow.getWriteContext().session.sessionId;
-  const rows = await this.moduleNodeFetcher.fetchModules(
+  const {session} = this.uow.getWriteContext();
+  const sessionId = session.sessionId;
+
+  // Step 1: get baseline module node IDs for this subgraph
+  const nodeIds = await this.moduleNodeFetcher.loadBaselineNodeIdsForSubgraph(
+    subgraphSystemId,
+    fileSystemId,
+  );
+
+  // Step 2: apply session overlay (adds staged CREATEs, removes staged DELETEs)
+  await this.moduleNodeFetcher.applySessionOverlayToNodesForSubgraph(
+    subgraphSystemId,
+    nodeIds,
+    sessionId,
+  );
+
+  if (nodeIds.size === 0) return [];
+
+  // Step 3: fetch full overlay-aware SpfModule rows for the resolved IDs
+  const rows = await this.moduleNodeFetcher.fetchOverLayedSpfModules(
+    [...nodeIds],
     fileSystemId,
     sessionId,
-    {subgraphSystemId},
   );
+
   return rows.map(r => ({
     systemId: r.systemId,
     definitionSystemId: r.definitionSystemId,
@@ -677,11 +731,10 @@ async getModulesBySubgraphId(
 This is the most complex infra method. It mirrors `RemoveAllGeckoCalTagData` + `AddZeroCkvData` from the C# reference.
 
 **Steps:**
-1. Load all CKVs for the module (overlay-aware) via `CkvOverlayFetcher.fetchCkvs`
-2. For each **non-zero** CKV (systemId set is non-empty): stage DELETE on all its `CkvParameterPayload` rows, then DELETE the CKV row itself
-3. Load all TKV rows for the module — stage DELETE on each
-4. Load all tagged module entries — stage DELETE on each
-5. For each calibration parameter definition of this module's definition: stage CREATE a zero-CKV `CkvParameterPayload` row with default payload
+1. Load all CKVs for the module (overlay-aware) via `CkvOverlayFetcher.fetchForModule`
+2. For each **non-zero** CKV (those whose `values` array is non-empty): stage DELETE on all its `CkvParameterPayload` rows, then DELETE the CKV row itself
+3. Load all `ModuleTagIdMap` rows for the module via `TkvOverlayFetcher.fetchForModule` — for each: DELETE its `TkvParameterPayload` rows, `Tkv` rows, then the `ModuleTagIdMap` row
+4. Find the zero-CKV (the one whose `values` array is empty) — for each of its existing `CkvParameterPayload` rows: fetch its definition and write delta to restore default value
 
 ```typescript
 async wipeCalData(
@@ -693,11 +746,11 @@ async wipeCalData(
   const zeroCkvsAdded: number[] = [];
 
   // Step 1+2: load CKVs, delete non-zero CKVs and their payloads
-  const ckvs = await this.ckvOverlayFetcher.fetchCkvs(moduleSystemId, session.sessionId);
+  const ckvs = await this.ckvOverlayFetcher.fetchForModule(moduleSystemId, session.sessionId);
   for (const ckv of ckvs) {
-    if (ckv.valueDefinitionSystemIds.length === 0) continue; // skip zero-CKV
+    if (ckv.values.length === 0) continue; // skip zero-CKV (no key-value entries)
     const payloads = await this.ckvOverlayFetcher.fetchCkvPayloads(
-      ckv.systemId, moduleSystemId, fileSystemId, session.sessionId,
+      ckv.systemId, moduleSystemId, session.sessionId,
     );
     for (const payload of payloads) {
       await this.writer.writeDelete(
@@ -714,10 +767,12 @@ async wipeCalData(
 
   // Step 3+4: load ModuleTagIdMap + TKVs, delete TkvParameterPayload, Tkv, ModuleTagIdMap
   // CkvValues and TkvValues are composite-PK join tables — cascade DELETE automatically.
-  const tagMaps = await this.tkvOverlayFetcher.fetch(moduleSystemId, session.sessionId);
+  const tagMaps = await this.tkvOverlayFetcher.fetchForModule(
+    moduleSystemId, session.sessionId, CONFIGURATION_INCLUDES.FullDetails,
+  );
   for (const tagMap of tagMaps) {
     for (const tkv of tagMap.tkvs) {
-      const tkvPayloads = await this.tkvOverlayFetcher.fetchPayloads(
+      const tkvPayloads = await this.tkvOverlayFetcher.fetchTkvPayloads(
         tkv.systemId, session.sessionId,
       );
       for (const payload of tkvPayloads) {
@@ -737,25 +792,24 @@ async wipeCalData(
     );
   }
 
-  // Step 5: restore zero-CKV default payloads
-  // Zero-CKV row always exists (created at module creation). Find it and update its payloads.
-  const zeroCkv = ckvs.find(c => c.valueDefinitionSystemIds.length === 0);
+  // Step 5: restore zero-CKV default payloads.
+  // When switching Audio → Voice, the zero-CKV's user-edited payloads must be
+  // reset to factory defaults. Existing payload rows are already under the zero-CKV
+  // (created at module creation) — we just overwrite each one with its default value.
+  const zeroCkv = ckvs.find(c => c.values.length === 0);
   if (zeroCkv) {
     const module = await this.moduleNodeFetcher.fetchOne(moduleSystemId, fileSystemId, session.sessionId);
     if (module) {
-      const paramDefs = await this.moduleDefinitionRepository
-        .getParameterDefinitions(module.definitionSystemId);
-      const calibrationParams = paramDefs.filter(p => isCalibrationParam(p));
       const existingPayloads = await this.ckvOverlayFetcher.fetchCkvPayloads(
-        zeroCkv.systemId, moduleSystemId, fileSystemId, session.sessionId,
+        zeroCkv.systemId, moduleSystemId, session.sessionId,
       );
-      const payloadByParamId = new Map(existingPayloads.map(p => [p.parameterSystemId, p]));
-      for (const param of calibrationParams) {
-        const existing = payloadByParamId.get(param.systemId);
-        if (!existing) continue;
-        const defaultPayload = serializeDefaultPayload(param.elementsStructure);
+      for (const payload of existingPayloads) {
+        const defs = await this.uow.getModuleDefinitionRepository()
+          .getParameterDefinitions(module.definitionSystemId, [payload.parameterSystemId]);
+        if (defs.length === 0) continue;
+        const defaultPayload = serializeDefaultParameterData(defs[0]);
         await this.writer.writeDelta(
-          {targetTable: ENTITY_NAMES.CkvParameterPayload, targetSystemId: existing.systemId,
+          {targetTable: ENTITY_NAMES.CkvParameterPayload, targetSystemId: payload.systemId,
            aggregateId: moduleSystemId, delta: {payload: defaultPayload}},
           session.sessionId, groupId, this.manager,
         );
@@ -766,6 +820,11 @@ async wipeCalData(
 
   return {ckvsDeleted, zeroCkvsAdded};
 }
+```
+
+**Constructor note:** `TypeOrmModuleRepository` must be extended with `TkvOverlayFetcher` for `wipeCalData`. Add it alongside the existing `CkvOverlayFetcher` in the constructor:
+```typescript
+this.tkvOverlayFetcher = new TkvOverlayFetcher(manager, editActionsQs);
 ```
 
 ---
@@ -842,7 +901,7 @@ async addVcpmCfgDefaultData(
 
     // Create VcpmParameterPayload for each parameter using default values
     for (const param of def.parameters) {
-      const defaultPayload = serializeDefaultPayload(param.elementsStructure);
+      const defaultPayload = serializeDefaultParameterData(param);
       const payloadSystemId = await this.idGeneration.generateId(ENTITY_NAMES.VcpmParameterPayload);
       await this.writer.writeCreate(
         {
@@ -860,7 +919,15 @@ async addVcpmCfgDefaultData(
 
 ---
 
+## Section 5: Testing Strategy
+
 ### Unit Tests
+
+#### serializeDefaultParameterData + buildSubgraphWithDefaults
+
+> Covered by `set-subgraph-property-design.md §5` — tests live in:
+> - `packages/core/tests/unit/application/usecase-designer/shared/serialize-default-parameter-data.spec.ts`
+> - `packages/core/tests/unit/application/usecase-designer/subgraph/build-subgraph-with-defaults.spec.ts`
 
 #### UpdateSubgraphScenarioHandler
 
@@ -916,7 +983,7 @@ async addVcpmCfgDefaultData(
 | OQ-2 | ~~Remove all VCPM cfg data~~ — **Resolved:** VCPM data is owned by the subgraph aggregate (`aggregateId = subgraphSystemId`). Add `removeAllVcpmCfgData(subgraphSystemId: number): Promise<void>` to `SubgraphRepository`. Infra: query all `VcpmInstance` WHERE `subgraphSystemId = X`; for each instance → for each `VcpmCkv` → stage DELETE on `VcpmParameterPayload` rows, `VcpmCkvValues` rows, the `VcpmCkv` row; then stage DELETE on the `VcpmInstance` row. Distinct from the existing `delete-vcpm-ckv` handler which deletes a single CKV entry. |
 | OQ-3 | ~~`SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR` property ID~~ — **Resolved:** `SUB_GRAPH_PROP_CLOCK_SCALE_FACTOR = 0x08001374`. |
 | OQ-4 | ~~VSID payload construction inside cascade~~ — **Resolved:** Use `BinaryDataWriter` directly. `const writer = new BinaryDataWriter(); writer.writeUInt32(optimalVsid); writer.align(8); const payload = writer.toUint8Array();`. No need to go through `serializeParameterData` since the value is a computed `number`, not user-supplied `elements`. |
-| OQ-5 | ~~Default payload for `addProperty`~~ — **Resolved:** No separate `buildDefaultPayload` utility needed. `ConfigElement` in `elementsStructure` already has a `defaultValue?: string` field. Use `convertParamDefinition(elementsStructure)` to parse the schema, build an `ElementData[]` from each element's `defaultValue ?? "0"`, then call `serializeParameterData`. This produces the correct default payload using the values defined in the AWSP file, not all-zeros. No new file required. |
+| OQ-5 | ~~Default payload for `addProperty`~~ — **Resolved:** Use `serializeDefaultParameterData(definition)` from `packages/core/src/application/usecase-designer/shared/serialize-elements.ts` (added in PR a54340d). It builds default `ElementData[]` from each `ConfigElement.defaultValue ?? '0'` then calls `serializeParameterData` internally. The `definition` is a `ParameterDefinitionBase` object (already available at all call sites). No new file required. |
 | OQ-6 | ~~`getOptimalVsid` implementation~~ — **Resolved:** Private method on `UpdateSubgraphScenarioHandler`. Uses `getSubgraphIdsInSameUsecases` (already designed) for BFS, `getSubgraphWithProperties` to read each linked subgraph's scenario + VSID, filters to Voice only. If no voice subgraphs found: parse `vsidDef.elementsStructure` via `convertParamDefinition`, read `defaultValue` from the first `ConfigElement`, return `Number(defaultValue)`. If one distinct VSID found: use it. If multiple distinct VSIDs found: throw `DomainRuleViolationException` → 422. No shared service needed — `UpdateSubgraphVsidHandler` does not call this. |
 | OQ-7 | ~~TKV and tagged module wipe~~ — **Resolved:** Full hierarchy per module: `ModuleTagIdMap` (tagged entries, `aggregateId=spfModuleSystemId`) → `Tkv` (`aggregateId=moduleTagIdMapSystemId`) → `TkvParameterPayload`. `TkvValues` and `CkvValues` are composite-PK join tables — they cascade DELETE automatically when their parent is deleted, no explicit write needed. Fetchers already exist: `CkvOverlayFetcher` for CKV reads, `TkvOverlayFetcher` for `ModuleTagIdMap` + TKV reads. `wipeCalData` infra steps: (1) fetch all CKVs via `CkvOverlayFetcher`, skip zero-CKV, DELETE payloads + CKV rows; (2) fetch all `ModuleTagIdMap` via `TkvOverlayFetcher`, DELETE `TkvParameterPayload` + `Tkv` + `ModuleTagIdMap` rows. All writes use `aggregateId = spfModuleSystemId` for CKV level and `aggregateId = moduleTagIdMapSystemId` for TKV level. |
-| OQ-8 | ~~Zero-CKV default payload source for `wipeCalData`~~ — **Resolved:** The zero-CKV row (empty `CkvValues`) is created at module creation time and always exists — `wipeCalData` only deletes non-zero CKVs, so the zero-CKV survives. "Restore zero-CKV default payloads" means **updating the existing zero-CKV's `CkvParameterPayload` rows** back to their default values. Steps: (1) find the zero-CKV row for the module via `CkvOverlayFetcher` (the CKV whose `values` array is empty); (2) call `ModuleDefinitionRepository.getParameterDefinitions(moduleDefSystemId)` filtered to calibration params; (3) for each: `serializeDefaultPayload(elementsStructure)` → stage a writeDelta on the existing `CkvParameterPayload` row (`targetTable=CkvParameterPayload`, `aggregateId=spfModuleSystemId`, `delta={payload}`). `ModuleRepository.wipeCalData` needs `IdGenerationPort` only if a zero-CKV is missing — but since it's guaranteed to exist, no ID generation is needed. |
+| OQ-8 | ~~Zero-CKV default payload source for `wipeCalData`~~ — **Resolved:** The zero-CKV row (empty `CkvValues`) always exists — `wipeCalData` only deletes non-zero CKVs, so the zero-CKV survives. Step 5 resets each existing `CkvParameterPayload` row under the zero-CKV back to its factory default. No tool-policy filter needed — every payload row that exists under the zero-CKV was created at module creation and must be reset. Steps: (1) `ckvOverlayFetcher.fetchCkvPayloads(zeroCkv.systemId, moduleSystemId, sessionId)` → existing rows; (2) for each: `getModuleDefinitionRepository().getParameterDefinitions(moduleDefSystemId, [payload.parameterSystemId])` to get the definition; (3) `serializeDefaultParameterData(def)` → `writeDelta` on the existing payload row. |
