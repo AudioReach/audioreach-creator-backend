@@ -6,6 +6,13 @@
 import {Injectable} from '@nestjs/common';
 import {PassportStrategy} from '@nestjs/passport';
 import {Strategy, ExtractJwt} from 'passport-jwt';
+import {createRequire} from 'node:module';
+
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const jwt = require('jsonwebtoken') as typeof import('jsonwebtoken');
+
+const TEST_JWT_SECRET = 'arc-web-api';
 
 /**
  * Mock JWT Strategy for E2E testing
@@ -17,14 +24,10 @@ export class MockJwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: true, // Ignore expiration for testing
-      secretOrKey: 'arc-web-api', // Match the real JWT secret
+      secretOrKey: TEST_JWT_SECRET,
     });
   }
 
-  /**
-   * Validate method that always succeeds for testing
-   * Returns a mock user object matching the real JwtStrategy shape
-   */
   async validate(payload: any) {
     return {
       clientId: payload.clientId || 'test-client',
@@ -34,59 +37,21 @@ export class MockJwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
 /**
  * Generate a mock JWT token for testing
- * This creates a simple base64-encoded token that will pass the MockJwtStrategy
+ * Produces a real HS256-signed token that passes passport-jwt verification
  */
 export function generateMockJwtToken(): string {
-  const header = {
-    alg: 'HS256',
-    typ: 'JWT',
-  };
-
-  const payload = {
-    sub: 'test-user-id',
-    username: 'test-user',
-    email: 'test@example.com',
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-  };
-
-  // Create a simple JWT-like token (not cryptographically signed, just for testing)
-  const encodedHeader = Buffer.from(JSON.stringify(header)).toString(
-    'base64url',
-  );
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
-    'base64url',
-  );
-  const signature = 'mock-signature';
-
-  return `${encodedHeader}.${encodedPayload}.${signature}`;
+  return jwt.sign({clientId: 'test-client'}, TEST_JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '1h',
+  });
 }
 
 /**
  * Generate a mock JWT token with custom payload
  */
 export function generateMockJwtTokenWithPayload(customPayload: any): string {
-  const header = {
-    alg: 'HS256',
-    typ: 'JWT',
-  };
-
-  const payload = {
-    sub: customPayload.userId || 'test-user-id',
-    username: customPayload.username || 'test-user',
-    email: customPayload.email || 'test@example.com',
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    ...customPayload,
-  };
-
-  const encodedHeader = Buffer.from(JSON.stringify(header)).toString(
-    'base64url',
-  );
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
-    'base64url',
-  );
-  const signature = 'mock-signature';
-
-  return `${encodedHeader}.${encodedPayload}.${signature}`;
+  return jwt.sign(customPayload, TEST_JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '1h',
+  });
 }

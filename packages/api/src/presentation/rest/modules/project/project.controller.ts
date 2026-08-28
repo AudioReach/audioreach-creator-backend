@@ -15,7 +15,6 @@ import {
   Param,
   Patch,
   Post,
-  Request,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -62,12 +61,6 @@ import type {
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    clientId?: string;
-    [key: string]: unknown;
-  };
-}
 import * as os from 'node:os';
 import path from 'node:path';
 import type {Response} from 'express';
@@ -99,9 +92,11 @@ import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
 import {SessionGuard} from '../../../../guards/session-guard.js';
 import {ArcSession} from '../../../../guards/arc-session.decorator.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
 
 @Controller('arc-api/v1/projects')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 export class ProjectController {
   constructor(
     private readonly commandBus: CommandBus,
@@ -333,9 +328,8 @@ export class ProjectController {
     },
   })
   async getProjects(
-    @Request() req: AuthenticatedRequest,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto[]>> {
-    const clientId = req.user?.clientId;
     this.logger.logInfo({
       component: 'ProjectController',
       action: 'getProjects',
@@ -353,7 +347,7 @@ export class ProjectController {
       projectId: String(r.projectId),
       name: r.name,
       description: r.description,
-      projectType: ProjectType.Offline,
+      projectType: r.type as ProjectType,
       sessionMode: (r.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
     }));
 
@@ -400,19 +394,7 @@ export class ProjectController {
   async getProject(
     @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const result = await this.queryBus.execute<ProjectInfoResult>(
-      new GetProjectQuery(Number(projectId)),
-    );
-
-    const dto: ProjectInfoResponseDto = {
-      projectId: String(result.projectId),
-      name: result.name,
-      description: result.description,
-      projectType: ProjectType.Offline,
-      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
-    };
-
-    return toApiResult(Result.ok(dto));
+    return this.fetchProjectInfoResponse(projectId);
   }
 
   @Patch('/:projectId')
@@ -486,7 +468,7 @@ export class ProjectController {
       projectId: String(result.projectId),
       name: result.name,
       description: result.description,
-      projectType: ProjectType.Offline,
+      projectType: result.type as ProjectType,
       sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
     };
 
@@ -533,19 +515,7 @@ export class ProjectController {
   async connectToProject(
     @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const result = await this.queryBus.execute<ProjectInfoResult>(
-      new GetProjectQuery(Number(projectId)),
-    );
-
-    const dto: ProjectInfoResponseDto = {
-      projectId: String(result.projectId),
-      name: result.name,
-      description: result.description,
-      projectType: ProjectType.Offline,
-      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
-    };
-
-    return toApiResult(Result.ok(dto));
+    return this.fetchProjectInfoResponse(projectId);
   }
 
   @Post('/:projectId/disconnect')
@@ -589,19 +559,7 @@ export class ProjectController {
   async disconnectFromProject(
     @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const result = await this.queryBus.execute<ProjectInfoResult>(
-      new GetProjectQuery(Number(projectId)),
-    );
-
-    const dto: ProjectInfoResponseDto = {
-      projectId: String(result.projectId),
-      name: result.name,
-      description: result.description,
-      projectType: ProjectType.Offline,
-      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
-    };
-
-    return toApiResult(Result.ok(dto));
+    return this.fetchProjectInfoResponse(projectId);
   }
 
   /**
@@ -691,10 +649,8 @@ export class ProjectController {
   async downloadArcDbFiles(
     @Param('projectId') projectId: string,
     @Res() res: Response,
+    @ClientId() clientId: string,
   ): Promise<void> {
-    const clientId = '';
-    // TODO: gather from jwt
-
     this.logger.logInfo({
       component: 'ProjectController',
       action: 'downloadArcDbFiles',
@@ -775,10 +731,8 @@ export class ProjectController {
   })
   async getFileProperties(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ProjectFilePropertiesResponseDto>> {
-    const clientId = '';
-    // TODO: gather from jwt
-
     const result = await this.queryBus.execute<ProjectFilePropertiesResult>(
       new ProjectFilePropertiesQuery(projectId, clientId),
     );
@@ -1533,5 +1487,21 @@ export class ProjectController {
       sessionMode: s.sessionMode as unknown as SessionMode,
       summary: s.summary,
     }));
+  }
+
+  private async fetchProjectInfoResponse(
+    projectId: string,
+  ): Promise<ApiResult<ProjectInfoResponseDto>> {
+    const result = await this.queryBus.execute<ProjectInfoResult>(
+      new GetProjectQuery(Number(projectId)),
+    );
+    const dto: ProjectInfoResponseDto = {
+      projectId: String(result.projectId),
+      name: result.name,
+      description: result.description,
+      projectType: result.type as ProjectType,
+      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    };
+    return toApiResult(Result.ok(dto));
   }
 }

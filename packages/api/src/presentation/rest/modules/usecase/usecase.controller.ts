@@ -10,7 +10,7 @@ import {
   NotImplementedException,
   Post,
   Patch,
-  //  UseGuards,
+  UseGuards,
   HttpCode,
   HttpStatus,
   UseInterceptors,
@@ -21,6 +21,8 @@ import {
 import {ApiTags, ApiQuery, ApiExtraModels, ApiParam} from '@nestjs/swagger';
 import {UpdateSubsystemResponseDto as SubsystemResponseDto} from '../subsystem/dto/response/update-subsystem-response.dto.js';
 import {BaseController} from '../base/base.controller.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
 import {
   UsecaseResponseDto,
   SubsystemFilteredUsecasesResponseDto,
@@ -66,7 +68,7 @@ const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
  */
 @ApiTags('usecases')
 @Controller('arc-api/v1/projects/:projectId/usecases')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiParam({
   name: 'projectId',
@@ -164,6 +166,7 @@ export class UseCaseController extends BaseController {
   })
   async getAllUsecases(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('filter') filterExpression?: string,
   ): Promise<ApiResult<UsecaseResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
@@ -192,7 +195,7 @@ export class UseCaseController extends BaseController {
 
     const query = new GetAllUseCasesQuery(
       parsedProjectId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
       expression,
     );
 
@@ -542,6 +545,7 @@ export class UseCaseController extends BaseController {
   async queryUsecaseComponents(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ComponentsResponseDto>> {
     if (
       !usecaseSystemIds?.systemIds ||
@@ -568,7 +572,7 @@ export class UseCaseController extends BaseController {
     const query = new GetComponentsQuery(
       {type: COMPONENT_SCOPE_TYPE.Usecase, systemIds},
       parsedProjectId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result =
@@ -636,6 +640,7 @@ export class UseCaseController extends BaseController {
   async queryUsecaseComponentsWithSubsystems(
     @Param('projectId') projectId: string,
     @Body() usecaseSystemIds: SystemIdsRequestDto,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ComponentsWithSubsystemsResponseDto>> {
     if (
       !usecaseSystemIds?.systemIds ||
@@ -662,7 +667,7 @@ export class UseCaseController extends BaseController {
     const query = new GetComponentsWithSubsystemsQuery(
       {type: COMPONENT_SCOPE_TYPE.Usecase, systemIds},
       parsedProjectId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result =

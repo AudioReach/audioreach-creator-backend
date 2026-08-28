@@ -9,13 +9,14 @@ import {
   Post,
   Patch,
   Delete,
-  //  UseGuards,
+  UseGuards,
   HttpStatus,
   Param,
   Body,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
+import {AuthGuard} from '@nestjs/passport';
 import {CreateUsecaseCategoryRequestDto} from './dto/request/create-usecase-category-request.dto.js';
 import {UpdateUsecaseCategoryRequestDto} from './dto/request/update-usecase-category-request.dto.js';
 import {UsecaseCategoryResponseDto} from '../../common/dto/usecase/usecase-category-response.dto.js';
@@ -28,7 +29,7 @@ import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
  */
 @ApiTags('usecase-categories')
 @Controller('arc-api/v1/projects/:projectId/usecase-categories')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 @ApiParam({
   name: 'projectId',
   type: 'string',
