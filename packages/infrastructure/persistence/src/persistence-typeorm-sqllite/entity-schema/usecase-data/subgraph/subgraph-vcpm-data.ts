@@ -13,30 +13,48 @@ import {DbTypeToBytesTransformer} from '../module/helper/bytes-transformer.js';
 import type {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
-export interface VcpmInstanceRow extends EntityBaseRow {
+export interface VcpmInstanceBase {
+  systemId: number;
   subgraphSystemId: number;
   vcpmDefinitionId: number;
+}
 
+export interface VcpmCkvBase {
+  systemId: number;
+  vcpmInstanceSystemId: number;
+  values: {valueDefSystemId: number}[];
+}
+
+export interface VcpmParameterPayloadBase {
+  systemId: number;
+  vcpmParameterSystemId: number;
+  vcpmCkvSystemId: number;
+  payload: Uint8Array | null;
+}
+
+export interface VcpmParameterDefinitionBase {
+  systemId: number;
+  paramId: number;
+  name: string;
+  isReadOnly: boolean;
+  elementsStructure: string;
+}
+
+export interface VcpmInstanceRow extends EntityBaseRow, VcpmInstanceBase {
   subgraph: SubgraphRow;
   vcpmDefinition: VcpmModuleDefinitionRow;
   vcpmCkvs?: VcpmCkvRow[];
 }
 
-export interface VcpmCkvRow extends EntityBaseRow {
-  vcpmInstanceSystemId: number;
-
-  vcpmInstance: VcpmInstanceRow; // many-one
+export interface VcpmCkvRow extends EntityBaseRow, VcpmCkvBase {
+  vcpmInstance: VcpmInstanceRow;
   vcpmParameterPayloads?: VcpmParameterPayloadRow[];
-  values?: VcpmCkvValuesRow[]; // one-many — the key-value combination
+  values: VcpmCkvValuesRow[]; // non-optional — always loaded via leftJoinAndSelect
 }
 
-export interface VcpmParameterPayloadRow extends EntityBaseRow {
-  payload: Uint8Array;
-
-  vcpmParameterSystemId: number;
+export interface VcpmParameterPayloadRow
+  extends EntityBaseRow, VcpmParameterPayloadBase {
   vcpmParameter: VcpmModuleParameterDefinitionRow;
-
-  vcpmCkvSystemId: number;
   vcpmCkv: VcpmCkvRow;
 }
 
