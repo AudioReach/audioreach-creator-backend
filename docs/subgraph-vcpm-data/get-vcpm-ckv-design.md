@@ -156,13 +156,15 @@ Core (Application)
 
 Infrastructure (Persistence)
   VcpmOverlayFetcher:
-    → Owns session resolution — takes ISessionRepository, resolves sessionId from fileSystemId internally
+    → Takes EntityManager and EditActionsQueryService — no session resolution (caller's responsibility)
+    → All fetch methods accept sessionId: number | null — null returns baseline rows only
     → All fetch methods take subgraphSystemId — it is the aggregate ID for getByAggregateId calls
     → fetchInstanceBySubgraph, fetchCkvsByInstance, fetchCkv, fetchParameterPayloads,
-      fetchParameterPayloadsByInstance
+      fetchParameterPayloadsByInstance, fetchParameterDefinitions (no overlay — read-only reference data)
     → Returns raw DB rows — vcpm_ckv_values rows carry valueDefSystemId only (not resolved key/value)
 
   DbVcpmQueryService:
+    → Owns session resolution — takes ISessionRepository, resolves sessionId once per method via resolveSessionId()
     → Delegates Layers 1+2 to VcpmOverlayFetcher
     → Resolves valueDefSystemId → { key, value } with full names via keyValueDefQueryService
       (same pattern as DbCkvCalibrationQueryService)
@@ -445,7 +447,7 @@ Note: `parseParameterData` is imported from the shared parameter parsing utility
 
 **File:** `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/fetchers/vcpm-overlay-fetcher.ts` (new)
 
-Handles Layers 1+2 — DB query + session overlay — for all VCPM entities. Follows the `ContainerPropertyDefinitionFetcher` pattern: owns session resolution via `ISessionRepository`, never receives a raw `sessionId` from callers.
+Handles Layers 1+2 — DB query + session overlay — for all VCPM entities. Follows the `SubgraphOverlayFetcher` / `UsecaseOverlayFetcher` pattern: takes `EntityManager` and `EditActionsQueryService`; accepts `sessionId: number | null` on every method (caller resolves session, not the fetcher).
 
 `VcpmCkvBase.values` holds raw join-table rows (`valueDefSystemId` only). Resolution to full `KeyValueInfoDto` shape is the responsibility of `DbVcpmQueryService` — same split as `DbCkvCalibrationQueryService`.
 
@@ -473,6 +475,14 @@ export interface VcpmParameterPayloadBase {
   vcpmParameterSystemId: number;
   vcpmCkvSystemId: number;
   payload: Uint8Array | null;
+}
+
+export interface VcpmParameterDefinitionBase {
+  systemId: number;
+  paramId: number;
+  name: string;
+  isReadOnly: boolean;
+  elementsStructure: string;
 }
 
 // Row types updated to extend their Base
@@ -503,37 +513,40 @@ import type {
   VcpmInstanceBase,
   VcpmCkvBase,
   VcpmParameterPayloadBase,
+  VcpmParameterDefinitionBase,
 } from '../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
 
 export class VcpmOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
 
   constructor(
-    private readonly dataSource: DataSource,
+    private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
-    private readonly sessionRepo: ISessionRepository,
   ) {}
 
   async fetchInstanceBySubgraph(
     subgraphSystemId: number,
-    fileSystemId: number,
+    sessionId: number | null,
   ): Promise<VcpmInstanceBase | null> {
-    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-
-    const baseRow = await this.dataSource
+    const baseRow = await this.manager
       .getRepository(ENTITY_NAMES.VcpmInstance)
       .createQueryBuilder('vi')
       .where('vi.subgraphSystemId = :subgraphSystemId', {subgraphSystemId})
       .getOne() as unknown as VcpmInstanceBase | null;
 
-    if (!session) return baseRow;
+    if (sessionId === null) return baseRow;
 
-    const actions = await this.editActionsSvc.getByAggregateId(session.sessionId, subgraphSystemId);
+    const actions = await this.editActionsSvc.getByAggregateId(sessionId, subgraphSystemId);
     const instanceActions = actions.filter(a => a.targetTable === ENTITY_NAMES.VcpmInstance);
 
     if (baseRow === null) {
       const createAction = instanceActions.find(a => a.operation === CHANGE_OPERATION.Create);
       if (!createAction) return null;
+      // Check CREATE-then-DELETE tombstone
+      const isDeleted = instanceActions.some(
+        a => a.operation === CHANGE_OPERATION.Delete && a.targetSystemId === createAction.targetSystemId,
+      );
+      if (isDeleted) return null;
       const payload = createAction.newValue as Partial<VcpmInstanceBase>;
       return {
         systemId: createAction.targetSystemId,
@@ -552,20 +565,18 @@ export class VcpmOverlayFetcher {
   async fetchCkvsByInstance(
     vcpmInstanceSystemId: number,
     subgraphSystemId: number,
-    fileSystemId: number,
+    sessionId: number | null,
   ): Promise<VcpmCkvBase[]> {
-    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-
-    const baseRows = await this.dataSource
+    const baseRows = await this.manager
       .getRepository(ENTITY_NAMES.VcpmCkv)
       .createQueryBuilder('ckv')
       .leftJoinAndSelect('ckv.values', 'values')
       .where('ckv.vcpmInstanceSystemId = :vcpmInstanceSystemId', {vcpmInstanceSystemId})
       .getMany() as unknown as VcpmCkvBase[];
 
-    if (!session) return baseRows;
+    if (sessionId === null) return baseRows;
 
-    const actions = await this.editActionsSvc.getByAggregateId(session.sessionId, subgraphSystemId);
+    const actions = await this.editActionsSvc.getByAggregateId(sessionId, subgraphSystemId);
     const ckvActions = actions.filter(a => a.targetTable === ENTITY_NAMES.VcpmCkv);
 
     const overlaid = this.overlay.applyToCollection(
@@ -573,10 +584,20 @@ export class VcpmOverlayFetcher {
       ckvActions,
     ).map(r => r.effective as unknown as VcpmCkvBase);
 
-    // Staged-created CKVs not yet in DB
+    // Staged-created CKVs not yet in DB — guard against CREATE-then-DELETE tombstones
     const baseIds = new Set(baseRows.map(r => r.systemId));
+    const deletedIds = new Set(
+      ckvActions
+        .filter(a => a.operation === CHANGE_OPERATION.Delete)
+        .map(a => a.targetSystemId),
+    );
     const created = ckvActions
-      .filter(a => a.operation === CHANGE_OPERATION.Create && !baseIds.has(a.targetSystemId))
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId) &&
+          !deletedIds.has(a.targetSystemId),
+      )
       .map(a => {
         const payload = a.newValue as Partial<VcpmCkvBase>;
         return {
@@ -592,12 +613,10 @@ export class VcpmOverlayFetcher {
   async fetchCkv(
     ckvSystemId: number,
     subgraphSystemId: number,
-    fileSystemId: number,
+    sessionId: number | null,
   ): Promise<VcpmCkvBase | null> {
-    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-
     // Join through vcpm_instances to validate the CKV belongs to this subgraph
-    const baseRow = await this.dataSource
+    const baseRow = await this.manager
       .getRepository(ENTITY_NAMES.VcpmCkv)
       .createQueryBuilder('ckv')
       .leftJoinAndSelect('ckv.values', 'values')
@@ -605,9 +624,9 @@ export class VcpmOverlayFetcher {
       .where('ckv.systemId = :ckvSystemId', {ckvSystemId})
       .getOne() as unknown as VcpmCkvBase | null;
 
-    if (!session) return baseRow;
+    if (sessionId === null) return baseRow;
 
-    const actions = await this.editActionsSvc.getByAggregateId(session.sessionId, subgraphSystemId);
+    const actions = await this.editActionsSvc.getByAggregateId(sessionId, subgraphSystemId);
     const ckvActions = actions.filter(
       a => a.targetTable === ENTITY_NAMES.VcpmCkv && a.targetSystemId === ckvSystemId,
     );
@@ -615,6 +634,9 @@ export class VcpmOverlayFetcher {
     if (baseRow === null) {
       const createAction = ckvActions.find(a => a.operation === CHANGE_OPERATION.Create);
       if (!createAction) return null;
+      // Check CREATE-then-DELETE tombstone
+      const isDeleted = ckvActions.some(a => a.operation === CHANGE_OPERATION.Delete);
+      if (isDeleted) return null;
       const payload = createAction.newValue as Partial<VcpmCkvBase>;
       return {
         systemId: createAction.targetSystemId,
@@ -633,12 +655,10 @@ export class VcpmOverlayFetcher {
   async fetchParameterPayloads(
     ckvSystemId: number,
     subgraphSystemId: number,
-    fileSystemId: number,
+    sessionId: number | null,
     paramSystemIds?: number[],
   ): Promise<VcpmParameterPayloadBase[]> {
-    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-
-    const qb = this.dataSource
+    const qb = this.manager
       .getRepository(ENTITY_NAMES.VcpmParameterPayload)
       .createQueryBuilder('pp')
       .where('pp.vcpmCkvSystemId = :ckvSystemId', {ckvSystemId});
@@ -647,9 +667,9 @@ export class VcpmOverlayFetcher {
     }
     const baseRows = await qb.getMany() as unknown as VcpmParameterPayloadBase[];
 
-    if (!session) return baseRows;
+    if (sessionId === null) return baseRows;
 
-    const actions = await this.editActionsSvc.getByAggregateId(session.sessionId, subgraphSystemId);
+    const actions = await this.editActionsSvc.getByAggregateId(sessionId, subgraphSystemId);
     const payloadActions = actions.filter(a => a.targetTable === ENTITY_NAMES.VcpmParameterPayload);
 
     const overlaid = this.overlay.applyToCollection(
@@ -657,9 +677,20 @@ export class VcpmOverlayFetcher {
       payloadActions,
     ).map(r => r.effective as unknown as VcpmParameterPayloadBase);
 
+    // Guard against CREATE-then-DELETE tombstones
     const baseIds = new Set(baseRows.map(r => r.systemId));
+    const deletedIds = new Set(
+      payloadActions
+        .filter(a => a.operation === CHANGE_OPERATION.Delete)
+        .map(a => a.targetSystemId),
+    );
     const created = payloadActions
-      .filter(a => a.operation === CHANGE_OPERATION.Create && !baseIds.has(a.targetSystemId))
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId) &&
+          !deletedIds.has(a.targetSystemId),
+      )
       .map(a => {
         const payload = a.newValue as Partial<VcpmParameterPayloadBase>;
         return {
@@ -677,20 +708,18 @@ export class VcpmOverlayFetcher {
   async fetchParameterPayloadsByInstance(
     vcpmInstanceSystemId: number,
     subgraphSystemId: number,
-    fileSystemId: number,
+    sessionId: number | null,
   ): Promise<VcpmParameterPayloadBase[]> {
-    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
-
     // Join through vcpm_ckv to scope payloads to the instance
-    const baseRows = await this.dataSource
+    const baseRows = await this.manager
       .getRepository(ENTITY_NAMES.VcpmParameterPayload)
       .createQueryBuilder('pp')
       .innerJoin('pp.vcpmCkv', 'ckv', 'ckv.vcpmInstanceSystemId = :vcpmInstanceSystemId', {vcpmInstanceSystemId})
       .getMany() as unknown as VcpmParameterPayloadBase[];
 
-    if (!session) return baseRows;
+    if (sessionId === null) return baseRows;
 
-    const actions = await this.editActionsSvc.getByAggregateId(session.sessionId, subgraphSystemId);
+    const actions = await this.editActionsSvc.getByAggregateId(sessionId, subgraphSystemId);
     const payloadActions = actions.filter(a => a.targetTable === ENTITY_NAMES.VcpmParameterPayload);
 
     const overlaid = this.overlay.applyToCollection(
@@ -698,9 +727,20 @@ export class VcpmOverlayFetcher {
       payloadActions,
     ).map(r => r.effective as unknown as VcpmParameterPayloadBase);
 
+    // Guard against CREATE-then-DELETE tombstones
     const baseIds = new Set(baseRows.map(r => r.systemId));
+    const deletedIds = new Set(
+      payloadActions
+        .filter(a => a.operation === CHANGE_OPERATION.Delete)
+        .map(a => a.targetSystemId),
+    );
     const created = payloadActions
-      .filter(a => a.operation === CHANGE_OPERATION.Create && !baseIds.has(a.targetSystemId))
+      .filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Create &&
+          !baseIds.has(a.targetSystemId) &&
+          !deletedIds.has(a.targetSystemId),
+      )
       .map(a => {
         const payload = a.newValue as Partial<VcpmParameterPayloadBase>;
         return {
@@ -713,6 +753,18 @@ export class VcpmOverlayFetcher {
 
     return [...overlaid, ...created];
   }
+
+  // No overlay — parameter definitions are read-only reference data
+  async fetchParameterDefinitions(
+    paramSystemIds: number[],
+  ): Promise<VcpmParameterDefinitionBase[]> {
+    if (paramSystemIds.length === 0) return [];
+    return this.manager
+      .getRepository(ENTITY_NAMES.VcpmModuleParameterDefinition)
+      .createQueryBuilder('pd')
+      .where('pd.systemId IN (:...paramSystemIds)', {paramSystemIds})
+      .getMany() as unknown as VcpmParameterDefinitionBase[];
+  }
 }
 ```
 
@@ -720,22 +772,28 @@ export class VcpmOverlayFetcher {
 
 **File:** `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/queries/vcpm/db-vcpm-query-service.ts` (new)
 
-Delegates Layers 1+2 to `VcpmOverlayFetcher`. Resolves `valueDefSystemId` → full `KeyValueInfoDto` via `keyValueDefQueryService.getKeyValueSummaryForGivenValues` — same pattern as `DbCkvCalibrationQueryService`. No session logic in this class.
+Owns session resolution — takes `ISessionRepository`, resolves `sessionId` once per public method via a private helper, then passes it to `VcpmOverlayFetcher`. Resolves `valueDefSystemId` → full `KeyValueInfoDto` via `keyValueDefQueryService.getKeyValueSummaryForGivenValues` — same pattern as `DbCkvCalibrationQueryService`.
 
 ```typescript
 export class DbVcpmQueryService implements VcpmQueryService {
   constructor(
-    private readonly dataSource: DataSource,
     private readonly vcpmOverlayFetcher: VcpmOverlayFetcher,
     private readonly keyValueDefQueryService: KeyValueDefQueryService,
+    private readonly sessionRepo: ISessionRepository,
   ) {}
+
+  private async resolveSessionId(fileSystemId: number): Promise<number | null> {
+    const session = await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+    return session?.sessionId ?? null;
+  }
 
   async getVcpmInstanceBySubgraph(
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<VcpmInstanceReadModel | null> {
+    const sessionId = await this.resolveSessionId(fileSystemId);
     const row = await this.vcpmOverlayFetcher.fetchInstanceBySubgraph(
-      subgraphSystemId, fileSystemId,
+      subgraphSystemId, sessionId,
     );
     if (!row) return null;
     return {systemId: row.systemId, subgraphSystemId: row.subgraphSystemId};
@@ -746,8 +804,9 @@ export class DbVcpmQueryService implements VcpmQueryService {
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<VcpmCkvReadModel[]> {
+    const sessionId = await this.resolveSessionId(fileSystemId);
     const rows = await this.vcpmOverlayFetcher.fetchCkvsByInstance(
-      vcpmInstanceSystemId, subgraphSystemId, fileSystemId,
+      vcpmInstanceSystemId, subgraphSystemId, sessionId,
     );
     return Promise.all(rows.map(r => this.toCkvReadModel(r, fileSystemId)));
   }
@@ -757,8 +816,9 @@ export class DbVcpmQueryService implements VcpmQueryService {
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<VcpmCkvReadModel | null> {
+    const sessionId = await this.resolveSessionId(fileSystemId);
     const row = await this.vcpmOverlayFetcher.fetchCkv(
-      ckvSystemId, subgraphSystemId, fileSystemId,
+      ckvSystemId, subgraphSystemId, sessionId,
     );
     if (!row) return null;
     return this.toCkvReadModel(row, fileSystemId);
@@ -770,8 +830,9 @@ export class DbVcpmQueryService implements VcpmQueryService {
     fileSystemId: number,
     paramSystemIds?: number[],
   ): Promise<VcpmParameterPayloadReadModel[]> {
+    const sessionId = await this.resolveSessionId(fileSystemId);
     const rows = await this.vcpmOverlayFetcher.fetchParameterPayloads(
-      ckvSystemId, subgraphSystemId, fileSystemId, paramSystemIds,
+      ckvSystemId, subgraphSystemId, sessionId, paramSystemIds,
     );
     return rows.map(r => this.toPayloadReadModel(r));
   }
@@ -781,8 +842,9 @@ export class DbVcpmQueryService implements VcpmQueryService {
     subgraphSystemId: number,
     fileSystemId: number,
   ): Promise<VcpmParameterPayloadReadModel[]> {
+    const sessionId = await this.resolveSessionId(fileSystemId);
     const rows = await this.vcpmOverlayFetcher.fetchParameterPayloadsByInstance(
-      vcpmInstanceSystemId, subgraphSystemId, fileSystemId,
+      vcpmInstanceSystemId, subgraphSystemId, sessionId,
     );
     return rows.map(r => this.toPayloadReadModel(r));
   }
@@ -790,13 +852,7 @@ export class DbVcpmQueryService implements VcpmQueryService {
   async getVcpmParameterDefinitions(
     paramSystemIds: number[],
   ): Promise<VcpmParameterDefinitionReadModel[]> {
-    if (paramSystemIds.length === 0) return [];
-    // Direct query — definitions are read-only, no overlay needed
-    const rows = await this.dataSource
-      .getRepository(ENTITY_NAMES.VcpmModuleParameterDefinition)
-      .createQueryBuilder('pd')
-      .where('pd.systemId IN (:...paramSystemIds)', {paramSystemIds})
-      .getMany();
+    const rows = await this.vcpmOverlayFetcher.fetchParameterDefinitions(paramSystemIds);
     return rows.map(r => ({
       systemId: r.systemId,
       paramId: r.paramId,
@@ -853,14 +909,13 @@ readonly vcpmQueryService: VcpmQueryService;
 
 // Add to constructor body (after keyValueDefQueryService is instantiated)
 const vcpmOverlayFetcher = new VcpmOverlayFetcher(
-  dataSource,
+  manager,
   editActionsQueryService,
-  sessionRepo,
 );
 this.vcpmQueryService = new DbVcpmQueryService(
-  dataSource,
   vcpmOverlayFetcher,
   this.keyValueDefQueryService,
+  sessionRepo,
 );
 ```
 
@@ -890,8 +945,9 @@ this.vcpmQueryService = new DbVcpmQueryService(
 |---|---|
 | Subgraph not found (findPropertyPayloads returns ok(null)) | throws `ResourceNotFoundException` → 404 |
 | No VcpmInstance for subgraph | returns `{ configuredParams: [] }` |
-| Instance exists, no CKVs | returns `{ configuredParams: [] }` |
+| Instance exists, no parameter payloads | returns `{ configuredParams: [] }` |
 | Instance with CKVs and params | returns correct `VcpmCkvDto` shape with `KeyValueInfoDto` ckv entries |
+| Param has payloads for only a subset of CKVs | `associatedCkvs` contains only the CKVs that have a payload for that param |
 
 **`GetVcpmCalDataHandler`** — `packages/core/tests/unit/usecase-designer/subgraph/get-vcpm-cal-data.handler.spec.ts`
 

@@ -4,6 +4,7 @@
  */
 
 import {z} from 'zod';
+import {KeyValueInfoDtoSchema} from '../../spf-module/query/spf-module-dto.js';
 
 const PropertyChangeDtoSchema = z.object({
   systemId: z.string(),
