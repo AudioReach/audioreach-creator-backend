@@ -146,6 +146,7 @@ export * from './application/ports/persistence/query-services/subgraph-property-
 export * from './application/usecase-designer/shared/property-definition-with-elements.js';
 export * from './application/ports/persistence/query-services/logging/log-entry-read-model.js';
 export * from './application/ports/persistence/query-services/logging/log-query-service.js';
+export * from './application/ports/persistence/query-services/vcpm/vcpm-query-service.js';
 export * from './application/logging/get-logs/get-logs-by-project.query.js';
 export * from './application/logging/get-logs/get-logs-by-project.handler.js';
 
