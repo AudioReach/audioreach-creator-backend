@@ -12,28 +12,40 @@ import type {SpfModuleParameterDefinitionRow} from '../../definitions/module/spf
 import type {ValueDefinitionRow} from '../../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
 
-export interface CkvRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface CkvBase {
+  systemId: number;
   spfModuleSystemId: number;
   uiPersistence: Uint8Array | null;
+}
 
+export interface CkvRow extends EntityBaseRow, CkvBase {
   module?: SpfModuleRow; // many-one
   payloadCollection: CkvParameterPayloadRow[]; // one-many
   values?: CkvValuesRow[]; // one-many — the key-value combination that identifies this calibration bin
 }
 
-export interface CkvParameterPayloadRow extends EntityBaseRow {
+/** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
+export interface CkvParameterPayloadBase {
+  systemId: number;
   parameterSystemId: number;
   payload: Uint8Array | null;
+  ckvSystemId: number;
+}
 
-  ckvSystemId: number; // FK
+export interface CkvParameterPayloadRow
+  extends EntityBaseRow, CkvParameterPayloadBase {
   ckv?: CkvRow; // relation
   spfParameter?: SpfModuleParameterDefinitionRow; // relation
 }
 
-export interface CkvValuesRow {
+/** Composite-PK join table scalars — no systemId, not overlaid. */
+export interface CkvValuesBase {
   ckvSystemId: number;
   valueDefSystemId: number;
+}
 
+export interface CkvValuesRow extends CkvValuesBase {
   ckv?: CkvRow;
   valueDef?: ValueDefinitionRow;
 }

@@ -52,6 +52,12 @@ import {LinkOverlayFetcher} from '../fetchers/link-overlay-fetcher.js';
 import {SubgraphOverlayFetcher} from '../fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../fetchers/subgraph-property-data-fetcher.js';
 import {SubgraphSgkvFetcher} from '../fetchers/subgraph-sgkv-fetcher.js';
+import {CkvParameterPayloadFetcher} from '../fetchers/ckv-parameter-payload-fetcher.js';
+import {CkvOverlayFetcher} from '../fetchers/ckv-overlay-fetcher.js';
+import {TkvParameterPayloadFetcher} from '../fetchers/tkv-parameter-payload-fetcher.js';
+import {TkvOverlayFetcher} from '../fetchers/tkv-overlay-fetcher.js';
+import {SpfModuleOverlayFetcher} from '../fetchers/spf-module-overlay-fetcher.js';
+import {SpfModuleParameterDefinitionFetcher} from '../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
 
 class DbModuleQueryService implements ModuleQueryService {}
 
@@ -119,6 +125,33 @@ export class DbQueryServices implements QueryServices {
       dataSource.manager,
       editActionsQueryService,
     );
+    const ckvPayloadFetcher = new CkvParameterPayloadFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+    );
+    const ckvFetcher = new CkvOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+      ckvPayloadFetcher,
+    );
+    const tkvPayloadFetcher = new TkvParameterPayloadFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+    );
+    const tkvFetcher = new TkvOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+      tkvPayloadFetcher,
+    );
+    const spfModuleOverlayFetcher = new SpfModuleOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+    );
+    const spfModuleParamDefinitionFetcher =
+      new SpfModuleParameterDefinitionFetcher(
+        dataSource.manager,
+        editActionsQueryService,
+      );
 
     this.modulesQueryService = new DbModuleQueryService();
     this.projectQueryService = new DbProjectQueryService(dataSource);
@@ -154,7 +187,10 @@ export class DbQueryServices implements QueryServices {
     // creating two divergent DbSpfTuningConfigService objects.
     this.spfTuningConfigService = new DbSpfTuningConfigService(
       dataSource,
-      editActionsQueryService,
+      ckvFetcher,
+      tkvFetcher,
+      spfModuleOverlayFetcher,
+      spfModuleParamDefinitionFetcher,
       this.keyValueDefQueryService,
       this.tagDefinitionQueryService,
     );

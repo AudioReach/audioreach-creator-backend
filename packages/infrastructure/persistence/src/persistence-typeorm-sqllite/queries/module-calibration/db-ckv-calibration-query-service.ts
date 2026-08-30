@@ -16,8 +16,9 @@ import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {
   CkvOverlayFetcher,
   type OverlaidCkv,
-  type OverlaidCkvParameterPayload,
 } from '../../fetchers/ckv-overlay-fetcher.js';
+import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-fetcher.js';
+import type {CkvParameterPayloadBase} from '../../fetchers/ckv-parameter-payload-fetcher.js';
 
 /**
  * Database implementation of CkvQueryService.
@@ -44,6 +45,10 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
     this.ckvFetcher = new CkvOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
+      new CkvParameterPayloadFetcher(
+        dataSource.manager,
+        editActionsQueryService,
+      ),
     );
   }
 
@@ -53,18 +58,14 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
    */
   async getCkv(
     fileSystemId: number,
-    moduleSystemId: number,
+    _moduleSystemId: number,
     ckvSystemId: number,
   ): Promise<CkvReadModel | null> {
     const sessionId = await resolveActiveSessionId(
       this.dataSource,
       fileSystemId,
     );
-    const overlaid = await this.ckvFetcher.fetchCkv(
-      ckvSystemId,
-      moduleSystemId,
-      sessionId,
-    );
+    const overlaid = await this.ckvFetcher.fetchOne(ckvSystemId, sessionId);
     return overlaid
       ? this.transformToCkvReadModel(overlaid, fileSystemId)
       : null;
@@ -84,11 +85,11 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       this.dataSource,
       fileSystemId,
     );
-    const overlaid = await this.ckvFetcher.fetchCkvPayloads(
+    const overlaid = await this.ckvFetcher.fetchPayloads(
       ckvSystemId,
       moduleSystemId,
       sessionId,
-      paramSystemIds,
+      paramSystemIds ? {systemId: paramSystemIds} : undefined,
     );
     return overlaid.map(p => this.toParameterPayloadReadModel(p));
   }
@@ -124,7 +125,7 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
   }
 
   private toParameterPayloadReadModel(
-    row: OverlaidCkvParameterPayload,
+    row: CkvParameterPayloadBase,
   ): ParameterPayloadReadModel {
     return {
       systemId: row.systemId,

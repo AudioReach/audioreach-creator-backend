@@ -4,7 +4,7 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION, CONFIGURATION_INCLUDES} from '@arc/core';
+import {CONFIGURATION_INCLUDES} from '@arc/core';
 import type {ConfigurationIncludes} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
@@ -15,9 +15,25 @@ import type {
   TkvBase,
   TkvRow,
   TkvParameterPayloadBase,
-  TkvParameterPayloadRow,
   TkvValuesBase,
 } from '../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
+import type {TkvParameterPayloadFetcher} from './tkv-parameter-payload-fetcher.js';
+import {
+  applyEntityFilters,
+  matchesEntityFilters,
+} from '../queries/shared/filter-utils.js';
+
+/**
+ * Optional column-level filters for ModuleTagIdMap queries.
+ * Fields map to ModuleTagIdMapBase column names — all defined fields are ANDed.
+ * Scalar → equality; array → IN.
+ */
+export type ModuleTagIdMapFilters = {
+  systemId?: number | number[];
+  spfModuleSystemId?: number | number[];
+  tagDefinitionSystemId?: number | number[];
+  $or?: ModuleTagIdMapFilters[];
+};
 
 /**
  * Overlaid Tkv row with its tkv_values join-table entries.
@@ -33,16 +49,21 @@ export interface OverlaidModuleTagIdMap extends ModuleTagIdMapBase {
 }
 
 /**
- * Fetches module_tag_id_map, tkv, and tkv_values for a SpfModule with session
- * overlay applied (FR-3).
+ * Fetches module_tag_id_map and tkv rows for a SpfModule with session overlay applied.
+ *
+ * Payload rows (tkv_parameter_payload) are delegated to the injected
+ * TkvParameterPayloadFetcher per §6 Rule A — TkvParameterPayload has a direct FK
+ * to Tkv and therefore owns its own overlay logic.
  *
  * Two overlay levels:
  *   1. module_tag_id_map — aggregateId = moduleSystemId (SpfModule's PK)
  *   2. tkv              — aggregateId = moduleTagIdMapSystemId (the owning tag map's PK)
  *
  * Uses getByTable (one session-wide scan per table) instead of per-row
- * getByAggregateId — fixes the N+1 pattern in the original overlayTagMapRows
- * and overlayTkvRows methods (FR-5).
+ * getByAggregateId to avoid the N+1 pattern.
+ *
+ * All three operations (CREATE/UPDATE/DELETE) are passed together to applyToCollection
+ * at each level so a CREATE→UPDATE sequence is correctly applied.
  *
  * tkv_values uses a composite PK and is never staged in edit_actions — it is
  * always returned from the baseline only.
@@ -53,23 +74,27 @@ export class TkvOverlayFetcher {
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
+    private readonly payloadFetcher: TkvParameterPayloadFetcher,
   ) {}
 
   /**
    * Returns all overlaid ModuleTagIdMap rows for the given SpfModule, with
    * their Tkv children and tkv_values.
    *
-   * When includes=FullDetails, tkv_parameter_payload rows are also loaded
-   * (binary data — not overlaid by this fetcher; payload overlay is
-   * handled by fetchTkvPayloads separately).
+   * Optional column-level filters applied to both the SQL query and session-created
+   * rows via createFilter so both paths enforce the same predicate.
+   *
+   * When includes=FullDetails, tkv_parameter_payload rows are also loaded via
+   * the base JOIN (binary data — payload overlay is handled by fetchPayloads).
    *
    * Two getByTable calls cover all tag map and TKV overlay actions regardless
    * of how many tag maps the module has.
    */
-  async fetchForModule(
+  async fetchMany(
     moduleSystemId: number,
     sessionId: number | null,
     includes: ConfigurationIncludes,
+    filters?: ModuleTagIdMapFilters,
   ): Promise<OverlaidModuleTagIdMap[]> {
     let qb = this.manager
       .getRepository(ENTITY_NAMES.ModuleTagIdMap)
@@ -77,6 +102,7 @@ export class TkvOverlayFetcher {
       .leftJoinAndSelect('tagMap.tkvs', 'tkv')
       .leftJoinAndSelect('tkv.values', 'tkvValues')
       .where('tagMap.spfModuleSystemId = :id', {id: moduleSystemId});
+    if (filters) applyEntityFilters(qb, 'tagMap', filters);
 
     if (includes === CONFIGURATION_INCLUDES.FullDetails) {
       qb = qb
@@ -107,36 +133,20 @@ export class TkvOverlayFetcher {
         moduleTagMapIds.has(a.targetSystemId),
     );
 
-    const overlaidTagMaps =
+    const tagMapCreateFilter = filters
+      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
+      : undefined;
+
+    const allTagMaps =
       relevantTagMapActions.length > 0
         ? (
             this.overlay.applyToCollection(
               baseTagMaps,
-              relevantTagMapActions.filter(
-                a => a.operation !== CHANGE_OPERATION.Create,
-              ),
+              relevantTagMapActions,
+              tagMapCreateFilter,
             ) as Array<{effective: ModuleTagIdMapRow}>
           ).map(r => r.effective)
         : baseTagMaps;
-
-    const baseTagMapIds = new Set(baseTagMaps.map(r => r.systemId));
-    const createdTagMaps: ModuleTagIdMapRow[] = relevantTagMapActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseTagMapIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<ModuleTagIdMapRow>;
-        return {
-          systemId: a.targetSystemId,
-          spfModuleSystemId: p.spfModuleSystemId ?? moduleSystemId,
-          tagDefinitionSystemId: p.tagDefinitionSystemId ?? 0,
-          tkvs: [],
-        } as unknown as ModuleTagIdMapRow;
-      });
-
-    const allTagMaps = [...overlaidTagMaps, ...createdTagMaps];
 
     // For each tag map, apply TKV overlay using the pre-loaded tkvActions
     // filtered to this tag map's aggregateId (= moduleTagIdMapSystemId).
@@ -146,40 +156,14 @@ export class TkvOverlayFetcher {
         a => a.aggregateId === tagMap.systemId,
       );
 
-      let overlaidTkvs: TkvRow[];
-      if (mapTkvActions.length === 0) {
-        overlaidTkvs = baseTkvs;
-      } else {
-        const existing = (
-          this.overlay.applyToCollection(
-            baseTkvs,
-            mapTkvActions.filter(a => a.operation !== CHANGE_OPERATION.Create),
-          ) as Array<{
-            effective: TkvRow;
-          }>
-        ).map(r => r.effective);
-
-        const baseTkvIds = new Set(baseTkvs.map(r => r.systemId));
-        const createdTkvs: TkvRow[] = mapTkvActions
-          .filter(
-            a =>
-              a.operation === CHANGE_OPERATION.Create &&
-              !baseTkvIds.has(a.targetSystemId),
-          )
-          .map(a => {
-            const p = a.newValue as Partial<TkvRow>;
-            return {
-              systemId: a.targetSystemId,
-              moduleTagIdMapSystemId:
-                p.moduleTagIdMapSystemId ?? tagMap.systemId,
-              uiPersistence: null,
-              values: [],
-              payloadCollection: [],
-            } as unknown as TkvRow;
-          });
-
-        overlaidTkvs = [...existing, ...createdTkvs];
-      }
+      const overlaidTkvs =
+        mapTkvActions.length === 0
+          ? baseTkvs
+          : (
+              this.overlay.applyToCollection(baseTkvs, mapTkvActions) as Array<{
+                effective: TkvRow;
+              }>
+            ).map(r => r.effective);
 
       return {
         ...tagMap,
@@ -190,68 +174,13 @@ export class TkvOverlayFetcher {
 
   /**
    * Returns overlaid TkvParameterPayload rows for the given TKV system ID.
-   * Used by getModuleTags when includes=FullDetails.
-   *
-   * getByTable loads all TkvParameterPayload session actions at once;
-   * filtering by tkvSystemId happens in memory — no per-payload N queries.
-   *
-   * Note: spfParameter (parameter definition) data is returned from the base
-   * JOIN and is NOT overlaid here — parameter definition edit_actions use
-   * a different aggregateId (the definition's own PK, not the payload's).
+   * Delegates entirely to the injected TkvParameterPayloadFetcher.
    */
-  async fetchTkvPayloads(
+  async fetchPayloads(
     tkvSystemId: number,
     sessionId: number | null,
   ): Promise<TkvParameterPayloadBase[]> {
-    const baseRows = (await this.manager
-      .getRepository(ENTITY_NAMES.TkvParameterPayload)
-      .createQueryBuilder('p')
-      .where('p.tkvSystemId = :tkvSystemId', {tkvSystemId})
-      .getMany()) as TkvParameterPayloadRow[];
-
-    if (sessionId === null) return baseRows;
-
-    const allActions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.TkvParameterPayload,
-    );
-    const relevantActions = allActions.filter(
-      a =>
-        (a.newValue as {tkvSystemId?: number})?.tkvSystemId === tkvSystemId ||
-        baseRows.some(r => r.systemId === a.targetSystemId),
-    );
-
-    if (relevantActions.length === 0) return baseRows;
-
-    const base = baseRows;
-    const nonCreateRelevantActions = relevantActions.filter(
-      a => a.operation !== CHANGE_OPERATION.Create,
-    );
-    const overlaid = (
-      this.overlay.applyToCollection(
-        base.map(r => ({...r})),
-        nonCreateRelevantActions,
-      ) as Array<{effective: TkvParameterPayloadBase}>
-    ).map(r => r.effective);
-
-    const baseIds = new Set(baseRows.map(r => r.systemId));
-    const created: TkvParameterPayloadBase[] = relevantActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<TkvParameterPayloadBase>;
-        return {
-          systemId: a.targetSystemId,
-          tkvSystemId: p.tkvSystemId ?? tkvSystemId,
-          parameterSystemId: p.parameterSystemId ?? 0,
-          payload: p.payload ?? null,
-        };
-      });
-
-    return [...overlaid, ...created];
+    return this.payloadFetcher.fetchMany(tkvSystemId, sessionId);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

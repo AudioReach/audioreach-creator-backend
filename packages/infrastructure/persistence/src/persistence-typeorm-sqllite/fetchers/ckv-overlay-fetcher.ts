@@ -4,50 +4,59 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import {applyTableOverlay} from '../queries/edit-session/overlay-utils.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {
+  CkvBase,
   CkvRow,
-  CkvParameterPayloadRow,
+  CkvValuesBase,
 } from '../entity-schema/usecase-data/module/spf-module-calibration-data.schema.js';
+import type {
+  CkvParameterPayloadBase,
+  CkvParameterPayloadFetcher,
+  CkvParameterPayloadFilters,
+} from './ckv-parameter-payload-fetcher.js';
+import {
+  applyEntityFilters,
+  matchesEntityFilters,
+} from '../queries/shared/filter-utils.js';
 
-export interface OverlaidCkvValues {
-  ckvSystemId: number;
-  valueDefSystemId: number;
-}
+export type {
+  CkvParameterPayloadBase,
+  CkvParameterPayloadFilters,
+} from './ckv-parameter-payload-fetcher.js';
 
 /**
- * Overlaid Ckv root row with its ckv_values join-table entries.
- *
- * ckv_values uses a composite PK (ckvSystemId + valueDefSystemId) so it
- * cannot be overlaid with applyToCollection — the values array is always
- * the baseline data unchanged.
+ * Optional column-level filters for Ckv queries.
+ * Fields map to CkvBase column names — all defined fields are ANDed.
+ * Scalar → equality; array → IN.
  */
-export interface OverlaidCkv {
-  systemId: number;
-  spfModuleSystemId: number;
-  uiPersistence: Uint8Array | null;
-  /** Baseline key-value association rows — NOT overlaid (composite PK). */
-  values: OverlaidCkvValues[];
-}
+export type CkvFilters = {
+  systemId?: number | number[];
+  spfModuleSystemId?: number | number[];
+  $or?: CkvFilters[];
+};
 
-export interface OverlaidCkvParameterPayload {
-  systemId: number;
-  ckvSystemId: number;
-  parameterSystemId: number;
-  payload: Uint8Array | null;
+/**
+ * Overlaid Ckv row extending CkvBase (scalar columns only).
+ * values is loaded via JOIN (baseline only — composite PK, not overlaid).
+ */
+export interface OverlaidCkv extends CkvBase {
+  /** Baseline key-value association rows — NOT overlaid (composite PK). */
+  values: CkvValuesBase[];
 }
 
 /**
- * Fetches ckv and ckv_parameter_payload rows for the SpfModule aggregate
- * with session overlay applied (FR-3).
+ * Fetches ckv rows for the SpfModule aggregate with session overlay applied.
+ *
+ * Payload rows (ckv_parameter_payload) are delegated to the injected
+ * CkvParameterPayloadFetcher per §6 Rule A — CkvParameterPayload has a direct
+ * FK to Ckv and therefore owns its own overlay logic.
  *
  * The aggregateId for all Ckv edit_actions is moduleSystemId (the owning
- * SpfModule's PK), not ckvSystemId. A single getByAggregateId call per
- * public method covers all Ckv and CkvParameterPayload actions for the module.
+ * SpfModule's PK), not ckvSystemId.
  *
  * ckv_values uses a composite PK and is never staged in edit_actions — it is
  * loaded from the baseline only and included unchanged in OverlaidCkv.values.
@@ -58,24 +67,28 @@ export class CkvOverlayFetcher {
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
+    private readonly payloadFetcher: CkvParameterPayloadFetcher,
   ) {}
 
   /**
    * Returns all overlaid Ckv rows for the given SpfModule.
+   * Optional column-level filters (applied to SQL and to session-created rows
+   * via createFilter so both paths enforce the same predicate).
    * Loads ckv_values via JOIN (baseline only — composite PK, not overlaid).
-   * Session overlay uses moduleSystemId as aggregateId — all Ckv actions for
-   * the module are loaded in one getByAggregateId call then split by Ckv.
+   * All Ckv actions (CREATE/UPDATE/DELETE) are passed together to applyToCollection.
    */
-  async fetchForModule(
+  async fetchMany(
     moduleSystemId: number,
     sessionId: number | null,
+    filters?: CkvFilters,
   ): Promise<OverlaidCkv[]> {
-    const baseRows = (await this.manager
+    const qb = this.manager
       .getRepository(ENTITY_NAMES.Ckv)
       .createQueryBuilder('ckv')
       .leftJoinAndSelect('ckv.values', 'ckvValues')
-      .where('ckv.spfModuleSystemId = :id', {id: moduleSystemId})
-      .getMany()) as CkvRow[];
+      .where('ckv.spfModuleSystemId = :id', {id: moduleSystemId});
+    if (filters) applyEntityFilters(qb, 'ckv', filters);
+    const baseRows = (await qb.getMany()) as CkvRow[];
 
     if (sessionId === null) return baseRows.map(r => this.toOverlaidCkv(r));
 
@@ -88,37 +101,13 @@ export class CkvOverlayFetcher {
     if (ckvActions.length === 0)
       return baseRows.map(r => this.toOverlaidCkv(r));
 
-    const updateDeleteCkvActions = ckvActions.filter(
-      a => a.operation !== CHANGE_OPERATION.Create,
-    );
-    const overlaid = (
-      this.overlay.applyToCollection(
-        baseRows,
-        updateDeleteCkvActions,
-      ) as Array<{
-        effective: CkvRow;
-      }>
-    ).map(r => r.effective);
+    const createFilter = filters
+      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
+      : undefined;
 
-    const baseIds = new Set(baseRows.map(r => r.systemId));
-    const created: CkvRow[] = ckvActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<CkvRow>;
-        return {
-          systemId: a.targetSystemId,
-          spfModuleSystemId: p.spfModuleSystemId ?? moduleSystemId,
-          uiPersistence: null,
-          values: [],
-          payloadCollection: [],
-        } as unknown as CkvRow;
-      });
-
-    return [...overlaid, ...created].map(r => this.toOverlaidCkv(r));
+    return this.overlay
+      .applyToCollection(baseRows, ckvActions, createFilter)
+      .map(r => this.toOverlaidCkv(r.effective));
   }
 
   /**
@@ -126,16 +115,14 @@ export class CkvOverlayFetcher {
    * row was deleted in the session or does not exist.
    *
    * Loads ckv_values via JOIN (baseline only — composite PK prevents overlay).
-   * Session overlay is applied to the ckv root row using the module's
-   * aggregateId so cascaded session operations on the parent module are
-   * reflected.
+   * Derives moduleSystemId from the base row so callers do not need to provide it.
+   * All Ckv actions for this specific ckvSystemId are collected via filter()
+   * so a CREATE→UPDATE sequence is correctly applied.
    */
-  async fetchCkv(
+  async fetchOne(
     ckvSystemId: number,
-    moduleSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidCkv | null> {
-    // Load base Ckv row + its ckv_values join entries.
     const baseRow = (await this.manager
       .getRepository(ENTITY_NAMES.Ckv)
       .createQueryBuilder('ckv')
@@ -147,29 +134,27 @@ export class CkvOverlayFetcher {
       return baseRow ? this.toOverlaidCkv(baseRow) : null;
     }
 
-    // aggregateId = moduleSystemId — Ckv edit_actions are scoped to the
-    // parent SpfModule, not to the individual Ckv row.
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      moduleSystemId,
+    // Derive moduleSystemId from the base row — Ckv edit_actions are scoped
+    // to the parent SpfModule (aggregateId = spfModuleSystemId).
+    // A null baseRow can still have a CREATE action; scan by targetSystemId instead.
+    const moduleSystemId = baseRow?.spfModuleSystemId ?? null;
+    const actions =
+      moduleSystemId !== null
+        ? await this.editActionsSvc.getByAggregateId(sessionId, moduleSystemId)
+        : [];
+    const ckvActions = actions.filter(
+      a =>
+        a.targetTable === ENTITY_NAMES.Ckv && a.targetSystemId === ckvSystemId,
     );
-    const ckvAction =
-      actions.find(
-        a =>
-          a.targetTable === ENTITY_NAMES.Ckv &&
-          a.targetSystemId === ckvSystemId,
-      ) ?? null;
 
     const overlaid = applyTableOverlay(
-      baseRow as unknown as {systemId: number} | null,
-      ckvAction ? [ckvAction] : [],
+      baseRow as {systemId: number} | null,
+      ckvActions,
       ENTITY_NAMES.Ckv,
     ) as CkvRow | null;
 
     if (overlaid === null) return null;
 
-    // Preserve the original ckv_values from the base row — they are not
-    // overlaid (composite PK).
     return {
       ...this.toOverlaidCkv(overlaid),
       values: (baseRow?.values ?? []).map(v => ({
@@ -181,80 +166,21 @@ export class CkvOverlayFetcher {
 
   /**
    * Returns overlaid CkvParameterPayload rows for the given ckvSystemId.
-   * Optionally filtered to a specific set of parameter system IDs.
-   *
-   * Session overlay uses the module's aggregateId (same as fetchOne) so a
-   * single getByAggregateId call covers both Ckv and payload actions.
+   * Optional column-level filters are forwarded to CkvParameterPayloadFetcher.
+   * Delegates entirely to the injected CkvParameterPayloadFetcher.
    */
-  async fetchCkvPayloads(
+  async fetchPayloads(
     ckvSystemId: number,
     moduleSystemId: number,
     sessionId: number | null,
-    paramSystemIds?: number[],
-  ): Promise<OverlaidCkvParameterPayload[]> {
-    const qb = this.manager
-      .getRepository(ENTITY_NAMES.CkvParameterPayload)
-      .createQueryBuilder('payload')
-      .where('payload.ckvSystemId = :ckvSystemId', {ckvSystemId});
-    if (paramSystemIds && paramSystemIds.length > 0) {
-      qb.andWhere('payload.systemId IN (:...ids)', {
-        ids: paramSystemIds,
-      });
-    }
-    const basePayloads = (await qb.getMany()) as CkvParameterPayloadRow[];
-
-    if (sessionId === null) {
-      return basePayloads.map(p => this.toOverlaidPayload(p));
-    }
-
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
+    filters?: CkvParameterPayloadFilters,
+  ): Promise<CkvParameterPayloadBase[]> {
+    return this.payloadFetcher.fetchMany(
+      ckvSystemId,
       moduleSystemId,
+      sessionId,
+      filters,
     );
-    const payloadActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.CkvParameterPayload,
-    );
-
-    if (payloadActions.length === 0) {
-      return basePayloads.map(p => this.toOverlaidPayload(p));
-    }
-
-    const base = basePayloads.map(p => this.toOverlaidPayload(p));
-    const updateDeleteActions = payloadActions.filter(
-      a => a.operation !== CHANGE_OPERATION.Create,
-    );
-    const overlaid = this.overlay
-      .applyToCollection(
-        base.map(r => ({...r})),
-        updateDeleteActions,
-      )
-      .map(r => r.effective as OverlaidCkvParameterPayload);
-
-    // Append CREATE'd payloads not in the baseline.
-    const baseIds = new Set(basePayloads.map(p => p.systemId));
-    const created: OverlaidCkvParameterPayload[] = payloadActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<OverlaidCkvParameterPayload>;
-        return {
-          systemId: a.targetSystemId,
-          ckvSystemId: p.ckvSystemId ?? ckvSystemId,
-          parameterSystemId: p.parameterSystemId ?? 0,
-          payload: p.payload ?? null,
-        };
-      });
-
-    const all = [...overlaid, ...created];
-
-    // Apply the original paramSystemIds filter after overlay (session-created
-    // payloads may not have been in the base query result).
-    return paramSystemIds
-      ? all.filter(p => paramSystemIds.includes(p.systemId))
-      : all;
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -268,17 +194,6 @@ export class CkvOverlayFetcher {
         ckvSystemId: v.ckvSystemId,
         valueDefSystemId: v.valueDefSystemId,
       })),
-    };
-  }
-
-  private toOverlaidPayload(
-    row: CkvParameterPayloadRow,
-  ): OverlaidCkvParameterPayload {
-    return {
-      systemId: row.systemId,
-      ckvSystemId: row.ckvSystemId,
-      parameterSystemId: row.parameterSystemId,
-      payload: row.payload ?? null,
     };
   }
 }
