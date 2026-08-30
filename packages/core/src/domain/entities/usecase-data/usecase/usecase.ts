@@ -10,6 +10,10 @@ export interface KeyVectorInput {
   valueSystemIds: number[];
 }
 
+/**
+ * A directional subgraph pair belonging to a UseCase.
+ * Direction is encoded by field order: source to destination.
+ */
 export interface SubgraphPair {
   sourceSubgraphSystemId: number;
   destSubgraphSystemId: number;

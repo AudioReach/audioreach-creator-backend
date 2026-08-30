@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1785297093633 implements MigrationInterface {
-  name = 'InitialCreate1785297093633';
+export class InitialCreate1788023668098 implements MigrationInterface {
+  name = 'InitialCreate1788023668098';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -349,7 +349,7 @@ export class InitialCreate1785297093633 implements MigrationInterface {
       `CREATE TABLE "vcpm_ckv_values" ("vcpm_ckv_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("vcpm_ckv_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(256) NOT NULL, "subgraph_id" integer NOT NULL, "is_exported" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(256) NOT NULL, "subgraph_id" integer NOT NULL, "is_imported" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "uq_subgraphs_name_file_system_id" ON "subgraphs" ("name", "file_system_id") `,
@@ -370,7 +370,7 @@ export class InitialCreate1785297093633 implements MigrationInterface {
       `CREATE TABLE "subsystem_filtered_keys_key_definition" ("subsystems_system_id" integer NOT NULL, "key_definition_system_id" integer NOT NULL, PRIMARY KEY ("subsystems_system_id", "key_definition_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','ROUTED','MANUAL') ))`,
+      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('CONNECTED','DISCONNECTED','EC') ))`,
     );
     await queryRunner.query(
       `CREATE INDEX "ix_use_case_alias" ON "use_cases" ("alias_id") `,
@@ -1203,10 +1203,10 @@ export class InitialCreate1785297093633 implements MigrationInterface {
       `DROP INDEX "uq_subgraphs_subgraph_id_file_system_id"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "temporary_subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(256) NOT NULL, "subgraph_id" integer NOT NULL, "is_exported" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_8f5322ebd0fbec146a71ab8a365" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(256) NOT NULL, "subgraph_id" integer NOT NULL, "is_imported" integer NOT NULL, "file_system_id" integer NOT NULL, CONSTRAINT "FK_8f5322ebd0fbec146a71ab8a365" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_subgraphs"("system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_exported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_exported", "file_system_id" FROM "subgraphs"`,
+      `INSERT INTO "temporary_subgraphs"("system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_imported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_imported", "file_system_id" FROM "subgraphs"`,
     );
     await queryRunner.query(`DROP TABLE "subgraphs"`);
     await queryRunner.query(
@@ -1261,7 +1261,7 @@ export class InitialCreate1785297093633 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "ix_use_case_alias"`);
     await queryRunner.query(`DROP INDEX "ix_use_case_file"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','ROUTED','MANUAL') ), CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
+      `CREATE TABLE "temporary_use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('CONNECTED','DISCONNECTED','EC') ), CONSTRAINT "FK_8d8dca62e57c8b800925aec755a" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
       `INSERT INTO "temporary_use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type" FROM "use_cases"`,
@@ -1585,7 +1585,7 @@ export class InitialCreate1785297093633 implements MigrationInterface {
       `ALTER TABLE "use_cases" RENAME TO "temporary_use_cases"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('EC','ROUTED','MANUAL') ))`,
+      `CREATE TABLE "use_cases" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "alias_id" integer NOT NULL, "alias" varchar(255) NOT NULL, "file_system_id" integer NOT NULL, "type" varchar CHECK( "type" IN ('CONNECTED','DISCONNECTED','EC') ))`,
     );
     await queryRunner.query(
       `INSERT INTO "use_cases"("system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type") SELECT "system_id", "created_at", "updated_at", "version", "alias_id", "alias", "file_system_id", "type" FROM "temporary_use_cases"`,
@@ -1645,10 +1645,10 @@ export class InitialCreate1785297093633 implements MigrationInterface {
       `ALTER TABLE "subgraphs" RENAME TO "temporary_subgraphs"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(256) NOT NULL, "subgraph_id" integer NOT NULL, "is_exported" integer NOT NULL, "file_system_id" integer NOT NULL)`,
+      `CREATE TABLE "subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "name" varchar(256) NOT NULL, "subgraph_id" integer NOT NULL, "is_imported" integer NOT NULL, "file_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "subgraphs"("system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_exported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_exported", "file_system_id" FROM "temporary_subgraphs"`,
+      `INSERT INTO "subgraphs"("system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_imported", "file_system_id") SELECT "system_id", "created_at", "updated_at", "version", "name", "subgraph_id", "is_imported", "file_system_id" FROM "temporary_subgraphs"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_subgraphs"`);
     await queryRunner.query(

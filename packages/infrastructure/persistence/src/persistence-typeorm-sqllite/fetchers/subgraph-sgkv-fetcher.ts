@@ -33,23 +33,32 @@ export class SubgraphSgkvFetcher {
   ) {}
 
   /**
-   * Loads all SGKV rows for the given file with session overlay applied.
+   * Loads SGKV rows for the given file with session overlay applied.
    *
-   * @param fileSystemId  Scope to this file.
-   * @param sessionId     Active session; null returns baseline only.
+   * @param fileSystemId   Scope to this file.
+   * @param sessionId      Active session; null returns baseline only.
+   * @param sgSystemIds    Optional: restrict to these subgraph system IDs.
    */
   async fetchMany(
     fileSystemId: number,
     sessionId: number | null,
+    sgSystemIds?: number[],
   ): Promise<OverlaidSgkv[]> {
-    const baseRows = (await this.manager
+    const qb = this.manager
       .getRepository(ENTITY_NAMES.Sgkv)
       .createQueryBuilder('sgkv')
       .innerJoin('sgkv.subgraph', 's', 's.fileSystemId = :fileSystemId', {
         fileSystemId,
       })
-      .leftJoinAndSelect('sgkv.values', 'vals')
-      .getMany()) as Array<SgkvBase & {values?: SgkvValuesBase[]}>;
+      .leftJoinAndSelect('sgkv.values', 'vals');
+
+    if (sgSystemIds && sgSystemIds.length > 0) {
+      qb.andWhere('sgkv.subgraphSystemId IN (:...sgIds)', {sgIds: sgSystemIds});
+    }
+
+    const baseRows = (await qb.getMany()) as Array<
+      SgkvBase & {values?: SgkvValuesBase[]}
+    >;
 
     const toOverlaid = (
       r: SgkvBase & {values?: SgkvValuesBase[]},

@@ -189,11 +189,14 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     );
 
     // Resolve subgraph IDs once — used by both link types (FR-3: via usecaseFetcher).
-    const subgraphIds =
-      await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
-        useCaseSystemIds,
-        sessionId,
-      );
+    const usecases = await this.usecaseFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+      useCaseSystemIds,
+    );
+    const subgraphIds = [
+      ...new Set(usecases.flatMap(uc => uc.subgraphSystemIds)),
+    ];
     const linkFilter =
       subgraphIds.length > 0
         ? {

@@ -9,10 +9,12 @@ import type {UsecaseType} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
+import {UseCaseSchema} from '../entity-schema/usecase-data/use-case.js';
 import type {
   UseCaseBase,
   UsecaseGkvValuesBase,
 } from '../entity-schema/usecase-data/use-case.js';
+import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
 import {
   applyEntityFilters,
   matchesEntityFilters,
@@ -33,10 +35,36 @@ export type UseCaseFilters = {
   $or?: UseCaseFilters[];
 };
 
+/** Subgraph pair entry carried on OverlaidUseCase. */
+export type OverlaidUseCasePair = {
+  sourceSubgraphSystemId: number;
+  destSubgraphSystemId: number;
+};
+
+function matchesSubgraphPair(
+  pair: OverlaidUseCasePair,
+  sourceSubgraphSystemId: number,
+  destSubgraphSystemId: number,
+): boolean {
+  return (
+    pair.sourceSubgraphSystemId === sourceSubgraphSystemId &&
+    pair.destSubgraphSystemId === destSubgraphSystemId
+  );
+}
+
+/**
+ * Assembled UseCase after session overlay.
+ * `gkvEntries` and `categoryNames` are empty arrays when the fetcher is
+ * constructed without the optional `gkvFetcher` / `categoryFetcher`.
+ * `subgraphSystemIds` and `subgraphPairs` carry junction data with overlay
+ * applied and are always populated.
+ */
 export interface OverlaidUseCase extends Omit<UseCaseBase, 'type'> {
   type: UsecaseType | null;
   gkvEntries: UsecaseGkvValuesBase[];
   categoryNames: string[];
+  subgraphSystemIds: number[];
+  subgraphPairs: OverlaidUseCasePair[];
 }
 
 export class UsecaseOverlayFetcher {
@@ -45,8 +73,8 @@ export class UsecaseOverlayFetcher {
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
-    private readonly categoryFetcher: UseCaseCategoryFetcher,
-    private readonly gkvFetcher: UsecaseGkvValuesFetcher,
+    private readonly categoryFetcher?: UseCaseCategoryFetcher,
+    private readonly gkvFetcher?: UsecaseGkvValuesFetcher,
   ) {}
 
   // ── Core entry point ─────────────────────────────────────────────────────────
@@ -54,7 +82,7 @@ export class UsecaseOverlayFetcher {
   /**
    * Fetches all UseCase rows for the given file with optional column-level
    * filters, then applies session overlay (CREATE/UPDATE/DELETE).
-   * Returns UseCaseBase[] — no GKV entries or category names.
+   * Returns UseCaseBase[] — no GKV entries, category names, or junction data.
    */
   async fetchMany(
     fileSystemId: number,
@@ -84,12 +112,10 @@ export class UsecaseOverlayFetcher {
       .map(r => r.effective);
   }
 
-  // ── Assembled entry points (scalars + GKV + categories) ──────────────────────
+  // ── Assembled entry points (scalars + GKV + categories + junctions) ──────────
 
   /**
-   * Returns a single fully-assembled OverlaidUseCase.
-   * Uses fetchMany for scalars; delegates GKV and category loading
-   * (with overlay) to the injected fetchers.
+   * Returns a single fully-assembled OverlaidUseCase including junction data.
    */
   async fetchOne(
     usecaseSystemId: number,
@@ -104,23 +130,29 @@ export class UsecaseOverlayFetcher {
     if (usecases.length === 0) return null;
     const baseRow = usecases[0];
 
-    // Load GKV and categories — fetchers handle session overlay internally.
-    const [gkvRows, catRows] = await Promise.all([
-      this.gkvFetcher.fetchMany([usecaseSystemId], sessionId),
-      this.categoryFetcher.fetchMany([usecaseSystemId], sessionId),
+    const [gkvRows, catRows, sgIdMap, pairMap] = await Promise.all([
+      this.gkvFetcher
+        ? this.gkvFetcher.fetchMany([usecaseSystemId], sessionId)
+        : Promise.resolve([] as UsecaseGkvValuesBase[]),
+      this.categoryFetcher
+        ? this.categoryFetcher.fetchMany([usecaseSystemId], sessionId)
+        : Promise.resolve([] as Array<{usecaseSystemId: number; name: string}>),
+      this.getSubgraphIdMap([usecaseSystemId], sessionId),
+      this.getSubgraphPairMap([usecaseSystemId], sessionId),
     ]);
 
     return this.assembleUsecase(
       baseRow,
       gkvRows,
       catRows.map(r => r.name),
+      sgIdMap.get(usecaseSystemId) ?? [],
+      pairMap.get(usecaseSystemId) ?? [],
     );
   }
 
   /**
-   * Returns all fully-assembled OverlaidUsecases for the given file.
-   * Delegates row loading and overlay to fetchMany, GKV and category
-   * loading (with overlay) to the injected fetchers.
+   * Returns all fully-assembled OverlaidUsecases for the given file,
+   * including subgraph membership and pair junction data with overlay applied.
    */
   async getUsecases(
     fileSystemId: number,
@@ -143,10 +175,15 @@ export class UsecaseOverlayFetcher {
 
     const ucIds = usecases.map(r => r.systemId);
 
-    // Load GKV and categories in parallel — fetchers handle session overlay.
-    const [gkvRows, catRows] = await Promise.all([
-      this.gkvFetcher.fetchMany(ucIds, sessionId),
-      this.categoryFetcher.fetchMany(ucIds, sessionId),
+    const [gkvRows, catRows, sgIdMap, pairMap] = await Promise.all([
+      this.gkvFetcher
+        ? this.gkvFetcher.fetchMany(ucIds, sessionId)
+        : Promise.resolve([] as UsecaseGkvValuesBase[]),
+      this.categoryFetcher
+        ? this.categoryFetcher.fetchMany(ucIds, sessionId)
+        : Promise.resolve([] as Array<{usecaseSystemId: number; name: string}>),
+      this.getSubgraphIdMap(ucIds, sessionId),
+      this.getSubgraphPairMap(ucIds, sessionId),
     ]);
 
     const gkvMap = this.groupGkvByUsecase(gkvRows);
@@ -157,65 +194,10 @@ export class UsecaseOverlayFetcher {
         uc,
         gkvMap.get(uc.systemId) ?? [],
         catMap.get(uc.systemId) ?? [],
+        sgIdMap.get(uc.systemId) ?? [],
+        pairMap.get(uc.systemId) ?? [],
       ),
     );
-  }
-
-  // ── Many-to-many traversal ────────────────────────────────────────────────────
-
-  /**
-   * Returns the system IDs of all subgraphs that belong to the given usecases,
-   * with session overlay applied.
-   *
-   * Baseline: UseCase → Subgraph many-to-many via use_case_subgraphs join table.
-   * Overlay: CREATE adds a subgraph assignment; DELETE removes one.
-   *
-   * @param usecaseSystemIds  Usecases whose subgraph IDs are requested.
-   * @param sessionId         Active session; null returns baseline only.
-   */
-  async getSubgraphSystemIdsForUsecases(
-    usecaseSystemIds: number[],
-    sessionId: number | null,
-  ): Promise<number[]> {
-    if (usecaseSystemIds.length === 0) return [];
-
-    const rows = await this.manager
-      .getRepository(ENTITY_NAMES.UseCase)
-      .createQueryBuilder('uc')
-      .select('s.systemId', 'subgraphSystemId')
-      .innerJoin('uc.subgraphs', 's')
-      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
-      .getRawMany<{subgraphSystemId: number}>();
-
-    const baseSubgraphIds = new Set(rows.map(r => r.subgraphSystemId));
-
-    if (sessionId === null) return [...baseSubgraphIds];
-
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.UseCaseSubgraph,
-    );
-    if (actions.length === 0) return [...baseSubgraphIds];
-
-    const usecaseIdSet = new Set(usecaseSystemIds);
-    for (const action of actions) {
-      const p = action.newValue as {
-        subgraphSystemId?: number;
-        usecaseSystemId?: number;
-      };
-      if (
-        !p.subgraphSystemId ||
-        !p.usecaseSystemId ||
-        !usecaseIdSet.has(p.usecaseSystemId)
-      )
-        continue;
-      if (action.operation === CHANGE_OPERATION.Create)
-        baseSubgraphIds.add(p.subgraphSystemId);
-      else if (action.operation === CHANGE_OPERATION.Delete)
-        baseSubgraphIds.delete(p.subgraphSystemId);
-    }
-
-    return [...baseSubgraphIds];
   }
 
   /**
@@ -226,10 +208,176 @@ export class UsecaseOverlayFetcher {
     usecaseSystemIds: number[],
     sessionId: number | null,
   ): Promise<Array<{usecaseSystemId: number; name: string}>> {
+    if (!this.categoryFetcher) return [];
     return this.categoryFetcher.fetchMany(usecaseSystemIds, sessionId);
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────
+
+  /**
+   * Returns per-UC subgraph system ID lists with overlay applied.
+   */
+  private async getSubgraphIdMap(
+    usecaseSystemIds: number[],
+    sessionId: number | null,
+  ): Promise<Map<number, number[]>> {
+    const result = new Map<number, number[]>();
+    if (usecaseSystemIds.length === 0) return result;
+    for (const id of usecaseSystemIds) result.set(id, []);
+
+    const rows = await this.manager
+      .getRepository(ENTITY_NAMES.UseCase)
+      .createQueryBuilder('uc')
+      .select('uc.systemId', 'ucId')
+      .addSelect('s.systemId', 'subgraphSystemId')
+      .innerJoin('uc.subgraphs', 's')
+      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
+      .getRawMany<{ucId: number; subgraphSystemId: number}>();
+
+    for (const r of rows) {
+      result.get(r.ucId)?.push(r.subgraphSystemId);
+    }
+
+    if (sessionId === null) return result;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.UseCaseSubgraph,
+    );
+    if (actions.length === 0) return result;
+
+    this.applySubgraphMembershipActions(result, usecaseSystemIds, actions);
+
+    return result;
+  }
+
+  /**
+   * Returns per-UC subgraph pair lists with overlay applied.
+   */
+  private async getSubgraphPairMap(
+    usecaseSystemIds: number[],
+    sessionId: number | null,
+  ): Promise<Map<number, OverlaidUseCasePair[]>> {
+    const result = new Map<number, OverlaidUseCasePair[]>();
+    if (usecaseSystemIds.length === 0) return result;
+    for (const id of usecaseSystemIds) result.set(id, []);
+
+    const rows = await this.manager
+      .getRepository(ENTITY_NAMES.UseCase)
+      .createQueryBuilder('uc')
+      .select('uc.systemId', 'ucId')
+      .addSelect('sp.sourceSubgraphSystemId', 'sourceSubgraphSystemId')
+      .addSelect('sp.destSubgraphSystemId', 'destSubgraphSystemId')
+      .innerJoin('uc.subgraphPairs', 'sp')
+      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
+      .getRawMany<{
+        ucId: number;
+        sourceSubgraphSystemId: number;
+        destSubgraphSystemId: number;
+      }>();
+
+    for (const r of rows) {
+      result.get(r.ucId)?.push({
+        sourceSubgraphSystemId: r.sourceSubgraphSystemId,
+        destSubgraphSystemId: r.destSubgraphSystemId,
+      });
+    }
+
+    if (sessionId === null) return result;
+
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.UseCaseSubgraphPair,
+    );
+    if (actions.length === 0) return result;
+
+    this.applySubgraphPairActions(result, usecaseSystemIds, actions);
+
+    return result;
+  }
+
+  private applySubgraphMembershipActions(
+    result: Map<number, number[]>,
+    usecaseSystemIds: number[],
+    actions: EditActionRow[],
+  ): void {
+    const usecaseIdSet = new Set(usecaseSystemIds);
+    for (const action of actions) {
+      const payload = action.newValue as {
+        subgraphSystemId?: number;
+        usecaseSystemId?: number;
+      };
+      if (
+        !payload.subgraphSystemId ||
+        !payload.usecaseSystemId ||
+        !usecaseIdSet.has(payload.usecaseSystemId)
+      )
+        continue;
+
+      const subgraphSystemIds = result.get(payload.usecaseSystemId);
+      if (!subgraphSystemIds) continue;
+      if (
+        action.operation === CHANGE_OPERATION.Create &&
+        !subgraphSystemIds.includes(payload.subgraphSystemId)
+      ) {
+        subgraphSystemIds.push(payload.subgraphSystemId);
+      } else if (action.operation === CHANGE_OPERATION.Delete) {
+        const index = subgraphSystemIds.indexOf(payload.subgraphSystemId);
+        if (index !== -1) subgraphSystemIds.splice(index, 1);
+      }
+    }
+  }
+
+  private applySubgraphPairActions(
+    result: Map<number, OverlaidUseCasePair[]>,
+    usecaseSystemIds: number[],
+    actions: EditActionRow[],
+  ): void {
+    const usecaseIdSet = new Set(usecaseSystemIds);
+    for (const action of actions) {
+      const payload = action.newValue as {
+        usecaseSystemId?: number;
+        sourceSubgraphSystemId?: number;
+        destSubgraphSystemId?: number;
+      };
+      if (
+        !payload.usecaseSystemId ||
+        !payload.sourceSubgraphSystemId ||
+        !payload.destSubgraphSystemId ||
+        !usecaseIdSet.has(payload.usecaseSystemId)
+      )
+        continue;
+
+      const pairs = result.get(payload.usecaseSystemId);
+      if (!pairs) continue;
+      const {sourceSubgraphSystemId, destSubgraphSystemId} = payload;
+
+      if (
+        action.operation === CHANGE_OPERATION.Create &&
+        !pairs.some(pair =>
+          matchesSubgraphPair(
+            pair,
+            sourceSubgraphSystemId,
+            destSubgraphSystemId,
+          ),
+        )
+      ) {
+        pairs.push({
+          sourceSubgraphSystemId,
+          destSubgraphSystemId,
+        });
+      } else if (action.operation === CHANGE_OPERATION.Delete) {
+        const index = pairs.findIndex(pair =>
+          matchesSubgraphPair(
+            pair,
+            sourceSubgraphSystemId,
+            destSubgraphSystemId,
+          ),
+        );
+        if (index !== -1) pairs.splice(index, 1);
+      }
+    }
+  }
 
   private groupGkvByUsecase(
     rows: UsecaseGkvValuesBase[],
@@ -259,12 +407,54 @@ export class UsecaseOverlayFetcher {
     uc: UseCaseBase,
     gkvEntries: UsecaseGkvValuesBase[],
     categoryNames: string[],
+    subgraphSystemIds: number[],
+    subgraphPairs: OverlaidUseCasePair[],
   ): OverlaidUseCase {
     return {
       ...uc,
       type: uc.type ?? null,
       gkvEntries,
       categoryNames,
+      subgraphSystemIds,
+      subgraphPairs,
     };
+  }
+
+  /**
+   * Returns fully-assembled OverlaidUsecases that have at least one active
+   * MANUAL edit_action in the current session.
+   */
+  async fetchWithActiveManualEdits(
+    fileSystemId: number,
+    sessionId: number,
+  ): Promise<OverlaidUseCase[]> {
+    const idRows = await this.manager
+      .createQueryBuilder()
+      .select('uc.system_id', 'systemId')
+      .distinct(true)
+      .from(UseCaseSchema, 'uc')
+      .innerJoin(
+        'edit_actions',
+        'ea',
+        `ea.target_system_id = uc.system_id
+         AND ea.target_table = :targetTable
+         AND ea.source = :source
+         AND ea.valid_until IS NULL`,
+        {targetTable: ENTITY_NAMES.UseCase, source: 'MANUAL'},
+      )
+      .innerJoin(
+        'project_sessions',
+        'ps',
+        'ps.session_id = ea.session_id AND ps.file_system_id = uc.file_system_id',
+      )
+      .where('uc.file_system_id = :fileSystemId', {fileSystemId})
+      .getRawMany<{systemId: number}>();
+
+    if (idRows.length === 0) return [];
+    return this.getUsecases(
+      fileSystemId,
+      sessionId,
+      idRows.map(r => r.systemId),
+    );
   }
 }

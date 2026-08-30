@@ -9,32 +9,128 @@ import type {
   UnitOfWork,
   EditOptions,
   Subgraph,
+  SessionChanged,
+  SgkvEntry,
 } from '@arc/core';
+import {Subgraph as SubgraphEntity} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
+import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
+import {SubgraphSgkvFetcher} from '../../fetchers/subgraph-sgkv-fetcher.js';
+import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 
 export class TypeOrmSubgraphRepository implements SubgraphRepository {
+  private readonly subgraphFetcher: SubgraphOverlayFetcher;
+  private readonly sgkvFetcher: SubgraphSgkvFetcher;
+  private readonly kvDefFetcher: KeyValueDefinitionFetcher;
+
   constructor(
     private readonly writer: PendingChangeWriter,
     private readonly manager: EntityManager,
     private readonly uow: UnitOfWork,
-  ) {}
+  ) {
+    const editActionsQs = new EditActionsQueryService(manager);
+    this.sgkvFetcher = new SubgraphSgkvFetcher(manager, editActionsQs);
+    this.subgraphFetcher = new SubgraphOverlayFetcher(manager, editActionsQs);
+    this.kvDefFetcher = new KeyValueDefinitionFetcher(manager, editActionsQs);
+  }
+
+  // ── Reads ────────────────────────────────────────────────────────────────────
 
   async subgraphExists(
     systemId: number,
     fileSystemId: number,
   ): Promise<boolean> {
-    const count = await this.manager
-      .createQueryBuilder()
-      .select('1')
-      .from(ENTITY_NAMES.Subgraph, 's')
-      .where('s.systemId = :systemId AND s.fileSystemId = :fileSystemId', {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    return (
+      (await this.subgraphFetcher.fetchOne(
         systemId,
         fileSystemId,
-      })
-      .getCount();
-    return count > 0;
+        sessionId,
+      )) !== null
+    );
   }
+
+  async getSgkvs(
+    fileSystemId: number,
+    sgSystemIds: readonly number[],
+  ): Promise<SgkvEntry[]> {
+    if (sgSystemIds.length === 0) return [];
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+
+    const sgkvRows = await this.sgkvFetcher.fetchMany(fileSystemId, sessionId, [
+      ...sgSystemIds,
+    ]);
+    if (sgkvRows.length === 0) return [];
+
+    const allValueDefIds = [
+      ...new Set(
+        sgkvRows.flatMap(sg => sg.values.map(v => v.valueDefSystemId)),
+      ),
+    ];
+    const valueDefs = await this.kvDefFetcher.fetchValuesBySystemIds(
+      allValueDefIds,
+      sessionId,
+    );
+    const valueToKeyMap = new Map(
+      valueDefs.map(v => [v.systemId, v.keySystemId]),
+    );
+
+    return sgkvRows.map(sgkv => ({
+      sgSystemId: sgkv.subgraphSystemId,
+      sgkvSystemId: sgkv.systemId,
+      keyValues: sgkv.values
+        .filter(v => valueToKeyMap.has(v.valueDefSystemId))
+        .map(v => ({
+          keyDefSystemId: valueToKeyMap.get(v.valueDefSystemId)!,
+          valueDefSystemId: v.valueDefSystemId,
+        })),
+    }));
+  }
+
+  async findByIds(
+    fileSystemId: number,
+    sgSystemIds: readonly number[],
+  ): Promise<Subgraph[]> {
+    if (sgSystemIds.length === 0) return [];
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.subgraphFetcher.fetchMany(fileSystemId, sessionId, {
+      systemId: [...sgSystemIds],
+    });
+    return rows.map(r => this.hydrate(r));
+  }
+
+  async findIsMdfInScope(
+    fileSystemId: number,
+    sgSystemIds: readonly number[],
+  ): Promise<Subgraph[]> {
+    if (sgSystemIds.length === 0) return [];
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.subgraphFetcher.fetchMdfInScope(
+      fileSystemId,
+      sessionId,
+      [...sgSystemIds],
+    );
+    return rows.map(r => this.hydrate(r));
+  }
+
+  async findChangedInSession(
+    fileSystemId: number,
+  ): Promise<SessionChanged<Subgraph>> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const changed = await this.subgraphFetcher.fetchChangedInSession(
+      fileSystemId,
+      sessionId,
+    );
+    return {
+      added: changed.added.map(r => this.hydrate(r)),
+      deleted: changed.deleted.map(r => this.hydrate(r)),
+    };
+  }
+
+  // ── Writes ───────────────────────────────────────────────────────────────────
 
   async createSubgraph(
     subgraph: Subgraph,
@@ -60,7 +156,6 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       this.manager,
     );
 
-    // Stage SubgraphPropertyData rows — part of the same aggregate.
     for (const prop of subgraph.properties) {
       await this.writer.writeCreate(
         {
@@ -79,5 +174,17 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         this.manager,
       );
     }
+  }
+
+  // ── Hydration ─────────────────────────────────────────────────────────────────
+
+  private hydrate(base: SubgraphBase): Subgraph {
+    return new SubgraphEntity({
+      systemId: base.systemId,
+      subgraphId: base.subgraphId,
+      name: base.name,
+      isExported: Boolean(base.isImported),
+      fileSystemId: base.fileSystemId,
+    });
   }
 }
