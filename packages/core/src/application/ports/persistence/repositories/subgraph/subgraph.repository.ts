@@ -25,7 +25,6 @@ export interface SubgraphRepository {
   /**
    * Stages CREATE rows for the Subgraph aggregate root and all its
    * SubgraphPropertyData children.
-   * All rows share the ambient groupId so the whole creation is one undo unit.
    */
   createSubgraph(subgraph: Subgraph, options?: EditOptions): Promise<void>;
 

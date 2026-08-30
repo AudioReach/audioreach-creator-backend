@@ -67,6 +67,8 @@ import {GetVcpmCkvQuery} from '../../../usecase-designer/subgraph/get-vcpm-ckv/g
 import {GetVcpmCkvHandler} from '../../../usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.handler.js';
 import {GetVcpmCalDataQuery} from '../../../usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.query.js';
 import {GetVcpmCalDataHandler} from '../../../usecase-designer/subgraph/get-vcpm-cal-data/get-vcpm-cal-data.handler.js';
+import {GetSubgraphPropertyQuery} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.query.js';
+import {GetSubgraphPropertyHandler} from '../../../usecase-designer/subgraph/get-property/get-subgraph-property.handler.js';
 
 export interface QueryHandlerDependencies {
   queryServices: QueryServices;
@@ -260,6 +262,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetVcpmCalDataQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetVcpmCalDataHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetSubgraphPropertyQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetSubgraphPropertyHandler(deps.queryServices),
     });
   }
 }

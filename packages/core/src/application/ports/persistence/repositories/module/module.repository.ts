@@ -107,4 +107,27 @@ export interface ModuleRepository {
     payloadUpdates: CkvPayloadUpdate[],
     uiPersistence?: string,
   ): Promise<void>;
+
+  /**
+   * Returns all non-deleted SpfModule rows belonging to a subgraph.
+   * Overlay-aware: excludes pending DELETE, includes pending CREATE.
+   */
+  getModulesBySubgraphId(
+    subgraphSystemId: number,
+    fileSystemId: number,
+  ): Promise<SpfModuleBase[]>;
+
+  /**
+   * Wipes all CKV/TKV/tag cal data for a module and resets zero-CKV payloads
+   * to their factory defaults. Returns a mutation log.
+   */
+  wipeCalData(
+    moduleSystemId: number,
+    fileSystemId: number,
+  ): Promise<WipeCalDataResult>;
+}
+
+export interface WipeCalDataResult {
+  ckvsDeleted: number[];
+  zeroCkvsAdded: number[];
 }
