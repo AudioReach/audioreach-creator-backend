@@ -64,6 +64,7 @@ import {
   GetComponentsQuery,
   GetAllSubgraphsQuery,
   GetSubgraphPropertiesQuery,
+  GetSubgraphPropertyQuery,
   UpdateSubgraphScenarioCommand,
   UpdateSubgraphVsidCommand,
   PatchSubgraphCommand,
@@ -75,6 +76,7 @@ import {
   DeleteVcpmCkvCommand,
   UpdateVcpmCalDataCommand,
   Result,
+  mapPropertyToDto,
   type ActiveSession,
   COMPONENT_SCOPE_TYPE,
   type ComponentCollectionDto as CoreComponentCollectionDto,
@@ -84,6 +86,7 @@ import {
   type CreateVcpmCkvDto,
   type CkvCalDataDto,
   type SubgraphDto,
+  type PropertyDataDto,
 } from '@arc/core';
 /**
  * Controller to support all subgraph related APIs for usecase design.
@@ -312,7 +315,7 @@ export class SubgraphController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateScenarioResponseDto>> {
     const result = await this.commandBus.execute<ScenarioChangeDto>(
-      new UpdateSubgraphScenarioCommand(subgraphSystemId, [dto]),
+      new UpdateSubgraphScenarioCommand(subgraphSystemId, dto.elements),
       session,
     );
     return toApiResult(Result.ok(result));
@@ -355,7 +358,7 @@ export class SubgraphController extends BaseController {
     @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<UpdateVsidResponseDto>> {
     const result = await this.commandBus.execute<VsidUpdateDto>(
-      new UpdateSubgraphVsidCommand(subgraphSystemId, [dto]),
+      new UpdateSubgraphVsidCommand(subgraphSystemId, dto.elements),
       session,
     );
     return toApiResult(Result.ok(result));
@@ -392,18 +395,23 @@ export class SubgraphController extends BaseController {
     ],
   })
   async patchSubgraph(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
     @Param('subgraphSystemId', ParseIntPipe) subgraphSystemId: number,
     @Body() dto: PatchSubgraphRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<SubgraphResponseDto>> {
-    await this.commandBus.execute<void>(
+  ): Promise<ApiResult<SubgraphPropertiesResponseDto>> {
+    await this.commandBus.execute<{groupId: string}>(
       new PatchSubgraphCommand(subgraphSystemId, dto.name),
       session,
     );
-    throw new NotImplementedException(
-      'patchSubgraph response not implemented yet',
+    const query = new GetSubgraphPropertiesQuery(
+      Number.parseInt(projectId, 10),
+      subgraphSystemId,
+      'api-client',
     );
+    const result =
+      await this.queryBus.execute<Result<SubgraphPropertiesResponseDto>>(query);
+    return toApiResult(result);
   }
 
   /**
@@ -458,17 +466,21 @@ export class SubgraphController extends BaseController {
     @ClientId() clientId: string,
   ): Promise<ApiResult<SubgraphPropertiesResponseDto>> {
     await this.commandBus.execute<void>(
-      new UpdateSubgraphPropertyCommand(subgraphSystemId, propSystemId, [dto]),
+      new UpdateSubgraphPropertyCommand(
+        subgraphSystemId,
+        propSystemId,
+        dto.elements,
+      ),
       session,
     );
-    const query = new GetSubgraphPropertiesQuery(
+    const query = new GetSubgraphPropertyQuery(
       Number.parseInt(projectId, 10),
       subgraphSystemId,
+      propSystemId,
       clientId,
     );
-    const result =
-      await this.queryBus.execute<Result<SubgraphPropertiesResponseDto>>(query);
-    return toApiResult(result);
+    const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+    return toApiResult(result, data => mapPropertyToDto(data));
   }
 
   /**

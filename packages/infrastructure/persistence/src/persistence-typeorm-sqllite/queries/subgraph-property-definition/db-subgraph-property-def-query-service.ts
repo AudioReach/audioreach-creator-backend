@@ -142,6 +142,37 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
     }
   }
 
+  async getSubgraphPropertyDefinitionWithElements(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const rows = await this.fetcher.fetchAll(
+        fileSystemId,
+        session?.sessionId ?? null,
+      );
+      const match = rows.find(r => r.systemId === propertySystemId);
+      return match
+        ? Result.ok(this.toDetailWithElementsReadModel(match))
+        : Result.fail({
+            code: ERROR_CODES.ENTITY_NOT_FOUND,
+            message: `SubgraphPropertyDefinition not found for systemId=${propertySystemId}`,
+            severity: IssueSeverity.Error,
+          });
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subgraph property definition',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
   // ── Private read model mappers ─────────────────────────────────────────────
 
   private toSummaryReadModel(
