@@ -90,7 +90,9 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
   }
 
   insertUseCases(items: readonly UseCase[]): Promise<BulkInsertResult> {
-    return new UseCaseInserter(this.manager).insert([...items]);
+    return new UseCaseInserter(this.manager, this.idGeneration).insert([
+      ...items,
+    ]);
   }
 
   insertSpfModuleDefinitions(

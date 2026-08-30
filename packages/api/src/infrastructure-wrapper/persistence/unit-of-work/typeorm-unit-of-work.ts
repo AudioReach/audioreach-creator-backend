@@ -20,6 +20,7 @@ import type {
   SubgraphRepository,
   SubsystemRepository,
   PropertyDefinitionsRepository,
+  UsecaseRepository,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
 import {
@@ -36,6 +37,7 @@ import {
   TypeOrmSubgraphRepository,
   TypeOrmSubsystemRepository,
   TypeOrmPropertyDefinitionsRepository,
+  TypeOrmUsecaseRepository,
   PendingChangeWriter,
   EditActionsQueryService,
 } from '@arc/persistence';
@@ -177,6 +179,15 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   getSubsystemRepository(): SubsystemRepository {
     return new TypeOrmSubsystemRepository(this.queryRunner.manager);
+  }
+
+  getUsecaseRepository(): UsecaseRepository {
+    return new TypeOrmUsecaseRepository(
+      this.getPendingChangeWriter(),
+      this.queryRunner.manager,
+      this,
+      this.idGeneration,
+    );
   }
 
   getPropertyDefinitionsRepository(): PropertyDefinitionsRepository {

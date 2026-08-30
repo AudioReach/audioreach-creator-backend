@@ -4,7 +4,7 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import type {BulkInsertResult, UseCase} from '@arc/core';
+import type {BulkInsertResult, IdGenerationPort, UseCase} from '@arc/core';
 import {okBulkInsert} from '@arc/core';
 import {
   BatchInserter,
@@ -18,11 +18,20 @@ import {
   UsecaseGkvValuesSchema,
   type UseCaseRow,
 } from '../../../entity-schema/usecase-data/use-case.js';
-import {UseCaseSubgraphSchema} from '../../../entity-schema/usecase-data/use-case-subgraph.schema.js';
-import {UseCaseSubgraphPairSchema} from '../../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
+import {
+  UseCaseSubgraphSchema,
+  type UseCaseSubgraphBase,
+} from '../../../entity-schema/usecase-data/use-case-subgraph.schema.js';
+import {
+  UseCaseSubgraphPairSchema,
+  type UseCaseSubgraphPairBase,
+} from '../../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
 
 export class UseCaseInserter {
-  constructor(private readonly manager: EntityManager) {}
+  constructor(
+    private readonly manager: EntityManager,
+    private readonly idGeneration: IdGenerationPort,
+  ) {}
 
   async insert(items: UseCase[]): Promise<BulkInsertResult> {
     if (items.length === 0) return okBulkInsert();
@@ -122,72 +131,80 @@ export class UseCaseInserter {
   }
 
   private async insertSubgraphRows(items: UseCase[]): Promise<StepResult> {
-    const allRows = items.flatMap(item =>
-      item.subgraphSystemIds.map(subgraphSystemId => ({
-        usecaseSystemId: item.systemId,
-        subgraphSystemId,
-      })),
-    );
+    const allRows: UseCaseSubgraphBase[] = [];
+    const ownerBySystemId = new Map<number, UseCase>();
+
+    for (const item of items) {
+      for (const subgraphSystemId of item.subgraphSystemIds) {
+        const systemId = await this.idGeneration.getNextId(item.fileSystemId);
+        allRows.push({
+          systemId,
+          usecaseSystemId: item.systemId,
+          subgraphSystemId,
+        });
+        ownerBySystemId.set(systemId, item);
+      }
+    }
 
     if (allRows.length === 0)
       return {rawFailures: [], failedEntityIds: new Set()};
 
-    const rawFailures: RawFailure[] = [];
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      UseCaseSubgraphSchema,
+      allRows,
+    );
 
-    try {
-      await this.manager.insert(UseCaseSubgraphSchema, allRows);
-    } catch {
-      for (const row of allRows) {
-        try {
-          await this.manager.insert(UseCaseSubgraphSchema, row);
-        } catch (rowError: unknown) {
-          const item = items.find(i => i.systemId === row.usecaseSystemId)!;
-          rawFailures.push({
-            systemId: item.systemId,
-            entityLabel: 'UseCaseSubgraph',
-            failedRowJson: `(systemId=${item.systemId}, subgraphSystemId=${row.subgraphSystemId}) Row: ${JSON.stringify(row)}`,
-            dbError:
-              rowError instanceof Error ? rowError.message : String(rowError),
-          });
-        }
-      }
-    }
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
+      const item = ownerBySystemId.get(error.systemId)!;
+      const row = allRows.find(r => r.systemId === error.systemId)!;
+      return {
+        systemId: item.systemId,
+        entityLabel: 'UseCaseSubgraph',
+        failedRowJson: `(systemId=${item.systemId}, subgraphSystemId=${row.subgraphSystemId}) Row: ${JSON.stringify(row)}`,
+        dbError: error.message,
+      };
+    });
 
     return {rawFailures, failedEntityIds: new Set()};
   }
 
   private async insertSubgraphPairRows(items: UseCase[]): Promise<StepResult> {
-    const allRows = items.flatMap(item =>
-      item.subgraphPairs.map(pair => ({
-        usecaseSystemId: item.systemId,
-        sourceSubgraphSystemId: pair.sourceSubgraphSystemId,
-        destSubgraphSystemId: pair.destSubgraphSystemId,
-      })),
-    );
+    const allRows: UseCaseSubgraphPairBase[] = [];
+    const ownerBySystemId = new Map<number, UseCase>();
+
+    for (const item of items) {
+      for (const pair of item.subgraphPairs) {
+        const systemId = await this.idGeneration.getNextId(item.fileSystemId);
+        allRows.push({
+          systemId,
+          usecaseSystemId: item.systemId,
+          sourceSubgraphSystemId: pair.sourceSubgraphSystemId,
+          destSubgraphSystemId: pair.destSubgraphSystemId,
+        });
+        ownerBySystemId.set(systemId, item);
+      }
+    }
 
     if (allRows.length === 0)
       return {rawFailures: [], failedEntityIds: new Set()};
 
-    const rawFailures: RawFailure[] = [];
+    const {failedEntities} = await BatchInserter.insert(
+      this.manager,
+      UseCaseSubgraphPairSchema,
+      allRows,
+    );
 
-    try {
-      await this.manager.insert(UseCaseSubgraphPairSchema, allRows);
-    } catch {
-      for (const row of allRows) {
-        try {
-          await this.manager.insert(UseCaseSubgraphPairSchema, row);
-        } catch (rowError: unknown) {
-          const item = items.find(i => i.systemId === row.usecaseSystemId)!;
-          rawFailures.push({
-            systemId: item.systemId,
-            entityLabel: 'UseCaseSubgraphPair',
-            failedRowJson: `(systemId=${item.systemId}, sourceSg=${row.sourceSubgraphSystemId}, destSg=${row.destSubgraphSystemId}) Row: ${JSON.stringify(row)}`,
-            dbError:
-              rowError instanceof Error ? rowError.message : String(rowError),
-          });
-        }
-      }
-    }
+    const rawFailures: RawFailure[] = failedEntities.map(error => {
+      const item = ownerBySystemId.get(error.systemId)!;
+      const row = allRows.find(r => r.systemId === error.systemId)!;
+      return {
+        systemId: item.systemId,
+        entityLabel: 'UseCaseSubgraphPair',
+        failedRowJson: `(systemId=${item.systemId}, sourceSg=${row.sourceSubgraphSystemId}, destSg=${row.destSubgraphSystemId}) Row: ${JSON.stringify(row)}`,
+        dbError: error.message,
+      };
+    });
 
     return {rawFailures, failedEntityIds: new Set()};
   }

@@ -4,7 +4,12 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
-import {USECASE_TYPE, SOURCE, READ_MODE} from '@arc/core';
+import {
+  USECASE_TYPE,
+  SOURCE,
+  READ_MODE,
+  type IdGenerationPort,
+} from '@arc/core';
 import {UseCase} from '@arc/core';
 import {
   SESSION_MODE,
@@ -37,6 +42,8 @@ import {
 const FILE_ID = 100;
 const SG_ID_1 = 500;
 const SG_ID_2 = 501;
+let nextRelationshipId = 20_000;
+let nextGeneratedId = 30_000;
 
 async function seedProjectAndFile(ds: DataSource): Promise<void> {
   await getTestRepository(ProjectSchema).save({
@@ -92,11 +99,13 @@ async function linkSg(
   ds: DataSource,
   ucId: number,
   sgId: number,
-): Promise<void> {
+): Promise<number> {
+  const systemId = nextRelationshipId++;
   await ds.query(
-    `INSERT INTO use_case_subgraphs (usecase_system_id, subgraph_system_id) VALUES (?, ?)`,
-    [ucId, sgId],
+    `INSERT INTO use_case_subgraphs (system_id, usecase_system_id, subgraph_system_id) VALUES (?, ?, ?)`,
+    [systemId, ucId, sgId],
   );
+  return systemId;
 }
 
 async function linkPair(
@@ -104,11 +113,13 @@ async function linkPair(
   ucId: number,
   srcSg: number,
   destSg: number,
-): Promise<void> {
+): Promise<number> {
+  const systemId = nextRelationshipId++;
   await ds.query(
-    `INSERT INTO use_case_subgraph_pairs (usecase_system_id, source_subgraph_system_id, dest_subgraph_system_id) VALUES (?, ?, ?)`,
-    [ucId, srcSg, destSg],
+    `INSERT INTO use_case_subgraph_pairs (system_id, usecase_system_id, source_subgraph_system_id, dest_subgraph_system_id) VALUES (?, ?, ?, ?)`,
+    [systemId, ucId, srcSg, destSg],
   );
+  return systemId;
 }
 
 function makeWriter(manager: QueryRunner['manager']): PendingChangeWriter {
@@ -136,10 +147,19 @@ function makeRepo(
   manager: QueryRunner['manager'],
   sessionId: number,
 ): TypeOrmUsecaseRepository {
+  const idGeneration: IdGenerationPort = {
+    getNextId: async fileId => {
+      expect(fileId).toBe(FILE_ID);
+      return nextGeneratedId++;
+    },
+    reserveBlock: async () => nextGeneratedId,
+    persistLastUsedId: async () => undefined,
+  };
   return new TypeOrmUsecaseRepository(
     makeWriter(manager),
     manager,
     makeUow(sessionId),
+    idGeneration,
   );
 }
 
@@ -156,6 +176,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
   });
   beforeEach(async () => {
     await setupEachTest();
+    nextRelationshipId = 20_000;
+    nextGeneratedId = 30_000;
     ds = getTestDataSource();
     await seedProjectAndFile(ds);
     await seedSubgraph(ds, SG_ID_1);
@@ -203,18 +225,35 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
 
     it('Committed mode returns base table state ignoring session edits', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Connected);
-      await linkSg(ds, 1000, SG_ID_1);
+      const membershipSystemId = await linkSg(ds, 1000, SG_ID_1);
       // Stage a DELETE on the UseCaseSubgraph junction
       await ds.query(
         `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
          VALUES (?, ?, ?, 'UseCaseSubgraph', 'DELETE', NULL, '{}', 'MANUAL', 'STAGED', NULL, datetime('now'), NULL)`,
-        [sessionId, 1000, SG_ID_1],
+        [sessionId, 1000, membershipSystemId],
       );
       const repo = makeRepo(qr.manager, sessionId);
       const committed = await repo.findBySystemIds(FILE_ID, [1000], {
         readMode: READ_MODE.Committed,
       });
       expect(committed[0].subgraphSystemIds).toContain(SG_ID_1);
+    });
+
+    it('applies relationship DELETE actions by internal row systemId', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Connected);
+      await linkSg(ds, 1000, SG_ID_1);
+      const repo = makeRepo(qr.manager, sessionId);
+
+      await qr.startTransaction();
+      await repo.applyStructuralChange(
+        1000,
+        {removedSgSystemIds: [SG_ID_1]},
+        {source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
+      expect(overlaid.subgraphSystemIds).toEqual([]);
     });
   });
 
@@ -290,7 +329,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await qr.commitTransaction();
 
       const rows: any[] = await ds.query(
-        `SELECT target_table, operation, source, change_status FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
+        `SELECT target_system_id, target_table, operation, source, change_status FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
         [sessionId, 1000],
       );
       expect(rows.map((r: any) => r.target_table).sort()).toEqual([
@@ -304,6 +343,52 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         expect(r.source).toBe('AUTO_ROUTING');
         expect(r.change_status).toBe('UNSTAGED');
       }
+      const relationshipIds = rows
+        .filter((r: any) => r.target_table !== 'UseCase')
+        .map((r: any) => r.target_system_id);
+      expect(new Set(relationshipIds).size).toBe(3);
+      expect(relationshipIds).not.toContain(SG_ID_1);
+      expect(relationshipIds).not.toContain(SG_ID_2);
+    });
+
+    it('creates distinct edit targets when usecases share an SG and pair', async () => {
+      const pair = {
+        sourceSubgraphSystemId: SG_ID_1,
+        destSubgraphSystemId: SG_ID_2,
+      };
+      const repo = makeRepo(qr.manager, sessionId);
+      await qr.startTransaction();
+      await repo.create(
+        new UseCase({
+          systemId: 1000,
+          fileSystemId: FILE_ID,
+          alias: 'uc-a',
+          keyVector: {valueSystemIds: []},
+          subgraphSystemIds: [SG_ID_1, SG_ID_2],
+          subgraphPairs: [pair],
+        }),
+        {source: SOURCE.AutoRouting},
+      );
+      await repo.create(
+        new UseCase({
+          systemId: 1001,
+          fileSystemId: FILE_ID,
+          alias: 'uc-b',
+          keyVector: {valueSystemIds: []},
+          subgraphSystemIds: [SG_ID_1, SG_ID_2],
+          subgraphPairs: [pair],
+        }),
+        {source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      const rows: any[] = await ds.query(
+        `SELECT target_system_id FROM edit_actions
+          WHERE session_id = ? AND target_table IN ('UseCaseSubgraph', 'UseCaseSubgraphPair')`,
+        [sessionId],
+      );
+      expect(rows).toHaveLength(6);
+      expect(new Set(rows.map(r => r.target_system_id)).size).toBe(6);
     });
   });
 
@@ -378,7 +463,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Disconnected);
       await linkSg(ds, 1000, SG_ID_1);
       await linkSg(ds, 1000, SG_ID_2);
-      await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
+      const pairSystemId = await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
       await qr.startTransaction();
       const repo = makeRepo(qr.manager, sessionId);
       const uc = new UseCase({
@@ -399,15 +484,21 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await qr.commitTransaction();
 
       const rows: any[] = await ds.query(
-        `SELECT operation, field_path, new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? AND target_table = 'UseCaseSubgraphPair'`,
+        `SELECT target_system_id, operation, field_path, new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? AND target_table = 'UseCaseSubgraphPair'`,
         [sessionId, 1000],
       );
       expect(rows).toHaveLength(1);
+      expect(rows[0].target_system_id).toBe(pairSystemId);
       expect(rows[0].operation).toBe('UPDATE');
       expect(rows[0].field_path).toBe('direction');
       const nv = JSON.parse(rows[0].new_value);
       expect(nv.sourceSubgraphSystemId).toBe(SG_ID_2);
       expect(nv.destSubgraphSystemId).toBe(SG_ID_1);
+
+      const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
+      expect(overlaid.subgraphPairs).toEqual([
+        {sourceSubgraphSystemId: SG_ID_2, destSubgraphSystemId: SG_ID_1},
+      ]);
     });
   });
 
@@ -416,6 +507,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
   describe('applyStructuralChange', () => {
     it('emits removed pairs, removed SGs, added SGs, added pairs in order (no type row — type changes via changeType)', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Connected);
+      await linkSg(ds, 1000, SG_ID_1);
+      await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
       await qr.startTransaction();
       const repo = makeRepo(qr.manager, sessionId);
       const uc = new UseCase({
@@ -456,7 +549,34 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       ]);
     });
 
-    it('emits a UseCase UPDATE only when referencedComponents is provided', async () => {
+    it('emits a UseCase UPDATE when newType is provided', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Connected);
+      await qr.startTransaction();
+      const repo = makeRepo(qr.manager, sessionId);
+
+      await repo.applyStructuralChange(
+        1000,
+        {newType: USECASE_TYPE.Disconnected},
+        {source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      const rows: any[] = await ds.query(
+        `SELECT target_table, operation, new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
+        [sessionId, 1000],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].target_table).toBe('UseCase');
+      expect(rows[0].operation).toBe('UPDATE');
+      expect(JSON.parse(rows[0].new_value)).toEqual({
+        type: USECASE_TYPE.Disconnected,
+      });
+
+      const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
+      expect(overlaid.type).toBe(USECASE_TYPE.Disconnected);
+    });
+
+    it('merges newType and referencedComponents into one UseCase UPDATE', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Connected);
       await qr.startTransaction();
       const repo = makeRepo(qr.manager, sessionId);
@@ -472,7 +592,10 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       });
       await repo.applyStructuralChange(
         uc.systemId,
-        {addedSgSystemIds: [SG_ID_1]},
+        {
+          addedSgSystemIds: [SG_ID_1],
+          newType: USECASE_TYPE.Disconnected,
+        },
         {source: SOURCE.AutoRouting},
         {
           sgSystemIds: [SG_ID_1],
@@ -491,7 +614,14 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         'UseCase:UPDATE',
       ]);
       const ucRow = rows.find((r: any) => r.target_table === 'UseCase');
-      expect(JSON.parse(ucRow.new_value).referencedComponents).toBeDefined();
+      expect(JSON.parse(ucRow.new_value)).toEqual({
+        type: USECASE_TYPE.Disconnected,
+        referencedComponents: {
+          sgSystemIds: [SG_ID_1],
+          dataLinkSystemIds: [],
+          controlLinkSystemIds: [],
+        },
+      });
     });
   });
 });

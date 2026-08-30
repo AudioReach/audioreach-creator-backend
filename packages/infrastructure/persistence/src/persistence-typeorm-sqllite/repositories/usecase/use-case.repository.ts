@@ -12,6 +12,7 @@ import type {
   UnitOfWork,
   EditOptions,
   UsecaseType,
+  IdGenerationPort,
 } from '@arc/core';
 import {UseCase, READ_MODE} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
@@ -19,15 +20,8 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import type {OverlaidUseCase} from '../../fetchers/usecase-overlay-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-
-/**
- * Cantor pairing for two non-negative integers — used to synthesize a stable
- * asymmetric `target_system_id` for pair junction rows.
- * cantor(a, b) ≠ cantor(b, a) — argument order encodes direction.
- */
-function cantor(a: number, b: number): number {
-  return ((a + b) * (a + b + 1)) / 2 + b;
-}
+import type {UseCaseSubgraphBase} from '../../entity-schema/usecase-data/use-case-subgraph.schema.js';
+import type {UseCaseSubgraphPairBase} from '../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
 
 export class TypeOrmUsecaseRepository implements UsecaseRepository {
   private readonly ucFetcher: UsecaseOverlayFetcher;
@@ -36,6 +30,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     private readonly writer: PendingChangeWriter,
     private readonly manager: EntityManager,
     private readonly uow: UnitOfWork,
+    private readonly idGeneration: IdGenerationPort,
   ) {
     this.ucFetcher = new UsecaseOverlayFetcher(
       manager,
@@ -113,10 +108,13 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     );
 
     for (const sgSystemId of uc.subgraphSystemIds) {
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        uc.fileSystemId,
+      );
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.UseCaseSubgraph,
-          targetSystemId: sgSystemId,
+          targetSystemId: relationshipSystemId,
           aggregateId: uc.systemId,
           payload: {usecaseSystemId: uc.systemId, subgraphSystemId: sgSystemId},
           ...options,
@@ -128,13 +126,13 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     }
 
     for (const pair of uc.subgraphPairs) {
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        uc.fileSystemId,
+      );
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.UseCaseSubgraphPair,
-          targetSystemId: cantor(
-            pair.sourceSubgraphSystemId,
-            pair.destSubgraphSystemId,
-          ),
+          targetSystemId: relationshipSystemId,
           aggregateId: uc.systemId,
           payload: {
             usecaseSystemId: uc.systemId,
@@ -194,13 +192,16 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     }
 
     for (const pair of delta.removedPairs ?? []) {
+      const relationship = await this.findSubgraphPair(
+        ucSystemId,
+        pair.sourceSubgraphSystemId,
+        pair.destSubgraphSystemId,
+      );
+      if (!relationship) continue;
       await this.writer.writeDelete(
         {
           targetTable: ENTITY_NAMES.UseCaseSubgraphPair,
-          targetSystemId: cantor(
-            pair.sourceSubgraphSystemId,
-            pair.destSubgraphSystemId,
-          ),
+          targetSystemId: relationship.systemId,
           aggregateId: ucSystemId,
           ...options,
         },
@@ -211,10 +212,12 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     }
 
     for (const sgId of delta.removedSgSystemIds ?? []) {
+      const relationship = await this.findSubgraphMembership(ucSystemId, sgId);
+      if (!relationship) continue;
       await this.writer.writeDelete(
         {
           targetTable: ENTITY_NAMES.UseCaseSubgraph,
-          targetSystemId: sgId,
+          targetSystemId: relationship.systemId,
           aggregateId: ucSystemId,
           ...options,
         },
@@ -225,10 +228,14 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     }
 
     for (const sgId of delta.addedSgSystemIds ?? []) {
+      if (await this.findSubgraphMembership(ucSystemId, sgId)) continue;
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        session.fileSystemId,
+      );
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.UseCaseSubgraph,
-          targetSystemId: sgId,
+          targetSystemId: relationshipSystemId,
           aggregateId: ucSystemId,
           payload: {usecaseSystemId: ucSystemId, subgraphSystemId: sgId},
           ...options,
@@ -240,13 +247,21 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     }
 
     for (const pair of delta.addedPairs ?? []) {
+      if (
+        await this.findSubgraphPair(
+          ucSystemId,
+          pair.sourceSubgraphSystemId,
+          pair.destSubgraphSystemId,
+        )
+      )
+        continue;
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        session.fileSystemId,
+      );
       await this.writer.writeCreate(
         {
           targetTable: ENTITY_NAMES.UseCaseSubgraphPair,
-          targetSystemId: cantor(
-            pair.sourceSubgraphSystemId,
-            pair.destSubgraphSystemId,
-          ),
+          targetSystemId: relationshipSystemId,
           aggregateId: ucSystemId,
           payload: {
             usecaseSystemId: ucSystemId,
@@ -261,20 +276,14 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       );
     }
 
-    if (referencedComponents) {
-      await this.writer.writeDelta(
-        {
-          targetTable: ENTITY_NAMES.UseCase,
-          targetSystemId: ucSystemId,
-          aggregateId: ucSystemId,
-          delta: {referencedComponents},
-          ...options,
-        },
-        session.sessionId,
-        groupId,
-        this.manager,
-      );
-    }
+    await this.writeUsecaseDelta(
+      ucSystemId,
+      delta.newType,
+      referencedComponents,
+      options,
+      session.sessionId,
+      groupId,
+    );
   }
 
   async changeType(
@@ -304,10 +313,21 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     options?: EditOptions,
   ): Promise<void> {
     const {session, groupId} = this.uow.getWriteContext();
+    const relationship = await this.findSubgraphPair(
+      ucSystemId,
+      currentSourceSgSystemId,
+      currentDestSgSystemId,
+    );
+    if (!relationship) {
+      throw new Error(
+        `Subgraph pair (${currentSourceSgSystemId}, ${currentDestSgSystemId}) ` +
+          `not found on UseCase ${ucSystemId}.`,
+      );
+    }
     await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.UseCaseSubgraphPair,
-        targetSystemId: cantor(currentSourceSgSystemId, currentDestSgSystemId),
+        targetSystemId: relationship.systemId,
         aggregateId: ucSystemId,
         fieldGroup: 'direction',
         delta: {
@@ -322,7 +342,65 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     );
   }
 
-  // ── Hydration ─────────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+
+  private async writeUsecaseDelta(
+    ucSystemId: number,
+    newType: UsecaseType | undefined,
+    referencedComponents: ReferencedComponents | undefined,
+    options: EditOptions | undefined,
+    sessionId: number,
+    groupId: string,
+  ): Promise<void> {
+    const usecaseDelta: Record<string, unknown> = {};
+    if (newType !== undefined) usecaseDelta.type = newType;
+    if (referencedComponents !== undefined) {
+      usecaseDelta.referencedComponents = referencedComponents;
+    }
+    if (Object.keys(usecaseDelta).length === 0) return;
+
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.UseCase,
+        targetSystemId: ucSystemId,
+        aggregateId: ucSystemId,
+        delta: usecaseDelta,
+        ...options,
+      },
+      sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  private async findSubgraphMembership(
+    usecaseSystemId: number,
+    subgraphSystemId: number,
+  ): Promise<UseCaseSubgraphBase | undefined> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.ucFetcher.getSubgraphMembershipRows(
+      [usecaseSystemId],
+      sessionId,
+    );
+    return rows.find(row => row.subgraphSystemId === subgraphSystemId);
+  }
+
+  private async findSubgraphPair(
+    usecaseSystemId: number,
+    sourceSubgraphSystemId: number,
+    destSubgraphSystemId: number,
+  ): Promise<UseCaseSubgraphPairBase | undefined> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.ucFetcher.getSubgraphPairRows(
+      [usecaseSystemId],
+      sessionId,
+    );
+    return rows.find(
+      row =>
+        row.sourceSubgraphSystemId === sourceSubgraphSystemId &&
+        row.destSubgraphSystemId === destSubgraphSystemId,
+    );
+  }
 
   private hydrateOverlaid(uc: OverlaidUseCase): UseCase {
     return new UseCase({

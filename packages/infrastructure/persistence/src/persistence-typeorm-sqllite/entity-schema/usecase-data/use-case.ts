@@ -6,7 +6,7 @@
 import {BaseColumnSchemaPart} from '../entity-base.js';
 import type {EntityBaseRow} from '../entity-base.js';
 import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
-import type {SubgraphRow} from './subgraph/subgraph.schema.js';
+import type {UseCaseSubgraphRow} from './use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairRow} from './use-case-subgraph-pair.schema.js';
 import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
@@ -24,7 +24,7 @@ export interface UseCaseRow extends EntityBaseRow, UseCaseBase {
   // Relations
   file?: ArcDbFileRow;
   categories?: UseCaseCategoryRow[];
-  subgraphs?: SubgraphRow[];
+  subgraphMemberships?: UseCaseSubgraphRow[];
   subgraphPairs?: UseCaseSubgraphPairRow[];
   gkvEntries?: UsecaseGkvValuesRow[];
 }
@@ -96,20 +96,10 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
         },
       },
     },
-    subgraphs: {
-      type: 'many-to-many',
-      target: 'Subgraph',
-      joinTable: {
-        name: 'use_case_subgraphs',
-        joinColumn: {
-          name: 'usecase_system_id',
-          referencedColumnName: 'systemId',
-        },
-        inverseJoinColumn: {
-          name: 'subgraph_system_id',
-          referencedColumnName: 'systemId',
-        },
-      },
+    subgraphMemberships: {
+      type: 'one-to-many',
+      target: 'UseCaseSubgraph',
+      inverseSide: 'useCase',
     },
     gkvEntries: {
       type: 'one-to-many',

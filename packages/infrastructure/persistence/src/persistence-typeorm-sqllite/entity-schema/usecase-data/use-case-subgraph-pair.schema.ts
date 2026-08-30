@@ -4,14 +4,19 @@
  */
 
 import {EntitySchema} from 'typeorm';
+import {BaseColumnSchemaPart, type EntityBaseRow} from '../entity-base.js';
 import type {UseCaseRow} from './use-case.js';
 import type {SubgraphRow} from './subgraph/subgraph.schema.js';
 
-export interface UseCaseSubgraphPairRow {
+export interface UseCaseSubgraphPairBase {
+  systemId: number;
   usecaseSystemId: number;
   sourceSubgraphSystemId: number;
   destSubgraphSystemId: number;
+}
 
+export interface UseCaseSubgraphPairRow
+  extends EntityBaseRow, UseCaseSubgraphPairBase {
   useCase?: UseCaseRow;
   sourceSubgraph?: SubgraphRow;
   destSubgraph?: SubgraphRow;
@@ -22,20 +27,18 @@ export const UseCaseSubgraphPairSchema =
     name: 'UseCaseSubgraphPair',
     tableName: 'use_case_subgraph_pairs',
     columns: {
+      ...BaseColumnSchemaPart,
       usecaseSystemId: {
         name: 'usecase_system_id',
         type: 'integer',
-        primary: true,
       },
       sourceSubgraphSystemId: {
         name: 'source_subgraph_system_id',
         type: 'integer',
-        primary: true,
       },
       destSubgraphSystemId: {
         name: 'dest_subgraph_system_id',
         type: 'integer',
-        primary: true,
       },
     },
     relations: {
@@ -69,6 +72,15 @@ export const UseCaseSubgraphPairSchema =
       },
     },
     indices: [
+      {
+        name: 'uq_use_case_subgraph_pairs_membership',
+        columns: [
+          'usecaseSystemId',
+          'sourceSubgraphSystemId',
+          'destSubgraphSystemId',
+        ],
+        unique: true,
+      },
       {
         name: 'idx_use_case_subgraph_pairs_sgs',
         columns: ['sourceSubgraphSystemId', 'destSubgraphSystemId'],

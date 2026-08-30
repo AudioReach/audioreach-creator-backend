@@ -4,7 +4,7 @@
  */
 
 import type {DataSource, EntityManager} from 'typeorm';
-import {UseCase, USECASE_TYPE} from '@arc/core';
+import {UseCase, USECASE_TYPE, type IdGenerationPort} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -114,6 +114,7 @@ describe('UseCaseInserter', () => {
   let dataSource: DataSource;
   let manager: EntityManager;
   let inserter: UseCaseInserter;
+  let nextGeneratedId: number;
 
   beforeAll(async () => {
     await setupIntegrationTest();
@@ -128,7 +129,16 @@ describe('UseCaseInserter', () => {
     await setupEachTest();
     manager = dataSource.manager;
     await createBaseDependencies(manager);
-    inserter = new UseCaseInserter(manager);
+    nextGeneratedId = 10_000;
+    const idGeneration: IdGenerationPort = {
+      getNextId: async fileId => {
+        expect(fileId).toBe(FILE_ID);
+        return nextGeneratedId++;
+      },
+      reserveBlock: async () => nextGeneratedId,
+      persistLastUsedId: async () => undefined,
+    };
+    inserter = new UseCaseInserter(manager, idGeneration);
   });
 
   // ── Empty input ────────────────────────────────────────────────────────────
@@ -203,6 +213,14 @@ describe('UseCaseInserter', () => {
       .map((r: {subgraph_system_id: number}) => r.subgraph_system_id)
       .sort();
     expect(sgIds).toEqual([SG1_ID, SG2_ID].sort());
+    expect(
+      rows.every((r: {system_id?: number}) =>
+        Number.isSafeInteger(r.system_id),
+      ),
+    ).toBe(true);
+    expect(
+      new Set(rows.map((r: {system_id: number}) => r.system_id)).size,
+    ).toBe(2);
   });
 
   it('inserts no use_case_subgraphs for a usecase with no subgraphs', async () => {
@@ -233,6 +251,14 @@ describe('UseCaseInserter', () => {
       `SELECT * FROM use_case_subgraph_pairs WHERE usecase_system_id = 1001`,
     );
     expect(rows).toHaveLength(2);
+    expect(
+      rows.every((r: {system_id?: number}) =>
+        Number.isSafeInteger(r.system_id),
+      ),
+    ).toBe(true);
+    expect(
+      new Set(rows.map((r: {system_id: number}) => r.system_id)).size,
+    ).toBe(2);
   });
 
   it('inserts no pairs for a usecase with no subgraph pairs', async () => {
@@ -267,6 +293,13 @@ describe('UseCaseInserter', () => {
     );
     expect(u1Rows).toHaveLength(2);
     expect(u2Rows).toHaveLength(2);
+    const sharedMembershipIds = [...u1Rows, ...u2Rows]
+      .filter(
+        (r: {subgraph_system_id: number}) => r.subgraph_system_id === SG1_ID,
+      )
+      .map((r: {system_id: number}) => r.system_id);
+    expect(sharedMembershipIds).toHaveLength(2);
+    expect(new Set(sharedMembershipIds).size).toBe(2);
   });
 
   it('same subgraph pair in two usecases inserts two separate pair rows', async () => {
@@ -291,6 +324,36 @@ describe('UseCaseInserter', () => {
       [SG1_ID, SG2_ID],
     );
     expect(rows).toHaveLength(2);
+    expect(
+      new Set(rows.map((r: {system_id: number}) => r.system_id)).size,
+    ).toBe(2);
+  });
+
+  it('retains natural-key uniqueness for relationship rows', async () => {
+    await inserter.insert([
+      buildUseCase(1001, {
+        subgraphSystemIds: [SG1_ID, SG2_ID],
+        subgraphPairs: [
+          {sourceSubgraphSystemId: SG1_ID, destSubgraphSystemId: SG2_ID},
+        ],
+      }),
+    ]);
+
+    await expect(
+      manager.insert('UseCaseSubgraph', {
+        systemId: nextGeneratedId++,
+        usecaseSystemId: 1001,
+        subgraphSystemId: SG1_ID,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      manager.insert('UseCaseSubgraphPair', {
+        systemId: nextGeneratedId++,
+        usecaseSystemId: 1001,
+        sourceSubgraphSystemId: SG1_ID,
+        destSubgraphSystemId: SG2_ID,
+      }),
+    ).rejects.toThrow();
   });
 
   // ── Failure isolation ──────────────────────────────────────────────────────
