@@ -23,6 +23,7 @@ import type {
   DataLinkQueryService,
   ControlLinkQueryService,
   SubsystemQueryService,
+  VcpmDefinitionQueryService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -45,6 +46,7 @@ import {DbDriverModuleDefinitionQueryService} from './driver-module-definition/d
 import {DbDataLinkQueryService} from './link/db-data-link-query-service.js';
 import {DbControlLinkQueryService} from './link/db-control-link-query-service.js';
 import {DbSubsystemQueryService} from './subsystem/db-subsystem-query-service.js';
+import {DbVcpmDefinitionQueryService} from './vcpm-definition/db-vcpm-definition-query-service.js';
 import {UseCaseCategoryFetcher} from '../fetchers/usecase-category-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../fetchers/usecase-gkv-values-fetcher.js';
 import {UsecaseOverlayFetcher} from '../fetchers/usecase-overlay-fetcher.js';
@@ -82,6 +84,7 @@ export class DbQueryServices implements QueryServices {
   readonly dataLinkQueryService: DataLinkQueryService;
   readonly controlLinkQueryService: ControlLinkQueryService;
   readonly subsystemQueryService: SubsystemQueryService;
+  readonly vcpmDefinitionQueryService: VcpmDefinitionQueryService;
 
   constructor(
     dataSource: DataSource,
@@ -266,6 +269,10 @@ export class DbQueryServices implements QueryServices {
       subsystemOverlayFetcher,
       usecaseOverlayFetcher,
       linkOverlayFetcher,
+    );
+
+    this.vcpmDefinitionQueryService = new DbVcpmDefinitionQueryService(
+      dataSource,
     );
 
     this.logQueryService = logQueryService;

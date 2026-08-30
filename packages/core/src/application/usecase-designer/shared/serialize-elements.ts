@@ -406,3 +406,64 @@ function serializeStructArray(
   }
   return {ok: true, value: new Uint8Array(0)};
 }
+
+/**
+ * Builds a binary blob from the default values declared in a parameter
+ * definition's elementsStructure. Used to seed property rows at entity
+ * creation time so they always have a valid (if default) payload.
+ */
+export function serializeDefaultParameterData(definition: {
+  systemId: number;
+  elementsStructure: string;
+}): SerializeResult {
+  let schema: DefinitionElement[];
+  try {
+    schema = convertParamDefinition(definition.elementsStructure);
+  } catch {
+    return {ok: false, error: 'Failed to parse elementsStructure JSON'};
+  }
+  const defaultInputs = schema.map(def => buildDefaultElement(def));
+  const syntheticDef = {
+    systemId: definition.systemId,
+    isReadOnly: false,
+    elementsStructure: definition.elementsStructure,
+  };
+  return serializeParameterData(syntheticDef, defaultInputs);
+}
+
+function buildDefaultElement(def: DefinitionElement): ElementCalData {
+  switch (def.elementType) {
+    case PARAMETER_ELEMENT_TYPE.ConfigElement: {
+      return {
+        name: def.name ?? '',
+        description: def.description ?? '',
+        isReadOnly: def.isReadOnly ?? false,
+        type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+        dataType: def.dataType,
+        value: def.defaultValue ?? '0',
+      } satisfies ConfigElementData;
+    }
+    case PARAMETER_ELEMENT_TYPE.Struct: {
+      return {
+        name: def.name,
+        description: def.description ?? '',
+        isReadOnly: false,
+        type: PARAMETER_ELEMENT_TYPE.Struct,
+        structType: def.structureType,
+        value: def.elements.map(e => buildDefaultElement(e)),
+      } satisfies StructData;
+    }
+    case PARAMETER_ELEMENT_TYPE.ElementArray:
+    case PARAMETER_ELEMENT_TYPE.StructArray: {
+      const length = def.arrayLength ?? 0;
+      return {
+        name: def.name,
+        description: def.description ?? '',
+        isReadOnly: false,
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
+        template: [],
+        value: Array.from({length}, () => buildDefaultElement(def.template)),
+      } satisfies ElementArrayData;
+    }
+  }
+}

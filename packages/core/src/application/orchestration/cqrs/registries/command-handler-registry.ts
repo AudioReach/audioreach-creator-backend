@@ -225,11 +225,13 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(UpdateSubgraphScenarioCommand, {
-      create: deps => new UpdateSubgraphScenarioHandler(deps.uow),
+      create: deps =>
+        new UpdateSubgraphScenarioHandler(deps.uow, deps.queryServices),
     });
 
     this.commandHandlerFactories.set(UpdateSubgraphVsidCommand, {
-      create: deps => new UpdateSubgraphVsidHandler(deps.uow),
+      create: deps =>
+        new UpdateSubgraphVsidHandler(deps.uow, deps.queryServices),
     });
 
     this.commandHandlerFactories.set(PatchSubgraphCommand, {
@@ -237,7 +239,8 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(UpdateSubgraphPropertyCommand, {
-      create: deps => new UpdateSubgraphPropertyHandler(deps.uow),
+      create: deps =>
+        new UpdateSubgraphPropertyHandler(deps.uow, deps.queryServices),
     });
 
     this.commandHandlerFactories.set(UpdateSubgraphContainerIdCommand, {
