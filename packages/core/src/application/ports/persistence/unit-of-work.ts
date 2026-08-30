@@ -17,6 +17,7 @@ import type {ControlLinkRepository} from './repositories/control-link/control-li
 import type {SubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
 import type {SubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
 import type {PropertyDefinitionsRepository} from './repositories/property-definitions/property-definitions.repository.js';
+import type {UsecaseRepository} from './repositories/usecase/usecase.repository.js';
 
 /**
  * Unit of Work pattern for managing database transactions and repository access.
@@ -69,5 +70,6 @@ export interface UnitOfWork {
   getControlLinkRepository(): ControlLinkRepository;
   getSubgraphRepository(): SubgraphRepository;
   getSubsystemRepository(): SubsystemRepository;
+  getUsecaseRepository(): UsecaseRepository;
   getPropertyDefinitionsRepository(): PropertyDefinitionsRepository;
 }

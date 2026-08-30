@@ -298,6 +298,13 @@ resolver just wrote — otherwise Phase 5 would miss them.
 in `@arc/persistence`. **Row shapes stay out of `@arc/core`** — `edit_actions` use
 persistence-shaped `field_path`/`new_value`; routing must not know this.
 
+**UseCase relationship identity.** `use_case_subgraphs` and
+`use_case_subgraph_pairs` have persistence-owned `system_id` primary keys allocated
+through `IIdGenerationPort`. Their natural tuples remain unique. Core continues to
+represent memberships as SG system IDs and pairs as source/destination values; the
+`IUsecaseRepository` adapter resolves those values to relationship-row IDs when
+writing `edit_actions`.
+
 **Ports this feature depends on:**
 
 | Port | Owner | Status | Consumed by |

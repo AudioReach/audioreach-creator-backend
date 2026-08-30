@@ -26,4 +26,5 @@ export {TypeOrmDataLinkRepository} from './repositories/data-link/data-link.repo
 export {TypeOrmControlLinkRepository} from './repositories/control-link/control-link.repository.js';
 export {TypeOrmSubgraphRepository} from './repositories/subgraph/subgraph.repository.js';
 export {TypeOrmSubsystemRepository} from './repositories/subsystem/subsystem.repository.js';
+export {TypeOrmUsecaseRepository} from './repositories/usecase/use-case.repository.js';
 export {TypeOrmPropertyDefinitionsRepository} from './repositories/property-definitions/property-definitions.repository.js';

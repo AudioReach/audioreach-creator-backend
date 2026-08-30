@@ -4,7 +4,6 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import type {UsecaseType} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
@@ -14,7 +13,8 @@ import type {
   UseCaseBase,
   UsecaseGkvValuesBase,
 } from '../entity-schema/usecase-data/use-case.js';
-import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
+import type {UseCaseSubgraphBase} from '../entity-schema/usecase-data/use-case-subgraph.schema.js';
+import type {UseCaseSubgraphPairBase} from '../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
 import {
   applyEntityFilters,
   matchesEntityFilters,
@@ -40,17 +40,6 @@ export type OverlaidUseCasePair = {
   sourceSubgraphSystemId: number;
   destSubgraphSystemId: number;
 };
-
-function matchesSubgraphPair(
-  pair: OverlaidUseCasePair,
-  sourceSubgraphSystemId: number,
-  destSubgraphSystemId: number,
-): boolean {
-  return (
-    pair.sourceSubgraphSystemId === sourceSubgraphSystemId &&
-    pair.destSubgraphSystemId === destSubgraphSystemId
-  );
-}
 
 /**
  * Assembled UseCase after session overlay.
@@ -225,30 +214,42 @@ export class UsecaseOverlayFetcher {
     if (usecaseSystemIds.length === 0) return result;
     for (const id of usecaseSystemIds) result.set(id, []);
 
-    const rows = await this.manager
-      .getRepository(ENTITY_NAMES.UseCase)
-      .createQueryBuilder('uc')
-      .select('uc.systemId', 'ucId')
-      .addSelect('s.systemId', 'subgraphSystemId')
-      .innerJoin('uc.subgraphs', 's')
-      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
-      .getRawMany<{ucId: number; subgraphSystemId: number}>();
+    const rows = await this.getSubgraphMembershipRows(
+      usecaseSystemIds,
+      sessionId,
+    );
 
     for (const r of rows) {
-      result.get(r.ucId)?.push(r.subgraphSystemId);
+      result.get(r.usecaseSystemId)?.push(r.subgraphSystemId);
     }
 
-    if (sessionId === null) return result;
+    return result;
+  }
 
+  async getSubgraphMembershipRows(
+    usecaseSystemIds: number[],
+    sessionId: number | null,
+  ): Promise<UseCaseSubgraphBase[]> {
+    if (usecaseSystemIds.length === 0) return [];
+
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.UseCaseSubgraph)
+      .createQueryBuilder('ucs')
+      .where('ucs.usecaseSystemId IN (:...ids)', {ids: usecaseSystemIds})
+      .getMany()) as UseCaseSubgraphBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const usecaseIdSet = new Set(usecaseSystemIds);
     const actions = await this.editActionsSvc.getByTable(
       sessionId,
       ENTITY_NAMES.UseCaseSubgraph,
     );
-    if (actions.length === 0) return result;
-
-    this.applySubgraphMembershipActions(result, usecaseSystemIds, actions);
-
-    return result;
+    return this.overlay
+      .applyToCollection(baseRows, actions, payload =>
+        usecaseIdSet.has(payload.usecaseSystemId as number),
+      )
+      .map(result => result.effective);
   }
 
   /**
@@ -262,121 +263,42 @@ export class UsecaseOverlayFetcher {
     if (usecaseSystemIds.length === 0) return result;
     for (const id of usecaseSystemIds) result.set(id, []);
 
-    const rows = await this.manager
-      .getRepository(ENTITY_NAMES.UseCase)
-      .createQueryBuilder('uc')
-      .select('uc.systemId', 'ucId')
-      .addSelect('sp.sourceSubgraphSystemId', 'sourceSubgraphSystemId')
-      .addSelect('sp.destSubgraphSystemId', 'destSubgraphSystemId')
-      .innerJoin('uc.subgraphPairs', 'sp')
-      .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
-      .getRawMany<{
-        ucId: number;
-        sourceSubgraphSystemId: number;
-        destSubgraphSystemId: number;
-      }>();
+    const rows = await this.getSubgraphPairRows(usecaseSystemIds, sessionId);
 
     for (const r of rows) {
-      result.get(r.ucId)?.push({
+      result.get(r.usecaseSystemId)?.push({
         sourceSubgraphSystemId: r.sourceSubgraphSystemId,
         destSubgraphSystemId: r.destSubgraphSystemId,
       });
     }
 
-    if (sessionId === null) return result;
+    return result;
+  }
 
+  async getSubgraphPairRows(
+    usecaseSystemIds: number[],
+    sessionId: number | null,
+  ): Promise<UseCaseSubgraphPairBase[]> {
+    if (usecaseSystemIds.length === 0) return [];
+
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.UseCaseSubgraphPair)
+      .createQueryBuilder('ucsp')
+      .where('ucsp.usecaseSystemId IN (:...ids)', {ids: usecaseSystemIds})
+      .getMany()) as UseCaseSubgraphPairBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const usecaseIdSet = new Set(usecaseSystemIds);
     const actions = await this.editActionsSvc.getByTable(
       sessionId,
       ENTITY_NAMES.UseCaseSubgraphPair,
     );
-    if (actions.length === 0) return result;
-
-    this.applySubgraphPairActions(result, usecaseSystemIds, actions);
-
-    return result;
-  }
-
-  private applySubgraphMembershipActions(
-    result: Map<number, number[]>,
-    usecaseSystemIds: number[],
-    actions: EditActionRow[],
-  ): void {
-    const usecaseIdSet = new Set(usecaseSystemIds);
-    for (const action of actions) {
-      const payload = action.newValue as {
-        subgraphSystemId?: number;
-        usecaseSystemId?: number;
-      };
-      if (
-        !payload.subgraphSystemId ||
-        !payload.usecaseSystemId ||
-        !usecaseIdSet.has(payload.usecaseSystemId)
+    return this.overlay
+      .applyToCollection(baseRows, actions, payload =>
+        usecaseIdSet.has(payload.usecaseSystemId as number),
       )
-        continue;
-
-      const subgraphSystemIds = result.get(payload.usecaseSystemId);
-      if (!subgraphSystemIds) continue;
-      if (
-        action.operation === CHANGE_OPERATION.Create &&
-        !subgraphSystemIds.includes(payload.subgraphSystemId)
-      ) {
-        subgraphSystemIds.push(payload.subgraphSystemId);
-      } else if (action.operation === CHANGE_OPERATION.Delete) {
-        const index = subgraphSystemIds.indexOf(payload.subgraphSystemId);
-        if (index !== -1) subgraphSystemIds.splice(index, 1);
-      }
-    }
-  }
-
-  private applySubgraphPairActions(
-    result: Map<number, OverlaidUseCasePair[]>,
-    usecaseSystemIds: number[],
-    actions: EditActionRow[],
-  ): void {
-    const usecaseIdSet = new Set(usecaseSystemIds);
-    for (const action of actions) {
-      const payload = action.newValue as {
-        usecaseSystemId?: number;
-        sourceSubgraphSystemId?: number;
-        destSubgraphSystemId?: number;
-      };
-      if (
-        !payload.usecaseSystemId ||
-        !payload.sourceSubgraphSystemId ||
-        !payload.destSubgraphSystemId ||
-        !usecaseIdSet.has(payload.usecaseSystemId)
-      )
-        continue;
-
-      const pairs = result.get(payload.usecaseSystemId);
-      if (!pairs) continue;
-      const {sourceSubgraphSystemId, destSubgraphSystemId} = payload;
-
-      if (
-        action.operation === CHANGE_OPERATION.Create &&
-        !pairs.some(pair =>
-          matchesSubgraphPair(
-            pair,
-            sourceSubgraphSystemId,
-            destSubgraphSystemId,
-          ),
-        )
-      ) {
-        pairs.push({
-          sourceSubgraphSystemId,
-          destSubgraphSystemId,
-        });
-      } else if (action.operation === CHANGE_OPERATION.Delete) {
-        const index = pairs.findIndex(pair =>
-          matchesSubgraphPair(
-            pair,
-            sourceSubgraphSystemId,
-            destSubgraphSystemId,
-          ),
-        );
-        if (index !== -1) pairs.splice(index, 1);
-      }
-    }
+      .map(result => result.effective);
   }
 
   private groupGkvByUsecase(

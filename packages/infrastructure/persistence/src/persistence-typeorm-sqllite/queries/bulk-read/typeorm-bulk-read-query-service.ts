@@ -248,8 +248,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       systemId: uc.systemId,
       keyIds: this.extractKeyIds(uc),
       valueIds: this.extractValueIds(uc),
-      subgraphIds: (uc.subgraphs ?? [])
-        .map(sg => sg.subgraphId)
+      subgraphIds: (uc.subgraphMemberships ?? [])
+        .map(membership => membership.subgraph!.subgraphId)
         .sort((a, b) => a - b),
       subgraphPairs: pairsMap.get(uc.systemId) ?? [],
     }));
@@ -262,7 +262,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('uc.gkvEntries', 'gkv')
       .leftJoinAndSelect('gkv.valueDef', 'vd')
       .leftJoinAndSelect('vd.keys', 'k')
-      .leftJoinAndSelect('uc.subgraphs', 'sg')
+      .leftJoinAndSelect('uc.subgraphMemberships', 'ucsg')
+      .leftJoinAndSelect('ucsg.subgraph', 'sg')
       .where('uc.fileSystemId = :fileSystemId', {fileSystemId})
       .getMany() as Promise<UseCaseRow[]>;
   }

@@ -73,8 +73,12 @@ export const USECASE_PARAM_FILTER = new ParamFilter<UseCaseRow>()
     },
     evaluate: (uc, value) =>
       (
-        uc as unknown as {subgraphs?: Array<{systemId: number}>}
-      ).subgraphs?.some(s => s.systemId === value) ?? false,
+        uc as unknown as {
+          subgraphMemberships?: Array<{subgraphSystemId: number}>;
+        }
+      ).subgraphMemberships?.some(
+        membership => membership.subgraphSystemId === value,
+      ) ?? false,
   })
 
   .register({

@@ -5,8 +5,8 @@
 
 import type {MigrationInterface, QueryRunner} from 'typeorm';
 
-export class InitialCreate1788023668098 implements MigrationInterface {
-  name = 'InitialCreate1788023668098';
+export class InitialCreate1788093142030 implements MigrationInterface {
+  name = 'InitialCreate1788093142030';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -385,13 +385,19 @@ export class InitialCreate1788023668098 implements MigrationInterface {
       `CREATE TABLE "usecase_gkv_values" ("usecase_system_id" integer NOT NULL, "value_def_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "value_def_system_id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_case_subgraphs" ("usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "subgraph_system_id"))`,
+      `CREATE TABLE "use_case_subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_subgraphs_membership" ON "use_case_subgraphs" ("usecase_system_id", "subgraph_system_id") `,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraphs_subgraph" ON "use_case_subgraphs" ("subgraph_system_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_case_subgraph_pairs" ("usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id"))`,
+      `CREATE TABLE "use_case_subgraph_pairs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_subgraph_pairs_membership" ON "use_case_subgraph_pairs" ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") `,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
@@ -461,12 +467,6 @@ export class InitialCreate1788023668098 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_06f2962641e6632eb9a7ac63da" ON "use_case_categories" ("category_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_65e66135d222dfa6dc5fe528e6" ON "use_case_subgraphs" ("usecase_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_943c72ed8170978a8c8402bdc1" ON "use_case_subgraphs" ("subgraph_system_id") `,
     );
     await queryRunner.query(
       `CREATE TABLE "temporary_arc_keys" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "file_system_id" integer NOT NULL, "key_id" integer NOT NULL, "name" text NOT NULL, "enum_member" text, "enum_name" text, "description" text, "is_voice" boolean, "is_dynamic" boolean, "is_calibration_key" boolean, "is_graph_key" boolean, "speciality_key_value" text, "cal_key_enum_member" text, "graph_key_enum_member" text, CONSTRAINT "FK_d236cb5f4166104e54da9a1d885" FOREIGN KEY ("file_system_id") REFERENCES "files" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
@@ -1286,38 +1286,40 @@ export class InitialCreate1788023668098 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "temporary_usecase_gkv_values" RENAME TO "usecase_gkv_values"`,
     );
+    await queryRunner.query(`DROP INDEX "uq_use_case_subgraphs_membership"`);
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
-    await queryRunner.query(`DROP INDEX "IDX_65e66135d222dfa6dc5fe528e6"`);
-    await queryRunner.query(`DROP INDEX "IDX_943c72ed8170978a8c8402bdc1"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_use_case_subgraphs" ("usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_65e66135d222dfa6dc5fe528e6f" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_943c72ed8170978a8c8402bdc10" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("usecase_system_id", "subgraph_system_id"))`,
+      `CREATE TABLE "temporary_use_case_subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_65e66135d222dfa6dc5fe528e6f" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_943c72ed8170978a8c8402bdc10" FOREIGN KEY ("subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_use_case_subgraphs"("usecase_system_id", "subgraph_system_id") SELECT "usecase_system_id", "subgraph_system_id" FROM "use_case_subgraphs"`,
+      `INSERT INTO "temporary_use_case_subgraphs"("system_id", "created_at", "updated_at", "version", "usecase_system_id", "subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "usecase_system_id", "subgraph_system_id" FROM "use_case_subgraphs"`,
     );
     await queryRunner.query(`DROP TABLE "use_case_subgraphs"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_use_case_subgraphs" RENAME TO "use_case_subgraphs"`,
     );
     await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_subgraphs_membership" ON "use_case_subgraphs" ("usecase_system_id", "subgraph_system_id") `,
+    );
+    await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraphs_subgraph" ON "use_case_subgraphs" ("subgraph_system_id") `,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_65e66135d222dfa6dc5fe528e6" ON "use_case_subgraphs" ("usecase_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_943c72ed8170978a8c8402bdc1" ON "use_case_subgraphs" ("subgraph_system_id") `,
+      `DROP INDEX "uq_use_case_subgraph_pairs_membership"`,
     );
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
     await queryRunner.query(
-      `CREATE TABLE "temporary_use_case_subgraph_pairs" ("usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_aaead9a615196a87f12481a7d34" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_6d87d19e3e67fcbb513f97e54ab" FOREIGN KEY ("source_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_e46025dba07dfa20cd556172205" FOREIGN KEY ("dest_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, PRIMARY KEY ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id"))`,
+      `CREATE TABLE "temporary_use_case_subgraph_pairs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, CONSTRAINT "FK_aaead9a615196a87f12481a7d34" FOREIGN KEY ("usecase_system_id") REFERENCES "use_cases" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_6d87d19e3e67fcbb513f97e54ab" FOREIGN KEY ("source_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT "FK_e46025dba07dfa20cd556172205" FOREIGN KEY ("dest_subgraph_system_id") REFERENCES "subgraphs" ("system_id") ON DELETE CASCADE ON UPDATE NO ACTION)`,
     );
     await queryRunner.query(
-      `INSERT INTO "temporary_use_case_subgraph_pairs"("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "use_case_subgraph_pairs"`,
+      `INSERT INTO "temporary_use_case_subgraph_pairs"("system_id", "created_at", "updated_at", "version", "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "use_case_subgraph_pairs"`,
     );
     await queryRunner.query(`DROP TABLE "use_case_subgraph_pairs"`);
     await queryRunner.query(
       `ALTER TABLE "temporary_use_case_subgraph_pairs" RENAME TO "use_case_subgraph_pairs"`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_subgraph_pairs_membership" ON "use_case_subgraph_pairs" ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") `,
     );
     await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
@@ -1535,39 +1537,41 @@ export class InitialCreate1788023668098 implements MigrationInterface {
     );
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
     await queryRunner.query(
+      `DROP INDEX "uq_use_case_subgraph_pairs_membership"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "use_case_subgraph_pairs" RENAME TO "temporary_use_case_subgraph_pairs"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_case_subgraph_pairs" ("usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id"))`,
+      `CREATE TABLE "use_case_subgraph_pairs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "source_subgraph_system_id" integer NOT NULL, "dest_subgraph_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "use_case_subgraph_pairs"("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "temporary_use_case_subgraph_pairs"`,
+      `INSERT INTO "use_case_subgraph_pairs"("system_id", "created_at", "updated_at", "version", "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id" FROM "temporary_use_case_subgraph_pairs"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_use_case_subgraph_pairs"`);
     await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraph_pairs_sgs" ON "use_case_subgraph_pairs" ("source_subgraph_system_id", "dest_subgraph_system_id") `,
     );
-    await queryRunner.query(`DROP INDEX "IDX_943c72ed8170978a8c8402bdc1"`);
-    await queryRunner.query(`DROP INDEX "IDX_65e66135d222dfa6dc5fe528e6"`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_subgraph_pairs_membership" ON "use_case_subgraph_pairs" ("usecase_system_id", "source_subgraph_system_id", "dest_subgraph_system_id") `,
+    );
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
+    await queryRunner.query(`DROP INDEX "uq_use_case_subgraphs_membership"`);
     await queryRunner.query(
       `ALTER TABLE "use_case_subgraphs" RENAME TO "temporary_use_case_subgraphs"`,
     );
     await queryRunner.query(
-      `CREATE TABLE "use_case_subgraphs" ("usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL, PRIMARY KEY ("usecase_system_id", "subgraph_system_id"))`,
+      `CREATE TABLE "use_case_subgraphs" ("system_id" integer PRIMARY KEY NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "version" integer NOT NULL DEFAULT (1), "usecase_system_id" integer NOT NULL, "subgraph_system_id" integer NOT NULL)`,
     );
     await queryRunner.query(
-      `INSERT INTO "use_case_subgraphs"("usecase_system_id", "subgraph_system_id") SELECT "usecase_system_id", "subgraph_system_id" FROM "temporary_use_case_subgraphs"`,
+      `INSERT INTO "use_case_subgraphs"("system_id", "created_at", "updated_at", "version", "usecase_system_id", "subgraph_system_id") SELECT "system_id", "created_at", "updated_at", "version", "usecase_system_id", "subgraph_system_id" FROM "temporary_use_case_subgraphs"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_use_case_subgraphs"`);
     await queryRunner.query(
-      `CREATE INDEX "IDX_943c72ed8170978a8c8402bdc1" ON "use_case_subgraphs" ("subgraph_system_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_65e66135d222dfa6dc5fe528e6" ON "use_case_subgraphs" ("usecase_system_id") `,
-    );
-    await queryRunner.query(
       `CREATE INDEX "idx_use_case_subgraphs_subgraph" ON "use_case_subgraphs" ("subgraph_system_id") `,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uq_use_case_subgraphs_membership" ON "use_case_subgraphs" ("usecase_system_id", "subgraph_system_id") `,
     );
     await queryRunner.query(
       `ALTER TABLE "usecase_gkv_values" RENAME TO "temporary_usecase_gkv_values"`,
@@ -2405,8 +2409,6 @@ export class InitialCreate1788023668098 implements MigrationInterface {
       `INSERT INTO "arc_keys"("system_id", "created_at", "updated_at", "version", "file_system_id", "key_id", "name", "enum_member", "enum_name", "description", "is_voice", "is_dynamic", "is_calibration_key", "is_graph_key", "speciality_key_value", "cal_key_enum_member", "graph_key_enum_member") SELECT "system_id", "created_at", "updated_at", "version", "file_system_id", "key_id", "name", "enum_member", "enum_name", "description", "is_voice", "is_dynamic", "is_calibration_key", "is_graph_key", "speciality_key_value", "cal_key_enum_member", "graph_key_enum_member" FROM "temporary_arc_keys"`,
     );
     await queryRunner.query(`DROP TABLE "temporary_arc_keys"`);
-    await queryRunner.query(`DROP INDEX "IDX_943c72ed8170978a8c8402bdc1"`);
-    await queryRunner.query(`DROP INDEX "IDX_65e66135d222dfa6dc5fe528e6"`);
     await queryRunner.query(`DROP INDEX "IDX_06f2962641e6632eb9a7ac63da"`);
     await queryRunner.query(`DROP INDEX "IDX_d5b97ccc404cecb9166a453280"`);
     await queryRunner.query(`DROP TABLE "use_case_categories"`);
@@ -2432,8 +2434,12 @@ export class InitialCreate1788023668098 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "uniq_edit_actions_current"`);
     await queryRunner.query(`DROP TABLE "edit_actions"`);
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraph_pairs_sgs"`);
+    await queryRunner.query(
+      `DROP INDEX "uq_use_case_subgraph_pairs_membership"`,
+    );
     await queryRunner.query(`DROP TABLE "use_case_subgraph_pairs"`);
     await queryRunner.query(`DROP INDEX "idx_use_case_subgraphs_subgraph"`);
+    await queryRunner.query(`DROP INDEX "uq_use_case_subgraphs_membership"`);
     await queryRunner.query(`DROP TABLE "use_case_subgraphs"`);
     await queryRunner.query(`DROP TABLE "usecase_gkv_values"`);
     await queryRunner.query(`DROP TABLE "use_case_categories_master"`);

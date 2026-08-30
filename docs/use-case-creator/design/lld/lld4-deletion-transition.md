@@ -551,7 +551,7 @@ for each uc in input.staleUcs where uc.status == Disconnected:
 
     // Control-link-held pair with opposite data-link → correct direction
     transition.directionCorrections.push({
-      pairSystemId: pair.systemId,
+      currentDirection: { sourceSgSystemId: A.systemId, destSgSystemId: B.systemId },
       newDirection: { sourceSgSystemId: B.systemId, destSgSystemId: A.systemId }
     })
 ```
@@ -641,7 +641,9 @@ DFS through bridge SGs. Bounded by NFR-PERF-01.
 
 **Output written to `context.disconnectedTransitions`.** Phase 11 emits:
 - `IUsecaseRepository.update(ucId, {status: Connected, subgraphs: existing ∪ addedSgs, pairs: existing ∪ addedPairs})`
-- One `correctDirection(pairId, newDirection)` per entry in `directionCorrections`
+- One `reverseDirection(ucId, currentSourceSgSystemId, currentDestSgSystemId)` per
+  entry in `directionCorrections`. The persistence adapter resolves the relationship
+  row's internal `system_id`; that identifier does not enter the core model.
 
 ---
 

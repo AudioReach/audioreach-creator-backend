@@ -295,10 +295,16 @@ export {
   UsecaseGkvValuesSchema,
 } from './usecase-data/use-case.js';
 
-export type {UseCaseSubgraphRow} from './usecase-data/use-case-subgraph.schema.js';
+export type {
+  UseCaseSubgraphBase,
+  UseCaseSubgraphRow,
+} from './usecase-data/use-case-subgraph.schema.js';
 export {UseCaseSubgraphSchema} from './usecase-data/use-case-subgraph.schema.js';
 
-export type {UseCaseSubgraphPairRow} from './usecase-data/use-case-subgraph-pair.schema.js';
+export type {
+  UseCaseSubgraphPairBase,
+  UseCaseSubgraphPairRow,
+} from './usecase-data/use-case-subgraph-pair.schema.js';
 export {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.schema.js';
 
 export type {EditActionRow} from './edit-session/edit-action.schema.js';
