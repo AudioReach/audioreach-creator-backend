@@ -24,21 +24,19 @@ import {
   IssueSeverity,
   RESULT_KIND,
 } from '@arc/core';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
-import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
-import {
+import type {
   CkvOverlayFetcher,
-  type OverlaidCkv,
-  type OverlaidCkvParameterPayload,
+  OverlaidCkv,
 } from '../../fetchers/ckv-overlay-fetcher.js';
-import {
+import type {CkvParameterPayloadBase} from '../../fetchers/ckv-parameter-payload-fetcher.js';
+import type {
   TkvOverlayFetcher,
-  type OverlaidModuleTagIdMap,
-  type OverlaidTkv,
+  OverlaidModuleTagIdMap,
+  OverlaidTkv,
 } from '../../fetchers/tkv-overlay-fetcher.js';
-import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
-import {SpfModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
+import type {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
+import type {SpfModuleParameterDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
 import type {SpfModuleParameterDefinitionBase} from '../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
 
 /**
@@ -65,20 +63,17 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
 
   constructor(
     private readonly dataSource: DataSource,
-    editActionsSvc: EditActionsQueryService,
+    ckvFetcher: CkvOverlayFetcher,
+    tkvFetcher: TkvOverlayFetcher,
+    spfModuleFetcher: SpfModuleOverlayFetcher,
+    paramFetcher: SpfModuleParameterDefinitionFetcher,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
     private readonly tagDefinitionSvc: TagDefinitionQueryService,
   ) {
-    this.ckvFetcher = new CkvOverlayFetcher(dataSource.manager, editActionsSvc);
-    this.tkvFetcher = new TkvOverlayFetcher(dataSource.manager, editActionsSvc);
-    this.spfModuleFetcher = new SpfModuleOverlayFetcher(
-      dataSource.manager,
-      editActionsSvc,
-    );
-    this.paramFetcher = new SpfModuleParameterDefinitionFetcher(
-      dataSource.manager,
-      editActionsSvc,
-    );
+    this.ckvFetcher = ckvFetcher;
+    this.tkvFetcher = tkvFetcher;
+    this.spfModuleFetcher = spfModuleFetcher;
+    this.paramFetcher = paramFetcher;
   }
 
   // ── Public methods ───────────────────────────────────────────────────────
@@ -109,7 +104,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       }
 
       // All Ckvs for the module with session overlay applied via fetcher (FR-3).
-      const overlaidRows = await this.ckvFetcher.fetchForModule(
+      const overlaidRows = await this.ckvFetcher.fetchMany(
         spfModuleSystemId,
         sessionId,
       );
@@ -165,12 +160,13 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         fileSystemId,
       );
 
-      // Resolve the owning module so we can call the fetchers (aggregateId = moduleSystemId).
-      const moduleSystemId = await this.resolveCkvModuleSystemId(ckvSystemId);
-      if (moduleSystemId === null) return Result.ok([]);
+      // fetchOne derives moduleSystemId from the base row — no separate lookup needed.
+      const ckv = await this.ckvFetcher.fetchOne(ckvSystemId, sessionId);
+      if (ckv === null) return Result.ok([]);
+      const moduleSystemId = ckv.spfModuleSystemId;
 
       // Step 1 — overlaid payload rows via fetcher (FR-3).
-      const payloads = await this.ckvFetcher.fetchCkvPayloads(
+      const payloads = await this.ckvFetcher.fetchPayloads(
         ckvSystemId,
         moduleSystemId,
         sessionId,
@@ -245,7 +241,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       }
 
       // All ModuleTagIdMap+Tkv rows with session overlay applied via fetcher (FR-3).
-      const overlaidTagMaps = await this.tkvFetcher.fetchForModule(
+      const overlaidTagMaps = await this.tkvFetcher.fetchMany(
         spfModuleSystemId,
         sessionId,
         includes,
@@ -307,23 +303,6 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
-
-  /**
-   * Resolves the owning SpfModule system ID from a Ckv system ID.
-   * getModuleCkvParams receives ckvSystemId but fetchers require moduleSystemId.
-   * Returns null when the Ckv row does not exist in the baseline.
-   */
-  private async resolveCkvModuleSystemId(
-    ckvSystemId: number,
-  ): Promise<number | null> {
-    const row = (await this.dataSource
-      .getRepository(ENTITY_NAMES.Ckv)
-      .createQueryBuilder('ckv')
-      .select('ckv.spfModuleSystemId')
-      .where('ckv.systemId = :ckvSystemId', {ckvSystemId})
-      .getOne()) as {spfModuleSystemId: number} | null;
-    return row?.spfModuleSystemId ?? null;
-  }
 
   // ── Assembly methods ─────────────────────────────────────────────────────
 
@@ -432,7 +411,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
    * fullDetails: all fields + optional payload bytes
    */
   private buildParamReadModel(
-    payload: OverlaidCkvParameterPayload,
+    payload: CkvParameterPayloadBase,
     param: SpfModuleParameterDefinitionBase,
     includes: ConfigurationIncludes,
   ): CkvParamReadModel {

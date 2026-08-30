@@ -18,6 +18,7 @@ import {
 } from '../helpers/test-database-setup.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {CkvOverlayFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/ckv-overlay-fetcher.js';
+import {CkvParameterPayloadFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/ckv-parameter-payload-fetcher.js';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -175,9 +176,11 @@ describe('CkvOverlayFetcher (integration)', () => {
     await seedParamDef(ds);
     qr = ds.createQueryRunner();
     await qr.connect();
+    const editActionsQs = new EditActionsQueryService(qr.manager);
     fetcher = new CkvOverlayFetcher(
       qr.manager,
-      new EditActionsQueryService(qr.manager),
+      editActionsQs,
+      new CkvParameterPayloadFetcher(qr.manager, editActionsQs),
     );
   });
   afterEach(async () => {
@@ -188,7 +191,7 @@ describe('CkvOverlayFetcher (integration)', () => {
 
   it('fetchCkv — row in DB, sessionId=null — returns OverlaidCkv with correct systemId', async () => {
     await seedCkv(ds);
-    const result = await fetcher.fetchCkv(CKV_ID, MODULE_ID, null);
+    const result = await fetcher.fetchOne(CKV_ID, null);
     expect(result).not.toBeNull();
     expect(result!.systemId).toBe(CKV_ID);
     expect(result!.spfModuleSystemId).toBe(MODULE_ID);
@@ -205,7 +208,7 @@ describe('CkvOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Delete,
       newValue: '{}',
     });
-    const result = await fetcher.fetchCkv(CKV_ID, MODULE_ID, sessionId);
+    const result = await fetcher.fetchOne(CKV_ID, sessionId);
     expect(result).toBeNull();
   });
 
@@ -219,7 +222,7 @@ describe('CkvOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Create,
       newValue: JSON.stringify({spfModuleSystemId: MODULE_ID}),
     });
-    const result = await fetcher.fetchCkv(CKV_ID, MODULE_ID, sessionId);
+    const result = await fetcher.fetchOne(CKV_ID, sessionId);
     expect(result).not.toBeNull();
     expect(result!.systemId).toBe(CKV_ID);
     expect(result!.spfModuleSystemId).toBe(MODULE_ID);
@@ -234,7 +237,7 @@ describe('CkvOverlayFetcher (integration)', () => {
       `INSERT INTO ckv_parameter_payload (system_id, parameter_system_id, ckv_system_id, payload) VALUES (?, ?, ?, ?)`,
       [PAYLOAD_ID + 1, PARAM_DEF_ID_2, CKV_ID, Buffer.alloc(0)],
     );
-    const results = await fetcher.fetchCkvPayloads(CKV_ID, MODULE_ID, null);
+    const results = await fetcher.fetchPayloads(CKV_ID, MODULE_ID, null);
     expect(results).toHaveLength(2);
     expect(results.map(r => r.systemId).sort()).toEqual(
       [PAYLOAD_ID, PAYLOAD_ID + 1].sort(),
@@ -257,11 +260,7 @@ describe('CkvOverlayFetcher (integration)', () => {
         parameterSystemId: PARAM_DEF_ID,
       }),
     });
-    const results = await fetcher.fetchCkvPayloads(
-      CKV_ID,
-      MODULE_ID,
-      sessionId,
-    );
+    const results = await fetcher.fetchPayloads(CKV_ID, MODULE_ID, sessionId);
     expect(results).toHaveLength(2);
     expect(results.some(r => r.systemId === newPayloadId)).toBe(true);
   });
@@ -282,12 +281,224 @@ describe('CkvOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Delete,
       newValue: '{}',
     });
-    const results = await fetcher.fetchCkvPayloads(
+    const results = await fetcher.fetchPayloads(CKV_ID, MODULE_ID, sessionId);
+    expect(results).toHaveLength(1);
+    expect(results[0].systemId).toBe(PAYLOAD_ID + 1);
+  });
+});
+
+describe('CkvOverlayFetcher — fetchMany (integration)', () => {
+  let ds: DataSource;
+  let qr: QueryRunner;
+  let fetcher: CkvOverlayFetcher;
+
+  beforeAll(async () => {
+    await setupIntegrationTest();
+  });
+  afterAll(async () => {
+    await teardownIntegrationTest();
+  });
+  beforeEach(async () => {
+    await setupEachTest();
+    ds = getTestDataSource();
+    await seedProjectAndFile(ds);
+    await seedModule(ds);
+    await seedParamDef(ds);
+    qr = ds.createQueryRunner();
+    await qr.connect();
+    const editActionsQs = new EditActionsQueryService(qr.manager);
+    fetcher = new CkvOverlayFetcher(
+      qr.manager,
+      editActionsQs,
+      new CkvParameterPayloadFetcher(qr.manager, editActionsQs),
+    );
+  });
+  afterEach(async () => {
+    await qr.release();
+  });
+
+  it('fetchMany — sessionId=null — returns all baseline CKVs', async () => {
+    await seedCkv(ds, CKV_ID);
+    await seedCkv(ds, CKV_ID + 1);
+    const results = await fetcher.fetchMany(MODULE_ID, null);
+    expect(results).toHaveLength(2);
+    expect(results.map(r => r.systemId).sort()).toEqual(
+      [CKV_ID, CKV_ID + 1].sort(),
+    );
+  });
+
+  it('fetchMany — no session actions — returns baseline unchanged', async () => {
+    await seedCkv(ds, CKV_ID);
+    const sessionId = await seedSession(ds);
+    const results = await fetcher.fetchMany(MODULE_ID, sessionId);
+    expect(results).toHaveLength(1);
+    expect(results[0].systemId).toBe(CKV_ID);
+  });
+
+  it('fetchMany — CREATE action — includes session-created CKV', async () => {
+    const sessionId = await seedSession(ds);
+    const newCkvId = CKV_ID + 5;
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: newCkvId,
+      targetTable: ENTITY_NAMES.Ckv,
+      operation: CHANGE_OPERATION.Create,
+      newValue: JSON.stringify({spfModuleSystemId: MODULE_ID}),
+    });
+    const results = await fetcher.fetchMany(MODULE_ID, sessionId);
+    expect(results).toHaveLength(1);
+    expect(results[0].systemId).toBe(newCkvId);
+  });
+
+  it('fetchMany — DELETE action — excludes deleted CKV', async () => {
+    await seedCkv(ds, CKV_ID);
+    const sessionId = await seedSession(ds);
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: CKV_ID,
+      targetTable: ENTITY_NAMES.Ckv,
+      operation: CHANGE_OPERATION.Delete,
+      newValue: '{}',
+    });
+    const results = await fetcher.fetchMany(MODULE_ID, sessionId);
+    expect(results).toHaveLength(0);
+  });
+
+  it('fetchMany — CREATE then UPDATE in same session — UPDATE is applied to created row', async () => {
+    const sessionId = await seedSession(ds);
+    const newCkvId = CKV_ID + 10;
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: newCkvId,
+      targetTable: ENTITY_NAMES.Ckv,
+      operation: CHANGE_OPERATION.Create,
+      fieldPath: null,
+      newValue: JSON.stringify({spfModuleSystemId: MODULE_ID}),
+    });
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: newCkvId,
+      targetTable: ENTITY_NAMES.Ckv,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'spfModuleSystemId',
+      newValue: String(MODULE_ID),
+    });
+    const results = await fetcher.fetchMany(MODULE_ID, sessionId);
+    expect(results).toHaveLength(1);
+    expect(results[0].systemId).toBe(newCkvId);
+    expect(results[0].spfModuleSystemId).toBe(MODULE_ID);
+  });
+});
+
+describe('CkvParameterPayloadFetcher (integration)', () => {
+  let ds: DataSource;
+  let qr: QueryRunner;
+  let payloadFetcher: CkvParameterPayloadFetcher;
+
+  beforeAll(async () => {
+    await setupIntegrationTest();
+  });
+  afterAll(async () => {
+    await teardownIntegrationTest();
+  });
+  beforeEach(async () => {
+    await setupEachTest();
+    ds = getTestDataSource();
+    await seedProjectAndFile(ds);
+    await seedModule(ds);
+    await seedParamDef(ds);
+    await seedCkv(ds);
+    qr = ds.createQueryRunner();
+    await qr.connect();
+    payloadFetcher = new CkvParameterPayloadFetcher(
+      qr.manager,
+      new EditActionsQueryService(qr.manager),
+    );
+  });
+  afterEach(async () => {
+    await qr.release();
+  });
+
+  it('fetchMany — sessionId=null — returns all baseline rows', async () => {
+    await seedPayload(ds, PAYLOAD_ID, CKV_ID);
+    await ds.query(
+      `INSERT INTO ckv_parameter_payload (system_id, parameter_system_id, ckv_system_id, payload) VALUES (?, ?, ?, ?)`,
+      [PAYLOAD_ID + 1, PARAM_DEF_ID_2, CKV_ID, Buffer.alloc(0)],
+    );
+    const results = await payloadFetcher.fetchMany(CKV_ID, MODULE_ID, null);
+    expect(results).toHaveLength(2);
+  });
+
+  it('fetchMany — CREATE action — includes session-created payload', async () => {
+    const sessionId = await seedSession(ds);
+    const newId = PAYLOAD_ID + 20;
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: newId,
+      targetTable: ENTITY_NAMES.CkvParameterPayload,
+      operation: CHANGE_OPERATION.Create,
+      newValue: JSON.stringify({
+        ckvSystemId: CKV_ID,
+        parameterSystemId: PARAM_DEF_ID,
+      }),
+    });
+    const results = await payloadFetcher.fetchMany(
       CKV_ID,
       MODULE_ID,
       sessionId,
     );
     expect(results).toHaveLength(1);
-    expect(results[0].systemId).toBe(PAYLOAD_ID + 1);
+    expect(results[0].systemId).toBe(newId);
+  });
+
+  it('fetchMany — DELETE action — removes row', async () => {
+    await seedPayload(ds, PAYLOAD_ID, CKV_ID);
+    const sessionId = await seedSession(ds);
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: PAYLOAD_ID,
+      targetTable: ENTITY_NAMES.CkvParameterPayload,
+      operation: CHANGE_OPERATION.Delete,
+      newValue: '{}',
+    });
+    const results = await payloadFetcher.fetchMany(
+      CKV_ID,
+      MODULE_ID,
+      sessionId,
+    );
+    expect(results).toHaveLength(0);
+  });
+
+  it('fetchMany — payloadSystemIds filter — excludes session-created payloads not in filter', async () => {
+    const sessionId = await seedSession(ds);
+    const includedId = PAYLOAD_ID + 30;
+    const excludedId = PAYLOAD_ID + 31;
+    for (const id of [includedId, excludedId]) {
+      await seedEditAction(ds, {
+        sessionId,
+        aggregateId: MODULE_ID,
+        targetSystemId: id,
+        targetTable: ENTITY_NAMES.CkvParameterPayload,
+        operation: CHANGE_OPERATION.Create,
+        newValue: JSON.stringify({
+          ckvSystemId: CKV_ID,
+          parameterSystemId: PARAM_DEF_ID,
+        }),
+      });
+    }
+    const results = await payloadFetcher.fetchMany(
+      CKV_ID,
+      MODULE_ID,
+      sessionId,
+      {systemId: [includedId]},
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].systemId).toBe(includedId);
   });
 });

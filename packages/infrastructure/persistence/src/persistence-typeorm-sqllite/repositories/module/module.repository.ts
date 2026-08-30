@@ -19,6 +19,7 @@ import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
+import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
@@ -36,7 +37,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     this.spfModuleFetcher = new SpfModuleOverlayFetcher(manager, editActionsQs);
     this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
     this.portFetcher = new PortOverlayFetcher(manager, editActionsQs);
-    this.ckvOverlayFetcher = new CkvOverlayFetcher(manager, editActionsQs);
+    this.ckvOverlayFetcher = new CkvOverlayFetcher(
+      manager,
+      editActionsQs,
+      new CkvParameterPayloadFetcher(manager, editActionsQs),
+    );
   }
 
   async findModuleForPatch(
@@ -339,15 +344,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   }
 
   async ckvExists(
-    spfModuleSystemId: number,
+    _spfModuleSystemId: number,
     ckvSystemId: number,
   ): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const row = await this.ckvOverlayFetcher.fetchCkv(
-      ckvSystemId,
-      spfModuleSystemId,
-      sessionId,
-    );
+    const row = await this.ckvOverlayFetcher.fetchOne(ckvSystemId, sessionId);
     return row !== null;
   }
 
@@ -356,7 +357,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     ckvSystemId: number,
   ): Promise<ExistingPayloadRow[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.ckvOverlayFetcher.fetchCkvPayloads(
+    const rows = await this.ckvOverlayFetcher.fetchPayloads(
       ckvSystemId,
       spfModuleSystemId,
       sessionId,
