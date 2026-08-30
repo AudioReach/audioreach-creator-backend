@@ -281,7 +281,10 @@ export type {
   ElementTemplateArrayDto,
   StructDto,
 } from './shared/dto/element-data/element-union.js';
-export {PropertyDtoSchema} from './shared/dto/property-dto.js';
+export {
+  PropertyDtoSchema,
+  mapPropertyToDto,
+} from './shared/dto/property-dto.js';
 export type {PropertyDto} from './shared/dto/property-dto.js';
 export {mapPropertyToDto} from './shared/dto/property-dto.js';
 export type {PropertyDataDto} from './application/usecase-designer/shared/property-read-model.js';
@@ -433,6 +436,18 @@ export {CreateVcpmCkvCommand} from './application/usecase-designer/subgraph/crea
 export type {CkvKeyValuePair} from './application/usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
 export {DeleteVcpmCkvCommand} from './application/usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.command.js';
 export {UpdateVcpmCalDataCommand} from './application/usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
+// Subgraph get-property query + handler
+export {GetSubgraphPropertyQuery} from './application/usecase-designer/subgraph/get-property/get-subgraph-property.query.js';
+export {GetSubgraphPropertyHandler} from './application/usecase-designer/subgraph/get-property/get-subgraph-property.handler.js';
+// Subgraph repository port types
+export type {
+  SubgraphWithProperties,
+  VcpmModuleDefinitionWithParamsReadModel,
+} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+// Module repository port types
+export type {WipeCalDataResult} from './application/ports/persistence/repositories/module/module.repository.js';
+// VCPM definition query service port
+export type {VcpmDefinitionQueryService} from './application/ports/persistence/query-services/vcpm-definition/vcpm-definition-query-service.js';
 // Container write commands
 export {SetContainerPropertyCommand} from './application/usecase-designer/container/set-property/set-container-property.command.js';
 export {SetContainerHeapIdCommand} from './application/usecase-designer/container/set-heap-id/set-container-heap-id.command.js';
