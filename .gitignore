@@ -57,3 +57,14 @@ coverage/
 .agents/skills
 .claude/skills
 AGENTS.md
+
+# Claude Code and IDE tools
+.claude/
+.codex/
+.opencode/
+.qgenieagent/
+
+# Quartz code intelligence
+.quartz/
+.ai/skills/quartz-*/
+.mcp.json

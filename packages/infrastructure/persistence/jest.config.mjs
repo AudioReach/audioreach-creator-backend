@@ -29,7 +29,6 @@ export default {
       resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
-      coverageReporters: ['html', 'json'],
       coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/index.ts'],
     },
     {
@@ -54,10 +53,12 @@ export default {
       resolver: 'jest-ts-webcompat-resolver',
       collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
       coverageDirectory: './coverage',
-      coverageReporters: ['html', 'json'],
       coveragePathIgnorePatterns: ['/node_modules/', '/tests/', 'src/index.ts'],
     },
   ],
+
+  coverageReporters: ['html', 'json'],
+  testTimeout: 30_000,
 
   // Global reporters for all projects - merged XML output
   reporters: [

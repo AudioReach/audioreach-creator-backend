@@ -91,6 +91,7 @@ export default [
       'import/resolver': {
         typescript: {
           alwaysTryTypes: true,
+          noWarnOnMultipleProjects: true,
           project: [
             './packages/core/tsconfig.eslint.json',
             './packages/infrastructure/fs/tsconfig.eslint.json',

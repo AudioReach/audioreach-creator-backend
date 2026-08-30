@@ -539,6 +539,7 @@ export * from './domain/entities/module-manager/module-manager-data.js';
 // Domain entities - definitions
 export * from './domain/entities/definitions/common/entities/module-definition.js';
 export * from './domain/entities/definitions/spf-module/spf-module-definition.js';
+export * from './domain/entities/definitions/spf-module/ipc-module-def-ids.js';
 export * from './domain/entities/definitions/spf-module/value-objects/data-port-group-definition.js';
 export * from './domain/entities/definitions/spf-module/value-objects/data-port-definition.js';
 export * from './domain/entities/definitions/spf-module/value-objects/static-control-port-definition.js';
@@ -623,3 +624,21 @@ export {
   encodeStackSize,
   decodeStackSize,
 } from './domain/services/container-property/container-stack-size-codec.js';
+
+// Auto-usecase-creator — types shared across port surface and persistence adapters
+export type {KvPair} from './application/ports/persistence/repositories/shared/kv-pair.js';
+export type {SgkvEntry} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+export type {LinksForPair} from './application/ports/persistence/repositories/shared/links-for-pair.js';
+export type {SessionChanged} from './application/ports/persistence/repositories/shared/session-changed.js';
+export {READ_MODE} from './application/ports/persistence/repositories/shared/read-options.js';
+export type {
+  ReadMode,
+  ReadOptions,
+} from './application/ports/persistence/repositories/shared/read-options.js';
+
+// Auto-usecase-creator — UsecaseRepository port and types
+export type {
+  UsecaseRepository,
+  ReferencedComponents,
+  StructuralDelta,
+} from './application/ports/persistence/repositories/usecase/usecase.repository.js';

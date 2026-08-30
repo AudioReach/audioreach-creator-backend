@@ -5,6 +5,8 @@
 
 import type {EntityManager} from 'typeorm';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
+import {CHANGE_OPERATION} from '@arc/core';
+import type {SessionChanged} from '@arc/core';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {ControlLinkBase} from '../entity-schema/usecase-data/Links/control-link.js';
@@ -150,8 +152,6 @@ export class LinkOverlayFetcher {
     );
   }
 
-  /** Deduplicates an array by systemId — preserves first occurrence. */
-
   /**
    * Applies session overlay to DataLink baseline rows.
    * Passes ALL actions to applyToCollection — UPDATE/DELETE handled in loop 1,
@@ -218,6 +218,126 @@ export class LinkOverlayFetcher {
     }
 
     return this.dedup(allRows);
+  }
+
+  /**
+   * Returns DataLinks added or deleted in the current session as a
+   * `SessionChanged<DataLinkBase>` split. UPDATE-shaped actions are
+   * excluded. Multiple actions per targetSystemId collapse to the newest
+   * by `createdAt` (defensive; schema constraint makes duplicates unlikely).
+   *
+   * Consumer: routing engine graphEdits assembly (addedDataLinks /
+   * deletedDataLinks).
+   */
+  async fetchChangedDataLinks(
+    fileSystemId: number,
+    sessionId: number,
+  ): Promise<SessionChanged<DataLinkBase>> {
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.DataLink,
+    );
+    if (actions.length === 0) return {added: [], deleted: []};
+
+    const latestByTarget = new Map<number, (typeof actions)[number]>();
+    for (const a of actions) {
+      if (
+        a.operation !== CHANGE_OPERATION.Create &&
+        a.operation !== CHANGE_OPERATION.Delete
+      )
+        continue;
+      const existing = latestByTarget.get(a.targetSystemId);
+      if (!existing || a.createdAt.getTime() > existing.createdAt.getTime()) {
+        latestByTarget.set(a.targetSystemId, a);
+      }
+    }
+    if (latestByTarget.size === 0) return {added: [], deleted: []};
+
+    const ids = [...latestByTarget.keys()];
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.DataLink)
+      .createQueryBuilder('dl')
+      .where('dl.fileSystemId = :fileSystemId', {fileSystemId})
+      .andWhere('dl.systemId IN (:...ids)', {ids})
+      .getMany()) as DataLinkBase[];
+    const baseById = new Map(baseRows.map(r => [r.systemId, r]));
+
+    const added: DataLinkBase[] = [];
+    const deleted: DataLinkBase[] = [];
+    for (const a of latestByTarget.values()) {
+      if (a.operation === CHANGE_OPERATION.Create) {
+        const base = baseById.get(a.targetSystemId);
+        added.push(
+          base ?? {
+            systemId: a.targetSystemId,
+            ...(a.newValue as Omit<DataLinkBase, 'systemId'>),
+          },
+        );
+      } else {
+        const base = baseById.get(a.targetSystemId);
+        if (base) deleted.push(base);
+      }
+    }
+    return {added, deleted};
+  }
+
+  /**
+   * Returns ControlLinks added or deleted in the current session — same
+   * semantics as `fetchChangedDataLinks`.
+   *
+   * Consumer: routing engine graphEdits assembly (addedControlLinks /
+   * deletedControlLinks).
+   */
+  async fetchChangedControlLinks(
+    fileSystemId: number,
+    sessionId: number,
+  ): Promise<SessionChanged<ControlLinkBase>> {
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.ControlLink,
+    );
+    if (actions.length === 0) return {added: [], deleted: []};
+
+    const latestByTarget = new Map<number, (typeof actions)[number]>();
+    for (const a of actions) {
+      if (
+        a.operation !== CHANGE_OPERATION.Create &&
+        a.operation !== CHANGE_OPERATION.Delete
+      )
+        continue;
+      const existing = latestByTarget.get(a.targetSystemId);
+      if (!existing || a.createdAt.getTime() > existing.createdAt.getTime()) {
+        latestByTarget.set(a.targetSystemId, a);
+      }
+    }
+    if (latestByTarget.size === 0) return {added: [], deleted: []};
+
+    const ids = [...latestByTarget.keys()];
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.ControlLink)
+      .createQueryBuilder('cl')
+      .where('cl.fileSystemId = :fileSystemId', {fileSystemId})
+      .andWhere('cl.systemId IN (:...ids)', {ids})
+      .getMany()) as ControlLinkBase[];
+    const baseById = new Map(baseRows.map(r => [r.systemId, r]));
+
+    const added: ControlLinkBase[] = [];
+    const deleted: ControlLinkBase[] = [];
+    for (const a of latestByTarget.values()) {
+      if (a.operation === CHANGE_OPERATION.Create) {
+        const base = baseById.get(a.targetSystemId);
+        added.push(
+          base ?? {
+            systemId: a.targetSystemId,
+            ...(a.newValue as Omit<ControlLinkBase, 'systemId'>),
+          },
+        );
+      } else {
+        const base = baseById.get(a.targetSystemId);
+        if (base) deleted.push(base);
+      }
+    }
+    return {added, deleted};
   }
 
   /** Deduplicates an array by systemId — preserves first occurrence. */

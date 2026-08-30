@@ -43,11 +43,14 @@ export class DbDataLinkQueryService implements DataLinkQueryService {
       );
 
       // Resolve subgraph IDs via the usecase fetcher (UseCase → Subgraph relation).
-      const subgraphIds =
-        await this.usecaseFetcher.getSubgraphSystemIdsForUsecases(
-          usecaseSystemIds,
-          sessionId,
-        );
+      const usecases = await this.usecaseFetcher.getUsecases(
+        fileSystemId,
+        sessionId,
+        usecaseSystemIds,
+      );
+      const subgraphIds = [
+        ...new Set(usecases.flatMap(uc => uc.subgraphSystemIds)),
+      ];
       if (subgraphIds.length === 0) return R.ok([]);
 
       const links = await this.linkFetcher.loadDataLinkRows(

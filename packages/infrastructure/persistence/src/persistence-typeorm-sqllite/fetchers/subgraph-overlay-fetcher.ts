@@ -4,6 +4,12 @@
  */
 
 import type {EntityManager} from 'typeorm';
+import {
+  CHANGE_OPERATION,
+  IPC_TX_MODULE_DEF_ID,
+  IPC_RX_MODULE_DEF_ID,
+} from '@arc/core';
+import type {SessionChanged} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
@@ -40,8 +46,8 @@ export class SubgraphOverlayFetcher {
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
-    private readonly propertyDataFetcher: SubgraphPropertyDataFetcher,
-    private readonly sgkvFetcher: SubgraphSgkvFetcher,
+    private readonly propertyDataFetcher?: SubgraphPropertyDataFetcher,
+    private readonly sgkvFetcher?: SubgraphSgkvFetcher,
   ) {}
 
   // ── Core entry point ─────────────────────────────────────────────────────────
@@ -103,10 +109,12 @@ export class SubgraphOverlayFetcher {
 
     if (sessionId === null) {
       if (!baseRow) return null;
-      const properties = await this.propertyDataFetcher.fetchMany(
-        [subgraphSystemId],
-        sessionId,
-      );
+      const properties = this.propertyDataFetcher
+        ? await this.propertyDataFetcher.fetchMany(
+            [subgraphSystemId],
+            sessionId,
+          )
+        : [];
       return {...baseRow, properties};
     }
 
@@ -118,10 +126,9 @@ export class SubgraphOverlayFetcher {
     const result = this.overlay.applyToSingle(baseRow, actions);
     if (!result) return null;
 
-    const properties = await this.propertyDataFetcher.fetchMany(
-      [subgraphSystemId],
-      sessionId,
-    );
+    const properties = this.propertyDataFetcher
+      ? await this.propertyDataFetcher.fetchMany([subgraphSystemId], sessionId)
+      : [];
     return {...result.effective, properties};
   }
 
@@ -130,6 +137,119 @@ export class SubgraphOverlayFetcher {
    * Delegates to the injected SubgraphSgkvFetcher.
    */
   async getSgkvs(fileSystemId: number, sessionId: number | null) {
+    if (!this.sgkvFetcher) return [];
     return this.sgkvFetcher.fetchMany(fileSystemId, sessionId);
+  }
+
+  /**
+   * Returns SGs added or deleted in the current session as a
+   * `SessionChanged<SubgraphBase>` split. UPDATE-shaped actions are excluded
+   * from both buckets.
+   *
+   * For CREATE without a base row (session-local creates), the row is
+   * synthesized from `edit_action.newValue`. For DELETE, the current base
+   * row is returned (soft-delete — the row still exists until commit).
+   *
+   * Multiple actions per targetSystemId are collapsed to the newest by
+   * `createdAt`. The schema's `uniq_edit_actions_current_null_path` unique
+   * index makes duplicates impossible in practice, but the timestamp compare
+   * is defensive.
+   */
+  async fetchChangedInSession(
+    fileSystemId: number,
+    sessionId: number,
+  ): Promise<SessionChanged<SubgraphBase>> {
+    const actions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.Subgraph,
+    );
+    if (actions.length === 0) return {added: [], deleted: []};
+
+    const latestByTarget = new Map<number, (typeof actions)[number]>();
+    for (const a of actions) {
+      if (
+        a.operation !== CHANGE_OPERATION.Create &&
+        a.operation !== CHANGE_OPERATION.Delete
+      )
+        continue;
+      const existing = latestByTarget.get(a.targetSystemId);
+      if (!existing || a.createdAt.getTime() > existing.createdAt.getTime()) {
+        latestByTarget.set(a.targetSystemId, a);
+      }
+    }
+    if (latestByTarget.size === 0) return {added: [], deleted: []};
+
+    const ids = [...latestByTarget.keys()];
+    const baseRows = (await this.manager
+      .getRepository(ENTITY_NAMES.Subgraph)
+      .createQueryBuilder('s')
+      .where('s.fileSystemId = :fileSystemId', {fileSystemId})
+      .andWhere('s.systemId IN (:...ids)', {ids})
+      .getMany()) as SubgraphBase[];
+    const baseById = new Map(baseRows.map(r => [r.systemId, r]));
+
+    const added: SubgraphBase[] = [];
+    const deleted: SubgraphBase[] = [];
+    for (const a of latestByTarget.values()) {
+      if (a.operation === CHANGE_OPERATION.Create) {
+        const base = baseById.get(a.targetSystemId);
+        added.push(
+          base ?? {
+            systemId: a.targetSystemId,
+            ...(a.newValue as Omit<SubgraphBase, 'systemId'>),
+          },
+        );
+      } else {
+        // DELETE
+        const base = baseById.get(a.targetSystemId);
+        if (base) deleted.push(base);
+      }
+    }
+    return {added, deleted};
+  }
+
+  /**
+   * Returns SGs whose module composition matches the MDF pattern (exactly 2
+   * modules: IPC_TX + IPC_RX), then applies session overlay.
+   * The MDF check is a structural DB predicate — modules are committed-only.
+   */
+  async fetchMdfInScope(
+    fileSystemId: number,
+    sessionId: number | null,
+    sgSystemIds: number[],
+  ): Promise<SubgraphBase[]> {
+    if (sgSystemIds.length === 0) return [];
+
+    const mdfRows = await this.manager
+      .createQueryBuilder()
+      .select('s.system_id', 'systemId')
+      .from('subgraphs', 's')
+      .where('s.file_system_id = :fileSystemId', {fileSystemId})
+      .andWhere('s.system_id IN (:...ids)', {ids: sgSystemIds})
+      .andWhere(
+        '(SELECT COUNT(*) FROM spf_modules m WHERE m.subgraph_system_id = s.system_id) = 2',
+      )
+      .andWhere(
+        `EXISTS (
+           SELECT 1 FROM spf_modules m1
+           JOIN spf_module_definitions d1 ON d1.system_id = m1.definition_system_id
+           WHERE m1.subgraph_system_id = s.system_id AND d1.module_definition_id = :ipcTxId
+         )`,
+        {ipcTxId: IPC_TX_MODULE_DEF_ID},
+      )
+      .andWhere(
+        `EXISTS (
+           SELECT 1 FROM spf_modules m2
+           JOIN spf_module_definitions d2 ON d2.system_id = m2.definition_system_id
+           WHERE m2.subgraph_system_id = s.system_id AND d2.module_definition_id = :ipcRxId
+         )`,
+        {ipcRxId: IPC_RX_MODULE_DEF_ID},
+      )
+      .getRawMany<{systemId: number}>();
+
+    if (mdfRows.length === 0) return [];
+    return this.fetchMany(fileSystemId, sessionId, {
+      systemId: mdfRows.map(r => r.systemId),
+    });
   }
 }

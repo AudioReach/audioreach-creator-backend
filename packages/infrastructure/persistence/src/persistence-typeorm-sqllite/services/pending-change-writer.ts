@@ -403,11 +403,18 @@ export class PendingChangeWriter {
     // Use TypeORM's entity metadata to resolve the actual table name from the entity name.
     // Directly embedding targetTable in raw SQL would fail because ENTITY_NAMES values are
     // TypeORM entity names (e.g. 'SpfModule') while SQLite expects physical table names (e.g. 'spf_modules').
-    const row = await manager
-      .createQueryBuilder(targetTable, 'e')
-      .select('e.version', 'version')
-      .where('e.systemId = :id', {id: targetSystemId})
-      .getRawOne<{version: number}>();
+    let row: {version: number} | undefined;
+    try {
+      row = await manager
+        .createQueryBuilder(targetTable, 'e')
+        .select('e.version', 'version')
+        .where('e.systemId = :id', {id: targetSystemId})
+        .getRawOne<{version: number}>();
+    } catch {
+      // Entity schema has no `version` column (e.g., junction tables such as
+      // UseCaseSubgraph and UseCaseSubgraphPair). Nothing to capture.
+      return;
+    }
     if (!row) return;
     // eslint-disable-next-line custom/no-raw-persistence-queries -- INSERT OR IGNORE semantics (capture-once) are not supported by TypeORM QueryBuilder
     await manager.query(
