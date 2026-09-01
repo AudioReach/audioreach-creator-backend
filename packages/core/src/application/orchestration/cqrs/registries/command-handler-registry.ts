@@ -259,7 +259,12 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(CreateVcpmCkvCommand, {
-      create: deps => new CreateVcpmCkvHandler(deps.uow),
+      create: deps =>
+        new CreateVcpmCkvHandler(
+          deps.uow,
+          deps.idGeneration,
+          deps.queryServices,
+        ),
     });
 
     this.commandHandlerFactories.set(DeleteVcpmCkvCommand, {
@@ -267,7 +272,8 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(UpdateVcpmCalDataCommand, {
-      create: deps => new UpdateVcpmCalDataHandler(deps.uow),
+      create: deps =>
+        new UpdateVcpmCalDataHandler(deps.uow, deps.queryServices),
     });
 
     this.commandHandlerFactories.set(SetContainerPropertyCommand, {

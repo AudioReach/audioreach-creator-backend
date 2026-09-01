@@ -12,11 +12,10 @@ import type {
   SessionChanged,
   SgkvEntry,
   KvPair,
+  VcpmPayloadCreate,
+  VcpmPayloadUpdate,
 } from '@arc/core';
-import {
-  Subgraph as SubgraphEntity,
-  SubgraphPropertyDefinition,
-} from '@arc/core';
+import {Subgraph as SubgraphEntity, SubgraphPropertyDefinition} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
@@ -25,6 +24,7 @@ import {SubgraphPropertyDataFetcher} from '../../fetchers/subgraph-property-data
 import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
 import {SubgraphPropertyDefinitionFetcher} from '../../fetchers/definitions/subgraph-property-definition-fetcher.js';
+import {VcpmWriteAggregateFetcher} from '../../fetchers/vcpm-write-aggregate-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import {SubgraphVcpmDataFetcher} from '../../fetchers/subgraph-vcpm-data-fetcher.js';
@@ -35,6 +35,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly valueDefFetcher: ValueDefinitionFetcher;
   private readonly keyValueDefinitionFetcher: KeyValueDefinitionFetcher;
   private readonly propertyDefinitionFetcher: SubgraphPropertyDefinitionFetcher;
+  private readonly vcpmWriteAggregateFetcher: VcpmWriteAggregateFetcher;
   private readonly vcpmDataFetcher: SubgraphVcpmDataFetcher;
 
   constructor(
@@ -61,6 +62,10 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       this.valueDefFetcher,
     );
     this.propertyDefinitionFetcher = new SubgraphPropertyDefinitionFetcher(
+      manager,
+      editActionsQs,
+    );
+    this.vcpmWriteAggregateFetcher = new VcpmWriteAggregateFetcher(
       manager,
       editActionsQs,
     );
@@ -343,5 +348,119 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
       isImported: Boolean(base.isImported),
       fileSystemId: base.fileSystemId,
     });
+  }
+
+  async getVcpmWriteAggregate(
+    subgraphSystemId: number,
+    ckvSystemId?: number,
+  ) {
+    const {session} = this.uow.getWriteContext();
+    return this.vcpmWriteAggregateFetcher.fetch(
+      subgraphSystemId,
+      session.fileSystemId,
+      session.sessionId,
+      ckvSystemId,
+    );
+  }
+
+  async createVcpmCkv(
+    subgraphSystemId: number,
+    ckvSystemId: number,
+    instanceSystemId: number,
+    valueSystemIds: number[],
+    payloads: VcpmPayloadCreate[],
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+
+    await this.writer.writeCreate(
+      {
+        targetTable: ENTITY_NAMES.VcpmCkv,
+        targetSystemId: ckvSystemId,
+        aggregateId: subgraphSystemId,
+        payload: {
+          vcpmInstanceSystemId: instanceSystemId,
+          valueDefSystemIds: valueSystemIds,
+        },
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+
+    for (const payload of payloads) {
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: payload.systemId,
+          aggregateId: subgraphSystemId,
+          payload: {
+            vcpmCkvSystemId: ckvSystemId,
+            vcpmParameterSystemId: payload.vcpmParameterSystemId,
+            payload: payload.payload,
+          },
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+
+  }
+
+  async deleteVcpmCkv(
+    subgraphSystemId: number,
+    ckvSystemId: number,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    const aggregate = await this.getVcpmWriteAggregate(
+      subgraphSystemId,
+      ckvSystemId,
+    );
+    const payloads = aggregate.payloads;
+
+    for (const payload of payloads) {
+      await this.writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: payload.systemId,
+          aggregateId: subgraphSystemId,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+
+    await this.writer.writeDelete(
+      {
+        targetTable: ENTITY_NAMES.VcpmCkv,
+        targetSystemId: ckvSystemId,
+        aggregateId: subgraphSystemId,
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
+  }
+
+  async updateVcpmCalData(
+    subgraphSystemId: number,
+    _ckvSystemId: number,
+    updates: VcpmPayloadUpdate[],
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    for (const update of updates) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.VcpmParameterPayload,
+          targetSystemId: update.payloadSystemId,
+          aggregateId: subgraphSystemId,
+          delta: {payload: update.payload},
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
   }
 }

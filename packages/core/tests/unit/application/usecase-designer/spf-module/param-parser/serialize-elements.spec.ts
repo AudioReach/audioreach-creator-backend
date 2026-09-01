@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {serializeParameterData} from '../../../../../../src/application/usecase-designer/shared/serialize-elements.js';
+import {
+  serializeParameterData,
+  serializeDefaultParameterData,
+} from '../../../../../../src/application/usecase-designer/shared/serialize-elements.js';
 import type {ParameterDefinitionBase} from '../../../../../../src/application/ports/persistence/repositories/module/module-definition.repository.js';
 
 function scalarDef(dataType: string, min?: string, max?: string): string {
@@ -661,5 +664,149 @@ describe('serializeParameterData', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toContain('Float32 range');
+  });
+});
+
+describe('serializeDefaultParameterData', () => {
+  it('serializes a single ConfigElement using defaultValue', () => {
+    const elementsStructure = JSON.stringify([
+      {elementType: 'ConfigElement', dataType: 'Int16', defaultValue: '42'},
+    ]);
+    const def: ParameterDefinitionBase = {
+      systemId: 1,
+      isReadOnly: false,
+      elementsStructure,
+    };
+
+    const result = serializeDefaultParameterData(def);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const view = new DataView(result.value.buffer, result.value.byteOffset);
+    expect(view.getInt16(0, true)).toBe(42);
+    expect(result.value.length).toBe(8);
+  });
+
+  it('falls back to "0" when ConfigElement has no defaultValue', () => {
+    const elementsStructure = JSON.stringify([
+      {elementType: 'ConfigElement', dataType: 'UInt32'},
+    ]);
+    const def: ParameterDefinitionBase = {
+      systemId: 2,
+      isReadOnly: false,
+      elementsStructure,
+    };
+
+    const result = serializeDefaultParameterData(def);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const view = new DataView(result.value.buffer, result.value.byteOffset);
+    expect(view.getUint32(0, true)).toBe(0);
+    expect(result.value.length).toBe(8);
+  });
+
+  it('returns ok:false when elementsStructure is invalid JSON', () => {
+    const def: ParameterDefinitionBase = {
+      systemId: 3,
+      isReadOnly: false,
+      elementsStructure: 'not-json',
+    };
+
+    const result = serializeDefaultParameterData(def);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe('Failed to parse elementsStructure JSON');
+  });
+
+  it('serializes a Struct with two ConfigElement children using their defaultValues', () => {
+    const elementsStructure = JSON.stringify([
+      {
+        elementType: 'Struct',
+        name: 'S',
+        structureType: 'S',
+        elements: [
+          {elementType: 'ConfigElement', dataType: 'Int8', defaultValue: '5'},
+          {elementType: 'ConfigElement', dataType: 'Int8', defaultValue: '7'},
+        ],
+      },
+    ]);
+    const def: ParameterDefinitionBase = {
+      systemId: 4,
+      isReadOnly: false,
+      elementsStructure,
+    };
+
+    const result = serializeDefaultParameterData(def);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value[0]).toBe(5);
+    expect(result.value[1]).toBe(7);
+    expect(result.value.length).toBe(8);
+  });
+
+  it('serializes an ElementArray of fixed length using template defaultValue', () => {
+    const elementsStructure = JSON.stringify([
+      {
+        elementType: 'ElementArray',
+        name: 'arr',
+        arrayLength: 3,
+        template: {
+          elementType: 'ConfigElement',
+          dataType: 'UInt8',
+          defaultValue: '9',
+        },
+      },
+    ]);
+    const def: ParameterDefinitionBase = {
+      systemId: 5,
+      isReadOnly: false,
+      elementsStructure,
+    };
+
+    const result = serializeDefaultParameterData(def);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value[0]).toBe(9);
+    expect(result.value[1]).toBe(9);
+    expect(result.value[2]).toBe(9);
+  });
+
+  it('serializes a StructArray of fixed length using struct template defaults', () => {
+    const elementsStructure = JSON.stringify([
+      {
+        elementType: 'StructArray',
+        name: 'sarr',
+        arrayLength: 2,
+        template: {
+          elementType: 'Struct',
+          name: 'T',
+          structureType: 'T',
+          elements: [
+            {
+              elementType: 'ConfigElement',
+              dataType: 'UInt8',
+              defaultValue: '3',
+            },
+          ],
+        },
+      },
+    ]);
+    const def: ParameterDefinitionBase = {
+      systemId: 6,
+      isReadOnly: false,
+      elementsStructure,
+    };
+
+    const result = serializeDefaultParameterData(def);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value[0]).toBe(3);
+    expect(result.value[4]).toBe(3);
+    expect(result.value.length).toBe(8);
   });
 });

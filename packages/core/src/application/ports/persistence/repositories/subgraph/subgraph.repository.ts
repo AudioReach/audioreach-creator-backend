@@ -19,6 +19,33 @@ export interface SgkvEntry {
   sgkvSystemId: number;
   keyValues: KvPair[];
 }
+export interface VcpmPayloadRow {
+  systemId: number;
+  vcpmParameterSystemId: number;
+}
+
+export interface VcpmPayloadUpdate {
+  payloadSystemId: number;
+  payload: Uint8Array;
+}
+
+export interface VcpmPayloadCreate {
+  systemId: number;
+  vcpmParameterSystemId: number;
+  payload: Uint8Array;
+}
+
+export interface VcpmWriteCkv {
+  systemId: number;
+  vcpmInstanceSystemId: number;
+  valueDefSystemIds: number[];
+}
+
+export interface VcpmWriteAggregate {
+  instanceSystemId: number | null;
+  ckvs: VcpmWriteCkv[];
+  payloads: VcpmPayloadRow[];
+}
 
 export interface SubgraphRepository {
   subgraphExists(systemId: number, fileSystemId: number): Promise<boolean>;
@@ -90,4 +117,29 @@ export interface SubgraphRepository {
    * Consumer: routing engine graphEdits assembly (addedSgs / deletedSgs).
    */
   findChangedInSession(fileSystemId: number): Promise<SessionChanged<Subgraph>>;
+
+  /**
+   * Returns effective VCPM write state. When ckvSystemId is supplied,
+   * payloads are limited to that effective CKV.
+   */
+  getVcpmWriteAggregate(
+    subgraphSystemId: number,
+    ckvSystemId?: number,
+  ): Promise<VcpmWriteAggregate>;
+
+  createVcpmCkv(
+    subgraphSystemId: number,
+    ckvSystemId: number,
+    instanceSystemId: number,
+    valueSystemIds: number[],
+    payloads: VcpmPayloadCreate[],
+  ): Promise<void>;
+
+  deleteVcpmCkv(subgraphSystemId: number, ckvSystemId: number): Promise<void>;
+
+  updateVcpmCalData(
+    subgraphSystemId: number,
+    ckvSystemId: number,
+    updates: VcpmPayloadUpdate[],
+  ): Promise<void>;
 }
