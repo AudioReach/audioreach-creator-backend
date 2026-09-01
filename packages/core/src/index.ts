@@ -72,7 +72,11 @@ export type {
 } from './application/ports/persistence/repositories/module/module-definition.repository.js';
 export type {DataLinkRepository} from './application/ports/persistence/repositories/data-link/data-link.repository.js';
 export type {ControlLinkRepository} from './application/ports/persistence/repositories/control-link/control-link.repository.js';
-export type {SubgraphRepository} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
+export type {
+  SubgraphRepository,
+  VcpmPayloadRow,
+  VcpmPayloadUpdate,
+} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {SubsystemRepository} from './application/ports/persistence/repositories/subsystem/subsystem.repository.js';
 export type {
   PropertyDefinitionsRepository,
@@ -127,6 +131,10 @@ export * from './application/ports/persistence/query-services/shared/parameter-d
 export * from './application/ports/persistence/query-services/spf-module-definition/custom-module-metadata-read-model.js';
 export * from './application/ports/persistence/query-services/shared/module-definition-summary-read-model.js';
 export * from './application/ports/persistence/query-services/driver-module-definition/driver-module-definition-query-service.js';
+export type {
+  VcpmDefinitionQueryService,
+  VcpmModuleDefinitionWithParams,
+} from './application/ports/persistence/query-services/vcpm-definition/vcpm-definition-query-service.js';
 export * from './application/ports/persistence/query-services/configuration-includes.js';
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-read-model.js';
 export * from './application/ports/persistence/query-services/key-value/key-value-definition-projections.js';
@@ -395,6 +403,7 @@ export {CreateVcpmCkvCommand} from './application/usecase-designer/subgraph/crea
 export type {CkvKeyValuePair} from './application/usecase-designer/subgraph/create-vcpm-ckv/create-vcpm-ckv.command.js';
 export {DeleteVcpmCkvCommand} from './application/usecase-designer/subgraph/delete-vcpm-ckv/delete-vcpm-ckv.command.js';
 export {UpdateVcpmCalDataCommand} from './application/usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.command.js';
+export type {PutVcpmCalDataResult} from './application/usecase-designer/subgraph/update-vcpm-cal-data/put-vcpm-cal-data-result.js';
 // Container write commands
 export {UpdateContainerPropertyCommand} from './application/usecase-designer/container/update-property/update-container-property.command.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';

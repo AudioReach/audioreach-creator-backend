@@ -38,6 +38,7 @@ import {
   TypeOrmPropertyDefinitionsRepository,
   PendingChangeWriter,
   EditActionsQueryService,
+  OverlayMergeImpl,
 } from '@arc/persistence';
 import type {PendingChangeCache} from '@arc/persistence';
 
@@ -172,6 +173,9 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this.getPendingChangeWriter(),
       this.queryRunner.manager,
       this,
+      this.idGeneration,
+      new EditActionsQueryService(this.queryRunner.manager),
+      new OverlayMergeImpl(),
     );
   }
 
