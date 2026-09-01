@@ -48,6 +48,7 @@ export const VcpmCkvDtoSchema = z.object({
 });
 
 export const CreateVcpmCkvDtoSchema = z.object({
+  groupId: z.string(),
   ckvSystemId: z.string(),
   ckv: z.array(
     z.object({

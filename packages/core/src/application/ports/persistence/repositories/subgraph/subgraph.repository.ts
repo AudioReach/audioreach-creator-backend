@@ -19,6 +19,17 @@ export interface SgkvEntry {
   sgkvSystemId: number;
   keyValues: KvPair[];
 }
+import type {ParameterDefinitionBase} from '../module/module-definition.repository.js';
+
+export interface VcpmPayloadRow {
+  systemId: number;
+  vcpmParameterSystemId: number;
+}
+
+export interface VcpmPayloadUpdate {
+  payloadSystemId: number;
+  payload: Uint8Array;
+}
 
 export interface SubgraphRepository {
   subgraphExists(systemId: number, fileSystemId: number): Promise<boolean>;
@@ -82,4 +93,39 @@ export interface SubgraphRepository {
    * Consumer: routing engine graphEdits assembly (addedSgs / deletedSgs).
    */
   findChangedInSession(fileSystemId: number): Promise<SessionChanged<Subgraph>>;
+
+  getVcpmInstanceSystemId(
+    subgraphSystemId: number,
+    vcpmDefinitionSystemId: number,
+  ): Promise<number | null>;
+
+  vcpmCkvExists(
+    instanceSystemId: number,
+    valueSystemIds: number[],
+  ): Promise<boolean>;
+
+  vcpmCkvExistsBySystemId(
+    ckvSystemId: number,
+    subgraphSystemId: number,
+  ): Promise<boolean>;
+
+  createVcpmCkv(
+    subgraphSystemId: number,
+    instanceSystemId: number,
+    valueSystemIds: number[],
+    params: ParameterDefinitionBase[],
+  ): Promise<number>;
+
+  deleteVcpmCkv(subgraphSystemId: number, ckvSystemId: number): Promise<void>;
+
+  getVcpmCkvPayloads(
+    ckvSystemId: number,
+    subgraphSystemId: number,
+  ): Promise<VcpmPayloadRow[]>;
+
+  updateVcpmCalData(
+    subgraphSystemId: number,
+    ckvSystemId: number,
+    updates: VcpmPayloadUpdate[],
+  ): Promise<void>;
 }

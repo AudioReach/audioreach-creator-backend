@@ -59,6 +59,63 @@ export function serializeParameterData(
   return {ok: true, value: writer.toUint8Array()};
 }
 
+export function serializeDefaultParameterData(
+  definition: ParameterDefinitionBase,
+): SerializeResult {
+  let schema: DefinitionElement[];
+  try {
+    schema = convertParamDefinition(definition.elementsStructure);
+  } catch {
+    return {ok: false, error: 'Failed to parse elementsStructure JSON'};
+  }
+  const defaultElements = buildDefaultElements(schema);
+  return serializeParameterData(definition, defaultElements);
+}
+
+function buildDefaultElements(schema: DefinitionElement[]): ElementCalData[] {
+  return schema.map(el => buildDefaultElement(el));
+}
+
+function buildDefaultElement(el: DefinitionElement): ElementCalData {
+  switch (el.elementType) {
+    case PARAMETER_ELEMENT_TYPE.ConfigElement: {
+      const cfg = el;
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+        value: cfg.defaultValue ?? '0',
+      } as ConfigElementData;
+    }
+    case PARAMETER_ELEMENT_TYPE.Struct: {
+      const s = el;
+      return {
+        type: PARAMETER_ELEMENT_TYPE.Struct,
+        value: buildDefaultElements(s.elements),
+      } as StructData;
+    }
+    case PARAMETER_ELEMENT_TYPE.ElementArray: {
+      const a = el;
+      const length = a.arrayLength ?? 0;
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
+        value: Array.from({length}, () => buildDefaultElement(a.template)),
+      } as ElementArrayData;
+    }
+    case PARAMETER_ELEMENT_TYPE.StructArray: {
+      const sa = el;
+      const length = sa.arrayLength ?? 0;
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ElementArray,
+        value: Array.from({length}, () => buildDefaultElement(sa.template)),
+      } as ElementArrayData;
+    }
+    default:
+      return {
+        type: PARAMETER_ELEMENT_TYPE.ConfigElement,
+        value: '0',
+      } as ConfigElementData;
+  }
+}
+
 function serializeElements(
   schema: DefinitionElement[],
   inputs: ElementCalData[],

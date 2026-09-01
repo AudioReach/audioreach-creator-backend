@@ -100,26 +100,38 @@ packages/api/src/presentation/rest/modules/subgraph/
 #### Core Layer
 ```
 packages/core/src/application/
-├── ports/persistence/repositories/subgraph/
-│   └── subgraph.repository.ts                                           (modified — add createVcpmCkv, vcpmCkvExists, deleteVcpmCkv, getVcpmCkvPayloads, updateVcpmCalData)
+├── ports/persistence/repositories/
+│   ├── subgraph/subgraph.repository.ts                                   (modified)
+│   ├── vcpm/vcpm-definition.repository.ts                               (present, not wired into UnitOfWork)
+│   └── key-value/key-value-definition.repository.ts                     (present, not wired into UnitOfWork)
+├── ports/persistence/query-services/vcpm/
+│   └── vcpm-calibration-query-service.ts                                 (present, not exposed by QueryServices)
 ├── orchestration/cqrs/registries/
-│   └── command-handler-registry.ts                                      (modified — inject queryServices into CreateVcpmCkvHandler and UpdateVcpmCalDataHandler)
+│   ├── command-handler-registry.ts                                      (modified)
+│   └── query-handler-registry.ts                                        (modified; GET handlers registered)
 └── usecase-designer/subgraph/
-    ├── create-vcpm-ckv/
-    │   └── create-vcpm-ckv.handler.ts                                   (modified — implement logic)
-    ├── delete-vcpm-ckv/
-    │   └── delete-vcpm-ckv.handler.ts                                   (modified — implement logic)
+    ├── create-vcpm-ckv/create-vcpm-ckv.handler.ts                       (implemented)
+    ├── delete-vcpm-ckv/delete-vcpm-ckv.handler.ts                       (implemented)
+    ├── get-vcpm-ckv/get-vcpm-ckv.handler.ts                             (registered; not implemented)
+    ├── get-vcpm-cal-data/get-vcpm-cal-data.handler.ts                   (registered; not implemented)
     └── update-vcpm-cal-data/
-        ├── update-vcpm-cal-data.command.ts                              (modified — data: unknown[] → parameters: Array<{systemId, elements}>)
-        ├── update-vcpm-cal-data.handler.ts                              (modified — implement logic)
-        └── put-vcpm-cal-data-result.ts                                  (new — PutVcpmCalDataResult interface)
+        ├── update-vcpm-cal-data.command.ts                              (implemented)
+        ├── update-vcpm-cal-data.handler.ts                              (implemented)
+        └── put-vcpm-cal-data-result.ts                                  (present)
 ```
 
 #### Infrastructure Layer
 ```
 packages/infrastructure/persistence/src/persistence-typeorm-sqllite/
-└── repositories/subgraph/
-    └── subgraph.repository.ts                                           (modified — implement createVcpmCkv, vcpmCkvExists, deleteVcpmCkv, getVcpmCkvPayloads, updateVcpmCalData)
+├── fetchers/
+│   ├── vcpm-ckv-overlay-fetcher.ts                                      (present; read-side)
+│   └── vcpm-parameter-payload-fetcher.ts                                (present; read-side)
+├── queries/vcpm/
+│   └── db-vcpm-calibration-query-service.ts                             (present; not wired into QueryServices)
+└── repositories/
+    ├── subgraph/subgraph.repository.ts                                  (implemented; inline write-side overlay)
+    ├── vcpm/vcpm-definition.repository.ts                               (present; not wired)
+    └── key-value/key-value-definition.repository.ts                     (present; not wired)
 ```
 
 No schema changes — no migration needed.
@@ -186,6 +198,32 @@ Infrastructure (Persistence)
     → writeDelta on each VcpmParameterPayload (aggregateId = subgraphSystemId,
       delta = { payload: serializedBytes })
 ```
+
+---
+
+### 1.4 Current implementation alignment
+
+The snippets in this document are aligned with the current source tree as it
+exists today:
+
+- `CreateVcpmCkvHandler`, `DeleteVcpmCkvHandler`, and
+  `UpdateVcpmCalDataHandler` are implemented.
+- Create and update currently receive `QueryServices` and use
+  `vcpmDefinitionQueryService`; the command-side VCPM and key/value repository
+  adapters exist as separate files but are not yet exposed by `UnitOfWork` or
+  used by these handlers.
+- `TypeOrmSubgraphRepository` currently performs VCPM effective-state reads
+  through its inline `EditActionsQueryService`/`OverlayMergeImpl` logic. The
+  dedicated VCPM fetchers are used by `DbVcpmCalibrationQueryService`, not by
+  the write repository.
+- The write repository currently passes an inline predicate as the third
+  argument to `applyToCollection`, while the dedicated fetchers pass the
+  `matchesEffective` options object. This API usage must be reconciled before
+  treating the snippets as compile-ready.
+- `GetVcpmCkvHandler` and `GetVcpmCalDataHandler` are registered, but their
+  current implementations still throw `not implemented yet`.
+- `VcpmCkvValues` is inserted directly by `createVcpmCkv`; it is not staged as
+  an `edit_actions` row.
 
 ---
 
@@ -282,65 +320,78 @@ export class CreateVcpmCkvHandler implements CommandHandler<
   async handle(command: CreateVcpmCkvCommand): Promise<CreateVcpmCkvDto> {
     const {session, groupId} = this.uow.getWriteContext();
     const fileSystemId = session.fileSystemId;
+    const repository = this.uow.getSubgraphRepository();
 
-    // Step 1: subgraph existence
-    const exists = await this.uow.getSubgraphRepository()
-      .subgraphExists(command.subgraphSystemId, fileSystemId);
-    if (!exists) throw new ResourceNotFoundException(`Subgraph ${command.subgraphSystemId} not found`);
-
-    // Step 2: load VcpmInstance + parameter definitions
-    const vcpmDefs = await this.queryServices.vcpmDefinitionQueryService
-      .getVcpmModuleDefinitionsWithParams(fileSystemId);
-    if (vcpmDefs.length === 0) {
-      throw new ResourceNotFoundException('No VCPM module definitions found for this file');
+    if (
+      !(await repository.subgraphExists(command.subgraphSystemId, fileSystemId))
+    ) {
+      throw new ResourceNotFoundException(
+        `Subgraph ${command.subgraphSystemId} not found`,
+      );
     }
-    // Currently one VCPM definition; loop handles future multi-definition case
-    const vcpmDef = vcpmDefs[0];
 
-    // Step 3: load VcpmInstance systemId for this subgraph + definition
-    const instanceSystemId = await this.uow.getSubgraphRepository()
-      .getVcpmInstanceSystemId(command.subgraphSystemId, vcpmDef.systemId);
+    const definitions =
+      await this.queryServices.vcpmDefinitionQueryService.getVcpmModuleDefinitionsWithParams(
+        fileSystemId,
+      );
+    const definition = definitions[0];
+    if (!definition) {
+      throw new ResourceNotFoundException(
+        `No VCPM module definition found for file ${fileSystemId}`,
+      );
+    }
+
+    const instanceSystemId = await repository.getVcpmInstanceSystemId(
+      command.subgraphSystemId,
+      definition.systemId,
+    );
     if (instanceSystemId === null) {
       throw new ResourceNotFoundException(
         `VcpmInstance not found for subgraph ${command.subgraphSystemId}`,
       );
     }
 
-    // Step 4: duplicate CKV guard
-    const valueSystemIds = command.ckv.flatMap(k => k.valueSystemIds.map(Number));
-    const isDuplicate = await this.uow.getSubgraphRepository()
-      .vcpmCkvExists(instanceSystemId, valueSystemIds);
-    if (isDuplicate) {
-      throw new DomainRuleViolationException(
-        'A CKV with the same key-value combination already exists on this subgraph',
-      );
+    const valueSystemIds = command.ckv.flatMap(pair =>
+      pair.valueSystemIds.map(Number),
+    );
+    if (await repository.vcpmCkvExists(instanceSystemId, valueSystemIds)) {
+      throw new DomainRuleViolationException([
+        IssueFactory.parseError(
+          'VCPM_CKV_DUPLICATE',
+          `A VCPM CKV with the requested values already exists for instance ${instanceSystemId}`,
+        ),
+      ]);
     }
 
-    // Step 5: create CKV + values + payloads (transactional)
     await this.uow.startTransaction();
-    let newCkvSystemId: number;
+    let ckvSystemId: number;
     try {
-      newCkvSystemId = await this.uow.getSubgraphRepository()
-        .createVcpmCkv(
-          command.subgraphSystemId,
-          instanceSystemId,
-          valueSystemIds,
-          vcpmDef.parameters,
-        );
+      ckvSystemId = await repository.createVcpmCkv(
+        command.subgraphSystemId,
+        instanceSystemId,
+        valueSystemIds,
+        definition.parameters,
+      );
       await this.uow.commit();
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
       throw error;
     }
 
-    // Step 6: resolve keyId + valueId natural keys for response
-    const kvResult = await this.queryServices.keyValueDefQueryService
-      .getKeyValueSummaryForGivenValues(valueSystemIds, fileSystemId);
-    const ckv = kvResult.kind !== RESULT_KIND.Fail
-      ? kvResult.data.map(pair => ({keyId: pair.key.keyId, valueId: pair.value.valueId}))
-      : [];
+    const keyValueResult =
+      await this.queryServices.keyValueDefQueryService.getKeyValueSummaryForGivenValues(
+        valueSystemIds,
+        fileSystemId,
+      );
+    const ckv =
+      keyValueResult.kind === RESULT_KIND.Fail
+        ? []
+        : keyValueResult.data.map(pair => ({
+            keyId: pair.key.keyId,
+            valueId: pair.value.valueId,
+          }));
 
-    return {groupId, ckvSystemId: String(newCkvSystemId), ckv};
+    return {groupId, ckvSystemId: String(ckvSystemId), ckv};
   }
 }
 ```
@@ -360,24 +411,37 @@ this.commandHandlerFactories.set(CreateVcpmCkvCommand, {
 export class DeleteVcpmCkvHandler implements CommandHandler<DeleteVcpmCkvCommand, void> {
   constructor(private readonly uow: UnitOfWork) {}
 
-  async handle(command: DeleteVcpmCkvCommand): Promise<void> {
-    const {session} = this.uow.getWriteContext();
-    const fileSystemId = session.fileSystemId;
+async handle(command: DeleteVcpmCkvCommand): Promise<void> {
+  const {session} = this.uow.getWriteContext();
+  const repository = this.uow.getSubgraphRepository();
 
-    // Step 1: subgraph existence
-    const exists = await this.uow.getSubgraphRepository()
-      .subgraphExists(command.subgraphSystemId, fileSystemId);
-    if (!exists) throw new ResourceNotFoundException(`Subgraph ${command.subgraphSystemId} not found`);
-
-    // Step 2: CKV existence
-    const ckvExists = await this.uow.getSubgraphRepository()
-      .vcpmCkvExistsBySystemId(command.ckvSystemId, command.subgraphSystemId);
-    if (!ckvExists) throw new ResourceNotFoundException(`VcpmCkv ${command.ckvSystemId} not found`);
-
-    // Step 3: delete CKV + payloads
-    await this.uow.getSubgraphRepository()
-      .deleteVcpmCkv(command.subgraphSystemId, command.ckvSystemId);
+  if (
+    !(await repository.subgraphExists(
+      command.subgraphSystemId,
+      session.fileSystemId,
+    ))
+  ) {
+    throw new ResourceNotFoundException(
+      `Subgraph ${command.subgraphSystemId} not found`,
+    );
   }
+
+  if (
+    !(await repository.vcpmCkvExistsBySystemId(
+      command.ckvSystemId,
+      command.subgraphSystemId,
+    ))
+  ) {
+    throw new ResourceNotFoundException(
+      `VcpmCkv ${command.ckvSystemId} not found`,
+    );
+  }
+
+  await repository.deleteVcpmCkv(
+    command.subgraphSystemId,
+    command.ckvSystemId,
+  );
+}
 }
 ```
 
@@ -385,7 +449,9 @@ export class DeleteVcpmCkvHandler implements CommandHandler<DeleteVcpmCkvCommand
 
 **File:** `packages/core/src/application/usecase-designer/subgraph/update-vcpm-cal-data/update-vcpm-cal-data.handler.ts` (modified)
 
-Mirrors `PutCkvCalDataHandler` for SPF modules exactly.
+Mirrors `PutCkvCalDataHandler` for SPF modules. The current implementation
+collects per-parameter issues and returns `Result.partial` when at least one
+submitted payload cannot be updated.
 
 ```typescript
 export class UpdateVcpmCalDataHandler implements CommandHandler<
@@ -400,26 +466,38 @@ export class UpdateVcpmCalDataHandler implements CommandHandler<
   async handle(command: UpdateVcpmCalDataCommand): Promise<Result<PutVcpmCalDataResult>> {
     const {session, groupId} = this.uow.getWriteContext();
     const fileSystemId = session.fileSystemId;
+    const repository = this.uow.getSubgraphRepository();
 
     // Step 1: subgraph existence
-    const exists = await this.uow.getSubgraphRepository()
-      .subgraphExists(command.subgraphSystemId, fileSystemId);
+    const exists = await repository.subgraphExists(
+      command.subgraphSystemId,
+      fileSystemId,
+    );
     if (!exists) throw new ResourceNotFoundException(`Subgraph ${command.subgraphSystemId} not found`);
 
     // Step 2: CKV existence
-    const ckvExists = await this.uow.getSubgraphRepository()
-      .vcpmCkvExistsBySystemId(command.ckvSystemId, command.subgraphSystemId);
+    const ckvExists = await repository.vcpmCkvExistsBySystemId(
+      command.ckvSystemId,
+      command.subgraphSystemId,
+    );
     if (!ckvExists) throw new ResourceNotFoundException(`VcpmCkv ${command.ckvSystemId} not found`);
 
     // Step 3: fetch existing payload rows (overlay-aware — includes same-session CREATEs)
-    const existingPayloads = await this.uow.getSubgraphRepository()
-      .getVcpmCkvPayloads(command.ckvSystemId, command.subgraphSystemId);
+    const existingPayloads = await repository.getVcpmCkvPayloads(
+      command.ckvSystemId,
+      command.subgraphSystemId,
+    );
 
     // Step 4: load parameter definitions for this CKV's VCPM definition
-    const vcpmDefs = await this.queryServices.vcpmDefinitionQueryService
-      .getVcpmModuleDefinitionsWithParams(fileSystemId);
-    const allParams = vcpmDefs.flatMap(d => d.parameters);
-    const defBySystemId = new Map(allParams.map(p => [p.systemId, p]));
+    const definitions =
+      await this.queryServices.vcpmDefinitionQueryService.getVcpmModuleDefinitionsWithParams(
+        fileSystemId,
+      );
+    const defBySystemId = new Map(
+      definitions
+        .flatMap(definition => definition.parameters)
+        .map(parameter => [parameter.systemId, parameter]),
+    );
 
     // Step 5: per-parameter validation + serialization
     const payloadMap = new Map(existingPayloads.map(p => [p.systemId, p]));
@@ -430,24 +508,28 @@ export class UpdateVcpmCalDataHandler implements CommandHandler<
     for (const param of command.parameters) {
       const existing = payloadMap.get(param.systemId);
       if (!existing) {
-        issues.push({code: ISSUE_CODE.PARAM_PAYLOAD_NOT_FOUND,
-          message: `Parameter ${param.systemId}: no existing payload row (update-only)`,
-          severity: IssueSeverity.Error});
+        issues.push(IssueFactory.paramPayloadNotFound(param.systemId));
         continue;
       }
       const def = defBySystemId.get(existing.vcpmParameterSystemId);
       if (!def) throw new Error(`VcpmParameterDefinition missing for systemId=${existing.vcpmParameterSystemId} — DB integrity violation`);
       if (def.isReadOnly) {
-        issues.push({code: ISSUE_CODE.PARAM_READ_ONLY,
-          message: `Parameter ${param.systemId}: read-only`,
-          severity: IssueSeverity.Error});
+        issues.push(IssueFactory.paramReadOnly(param.systemId));
         continue;
       }
-      const serialized = serializeParameterData(def, param.elements);
+      const serialized = serializeParameterData(
+        def,
+        mapDtoToParameterCalibration(
+          param.elements as unknown as ParameterElementDto[],
+        ),
+      );
       if (!serialized.ok) {
-        issues.push({code: ISSUE_CODE.PARAM_SERIALIZATION_FAILED,
-          message: `Parameter ${param.systemId}: ${serialized.error}`,
-          severity: IssueSeverity.Error});
+        issues.push(
+          IssueFactory.paramSerializationFailed(
+            param.systemId,
+            serialized.error,
+          ),
+        );
         continue;
       }
       succeededParamSystemIds.push(param.systemId);
@@ -457,8 +539,11 @@ export class UpdateVcpmCalDataHandler implements CommandHandler<
     // Step 6: write successful payloads
     await this.uow.startTransaction();
     try {
-      await this.uow.getSubgraphRepository()
-        .updateVcpmCalData(command.subgraphSystemId, command.ckvSystemId, writeBatch);
+      await repository.updateVcpmCalData(
+        command.subgraphSystemId,
+        command.ckvSystemId,
+        writeBatch,
+      );
       await this.uow.commit();
     } catch (error) {
       if (this.uow.isInTransaction()) await this.uow.rollback();
@@ -489,7 +574,39 @@ this.commandHandlerFactories.set(UpdateVcpmCalDataCommand, {
 });
 ```
 
-### 3.5 SubgraphRepository Port Extensions
+### 3.5 Current GET handler status
+
+The GET handlers are registered by `QueryHandlerRegistry`, but their current
+source implementations are placeholders:
+
+```typescript
+export class GetVcpmCkvHandler implements QueryHandler<
+  GetVcpmCkvQuery,
+  Promise<Result<VcpmCkvDto>>
+> {
+  constructor(_queryServices: QueryServices) {}
+
+  handle(_query: GetVcpmCkvQuery): Promise<Result<VcpmCkvDto>> {
+    throw new Error('GetVcpmCkvHandler not implemented yet');
+  }
+}
+
+export class GetVcpmCalDataHandler implements QueryHandler<
+  GetVcpmCalDataQuery,
+  Promise<Result<CkvCalDataDto>>
+> {
+  constructor(_queryServices: QueryServices) {}
+
+  handle(_query: GetVcpmCalDataQuery): Promise<Result<CkvCalDataDto>> {
+    throw new Error('GetVcpmCalDataHandler not implemented yet');
+  }
+}
+```
+
+The read-side fetchers and `DbVcpmCalibrationQueryService` shown in section 4.9
+are therefore not yet connected to these handlers.
+
+### 3.6 SubgraphRepository Port Extensions
 
 **File:** `packages/core/src/application/ports/persistence/repositories/subgraph/subgraph.repository.ts` (modified)
 
@@ -529,13 +646,13 @@ export interface SubgraphRepository {
   ): Promise<boolean>;
 
   // Stages CREATE for VcpmCkv + VcpmCkvValues + VcpmParameterPayload rows.
-  // Default payload derived from each param's elementsStructure via serializeDefaultPayload.
+  // Default payload is produced by serializeDefaultParameterData(param).
   // Returns the new VcpmCkv.systemId.
   createVcpmCkv(
     subgraphSystemId: number,
     instanceSystemId: number,
     valueSystemIds: number[],
-    params: Array<{systemId: number; elementsStructure: string}>,
+    params: ParameterDefinitionBase[],
   ): Promise<number>;
 
   // Stages DELETE for VcpmParameterPayload rows + VcpmCkv row.
@@ -694,34 +811,57 @@ async createVcpmCkv(
   subgraphSystemId: number,
   instanceSystemId: number,
   valueSystemIds: number[],
-  params: Array<{systemId: number; elementsStructure: string}>,
+  params: ParameterDefinitionBase[],
 ): Promise<number> {
   const {session, groupId} = this.uow.getWriteContext();
-  const ckvSystemId = await this.idGeneration.generateId(ENTITY_NAMES.VcpmCkv);
+  const ckvSystemId = await this.idGeneration.getNextId(session.fileSystemId);
 
-  // Create VcpmCkv row
   await this.writer.writeCreate(
-    {targetTable: ENTITY_NAMES.VcpmCkv, targetSystemId: ckvSystemId,
-     aggregateId: subgraphSystemId, payload: {vcpmInstanceSystemId: instanceSystemId}},
-    session.sessionId, groupId, this.manager,
+    {
+      targetTable: ENTITY_NAMES.VcpmCkv,
+      targetSystemId: ckvSystemId,
+      aggregateId: subgraphSystemId,
+      payload: {vcpmInstanceSystemId: instanceSystemId},
+    },
+    session.sessionId,
+    groupId,
+    this.manager,
   );
 
   // Create VcpmCkvValues rows (composite PK — written directly, not via PendingChangeWriter)
   for (const valueSystemId of valueSystemIds) {
     await this.manager
       .getRepository(ENTITY_NAMES.VcpmCkvValues)
-      .insert({vcpmCkvSystemId: ckvSystemId, valueDefSystemId: valueSystemId});
+      .insert({
+        vcpmCkvSystemId: ckvSystemId,
+        valueDefSystemId: valueSystemId,
+      });
   }
 
-  // Create VcpmParameterPayload rows with default payload per parameter
   for (const param of params) {
-    const payloadSystemId = await this.idGeneration.generateId(ENTITY_NAMES.VcpmParameterPayload);
-    const defaultPayload = serializeDefaultPayload(param.elementsStructure);
+    const payloadSystemId = await this.idGeneration.getNextId(
+      session.fileSystemId,
+    );
+    const serialized = serializeDefaultParameterData(param);
+    if (!serialized.ok) {
+      throw new Error(
+        `Failed to serialize default payload for VcpmParameterDefinition ${param.systemId}: ${serialized.error}`,
+      );
+    }
     await this.writer.writeCreate(
-      {targetTable: ENTITY_NAMES.VcpmParameterPayload, targetSystemId: payloadSystemId,
-       aggregateId: subgraphSystemId,
-       payload: {vcpmCkvSystemId: ckvSystemId, vcpmParameterSystemId: param.systemId, payload: defaultPayload}},
-      session.sessionId, groupId, this.manager,
+      {
+        targetTable: ENTITY_NAMES.VcpmParameterPayload,
+        targetSystemId: payloadSystemId,
+        aggregateId: subgraphSystemId,
+        payload: {
+          vcpmCkvSystemId: ckvSystemId,
+          vcpmParameterSystemId: param.systemId,
+          payload: serialized.value,
+        },
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
     );
   }
 
@@ -793,26 +933,20 @@ async getVcpmCkvPayloads(
 
   const overlaid = this.overlay.applyToCollection(
     baseRows as unknown as Array<{systemId: number}>,
-    payloadActions.filter(a => a.operation !== CHANGE_OPERATION.Create),
-  ).map(r => r.effective as unknown as {systemId: number; vcpmParameterSystemId: number});
+    payloadActions,
+    newValue => Number(newValue.vcpmCkvSystemId) === ckvSystemId,
+  );
 
-  // Include staged CREATEs for this CKV
-  const baseIds = new Set(baseRows.map(r => r.systemId));
-  const created = payloadActions
-    .filter(a =>
-      a.operation === CHANGE_OPERATION.Create &&
-      !baseIds.has(a.targetSystemId) &&
-      (a.newValue as any)?.vcpmCkvSystemId === ckvSystemId,
-    )
-    .map(a => ({
-      systemId: a.targetSystemId,
-      vcpmParameterSystemId: (a.newValue as any).vcpmParameterSystemId as number,
-    }));
-
-  return [...overlaid, ...created].map(r => ({
-    systemId: r.systemId,
-    vcpmParameterSystemId: r.vcpmParameterSystemId,
-  }));
+  return overlaid.map(result => {
+    const effective = result.effective as {
+      systemId: number;
+      vcpmParameterSystemId: number;
+    };
+    return {
+      systemId: effective.systemId,
+      vcpmParameterSystemId: effective.vcpmParameterSystemId,
+    };
+  });
 }
 ```
 
@@ -827,11 +961,15 @@ async updateVcpmCalData(
   const {session, groupId} = this.uow.getWriteContext();
   for (const update of updates) {
     await this.writer.writeDelta(
-      {targetTable: ENTITY_NAMES.VcpmParameterPayload,
-       targetSystemId: update.payloadSystemId,
-       aggregateId: subgraphSystemId,
-       delta: {payload: update.payload}},
-      session.sessionId, groupId, this.manager,
+      {
+        targetTable: ENTITY_NAMES.VcpmParameterPayload,
+        targetSystemId: update.payloadSystemId,
+        aggregateId: subgraphSystemId,
+        delta: {payload: update.payload},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
     );
   }
 }
@@ -865,6 +1003,339 @@ async updateVcpmCalData(
 | `targetSystemId` | `payloadSystemId` (PK) |
 | `aggregateId` | `subgraphSystemId` |
 | `delta` | `{ payload: <Uint8Array> }` |
+
+### 4.9 Read-side VCPM fetchers
+
+These fetchers are separate from the write repository. They are consumed by
+DbVcpmCalibrationQueryService. The write repository currently keeps its own
+inline overlay logic, as described in sections 4.2–4.6.
+
+#### 4.9.1 VcpmCkvOverlayFetcher
+
+File: packages/infrastructure/persistence/src/persistence-typeorm-sqllite/fetchers/vcpm-ckv-overlay-fetcher.ts
+
+The fetcher loads committed CKVs, applies actions for the owning subgraph, and
+normalizes committed values and staged CREATE value-definition IDs into the
+same read shape:
+
+~~~typescript
+async fetchOne(
+  ckvSystemId: number,
+  subgraphSystemId: number,
+  sessionId: number | null,
+): Promise<OverlaidVcpmCkv | null> {
+  const baseRow = (await this.manager
+    .getRepository(ENTITY_NAMES.VcpmCkv)
+    .createQueryBuilder('ckv')
+    .innerJoin('ckv.vcpmInstance', 'instance')
+    .leftJoinAndSelect('ckv.values', 'values')
+    .where('ckv.systemId = :ckvSystemId', {ckvSystemId})
+    .andWhere('instance.subgraphSystemId = :subgraphSystemId', {
+      subgraphSystemId,
+    })
+    .getOne()) as VcpmCkvRow | null;
+
+  if (sessionId === null) {
+    return baseRow ? this.toOverlaid(baseRow) : null;
+  }
+
+  const actions = await this.editActionsSvc.getByAggregateId(
+    sessionId,
+    subgraphSystemId,
+  );
+  const ckvActions = actions.filter(
+    action =>
+      action.targetTable === ENTITY_NAMES.VcpmCkv &&
+      action.targetSystemId === ckvSystemId,
+  );
+  const result = this.overlay.applyToSingle(baseRow, ckvActions, {
+    matchesEffective: row => row.systemId === ckvSystemId,
+  });
+
+  return result ? this.toOverlaid(result.effective) : null;
+}
+
+private toOverlaid(row: VcpmCkvOverlayRow): OverlaidVcpmCkv {
+  const valueDefSystemIds =
+    row.valueDefSystemIds ??
+    (row.values ?? []).map(value => value.valueDefSystemId);
+
+  return {
+    systemId: row.systemId,
+    vcpmInstanceSystemId: row.vcpmInstanceSystemId,
+    values: valueDefSystemIds.map(valueDefSystemId => ({
+      vcpmCkvSystemId: row.systemId,
+      valueDefSystemId,
+    })),
+  };
+}
+~~~
+
+`fetchMany` uses the same `applyToCollection` path and filters effective rows by
+`vcpmInstanceSystemId`:
+
+```typescript
+async fetchMany(
+  vcpmInstanceSystemId: number,
+  subgraphSystemId: number,
+  sessionId: number | null,
+): Promise<OverlaidVcpmCkv[]> {
+  const baseRows = (await this.manager
+    .getRepository(ENTITY_NAMES.VcpmCkv)
+    .createQueryBuilder('ckv')
+    .leftJoinAndSelect('ckv.values', 'values')
+    .where('ckv.vcpmInstanceSystemId = :vcpmInstanceSystemId', {
+      vcpmInstanceSystemId,
+    })
+    .getMany()) as VcpmCkvRow[];
+
+  if (sessionId === null) {
+    return baseRows.map(row => this.toOverlaid(row));
+  }
+
+  const actions = await this.editActionsSvc.getByAggregateId(
+    sessionId,
+    subgraphSystemId,
+  );
+  const ckvActions = actions.filter(
+    action => action.targetTable === ENTITY_NAMES.VcpmCkv,
+  );
+
+  return this.overlay
+    .applyToCollection(baseRows, ckvActions, {
+      matchesEffective: row =>
+        row.vcpmInstanceSystemId === vcpmInstanceSystemId,
+    })
+    .map(result => this.toOverlaid(result.effective));
+}
+```
+
+#### 4.9.2 VcpmParameterPayloadFetcher
+
+File: packages/infrastructure/persistence/src/persistence-typeorm-sqllite/fetchers/vcpm-parameter-payload-fetcher.ts
+
+The payload fetcher scopes edit actions by the owning subgraph and supports
+optional payload-row filters:
+
+~~~typescript
+async fetchMany(
+  ckvSystemId: number,
+  subgraphSystemId: number,
+  sessionId: number | null,
+  filters?: VcpmParameterPayloadFilters,
+): Promise<VcpmParameterPayloadBase[]> {
+  const aggregateActions =
+    sessionId === null
+      ? []
+      : await this.editActionsSvc.getByAggregateId(
+          sessionId,
+          subgraphSystemId,
+        );
+  const payloadActions = aggregateActions.filter(
+    action => action.targetTable === ENTITY_NAMES.VcpmParameterPayload,
+  );
+
+  const query = this.manager
+    .getRepository(ENTITY_NAMES.VcpmParameterPayload)
+    .createQueryBuilder('payload')
+    .where('payload.vcpmCkvSystemId = :ckvSystemId', {ckvSystemId});
+
+  if (sessionId === null && filters) {
+    applyEntityFilters(query, 'payload', filters);
+  }
+
+  const base = ((await query.getMany()) as VcpmParameterPayloadRow[]).map(
+    row => this.toBase(row),
+  );
+
+  if (sessionId === null || payloadActions.length === 0) {
+    return this.filterPayloads(base, filters);
+  }
+
+  return this.overlay
+    .applyToCollection(base, payloadActions, {
+      matchesEffective: row =>
+        row.vcpmCkvSystemId === ckvSystemId &&
+        (filters === undefined ||
+          matchesEntityFilters(
+            row as unknown as Record<string, unknown>,
+            filters,
+          )),
+    })
+    .map(result => result.effective);
+}
+~~~
+
+#### 4.9.3 DbVcpmCalibrationQueryService
+
+File: packages/infrastructure/persistence/src/persistence-typeorm-sqllite/queries/vcpm/db-vcpm-calibration-query-service.ts
+
+~~~typescript
+async getCkv(
+  fileSystemId: number,
+  subgraphSystemId: number,
+  ckvSystemId: number,
+): Promise<VcpmCkvReadModel | null> {
+  const sessionId = await resolveActiveSessionId(
+    this.dataSource,
+    fileSystemId,
+  );
+  const row = await this.ckvFetcher.fetchOne(
+    ckvSystemId,
+    subgraphSystemId,
+    sessionId,
+  );
+  if (row === null) return null;
+
+  const valueSystemIds = row.values.map(
+    value => value.valueDefSystemId,
+  );
+  const pairsResult =
+    await this.keyValueDefQueryService.getKeyValueSummaryForGivenValues(
+      valueSystemIds,
+      fileSystemId,
+    );
+  if (pairsResult.kind === RESULT_KIND.Fail) {
+    throw new Error('Failed to resolve VCPM CKV values');
+  }
+
+  return {
+    systemId: row.systemId,
+    keyValuePairs: pairsResult.data,
+  };
+}
+
+async getPayloads(
+  fileSystemId: number,
+  subgraphSystemId: number,
+  ckvSystemId: number,
+  payloadSystemIds?: number[],
+): Promise<VcpmParameterPayloadReadModel[]> {
+  const sessionId = await resolveActiveSessionId(
+    this.dataSource,
+    fileSystemId,
+  );
+  const payloads = await this.payloadFetcher.fetchMany(
+    ckvSystemId,
+    subgraphSystemId,
+    sessionId,
+    payloadSystemIds && payloadSystemIds.length > 0
+      ? {systemId: payloadSystemIds}
+      : undefined,
+  );
+
+  return payloads.map(payload => ({
+    systemId: payload.systemId,
+    vcpmParameterSystemId: payload.vcpmParameterSystemId,
+    payload: payload.payload,
+  }));
+}
+~~~
+
+The current QueryServices port does not expose VcpmCalibrationQueryService,
+and the two VCPM GET handlers remain stubs. Therefore this read-side adapter
+is present but is not yet reachable through QueryBus.
+
+### 4.10 Present but not wired command-side repository adapters
+
+The following adapters are present in the working tree, but the current
+UnitOfWork port and TypeOrmUnitOfWork do not expose them. They are therefore
+not dependencies of the current create or update handlers.
+
+#### 4.10.1 TypeOrmVcpmDefinitionRepository
+
+File: packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/vcpm/vcpm-definition.repository.ts
+
+~~~typescript
+export class TypeOrmVcpmDefinitionRepository
+  implements VcpmDefinitionRepository
+{
+  constructor(
+    private readonly manager: EntityManager,
+    private readonly uow: UnitOfWork,
+  ) {}
+
+  async getDefinitionWithParameters(
+    fileSystemId: number,
+  ): Promise<VcpmDefinitionWithParameters | null> {
+    const row = (await this.manager
+      .getRepository(ENTITY_NAMES.VcpmModuleDefinition)
+      .createQueryBuilder('definition')
+      .leftJoinAndSelect('definition.parameters', 'parameters')
+      .where('definition.fileSystemId = :fileSystemId', {fileSystemId})
+      .getOne()) as VcpmModuleDefinitionRow | null;
+
+    if (row === null) return null;
+    this.uow.getWriteContext();
+
+    return {
+      systemId: row.systemId,
+      parameters: (row.parameters ?? []).map(parameter => ({
+        systemId: parameter.systemId,
+        isReadOnly: parameter.isReadOnly,
+        elementsStructure: parameter.elementsStructure ?? '',
+      })),
+    };
+  }
+}
+~~~
+
+#### 4.10.2 TypeOrmKeyValueDefinitionRepository
+
+File: packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/key-value/key-value-definition.repository.ts
+
+~~~typescript
+export class TypeOrmKeyValueDefinitionRepository
+  implements KeyValueDefinitionRepository
+{
+  private readonly keyFetcher: KeyValueDefinitionFetcher;
+
+  constructor(
+    manager: EntityManager,
+    private readonly uow: UnitOfWork,
+  ) {
+    const editActionsSvc = new EditActionsQueryService(manager);
+    const valueFetcher = new ValueDefinitionFetcher(manager, editActionsSvc);
+    this.keyFetcher = new KeyValueDefinitionFetcher(
+      manager,
+      editActionsSvc,
+      valueFetcher,
+    );
+  }
+
+  async getSummariesForValues(
+    fileSystemId: number,
+    valueSystemIds: readonly number[],
+  ): Promise<KeyValueSummary[]> {
+    if (valueSystemIds.length === 0) return [];
+
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const requestedIds = [...new Set(valueSystemIds)];
+    const keys = await this.keyFetcher.fetchMany(
+      'all',
+      fileSystemId,
+      sessionId,
+      undefined,
+      {systemId: requestedIds},
+    );
+    const summariesByValueId = new Map<number, KeyValueSummary>();
+
+    for (const key of keys) {
+      for (const value of key.values) {
+        summariesByValueId.set(value.systemId, {
+          keyId: key.naturalId,
+          valueId: value.naturalId,
+        });
+      }
+    }
+
+    return valueSystemIds.flatMap(valueSystemId => {
+      const summary = summariesByValueId.get(valueSystemId);
+      return summary === undefined ? [] : [summary];
+    });
+  }
+}
+~~~
 
 ---
 
@@ -928,6 +1399,22 @@ async updateVcpmCalData(
 | `vcpmCkvExistsBySystemId` — staged DELETE (same session) | returns `false` |
 | `updateVcpmCalData` — writes delta | edit_actions UPDATE row with correct delta |
 | `updateVcpmCalData` — supersession | old row superseded; new merged row inserted |
+
+#### VCPM read-side fetchers and query adapter
+
+The current read-side implementation should also be covered by integration
+tests:
+
+| Scenario | Expected outcome |
+|---|---|
+| `VcpmCkvOverlayFetcher.fetchOne` with committed CKV | returns the CKV scoped to the requested subgraph |
+| `VcpmCkvOverlayFetcher.fetchOne` with staged CREATE | returns normalized `values` from `valueDefSystemIds` |
+| `VcpmCkvOverlayFetcher.fetchOne` with staged DELETE | returns `null` |
+| `VcpmParameterPayloadFetcher.fetchMany` with staged CREATE | includes the effective payload row |
+| `VcpmParameterPayloadFetcher.fetchMany` with staged UPDATE | returns the merged payload |
+| `VcpmParameterPayloadFetcher.fetchMany` with staged DELETE | excludes the deleted payload |
+| `DbVcpmCalibrationQueryService.getCkv` | resolves CKV value IDs through `KeyValueDefQueryService` |
+| `DbVcpmCalibrationQueryService.getPayloads` | applies optional payload-system-ID filters |
 
 ### End-to-End Tests
 

@@ -180,6 +180,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
       this.getPendingChangeWriter(),
       this.queryRunner.manager,
       this,
+      this.idGeneration,
     );
   }
 
