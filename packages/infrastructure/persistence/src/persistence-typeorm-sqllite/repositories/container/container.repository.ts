@@ -9,6 +9,7 @@ import {Container, ContainerPropertyValue} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
+import {ContainerPropertyDataFetcher} from '../../fetchers/container-property-data-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmContainerRepository implements ContainerRepository {
@@ -19,9 +20,11 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     private readonly manager: EntityManager,
     private readonly uow: UnitOfWork,
   ) {
+    const editActionsQs = new EditActionsQueryService(manager);
     this.containerFetcher = new ContainerOverlayFetcher(
       manager,
-      new EditActionsQueryService(manager),
+      editActionsQs,
+      new ContainerPropertyDataFetcher(manager, editActionsQs),
     );
   }
 

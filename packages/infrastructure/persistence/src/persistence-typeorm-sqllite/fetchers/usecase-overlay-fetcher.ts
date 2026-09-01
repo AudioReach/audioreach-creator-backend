@@ -201,6 +201,20 @@ export class UsecaseOverlayFetcher {
     return this.categoryFetcher.fetchMany(usecaseSystemIds, sessionId);
   }
 
+  /** Returns distinct subgraph IDs associated with the given usecases. */
+  async getSubgraphSystemIdsForUsecases(
+    usecaseSystemIds: number[],
+    sessionId: number | null,
+  ): Promise<number[]> {
+    if (usecaseSystemIds.length === 0) return [];
+
+    const rows = await this.getSubgraphMembershipRows(
+      usecaseSystemIds,
+      sessionId,
+    );
+    return [...new Set(rows.map(row => row.subgraphSystemId))];
+  }
+
   // ── Private helpers ───────────────────────────────────────────────────────────
 
   /**

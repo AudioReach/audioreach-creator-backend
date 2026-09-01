@@ -115,12 +115,12 @@ export class CkvOverlayFetcher {
    * row was deleted in the session or does not exist.
    *
    * Loads ckv_values via JOIN (baseline only — composite PK prevents overlay).
-   * Derives moduleSystemId from the base row so callers do not need to provide it.
-   * All Ckv actions for this specific ckvSystemId are collected via filter()
-   * so a CREATE→UPDATE sequence is correctly applied.
+   * Requires moduleSystemId as the aggregateId for session action lookup —
+   * without it, CREATE-only entities (no base row) cannot be found.
    */
   async fetchOne(
     ckvSystemId: number,
+    moduleSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidCkv | null> {
     const baseRow = (await this.manager
@@ -134,14 +134,10 @@ export class CkvOverlayFetcher {
       return baseRow ? this.toOverlaidCkv(baseRow) : null;
     }
 
-    // Derive moduleSystemId from the base row — Ckv edit_actions are scoped
-    // to the parent SpfModule (aggregateId = spfModuleSystemId).
-    // A null baseRow can still have a CREATE action; scan by targetSystemId instead.
-    const moduleSystemId = baseRow?.spfModuleSystemId ?? null;
-    const actions =
-      moduleSystemId !== null
-        ? await this.editActionsSvc.getByAggregateId(sessionId, moduleSystemId)
-        : [];
+    const actions = await this.editActionsSvc.getByAggregateId(
+      sessionId,
+      moduleSystemId,
+    );
     const ckvActions = actions.filter(
       a =>
         a.targetTable === ENTITY_NAMES.Ckv && a.targetSystemId === ckvSystemId,

@@ -15,6 +15,7 @@ import {
 } from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {ContainerOverlayFetcher} from '../../fetchers/container-overlay-fetcher.js';
+import {ContainerPropertyDataFetcher} from '../../fetchers/container-property-data-fetcher.js';
 import {ContainerTypeFetcher} from '../../fetchers/definitions/container/container-type-fetcher.js';
 
 export class DbContainerQueryService implements ContainerQueryService {
@@ -29,6 +30,7 @@ export class DbContainerQueryService implements ContainerQueryService {
     this.containerFetcher = new ContainerOverlayFetcher(
       dataSource.manager,
       editActionsSvc,
+      new ContainerPropertyDataFetcher(dataSource.manager, editActionsSvc),
     );
     this.containerTypeFetcher = new ContainerTypeFetcher(
       dataSource.manager,
@@ -63,7 +65,7 @@ export class DbContainerQueryService implements ContainerQueryService {
       ];
       const typeNameMap = new Map<number, string>();
       if (typeIds.length > 0) {
-        const typeRows = await this.containerTypeFetcher.fetchBySystemIds(
+        const typeRows = await this.containerTypeFetcher.fetchMany(
           typeIds,
           session?.sessionId ?? null,
         );

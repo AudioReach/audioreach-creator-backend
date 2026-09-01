@@ -304,11 +304,8 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       );
 
       // Step 2 — load definition aggregates and parameters in batch
-      const paramsByDef =
-        await this.paramFetcher.fetchSpfModuleParameterDefinitions(
-          defSystemIds,
-          sessionId,
-        );
+      const params = await this.paramFetcher.fetchMany(defSystemIds, sessionId);
+      const paramsByDef = this.groupParametersByDefinition(params);
 
       // Step 3 — load processor names (FR-7: session-immutable, batch query)
       const aggregates = await this.loadDefinitionAggregates(
@@ -411,8 +408,8 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         fileSystemId,
       );
 
-      const params = await this.paramFetcher.fetchSpfModuleParameterDefinition(
-        moduleSystemId,
+      const params = await this.paramFetcher.fetchMany(
+        [moduleSystemId],
         sessionId,
       );
       const aggregate = await this.loadDefinitionAggregate(
@@ -506,13 +503,16 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       this.dataSource,
       fileSystemId,
     );
-    const rowMap = await this.moduleManagerFetcher.fetchByDefinitionSystemIds(
+    const rows = await this.moduleManagerFetcher.fetchMany(
       moduleDefinitionSystemIds,
       fileSystemId,
       sessionId,
     );
-    for (const [defId, row] of rowMap) {
-      map.set(defId, this.toCustomModuleMetadataReadModel(row));
+    for (const row of rows) {
+      map.set(
+        row.moduleDefinitionSystemId,
+        this.toCustomModuleMetadataReadModel(row),
+      );
     }
     return map;
   }
@@ -528,8 +528,8 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
         ? sessionId
         : await resolveActiveSessionId(this.dataSource, fileSystemId);
 
-    const params = await this.paramFetcher.fetchSpfModuleParameterDefinition(
-      moduleDefSystemId,
+    const params = await this.paramFetcher.fetchMany(
+      [moduleDefSystemId],
       resolvedSessionId,
     );
 
@@ -541,6 +541,18 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
+
+  private groupParametersByDefinition(
+    parameters: SpfModuleParameterDefinitionBase[],
+  ): Map<number, SpfModuleParameterDefinitionBase[]> {
+    const result = new Map<number, SpfModuleParameterDefinitionBase[]>();
+    for (const parameter of parameters) {
+      const bucket = result.get(parameter.spfModuleDefinitionSystemId) ?? [];
+      bucket.push(parameter);
+      result.set(parameter.spfModuleDefinitionSystemId, bucket);
+    }
+    return result;
+  }
 
   /**
    * Resolves sessionId scoped to the file that owns the given module.
@@ -587,26 +599,21 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     if (root === null) return null;
 
     // Child fetchers run only after root is confirmed present.
-    const portGroups = await this.portGroupFetcher.fetchDataPortGroupDefinition(
+    const portGroups = await this.portGroupFetcher.fetchMany(
       defSystemId,
       sessionId,
     );
-    const staticPorts =
-      await this.staticPortFetcher.fetchStaticControlPortDefinition(
-        defSystemId,
-        sessionId,
-      );
-    const dynamicIntents =
-      await this.dynamicIntentFetcher.fetchDynamicIntentDefinition(
-        defSystemId,
-        sessionId,
-      );
+    const staticPorts = await this.staticPortFetcher.fetchMany(
+      defSystemId,
+      sessionId,
+    );
+    const dynamicIntents = await this.dynamicIntentFetcher.fetchMany(
+      defSystemId,
+      sessionId,
+    );
     const parameters =
       preloadedParams ??
-      (await this.paramFetcher.fetchSpfModuleParameterDefinition(
-        defSystemId,
-        sessionId,
-      ));
+      (await this.paramFetcher.fetchMany([defSystemId], sessionId));
 
     return {root, portGroups, staticPorts, dynamicIntents, parameters};
   }
@@ -662,7 +669,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     const map = new Map<number, ProcessorSummaryReadModel>();
     if (processorSystemIds.length === 0) return map;
 
-    const rows = await this.processorFetcher.fetchBySystemIds(
+    const rows = await this.processorFetcher.fetchMany(
       processorSystemIds,
       sessionId,
     );
@@ -686,7 +693,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     const map = new Map<number, ContainerTypeSummaryReadModel>();
     if (containerTypeSystemIds.length === 0) return map;
 
-    const rows = await this.containerTypeFetcher.fetchBySystemIds(
+    const rows = await this.containerTypeFetcher.fetchMany(
       containerTypeSystemIds,
       sessionId,
     );
@@ -703,12 +710,12 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     sessionId: number | null,
   ): Promise<Set<number>> {
     if (defSystemIds.length === 0) return new Set();
-    const rowMap = await this.moduleManagerFetcher.fetchByDefinitionSystemIds(
+    const rows = await this.moduleManagerFetcher.fetchMany(
       defSystemIds,
       fileSystemId,
       sessionId,
     );
-    return new Set(rowMap.keys());
+    return new Set(rows.map(row => row.moduleDefinitionSystemId));
   }
 
   // ── Assembly methods ──────────────────────────────────────────────────────

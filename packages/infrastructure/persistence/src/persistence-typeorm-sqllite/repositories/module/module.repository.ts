@@ -18,6 +18,7 @@ import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SpfModuleOverlayFetcher} from '../../fetchers/spf-module-overlay-fetcher.js';
 import {NodeOverlayFetcher} from '../../fetchers/node-overlay-fetcher.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
+import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
 import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
@@ -36,7 +37,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     const editActionsQs = new EditActionsQueryService(manager);
     this.spfModuleFetcher = new SpfModuleOverlayFetcher(manager, editActionsQs);
     this.nodeFetcher = new NodeOverlayFetcher(manager, editActionsQs);
-    this.portFetcher = new PortOverlayFetcher(manager, editActionsQs);
+    this.portFetcher = new PortOverlayFetcher(
+      manager,
+      editActionsQs,
+      new IntentFetcher(manager, editActionsQs),
+    );
     this.ckvOverlayFetcher = new CkvOverlayFetcher(
       manager,
       editActionsQs,
@@ -344,11 +349,15 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   }
 
   async ckvExists(
-    _spfModuleSystemId: number,
+    spfModuleSystemId: number,
     ckvSystemId: number,
   ): Promise<boolean> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const row = await this.ckvOverlayFetcher.fetchOne(ckvSystemId, sessionId);
+    const row = await this.ckvOverlayFetcher.fetchOne(
+      ckvSystemId,
+      spfModuleSystemId,
+      sessionId,
+    );
     return row !== null;
   }
 

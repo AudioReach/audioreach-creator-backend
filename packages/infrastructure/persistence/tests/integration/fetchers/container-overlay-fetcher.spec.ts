@@ -18,6 +18,7 @@ import {
 } from '../helpers/test-database-setup.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {ContainerOverlayFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/container-overlay-fetcher.js';
+import {ContainerPropertyDataFetcher} from '../../../src/persistence-typeorm-sqllite/fetchers/container-property-data-fetcher.js';
 import {ENTITY_NAMES} from '../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -125,9 +126,11 @@ describe('ContainerOverlayFetcher (integration)', () => {
     await seedProjectAndFile(ds);
     qr = ds.createQueryRunner();
     await qr.connect();
+    const editActionsQs = new EditActionsQueryService(qr.manager);
     fetcher = new ContainerOverlayFetcher(
       qr.manager,
-      new EditActionsQueryService(qr.manager),
+      editActionsQs,
+      new ContainerPropertyDataFetcher(qr.manager, editActionsQs),
     );
   });
   afterEach(async () => {

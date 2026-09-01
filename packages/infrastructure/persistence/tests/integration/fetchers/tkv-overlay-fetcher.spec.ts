@@ -107,7 +107,7 @@ async function seedModule(ds: DataSource) {
 
 async function seedTagDefinition(ds: DataSource) {
   await ds.query(
-    `INSERT INTO tag_definitions (system_id, tag_id, name, file_system_id) VALUES (?, 1, 'tag', ?)`,
+    `INSERT INTO tag_definitions (system_id, tag_id, name, file_system_id, is_voice) VALUES (?, 1, 'tag', ?, 0)`,
     [TAG_DEF_ID, FILE_ID],
   );
 }

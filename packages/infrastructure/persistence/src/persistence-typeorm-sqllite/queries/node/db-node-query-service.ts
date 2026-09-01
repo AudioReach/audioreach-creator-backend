@@ -18,6 +18,7 @@ import type {NodeRow} from '../../entity-schema/usecase-data/node/node.schema.js
 import type {DataPortDefinitionRow} from '../../entity-schema/definitions/module/spf/data-port-definition.schema.js';
 import type {StaticControlPortDefinitionRow} from '../../entity-schema/definitions/module/spf/static-control-port-definition.schema.js';
 import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
+import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import type {IntentBase} from '../../entity-schema/usecase-data/node/control-port.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 
@@ -42,6 +43,7 @@ export class DbNodeQueryService implements NodeQueryService {
     this.portFetcher = new PortOverlayFetcher(
       dataSource.manager,
       editActionsSvc,
+      new IntentFetcher(dataSource.manager, editActionsSvc),
     );
   }
 

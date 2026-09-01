@@ -9,7 +9,7 @@ import {
 } from '../../../entity-base.js';
 import {EntitySchema} from 'typeorm';
 import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
-import type {ModuleAttributeRow} from './module-attribute.schema.js';
+import type {ModuleParameterAttributeRow} from './module-paramater-attribute.schema.js';
 import type {CkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-calibration-data.schema.js';
 import type {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-module-tag-data.schema.js';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
@@ -25,13 +25,12 @@ export interface SpfModuleParameterDefinitionBase {
   isReadOnly: boolean;
   toolPolicies?: string;
   spfModuleDefinitionSystemId: number;
-  attributes?: ModuleAttributeRow[];
 }
 
 export interface SpfModuleParameterDefinitionRow
   extends EntityBaseRow, SpfModuleParameterDefinitionBase {
-  attributes?: ModuleAttributeRow[];
   spfModuleDefinition: SpfModuleDefinitionRow;
+  parameterAttributes?: ModuleParameterAttributeRow[];
   ckvParameterPayloads?: CkvParameterPayloadRow[];
   tkvParameterPayloads?: TkvParameterPayloadRow[];
 }
@@ -100,6 +99,12 @@ export const SpfModuleParameterDefinitionSchema =
           referencedColumnName: 'systemId',
         },
         onDelete: 'CASCADE',
+      },
+      parameterAttributes: {
+        type: 'one-to-many',
+        target: 'ModuleParameterAttribute',
+        inverseSide: 'moduleParameterDefinition',
+        cascade: ['insert', 'update'],
       },
       ckvParameterPayloads: {
         type: 'one-to-many',

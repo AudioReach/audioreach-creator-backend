@@ -4,12 +4,26 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
 import type {DynamicIntentDefinitionBase} from '../../../entity-schema/definitions/module/spf/dynamic-intent-definition.schema.js';
+import {
+  applyEntityFilters,
+  matchesEntityFilters,
+} from '../../../queries/shared/filter-utils.js';
 
+/** Optional scalar filters for DynamicIntentDefinition queries. */
+export type DynamicIntentDefinitionFilters = {
+  systemId?: number | number[];
+  intentId?: number | number[];
+  name?: string | string[];
+  maxPort?: number | number[];
+  moduleDefinitionSystemId?: number | number[];
+  $or?: DynamicIntentDefinitionFilters[];
+};
+
+/** Fetches dynamic intents owned by an SpfModuleDefinition. */
 export class DynamicIntentDefFetcher {
   private readonly overlay = new OverlayMergeImpl();
 
@@ -18,15 +32,17 @@ export class DynamicIntentDefFetcher {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
-  async fetchDynamicIntentDefinition(
+  async fetchMany(
     defSystemId: number,
     sessionId: number | null,
+    filters?: DynamicIntentDefinitionFilters,
   ): Promise<DynamicIntentDefinitionBase[]> {
-    const baseRows = (await this.manager
+    const qb = this.manager
       .getRepository(ENTITY_NAMES.DynamicIntentDefinition)
       .createQueryBuilder('did')
-      .where('did.moduleDefinitionSystemId = :defSystemId', {defSystemId})
-      .getMany()) as unknown as DynamicIntentDefinitionBase[];
+      .where('did.moduleDefinitionSystemId = :defSystemId', {defSystemId});
+    if (filters) applyEntityFilters(qb, 'did', filters);
+    const baseRows = (await qb.getMany()) as DynamicIntentDefinitionBase[];
 
     if (sessionId === null) return baseRows;
 
@@ -34,36 +50,15 @@ export class DynamicIntentDefFetcher {
       sessionId,
       defSystemId,
     );
-    const didActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.DynamicIntentDefinition,
+    const dynamicIntentActions = actions.filter(
+      action => action.targetTable === ENTITY_NAMES.DynamicIntentDefinition,
     );
+    const createFilter = (newValue: Record<string, unknown>) =>
+      newValue.moduleDefinitionSystemId === defSystemId &&
+      (filters === undefined || matchesEntityFilters(newValue, filters));
 
-    const overlaid = this.overlay
-      .applyToCollection(
-        baseRows.map(r => ({...r})),
-        didActions,
-      )
-      .map(r => r.effective as DynamicIntentDefinitionBase);
-
-    const baseIds = new Set(baseRows.map(r => r.systemId));
-    const created: DynamicIntentDefinitionBase[] = didActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const payload = a.newValue as Partial<DynamicIntentDefinitionBase>;
-        return {
-          systemId: a.targetSystemId,
-          intentId: payload.intentId ?? 0,
-          name: payload.name ?? '',
-          maxPort: payload.maxPort ?? 0,
-          moduleDefinitionSystemId:
-            payload.moduleDefinitionSystemId ?? defSystemId,
-        };
-      });
-
-    return [...overlaid, ...created];
+    return this.overlay
+      .applyToCollection(baseRows, dynamicIntentActions, createFilter)
+      .map(row => row.effective);
   }
 }

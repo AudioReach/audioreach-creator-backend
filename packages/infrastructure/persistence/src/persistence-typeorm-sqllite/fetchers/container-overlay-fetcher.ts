@@ -4,25 +4,44 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
-import {applyTableOverlay} from '../queries/edit-session/overlay-utils.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
-import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
 import type {ContainerBase} from '../entity-schema/usecase-data/container/container.schema.js';
 import type {ContainerPropertyDataBase} from '../entity-schema/usecase-data/container/container-property-data.js';
+import {
+  applyEntityFilters,
+  matchesEntityFilters,
+} from '../queries/shared/filter-utils.js';
+import type {ContainerPropertyDataFetcher} from './container-property-data-fetcher.js';
+
+/**
+ * Optional column-level filters for Container queries.
+ * Fields map to ContainerBase column names — all defined fields are ANDed.
+ * Scalar → equality; array → IN.
+ */
+export type ContainerFilters = {
+  systemId?: number | number[];
+  containerTypeSystemId?: number | number[];
+  $or?: ContainerFilters[];
+};
 
 export interface OverlaidContainer extends ContainerBase {
   properties: ContainerPropertyDataBase[];
 }
 
+/**
+ * Fetches container rows with session overlay applied.
+ * ContainerPropertyData is delegated to the injected ContainerPropertyDataFetcher
+ * per §6 Rule A — ContainerPropertyData has a direct FK to Container.
+ */
 export class ContainerOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
 
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
+    private readonly propertyFetcher: ContainerPropertyDataFetcher,
   ) {}
 
   async fetchOne(
@@ -30,121 +49,30 @@ export class ContainerOverlayFetcher {
     fileSystemId: number,
     sessionId: number | null,
   ): Promise<OverlaidContainer | null> {
-    const baseRow = (await this.manager
-      .getRepository(ENTITY_NAMES.Container)
-      .createQueryBuilder('c')
-      .where(
-        'c.systemId = :containerSystemId AND c.fileSystemId = :fileSystemId',
-        {containerSystemId, fileSystemId},
-      )
-      .getOne()) as unknown as ContainerBase | null;
+    const rows = await this.fetchMany(fileSystemId, sessionId, {
+      systemId: containerSystemId,
+    });
+    if (rows.length === 0) return null;
+    const container = rows[0];
 
-    // Load base property rows (only if base container exists)
-    let basePropRows: ContainerPropertyDataBase[] = [];
-    if (baseRow !== null) {
-      basePropRows = (await this.manager
-        .getRepository(ENTITY_NAMES.ContainerPropertyData)
-        .createQueryBuilder('cpd')
-        .where('cpd.containerSystemId = :containerSystemId', {
-          containerSystemId,
-        })
-        .getMany()) as unknown as ContainerPropertyDataBase[];
-    }
-
-    if (sessionId === null) {
-      if (baseRow === null) return null;
-      return {...baseRow, properties: basePropRows};
-    }
-
-    const actions = await this.editActionsSvc.getByAggregateId(
+    const properties = await this.propertyFetcher.fetchMany(
+      containerSystemId,
       sessionId,
-      containerSystemId,
     );
-    const containerActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.Container,
-    );
-    const propActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.ContainerPropertyData,
-    );
-
-    // Check for CREATE action (auto-create case — no base row exists yet)
-    const createAction = containerActions.find(
-      a => a.operation === CHANGE_OPERATION.Create,
-    );
-    if (baseRow === null) {
-      if (!createAction) return null;
-      // Build container from CREATE payload, injecting systemId from targetSystemId
-      const payload = createAction.newValue as Partial<ContainerBase>;
-      const createdContainer: ContainerBase = {
-        systemId: createAction.targetSystemId,
-        containerId: payload.containerId ?? 0,
-        containerTypeSystemId: payload.containerTypeSystemId ?? 0,
-        fileSystemId: payload.fileSystemId ?? fileSystemId,
-      };
-      // Also apply any CREATE-staged properties
-      const createdProps = this.buildCreatedProperties(
-        propActions,
-        containerSystemId,
-      );
-      return {...createdContainer, properties: createdProps};
-    }
-
-    // Apply overlay to the existing container row
-    const overlaidContainer = applyTableOverlay(
-      baseRow as unknown as {systemId: number},
-      containerActions,
-      ENTITY_NAMES.Container,
-    ) as ContainerBase | null;
-
-    if (overlaidContainer === null) return null;
-
-    // Apply overlay to properties (CREATE, UPDATE, DELETE)
-    const overlaidProps = this.overlay.applyToCollection(
-      basePropRows,
-      propActions,
-    );
-
-    // Handle CREATE-staged properties that don't exist in base
-    const basePropIds = new Set(basePropRows.map(p => p.systemId));
-    const createdProps = this.buildCreatedProperties(
-      propActions.filter(a => !basePropIds.has(a.targetSystemId)),
-      containerSystemId,
-    );
-
-    const survivingProps: ContainerPropertyDataBase[] = [
-      ...overlaidProps.map(r => r.effective),
-      ...createdProps,
-    ];
-
-    return {...overlaidContainer, properties: survivingProps};
-  }
-
-  private buildCreatedProperties(
-    propActions: EditActionRow[],
-    containerSystemId: number,
-  ): ContainerPropertyDataBase[] {
-    return propActions
-      .filter(a => a.operation === CHANGE_OPERATION.Create)
-      .map(a => {
-        const payload = a.newValue as Partial<ContainerPropertyDataBase>;
-        return {
-          systemId: a.targetSystemId,
-          containerSystemId: payload.containerSystemId ?? containerSystemId,
-          propertySystemId: payload.propertySystemId ?? 0,
-          payload: payload.payload ?? null,
-        };
-      });
+    return {...container, properties};
   }
 
   async fetchMany(
     fileSystemId: number,
     sessionId: number | null,
+    filters?: ContainerFilters,
   ): Promise<ContainerBase[]> {
-    const baseRows = (await this.manager
+    const qb = this.manager
       .getRepository(ENTITY_NAMES.Container)
       .createQueryBuilder('c')
-      .where('c.fileSystemId = :fileSystemId', {fileSystemId})
-      .getMany()) as unknown as ContainerBase[];
+      .where('c.fileSystemId = :fileSystemId', {fileSystemId});
+    if (filters) applyEntityFilters(qb, 'c', filters);
+    const baseRows = (await qb.getMany()) as ContainerBase[];
 
     if (sessionId === null) return baseRows;
 
@@ -154,30 +82,12 @@ export class ContainerOverlayFetcher {
     );
     if (actions.length === 0) return baseRows;
 
-    const updateDeleteActions = actions.filter(
-      a => a.operation !== CHANGE_OPERATION.Create,
-    );
-    const overlaid = this.overlay
-      .applyToCollection(baseRows, updateDeleteActions)
+    const createFilter = filters
+      ? (nv: Record<string, unknown>) => matchesEntityFilters(nv, filters)
+      : undefined;
+
+    return this.overlay
+      .applyToCollection(baseRows, actions, createFilter)
       .map(r => r.effective);
-
-    const baseIds = new Set(baseRows.map(r => r.systemId));
-    const created: ContainerBase[] = actions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<ContainerBase>;
-        return {
-          systemId: a.targetSystemId,
-          containerId: p.containerId ?? 0,
-          containerTypeSystemId: p.containerTypeSystemId ?? 0,
-          fileSystemId: p.fileSystemId ?? fileSystemId,
-        };
-      });
-
-    return [...overlaid, ...created];
   }
 }
