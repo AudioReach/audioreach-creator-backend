@@ -49,6 +49,8 @@ import {GetTagDefinitionQuery} from '../../../definition/tag-definition/get-tag/
 import {GetTagDefinitionHandler} from '../../../definition/tag-definition/get-tag/get-tag-definition.handler.js';
 import {GetCkvCalibrationDataQuery} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.query.js';
 import {GetCkvCalibrationDataHandler} from '../../../usecase-designer/spf-module/get-cal-data/get-ckv-cal-data.handler.js';
+import {GetTkvCalibrationDataQuery} from '../../../usecase-designer/spf-module/get-tag-data/get-tkv-cal-data.query.js';
+import {GetTkvCalibrationDataHandler} from '../../../usecase-designer/spf-module/get-tag-data/get-tkv-cal-data.handler.js';
 import {GetAllContainerPropertyDefinitionsQuery} from '../../../definition/container-property-definition/get-all/get-all-container-property-definitions.query.js';
 import {GetAllContainerPropertyDefinitionsHandler} from '../../../definition/container-property-definition/get-all/get-all-container-property-definitions.handler.js';
 import {GetContainerPropertyDefinitionQuery} from '../../../definition/container-property-definition/get-property/get-container-property-definition.query.js';
@@ -215,6 +217,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetCkvCalibrationDataQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetCkvCalibrationDataHandler(deps.queryServices, deps.logger),
+    });
+
+    this.queryHandlerFactories.set(GetTkvCalibrationDataQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetTkvCalibrationDataHandler(deps.queryServices, deps.logger),
     });
 
     this.queryHandlerFactories.set(GetAllContainerPropertyDefinitionsQuery, {

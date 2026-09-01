@@ -173,6 +173,91 @@ export class TkvOverlayFetcher {
   }
 
   /**
+   * Returns the overlaid Tkv row for the given tkvSystemId, scoped to
+   * moduleTagIdMapSystemId (validates ownership).
+   * Returns null if the row does not exist or was deleted in the active session.
+   *
+   * Overlay aggregateId = moduleTagIdMapSystemId (parent tag map's PK).
+   */
+  async fetchTkv(
+    tkvSystemId: number,
+    moduleTagIdMapSystemId: number,
+    sessionId: number | null,
+  ): Promise<OverlaidTkv | null> {
+    const baseRow = (await this.manager
+      .getRepository(ENTITY_NAMES.Tkv)
+      .createQueryBuilder('tkv')
+      .leftJoinAndSelect('tkv.values', 'tkvValues')
+      .where('tkv.systemId = :tkvSystemId', {tkvSystemId})
+      .andWhere('tkv.moduleTagIdMapSystemId = :moduleTagIdMapSystemId', {
+        moduleTagIdMapSystemId,
+      })
+      .getOne()) as TkvRow | null;
+
+    if (sessionId === null) {
+      return baseRow ? this.toOverlaidTkv(baseRow) : null;
+    }
+
+    const tkvActions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.Tkv,
+    );
+    const relevantActions = tkvActions.filter(
+      a =>
+        a.aggregateId === moduleTagIdMapSystemId &&
+        (a.targetSystemId === tkvSystemId ||
+          (a.newValue as {systemId?: number})?.systemId === tkvSystemId),
+    );
+
+    if (relevantActions.length === 0) {
+      return baseRow ? this.toOverlaidTkv(baseRow) : null;
+    }
+
+    const deleteAction = relevantActions.find(
+      a =>
+        a.operation === CHANGE_OPERATION.Delete &&
+        a.targetSystemId === tkvSystemId,
+    );
+    if (deleteAction) return null;
+
+    if (baseRow) {
+      const updateActions = relevantActions.filter(
+        a =>
+          a.operation === CHANGE_OPERATION.Update &&
+          a.targetSystemId === tkvSystemId,
+      );
+      const overlaid =
+        updateActions.length > 0
+          ? ((
+              this.overlay.applyToCollection(
+                [baseRow],
+                updateActions,
+              ) as Array<{effective: TkvRow}>
+            )[0]?.effective ?? null)
+          : baseRow;
+      return overlaid ? this.toOverlaidTkv(overlaid) : null;
+    }
+
+    const createAction = relevantActions.find(
+      a =>
+        a.operation === CHANGE_OPERATION.Create &&
+        a.targetSystemId === tkvSystemId,
+    );
+    if (createAction) {
+      const p = createAction.newValue as Partial<TkvBase>;
+      return {
+        systemId: tkvSystemId,
+        moduleTagIdMapSystemId:
+          p.moduleTagIdMapSystemId ?? moduleTagIdMapSystemId,
+        uiPersistence: null,
+        values: [],
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Returns overlaid TkvParameterPayload rows for the given TKV system ID.
    * Delegates entirely to the injected TkvParameterPayloadFetcher.
    */
@@ -190,5 +275,9 @@ export class TkvOverlayFetcher {
       ...r,
       tkvs: (r.tkvs ?? []).map(tkv => ({...tkv, values: tkv.values ?? []})),
     };
+  }
+
+  private toOverlaidTkv(r: TkvRow): OverlaidTkv {
+    return {...r, values: r.values ?? []};
   }
 }

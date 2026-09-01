@@ -58,6 +58,7 @@ import {
   type PutCkvCalDataResult,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
+  GetTkvCalibrationDataQuery,
   type SpfModuleDto,
   type ActiveSession,
   type ParameterDto,
@@ -568,22 +569,18 @@ export class SpfModuleController extends BaseController {
     @Param('tkvSystemId') tkvSystemId: string,
     @Query('param-system-ids') paramSystemIds?: string,
   ): Promise<ApiResult<TkvCalDataResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Getting tag data for SPF module:',
-      spfModuleSystemId,
-      'in project:',
+    const clientId = 'client-id'; // TODO: extract real clientId from JWT once auth wiring is done
+    const query = new GetTkvCalibrationDataQuery(
       projectId,
-      'with tag system ID:',
+      spfModuleSystemId,
       tagSystemId,
-      'and TKV system ID:',
       tkvSystemId,
-      paramSystemIds
-        ? 'and parameter system IDs:'
-        : 'for all parameter system IDs',
-      paramSystemIds || '',
+      clientId,
+      paramSystemIds,
     );
-    throw new NotImplementedException('getTagData is not implemented yet');
+    const result =
+      await this.queryBus.execute<Result<TkvCalDataResponseDto>>(query);
+    return toApiResult(result);
   }
 
   /**

@@ -7,9 +7,11 @@ import type {SpfModuleReadModel} from './spf-module-read-model.js';
 import type {SpfTuningConfigService} from './tuning/spf-tuning-config-service.js';
 import type {Result} from '../../../../shared/result/result.js';
 import type {CkvQueryService} from './ckv/ckv-query-service.js';
+import type {TkvQueryService} from './tkv/tkv-query-service.js';
 
 export interface SpfModuleQueryService {
   readonly ckvQueryService: CkvQueryService;
+  readonly tkvQueryService: TkvQueryService;
 
   /**
    * Returns a single SPF module with ports and definition capabilities.
