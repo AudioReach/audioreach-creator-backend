@@ -4,12 +4,24 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
 import type {StaticControlPortDefinitionBase} from '../../../entity-schema/definitions/module/spf/static-control-port-definition.schema.js';
 import type {StaticIntentDefinitionBase} from '../../../entity-schema/definitions/module/spf/static-intent-definition.schema.js';
+import {
+  applyEntityFilters,
+  matchesEntityFilters,
+} from '../../../queries/shared/filter-utils.js';
+
+/** Optional scalar filters for static control port definitions. */
+export type StaticControlPortDefinitionFilters = {
+  systemId?: number | number[];
+  portId?: number | number[];
+  portName?: string | string[];
+  moduleDefinitionSystemId?: number | number[];
+  $or?: StaticControlPortDefinitionFilters[];
+};
 
 export interface OverlaidStaticControlPortDefinition extends StaticControlPortDefinitionBase {
   /** Static intents owned by this port, with session overlay applied. */
@@ -36,16 +48,19 @@ export class StaticControlPortDefFetcher {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
-  async fetchStaticControlPortDefinition(
+  async fetchMany(
     defSystemId: number,
     sessionId: number | null,
+    filters?: StaticControlPortDefinitionFilters,
   ): Promise<OverlaidStaticControlPortDefinition[]> {
     // ── Step 1: load base static control port rows ───────────────────────────
-    const basePortRows = (await this.manager
+    const portQb = this.manager
       .getRepository(ENTITY_NAMES.StaticControlPortDefinition)
       .createQueryBuilder('scpd')
-      .where('scpd.moduleDefinitionSystemId = :defSystemId', {defSystemId})
-      .getMany()) as unknown as StaticControlPortDefinitionBase[];
+      .where('scpd.moduleDefinitionSystemId = :defSystemId', {defSystemId});
+    if (filters) applyEntityFilters(portQb, 'scpd', filters);
+    const basePortRows =
+      (await portQb.getMany()) as StaticControlPortDefinitionBase[];
 
     const base: OverlaidStaticControlPortDefinition[] = basePortRows.map(r => ({
       ...r,
@@ -63,7 +78,7 @@ export class StaticControlPortDefFetcher {
         .where('sid.staticControlPortDefinitionSystemId IN (:...portIds)', {
           portIds,
         })
-        .getMany()) as unknown as StaticIntentDefinitionBase[];
+        .getMany()) as StaticIntentDefinitionBase[];
     }
 
     if (sessionId === null) {
@@ -83,66 +98,35 @@ export class StaticControlPortDefFetcher {
     const intentActions = actions.filter(
       a => a.targetTable === ENTITY_NAMES.StaticIntentDefinition,
     );
+    const createPortFilter = (newValue: Record<string, unknown>) =>
+      newValue.moduleDefinitionSystemId === defSystemId &&
+      (filters === undefined || matchesEntityFilters(newValue, filters));
 
     // ── Step 4: overlay static control ports ─────────────────────────────────
-    const overlaidPortRecords = this.overlay.applyToCollection(
-      base.map(p => ({...p})),
-      portActions,
-    );
-    const overlaidPorts = overlaidPortRecords.map(
-      r => r.effective as OverlaidStaticControlPortDefinition,
-    );
-
-    const basePortIds = new Set(base.map(p => p.systemId));
-    const createdPorts: OverlaidStaticControlPortDefinition[] = portActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !basePortIds.has(a.targetSystemId),
+    const allPorts = this.overlay
+      .applyToCollection(
+        base.map(p => ({...p})),
+        portActions,
+        createPortFilter,
       )
-      .map(a => {
-        const payload =
-          a.newValue as Partial<OverlaidStaticControlPortDefinition>;
-        return {
-          systemId: a.targetSystemId,
-          portId: payload.portId ?? 0,
-          portName: payload.portName ?? '',
-          moduleDefinitionSystemId:
-            payload.moduleDefinitionSystemId ?? defSystemId,
-          staticIntents: [],
-        };
-      });
-
-    const allPorts = [...overlaidPorts, ...createdPorts];
+      .map(r => r.effective as OverlaidStaticControlPortDefinition);
 
     // ── Step 5: overlay static intent definitions ─────────────────────────────
-    const overlaidIntentRecords = this.overlay.applyToCollection(
-      baseIntentRows.map(i => ({...i})),
-      intentActions,
-    );
-    const overlaidIntents = overlaidIntentRecords.map(
-      r => r.effective as StaticIntentDefinitionBase,
-    );
-
-    const baseIntentIds = new Set(baseIntentRows.map(i => i.systemId));
-    const createdIntents: StaticIntentDefinitionBase[] = intentActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIntentIds.has(a.targetSystemId),
+    const allIntents = this.overlay
+      .applyToCollection(
+        baseIntentRows.map(i => ({...i})),
+        intentActions,
+        newValue => {
+          const portId = newValue.staticControlPortDefinitionSystemId;
+          return (
+            typeof portId === 'number' &&
+            allPorts.some(port => port.systemId === portId)
+          );
+        },
       )
-      .map(a => {
-        const payload = a.newValue as Partial<StaticIntentDefinitionBase>;
-        return {
-          systemId: a.targetSystemId,
-          intentId: payload.intentId ?? 0,
-          name: payload.name ?? '',
-          staticControlPortDefinitionSystemId:
-            payload.staticControlPortDefinitionSystemId ?? 0,
-        };
-      });
+      .map(r => r.effective as StaticIntentDefinitionBase);
 
-    return this.buildResult(allPorts, [...overlaidIntents, ...createdIntents]);
+    return this.buildResult(allPorts, allIntents);
   }
 
   /** Nests intents under their owning port by FK. */

@@ -14,28 +14,35 @@ import {Result, ERROR_CODES, IssueSeverity, RESULT_KIND} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 import {toKeyDefinitionReadModel} from './key-definition-row-mapper.js';
 
 /**
  * Database implementation of KeyValueDefQueryService.
  *
- * All overlay delegated to KeyValueDefinitionFetcher (FR-3). The fetcher
- * handles both arc_keys and arc_values in a single call using four parallel
+ * Key rows are loaded by KeyValueDefinitionFetcher and child values by its
+ * injected ValueDefinitionFetcher. No per-key N-query pattern is used.
  * table-scoped queries — no per-key N-query patterns.
  *
  * loadOverlaidKeysWithValues has been replaced by the fetcher's
- * fetchByKeySystemIds — the bulk loading and overlay logic now lives there.
+ * fetchMany — the bulk loading and overlay logic now lives there.
  */
 export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
   private readonly kvFetcher: KeyValueDefinitionFetcher;
+  private readonly valueFetcher: ValueDefinitionFetcher;
 
   constructor(
     private readonly dataSource: DataSource,
     editActionsSvc: EditActionsQueryService,
   ) {
+    this.valueFetcher = new ValueDefinitionFetcher(
+      dataSource.manager,
+      editActionsSvc,
+    );
     this.kvFetcher = new KeyValueDefinitionFetcher(
       dataSource.manager,
       editActionsSvc,
+      this.valueFetcher,
     );
   }
 
@@ -50,13 +57,13 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       );
 
       // scope='all' — loads every key for the file in a single fetcher call.
-      const keyMap = await this.kvFetcher.fetchByKeySystemIds(
+      const keys = await this.kvFetcher.fetchMany(
         'all',
         fileSystemId,
         sessionId,
       );
 
-      const all = [...keyMap.values()].map(k => toKeyDefinitionReadModel(k));
+      const all = keys.map(k => toKeyDefinitionReadModel(k));
       const filtered =
         keyNaturalId === undefined
           ? all
@@ -92,11 +99,12 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
         this.dataSource,
         fileSystemId,
       );
-      const keyMap = await this.kvFetcher.fetchByKeySystemIds(
+      const keys = await this.kvFetcher.fetchMany(
         keySystemIds,
         fileSystemId,
         sessionId,
       );
+      const keyMap = new Map(keys.map(key => [key.systemId, key]));
 
       const data = keySystemIds
         .map(id => keyMap.get(id))
@@ -151,9 +159,9 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
 
   /**
    * Batch variant — resolves many valueDefSystemIds in two steps:
-   *   Step 1: fetchValuesBySystemIds to discover parent key IDs from the
+   *   Step 1: value sub-fetcher lookup to discover parent key IDs from the
    *     value rows (including session-only CREATEs).
-   *   Step 2: fetchByKeySystemIds on the discovered key IDs to load the
+   *   Step 2: fetchMany on the discovered key IDs to load the
    *     full key+value trees with overlay applied.
    *
    * Reports missing valueDefSystemIds via Result.partial — a caller that
@@ -175,8 +183,8 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       );
 
       // Step 1 — value-first: resolve value rows to discover parent key IDs.
-      // Uses fetchValuesBySystemIds so session-only CREATE values are included.
-      const overlaidValues = await this.kvFetcher.fetchValuesBySystemIds(
+      // Uses the value sub-fetcher so session-only CREATE values are included.
+      const overlaidValues = await this.valueFetcher.fetchMany(
         valueDefSystemIds,
         sessionId,
       );
@@ -209,11 +217,12 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       }
 
       // Step 2 — key-first: load the full key+value trees for the parent keys.
-      const keyMap = await this.kvFetcher.fetchByKeySystemIds(
+      const keys = await this.kvFetcher.fetchMany(
         keySystemIds,
         fileSystemId,
         sessionId,
       );
+      const keyMap = new Map(keys.map(key => [key.systemId, key]));
 
       // Preserve resolution order; fold value IDs from dropped keys into
       // missingValueIds so they're reported rather than silently dropped.
@@ -321,11 +330,12 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
         this.dataSource,
         fileSystemId,
       );
-      const keyMap = await this.kvFetcher.fetchByKeySystemIds(
+      const keys = await this.kvFetcher.fetchMany(
         [keyDefSystemId],
         fileSystemId,
         sessionId,
       );
+      const keyMap = new Map(keys.map(key => [key.systemId, key]));
 
       const match = keyMap.get(keyDefSystemId);
       return match

@@ -191,7 +191,7 @@ describe('CkvOverlayFetcher (integration)', () => {
 
   it('fetchCkv — row in DB, sessionId=null — returns OverlaidCkv with correct systemId', async () => {
     await seedCkv(ds);
-    const result = await fetcher.fetchOne(CKV_ID, null);
+    const result = await fetcher.fetchOne(CKV_ID, MODULE_ID, null);
     expect(result).not.toBeNull();
     expect(result!.systemId).toBe(CKV_ID);
     expect(result!.spfModuleSystemId).toBe(MODULE_ID);
@@ -208,7 +208,7 @@ describe('CkvOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Delete,
       newValue: '{}',
     });
-    const result = await fetcher.fetchOne(CKV_ID, sessionId);
+    const result = await fetcher.fetchOne(CKV_ID, MODULE_ID, sessionId);
     expect(result).toBeNull();
   });
 
@@ -222,7 +222,7 @@ describe('CkvOverlayFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Create,
       newValue: JSON.stringify({spfModuleSystemId: MODULE_ID}),
     });
-    const result = await fetcher.fetchOne(CKV_ID, sessionId);
+    const result = await fetcher.fetchOne(CKV_ID, MODULE_ID, sessionId);
     expect(result).not.toBeNull();
     expect(result!.systemId).toBe(CKV_ID);
     expect(result!.spfModuleSystemId).toBe(MODULE_ID);

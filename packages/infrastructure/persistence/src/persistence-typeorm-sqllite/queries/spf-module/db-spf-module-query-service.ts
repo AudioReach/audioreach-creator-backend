@@ -36,6 +36,7 @@ import {
   type OverlaidDataPort,
   type OverlaidControlPort,
 } from '../../fetchers/port-overlay-fetcher.js';
+import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {SpfModuleDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-fetcher.js';
 import {DataPortGroupFetcher} from '../../fetchers/definitions/spf-module-definitions/data-port-group-fetcher.js';
 import {StaticControlPortDefFetcher} from '../../fetchers/definitions/spf-module-definitions/static-control-port-def-fetcher.js';
@@ -137,6 +138,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
     this.portFetcher = new PortOverlayFetcher(
       dataSource.manager,
       editActionsQuerySvc,
+      new IntentFetcher(dataSource.manager, editActionsQuerySvc),
     );
     this.defFetcher = new SpfModuleDefinitionFetcher(
       dataSource.manager,
@@ -418,16 +420,14 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           continue;
         }
 
-        const portGroups =
-          await this.portGroupFetcher.fetchDataPortGroupDefinition(
-            defId,
-            sessionId,
-          );
-        const staticPorts =
-          await this.staticPortFetcher.fetchStaticControlPortDefinition(
-            defId,
-            sessionId,
-          );
+        const portGroups = await this.portGroupFetcher.fetchMany(
+          defId,
+          sessionId,
+        );
+        const staticPorts = await this.staticPortFetcher.fetchMany(
+          defId,
+          sessionId,
+        );
 
         defCapMap.set(defId, {
           name: defRoot.name,

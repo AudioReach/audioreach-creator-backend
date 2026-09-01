@@ -66,10 +66,8 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
       if (defSystemIds.length === 0) return Result.ok([]);
 
       // Step 2 — bulk-load parameters for all definitions in one query (FR-5)
-      const paramsByDef = await this.paramFetcher.fetchDriverModuleDefinitions(
-        defSystemIds,
-        sessionId,
-      );
+      const params = await this.paramFetcher.fetchMany(defSystemIds, sessionId);
+      const paramsByDef = this.groupParametersByDefinition(params);
 
       // Step 3 — per-definition root fetch + assemble (FR-8 Rule 1 + Rule 3)
       const data: BaseModuleDefinitionSummaryReadModel[] = [];
@@ -140,8 +138,8 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
         });
       }
 
-      const params = await this.paramFetcher.fetchDriverModuleDefinition(
-        moduleSystemId,
+      const params = await this.paramFetcher.fetchMany(
+        [moduleSystemId],
         sessionId,
       );
 
@@ -159,6 +157,18 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  private groupParametersByDefinition(
+    parameters: DriverModuleParameterDefinitionBase[],
+  ): Map<number, DriverModuleParameterDefinitionBase[]> {
+    const result = new Map<number, DriverModuleParameterDefinitionBase[]>();
+    for (const parameter of parameters) {
+      const bucket = result.get(parameter.driverModuleDefinitionSystemId) ?? [];
+      bucket.push(parameter);
+      result.set(parameter.driverModuleDefinitionSystemId, bucket);
+    }
+    return result;
+  }
 
   // ── Read model mappers ────────────────────────────────────────────────────
 

@@ -4,24 +4,33 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
-import type {EditActionRow} from '../../../entity-schema/edit-session/edit-action.schema.js';
 import type {DriverModuleParameterDefinitionBase} from '../../../entity-schema/definitions/module/driver/driver-module-parameter-definition.schema.js';
+import {
+  applyEntityFilters,
+  matchesEntityFilters,
+} from '../../../queries/shared/filter-utils.js';
 
 /**
- * Fetches driver_module_parameter_definitions with session overlay applied.
- *
- * Parameters are directly-owned children of DriverModuleDefinition — their
- * aggregateId in edit_actions equals driverModuleDefinitionSystemId (the
- * owning definition's PK).
- *
- * Two entry points:
- *   fetchForDefinition  — single definition; one base query + getByAggregateId
- *   fetchForDefinitions — bulk; IN (...) base query + getByTable
- *                         returns Map<defSystemId, rows[]> for list assembly
+ * Optional scalar filters for driver module parameter-definition queries.
+ * All defined fields are ANDed; scalar values use equality and arrays use IN.
+ */
+export type DriverModuleParameterDefinitionFilters = {
+  systemId?: number | number[];
+  parameterId?: number | number[];
+  name?: string | string[];
+  description?: string | string[];
+  maxSize?: number | number[];
+  paramStructure?: string | string[];
+  driverModuleDefinitionSystemId?: number | number[];
+  $or?: DriverModuleParameterDefinitionFilters[];
+};
+
+/**
+ * Fetches driver module parameter definitions with session overlay applied.
+ * The driver module definition system IDs are the child-row scope.
  */
 export class DriverModuleParameterDefinitionFetcher {
   private readonly overlay = new OverlayMergeImpl();
@@ -32,116 +41,59 @@ export class DriverModuleParameterDefinitionFetcher {
   ) {}
 
   /**
-   * Loads overlaid parameters for a single driver module definition.
-   * Used by getDriverModuleDefinition (single-entity path).
+   * Loads overlaid parameters for one or more driver module definitions.
    */
-  async fetchDriverModuleDefinition(
-    defSystemId: number,
+  async fetchMany(
+    driverModuleDefinitionSystemIds: number[],
     sessionId: number | null,
+    filters?: DriverModuleParameterDefinitionFilters,
   ): Promise<DriverModuleParameterDefinitionBase[]> {
-    const baseRows = await this.loadBaseRows([defSystemId]);
-    if (sessionId === null) return baseRows;
+    if (driverModuleDefinitionSystemIds.length === 0) return [];
 
-    // aggregateId = defSystemId — one call covers all params for this definition.
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      defSystemId,
-    );
-    const paramActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.DriverModuleParameterDefinition,
-    );
-
-    return this.applyOverlay(baseRows, paramActions, defSystemId);
-  }
-
-  /**
-   * Loads overlaid parameters for multiple driver module definitions in one
-   * base query. Returns Map<defSystemId, rows[]> for O(1) lookup during
-   * list assembly — consistent with SpfModuleParameterDefinitionFetcher.
-   */
-  async fetchDriverModuleDefinitions(
-    defSystemIds: number[],
-    sessionId: number | null,
-  ): Promise<Map<number, DriverModuleParameterDefinitionBase[]>> {
-    if (defSystemIds.length === 0) return new Map();
-
-    const baseRows = await this.loadBaseRows(defSystemIds);
-    const overlaidRows =
-      sessionId === null
-        ? baseRows
-        : await this.applyTableOverlay(baseRows, sessionId, defSystemIds);
-
-    const result = new Map<number, DriverModuleParameterDefinitionBase[]>();
-    for (const row of overlaidRows) {
-      const bucket = result.get(row.driverModuleDefinitionSystemId) ?? [];
-      bucket.push(row);
-      result.set(row.driverModuleDefinitionSystemId, bucket);
-    }
-    return result;
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
-
-  private async loadBaseRows(
-    defSystemIds: number[],
-  ): Promise<DriverModuleParameterDefinitionBase[]> {
-    return (await this.manager
+    const qb = this.manager
       .getRepository(ENTITY_NAMES.DriverModuleParameterDefinition)
       .createQueryBuilder('param')
       .where('param.driverModuleDefinitionSystemId IN (:...defSystemIds)', {
-        defSystemIds,
-      })
-      .getMany()) as unknown as DriverModuleParameterDefinitionBase[];
-  }
-
-  private applyOverlay(
-    base: DriverModuleParameterDefinitionBase[],
-    actions: EditActionRow[],
-    defSystemId: number,
-  ): DriverModuleParameterDefinitionBase[] {
-    const overlaid = this.overlay
-      .applyToCollection(
-        base.map(r => ({...r})),
-        actions,
-      )
-      .map(r => r.effective as DriverModuleParameterDefinitionBase);
-
-    const baseIds = new Set(base.map(r => r.systemId));
-    const created: DriverModuleParameterDefinitionBase[] = actions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<DriverModuleParameterDefinitionBase>;
-        return {
-          systemId: a.targetSystemId,
-          parameterId: p.parameterId ?? 0,
-          name: p.name,
-          description: p.description,
-          maxSize: p.maxSize ?? 0,
-          paramStructure: p.paramStructure ?? '',
-          driverModuleDefinitionSystemId:
-            p.driverModuleDefinitionSystemId ?? defSystemId,
-        };
+        defSystemIds: driverModuleDefinitionSystemIds,
       });
+    if (filters) applyEntityFilters(qb, 'param', filters);
+    const baseRows =
+      (await qb.getMany()) as DriverModuleParameterDefinitionBase[];
 
-    return [...overlaid, ...created];
-  }
+    if (sessionId === null) return baseRows;
 
-  private async applyTableOverlay(
-    baseRows: DriverModuleParameterDefinitionBase[],
-    sessionId: number,
-    defSystemIds: number[],
-  ): Promise<DriverModuleParameterDefinitionBase[]> {
     const allActions = await this.editActionsSvc.getByTable(
       sessionId,
       ENTITY_NAMES.DriverModuleParameterDefinition,
     );
-    const defIdSet = new Set(defSystemIds);
-    // Filter to actions whose aggregateId belongs to the requested definitions.
-    const relevantActions = allActions.filter(a => defIdSet.has(a.aggregateId));
-    return this.applyOverlay(baseRows, relevantActions, 0);
+    const definitionIdSet = new Set(driverModuleDefinitionSystemIds);
+    const relevantActions = allActions.filter(action =>
+      definitionIdSet.has(action.aggregateId),
+    );
+    const createFilter = filters
+      ? (newValue: Record<string, unknown>) =>
+          matchesEntityFilters(newValue, filters)
+      : undefined;
+
+    return this.overlay
+      .applyToCollection(baseRows, relevantActions, createFilter)
+      .map(row => row.effective);
+  }
+
+  /**
+   * Returns one overlaid parameter definition, or null when it is absent.
+   * The owner definition ID supplies the child scope for fetchMany.
+   */
+  async fetchOne(
+    parameterSystemId: number,
+    driverModuleDefinitionSystemId: number,
+    sessionId: number | null,
+  ): Promise<DriverModuleParameterDefinitionBase | null> {
+    const rows = await this.fetchMany(
+      [driverModuleDefinitionSystemId],
+      sessionId,
+      {systemId: parameterSystemId},
+    );
+    return rows[0] ?? null;
   }
 }

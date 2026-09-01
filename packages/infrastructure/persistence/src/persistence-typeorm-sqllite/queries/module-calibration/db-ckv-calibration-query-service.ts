@@ -58,14 +58,18 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
    */
   async getCkv(
     fileSystemId: number,
-    _moduleSystemId: number,
+    moduleSystemId: number,
     ckvSystemId: number,
   ): Promise<CkvReadModel | null> {
     const sessionId = await resolveActiveSessionId(
       this.dataSource,
       fileSystemId,
     );
-    const overlaid = await this.ckvFetcher.fetchOne(ckvSystemId, sessionId);
+    const overlaid = await this.ckvFetcher.fetchOne(
+      ckvSystemId,
+      moduleSystemId,
+      sessionId,
+    );
     return overlaid
       ? this.transformToCkvReadModel(overlaid, fileSystemId)
       : null;
@@ -89,7 +93,9 @@ export class DbCkvCalibrationQueryService implements CkvQueryService {
       ckvSystemId,
       moduleSystemId,
       sessionId,
-      paramSystemIds ? {systemId: paramSystemIds} : undefined,
+      paramSystemIds && paramSystemIds.length > 0
+        ? {systemId: paramSystemIds}
+        : undefined,
     );
     return overlaid.map(p => this.toParameterPayloadReadModel(p));
   }

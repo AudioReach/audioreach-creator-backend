@@ -17,14 +17,14 @@ import type {PendingChangeWriter} from '../../services/pending-change-writer.js'
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphSgkvFetcher} from '../../fetchers/subgraph-sgkv-fetcher.js';
-import {KeyValueDefinitionFetcher} from '../../fetchers/definitions/key-value/key-value-definition-fetcher.js';
+import {ValueDefinitionFetcher} from '../../fetchers/definitions/key-value/value-definition-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 
 export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private readonly subgraphFetcher: SubgraphOverlayFetcher;
   private readonly sgkvFetcher: SubgraphSgkvFetcher;
-  private readonly kvDefFetcher: KeyValueDefinitionFetcher;
+  private readonly valueDefFetcher: ValueDefinitionFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -34,7 +34,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     const editActionsQs = new EditActionsQueryService(manager);
     this.sgkvFetcher = new SubgraphSgkvFetcher(manager, editActionsQs);
     this.subgraphFetcher = new SubgraphOverlayFetcher(manager, editActionsQs);
-    this.kvDefFetcher = new KeyValueDefinitionFetcher(manager, editActionsQs);
+    this.valueDefFetcher = new ValueDefinitionFetcher(manager, editActionsQs);
   }
 
   // ── Reads ────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         sgkvRows.flatMap(sg => sg.values.map(v => v.valueDefSystemId)),
       ),
     ];
-    const valueDefs = await this.kvDefFetcher.fetchValuesBySystemIds(
+    const valueDefs = await this.valueDefFetcher.fetchMany(
       allValueDefIds,
       sessionId,
     );

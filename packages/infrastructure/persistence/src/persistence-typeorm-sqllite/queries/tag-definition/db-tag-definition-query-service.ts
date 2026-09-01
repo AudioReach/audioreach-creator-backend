@@ -22,8 +22,8 @@ import {
  * Database implementation of TagDefinitionQueryService.
  *
  * All overlay delegated to TagDefinitionFetcher (FR-3):
- *   fetchAll         — all tag_definitions + tag_key_def_links with session overlay
- *   fetchBySystemIds — scoped to specific tag system IDs
+ *   fetchMany        — all or selected tag definitions with session overlay
+ *   fetchOne         — one selected tag definition through fetchMany
  *
  * Key definition resolution (keyReferenceSystemId → name/values) is
  * cross-aggregate enrichment delegated to KeyValueDefQueryService (FR-4).
@@ -55,18 +55,14 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
       );
 
       // Overlay applied by fetcher (FR-3).
-      const overlaidTags = await this.tagFetcher.fetchAll(
+      const overlaidTags = await this.tagFetcher.fetchMany(
+        'all',
         fileSystemId,
         sessionId,
+        tagNaturalId === undefined ? undefined : {tagId: tagNaturalId},
       );
 
-      // Filter by tagId after overlay so session-added/updated tags are filterable.
-      const filtered =
-        tagNaturalId === undefined
-          ? overlaidTags
-          : overlaidTags.filter(t => t.tagId === tagNaturalId);
-
-      return this.resolveAndMap(filtered, fileSystemId);
+      return this.resolveAndMap(overlaidTags, fileSystemId);
     } catch (error) {
       return Result.fail({
         code: ERROR_CODES.INTERNAL_ERROR,
@@ -88,15 +84,13 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
       fileSystemId,
     );
 
-    // fetchBySystemIds handles the session-only CREATE case — an empty base
+    // fetchOne handles the session-only CREATE case — an empty base
     // list is passed through overlay and session CREATEs are still appended.
-    const overlaidTags = await this.tagFetcher.fetchBySystemIds(
-      [tagSystemId],
+    const overlaid = await this.tagFetcher.fetchOne(
+      tagSystemId,
       fileSystemId,
       sessionId,
     );
-
-    const overlaid = overlaidTags.find(t => t.systemId === tagSystemId);
     if (!overlaid) return null;
 
     const result = await this.resolveAndMap([overlaid], fileSystemId);
@@ -119,7 +113,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
         this.dataSource,
         fileSystemId,
       );
-      const overlaidTags = await this.tagFetcher.fetchBySystemIds(
+      const overlaidTags = await this.tagFetcher.fetchMany(
         tagSystemIds,
         fileSystemId,
         sessionId,

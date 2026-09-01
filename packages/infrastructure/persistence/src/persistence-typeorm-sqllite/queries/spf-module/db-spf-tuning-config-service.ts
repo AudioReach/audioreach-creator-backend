@@ -24,6 +24,7 @@ import {
   IssueSeverity,
   RESULT_KIND,
 } from '@arc/core';
+import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import type {
   CkvOverlayFetcher,
@@ -160,10 +161,9 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
         fileSystemId,
       );
 
-      // fetchOne derives moduleSystemId from the base row — no separate lookup needed.
-      const ckv = await this.ckvFetcher.fetchOne(ckvSystemId, sessionId);
-      if (ckv === null) return Result.ok([]);
-      const moduleSystemId = ckv.spfModuleSystemId;
+      // Resolve the owning module so we can call the fetchers (aggregateId = moduleSystemId).
+      const moduleSystemId = await this.resolveCkvModuleSystemId(ckvSystemId);
+      if (moduleSystemId === null) return Result.ok([]);
 
       // Step 1 — overlaid payload rows via fetcher (FR-3).
       const payloads = await this.ckvFetcher.fetchPayloads(
@@ -185,11 +185,10 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
       const defSystemId = spfRows.at(0)?.definitionSystemId ?? null;
       if (defSystemId === null) return Result.ok([]);
 
-      const paramDefs =
-        await this.paramFetcher.fetchSpfModuleParameterDefinition(
-          defSystemId,
-          sessionId,
-        );
+      const paramDefs = await this.paramFetcher.fetchMany(
+        [defSystemId],
+        sessionId,
+      );
       const paramDefMap = new Map(paramDefs.map(d => [d.systemId, d]));
 
       // Step 3 — assemble CkvParamReadModel (skip payloads with missing definitions).
@@ -303,6 +302,24 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
+
+  // ── Private helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Resolves the owning SpfModule system ID from a Ckv system ID.
+   * Returns null when the Ckv row does not exist in the baseline.
+   */
+  private async resolveCkvModuleSystemId(
+    ckvSystemId: number,
+  ): Promise<number | null> {
+    const row = (await this.dataSource
+      .getRepository(ENTITY_NAMES.Ckv)
+      .createQueryBuilder('ckv')
+      .select(['ckv.systemId', 'ckv.spfModuleSystemId'])
+      .where('ckv.systemId = :ckvSystemId', {ckvSystemId})
+      .getOne()) as {systemId: number; spfModuleSystemId: number} | null;
+    return row?.spfModuleSystemId ?? null;
+  }
 
   // ── Assembly methods ─────────────────────────────────────────────────────
 

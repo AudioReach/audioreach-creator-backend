@@ -88,18 +88,9 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
 
     const [root, portGroups, staticPorts, dynamicIntents] = await Promise.all([
       this.rootFetcher.fetchOne(defSystemId, fileSystemId, sessionId),
-      this.portGroupFetcher.fetchDataPortGroupDefinition(
-        defSystemId,
-        sessionId,
-      ),
-      this.staticPortFetcher.fetchStaticControlPortDefinition(
-        defSystemId,
-        sessionId,
-      ),
-      this.dynamicIntentFetcher.fetchDynamicIntentDefinition(
-        defSystemId,
-        sessionId,
-      ),
+      this.portGroupFetcher.fetchMany(defSystemId, sessionId),
+      this.staticPortFetcher.fetchMany(defSystemId, sessionId),
+      this.dynamicIntentFetcher.fetchMany(defSystemId, sessionId),
     ]);
 
     if (root === null) return null;

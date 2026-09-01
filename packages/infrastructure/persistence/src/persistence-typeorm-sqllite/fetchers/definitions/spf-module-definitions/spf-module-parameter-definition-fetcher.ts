@@ -4,32 +4,30 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../../../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../../../queries/edit-session/edit-actions-query-service.js';
-import type {EditActionRow} from '../../../entity-schema/edit-session/edit-action.schema.js';
 import type {SpfModuleParameterDefinitionBase} from '../../../entity-schema/definitions/module/spf/spf-module-parameter-definition.schema.js';
+import {
+  applyEntityFilters,
+  matchesEntityFilters,
+} from '../../../queries/shared/filter-utils.js';
+
+/** Optional scalar filters for SPF module parameter definitions. */
+export type SpfModuleParameterDefinitionFilters = {
+  systemId?: number | number[];
+  paramId?: number | number[];
+  name?: string | string[];
+  pidType?: string | string[];
+  isPersistent?: boolean | boolean[];
+  toolPolicies?: string | string[];
+  spfModuleDefinitionSystemId?: number | number[];
+  $or?: SpfModuleParameterDefinitionFilters[];
+};
 
 /**
- * Overlaid scalar fields from spf_module_parameter_definitions.
- * Binary payload relations (ckvParameterPayloads, tkvParameterPayloads) are
- * excluded — they are loaded on demand via separate queries, not as part of
- * the definition aggregate overlay.
- */
-
-/**
- * Fetches spf_module_parameter_definitions for one or many SpfModuleDefinitions
- * with session edit_actions overlay applied.
- *
- * Existence of these rows is determined by the SpfModuleDefinition root —
- * callers must verify the root exists (via SpfModuleDefinitionFetcher.fetchOne)
- * before invoking this fetcher (FR-8 Rule 1).
- *
- * Two entry points:
- *   fetchForDefinition  — single definition; one base query + one edit_actions query
- *   fetchForDefinitions — bulk; IN (...) base query + getByTable for edit_actions
- *                         returns Map<defSystemId, rows> for efficient assembly
+ * Fetches SPF module parameter definitions with session overlay applied.
+ * The module definition system IDs are the child-row scope.
  */
 export class SpfModuleParameterDefinitionFetcher {
   private readonly overlay = new OverlayMergeImpl();
@@ -39,31 +37,61 @@ export class SpfModuleParameterDefinitionFetcher {
     private readonly editActionsSvc: EditActionsQueryService,
   ) {}
 
+  /** Loads overlaid parameters for one or more SPF module definitions. */
+  async fetchMany(
+    spfModuleDefinitionSystemIds: number[],
+    sessionId: number | null,
+    filters?: SpfModuleParameterDefinitionFilters,
+  ): Promise<SpfModuleParameterDefinitionBase[]> {
+    if (spfModuleDefinitionSystemIds.length === 0) return [];
+
+    const qb = this.manager
+      .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
+      .createQueryBuilder('param')
+      .where('param.spfModuleDefinitionSystemId IN (:...defSystemIds)', {
+        defSystemIds: spfModuleDefinitionSystemIds,
+      });
+    if (filters) applyEntityFilters(qb, 'param', filters);
+    const baseRows = (await qb.getMany()) as SpfModuleParameterDefinitionBase[];
+
+    if (sessionId === null) return baseRows;
+
+    const allActions = await this.editActionsSvc.getByTable(
+      sessionId,
+      ENTITY_NAMES.SpfModuleParameterDefinition,
+    );
+    const definitionIdSet = new Set(spfModuleDefinitionSystemIds);
+    const relevantActions = allActions.filter(action =>
+      definitionIdSet.has(action.aggregateId),
+    );
+    const createFilter = (newValue: Record<string, unknown>) => {
+      const ownerId = newValue.spfModuleDefinitionSystemId;
+      return (
+        typeof ownerId === 'number' &&
+        definitionIdSet.has(ownerId) &&
+        (filters === undefined || matchesEntityFilters(newValue, filters))
+      );
+    };
+
+    return this.overlay
+      .applyToCollection(baseRows, relevantActions, createFilter)
+      .map(row => row.effective);
+  }
+
   /**
-   * Loads overlaid parameter definitions for a single SpfModuleDefinition.
-   * Used by getDefinition and getParameterDefinition (single-entity paths).
-   */
-  /**
-   * Returns a single overlaid parameter definition by its system ID.
-   *
-   * Resolves the owning definition's system ID from the base row, then
-   * delegates overlay to fetchForDefinition and filters in memory (FR-3).
-   *
-   * Returns null if the base row does not exist. Session-only CREATE parameters
-   * (no baseline row) are not resolvable via this method — the same limitation
-   * as the previous direct-query implementation.
+   * Returns one overlaid parameter definition, or null when it is absent.
+   * The owning definition is resolved first, then collection loading and
+   * overlay remain owned by fetchMany.
    */
   async fetchOne(
-    paramSystemId: number,
+    parameterSystemId: number,
     sessionId: number | null,
   ): Promise<SpfModuleParameterDefinitionBase | null> {
-    // Step 1 — minimal base row query to resolve the owning definition ID.
-    // This FK is set at import time and does not change in a session.
     const baseRow = (await this.manager
       .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
       .createQueryBuilder('param')
       .select(['param.systemId', 'param.spfModuleDefinitionSystemId'])
-      .where('param.systemId = :paramSystemId', {paramSystemId})
+      .where('param.systemId = :parameterSystemId', {parameterSystemId})
       .getOne()) as {
       systemId: number;
       spfModuleDefinitionSystemId: number;
@@ -71,201 +99,11 @@ export class SpfModuleParameterDefinitionFetcher {
 
     if (baseRow === null) return null;
 
-    // Step 2 — fetch all parameters for the owning definition with overlay,
-    // then filter to the requested parameter in memory (FR-3).
-    const allParams = await this.fetchSpfModuleParameterDefinition(
-      baseRow.spfModuleDefinitionSystemId,
+    const rows = await this.fetchMany(
+      [baseRow.spfModuleDefinitionSystemId],
       sessionId,
+      {systemId: parameterSystemId},
     );
-    return allParams.find(p => p.systemId === paramSystemId) ?? null;
-  }
-
-  /**
-   * Loads overlaid parameter definitions for a single SpfModuleDefinition.
-   * Used by getDefinition and queryParameterDefinitions (single-entity paths).
-   */
-  async fetchSpfModuleParameterDefinition(
-    defSystemId: number,
-    sessionId: number | null,
-  ): Promise<SpfModuleParameterDefinitionBase[]> {
-    const baseRows = await this.loadBaseRows([defSystemId]);
-
-    if (sessionId === null) return this.toOverlaid(baseRows);
-
-    // Parameters share the definition's aggregateId — one call covers all params
-    // for this definition.
-    const actions = await this.editActionsSvc.getByAggregateId(
-      sessionId,
-      defSystemId,
-    );
-    const paramActions = actions.filter(
-      a => a.targetTable === ENTITY_NAMES.SpfModuleParameterDefinition,
-    );
-
-    return this.applyOverlay(
-      this.toOverlaid(baseRows),
-      paramActions,
-      defSystemId,
-    );
-  }
-
-  /**
-   * Loads overlaid parameter definitions for multiple SpfModuleDefinitions in
-   * one base query. Session overlay uses getByTable (one call for the whole
-   * session table) rather than N getByAggregateId calls — consistent with
-   * the batch pattern used by ContainerOverlayFetcher and SubgraphOverlayFetcher.
-   *
-   * Returns Map<defSystemId, SpfModuleParameterDefinitionBase[]> so callers can
-   * look up parameters by definition without a second pass.
-   */
-  async fetchSpfModuleParameterDefinitions(
-    defSystemIds: number[],
-    sessionId: number | null,
-  ): Promise<Map<number, SpfModuleParameterDefinitionBase[]>> {
-    if (defSystemIds.length === 0) return new Map();
-
-    const baseRows = await this.loadBaseRows(defSystemIds);
-    const overlaidRows =
-      sessionId === null
-        ? this.toOverlaid(baseRows)
-        : await this.applyTableOverlay(baseRows, sessionId, defSystemIds);
-
-    // Group by definition system ID for O(1) lookup by callers.
-    const result = new Map<number, SpfModuleParameterDefinitionBase[]>();
-    for (const row of overlaidRows) {
-      const bucket = result.get(row.spfModuleDefinitionSystemId) ?? [];
-      bucket.push(row);
-      result.set(row.spfModuleDefinitionSystemId, bucket);
-    }
-    return result;
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
-
-  private async loadBaseRows(
-    defSystemIds: number[],
-  ): Promise<SpfModuleParameterDefinitionBase[]> {
-    return (await this.manager
-      .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
-      .createQueryBuilder('param')
-      .where('param.spfModuleDefinitionSystemId IN (:...defSystemIds)', {
-        defSystemIds,
-      })
-      .getMany()) as unknown as SpfModuleParameterDefinitionBase[];
-  }
-
-  private toOverlaid(
-    rows: SpfModuleParameterDefinitionBase[],
-  ): SpfModuleParameterDefinitionBase[] {
-    return rows.map(r => ({
-      systemId: r.systemId,
-      paramId: r.paramId,
-      name: r.name,
-      description: r.description,
-      maxSize: r.maxSize,
-      pidType: r.pidType,
-      isPersistent: Boolean(r.isPersistent),
-      elementsStructure: r.elementsStructure ?? '',
-      isReadOnly: Boolean(r.isReadOnly),
-      toolPolicies: r.toolPolicies,
-      spfModuleDefinitionSystemId: r.spfModuleDefinitionSystemId,
-    }));
-  }
-
-  /**
-   * Applies session overlay for a single definition's parameters.
-   * Called by fetchForDefinition.
-   */
-  private applyOverlay(
-    base: SpfModuleParameterDefinitionBase[],
-    paramActions: EditActionRow[],
-    defSystemId: number,
-  ): SpfModuleParameterDefinitionBase[] {
-    const overlaid = this.overlay
-      .applyToCollection(
-        base.map(r => ({...r})),
-        paramActions,
-      )
-      .map(r => r.effective as SpfModuleParameterDefinitionBase);
-
-    const baseIds = new Set(base.map(r => r.systemId));
-    const created: SpfModuleParameterDefinitionBase[] = paramActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<SpfModuleParameterDefinitionBase>;
-        return {
-          systemId: a.targetSystemId,
-          paramId: p.paramId ?? 0,
-          name: p.name,
-          description: p.description,
-          maxSize: p.maxSize ?? 0,
-          pidType: p.pidType ?? '',
-          isPersistent: Boolean(p.isPersistent),
-          elementsStructure: p.elementsStructure ?? '',
-          isReadOnly: Boolean(p.isReadOnly),
-          toolPolicies: p.toolPolicies,
-          spfModuleDefinitionSystemId:
-            p.spfModuleDefinitionSystemId ?? defSystemId,
-        };
-      });
-
-    return [...overlaid, ...created];
-  }
-
-  /**
-   * Applies session overlay for a bulk fetch using getByTable.
-   * More efficient than N getByAggregateId calls when loading many definitions.
-   */
-  private async applyTableOverlay(
-    baseRows: SpfModuleParameterDefinitionBase[],
-    sessionId: number,
-    defSystemIds: number[],
-  ): Promise<SpfModuleParameterDefinitionBase[]> {
-    const allActions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.SpfModuleParameterDefinition,
-    );
-
-    // Filter to only actions belonging to the requested definitions.
-    const defIdSet = new Set(defSystemIds);
-    const relevantActions = allActions.filter(a => defIdSet.has(a.aggregateId));
-
-    const base = this.toOverlaid(baseRows);
-    const overlaid = this.overlay
-      .applyToCollection(
-        base.map(r => ({...r})),
-        relevantActions,
-      )
-      .map(r => r.effective as SpfModuleParameterDefinitionBase);
-
-    const baseIds = new Set(baseRows.map(r => r.systemId));
-    const created: SpfModuleParameterDefinitionBase[] = relevantActions
-      .filter(
-        a =>
-          a.operation === CHANGE_OPERATION.Create &&
-          !baseIds.has(a.targetSystemId),
-      )
-      .map(a => {
-        const p = a.newValue as Partial<SpfModuleParameterDefinitionBase>;
-        return {
-          systemId: a.targetSystemId,
-          paramId: p.paramId ?? 0,
-          name: p.name,
-          description: p.description,
-          maxSize: p.maxSize ?? 0,
-          pidType: p.pidType ?? '',
-          isPersistent: Boolean(p.isPersistent),
-          elementsStructure: p.elementsStructure ?? '',
-          isReadOnly: Boolean(p.isReadOnly),
-          toolPolicies: p.toolPolicies,
-          spfModuleDefinitionSystemId: p.spfModuleDefinitionSystemId ?? 0,
-        };
-      });
-
-    return [...overlaid, ...created];
+    return rows[0] ?? null;
   }
 }
