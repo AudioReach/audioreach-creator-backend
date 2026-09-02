@@ -42,7 +42,10 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
     this.tkvFetcher = new TkvOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
-      new TkvParameterPayloadFetcher(dataSource.manager, editActionsQueryService),
+      new TkvParameterPayloadFetcher(
+        dataSource.manager,
+        editActionsQueryService,
+      ),
     );
   }
 
