@@ -16,6 +16,7 @@ import {
   TkvOverlayFetcher,
   type OverlaidTkv,
 } from '../../fetchers/tkv-overlay-fetcher.js';
+import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import type {TkvParameterPayloadBase} from '../../entity-schema/usecase-data/module/spf-module-tag-data.schema.js';
 
 /**
@@ -41,6 +42,7 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
     this.tkvFetcher = new TkvOverlayFetcher(
       dataSource.manager,
       editActionsQueryService,
+      new TkvParameterPayloadFetcher(dataSource.manager, editActionsQueryService),
     );
   }
 
@@ -74,7 +76,7 @@ export class DbTkvCalibrationQueryService implements TkvQueryService {
       this.dataSource,
       fileSystemId,
     );
-    const all = await this.tkvFetcher.fetchTkvPayloads(tkvSystemId, sessionId);
+    const all = await this.tkvFetcher.fetchPayloads(tkvSystemId, sessionId);
     const filtered =
       paramSystemIds && paramSystemIds.length > 0
         ? all.filter(p => paramSystemIds.includes(p.systemId))

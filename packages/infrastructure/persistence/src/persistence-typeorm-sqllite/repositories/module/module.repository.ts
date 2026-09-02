@@ -22,6 +22,7 @@ import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
 import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-fetcher.js';
 import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
+import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
@@ -49,7 +50,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       editActionsQs,
       new CkvParameterPayloadFetcher(manager, editActionsQs),
     );
-    this.tkvOverlayFetcher = new TkvOverlayFetcher(manager, editActionsQs);
+    this.tkvOverlayFetcher = new TkvOverlayFetcher(
+      manager,
+      editActionsQs,
+      new TkvParameterPayloadFetcher(manager, editActionsQs),
+    );
   }
 
   async findModuleForPatch(
@@ -445,7 +450,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     tkvSystemId: number,
   ): Promise<ExistingPayloadRow[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const rows = await this.tkvOverlayFetcher.fetchTkvPayloads(
+    const rows = await this.tkvOverlayFetcher.fetchPayloads(
       tkvSystemId,
       sessionId,
     );

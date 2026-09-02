@@ -4,7 +4,7 @@
  */
 
 import type {EntityManager} from 'typeorm';
-import {CONFIGURATION_INCLUDES} from '@arc/core';
+import {CONFIGURATION_INCLUDES, CHANGE_OPERATION} from '@arc/core';
 import type {ConfigurationIncludes} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
