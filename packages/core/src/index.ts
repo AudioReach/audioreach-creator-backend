@@ -99,6 +99,7 @@ export * from './application/ports/persistence/query-services/module/query-model
 export * from './application/ports/persistence/query-services/usecase/usecase-query-service.js';
 export * from './application/ports/persistence/query-services/usecase/query-models/key-vector-read-model.js';
 export * from './application/ports/persistence/query-services/usecase/query-models/usecase-read-model.js';
+export * from './application/ports/persistence/query-services/usecase/query-models/usecase-change-details-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module/ports/data-port-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module/ports/control-port-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module/ports/intent-read-model.js';
@@ -362,6 +363,7 @@ export * from './application/usecase-designer/spf-module/update-tag-data/update-
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';
+export * from './application/usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
 export * from './application/usecase-designer/usecase/get-components/index.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.query.js';
 export * from './application/usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';
@@ -647,7 +649,7 @@ export {
   decodeStackSize,
 } from './domain/services/container-property/container-stack-size-codec.js';
 
-// Auto-usecase-creator — types shared across port surface and persistence adapters
+// Use-case-creator — types shared across port surface and persistence adapters
 export type {KvPair} from './application/ports/persistence/repositories/shared/kv-pair.js';
 export type {SgkvEntry} from './application/ports/persistence/repositories/subgraph/subgraph.repository.js';
 export type {LinksForPair} from './application/ports/persistence/repositories/shared/links-for-pair.js';
@@ -658,9 +660,15 @@ export type {
   ReadOptions,
 } from './application/ports/persistence/repositories/shared/read-options.js';
 
-// Auto-usecase-creator — UsecaseRepository port and types
+// Use-case-creator — UsecaseRepository port and types
 export type {
   UsecaseRepository,
+  ActiveManualUsecaseEdit,
   ReferencedComponents,
   StructuralDelta,
 } from './application/ports/persistence/repositories/usecase/usecase.repository.js';
+
+// Use-case-creator public command and result contracts
+export * from './application/usecase-designer/use-case-creator/contracts/routing-outcome.js';
+export * from './application/usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
+export * from './application/usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';

@@ -7,6 +7,7 @@ import type {EntityManager} from 'typeorm';
 import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
+import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
 import type {UsecaseGkvValuesBase} from '../entity-schema/usecase-data/use-case.js';
 
 /**
@@ -33,6 +34,22 @@ export class UsecaseGkvValuesFetcher {
   ): Promise<UsecaseGkvValuesBase[]> {
     if (usecaseSystemIds.length === 0) return [];
 
+    const actions =
+      sessionId === null
+        ? []
+        : await this.editActionsSvc.getByTable(
+            sessionId,
+            ENTITY_NAMES.UsecaseGkvValues,
+          );
+    return this.fetchManyWithActions(usecaseSystemIds, actions);
+  }
+
+  async fetchManyWithActions(
+    usecaseSystemIds: number[],
+    actions: readonly EditActionRow[],
+  ): Promise<UsecaseGkvValuesBase[]> {
+    if (usecaseSystemIds.length === 0) return [];
+
     const baseRows = (await this.manager
       .getRepository(ENTITY_NAMES.UsecaseGkvValues)
       .createQueryBuilder('gkv')
@@ -40,12 +57,6 @@ export class UsecaseGkvValuesFetcher {
       .where('gkv.usecaseSystemId IN (:...ids)', {ids: usecaseSystemIds})
       .getMany()) as UsecaseGkvValuesBase[];
 
-    if (sessionId === null) return baseRows;
-
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.UsecaseGkvValues,
-    );
     if (actions.length === 0) return baseRows;
 
     // Group baseline entries per usecase (keyed by valueDefSystemId) and apply overlay
@@ -65,7 +76,12 @@ export class UsecaseGkvValuesFetcher {
       }>;
       const ucId = p.usecaseSystemId;
       const vdId = p.valueDefSystemId;
-      if (!ucId || !vdId || !entriesByUsecase.has(ucId)) continue;
+      if (
+        ucId === undefined ||
+        vdId === undefined ||
+        !entriesByUsecase.has(ucId)
+      )
+        continue;
       const entries = entriesByUsecase.get(ucId)!;
       if (action.operation === CHANGE_OPERATION.Create) {
         if (!entries.has(vdId))

@@ -4,6 +4,7 @@
  */
 
 import type {EntityManager} from 'typeorm';
+import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
@@ -92,6 +93,40 @@ export class SpfModuleOverlayFetcher {
         filters ? nv => matchesEntityFilters(nv, filters) : undefined,
       )
       .map(r => r.effective);
+  }
+
+  /**
+   * Returns effective modules for the requested subgraphs. The baseline is
+   * deliberately file-wide so module moves into or out of scope are visible
+   * after the SpfModule overlay is applied.
+   */
+  async fetchEffectiveForSubgraphs(
+    fileSystemId: number,
+    sessionId: number | null,
+    subgraphSystemIds: readonly number[],
+  ): Promise<SpfModuleBase[]> {
+    if (subgraphSystemIds.length === 0) return [];
+
+    const modules = await this.fetchMany(fileSystemId, sessionId);
+    const deletedNodeIds = new Set<number>();
+    if (sessionId !== null) {
+      const nodeActions = await this.editActionsSvc.getByTable(
+        sessionId,
+        ENTITY_NAMES.Node,
+      );
+      for (const action of nodeActions) {
+        if (action.operation === CHANGE_OPERATION.Delete) {
+          deletedNodeIds.add(action.targetSystemId);
+        }
+      }
+    }
+
+    const subgraphIdSet = new Set(subgraphSystemIds);
+    return modules.filter(
+      module =>
+        !deletedNodeIds.has(module.systemId) &&
+        subgraphIdSet.has(module.subgraphSystemId),
+    );
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────

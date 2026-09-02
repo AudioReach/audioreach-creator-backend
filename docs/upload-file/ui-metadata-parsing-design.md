@@ -86,7 +86,7 @@ Prior to this feature, six data stubs were hardcoded in the upload pipeline:
     { "id": "<uuid>", "data": "<base64-encoded-bytes>" }
   ],
   "usecases": [
-    { "type": "Routed", "keyValue": "[0xA2000000: 0xA3000000]" }
+    { "type": "LINKED", "keyValue": "[0xA2000000: 0xA3000000]" }
   ],
   "subsystems": [
     {
@@ -668,7 +668,8 @@ UploadFileOrchestrator.buildAndInsert*()
 - Falls back to empty name and `NULL` subsystemId when metadata absent
 
 #### `UseCaseInserter` — type field (`use-case.inserter.spec.ts`)
-- `type = 'Routed'` persisted to `use_cases.type`
+- `type = 'LINKED'` persisted to `use_cases.type`; canonical use-case types are
+  `EC`, `LINKED`, and `ISLAND`.
 - `type = undefined` → `NULL` in DB
 
 ---

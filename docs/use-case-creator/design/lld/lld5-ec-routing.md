@@ -64,7 +64,7 @@ change; it consumes the existing attribute.
 **Downstream outputs added to `RoutingContext`:**
 - `context.dfsPaths` — extended with EC boundary flags (see §4.1)
 - `context.ecBridgeCandidates` — separate list of Bridge UC candidates (§4.2)
-- `context.classified` — Phase 9 emits UCs typed as `Connected` (regular routed paths AND EC Left/Right paths) or `EC` (Bridge UC only)
+- `context.classified` — Phase 9 emits UCs typed as `LINKED` (regular routed paths AND EC Left/Right paths) or `EC` (Bridge UC only)
 
 **No new port dependencies.** `IDataLinkRepository` already provides the `isEc`
 attribute. Existing repos suffice.
@@ -96,7 +96,7 @@ DfsPath {
 
 **Invariant** (documented, not type-enforced): `termination === 'ec-boundary'` ↔ `ecBoundaryLinkId !== null`.
 
-**Right-side traversal paths:** right-side DFS (started from the right SG of an EC connection) emits paths just like the main DFS — they terminate as `'natural-leaf'` or `'cycle'` with `ecBoundaryLinkId === null`. Phase 8 treats them as ordinary paths; Phase 9 classifies them as `Connected` UCs. No distinguishing field is needed on `DfsPath` because no downstream phase branches on right-side vs. main-DFS origin.
+**Right-side traversal paths:** right-side DFS (started from the right SG of an EC connection) emits paths just like the main DFS — they terminate as `'natural-leaf'` or `'cycle'` with `ecBoundaryLinkId === null`. Phase 8 treats them as ordinary paths; Phase 9 classifies them as `LINKED` UCs. No distinguishing field is needed on `DfsPath` because no downstream phase branches on right-side vs. main-DFS origin.
 
 **Rationale for dropping LLD2's separate cycle boolean:** cycle handling was already a
 warning-only case, not a code-path branch. Collapsing three booleans into one enum
@@ -126,17 +126,17 @@ connection produces 2 valid UCs in this case, not 3.
 ### 4.3 UC type tag (extends `Usecase` domain entity)
 
 ```
-UsecaseType = 'Connected' | 'Disconnected' | 'EC'
+UsecaseType = 'LINKED' | 'ISLAND' | 'EC'
 ```
 
 Semantics:
-- **`Connected`** — regular routed UC with full data-link pair coverage. Includes UCs generated at EC boundaries (Left/Right) because they behave identically to regular routed UCs post-generation.
-- **`Disconnected`** — UC with pair coverage gaps (at least one pair supported only by a control-link, or created via manual UC with data-link fallback per FR-UC-01).
+- **`LINKED`** — regular routed UC with full data-link pair coverage. Includes UCs generated at EC boundaries (Left/Right) because they behave identically to regular routed UCs post-generation.
+- **`ISLAND`** — UC with pair coverage gaps (at least one pair supported only by a control-link, or created via manual UC with data-link fallback per FR-UC-01).
 - **`EC`** — EC Bridge UC only. Two-SG UC connecting the endpoints of an EC connection. Distinct because FR-EC-06 gives it a specific lifecycle (deleted when EC link or endpoints go away).
 
 `type` is a single field on `Usecase`; there is no separate `status` field. FR-STATUS-01/02/03/04 language uses "status" as terminology for domain-level discussion, but the technical field is `type`.
 
-**Sticky rule:** `EC` UCs never transition to `Connected` or `Disconnected` — they exist as EC bridges until deleted. `Connected` ↔ `Disconnected` transitions per FR-STATUS-04 and FR-STATUS-02(b). EC UCs are subject to the file-wide GKV uniqueness rule (I1) just like Connected/Disconnected UCs — see §7.1.
+**Sticky rule:** `EC` UCs never transition to `LINKED` or `ISLAND` — they exist as EC bridges until deleted. `LINKED` ↔ `ISLAND` transitions per FR-STATUS-04 and FR-STATUS-02(b). EC UCs are subject to the file-wide GKV uniqueness rule (I1) just like `LINKED`/`ISLAND` UCs — see §7.1.
 
 ---
 
@@ -383,9 +383,9 @@ for each leftPath in ecLeftPaths:
       })
 ```
 
-**Left UC and Right UC are emitted as regular `Connected` UC candidates** via LLD2
+**Left UC and Right UC are emitted as regular `LINKED` UC candidates** via LLD2
 §6.1's normal path. There is no per-path field distinguishing right-side traversal
-paths from main-DFS paths — Phase 9 classifies both as `Connected`.
+paths from main-DFS paths — Phase 9 classifies both as `LINKED`.
 
 ### 6.2 FR-EC-04: Bridge KV compatibility
 
@@ -434,7 +434,7 @@ regular UCs even if the GKV happens to overlap.
 **Detection during Classification (Phase 9):**
 
 ```
-for each candidate in [context.combinations.candidates, context.ecBridgeCandidates]:
+for each candidate in [context.combinations, context.ecBridgeCandidates]:
   // FR-EC-07 Rule A — Bridge suppression against legacy EC UCs
   if candidate is EcBridgeCandidate:
     B := candidate.leftSgSystemId
@@ -459,7 +459,7 @@ for each candidate in [context.combinations.candidates, context.ecBridgeCandidat
   if existingUcs.length == 0:
     # No UC in the file has this GKV — emit new UC candidate
     ucTypeForNewCandidate := candidate is EcBridgeCandidate ? 'EC' :
-                             (pair set fully data-link covered ? 'Connected' : 'Disconnected')
+                             (pair set fully data-link covered ? 'LINKED' : 'ISLAND')
     emit new UC candidate
     continue
 
@@ -474,7 +474,7 @@ for each candidate in [context.combinations.candidates, context.ecBridgeCandidat
     emit FR-DUP-04 collision(candidate, existingUcs, newCandidateType='EC')
     continue
   else:
-    # Connected/Disconnected candidate — try silent branches first
+    # LINKED/ISLAND candidate — try silent branches first
     exactMatch := existingUcs.find(uc => sameSgSet(uc, candidate) and samePairSet(uc, candidate))
     if exactMatch:
       continue   # FR-DUP-03(a) exact-match no-op (may trigger FR-STATUS-04 upstream)
@@ -485,8 +485,8 @@ for each candidate in [context.combinations.candidates, context.ecBridgeCandidat
       continue
 
     # Neither silent branch fits — FR-DUP-04 user-choice
-    # New candidate's type: Connected iff every pair has data-link coverage, else Disconnected
-    newType := candidate.pairSet fully data-link covered ? 'Connected' : 'Disconnected'
+    # New candidate's type: LINKED iff every pair has data-link coverage, else ISLAND
+    newType := candidate.pairSet fully data-link covered ? 'LINKED' : 'ISLAND'
     emit FR-DUP-04 collision(candidate, existingUcs, newCandidateType=newType)
 ```
 ```
@@ -495,13 +495,16 @@ for each candidate in [context.combinations.candidates, context.ecBridgeCandidat
 returns UCs where `type=EC` AND SG count > 2 AND `{B, C} ⊆ uc.subgraphSystemIds`. In
 the general case, at most one UC matches; for the multi-SGKV case (Gap 4 in FR-EC-07
 discussion), multiple may match. Suppression fires if **any** qualifying legacy exists.
+This file-wide catalog supports impact and uniqueness checks only. Any
+selection-dependent behavior continues to use the handler-preserved
+`input.selectedUsecases` effective-overlay snapshot.
 
 **Type-based dedup rules (unified — no EC exemption):**
-- `Connected` / `Disconnected` candidate matching any existing UC (`Connected` / `Disconnected` / `EC`) → FR-DUP-03(a) exact-match no-op, FR-DUP-03(b1) identity-preserving interior extension silent auto-update, or FR-DUP-04 user-choice (all other overlap/disjoint cases). When the match is an EC UC and (b1) applies (legacy EC UC reconstruction per FR-EC-07 Rule D), the silent auto-update preserves `type=EC`.
-- `Connected` candidate matching `Disconnected` existing → FR-STATUS-04 has already run at Phase 3; if the collision persists at Phase 9, FR-DUP-03(a)/(b1) silent branches or FR-DUP-04 user-choice applies (type does not matter to the collision rule).
+- `LINKED` / `ISLAND` candidate matching any existing UC (`LINKED` / `ISLAND` / `EC`) → FR-DUP-03(a) exact-match no-op, FR-DUP-03(b1) identity-preserving interior extension silent auto-update, or FR-DUP-04 user-choice (all other overlap/disjoint cases). When the match is an EC UC and (b1) applies (legacy EC UC reconstruction per FR-EC-07 Rule D), the silent auto-update preserves `type=EC`.
+- `LINKED` candidate matching existing `ISLAND` → FR-STATUS-04 has already run at Phase 3; if the collision persists at Phase 9, FR-DUP-03(a)/(b1) silent branches or FR-DUP-04 user-choice applies (type does not matter to the collision rule).
 - `EC` (Bridge) candidate matching `EC` existing with **same `ecConnectionLinkId` and same `gkv`** → FR-DUP-03(a) exact-match no-op (this is the "GKV unchanged, topology intact" preservation case per FR-EC-06).
 - `EC` (Bridge) candidate matching `EC` existing with **different `ecConnectionLinkId` but same `gkv`** → FR-DUP-04 user-choice (two EC bridges from different EC connections coincidentally sharing a GKV — highly unusual but not exempt).
-- `EC` (Bridge) candidate matching `Connected` / `Disconnected` existing with same `gkv` → FR-DUP-04 user-choice (coincidental cross-type same-GKV — user chooses which UC survives).
+- `EC` (Bridge) candidate matching existing `LINKED` / `ISLAND` with same `gkv` → FR-DUP-04 user-choice (coincidental cross-type same-GKV — user chooses which UC survives).
 
 **Bridge UC identity key:** GKV is the file-wide identity per I1 — two Bridges with
 different GKVs are automatically different UCs (no clash). Two Bridges with the same
@@ -518,16 +521,17 @@ coexist" — different GKVs means no clash).
 EC connection link is deleted → the EC bridge UC is marked DELETED, following the
 same deletion workflow as any UC (FR-DEL-01..05).
 
-**Enforcement:** this is a Phase 2 (DeletionScope, LLD4) concern. LLD4 §5.1 already
-uses `findByContainingSg` / `findByContainingLink` to identify impacted UCs — EC
-bridge UCs are included because they reference the SGs and the EC link. No LLD4
-change needed; the queries transparently include EC UCs.
+**Enforcement:** this is a Phase 2 (DeletionScope, LLD4) concern. LLD4 §5.1 examines
+the file-wide committed pre-session UC set and includes EC UCs in the affected set when
+they require deletion, structural mutation, or type degradation.
 
 **Design note — impact detection for EC connection deletion:** the `is_ec` attribute
 is on the data-link, so a deleted EC connection appears as a deleted data-link in
 `input.graphEdits.deletedDataLinks`. LLD4 §5.1's data-link deletion branch handles
-it. UCs referencing the deleted EC link (all three: Left / Right / Bridge) are
-impacted. FR-DEL-02 fail-fast requires all three in `selectedUsecaseSystemIds`.
+it. Phase 2 matches the deleted endpoint pair against each UC's stored pair set. The
+Bridge UC and any legacy UC containing that pair are affected; Left and Right UCs are
+not affected solely by deletion of the EC edge because neither contains that pair.
+FR-DEL-02 gates exactly the resulting file-wide affected set.
 
 ---
 
@@ -560,8 +564,8 @@ impacted. FR-DEL-02 fail-fast requires all three in `selectedUsecaseSystemIds`.
 
 **Phase 9 — EC lifecycle:**
 - T-EC-j: EC bridge UC exists; user changes KV on left SG → new Bridge UC created; existing preserved (FR-EC-06)
-- T-EC-k: EC connection deleted → Bridge UC marked for deletion; Left and Right UCs also impacted per FR-DEL-01
-- T-EC-l: EC left SG deleted → all 3 EC UCs impacted; FR-DEL-02 fail-fast requires all selected
+- T-EC-k: EC connection deleted → Bridge UC and any legacy UC containing the EC pair are affected; Left and Right UCs are not affected solely by the edge deletion
+- T-EC-l: EC left SG deleted → every UC whose SG set contains the left SG is affected (normally Left and Bridge, plus matching legacy UCs); FR-DEL-02 requires exactly that full set
 
 **Legacy EC UC scenarios (FR-EC-07):**
 
@@ -573,8 +577,8 @@ impacted. FR-DEL-02 fail-fast requires all three in `selectedUsecaseSystemIds`.
 | T-EC-legacy-d | X inserted between A and B; X has no SGKV; endpoint KVs unchanged | No | Yes (R2 narrow check passes) | Suppressed (R1) | Legacy **UPDATED** (X added, un-marked from deletion via FR-DUP-03(b1) identity-preserving interior extension); Left/Right emit |
 | T-EC-legacy-e | X inserted; X has SGKV; endpoint KVs unchanged | No | Yes (R2 narrow check passes) | Suppressed (R1) | Legacy deleted; new legacy-shape UC created (`type=EC`, 6 SGs, different GKV); Left/Right emit |
 | T-EC-legacy-f | X inserted; B or C SGKV changed (endpoint KV changed) | Yes | No (R2 narrow check falls through — EC treated as boundary) | Emitted (R1 doesn't fire) | Reconstruction fails → legacy deleted; Phase 7 main DFS produces new 3-UC set with changed KVs |
-| T-EC-legacy-g | isMdf `SG_MDF` inserted at EC boundary (replaces B-eclink-C with B→SG_MDF→C, both `isEc=true`) | No | (Phase 2 transparent-bridge check fires per FR-MDF-01 → legacy not impacted) | Not applicable (no new EC connection introduced) | Legacy **UPDATED** with SG_MDF added; `type` stays `EC` (FR-EC-07 Rule C MDF exception applies) |
-| T-EC-legacy-h | B-eclink-C link deleted entirely (no MDF substitution) | Depends on other KVs | Depends | Not applicable (EC gone) | Legacy's pair set loses all EC links → after reconstruction, `type` recomputed to `Connected` (or `Disconnected` if coverage breaks) |
+| T-EC-legacy-g | isMdf `SG_MDF` inserted at EC boundary (replaces B-eclink-C with B→SG_MDF→C, both `isEc=true`) | No | Phase 2 records the legacy UC as structurally affected; FR-DEL-02 requires selection | Not applicable (no new EC connection introduced) | Legacy **UPDATED** with SG_MDF added; `type` stays `EC` (FR-EC-07 Rule C MDF exception applies) |
+| T-EC-legacy-h | B-eclink-C link deleted entirely (no MDF substitution) | Depends on other KVs | Depends | Not applicable (EC gone) | Legacy's pair set loses all EC links → after reconstruction, `type` recomputed to `LINKED` (or `ISLAND` if coverage breaks) |
 | T-EC-legacy-i | UC contains 2 EC links (not via MDF pattern) — pre-existing or constructed via edits | N/A | N/A | N/A | Blocking pre-validation error `ARC-ROUTING-EC-MULTIPLE-LINKS` (FR-EC-07 Rule C) |
 | T-EC-legacy-j | Internal SG D deleted | N/A | Depends on availability of alternate A→E path | Suppressed if reconstruction succeeds; otherwise emitted from main DFS | Standard deletion flow: legacy `updated` (if reconstruction finds path) or `deleted` per FR-DEL-05 (if it doesn't) |
 
@@ -594,11 +598,11 @@ domain model change, not owned by LLD5.
 trigger repeated right-side DFS. Verify performance benefit is significant enough
 to justify the cache; alternative is to accept N×M cost if right-side is small.
 
-**E3 — Bridge UC vs Connected UC identity clash. SUPERSEDED 2026-08-19.** Previously
+**E3 — Bridge UC vs `LINKED` UC identity clash. SUPERSEDED 2026-08-19.** Previously
 resolved as "coexist because type differs." Under the unified I1 GKV uniqueness rule
-(no per-type exemption), a Bridge UC and a Connected UC with the same GKV surface as
+(no per-type exemption), a Bridge UC and a `LINKED` UC with the same GKV surface as
 an FR-DUP-04 user-choice collision — user picks which UC survives (or resolves by
-adjusting KVs on one side). Same treatment for Bridge-vs-Disconnected same-GKV and
+adjusting KVs on one side). Same treatment for Bridge-vs-`ISLAND` same-GKV and
 Bridge-vs-Bridge (different EC connections) same-GKV.
 
 **E4 — Empty Left path.** What if root SG *is* the left SG of the EC (i.e., EC

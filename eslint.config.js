@@ -41,6 +41,11 @@ export default [
       'scripts/**',
     ],
   },
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: 'error',
+    },
+  },
   // Base configurations
   js.configs.recommended,
   ...tseslint.configs.recommended,

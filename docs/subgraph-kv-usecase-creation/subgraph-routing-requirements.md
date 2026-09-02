@@ -152,15 +152,16 @@ Represents a directional flow of data between modules.
 #### 3.1.5 Usecase (Route)
 - A unique path from a Source Subgraph to a Sink Subgraph (or intermediate valid endpoint)
 - **Identifier (GKV):** The union of all KVs from all Subgraphs in the path
-- **Types:**
-  - **STANDARD:** Regular routed usecase (auto-discovered)
-  - **EC_BRIDGE:** Echo Cancellation bridge usecase
-  - **MANUAL:** User-created usecase
+ - **Types:**
+   - **`LINKED`:** Regular routed usecase with complete data-link pair coverage
+   - **`EC`:** Echo Cancellation bridge usecase
+   - **`ISLAND`:** Usecase with one or more pair-coverage gaps; manual provenance is
+     recorded separately and is not a `UsecaseType` value
 - **Attributes:**
   - Path: Ordered sequence of subgraph IDs
   - GKV: Complete key-value set
   - Start/End Subgraph IDs
-  - Type: STANDARD, EC_BRIDGE, or MANUAL
+   - Type: `LINKED`, `EC`, or `ISLAND`
   - Auto-generated flag
 
 ---
@@ -785,7 +786,8 @@ Reason: Link deletion broke the original path
 **Acceptance Criteria:**
 - Identify all manual usecases in project
 - Check if subgraph path is fully connected via data links
-- If connected, create UPDATE action to change `usecase_type = 'STANDARD'`
+- If all pairs have data-link coverage, create an UPDATE action to change
+  `usecase_type = 'LINKED'`
 - Apply conversion during commit phase
 
 ### 4.10 Connectivity Management
@@ -1114,7 +1116,7 @@ Action: Ensure all subgraphs in path have matching KV sets for shared keys
 
 **Postconditions:**
 - Manual usecase converted to routed
-- `usecase_type = 'STANDARD'`
+- `usecase_type = 'LINKED'`
 - Usecase benefits from automatic routing
 
 ### UC-5: MDF V2 Cross-Processor Routing
@@ -1162,8 +1164,8 @@ CREATE INDEX idx_data_links_ec ON data_links(is_ec_connection) WHERE is_ec_conne
 
 **New Columns:**
 ```sql
-usecase_type VARCHAR(20) DEFAULT 'STANDARD' 
-  CHECK (usecase_type IN ('STANDARD', 'EC_BRIDGE', 'MANUAL'))
+usecase_type VARCHAR(20) DEFAULT 'LINKED'
+  CHECK (usecase_type IN ('EC', 'LINKED', 'ISLAND'))
 ec_connection_id INTEGER NULL REFERENCES data_links(system_id)
 start_subgraph_id INTEGER NOT NULL REFERENCES subgraphs(system_id)
 end_subgraph_id INTEGER NOT NULL REFERENCES subgraphs(system_id)
@@ -1191,9 +1193,9 @@ CREATE INDEX idx_usecase_auto ON use_cases(is_auto_generated);
 **Requirement:** Database constraints shall enforce business rules.
 
 **Constraints:**
-- `usecase_type` must be one of: STANDARD, EC_BRIDGE, MANUAL
+- `usecase_type` must be one of: `EC`, `LINKED`, `ISLAND`
 - `start_subgraph_id` and `end_subgraph_id` must exist
-- EC_BRIDGE usecases must have `ec_connection_id` set
+- `EC` usecases must have `ec_connection_id` set
 
 ---
 
@@ -1491,9 +1493,9 @@ CREATE INDEX idx_usecase_auto ON use_cases(is_auto_generated);
 | **Key-Value (KV)** | Configuration parameter (e.g., Device:Headphone) |
 | **GKV** | Global Key-Value - accumulated KVs across a usecase path; uniquely identifies a usecase |
 | **EC Connection** | Echo Cancellation link between Rx and Tx domains |
-| **Routed Usecase** | Automatically discovered usecase (STANDARD type) |
-| **Manual Usecase** | User-created usecase (MANUAL type) |
-| **EC Bridge Usecase** | Special usecase spanning an EC connection (EC_BRIDGE type) |
+| **Routed Usecase** | Automatically discovered usecase, normally `LINKED` when all pairs have data-link coverage |
+| **Manual Usecase** | User-created usecase; provenance is manual, while its type is `LINKED` or `ISLAND` based on pair coverage |
+| **EC Bridge Usecase** | Special usecase spanning an EC connection (`EC` type) |
 | **Edit Actions** | Pending changes in modification framework |
 | **STAGED** | Changes approved for commit |
 | **UNSTAGED** | Changes pending user review |

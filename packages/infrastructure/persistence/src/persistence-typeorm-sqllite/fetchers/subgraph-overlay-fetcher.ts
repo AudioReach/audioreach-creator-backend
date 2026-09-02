@@ -15,12 +15,14 @@ import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {SubgraphBase} from '../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {SubgraphPropertyDataBase} from '../entity-schema/usecase-data/subgraph/subgraph-property-data.js';
+import type {SpfModuleBase} from '../entity-schema/usecase-data/module/spf-module.schema.js';
 import {
   applyEntityFilters,
   matchesEntityFilters,
 } from '../queries/shared/filter-utils.js';
 import type {SubgraphPropertyDataFetcher} from './subgraph-property-data-fetcher.js';
 import type {SubgraphSgkvFetcher} from './subgraph-sgkv-fetcher.js';
+import {SpfModuleOverlayFetcher} from './spf-module-overlay-fetcher.js';
 export type {OverlaidSgkv} from './subgraph-sgkv-fetcher.js';
 
 /**
@@ -42,13 +44,19 @@ export interface OverlaidSubgraph extends SubgraphBase {
 
 export class SubgraphOverlayFetcher {
   private readonly overlay = new OverlayMergeImpl();
+  private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
 
   constructor(
     private readonly manager: EntityManager,
     private readonly editActionsSvc: EditActionsQueryService,
     private readonly propertyDataFetcher?: SubgraphPropertyDataFetcher,
     private readonly sgkvFetcher?: SubgraphSgkvFetcher,
-  ) {}
+  ) {
+    this.spfModuleFetcher = new SpfModuleOverlayFetcher(
+      manager,
+      editActionsSvc,
+    );
+  }
 
   // ── Core entry point ─────────────────────────────────────────────────────────
 
@@ -66,7 +74,7 @@ export class SubgraphOverlayFetcher {
       .getRepository(ENTITY_NAMES.Subgraph)
       .createQueryBuilder('s')
       .where('s.fileSystemId = :fileSystemId', {fileSystemId});
-    if (filters) applyEntityFilters(qb, 's', filters);
+    if (sessionId === null && filters) applyEntityFilters(qb, 's', filters);
     const baseRows = (await qb.getMany()) as SubgraphBase[];
 
     if (sessionId === null) return baseRows;
@@ -76,13 +84,21 @@ export class SubgraphOverlayFetcher {
       ENTITY_NAMES.Subgraph,
     );
 
-    return this.overlay
+    const effectiveRows = this.overlay
       .applyToCollection(
         baseRows,
         actions,
-        filters ? nv => matchesEntityFilters(nv, filters) : undefined,
       )
       .map(r => r.effective);
+
+    return filters
+      ? effectiveRows.filter(row =>
+          matchesEntityFilters(
+            row as unknown as Record<string, unknown>,
+            filters,
+          ),
+        )
+      : effectiveRows;
   }
 
   // ── Assembled entry points ────────────────────────────────────────────────────
@@ -220,36 +236,55 @@ export class SubgraphOverlayFetcher {
   ): Promise<SubgraphBase[]> {
     if (sgSystemIds.length === 0) return [];
 
-    const mdfRows = await this.manager
-      .createQueryBuilder()
-      .select('s.system_id', 'systemId')
-      .from('subgraphs', 's')
-      .where('s.file_system_id = :fileSystemId', {fileSystemId})
-      .andWhere('s.system_id IN (:...ids)', {ids: sgSystemIds})
-      .andWhere(
-        '(SELECT COUNT(*) FROM spf_modules m WHERE m.subgraph_system_id = s.system_id) = 2',
-      )
-      .andWhere(
-        `EXISTS (
-           SELECT 1 FROM spf_modules m1
-           JOIN spf_module_definitions d1 ON d1.system_id = m1.definition_system_id
-           WHERE m1.subgraph_system_id = s.system_id AND d1.module_definition_id = :ipcTxId
-         )`,
-        {ipcTxId: IPC_TX_MODULE_DEF_ID},
-      )
-      .andWhere(
-        `EXISTS (
-           SELECT 1 FROM spf_modules m2
-           JOIN spf_module_definitions d2 ON d2.system_id = m2.definition_system_id
-           WHERE m2.subgraph_system_id = s.system_id AND d2.module_definition_id = :ipcRxId
-         )`,
-        {ipcRxId: IPC_RX_MODULE_DEF_ID},
-      )
-      .getRawMany<{systemId: number}>();
+    const candidates = await this.fetchMany(fileSystemId, sessionId, {
+      systemId: sgSystemIds,
+    });
+    if (candidates.length === 0) return [];
 
-    if (mdfRows.length === 0) return [];
-    return this.fetchMany(fileSystemId, sessionId, {
-      systemId: mdfRows.map(r => r.systemId),
+    const modules = await this.spfModuleFetcher.fetchEffectiveForSubgraphs(
+      fileSystemId,
+      sessionId,
+      candidates.map(candidate => candidate.systemId),
+    );
+    if (modules.length === 0) return [];
+
+    const definitionIds = [
+      ...new Set(modules.map(module => module.definitionSystemId)),
+    ];
+    const definitions = (await this.manager
+      .getRepository(ENTITY_NAMES.SpfModuleDefinition)
+      .createQueryBuilder('definition')
+      .select(['definition.systemId', 'definition.moduleDefinitionId'])
+      .where('definition.systemId IN (:...ids)', {ids: definitionIds})
+      .getMany()) as unknown as Array<{
+      systemId: number;
+      moduleDefinitionId: number;
+    }>;
+    const definitionById = new Map(
+      definitions.map(definition => [
+        definition.systemId,
+        definition.moduleDefinitionId,
+      ]),
+    );
+    const modulesBySubgraph = new Map<number, SpfModuleBase[]>();
+    for (const module of modules) {
+      const list = modulesBySubgraph.get(module.subgraphSystemId) ?? [];
+      list.push(module);
+      modulesBySubgraph.set(module.subgraphSystemId, list);
+    }
+
+    return candidates.filter(candidate => {
+      const subgraphModules = modulesBySubgraph.get(candidate.systemId) ?? [];
+      if (subgraphModules.length !== 2) return false;
+      const naturalDefinitionIds = new Set(
+        subgraphModules.map(module =>
+          definitionById.get(module.definitionSystemId),
+        ),
+      );
+      return (
+        naturalDefinitionIds.has(IPC_TX_MODULE_DEF_ID) &&
+        naturalDefinitionIds.has(IPC_RX_MODULE_DEF_ID)
+      );
     });
   }
 }

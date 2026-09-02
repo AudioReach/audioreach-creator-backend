@@ -4,6 +4,7 @@
  */
 
 import type {KeyValuePairReadModel} from './key-vector-read-model.js';
+import type {UsecaseType} from '../../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 
 /**
  * Use case read model for query responses
@@ -15,5 +16,6 @@ export class UseCaseReadModel {
     public readonly alias?: string,
     public readonly aliasId?: number,
     public readonly categories?: string[],
+    public readonly type?: UsecaseType | null,
   ) {}
 }

@@ -25,6 +25,16 @@ const warnIssue: Issue = {
 
 describe('Result<T>', () => {
   describe('Result.ok', () => {
+    it('produces an ok void variant when called without data', () => {
+      const result: Result<void> = Result.ok();
+
+      expect(result.kind).toBe(RESULT_KIND.Ok);
+      if (result.kind === RESULT_KIND.Ok) {
+        expect(result.data).toBeUndefined();
+      }
+      expect('issues' in result).toBe(false);
+    });
+
     it('produces an ok variant with data and no issues field when called without issues', () => {
       const result = Result.ok(42);
 

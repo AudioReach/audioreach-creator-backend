@@ -6,6 +6,7 @@
 import type {FilterExpression} from '../../../../../shared/filter/filter-expression.js';
 import type {Result} from '../../../../shared/result/result.js';
 import type {UseCaseReadModel} from './query-models/usecase-read-model.js';
+import type {UsecaseChangeDetails} from './query-models/usecase-change-details-read-model.js';
 import type {ComponentsReadModel} from './query-models/components-read-model.js';
 
 /**
@@ -21,6 +22,11 @@ export interface UseCaseQueryService {
     fileId: number,
     filter?: FilterExpression,
   ): Promise<Result<UseCaseReadModel[]>>;
+
+  getChangeDetails(
+    fileId: number,
+    groupId: string,
+  ): Promise<Result<UsecaseChangeDetails[]>>;
 
   /**
    * Get all components (modules, data links, control links) for given use cases.

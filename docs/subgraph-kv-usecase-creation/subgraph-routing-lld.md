@@ -297,7 +297,8 @@ Each service in the routing system has a single, well-defined responsibility fol
 
 **Key Responsibilities:**
 - Queries existing usecases in the affected cone
-- Categorizes them by type (ROUTED, MANUAL, EC_BRIDGE)
+- Categorizes them by use-case type (`LINKED`, `ISLAND`, `EC`); manual provenance is
+  tracked separately from `UsecaseType`
 - Prepares them for mutation analysis
 - Links existing usecases to discovered paths
 
@@ -306,15 +307,15 @@ Each service in the routing system has a single, well-defined responsibility fol
 **Purpose:** Determines what happens to each existing usecase based on discovered paths.
 
 **Key Responsibilities:**
-- **For ROUTED UCs:**
+- **For `LINKED` UCs:**
   - EXACT match (same path, endpoints, GKV) → UNCHANGED
   - Sub-path match but endpoints changed → DELETED
   - Path not found → DELETED
-- **For MANUAL UCs:**
+- **For manually sourced UCs (type `LINKED` or `ISLAND`):**
   - Topology changed → UPDATED
-  - Connected graph → Candidate for conversion to ROUTED
+  - Fully data-link-covered graph → Candidate for conversion to `LINKED`
   - Otherwise → UNCHANGED
-- **For EC_BRIDGE UCs:**
+- **For `EC` bridge UCs:**
   - Topology intact, GKV same → UNCHANGED
   - Topology intact, GKV changed → DELETED (new UC created)
   - Topology deleted → DELETED
@@ -513,8 +514,8 @@ CREATE INDEX idx_data_links_ec ON data_links(is_ec_connection) WHERE is_ec_conne
 #### 3.2.3 Extended Table: `use_cases`
 
 ```sql
-ALTER TABLE use_cases ADD COLUMN usecase_type VARCHAR(20) DEFAULT 'STANDARD'
-  CHECK (usecase_type IN ('STANDARD', 'EC_BRIDGE', 'MANUAL'));
+ALTER TABLE use_cases ADD COLUMN usecase_type VARCHAR(20) DEFAULT 'LINKED'
+  CHECK (usecase_type IN ('EC', 'LINKED', 'ISLAND'));
 
 ALTER TABLE use_cases ADD COLUMN ec_connection_id INTEGER NULL
   REFERENCES data_links(system_id) ON DELETE SET NULL;
@@ -598,7 +599,7 @@ export interface DiscoveredUsecase {
   subgraphPath: number[];
   gkv: Map<number, number>;
   dataLinkIds: number[];
-  usecaseType: 'STANDARD' | 'EC_BRIDGE' | 'MANUAL';
+  usecaseType: 'EC' | 'LINKED' | 'ISLAND';
   ecConnectionId?: number;
 }
 
@@ -1164,7 +1165,7 @@ export class RoutingAlgorithmService {
         subgraphPath: leftContext.visitedSubgraphs,
         gkv: gkvCombo,
         dataLinkIds: this.getDataLinksForPath(leftContext.visitedSubgraphs, graph),
-        usecaseType: 'STANDARD',
+         usecaseType: 'LINKED',
         ecConnectionId: ecEdge.dataLinkSystemId
       });
     }
@@ -1207,7 +1208,7 @@ export class RoutingAlgorithmService {
             subgraphPath: [ecEdge.sourceSubgraphId, ecEdge.targetSubgraphId],
             gkv: gkvCombo,
             dataLinkIds: [ecEdge.dataLinkSystemId],
-            usecaseType: 'EC_BRIDGE',
+             usecaseType: 'EC',
             ecConnectionId: ecEdge.dataLinkSystemId
           });
         }
@@ -1254,7 +1255,7 @@ export class RoutingAlgorithmService {
       subgraphPath: context.visitedSubgraphs,
       gkv,
       dataLinkIds: this.getDataLinksForPath(context.visitedSubgraphs, graph),
-      usecaseType: 'STANDARD'
+       usecaseType: 'LINKED'
     };
   }
   
@@ -1439,12 +1440,12 @@ export class EndpointDrivenMutator {
     for (const impacted of impactedUsecases) {
       
       // Handle by usecase type
-      if (impacted.usecase.usecaseType === 'MANUAL') {
+      if (impacted.usecase.source === 'MANUAL') {
         await this.handleManualUsecase(impacted, discoveredUsecases, result);
         continue;
       }
       
-      if (impacted.usecase.usecaseType === 'EC_BRIDGE') {
+      if (impacted.usecase.usecaseType === 'EC') {
         await this.handleEcBridgeUsecase(impacted, discoveredUsecases, result);
         continue;
       }
@@ -1594,7 +1595,7 @@ export class EndpointDrivenMutator {
     if (leftExists && rightExists && ecLinkExists) {
       // Check if KVs changed
       const matchingDiscovered = discoveredUsecases.find(
-        duc => duc.usecaseType === 'EC_BRIDGE' && 
+         duc => duc.usecaseType === 'EC' &&
                duc.ecConnectionId === impacted.usecase.ecConnectionId
       );
       
@@ -2060,7 +2061,7 @@ export class CommitSessionCommandHandler {
     fileSystemId: number
   ): Promise<void> {
     
-    const manualUCs = await this.usecaseRepo.findByFileAndType(fileSystemId, 'MANUAL');
+    const manualUCs = await this.usecaseRepo.findByFileAndSource(fileSystemId, 'MANUAL');
     
     for (const manualUC of manualUCs) {
       const subgraphPath = await this.getUsecaseSubgraphPath(manualUC.systemId);
@@ -2074,7 +2075,7 @@ export class CommitSessionCommandHandler {
           sessionUuid: sessionId,
           tableName: 'use_cases',
           operation: 'UPDATE',
-          payload: JSON.stringify({ usecaseType: 'STANDARD' }),
+           payload: JSON.stringify({ usecaseType: 'LINKED' }),
           commitStatus: 'STAGED',
           baseVersion: manualUC.version,
           groupId: uuidv4(),
@@ -2106,7 +2107,7 @@ export class CommitSessionCommandHandler {
         subgraphPath: payload.subgraphPath || [],
         gkv: new Map(Object.entries(payload.gkv || {})),
         dataLinkIds: payload.dataLinkIds || [],
-        usecaseType: payload.usecaseType || 'STANDARD'
+         usecaseType: payload.usecaseType || 'LINKED'
       };
     });
   }
@@ -2427,7 +2428,7 @@ describe('RoutingAlgorithmService', () => {
   
   it('should detect routed UC with changed endpoints', async () => {
     const impacted: ImpactedUsecase = {
-      usecase: { usecaseType: 'STANDARD', startSubgraphId: 1, endSubgraphId: 3 },
+       usecase: { usecaseType: 'LINKED', startSubgraphId: 1, endSubgraphId: 3 },
       startSubgraphId: 1,
       endSubgraphId: 3,
       originalGkvHash: 'abc',
@@ -2435,7 +2436,7 @@ describe('RoutingAlgorithmService', () => {
     };
     
     const discovered: DiscoveredUsecase[] = [
-      { subgraphPath: [1, 2, 3, 4], gkv: new Map(), dataLinkIds: [], usecaseType: 'STANDARD' }
+      { subgraphPath: [1, 2, 3, 4], gkv: new Map(), dataLinkIds: [], usecaseType: 'LINKED' }
     ];
     
     const result = await mutator.mutateImpactedUsecases([impacted], discovered);
@@ -2446,7 +2447,7 @@ describe('RoutingAlgorithmService', () => {
   
   it('should mark manual UC as candidate for conversion if connected', async () => {
     const impacted: ImpactedUsecase = {
-      usecase: { usecaseType: 'MANUAL' },
+       usecase: { usecaseType: 'ISLAND', source: 'MANUAL' },
       subgraphPath: [1, 2, 3]
     };
     
@@ -2484,7 +2485,7 @@ describe('PostValidationService', () => {
   
   it('should detect orphan subgraphs', async () => {
     const discovered: DiscoveredUsecase[] = [
-      { subgraphPath: [1, 2], gkv: new Map(), dataLinkIds: [], usecaseType: 'STANDARD' }
+      { subgraphPath: [1, 2], gkv: new Map(), dataLinkIds: [], usecaseType: 'LINKED' }
     ];
     
     // Mock: Project has subgraphs 1, 2, 3 but only 1, 2 are in usecases

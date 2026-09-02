@@ -28,6 +28,8 @@ import {GetDriverModuleDefinitionHandler} from '../../../definition/driver-modul
 import {GetDriverModuleDefinitionQuery} from '../../../definition/driver-module-definition/get-by-id/get-driver-module-definition.query.js';
 import {GetAllUseCasesHandler} from '../../../usecase-designer/usecase/get-all/get-all-usecases.handler.js';
 import {GetAllUseCasesQuery} from '../../../usecase-designer/usecase/get-all/get-all-usecases.query.js';
+import {GetUsecaseChangeDetailsHandler} from '../../../usecase-designer/usecase/get-change-details/get-usecase-change-details.handler.js';
+import {GetUsecaseChangeDetailsQuery} from '../../../usecase-designer/usecase/get-change-details/get-usecase-change-details.query.js';
 import {GetComponentsHandler} from '../../../usecase-designer/usecase/get-components/get-components.handler.js';
 import {GetComponentsQuery} from '../../../usecase-designer/usecase/get-components/get-components.query.js';
 import {GetComponentsWithSubsystemsHandler} from '../../../usecase-designer/usecase/get-component-with-subsystem/get-components-with-subsystems.handler.js';
@@ -163,6 +165,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetAllUseCasesQuery, {
       create: (handlerDependencies: QueryHandlerDependencies) =>
         new GetAllUseCasesHandler(handlerDependencies.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetUsecaseChangeDetailsQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetUsecaseChangeDetailsHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetComponentsQuery, {

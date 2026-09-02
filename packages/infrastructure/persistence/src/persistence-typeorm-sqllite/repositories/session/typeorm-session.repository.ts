@@ -3,7 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {ISessionRepository, ProjectSession, SessionMode} from '@arc/core';
+import type {
+  ISessionRepository,
+  ProjectSession,
+  SessionMode,
+  Source,
+} from '@arc/core';
 import type {EntityManager} from 'typeorm';
 import {
   SESSION_STATUS,
@@ -119,6 +124,20 @@ export class TypeOrmSessionRepository implements ISessionRepository {
       .where('sessionId = :sessionId', {sessionId})
       .andWhere('changeStatus = :status', {status: CHANGE_STATUS.Unstaged})
       .andWhere('validUntil IS NULL')
+      .execute();
+    return result.affected ?? 0;
+  }
+
+  async deleteEditActionsBySource(
+    sessionId: number,
+    source: Source,
+  ): Promise<number> {
+    const result = await this.manager
+      .createQueryBuilder()
+      .delete()
+      .from(EditActionSchema)
+      .where('sessionId = :sessionId', {sessionId})
+      .andWhere('source = :source', {source})
       .execute();
     return result.affected ?? 0;
   }

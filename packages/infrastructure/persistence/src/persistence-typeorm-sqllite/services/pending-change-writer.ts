@@ -45,6 +45,7 @@ export type WriteDeleteSpec = {
   targetTable: EntityName;
   targetSystemId: number;
   aggregateId: number;
+  payload?: Record<string, unknown>;
   linkedEntityGroupId?: string;
   cache?: boolean;
   source?: Source;
@@ -89,7 +90,7 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<number | null> {
     const fieldGroup = spec.fieldGroup ?? null;
 
     if (spec.cache === true && fieldGroup === null) {
@@ -103,7 +104,7 @@ export class PendingChangeWriter {
     const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
 
     if (fieldGroup === null) {
-      await this.writeAccumulator(
+      return this.writeAccumulator(
         spec,
         sessionId,
         groupId,
@@ -111,7 +112,7 @@ export class PendingChangeWriter {
         manager,
       );
     } else {
-      await this.writePerSlot(
+      return this.writePerSlot(
         spec,
         fieldGroup,
         sessionId,
@@ -203,7 +204,7 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<number | null> {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source, spec.changeStatus);
 
@@ -223,8 +224,9 @@ export class PendingChangeWriter {
 
     if (spec.cache === true) {
       this.pendingChangeCache.enqueueRow(row);
+      return null;
     } else {
-      await this.insertRow(row, manager);
+      return this.insertRow(row, manager);
     }
   }
 
@@ -233,7 +235,7 @@ export class PendingChangeWriter {
     sessionId: number,
     groupId: string,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<number | null> {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source);
 
@@ -252,7 +254,7 @@ export class PendingChangeWriter {
       targetTable: spec.targetTable,
       operation: CHANGE_OPERATION.Delete,
       fieldPath: null as string | null,
-      newValue: {} as Record<string, unknown>,
+      newValue: spec.payload ?? {},
       source,
       changeStatus,
       groupId,
@@ -262,6 +264,7 @@ export class PendingChangeWriter {
     if (spec.cache === true) {
       this.pendingChangeCache.enqueueRow(row);
       // baseVersion capture is derived from operation type in PendingChangeCache.flush()
+      return null;
     } else {
       await this.captureBaseVersion(
         sessionId,
@@ -269,7 +272,7 @@ export class PendingChangeWriter {
         spec.targetSystemId,
         manager,
       );
-      await this.insertRow(row, manager);
+      return this.insertRow(row, manager);
     }
   }
 
@@ -302,7 +305,7 @@ export class PendingChangeWriter {
     groupId: string,
     changeStatus: ChangeStatus,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<number> {
     const existing = await this.queryService.findCurrentRow(
       sessionId,
       spec.targetSystemId,
@@ -331,7 +334,7 @@ export class PendingChangeWriter {
       );
     }
 
-    await this.insertRow(
+    return this.insertRow(
       {
         sessionId,
         aggregateId: spec.aggregateId,
@@ -356,7 +359,7 @@ export class PendingChangeWriter {
     groupId: string,
     changeStatus: ChangeStatus,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<number | null> {
     const row = {
       sessionId,
       aggregateId: spec.aggregateId,
@@ -381,8 +384,9 @@ export class PendingChangeWriter {
 
     if (spec.cache === true) {
       this.pendingChangeCache.enqueueRow(row);
+      return null;
     } else {
-      await this.insertRow(row, manager);
+      return this.insertRow(row, manager);
     }
   }
 
@@ -444,10 +448,10 @@ export class PendingChangeWriter {
   private async insertRow(
     row: EditActionRow,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<number> {
     // eslint-disable-next-line custom/no-raw-persistence-queries -- manual JSON serialization of newValue requires raw INSERT; manager.insert() does not support column-level JSON.stringify
-    await manager.query(
-      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    const result: unknown = await manager.query(
+      `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, linked_entity_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING change_id`,
       [
         row.sessionId,
         row.aggregateId,
@@ -462,6 +466,21 @@ export class PendingChangeWriter {
         row.linkedEntityGroupId,
       ],
     );
+    const returnedChangeId = getGeneratedChangeId(result);
+    if (returnedChangeId !== undefined) return returnedChangeId;
+
+    // Some SQLite drivers discard rows from INSERT ... RETURNING. This query
+    // runs on the same manager/connection as the INSERT, so it remains scoped
+    // to the edit action just written.
+    // eslint-disable-next-line custom/no-raw-persistence-queries -- SQLite connection-local generated-ID fallback when RETURNING rows are unavailable
+    const fallback: unknown = await manager.query(
+      'SELECT last_insert_rowid() AS change_id',
+    );
+    const fallbackChangeId = getGeneratedChangeId(fallback);
+    if (fallbackChangeId === undefined) {
+      throw new Error('Failed to obtain the generated edit action change ID.');
+    }
+    return fallbackChangeId;
   }
 
   private async insertRows(
@@ -496,4 +515,20 @@ export class PendingChangeWriter {
       params,
     );
   }
+}
+
+function getGeneratedChangeId(result: unknown): number | undefined {
+  if (!isUnknownArray(result)) return undefined;
+  const row = result[0];
+  if (!isRecord(row)) return undefined;
+  const changeId = row['change_id'];
+  return typeof changeId === 'number' ? changeId : undefined;
+}
+
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

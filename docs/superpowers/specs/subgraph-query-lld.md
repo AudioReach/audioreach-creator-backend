@@ -194,6 +194,7 @@ No existing read model covers the `/usecases` endpoint response shape.
 
 export interface UsecaseForSubgraphReadModel {
   readonly systemId:   number;                  // use_cases.system_id
+  readonly type:       UsecaseType | null;      // use_cases.type: EC | LINKED | ISLAND
   readonly aliasId:    number;                  // use_cases.alias_id   → usecaseAliasId
   readonly alias:      string;                  // use_cases.alias      → usecaseAliasName
   readonly categories: string[];                // use_case_categories_master.name[]
@@ -206,6 +207,7 @@ export interface UsecaseForSubgraphReadModel {
 | Property | DB table | DB column / join | Notes |
 |---|---|---|---|
 | `systemId` | `use_cases` | `system_id` | internal PK |
+| `type` | `use_cases` | `type` | nullable; canonical values are `EC`, `LINKED`, and `ISLAND` |
 | `aliasId` | `use_cases` | `alias_id` | numeric alias |
 | `alias` | `use_cases` | `alias` | human-readable alias name |
 | `categories` | `use_case_categories_master` | `name` via `use_case_categories` join | may be empty |
@@ -218,11 +220,11 @@ Usecases linked to a subgraph are resolved via: `use_case_subgraphs WHERE subgra
 | `UsecaseForSubgraphReadModel` | `UsecaseIdentifierDto` field | Conversion |
 |---|---|---|
 | `systemId: number` | `systemId: string` | `String(u.systemId)` |
+| `type: UsecaseType \| null` | `usecaseType` | preserve the canonical `EC` / `LINKED` / `ISLAND` value |
 | `gkv: KeyValuePairReadModel[]` | `keyValueCollection: KeyValueInfo[]` | map key/value ids + names |
 | `aliasId: number` | `usecaseAliasId?: number` | direct |
 | `alias: string` | `usecaseAliasName?: string` | direct |
 | `categories[0]: string` | `usecaseCategory?: string` | first category or `undefined` |
-| — | `usecaseType` | `UsecaseType.Regular` (no type column in `use_cases`) |
 | — | `changeInfo` | `undefined` (FR-SH-05) |
 | — | `relatedEndPointLinks` | `[]` (FR-SH-05) |
 
@@ -907,7 +909,7 @@ private mapToUsecaseIdentifierDto(u: UsecaseForSubgraphReadModel): UsecaseIdenti
   );
   const dto = new UsecaseIdentifierDto(
     String(u.systemId),
-    UsecaseType.Regular,
+     u.type,
     kvPairsInfo,
     u.aliasId,
     u.alias,

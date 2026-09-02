@@ -14,7 +14,7 @@ import type {EntityManager, SelectQueryBuilder} from 'typeorm';
 /**
  * All-in-one filter for edit-action queries. Every field is optional;
  * omitting a field means "no filter on that dimension".
- * `validUntil IS NULL` is always applied implicitly.
+ * Active-overlay queries apply `validUntil IS NULL` implicitly.
  */
 export type EditActionsQueryFilters = {
   sessionId: number;
@@ -28,7 +28,7 @@ export type EditActionsQueryFilters = {
 /**
  * Options for narrowing the result set of an edit-action query.
  * All fields are optional — omitting a field means "no filter on that dimension".
- * All queries additionally filter `valid_until IS NULL` implicitly.
+ * Active-overlay queries additionally filter `valid_until IS NULL` implicitly.
  */
 export type EditActionsQueryOptions = {
   /** Filter by operation type. Omit to return all operations. */
@@ -46,8 +46,7 @@ export type EditActionsQueryOptions = {
  * (pass queryRunner.manager — writes are visible immediately) and
  * outside one (pass dataSource.manager — read-only overlay lookups).
  *
- * All queries filter `valid_until IS NULL` (active rows only).
- * Delete operations and session-lifecycle queries are NOT on this service.
+ * Overlay queries return active rows only; history queries retain superseded rows.
  */
 export class EditActionsQueryService {
   constructor(private readonly manager: EntityManager) {}
@@ -141,6 +140,32 @@ export class EditActionsQueryService {
       .andWhere('ea.validUntil IS NULL');
     this.applyOptions(qb, options);
     return qb.getMany() as Promise<EditActionRow[]>;
+  }
+
+  async getHistoryByGroupId(
+    sessionId: number,
+    groupId: string,
+  ): Promise<EditActionRow[]> {
+    return this.baseQb()
+      .where('ea.sessionId = :sessionId', {sessionId})
+      .andWhere('ea.groupId = :groupId', {groupId})
+      .orderBy('ea.createdAt', 'ASC')
+      .addOrderBy('ea.changeId', 'ASC')
+      .getMany() as Promise<EditActionRow[]>;
+  }
+
+  async getHistoryByAggregateIds(
+    sessionId: number,
+    aggregateIds: readonly number[],
+  ): Promise<EditActionRow[]> {
+    if (aggregateIds.length === 0) return [];
+
+    return this.baseQb()
+      .where('ea.sessionId = :sessionId', {sessionId})
+      .andWhere('ea.aggregateId IN (:...aggregateIds)', {aggregateIds})
+      .orderBy('ea.createdAt', 'ASC')
+      .addOrderBy('ea.changeId', 'ASC')
+      .getMany() as Promise<EditActionRow[]>;
   }
 
   async findCurrentRow(

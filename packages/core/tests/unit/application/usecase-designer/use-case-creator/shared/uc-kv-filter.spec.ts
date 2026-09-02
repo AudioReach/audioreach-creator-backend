@@ -7,7 +7,7 @@ import {describe, it, expect} from '@jest/globals';
 import {
   applyUcFilterToSg,
   type UcFilter,
-} from '../../../../../src/application/auto-usecase-creator/shared/uc-kv-filter.js';
+} from '../../../../../../src/application/usecase-designer/use-case-creator/shared/uc-kv-filter.js';
 import type {
   SessionChanged,
   SgkvEntry,

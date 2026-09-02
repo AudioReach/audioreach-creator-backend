@@ -18,8 +18,12 @@ import type {EditActionRow} from '../../../src/persistence-typeorm-sqllite/entit
 const SESSION_ID = 1;
 const GROUP_ID = 'grp-uuid-1';
 
-function makeQueryRunner(selectImpl?: (sql: string) => unknown[]): QueryRunner {
+function makeQueryRunner(
+  selectImpl?: (sql: string) => unknown[],
+  returningRows: unknown[] = [{change_id: 123}],
+): QueryRunner {
   const queryFn = jest.fn(async (sql: string, _params?: unknown[]) => {
+    if (sql.includes('RETURNING change_id')) return returningRows;
     if (selectImpl && sql.startsWith('SELECT')) return selectImpl(sql);
     return [];
   });
@@ -337,6 +341,31 @@ describe('PendingChangeWriter — writeDelta per-slot mode', () => {
       alias: 'slot-value',
     });
   });
+
+  it('returns null when a per-slot update is deferred to the cache', async () => {
+    const cache = new PendingChangeCache();
+    const writer = new PendingChangeWriter(makeQueryService(), cache);
+    const qr = makeQueryRunner();
+
+    await expect(
+      writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.SpfModule,
+          targetSystemId: 301,
+          aggregateId: 10,
+          delta: {alias: 'cached-slot-value'},
+          fieldGroup: 'alias',
+          source: SOURCE.Manual,
+          cache: true,
+        },
+        SESSION_ID,
+        GROUP_ID,
+        qr,
+      ),
+    ).resolves.toBeNull();
+    expect(cache.size()).toBe(1);
+    expect(getInsertParams(qr)).toBeUndefined();
+  });
 });
 
 // ── writeCreate (spec §9.4) ───────────────────────────────────────────────────
@@ -352,18 +381,20 @@ describe('PendingChangeWriter — writeCreate', () => {
 
   it('inserts a CREATE row with fieldPath="$" and full payload', async () => {
     const qr = makeQueryRunner();
-    await writer.writeCreate(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 500,
-        aggregateId: 10,
-        payload: {alias: 'NewModule', instanceId: 7},
-        source: SOURCE.Manual,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
+    await expect(
+      writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SpfModule,
+          targetSystemId: 500,
+          aggregateId: 10,
+          payload: {alias: 'NewModule', instanceId: 7},
+          source: SOURCE.Manual,
+        },
+        SESSION_ID,
+        GROUP_ID,
+        qr,
+      ),
+    ).resolves.toBe(123);
     const params = getInsertParams(qr)!;
     expect(params[COL.operation]).toBe(CHANGE_OPERATION.Create);
     expect(params[COL.fieldPath]).toBe('$');
@@ -371,6 +402,29 @@ describe('PendingChangeWriter — writeCreate', () => {
       alias: 'NewModule',
       instanceId: 7,
     });
+  });
+
+  it('falls back to SQLite last_insert_rowid when RETURNING rows are unavailable', async () => {
+    const qr = makeQueryRunner(
+      sql =>
+        sql.startsWith('SELECT last_insert_rowid') ? [{change_id: 456}] : [],
+      [],
+    );
+
+    await expect(
+      writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SpfModule,
+          targetSystemId: 504,
+          aggregateId: 10,
+          payload: {alias: 'Fallback'},
+          source: SOURCE.Manual,
+        },
+        SESSION_ID,
+        GROUP_ID,
+        qr,
+      ),
+    ).resolves.toBe(456);
   });
 
   it('does NOT capture baseVersion (no SELECT or INSERT OR IGNORE)', async () => {
@@ -425,19 +479,21 @@ describe('PendingChangeWriter — writeCreate', () => {
     const cache = new PendingChangeCache();
     const localWriter = new PendingChangeWriter(makeQueryService(), cache);
     const qr = makeQueryRunner();
-    await localWriter.writeCreate(
-      {
-        targetTable: ENTITY_NAMES.SpfModule,
-        targetSystemId: 502,
-        aggregateId: 10,
-        payload: {alias: 'Cached'},
-        source: SOURCE.Manual,
-        cache: true,
-      },
-      SESSION_ID,
-      GROUP_ID,
-      qr,
-    );
+    await expect(
+      localWriter.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.SpfModule,
+          targetSystemId: 502,
+          aggregateId: 10,
+          payload: {alias: 'Cached'},
+          source: SOURCE.Manual,
+          cache: true,
+        },
+        SESSION_ID,
+        GROUP_ID,
+        qr,
+      ),
+    ).resolves.toBeNull();
     expect(cache.size()).toBe(1);
     expect(getInsertParams(qr)).toBeUndefined();
   });
@@ -497,5 +553,28 @@ describe('PendingChangeWriter — writeDelete', () => {
     );
     expect(versionInsert).toBeDefined();
     expect((versionInsert![1] as unknown[])[2]).toBe(5);
+  });
+
+  it('returns null when a DELETE is deferred to the cache', async () => {
+    const cache = new PendingChangeCache();
+    const writer = new PendingChangeWriter(makeQueryService(), cache);
+    const qr = makeQueryRunner();
+
+    await expect(
+      writer.writeDelete(
+        {
+          targetTable: ENTITY_NAMES.SpfModule,
+          targetSystemId: 602,
+          aggregateId: 10,
+          source: SOURCE.Manual,
+          cache: true,
+        },
+        SESSION_ID,
+        GROUP_ID,
+        qr,
+      ),
+    ).resolves.toBeNull();
+    expect(cache.size()).toBe(1);
+    expect(getInsertParams(qr)).toBeUndefined();
   });
 });

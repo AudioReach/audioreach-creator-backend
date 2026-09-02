@@ -109,6 +109,10 @@ import {DeleteSpfModuleCommand} from '../../../usecase-designer/spf-module/delet
 import {DeleteSpfModuleHandler} from '../../../usecase-designer/spf-module/delete/delete-spf-module.handler.js';
 import {UpdateTkvCalDataCommand} from '../../../usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.command.js';
 import {UpdateTkvCalDataHandler} from '../../../usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.handler.js';
+import {CreateUsecasesCommand} from '../../../usecase-designer/use-case-creator/create-usecases/create-usecases.command.js';
+import {CreateUsecasesHandler} from '../../../usecase-designer/use-case-creator/create-usecases/create-usecases.handler.js';
+import {CreateManualUsecasesCommand} from '../../../usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.command.js';
+import {CreateManualUsecasesHandler} from '../../../usecase-designer/use-case-creator/create-manual-usecases/create-manual-usecases.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -273,6 +277,13 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(UpdateTkvCalDataCommand, {
       create: deps => new UpdateTkvCalDataHandler(deps.uow, deps.logger),
+        });
+    this.commandHandlerFactories.set(CreateUsecasesCommand, {
+      create: deps => new CreateUsecasesHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(CreateManualUsecasesCommand, {
+      create: deps => new CreateManualUsecasesHandler(deps.uow),
     });
   }
 }

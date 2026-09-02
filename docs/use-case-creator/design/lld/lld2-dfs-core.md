@@ -243,7 +243,7 @@ for each path in context.dfsPaths:
     gkv := aggregateGkv(assignment)              // FR-DFS-07
     if gkv is empty:
       continue                                    // FR-DFS-09 empty-GKV rejection
-    combinations.candidates.push({
+    context.combinations.push({
       path,
       sgkvAssignment: assignment,
       gkv,

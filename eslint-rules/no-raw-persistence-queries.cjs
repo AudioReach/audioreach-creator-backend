@@ -9,6 +9,30 @@
  * @fileoverview Prevent raw manager.query() calls in the persistence layer
  * @author AudioReach Team
  */
+const rawQueryReceivers = new Set(['manager', 'queryRunner', 'dataSource']);
+
+function isRawPersistenceQueryCall(node) {
+  if (
+    node.callee.type !== 'MemberExpression' ||
+    node.callee.property.type !== 'Identifier' ||
+    node.callee.property.name !== 'query'
+  ) {
+    return false;
+  }
+
+  const receiver = node.callee.object;
+  if (receiver.type === 'Identifier') {
+    return rawQueryReceivers.has(receiver.name);
+  }
+
+  return (
+    receiver.type === 'MemberExpression' &&
+    receiver.object.type === 'ThisExpression' &&
+    receiver.property.type === 'Identifier' &&
+    rawQueryReceivers.has(receiver.property.name)
+  );
+}
+
 module.exports = {
   meta: {
     type: 'problem',
@@ -48,11 +72,7 @@ module.exports = {
 
     return {
       CallExpression(node) {
-        if (
-          node.callee.type === 'MemberExpression' &&
-          node.callee.property.type === 'Identifier' &&
-          node.callee.property.name === 'query'
-        ) {
+        if (isRawPersistenceQueryCall(node)) {
           context.report({
             node: node.callee.property,
             messageId: 'noRawPersistenceQuery',

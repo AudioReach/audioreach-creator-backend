@@ -53,16 +53,20 @@ algorithm, with the discovered usecases identified by a canonical key-value iden
 | **KV list** | The set of KV pairs belonging to one SGKV instance. Each Key appears at most once per KV list (enforced by I6). |
 | **GKV** | Graph Key-Vector. An unordered set of (Key, Value) pairs where each Key appears exactly once. Derived from one valid SGKV combination across all SGs in a path. Uniquely identifies a UC. |
 | **SGKV combination** | An assignment of exactly one SGKV instance per SG in a path. A combination is valid if no Key appears with two different Values across the assigned instances. Each valid combination produces exactly one UC candidate. |
-| **UC** | UseCase. A record in `use_cases` consisting of: a GKV, a set of SGs, a set of directed SG pairs, and a connectivity status (Connected or Disconnected). |
+| **UC** | UseCase. A record in `use_cases` consisting of: a GKV, a set of SGs, a set of directed SG pairs, and a type (`LINKED`, `ISLAND`, or `EC`). |
 | **UC filter** | A map of `Key → Set<Value>` derived from the selected usecases. Used to strip irrelevant KV pairs from SG SGKV data before routing. |
+| **Selected-scope subgraphs** | The union of SGs belonging to the UCs identified by `selectedUsecaseSystemIds`, loaded from the effective session overlay. |
+| **Input subgraphs** | The SGs explicitly listed in the request's `activeSubgraphs` map. This includes selected-scope SGs and may include other SGs. |
+| **Out-of-selection subgraphs** | Input subgraphs that are not members of any selected UC: `inputSubgraphs − selectedScopeSubgraphs`. |
+| **Effective routing scope** | The routable input subgraphs: `inputSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds`, after selected-scope completeness validation succeeds. |
 | **Intra-usecase link** | A data link between two different SGs that are both members of the same UC (`link_scope = intra_usecase`). Traversable by the routing algorithm. |
 | **Inter-usecase link** | A data link between SGs that belong to different UCs (`link_scope = inter_usecase`). Not traversed by the routing algorithm. |
 | **Seed SG** | A SG whose API-input SGKV instances differ from its UC-filtered DB SGKV instances, or which is newly added to the graph, or which has a new or deleted intra-usecase link. Starting point for bidirectional cone identification. |
 | **Cone** | The set of SGs reachable from any seed SG via both forward traversal (following intra-usecase link direction) and reverse traversal (against link direction), bounded by the routing scope (FR-CONE-07). Defines which paths the DFS re-evaluates in this session. |
 | **Staged / Unstaged** | Edit-session states. New UCs begin as Unstaged. User explicitly stages them before commit. Unstaged UCs are discarded when the edit session ends without a commit. |
-| **Connected** | UC status: all SG pairs in the UC have corresponding intra-usecase links present in the graph. |
-| **Disconnected** | UC status: one or more SG pairs in the UC no longer have intra-usecase links (e.g., a link was deleted and the user chose to preserve the UC). |
-| **Orphan SG** | A SG that is not a member of any UC (Connected, Disconnected, or newly staged). Orphan SGs are an error condition. |
+| **`LINKED`** | UC type: all SG pairs in the UC have corresponding intra-usecase data-links present in the graph. |
+| **`ISLAND`** | UC type: one or more SG pairs lack intra-usecase data-link coverage (for example, a pair is control-link only or a link was deleted and the user preserved the UC). |
+| **Orphan SG** | A SG that is not a member of any UC (`LINKED`, `ISLAND`, `EC`, or newly staged). Orphan SGs are an error condition. |
 | **Orphan subsystem** | A subsystem that contains no SG that is a member of any valid UC. |
 
 ---
@@ -73,7 +77,7 @@ algorithm, with the discovered usecases identified by a canonical key-value iden
 
 #### FR-UC-01: Manual UC creation
 When a user provides a set of SGs with their SGKV instances (via the dedicated
-`create-manual-usecase` endpoint) and requests manual UC creation, the system shall:
+`create-manual-usecases` endpoint) and requests manual UC creation, the system shall:
 
 1. Apply the same 3-step KV resolution pipeline (FR-KV-01–03) using the provided
    SG→KV map and selected UCs.
@@ -82,29 +86,31 @@ When a user provides a set of SGs with their SGKV instances (via the dedicated
 3. Create one UC per valid SGKV combination found across the selected SGs. If no valid
    combination exists (all combinations produce Key conflicts), return an error per
    FR-DFS-08.
-4. Derive the UC's subgraph-pair set by querying the DB for links between the provided
-   SGs (the client does not supply link IDs — see FR-API-04):
-   - **Primary (data-link discovery):** For every pair of SGs in the provided set, query
+4. Derive the UC's subgraph-pair set by querying the DB for links between every pair of
+   SGs in the effective routing scope (the client does not supply link IDs — see
+   FR-API-04). This includes selected-to-selected, selected-to-out-of-selection, and
+   out-of-selection-to-out-of-selection SG pairs:
+   - **Primary (data-link discovery):** For every pair of SGs in the effective routing scope, query
      the DB for intra-usecase data-links between them. For each data-link found, create
      a directed pair `(source_sg, dest_sg)` matching the link's direction. This pair is
      "data-link covered".
-   - **Control-link fallback:** For any SG in the provided set that has no intra-usecase
+   - **Control-link fallback:** For any SG in the effective routing scope that has no intra-usecase
      data-links to any other SG in the set, query the DB for intra-usecase control-links
-     between that SG and any other SG in the set. For each control-link found, create a
+      between that SG and any other SG in the scope. For each control-link found, create a
      directed pair with direction `(smaller_sg_id, larger_sg_id)` — the SG with the
      smaller system ID is the source. This pair is "control-link only".
-   - **Isolated SG (Q5):** If an SG in the provided set has neither an intra-usecase
+   - **Isolated SG (Q5):** If an SG in the effective routing scope has neither an intra-usecase
      data-link nor an intra-usecase control-link to any other SG in the set, the SG is
      included in the UC's SG set with no pairs involving it. The system shall emit a
-     warning identifying such SGs. The UC is still created (as Disconnected — see the
-     status paragraph below).
+      warning identifying such SGs. The UC is still created (as `ISLAND` — see the type
+      paragraph below).
    - Record unique pairs in `use_case_subgraph_pairs`. Every `intra_usecase` link in DB
      whose `(source_sg, dest_sg)` matches a declared pair is automatically part of the
      UC — no per-link explicit assignment is needed.
 
-**Manual UC initial status:**
-- The UC is created as **Connected** if every pair in its pair set is data-link covered.
-- The UC is created as **Disconnected** if any pair is control-link only, or if any SG
+**Manual UC initial type:**
+- The UC is created as **`LINKED`** if every pair in its pair set is data-link covered.
+- The UC is created as **`ISLAND`** if any pair is control-link only, or if any SG
   was included via the isolated-SG rule (no pairs involving it).
 
 Manual mode skips DFS path discovery — the system uses the provided SG set plus DB link
@@ -130,32 +136,51 @@ contributed to any path's GKV).
 
 #### FR-API-02: Selected usecase list
 The API input shall include a list of existing UC system-IDs that represent the user's
-active session context. This list is used to build the UC filter (§3.2) and to determine
-which existing UC data to load from DB.
+active session context. Before routing, the handler shall load these UCs once from the
+effective session overlay and preserve that snapshot as derived routing input. The
+snapshot is used to derive selected-scope subgraphs, validate input completeness, build
+the UC filter (§3.2), and supply existing UC data to downstream phases.
 
-#### FR-API-03: Cone completeness pre-validation
-After computing the cone (§3.4), the system shall verify that every SG in the cone is
-present in the API's SG map. If any cone SG is absent, the system shall return a
-pre-validation error listing the missing SGs. The caller must re-invoke the API with
-those SGs included (with KVs or `[]`). This rule applies in all scenarios — there are
-no exceptions and no DB fallback.
+#### FR-API-03: Selected-scope input completeness pre-validation
+Before KV resolution, seed detection, or manual pair discovery, the system shall derive
+`requiredSelectedSubgraphs = selectedScopeSubgraphs − excludedSubgraphSystemIds −
+deletedSubgraphSystemIds`, where `deletedSubgraphSystemIds` comes from the current
+session's SG DELETE actions.
+
+Every required selected-scope SG shall be present in `activeSubgraphs`. If any are
+absent, the system shall return a pre-validation error listing the missing SGs. An
+explicitly excluded selected-scope SG may be absent only when FR-API-07 does not require
+it as a current-session added SG or data-link endpoint. An eligible excluded SG that is
+also present in `activeSubgraphs` is silently removed before routing. A session-deleted
+SG is not required in the map and is silently removed if stale client input still
+includes it. Its DELETE action remains available to deletion analysis and seed detection
+through `graphEdits`.
+
+After this check succeeds, the effective routing scope is
+`inputSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds`. There is no DB
+fallback for SGKV input: every SG used by routing receives its SGKV instances, or an
+intentional `[]`, from `activeSubgraphs`.
 
 *Rationale:* The system never uses DB KVs as a routing KV source. The API map is the
 sole KV source for routing. A SG absent from the map has no KV data for the algorithm
 to use. Providing `[]` is the deliberate way to declare "no KV contribution."
 
 #### FR-API-04: Manual mode uses a dedicated endpoint; server discovers links
-Manual UC creation (FR-UC-01) is served by a dedicated endpoint (`create-manual-usecase`)
+Manual UC creation (FR-UC-01) is served by a dedicated endpoint (`create-manual-usecases`)
 separate from the auto-routing endpoint (`create-usecases` for FR-UC-02).
 
-The manual endpoint's request body includes only:
+The manual endpoint's routing input includes:
 - The set of SGs with their SGKV instances (SG→SGKV map, same shape as FR-API-01).
-- The `selectedUsecaseSystemIds` list (FR-API-02) for UC filter derivation.
+- The `selectedUsecaseSystemIds` list (FR-API-02) for selected-scope derivation and UC
+  filter construction.
+- The optional SG and link exclusion lists from FR-API-05/06, subject to FR-API-07
+  structural-edit closure.
 
 **Link system IDs are NOT required in the request.** The server discovers intra-usecase
-data-links and (as fallback) intra-usecase control-links between the provided SGs by
-querying the DB (per FR-UC-01 step 4). This differs from auto-routing, where link
-discovery is performed via DFS traversal of the cone.
+data-links and (as fallback) intra-usecase control-links between every SG pair in the
+effective routing scope by querying the DB (per FR-UC-01 step 4). This differs from
+auto-routing, where link discovery is performed via DFS traversal of the effective
+graph.
 
 #### FR-API-05: Optional link exclusion for the current routing pass
 The API input may optionally include two lists of intra-usecase link system IDs to
@@ -163,28 +188,30 @@ The API input may optionally include two lists of intra-usecase link system IDs 
 - `excludedDataLinkSystemIds` — intra-usecase data-links to omit
 - `excludedControlLinkSystemIds` — intra-usecase control-links to omit
 
-**Purpose:** UX affordance for drag-and-drop workflows where the user drags SGs from
-other UCs onto the routing canvas. The UI automatically surfaces every intra-usecase
-link that connects the dragged SGs to the selected UCs' SGs (and to each other). The
-user may choose to exclude specific such links from this routing pass without
-deleting them from the DB.
+**Purpose:** Allows callers to add out-of-selection SGs to the routing input, inspect
+every eligible intra-usecase link connecting effective-scope SGs, and exclude specific
+links from the current routing pass without deleting them from the DB.
 
 **Scope of exclusion:**
 - Applies only to the current API call. Excluded links are not persisted; no DB state
   change occurs.
-- Applies to both endpoints: `create-usecases` (FR-UC-02) and `create-manual-usecase`
+- Applies to both endpoints: `create-usecases` (FR-UC-02) and `create-manual-usecases`
   (FR-UC-01).
 - Only intra-usecase links are meaningful. Non-intra-usecase link IDs in the exclusion
   lists are silently ignored (they were not going to be traversed anyway).
+- A link with an active current-session CREATE or DELETE action cannot be explicitly
+  excluded. Such a conflict fails pre-validation per FR-API-07. Link exclusion remains
+  available for unchanged links.
 
 **Effect on routing:**
 - **Cone computation (FR-CONE-04):** excluded links are not traversed in forward or
   reverse direction.
 - **DFS (FR-DFS-01/02/03):** excluded links are treated as absent during path
   discovery.
-- **New/deleted intra-usecase link seed detection (FR-CONE-03):** an excluded link is
-  NOT treated as "deleted" — the DB link still exists; exclusion is session-scoped
-  only. FR-CONE-03 continues to key on actual create/delete edit_actions.
+- **New/deleted intra-usecase link seed detection (FR-CONE-03):** an eligible unchanged
+  excluded link is NOT treated as "deleted" — the DB link still exists; exclusion is
+  session-scoped only. FR-CONE-03 continues to key on actual create/delete edit_actions,
+  whose target links cannot themselves be excluded per FR-API-07.
 - **Manual UC creation (FR-UC-01 step 4):** excluded links are filtered out of the
   server's DB link-discovery result before pair derivation.
 
@@ -208,23 +235,23 @@ The API input may optionally include a list of subgraph system IDs to **exclude*
 from the current routing pass:
 - `excludedSubgraphSystemIds` — subgraphs to omit
 
-**Purpose:** UX affordance analogous to FR-API-05, but at subgraph granularity. When
-a user drops SGs onto the routing canvas and wants to temporarily omit some from the
-current routing pass without deleting them from the DB.
+**Purpose:** Allows a caller to omit SGs temporarily from the current routing pass
+without deleting them from the DB.
 
 **Scope of exclusion:**
 - Applies only to the current API call. Excluded SGs are not persisted; no DB state
   change occurs.
-- Applies to both endpoints: `create-usecases` (FR-UC-02) and `create-manual-usecase`
+- Applies to both endpoints: `create-usecases` (FR-UC-02) and `create-manual-usecases`
   (FR-UC-01).
 
 **Effect on routing (SG removed from the routing context):**
 - **KV resolution (FR-KV-01/02/03):** excluded SGs do not have entries in
-  `kvResolutions.perSg`. If the user erroneously included an excluded SG in the API's
-  SG map (`activeSubgraphs`), the SG's entry is silently dropped.
-- **Seed detection (FR-CONE-01/02/03/05/06):** excluded SGs are not seeds regardless
-  of their edit status. Additions or deletions involving an excluded SG do not
-  trigger seed emission.
+  `kvResolutions.perSg`. If the user included an eligible unchanged excluded SG in the
+  API's SG map (`activeSubgraphs`), the SG's entry is silently dropped. FR-API-07 rejects
+  exclusion when the SG is a current-session added SG or required data-link endpoint.
+- **Seed detection (FR-CONE-01/02/03/05/06):** excluded unchanged SGs are not seeds.
+  Current-session added/deleted SGs and data-link endpoints are subject to FR-API-07
+  and cannot be excluded when they are required to reconcile the structural edit.
 - **Cone computation (FR-CONE-04):** excluded SGs are not added to the cone. Their
   presence in the adjacency graph is suppressed.
 - **DFS (FR-DFS-01/02/03):** excluded SGs are treated as absent during path
@@ -234,11 +261,13 @@ current routing pass without deleting them from the DB.
 - **Incident links:** all intra-usecase data-links and control-links incident to an
   excluded SG (either endpoint) are effectively excluded too — they behave as if
   present in `excludedDataLinkSystemIds` / `excludedControlLinkSystemIds`. No explicit
-  client-side listing is required.
+  client-side listing is required. FR-API-07 rejects this indirect exclusion for a
+  current-session added data-link or a surviving endpoint of a deleted data-link;
+  current-session added/deleted control-links retain integrity-only handling.
 
 **Effect on validation:**
 - Excluded SGs **remain subject to FR-VAL-01 orphan detection**. If an excluded SG
-  is not a member of any existing UC (Connected, Disconnected, or EC bridge), the SG
+  is not a member of any existing UC (`LINKED`, `ISLAND`, or `EC`), the SG
   appears as an `ARC-ROUTING-ORPHAN-SUBGRAPH` warning in the response with
   auto-fix=delete. Exclusion is a routing-time filter, not a way to bypass the
   orphan-free invariant (I5).
@@ -257,14 +286,61 @@ entire SG rather than specific links. Especially useful for MDF or subsystem-sco
 edits where the user's mental model is "route the visible canvas" and some canvas
 SGs are temporarily out of scope for the current pass.
 
+#### FR-API-07: Current-session structural edits cannot be excluded
+The system shall validate the current request against `graphEdits`. Temporary exclusions
+remain available for unchanged graph entities, but they cannot suppress reconciliation
+of a current-session structural edit.
+
+Validation is ordered in two parts:
+
+1. **Addition-side closure** runs in the handler before selected-scope completeness,
+   KV resolution, seed detection, or manual pair discovery.
+2. **Deletion-side closure** runs in Phase 2 after file-wide affected-UC discovery.
+   If any affected UC is unselected, FR-DEL-02 takes precedence and returns the full
+   affected/missing UC sets. Only after that gate passes does deletion-side closure
+   validate deleted-entity exclusions and surviving data-link endpoints. No KV, seed,
+   cone, DFS, classification, or UC mutation phase proceeds on failure.
+
+The following rules apply to both automatic and manual creation calls:
+
+- A current-session added SG must appear in `activeSubgraphs` and must not appear in
+  `excludedSubgraphSystemIds`.
+- A current-session deleted SG must not appear in `excludedSubgraphSystemIds`. It is
+  removed from `effectiveRoutingScope` even if stale client input still includes it, and
+  remains available in `graphEdits.deletedSgs` for deletion-impact analysis.
+- A current-session added intra-usecase data-link must not appear in
+  `excludedDataLinkSystemIds`. Both endpoint SGs must appear in `activeSubgraphs` and
+  neither endpoint may be excluded or deleted.
+- A current-session deleted intra-usecase data-link must not appear in
+  `excludedDataLinkSystemIds`. Every endpoint SG that was not itself deleted must appear
+  in `activeSubgraphs` and must not be excluded. An endpoint deleted in the same session
+  is not required and never enters routing scope.
+- A current-session added or deleted control-link must not appear in
+  `excludedControlLinkSystemIds`. Control-link edits do not force their endpoint SGs
+  into automatic routing scope and do not become DFS seeds or traversable edges. They
+  remain visible to deletion-impact analysis, pair-support checks, manual control-link
+  fallback when their endpoints are in manual scope, and orphan validation.
+
+Any closure violation fails with HTTP 422 and issue code
+`ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`. The issue identifies explicitly excluded
+changed entities and any required data-link endpoint SGs that are missing, excluded, or
+deleted.
+
+*Rationale:* A routing-time exclusion may temporarily omit unchanged graph content, but
+must not hide structural edits that this invocation is responsible for reconciling.
+Data-link endpoint closure ensures every added link can be evaluated and every surviving
+side of a deleted link can seed post-deletion routing. Control links remain integrity
+inputs rather than automatic DFS edges.
+
 This section defines how the algorithm derives the effective KV list for each SG before
 DFS begins.
 
 #### FR-KV-01: Step 1 — Load SGKV from DB
-For every SG referenced in the selected UCs (and for every SG in the API's SG map),
-the system shall query the `sgkv` and `sgkv_values` tables to obtain the complete set of
-SGKV records. This data is used solely for the seed-detection comparison in Step 2;
-it is never used as a routing KV source.
+For every SG in the effective routing scope, the system shall query the `sgkv` and
+`sgkv_values` tables to obtain the complete set of SGKV records. The selected UCs come
+from the handler-preserved effective-overlay snapshot; KV resolution shall not reload
+them. DB SGKV data is used solely for the seed-detection comparison in Step 2; it is
+never used as a routing KV source.
 
 #### FR-KV-02: Step 2 — Apply UC filter
 The system shall build a UC filter from the **selected UCs that are not marked for
@@ -300,9 +376,10 @@ replace it entirely with the SGKV instances from the API input. A SG mapped to a
 list (`[]`) contributes one empty SGKV instance — the user explicitly declares no KV
 contribution for it.
 
-Every SG in the routing scope must appear in the API map. SGs absent from the map are
-a pre-validation error (FR-API-03). There is no DB fallback in any scenario. DB KVs
-(Steps 1–2) are used only for seed detection comparison — never as a routing KV source.
+FR-API-03/07 have already established that all required non-excluded, non-deleted SGs
+appear in the API map. Therefore every SG in the effective routing scope has explicit
+API input. There is no DB fallback in any scenario. DB KVs (Steps 1–2) are used only for
+seed detection comparison — never as a routing KV source.
 
 *Rationale:* The algorithm must know the user's explicit KV intent for every SG it
 routes. Absence is ambiguous; `[]` is the intentional "no contribution" signal.
@@ -315,18 +392,24 @@ routes. Absence is ambiguous; `[]` is the intentional "no contribution" signal.
 After Steps 1–3, a SG is classified as a seed if its Step-3 SGKV instance set (the
 API-provided set) differs from its Step-2 UC-filtered instance set (the DB-derived
 baseline). The comparison is set-based: if the sets are not equal (by KV content), the
-SG is a seed. FR-API-03 guarantees all SGs in the routing scope are in the API input,
-so this comparison is always available.
+SG is a seed. FR-API-03 guarantees all SGs in the effective routing scope are in the
+API input, so this comparison is always available.
 
 #### FR-CONE-02: New SGs as seeds
 A SG that does not appear in any existing UC in the DB is a new SG and is automatically
 a seed.
 
 #### FR-CONE-03: New or deleted intra-usecase links as seeds
-A new intra-usecase link (a data link with `link_scope = intra_usecase` between two SGs
-that do not yet share a `use_case_subgraph_pairs` entry in any UC) acts as a seed for
-the cone. A deleted intra-usecase link also acts as a seed. Both the source and
-destination SGs of the new or deleted link are treated as seeds.
+A new data link with `link_scope = intra_usecase` acts as a seed for the cone. Both
+endpoints of a new link are treated as seeds only when both endpoints are in the
+effective routing scope.
+
+For a deleted intra-usecase link, each endpoint is evaluated independently: an endpoint
+is treated as a seed when that endpoint remains in the effective routing scope. A deleted
+endpoint is not seeded; FR-API-07 prevents a surviving endpoint from being omitted or
+excluded. This allows each surviving side of a deleted link, including links removed
+because an endpoint SG was deleted, to enter cone computation without making the deleted
+SG traversable.
 
 #### FR-CONE-04: Cone scope — bidirectional
 The cone is computed by traversing **both directions** from each seed SG:
@@ -341,11 +424,11 @@ the cone are not re-evaluated in this routing session.
 upstream SGs (so DFS can traverse through the change) and downstream SGs (so all
 paths passing through the change are re-routed).
 
-#### FR-CONE-05: No selected UCs → all API-provided SGs are seeds
+#### FR-CONE-05: No selected UCs → all effective-scope SGs are seeds
 When the selected UC list is empty, there is no reference UC to build a UC filter from.
-Step 2 therefore produces an empty baseline for every SG. Because every SG in the API
-map differs from its empty baseline, FR-CONE-01 classifies every API-provided SG as a
-seed. The routing scope is exactly the SGs present in the API map.
+Step 2 therefore produces an empty baseline for every SG. Every non-excluded,
+non-deleted SG in the API map is an out-of-selection SG and becomes a seed. The effective
+routing scope is `inputSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds`.
 
 This is the empty-canvas case: the user has no prior UC context and is building from
 scratch by dragging SGs onto the canvas and adding connections. All SGs they provide
@@ -355,24 +438,25 @@ applies — a SG absent from the API map is still an error.
 *"Full-graph" routing simply means the user selects all existing UCs. That follows the
 normal selected-UCs flow with the full UC set — it is not a separate mode.*
 
-#### FR-CONE-06: Out-of-selected-UC-context SG → automatic seed
-When the API input includes a SG that is not a member of any selected UC, that SG is
-automatically a seed. There is no UC-filtered baseline to compare against for such
-SGs; the API-provided SGKV instances are used directly (FR-KV-03 total replace applies,
-with an empty UC-filtered set as the replaced value). The SG participates in
-bidirectional cone expansion (FR-CONE-04).
+#### FR-CONE-06: Out-of-selection SG → automatic seed
+When the API input includes an out-of-selection SG, that SG is
+automatically a seed. Its DB SGKV data may still contribute to the UC-filtered baseline,
+but FR-CONE-06 seeds it independently of that comparison. Its API-provided SGKV
+instances remain the routing source (FR-KV-03), and it participates in bidirectional
+cone expansion (FR-CONE-04).
 
-*Example: user drags an existing SG from the palette onto the routing canvas. That SG
-exists in the DB (possibly in other non-selected UCs) but is not in any selected UC.
-The API must include this SG in the SG map (with at least an empty SGKV list). An
-empty list is valid; the orphan check (FR-VAL-01) will surface errors if the resulting
-paths produce no valid UCs for that SG.*
+*Example: the request includes an existing SG that may belong to a non-selected UC but
+does not belong to any selected UC. It is an out-of-selection SG and must carry at least
+an empty SGKV list. An empty list is valid; the orphan check (FR-VAL-01) will surface
+errors if the resulting paths produce no valid UCs for that SG.*
 
 #### FR-CONE-07: Routing scope boundary — non-deletion scenarios only
-In non-deletion scenarios, the routing scope is strictly bounded by:
-- The SGs of the selected UCs (loaded from DB via FR-KV-01), and
-- Any SGs explicitly present in the API's SG map (including out-of-context SGs per
-  FR-CONE-06).
+In non-deletion scenarios, traversal is strictly bounded by the effective routing scope
+validated by FR-API-03/07. Selected-scope SGs absent from `activeSubgraphs` cannot
+silently enter through DB membership, and SGs that belong only to non-selected UCs
+cannot enter unless they are explicit out-of-selection input SGs. FR-API-07 additionally
+requires current-session added SGs and required data-link endpoints to be supplied as
+such explicit input before routing proceeds.
 
 The bidirectional cone expansion (FR-CONE-04) **does not cross this boundary** into SGs
 that belong only to non-selected UCs and are absent from the API input. The system does
@@ -382,8 +466,10 @@ The algorithm operates only on what the user has selected and explicitly provide
 Impact on unseen items is only surfaced in deletion scenarios (FR-DEL-01), where
 deleted components can affect UCs the user has not selected.
 
-*This boundary also means FR-API-03 only checks cone SGs within this bounded scope —
-it does not require SGs from non-selected, non-provided UCs.*
+*FR-API-03 validates selected-scope completeness before seed and cone computation. It
+does not independently require SGs from non-selected UCs. FR-API-07 is the narrow
+exception: current-session added SGs and required data-link endpoints must become
+explicit input subgraphs before routing proceeds.*
 
 ---
 
@@ -460,8 +546,8 @@ a new path and an existing DB UC are governed by FR-DUP-04.
 **(a) Exact match — no-op.**
 If a newly routed path has identical GKV, identical SG set, and identical pair set as
 an existing DB UC, no new UC is created and no issue is emitted. If the existing UC is
-Disconnected, FR-STATUS-04 is evaluated independently (at Phase 3, before Phase 9) and
-may transition it to Connected.
+`ISLAND`, FR-STATUS-04 is evaluated independently (at Phase 3, before Phase 9) and may
+transition it to `LINKED`.
 
 **(b1) Identity-preserving interior extension — silent auto-update.**
 If a newly routed path satisfies **all** of:
@@ -473,8 +559,8 @@ If a newly routed path satisfies **all** of:
   nothing removed), AND
 - Every added interior SG (new SG set minus existing SG set) contributes an **empty
   SGKV KV list**. This holds when the added SG satisfies one of:
-  1. `IsMdf=true` — auto-populated with an empty SGKV instance at Phase 4 per
-     FR-MDF-01;
+  1. `IsMdf=true` — explicitly supplied with an empty contribution and normalized to
+     one empty SGKV instance at Phase 4 per FR-MDF-01;
   2. User-supplied empty list `[]` in the API input — the explicit "no KV
      contribution" declaration per FR-KV-03; OR
   3. The SG was added by Phase 2 bounded-DFS reconstruction (FR-DEL-06) or by
@@ -507,9 +593,9 @@ the collision is surfaced as a blocking issue with FixOptions letting the user c
 which candidate becomes the UC of record.
 
 **Scope — all UC types.**
-This rule applies to candidates whose `type` is `Connected`, `Disconnected`, or `EC`.
+This rule applies to candidates whose `type` is `LINKED`, `ISLAND`, or `EC`.
 There is no type-based exemption. Same-GKV collisions involving EC UCs — whether an
-EC Bridge candidate collides with a Connected/Disconnected UC, or two EC Bridges from
+EC Bridge candidate collides with a `LINKED`/`ISLAND` UC, or two EC Bridges from
 different EC connections happen to produce the same GKV — surface as FR-DUP-04
 user-choice issues just like non-EC collisions. FR-EC-07 Rule A (Bridge suppression
 against legacy EC UCs) and LLD5 §7.1 remain in force for EC-specific dedup that
@@ -524,9 +610,9 @@ precedes FR-DUP-04 evaluation.
 | New path vs existing DB UC, not (a)/(b1) | share ≥ 1 SG | `Keep existing` / `Replace with new` / `Merge` |
 | New path vs existing DB UC | no shared SG | `Keep existing` / `Create new UC` (no `Merge`) |
 
-The UC type distinction (`Connected`, `Disconnected`, or `EC`) is **irrelevant** to
+The UC type distinction (`LINKED`, `ISLAND`, or `EC`) is **irrelevant** to
 the collision rule — a candidate of any type and an existing UC of any type with the
-same GKV are handled symmetrically. FR-STATUS-04 (Disconnected → Connected automatic
+same GKV are handled symmetrically. FR-STATUS-04 (`ISLAND` → `LINKED` automatic
 conversion) runs independently at Phase 3 and is NOT tied to collision handling.
 
 **Issue emission:**
@@ -660,7 +746,7 @@ carries a non-empty `perSg` (from FR-KV-03 API-supplied SGKV instances), the rou
 result shall include an `ARC-ROUTING-ORPHAN-SG-HAS-KVS` warning in addition to the
 standard orphan warning. This hint informs the user that if a stand-alone UC around
 that SG is intended, they may create it via the manual workflow
-(`create-manual-usecase` — FR-UC-01) rather than deleting the SG. The hint is
+(`create-manual-usecases` — FR-UC-01) rather than deleting the SG. The hint is
 non-blocking; the user may still accept the orphan as-is or delete it via
 FR-VAL-01's standard orphan workflow.
 
@@ -677,11 +763,12 @@ Orphan links arise when their source or destination SG is an orphan SG, or when 
 have an intra-usecase link between them but no routing session has yet created a UC
 containing both.
 
-#### FR-VAL-04: Pre-validation — deletion UC-scope completeness
-When a deletion scenario is detected (see §3.9), the backend checks that every UC
-impacted by the deleted component is present in the `selectedUsecases` list. This is
-the UC-selection level check. The SG-presence level check is handled by FR-API-03
-(cone completeness), which runs only after this UC check passes.
+#### FR-VAL-04: Pre-validation — affected UC-scope completeness
+When a deletion scenario is detected (see §3.9), the backend shall discover affected
+UCs file-wide. Every UC that requires deletion, structural mutation, or type degradation
+must be present in `selectedUsecaseSystemIds`. If the client retries with the required
+expanded selection, FR-API-03/07 validate that selection's required non-excluded,
+non-deleted SGs before KV resolution or seed detection.
 
 ---
 
@@ -708,8 +795,11 @@ created during that session are discarded automatically.
 #### FR-LIFE-04: Fresh routing state per create-usecases call
 At the start of every `create-usecases` invocation (immediately after the chain-resolver
 pre-step, before Phase 1), the system shall delete all `edit_actions` in the current
-session with `source = AUTO_ROUTING`, regardless of `changeStatus` (STAGED or UNSTAGED).
-The routing pipeline then runs on the resulting state (committed + user's MANUAL edits).
+session with `source = AUTO_ROUTING`, regardless of operation, `changeStatus` (STAGED or
+UNSTAGED), or whether `validUntil` is null. This includes active and superseded
+CREATE/UPDATE/DELETE actions for UC base and relationship rows. It deletes uncommitted
+current-session action history only; committed data is not deleted. The routing pipeline
+then runs on the resulting state (committed + user's MANUAL edits).
 
 **Rationale:** the routing algorithm is idempotent — a fresh run on unchanged graph state
 produces the same output. Wiping prior algorithm output ensures each `create-usecases`
@@ -722,7 +812,7 @@ when the user's mental model shifts between calls.
 
 **Scope:**
 - Applies to `create-usecases` (auto routing) only.
-- Does NOT apply to `create-manual-usecase` — manual UC edit-actions use
+- Does NOT apply to `create-manual-usecases` — manual UC edit-actions use
   `source = MANUAL` and are not wiped.
 - Does NOT affect `source = MANUAL` edits (user's graph modifications and manual
   UC creations both use MANUAL) — they survive.
@@ -735,41 +825,58 @@ previous "overlay includes UNSTAGED UCs from prior calls" mechanism is supersede
 
 ### 3.9 Deletion Scenario
 
-#### FR-DEL-01: Detect all impacted UCs
+#### FR-DEL-01: Detect all affected UCs
 When one or more components (SG or intra-usecase link) are deleted, the system shall
-loop through **all UCs in the DB** and identify every UC that contains the deleted
-component. The result is the complete set of impacted UCs.
+inspect **all UCs in the file's committed pre-session state** and classify every UC
+whose post-deletion outcome requires deletion, structural mutation, or type degradation.
+The result is the complete affected-UC set. A link deletion is benign when sufficient
+support remains and no UC mutation is required. This discovery and the FR-DEL-02 gate
+apply to both automatic and manual creation calls. Manual routing does not run automatic
+deletion reconstruction.
 
-#### FR-DEL-02: All impacted UCs must be selected — error if not
-If any UC in the impacted set is absent from the `selectedUsecases` list, the system
-shall return an error listing the **full set of impacted UCs** (both those already
-selected and those newly identified). No routing proceeds until all impacted UCs are
-selected.
+#### FR-DEL-02: All affected UCs must be selected — error if not
+If any UC in the affected set is absent from `selectedUsecaseSystemIds`, the system
+shall return an error containing the **full affected set** and the missing subset. No
+routing or UC mutation proceeds until every affected UC is selected.
 
-*UI behaviour:* On receiving this error, the UI auto-selects all impacted UCs,
+This error takes precedence over deletion-side FR-API-07 closure. The client first
+receives the complete affected-UC set; after it retries with that expanded selection,
+the system validates deleted-entity exclusions and all surviving deleted-data-link
+endpoints before KV resolution or seed detection.
+
+*Client behaviour:* On receiving this error, the client includes all affected UCs,
 pre-populates each SG's KV instances from DB (UC-filtered for the expanded selection),
 and re-presents them to the user. The user may adjust KVs or leave them as-is, then
-re-calls the same create-usecases API with the expanded `selectedUsecases` list and all
-SGs from all impacted UCs present in the SG map (each with KVs or `[]`).
+re-calls the same create-usecases API with expanded `selectedUsecaseSystemIds` and every
+non-excluded, non-deleted selected-scope SG present in `activeSubgraphs` (each with KVs
+or `[]`).
 
-At all times, every SG in the routing scope must appear in the API's SG map with KVs
-or an empty array before routing can begin (FR-API-03).
+Every SG in the effective routing scope appears in the API's SG map with KVs or an
+intentional empty contribution before routing begins (FR-API-03).
 
-#### FR-DEL-03: Affected UCs marked for deletion
+#### FR-DEL-03: Classify selected affected UCs
 Once FR-DEL-02 and FR-API-03 both pass, the system shall mark every UC that contained
-the deleted component as **pending deletion**. These are presented to the user as "UCs
-to be deleted."
+an unrecoverable broken component as **pending deletion**. Affected UCs whose topology
+is preserved or reconstructed are staged for structural update instead. `LINKED` UCs
+whose pair loses data-link coverage but retains control-link support are staged for type
+degradation to `ISLAND`. The latter two categories are not presented as deletions.
 
 #### FR-DEL-04: New UCs created from broken paths
-After marking affected UCs for deletion, the routing algorithm runs DFS on the
-remaining graph (after the component is removed). New UCs are created for each valid
-multi-SG path in the resulting broken graph.
+After classifying affected UCs, the routing algorithm runs DFS on the effective routing
+graph after the component is removed. New UCs are created for each valid multi-SG path
+in that graph; traversal does not import SGs outside `effectiveRoutingScope`.
+
+When an SG deletion also removes its incident intra-usecase data-links, FR-CONE-03 seeds
+each surviving in-scope endpoint independently. Main DFS therefore evaluates surviving
+multi-SG fragments even when the deleted SG is absent from `activeSubgraphs` and no KV
+change produces another seed. The deleted SG itself is neither seeded nor traversed.
+This fragment discovery runs independently of FR-DEL-06 endpoint-anchored reconstruction.
 
 **Single-SG UCs are NOT created by the auto workflow.** If a broken path produces
 an isolated SG that still carries a non-empty effective KV instance set (from the
 API input), the SG shall surface as an orphan warning in Phase 10 with a hint
 suggesting the user create a single-SG UC via the manual workflow
-(`create-manual-usecase`). See FR-VAL-01 for the hint code
+(`create-manual-usecases`). See FR-VAL-01 for the hint code
 `ARC-ROUTING-ORPHAN-SG-HAS-KVS`.
 
 **Rationale:** auto workflow always produces multi-SG paths that represent a
@@ -781,7 +888,7 @@ one SG when that is the intent.
 The user may choose to preserve a UC that is pending deletion. When preserved, the
 system shall update that UC's SG set and subgraph-pair set to contain only the
 components that still exist in the graph (removing the deleted component's pair entry
-and any SGs that became unreachable). The UC's status shall be set to **Disconnected**.
+and any SGs that became unreachable). The UC's type shall be set to **`ISLAND`**.
 
 ---
 
@@ -843,19 +950,19 @@ by any UC are removed at this stage.
 
 ---
 
-### 3.13 UC Connectivity Status
+### 3.13 UC Type Classification
 
-#### FR-STATUS-01: Connected is the default for auto-routing
-Every UC created by the auto-routing algorithm (FR-UC-02) begins with status
-**Connected**.
+#### FR-STATUS-01: `LINKED` is the default for auto-routing
+Every UC created by the auto-routing algorithm (FR-UC-02) begins with type
+**`LINKED`**.
 
-Manual UCs (FR-UC-01) may begin with status **Connected** or **Disconnected** depending
+Manual UCs (FR-UC-01) may begin with type **`LINKED`** or **`ISLAND`** depending
 on whether every pair in the UC has data-link coverage — see FR-UC-01's "Manual UC
-initial status" paragraph.
+initial type" paragraph.
 
-#### FR-STATUS-02: Disconnected UC transitions
+#### FR-STATUS-02: `ISLAND` UC transitions
 
-A UC transitions to **Disconnected** in either of these cases:
+A UC transitions to **`ISLAND`** in either of these cases:
 
 (a) The user explicitly chooses to preserve it after a link or SG deletion broke one
     or more of its pairs (FR-DEL-05).
@@ -867,24 +974,24 @@ A UC transitions to **Disconnected** in either of these cases:
     remove it. This case typically occurs only when the user forgot to delete the
     control-link alongside the data-link.
 
-Disconnected UCs satisfy the orphan check (FR-VAL-01) for their member SGs — those
+`ISLAND` UCs satisfy the orphan check (FR-VAL-01) for their member SGs — those
 SGs are considered "in a valid UC."
 
-For the reverse transition (Disconnected → Connected), see FR-STATUS-04.
+For the reverse transition (`ISLAND` → `LINKED`), see FR-STATUS-04.
 
-#### FR-STATUS-03: Disconnected UCs cannot be created by routing
-The routing algorithm never directly creates a Disconnected UC. Disconnected UCs arise
+#### FR-STATUS-03: `ISLAND` UCs cannot be created by routing
+The routing algorithm never directly creates an `ISLAND` UC. `ISLAND` UCs arise
 only from user preservation of deletion-affected UCs (FR-DEL-05), or from manual
 UC creation (FR-UC-01) when the user explicitly constructs a UC with missing links.
 
-#### FR-STATUS-04: Disconnected UC transition to Connected
+#### FR-STATUS-04: `ISLAND` UC transition to `LINKED`
 During a routing session, after DFS path discovery completes, the system shall evaluate
-each Disconnected UC whose SG members are within the routing scope. Evaluation runs in
+each `ISLAND` UC whose SG members are within the routing scope. Evaluation runs in
 two steps: (1) direction correction, then (2) coverage check.
 
 **Step 1 — Direction correction (control-link-held pairs only):**
 
-For each pair `(A, B)` in the Disconnected UC's pair set:
+For each pair `(A, B)` in the `ISLAND` UC's pair set:
 
 - If an intra-usecase data-link exists in direction A→B → the stored pair matches;
   no correction. Proceed to coverage check.
@@ -901,7 +1008,7 @@ For each pair `(A, B)` in the Disconnected UC's pair set:
 - Otherwise (no data-link at all in either direction, OR opposite-direction data-link
   exists but no control-link is present) → **no correction**. The pair's stored
   direction is left as-is; Step 2 will find it uncovered by data-link and the UC will
-  remain Disconnected.
+  remain `ISLAND`.
 
 *Why control-link presence gates the correction:* A control-link has no inherent
 direction — the direction stored in the pair set was chosen by the smaller-SG-ID rule
@@ -921,10 +1028,10 @@ nodes.
 - A path from A to B that traverses regular non-bridge SGs not present in the UC's
   existing pair set does **not** count as coverage.
 - Partial coverage (some pairs covered, others not) does **not** trigger conversion;
-  the UC remains Disconnected.
+  the UC remains `ISLAND`.
 
-If **all** pairs in the Disconnected UC are covered, the system shall:
-1. Transition the UC's status from Disconnected to **Connected**.
+If **all** pairs in the `ISLAND` UC are covered, the system shall:
+1. Transition the UC's type from `ISLAND` to **`LINKED`**.
 2. Update the UC's SG set to include any transparent bridge SGs that participated in
    the newly covered paths.
 3. Update the UC's pair set to include any new (source_sg, dest_sg) pairs introduced by
@@ -933,8 +1040,8 @@ If **all** pairs in the Disconnected UC are covered, the system shall:
    not deleted and recreated).
 
 *This rule runs at Phase 3 (Half A) independently of collision handling. By the time
-Phase 9 Classification evaluates FR-DUP-03(a)/(b1) and FR-DUP-04, any Disconnected →
-Connected transitions have already been applied — Phase 9 sees the post-transition
+Phase 9 Classification evaluates FR-DUP-03(a)/(b1) and FR-DUP-04, any `ISLAND` →
+`LINKED` transitions have already been applied — Phase 9 sees the post-transition
 `type` when classifying candidates.*
 
 ---
@@ -948,8 +1055,8 @@ exact-match no-op, FR-DUP-03(b1) identity-preserving interior extension silent
 auto-update, or FR-DUP-04 user-choice. In manual mode the collision rule is
 suppressed — manual creation emits one UC at a time and hits FR-DUP-03(a) exact-match
 no-op if the same GKV already exists. **EC UCs (`type=EC`) are subject to the same
-uniqueness rule** as Connected/Disconnected UCs — a coincidental same-GKV collision
-between an EC UC and a Connected/Disconnected UC (or between two EC Bridges from
+uniqueness rule** as `LINKED`/`ISLAND` UCs — a coincidental same-GKV collision
+between an EC UC and a `LINKED`/`ISLAND` UC (or between two EC Bridges from
 different EC connections) surfaces via FR-DUP-04. Bridge UC identity keys off `gkv`
 for uniqueness; `(ecConnectionLinkId, leftSg, rightSg)` remains as metadata for the
 FR-EC-06 deletion cascade but does not grant uniqueness independence.
@@ -967,7 +1074,7 @@ created.)
 never deletes or modifies an existing UC record.
 
 **I5 — Orphan-free commit:** A commit is invalid if any SG in the file is not a member
-of at least one UC (Connected or Disconnected) with a non-empty GKV, or if any intra-
+of at least one UC (`LINKED`, `ISLAND`, or `EC`) with a non-empty GKV, or if any intra-
 usecase link (data-link OR control-link) is not present in any UC's pair set, or if
 any subsystem contains no SG that is a member of any UC. Enforced at commit time by
 FR-COMMIT-01(c) — the orphan-detection safety net.
@@ -1030,7 +1137,7 @@ Decision rationale: better performance at scale, clear separation of concerns be
 change detection and routing, aligns with NFR-PERF-01, and the user's description of
 seed + cone as distinct concepts maps naturally to two separate services.
 
-**OQ-3 — Disconnected UCs and orphan check: RESOLVED (2026-06-01)**
-A SG that is a member of any UC — including Disconnected UCs — is not an orphan.
-FR-VAL-01 has been updated to explicitly state this. A Disconnected UC satisfies
+**OQ-3 — `ISLAND` UCs and orphan check: RESOLVED (2026-06-01)**
+A SG that is a member of any UC — including `ISLAND` UCs — is not an orphan.
+FR-VAL-01 has been updated to explicitly state this. An `ISLAND` UC satisfies
 orphan membership for its SGs.

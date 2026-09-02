@@ -8,7 +8,8 @@ import type {UsecaseType} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import {OverlayMergeImpl} from '../queries/edit-session/overlay-merge.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
-import {UseCaseSchema} from '../entity-schema/usecase-data/use-case.js';
+import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
+import {CHANGE_OPERATION, SOURCE} from '@arc/core';
 import type {
   UseCaseBase,
   UsecaseGkvValuesBase,
@@ -78,27 +79,37 @@ export class UsecaseOverlayFetcher {
     sessionId: number | null,
     filters?: UseCaseFilters,
   ): Promise<UseCaseBase[]> {
+    const actions =
+      sessionId === null
+        ? []
+        : await this.editActionsSvc.getByTable(sessionId, ENTITY_NAMES.UseCase);
+    return this.fetchManyWithActions(fileSystemId, filters, actions);
+  }
+
+  private async fetchManyWithActions(
+    fileSystemId: number,
+    filters: UseCaseFilters | undefined,
+    actions: readonly EditActionRow[],
+  ): Promise<UseCaseBase[]> {
     const qb = this.manager
       .getRepository(ENTITY_NAMES.UseCase)
       .createQueryBuilder('uc')
       .where('uc.fileSystemId = :fileSystemId', {fileSystemId});
-    if (filters) applyEntityFilters(qb, 'uc', filters);
+    if (actions.length === 0 && filters) applyEntityFilters(qb, 'uc', filters);
     const baseRows = (await qb.getMany()) as UseCaseBase[];
 
-    if (sessionId === null) return baseRows;
-
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.UseCase,
-    );
-
-    return this.overlay
-      .applyToCollection(
-        baseRows,
-        actions,
-        filters ? nv => matchesEntityFilters(nv, filters) : undefined,
-      )
+    const effectiveRows = this.overlay
+      .applyToCollection(baseRows, [...actions])
       .map(r => r.effective);
+
+    return filters
+      ? effectiveRows.filter(row =>
+          matchesEntityFilters(
+            row as unknown as Record<string, unknown>,
+            filters,
+          ),
+        )
+      : effectiveRows;
   }
 
   // ── Assembled entry points (scalars + GKV + categories + junctions) ──────────
@@ -189,6 +200,80 @@ export class UsecaseOverlayFetcher {
     );
   }
 
+  async getUsecasesFromActions(
+    fileSystemId: number,
+    usecaseSystemIds: readonly number[],
+    actions: readonly EditActionRow[],
+  ): Promise<OverlaidUseCase[]> {
+    if (usecaseSystemIds.length === 0) return [];
+
+    const usecaseIdSet = new Set(usecaseSystemIds);
+    const actionsFor = (table: (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES]) =>
+      actions.filter(action => action.targetTable === table);
+    const usecases = await this.fetchManyWithActions(
+      fileSystemId,
+      {systemId: [...usecaseSystemIds]},
+      actionsFor(ENTITY_NAMES.UseCase),
+    );
+    if (usecases.length === 0) return [];
+
+    const ucIds = usecases.map(usecase => usecase.systemId);
+    const [gkvRows, catRows, sgIdMap, pairMap] = await Promise.all([
+      this.gkvFetcher
+        ? this.gkvFetcher.fetchManyWithActions(
+            ucIds,
+            actionsFor(ENTITY_NAMES.UsecaseGkvValues),
+          )
+        : Promise.resolve([] as UsecaseGkvValuesBase[]),
+      this.categoryFetcher
+        ? this.categoryFetcher.fetchManyWithActions(
+            ucIds,
+            actionsFor(ENTITY_NAMES.UseCaseCategory),
+          )
+        : Promise.resolve([] as Array<{usecaseSystemId: number; name: string}>),
+      this.getSubgraphIdMap(
+        ucIds,
+        null,
+        actionsFor(ENTITY_NAMES.UseCaseSubgraph),
+      ),
+      this.getSubgraphPairMap(
+        ucIds,
+        null,
+        actionsFor(ENTITY_NAMES.UseCaseSubgraphPair),
+      ),
+    ]);
+    const gkvMap = this.groupGkvByUsecase(gkvRows);
+    const categoryMap = this.groupCategoriesByUsecase(catRows);
+
+    return usecases
+      .filter(usecase => usecaseIdSet.has(usecase.systemId))
+      .map(usecase =>
+        this.assembleUsecase(
+          usecase,
+          gkvMap.get(usecase.systemId) ?? [],
+          categoryMap.get(usecase.systemId) ?? [],
+          sgIdMap.get(usecase.systemId) ?? [],
+          pairMap.get(usecase.systemId) ?? [],
+        ),
+      );
+  }
+
+  /**
+   * Returns the active MANUAL UseCase actions for the current session. The
+   * repository maps these persistence rows to its domain-facing result while
+   * this fetcher owns the edit-action query boundary.
+   */
+  async getActiveManualUsecaseActions(
+    sessionId: number,
+  ): Promise<EditActionRow[]> {
+    return this.editActionsSvc.query({
+      sessionId,
+      targetTable: ENTITY_NAMES.UseCase,
+      source: SOURCE.Manual,
+      operations: [CHANGE_OPERATION.Create, CHANGE_OPERATION.Update],
+    });
+  }
+
   /**
    * Returns category names for the given usecases with session overlay.
    * Delegates to the injected UseCaseCategoryFetcher.
@@ -223,6 +308,7 @@ export class UsecaseOverlayFetcher {
   private async getSubgraphIdMap(
     usecaseSystemIds: number[],
     sessionId: number | null,
+    actions?: readonly EditActionRow[],
   ): Promise<Map<number, number[]>> {
     const result = new Map<number, number[]>();
     if (usecaseSystemIds.length === 0) return result;
@@ -231,6 +317,7 @@ export class UsecaseOverlayFetcher {
     const rows = await this.getSubgraphMembershipRows(
       usecaseSystemIds,
       sessionId,
+      actions,
     );
 
     for (const r of rows) {
@@ -243,6 +330,7 @@ export class UsecaseOverlayFetcher {
   async getSubgraphMembershipRows(
     usecaseSystemIds: number[],
     sessionId: number | null,
+    actions?: readonly EditActionRow[],
   ): Promise<UseCaseSubgraphBase[]> {
     if (usecaseSystemIds.length === 0) return [];
 
@@ -252,15 +340,18 @@ export class UsecaseOverlayFetcher {
       .where('ucs.usecaseSystemId IN (:...ids)', {ids: usecaseSystemIds})
       .getMany()) as UseCaseSubgraphBase[];
 
-    if (sessionId === null) return baseRows;
-
     const usecaseIdSet = new Set(usecaseSystemIds);
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.UseCaseSubgraph,
-    );
+    const relevantActions =
+      actions ??
+      (sessionId === null
+        ? []
+        : await this.editActionsSvc.getByTable(
+            sessionId,
+            ENTITY_NAMES.UseCaseSubgraph,
+          ));
+    if (relevantActions.length === 0) return baseRows;
     return this.overlay
-      .applyToCollection(baseRows, actions, payload =>
+      .applyToCollection(baseRows, [...relevantActions], payload =>
         usecaseIdSet.has(payload.usecaseSystemId as number),
       )
       .map(result => result.effective);
@@ -272,12 +363,17 @@ export class UsecaseOverlayFetcher {
   private async getSubgraphPairMap(
     usecaseSystemIds: number[],
     sessionId: number | null,
+    actions?: readonly EditActionRow[],
   ): Promise<Map<number, OverlaidUseCasePair[]>> {
     const result = new Map<number, OverlaidUseCasePair[]>();
     if (usecaseSystemIds.length === 0) return result;
     for (const id of usecaseSystemIds) result.set(id, []);
 
-    const rows = await this.getSubgraphPairRows(usecaseSystemIds, sessionId);
+    const rows = await this.getSubgraphPairRows(
+      usecaseSystemIds,
+      sessionId,
+      actions,
+    );
 
     for (const r of rows) {
       result.get(r.usecaseSystemId)?.push({
@@ -292,6 +388,7 @@ export class UsecaseOverlayFetcher {
   async getSubgraphPairRows(
     usecaseSystemIds: number[],
     sessionId: number | null,
+    actions?: readonly EditActionRow[],
   ): Promise<UseCaseSubgraphPairBase[]> {
     if (usecaseSystemIds.length === 0) return [];
 
@@ -301,15 +398,18 @@ export class UsecaseOverlayFetcher {
       .where('ucsp.usecaseSystemId IN (:...ids)', {ids: usecaseSystemIds})
       .getMany()) as UseCaseSubgraphPairBase[];
 
-    if (sessionId === null) return baseRows;
-
     const usecaseIdSet = new Set(usecaseSystemIds);
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.UseCaseSubgraphPair,
-    );
+    const relevantActions =
+      actions ??
+      (sessionId === null
+        ? []
+        : await this.editActionsSvc.getByTable(
+            sessionId,
+            ENTITY_NAMES.UseCaseSubgraphPair,
+          ));
+    if (relevantActions.length === 0) return baseRows;
     return this.overlay
-      .applyToCollection(baseRows, actions, payload =>
+      .applyToCollection(baseRows, [...relevantActions], payload =>
         usecaseIdSet.has(payload.usecaseSystemId as number),
       )
       .map(result => result.effective);
@@ -445,41 +545,4 @@ export class UsecaseOverlayFetcher {
     };
   }
 
-  /**
-   * Returns fully-assembled OverlaidUsecases that have at least one active
-   * MANUAL edit_action in the current session.
-   */
-  async fetchWithActiveManualEdits(
-    fileSystemId: number,
-    sessionId: number,
-  ): Promise<OverlaidUseCase[]> {
-    const idRows = await this.manager
-      .createQueryBuilder()
-      .select('uc.system_id', 'systemId')
-      .distinct(true)
-      .from(UseCaseSchema, 'uc')
-      .innerJoin(
-        'edit_actions',
-        'ea',
-        `ea.target_system_id = uc.system_id
-         AND ea.target_table = :targetTable
-         AND ea.source = :source
-         AND ea.valid_until IS NULL`,
-        {targetTable: ENTITY_NAMES.UseCase, source: 'MANUAL'},
-      )
-      .innerJoin(
-        'project_sessions',
-        'ps',
-        'ps.session_id = ea.session_id AND ps.file_system_id = uc.file_system_id',
-      )
-      .where('uc.file_system_id = :fileSystemId', {fileSystemId})
-      .getRawMany<{systemId: number}>();
-
-    if (idRows.length === 0) return [];
-    return this.getUsecases(
-      fileSystemId,
-      sessionId,
-      idRows.map(r => r.systemId),
-    );
-  }
 }

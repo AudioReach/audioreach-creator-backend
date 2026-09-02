@@ -209,6 +209,23 @@ describe('SpfModuleOverlayFetcher (integration)', () => {
     expect(result).toHaveLength(0);
   });
 
+  it('excludes a committed module when its Node is deleted in the session', async () => {
+    await seedModule(ds);
+    const sessionId = await seedSession(ds);
+    await seedEditAction(ds, {
+      sessionId,
+      aggregateId: MODULE_ID,
+      targetSystemId: MODULE_ID,
+      targetTable: ENTITY_NAMES.Node,
+      operation: CHANGE_OPERATION.Delete,
+      newValue: '{}',
+    });
+
+    await expect(
+      fetcher.fetchEffectiveForSubgraphs(FILE_ID, sessionId, [SUBGRAPH_ID]),
+    ).resolves.toEqual([]);
+  });
+
   it('returns base row unchanged for a session with no actions for this module', async () => {
     await seedModule(ds, {alias: 'stable'});
     const sessionId = await seedSession(ds);

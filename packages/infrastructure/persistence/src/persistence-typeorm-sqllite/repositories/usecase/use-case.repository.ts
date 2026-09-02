@@ -6,19 +6,26 @@
 import type {EntityManager} from 'typeorm';
 import type {
   UsecaseRepository,
+  ActiveManualUsecaseEdit,
   ReadOptions,
   ReferencedComponents,
   StructuralDelta,
+  UsecaseChangeRef,
   UnitOfWork,
   EditOptions,
   UsecaseType,
   IdGenerationPort,
 } from '@arc/core';
-import {UseCase, READ_MODE} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  UseCase,
+  READ_MODE,
+} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import type {OverlaidUseCase} from '../../fetchers/usecase-overlay-fetcher.js';
+import {UsecaseGkvValuesFetcher} from '../../fetchers/usecase-gkv-values-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 import type {UseCaseSubgraphBase} from '../../entity-schema/usecase-data/use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairBase} from '../../entity-schema/usecase-data/use-case-subgraph-pair.schema.js';
@@ -32,9 +39,12 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     private readonly uow: UnitOfWork,
     private readonly idGeneration: IdGenerationPort,
   ) {
+    const editActionsQueryService = new EditActionsQueryService(manager);
     this.ucFetcher = new UsecaseOverlayFetcher(
       manager,
-      new EditActionsQueryService(manager),
+      editActionsQueryService,
+      undefined,
+      new UsecaseGkvValuesFetcher(manager, editActionsQueryService),
     );
   }
 
@@ -70,13 +80,35 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     return overlaid.map(uc => this.hydrateOverlaid(uc));
   }
 
-  async findWithActiveManualEdits(fileSystemId: number): Promise<UseCase[]> {
+  async findWithActiveManualEdits(
+    fileSystemId: number,
+  ): Promise<ActiveManualUsecaseEdit[]> {
     const sessionId = this.uow.getWriteContext().session.sessionId;
-    const overlaid = await this.ucFetcher.fetchWithActiveManualEdits(
-      fileSystemId,
+    const actions = await this.ucFetcher.getActiveManualUsecaseActions(
       sessionId,
     );
-    return overlaid.map(uc => this.hydrateOverlaid(uc));
+    if (actions.length === 0) return [];
+
+    const usecases = await this.ucFetcher.getUsecases(
+      fileSystemId,
+      sessionId,
+      [...new Set(actions.map(action => action.targetSystemId))],
+    );
+    const usecaseById = new Map(
+      usecases.map(usecase => [usecase.systemId, this.hydrateOverlaid(usecase)]),
+    );
+
+    return actions.map(action => ({
+      changeId: action.changeId,
+      usecase: usecaseById.get(action.targetSystemId) ?? null,
+      operation:
+        action.operation === CHANGE_OPERATION.Create
+          ? CHANGE_OPERATION.Create
+          : CHANGE_OPERATION.Update,
+      referencedComponents: this.parseReferencedComponents(
+        action.newValue as Record<string, unknown>,
+      ),
+    }));
   }
 
   async removeSubgraphReferences(
@@ -145,10 +177,10 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     uc: UseCase,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
-  ): Promise<void> {
+  ): Promise<UsecaseChangeRef | null> {
     const {session, groupId} = this.uow.getWriteContext();
 
-    await this.writer.writeCreate(
+    const rootChangeId = await this.writer.writeCreate(
       {
         targetTable: ENTITY_NAMES.UseCase,
         targetSystemId: uc.systemId,
@@ -166,6 +198,24 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       groupId,
       this.manager,
     );
+
+    for (const valueDefSystemId of uc.keyVector.valueSystemIds) {
+      const relationshipSystemId = await this.idGeneration.getNextId(
+        uc.fileSystemId,
+      );
+      await this.writer.writeCreate(
+        {
+          targetTable: ENTITY_NAMES.UsecaseGkvValues,
+          targetSystemId: relationshipSystemId,
+          aggregateId: uc.systemId,
+          payload: {usecaseSystemId: uc.systemId, valueDefSystemId},
+          ...options,
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
 
     for (const sgSystemId of uc.subgraphSystemIds) {
       const relationshipSystemId = await this.idGeneration.getNextId(
@@ -206,11 +256,16 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         this.manager,
       );
     }
+
+    return this.toChangeRef(uc.systemId, rootChangeId);
   }
 
-  async delete(ucSystemId: number, options?: EditOptions): Promise<void> {
+  async delete(
+    ucSystemId: number,
+    options?: EditOptions,
+  ): Promise<UsecaseChangeRef | null> {
     const {session, groupId} = this.uow.getWriteContext();
-    await this.writer.writeDelete(
+    const changeId = await this.writer.writeDelete(
       {
         targetTable: ENTITY_NAMES.UseCase,
         targetSystemId: ucSystemId,
@@ -221,6 +276,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       groupId,
       this.manager,
     );
+    return this.toChangeRef(ucSystemId, changeId);
   }
 
   async applyStructuralChange(
@@ -228,26 +284,15 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     delta: StructuralDelta,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
-  ): Promise<void> {
+  ): Promise<UsecaseChangeRef | null> {
     const {session, groupId} = this.uow.getWriteContext();
+    let emittedStructuralChange = false;
 
-    // Cancel any pending UseCase DELETE for this UC (FR-EC-07 Rule D).
+    // Cancel any pending UseCase DELETE for this UC.
     if (delta.cancelPendingDelete) {
-      // eslint-disable-next-line custom/no-raw-persistence-queries -- supersedeCurrent pattern; superseding by operation type is not expressible with TypeORM QueryBuilder
-      await this.manager.query(
-        `UPDATE edit_actions
-            SET valid_until = $1
-          WHERE session_id = $2
-            AND target_system_id = $3
-            AND target_table = $4
-            AND operation = 'DELETE'
-            AND valid_until IS NULL`,
-        [
-          new Date().toISOString(),
-          session.sessionId,
-          ucSystemId,
-          ENTITY_NAMES.UseCase,
-        ],
+      emittedStructuralChange = await this.cancelPendingDelete(
+        session.sessionId,
+        ucSystemId,
       );
     }
 
@@ -269,6 +314,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         groupId,
         this.manager,
       );
+      emittedStructuralChange = true;
     }
 
     for (const sgId of delta.removedSgSystemIds ?? []) {
@@ -285,6 +331,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         groupId,
         this.manager,
       );
+      emittedStructuralChange = true;
     }
 
     for (const sgId of delta.addedSgSystemIds ?? []) {
@@ -304,6 +351,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         groupId,
         this.manager,
       );
+      emittedStructuralChange = true;
     }
 
     for (const pair of delta.addedPairs ?? []) {
@@ -334,25 +382,28 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         groupId,
         this.manager,
       );
+      emittedStructuralChange = true;
     }
 
-    await this.writeUsecaseDelta(
+    const rootChangeId = await this.writeUsecaseDelta(
       ucSystemId,
       delta.newType,
       referencedComponents,
       options,
       session.sessionId,
       groupId,
+      emittedStructuralChange,
     );
+    return this.toChangeRef(ucSystemId, rootChangeId);
   }
 
   async changeType(
     ucSystemId: number,
     newType: UsecaseType,
     options?: EditOptions,
-  ): Promise<void> {
+  ): Promise<UsecaseChangeRef | null> {
     const {session, groupId} = this.uow.getWriteContext();
-    await this.writer.writeDelta(
+    const changeId = await this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.UseCase,
         targetSystemId: ucSystemId,
@@ -364,6 +415,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       groupId,
       this.manager,
     );
+    return this.toChangeRef(ucSystemId, changeId);
   }
 
   async reverseSgPairDirection(
@@ -371,7 +423,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     currentSourceSgSystemId: number,
     currentDestSgSystemId: number,
     options?: EditOptions,
-  ): Promise<void> {
+  ): Promise<UsecaseChangeRef | null> {
     const {session, groupId} = this.uow.getWriteContext();
     const relationship = await this.findSubgraphPair(
       ucSystemId,
@@ -400,6 +452,16 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       groupId,
       this.manager,
     );
+    const rootChangeId = await this.writeUsecaseDelta(
+      ucSystemId,
+      undefined,
+      undefined,
+      options,
+      session.sessionId,
+      groupId,
+      true,
+    );
+    return this.toChangeRef(ucSystemId, rootChangeId);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -411,15 +473,21 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     options: EditOptions | undefined,
     sessionId: number,
     groupId: string,
-  ): Promise<void> {
+    writeMarker = false,
+  ): Promise<number | null> {
     const usecaseDelta: Record<string, unknown> = {};
     if (newType !== undefined) usecaseDelta.type = newType;
     if (referencedComponents !== undefined) {
       usecaseDelta.referencedComponents = referencedComponents;
     }
-    if (Object.keys(usecaseDelta).length === 0) return;
+    if (
+      Object.keys(usecaseDelta).length === 0 &&
+      (!writeMarker || options?.cache === true)
+    ) {
+      return null;
+    }
 
-    await this.writer.writeDelta(
+    return this.writer.writeDelta(
       {
         targetTable: ENTITY_NAMES.UseCase,
         targetSystemId: ucSystemId,
@@ -431,6 +499,52 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
       groupId,
       this.manager,
     );
+  }
+
+  private toChangeRef(
+    systemId: number,
+    changeId: number | null,
+  ): UsecaseChangeRef | null {
+    return changeId === null ? null : {systemId, changeId};
+  }
+
+  private async cancelPendingDelete(
+    sessionId: number,
+    ucSystemId: number,
+  ): Promise<boolean> {
+    // eslint-disable-next-line custom/no-raw-persistence-queries -- checking active DELETE rows by operation is not expressible through the UseCase entity repository
+    const pendingDeletes: unknown = await this.manager.query(
+      `SELECT change_id
+         FROM edit_actions
+        WHERE session_id = $1
+          AND target_system_id = $2
+          AND target_table = $3
+          AND operation = 'DELETE'
+          AND valid_until IS NULL
+        LIMIT 1`,
+      [sessionId, ucSystemId, ENTITY_NAMES.UseCase],
+    );
+    if (!Array.isArray(pendingDeletes) || pendingDeletes.length === 0) {
+      return false;
+    }
+
+    // eslint-disable-next-line custom/no-raw-persistence-queries -- superseding by operation type is not expressible with TypeORM QueryBuilder
+    await this.manager.query(
+      `UPDATE edit_actions
+          SET valid_until = $1
+        WHERE session_id = $2
+          AND target_system_id = $3
+          AND target_table = $4
+          AND operation = 'DELETE'
+          AND valid_until IS NULL`,
+      [
+        new Date().toISOString(),
+        sessionId,
+        ucSystemId,
+        ENTITY_NAMES.UseCase,
+      ],
+    );
+    return true;
   }
 
   private async findSubgraphMembership(
@@ -476,5 +590,39 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         valueSystemIds: uc.gkvEntries.map(g => g.valueDefSystemId),
       },
     });
+  }
+
+  private parseReferencedComponents(
+    value: Record<string, unknown>,
+  ): ActiveManualUsecaseEdit['referencedComponents'] {
+    const referencedComponents = value.referencedComponents;
+    if (
+      referencedComponents === null ||
+      typeof referencedComponents !== 'object' ||
+      Array.isArray(referencedComponents)
+    ) {
+      return null;
+    }
+
+    const payload = referencedComponents as Record<string, unknown>;
+    const isNumberArray = (candidate: unknown): candidate is number[] =>
+      Array.isArray(candidate) &&
+      candidate.every(
+        item => typeof item === 'number' && Number.isSafeInteger(item),
+      );
+
+    if (
+      !isNumberArray(payload.sgSystemIds) ||
+      !isNumberArray(payload.dataLinkSystemIds) ||
+      !isNumberArray(payload.controlLinkSystemIds)
+    ) {
+      return null;
+    }
+
+    return {
+      sgSystemIds: [...payload.sgSystemIds],
+      dataLinkSystemIds: [...payload.dataLinkSystemIds],
+      controlLinkSystemIds: [...payload.controlLinkSystemIds],
+    };
   }
 }

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import type {SessionMode} from '../../../../shared/change-vocabulary.js';
+import type {SessionMode, Source} from '../../../../shared/change-vocabulary.js';
 
 /**
  * Read-side snapshot of a project session row.
@@ -86,6 +86,12 @@ export interface ISessionRepository {
    * Returns the number of rows deleted.
    */
   wipeUnstagedForSession(sessionId: number): Promise<number>;
+
+  /**
+   * Deletes every edit action for the session from one source, including
+   * superseded rows and all operations/tables. Returns the number of rows.
+   */
+  deleteEditActionsBySource(sessionId: number, source: Source): Promise<number>;
 
   /**
    * Counts active (validUntil IS NULL) STAGED edit_actions rows for the session.
