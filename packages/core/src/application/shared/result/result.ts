@@ -54,13 +54,17 @@ export type Result<T> =
  * No predicate helpers — the `kind` discriminant is self-documenting (FR-3).
  * Compare against RESULT_KIND's named constants, not raw string literals.
  */
+function ok(): Result<void>;
+function ok<T>(data: T, issues?: readonly Issue[]): Result<T>;
+function ok<T>(data?: T, issues?: readonly Issue[]): Result<T | void> {
+  if (issues && issues.length > 0) {
+    return {kind: RESULT_KIND.Ok, data, issues};
+  }
+  return {kind: RESULT_KIND.Ok, data};
+}
+
 export const Result = {
-  ok<T>(data: T, issues?: readonly Issue[]): Result<T> {
-    if (issues && issues.length > 0) {
-      return {kind: RESULT_KIND.Ok, data, issues};
-    }
-    return {kind: RESULT_KIND.Ok, data};
-  },
+  ok,
 
   partial<T>(data: T, issues: readonly Issue[]): Result<T> {
     if (issues.length === 0) {

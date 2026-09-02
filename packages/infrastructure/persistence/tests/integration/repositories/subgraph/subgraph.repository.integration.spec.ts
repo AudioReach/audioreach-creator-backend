@@ -4,6 +4,7 @@
  */
 
 import type {DataSource, QueryRunner} from 'typeorm';
+import {SOURCE, Subgraph} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -267,6 +268,29 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
         9999,
       ]);
       expect(result.map(s => s.systemId)).toEqual([SG_A]);
+    });
+
+    it('includes only the requested session-created subgraph', async () => {
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      await qr.startTransaction();
+      await repo.createSubgraph(
+        new Subgraph({
+          systemId: 9001,
+          subgraphId: 91,
+          name: 'session-created',
+          isExported: false,
+          fileSystemId: FILE_ID,
+          sgkvs: [],
+        }),
+        {source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      await expect(repo.findByIds(FILE_ID, [9001])).resolves.toEqual([
+        expect.objectContaining({systemId: 9001}),
+      ]);
+      await expect(repo.findByIds(FILE_ID, [9002])).resolves.toEqual([]);
     });
   });
 

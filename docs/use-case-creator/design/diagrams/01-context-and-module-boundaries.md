@@ -15,7 +15,7 @@ flowchart LR
 
     subgraph Interface["Interface Layer"]
         httpAuto["POST /create-usecases\n(auto)"]
-        httpManual["POST /create-manual-usecase\n(manual)"]
+        httpManual["POST /create-manual-usecases\n(manual)"]
     end
 
     subgraph Framework["Framework / Glue"]
@@ -52,7 +52,7 @@ flowchart LR
     iChainResolver -.->|"writes STAGED\nlink edit_actions"| pendingWriter
 
     %% Both handlers → RoutingEngine (single public facade)
-    handlerAuto & handlerManual -->|"run(routingInput, uow)"| routingEngine
+    handlerAuto & handlerManual -->|"load selected UCs once\nderive + validate scope\nrun(routingInput, uow)"| routingEngine
 
     %% RoutingEngine drives pipeline (detail in Diagram 1b)
     routingEngine -->|pipeline phases| editEmitter
@@ -81,13 +81,19 @@ flowchart LR
 
     subgraph Pipeline["Pipeline phases (sequential)"]
         direction LR
-        kv["KVResolver\n(GKV → SGKV)"]
-        cone["ConeExpander\n(bidirectional seed expansion)"]
-        dfs["DfsRouter\n(bounded DFS)"]
-        dup["DuplicateResolver\n(FR-DUP merge / error rules)"]
-        del["DeletionExtension\n(FR-DEL-06 multi-path detection)"]
-        emitter["EditActionEmitter"]
-        kv --> cone --> dfs --> dup --> del --> emitter
+        pre["1 Pre-validation"]
+        del["2 Deletion scope\n(file-wide affected gate)"]
+        transition["3 ISLAND → LINKED transition"]
+        kv["4 KV resolution"]
+        seed["5 Seed detection"]
+        cone["6 Cone computation\n(effective-scope bounded)"]
+        dfs["7 DFS routing"]
+        combo["8 Combination expansion"]
+        classify["9 Classification"]
+        validate["10 Orphan validation"]
+        emitter["11 Change stager"]
+        response["12 Response builder"]
+        pre --> del --> transition --> kv --> seed --> cone --> dfs --> combo --> classify --> validate --> emitter --> response
     end
 
     subgraph Infra["Infrastructure / Persistence"]
@@ -96,12 +102,11 @@ flowchart LR
     end
 
     routingEngine --> orchestrator
-    orchestrator --> kv
-    del --> emitter
+    orchestrator --> pre
     orchestrator --> repos
     emitter --> pendingWriter
 
-    class routingEngine,orchestrator,kv,cone,dfs,dup,del,emitter feature
+    class routingEngine,orchestrator,pre,del,transition,kv,seed,cone,dfs,combo,classify,validate,emitter,response feature
     class repos,pendingWriter infra
 ```
 
@@ -112,6 +117,6 @@ flowchart LR
 - Color bands: Interface (blue) · Framework/Glue (gray) · Upstream subsystem-links (yellow) · This feature (green) · Infrastructure (orange)
 
 ## Notes
-Both HTTP entry points funnel through `SessionGuard` and `CommandBus` into their respective handlers. Each handler calls `IChainResolver.resolveAllChains(uow)` (owned by the `subsystem-links` module) as a mandatory pre-step. The chain resolver writes STAGED `data_link`/`control_link` `edit_actions` directly into the session and returns only success/failure — it does not return resolved link data to the handler. For raw-mode projects (the common case) the chain resolver is a fast no-op; the routing engine has no concept of chain resolution.
+Both HTTP entry points funnel through `SessionGuard` and `CommandBus` into their respective handlers. Each handler calls `IChainResolver.resolveAllChains(uow)` (owned by the `subsystem-links` module) as a mandatory pre-step. The chain resolver writes STAGED `data_link`/`control_link` `edit_actions` directly into the session and returns only success/failure. Each handler then loads graph edits and selected UCs, enforces FR-API-07 addition-side closure, derives the selected/input/out-of-selection/effective scope sets, and enforces FR-API-03 before manual discovery or engine execution. Phase 2 enforces deletion-side closure after the FR-DEL-02 affected-UC gate. For raw-mode projects the chain resolver is a fast no-op; the routing engine has no concept of chain resolution.
 
-After the pre-step, each handler calls `RoutingEngine.run(routingInput, uow)` — this is the ONLY public API of the `routing` subfolder. `RoutingEngine` is the single facade; it internally delegates to `RoutingPipelineOrchestrator`, which drives the six-phase pipeline shown in Diagram 1b. The orchestrator reads from the repositories via the normal edit-crud overlay (which already includes any staged link edits written by the chain resolver) and delegates final write responsibility to `EditActionEmitter → PendingChangeWriter`. `UnitOfWork` wraps the repositories and `PendingChangeWriter` in a single edit-crud session (not shown as arrows to keep the flow diagram uncluttered). The `subsystem-links` subgraph is drawn in a distinct color to emphasise that `IChainResolver` is a consumed port, not part of this feature's internals.
+After the pre-step, each handler calls `RoutingEngine.run(routingInput, uow)` — this is the only public API of the routing subfolder. `RoutingEngine` delegates to `RoutingPipelineOrchestrator`, which drives the twelve phases shown above. The orchestrator reads through repositories and delegates writes to `RoutingChangeStager → PendingChangeWriter`. `UnitOfWork` wraps those operations in one edit session.

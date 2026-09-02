@@ -198,6 +198,76 @@ describe('TypeOrmSessionRepository (integration)', () => {
     });
   });
 
+  describe('deleteEditActionsBySource', () => {
+    it('deletes every source-matched row, including history, without affecting other sessions or sources', async () => {
+      const {fileSystemId} = await seedProjectAndFile();
+      const sessionId = await repo.createSession({
+        fileSystemId,
+        sessionMode: SESSION_MODE.Designer,
+        userId: null,
+      });
+      await getTestRepository(ArcDbFileSchema).save({
+        systemId: 101,
+        projectSystemId: 1,
+        fileName: 'other.acdb',
+        description: '',
+        metadata: '{}',
+        isTarget: false,
+        lastReservedId: 0,
+      });
+      const otherSessionId = await repo.createSession({
+        fileSystemId: 101,
+        sessionMode: SESSION_MODE.Designer,
+        userId: null,
+      });
+      const insertAction = async (
+        targetSystemId: number,
+        source: string,
+        validUntil: string | null = null,
+        targetSessionId = sessionId,
+      ) => {
+        await ds.query(
+          `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, valid_until)
+           VALUES (?, 1, ?, 'UseCase', ?, NULL, '{}', ?, ?, NULL, ?)`,
+          [
+            targetSessionId,
+            targetSystemId,
+            CHANGE_OPERATION.Update,
+            source,
+            CHANGE_STATUS.Staged,
+            validUntil,
+          ],
+        );
+      };
+
+      await insertAction(10, SOURCE.AutoRouting);
+      await insertAction(11, SOURCE.AutoRouting, '2026-01-01 00:00:00');
+      await insertAction(12, SOURCE.AutoRouting);
+      await insertAction(13, SOURCE.Manual);
+      await insertAction(14, SOURCE.DiffTool);
+      await insertAction(15, SOURCE.AutoRouting, null, otherSessionId);
+
+      await queryRunner.startTransaction();
+      expect(
+        await repo.deleteEditActionsBySource(sessionId, SOURCE.AutoRouting),
+      ).toBe(3);
+      await queryRunner.rollbackTransaction();
+
+      expect(
+        await repo.deleteEditActionsBySource(sessionId, SOURCE.AutoRouting),
+      ).toBe(3);
+      const remaining: Array<{session_id: number; source: string}> =
+        await ds.query(
+          `SELECT session_id, source FROM edit_actions ORDER BY target_system_id`,
+        );
+      expect(remaining).toEqual([
+        {session_id: sessionId, source: SOURCE.Manual},
+        {session_id: sessionId, source: SOURCE.DiffTool},
+        {session_id: otherSessionId, source: SOURCE.AutoRouting},
+      ]);
+    });
+  });
+
   describe('countCommitsForSession', () => {
     it('returns 0 before any commits', async () => {
       const {fileSystemId} = await seedProjectAndFile();

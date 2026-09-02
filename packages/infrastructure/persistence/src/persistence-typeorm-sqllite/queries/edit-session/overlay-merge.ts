@@ -146,7 +146,7 @@ export class OverlayMergeImpl implements OverlayMerge {
         // the CREATE action. Inject it so synthesised rows carry the correct id.
         // Only inject if not yet set (guards against duplicate CREATE rows).
         if (baseRow === null && !('systemId' in effective)) {
-          effective.systemId = row.targetSystemId;
+          effective.systemId = Number(row.targetSystemId);
         }
       }
       this.fieldPathReducer.applyRow(effective, row);
@@ -183,9 +183,10 @@ function groupByTargetSystemId(
 ): Map<number, EditActionRow[]> {
   const map = new Map<number, EditActionRow[]>();
   for (const row of rows) {
-    const bucket = map.get(row.targetSystemId);
+    const targetSystemId = Number(row.targetSystemId);
+    const bucket = map.get(targetSystemId);
     if (bucket) bucket.push(row);
-    else map.set(row.targetSystemId, [row]);
+    else map.set(targetSystemId, [row]);
   }
   return map;
 }

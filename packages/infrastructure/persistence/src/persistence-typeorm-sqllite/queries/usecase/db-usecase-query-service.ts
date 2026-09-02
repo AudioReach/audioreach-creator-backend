@@ -7,19 +7,31 @@ import type {DataSource} from 'typeorm';
 import type {
   UseCaseQueryService,
   UseCaseReadModel,
+  UsecaseChangeDetails,
+  UsecaseChangeSnapshot,
   ComponentsReadModel,
   FilterExpression,
   KeyValueDefQueryService,
   ISessionRepository,
   SpfModuleQueryService,
 } from '@arc/core';
-import {Result, IssueFactory, RESULT_KIND} from '@arc/core';
+import {
+  CHANGE_OPERATION,
+  Result,
+  IssueFactory,
+  RESULT_KIND,
+} from '@arc/core';
 import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import {USECASE_PARAM_FILTER} from './usecase-param-filter.js';
 import {UseCaseQueryMappers} from './usecase-query-mappers.js';
-import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
+import {
+  type OverlaidUseCase,
+  UsecaseOverlayFetcher,
+} from '../../fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
+import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
+import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 
 /**
  * Database implementation of UseCaseQueryService.
@@ -46,6 +58,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     private readonly keyValueDefQuerySvc: KeyValueDefQueryService,
     private readonly spfModuleQuerySvc: SpfModuleQueryService,
     private readonly sessionRepo: ISessionRepository,
+    private readonly editActionsQuerySvc: EditActionsQueryService,
     usecaseFetcher: UsecaseOverlayFetcher,
     linkFetcher: LinkOverlayFetcher,
   ) {
@@ -87,33 +100,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
         restrictToIds,
       );
 
-      // Resolve GKV key-value pairs — cross-aggregate enrichment (FR-4).
-      // All valueDefIds collected into one batch call (FR-5).
-      const allValueDefIds = [
-        ...new Set(
-          overlaidUsecases.flatMap(uc =>
-            uc.gkvEntries.map(e => e.valueDefSystemId),
-          ),
-        ),
-      ];
-
-      const pairsResult =
-        await this.keyValueDefQuerySvc.getKeyValueSummaryForGivenValues(
-          allValueDefIds,
-          fileSystemId,
-        );
-
-      type KvPair = {
-        key: {systemId: number; naturalId: number; name: string};
-        value: {systemId: number; naturalId: number; name: string};
-      };
-      const pairsList: KvPair[] =
-        pairsResult.kind === RESULT_KIND.Fail
-          ? []
-          : (pairsResult.data as KvPair[]);
-      const pairsMap = new Map<number, KvPair>(
-        pairsList.map(pair => [pair.value.systemId, pair]),
-      );
+      const pairsMap = await this.getGkvPairMap(overlaidUsecases, fileId);
 
       const readModels: UseCaseReadModel[] = overlaidUsecases.map(uc => {
         const gkv = uc.gkvEntries
@@ -138,6 +125,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           alias: uc.alias,
           aliasId: uc.aliasId,
           categories: uc.categoryNames,
+          type: uc.type,
         };
       });
 
@@ -146,6 +134,95 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       return Result.fail(
         IssueFactory.dbError(
           error instanceof Error ? error.message : 'Failed to query usecases',
+        ),
+      );
+    }
+  }
+
+  async getChangeDetails(
+    fileId: number,
+    groupId: string,
+  ): Promise<Result<UsecaseChangeDetails[]>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
+      if (session === null) return Result.ok([]);
+
+      const groupActions = await this.editActionsQuerySvc.getHistoryByGroupId(
+        session.sessionId,
+        groupId,
+      );
+      const usecaseGroupActions = groupActions.filter(action =>
+        this.isUsecaseAction(action),
+      );
+      if (usecaseGroupActions.length === 0) return Result.ok([]);
+
+      const usecaseIds = [
+        ...new Set(usecaseGroupActions.map(action => action.aggregateId)),
+      ];
+      const historyRows = await this.editActionsQuerySvc.getHistoryByAggregateIds(
+        session.sessionId,
+        usecaseIds,
+      );
+      const history = historyRows.filter(action => this.isUsecaseAction(action));
+      const groupActionIds = new Set(
+        usecaseGroupActions.map(action => action.changeId),
+      );
+      const firstGroupIndex = history.findIndex(action =>
+        groupActionIds.has(action.changeId),
+      );
+      const lastGroupIndex = history.findLastIndex(action =>
+        groupActionIds.has(action.changeId),
+      );
+      if (firstGroupIndex === -1 || lastGroupIndex === -1) return Result.ok([]);
+
+      const [beforeUsecases, afterUsecases] = await Promise.all([
+        this.usecaseFetcher.getUsecasesFromActions(
+          fileId,
+          usecaseIds,
+          history.slice(0, firstGroupIndex),
+        ),
+        this.usecaseFetcher.getUsecasesFromActions(
+          fileId,
+          usecaseIds,
+          history.slice(0, lastGroupIndex + 1),
+        ),
+      ]);
+      const [beforeSnapshots, afterSnapshots] = await Promise.all([
+        this.getChangeSnapshotMap(beforeUsecases, fileId),
+        this.getChangeSnapshotMap(afterUsecases, fileId),
+      ]);
+
+      const actionsByUsecase = new Map<number, EditActionRow[]>();
+      for (const action of usecaseGroupActions) {
+        const actions = actionsByUsecase.get(action.aggregateId) ?? [];
+        actions.push(action);
+        actionsByUsecase.set(action.aggregateId, actions);
+      }
+
+      return Result.ok(
+        usecaseIds.map(systemId => {
+          const actions = actionsByUsecase.get(systemId)!;
+          const rootAction = actions.find(
+            action => action.targetTable === ENTITY_NAMES.UseCase,
+          );
+          const anchor = rootAction ?? actions[0];
+          return {
+            systemId,
+            changeId: anchor.changeId,
+            operation:
+              rootAction?.operation ?? CHANGE_OPERATION.Update,
+            before: beforeSnapshots.get(systemId) ?? null,
+            after: afterSnapshots.get(systemId) ?? null,
+          };
+        }),
+      );
+    } catch (error) {
+      return Result.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to query usecase change details',
         ),
       );
     }
@@ -256,5 +333,95 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       .limit(1)
       .getOne()) as {fileSystemId: number} | null;
     return row?.fileSystemId ?? null;
+  }
+
+  private isUsecaseAction(action: EditActionRow): boolean {
+    return (
+      action.targetTable === ENTITY_NAMES.UseCase ||
+      action.targetTable === ENTITY_NAMES.UsecaseGkvValues ||
+      action.targetTable === ENTITY_NAMES.UseCaseCategory ||
+      action.targetTable === ENTITY_NAMES.UseCaseSubgraph ||
+      action.targetTable === ENTITY_NAMES.UseCaseSubgraphPair
+    );
+  }
+
+  private async getChangeSnapshotMap(
+    usecases: readonly OverlaidUseCase[],
+    fileId: number,
+  ): Promise<Map<number, UsecaseChangeSnapshot>> {
+    const pairsMap = await this.getGkvPairMap(usecases, fileId);
+    return new Map(
+      usecases.map(usecase => [
+        usecase.systemId,
+        {
+          systemId: usecase.systemId,
+          type: usecase.type,
+          gkv: this.toGkvReadModel(usecase, pairsMap),
+          alias: usecase.alias,
+          aliasId: usecase.aliasId,
+          categories: usecase.categoryNames,
+          subgraphSystemIds: usecase.subgraphSystemIds,
+          subgraphPairs: usecase.subgraphPairs,
+        },
+      ]),
+    );
+  }
+
+  private async getGkvPairMap(
+    usecases: readonly OverlaidUseCase[],
+    fileId: number,
+  ): Promise<
+    Map<
+      number,
+      {
+        key: {systemId: number; keyId: number; name: string};
+        value: {systemId: number; valueId: number; name: string};
+      }
+    >
+  > {
+    const valueDefSystemIds = [
+      ...new Set(
+        usecases.flatMap(usecase =>
+          usecase.gkvEntries.map(entry => entry.valueDefSystemId),
+        ),
+      ),
+    ];
+    const pairsResult =
+      await this.keyValueDefQuerySvc.getKeyValueSummaryForGivenValues(
+        valueDefSystemIds,
+        fileId,
+      );
+    if (pairsResult.kind === RESULT_KIND.Fail) return new Map();
+
+    return new Map(
+      pairsResult.data.map(pair => [pair.value.systemId, pair]),
+    );
+  }
+
+  private toGkvReadModel(
+    usecase: OverlaidUseCase,
+    pairsByValueId: ReadonlyMap<
+      number,
+      {
+        key: {systemId: number; keyId: number; name: string};
+        value: {systemId: number; valueId: number; name: string};
+      }
+    >,
+  ) {
+    return usecase.gkvEntries
+      .map(entry => pairsByValueId.get(entry.valueDefSystemId))
+      .filter((pair): pair is NonNullable<typeof pair> => pair !== undefined)
+      .map(pair => ({
+        key: {
+          systemId: pair.key.systemId,
+          keyId: pair.key.keyId,
+          name: pair.key.name,
+        },
+        value: {
+          systemId: pair.value.systemId,
+          valueId: pair.value.valueId,
+          name: pair.value.name,
+        },
+      }));
   }
 }

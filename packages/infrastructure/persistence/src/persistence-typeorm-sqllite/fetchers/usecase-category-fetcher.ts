@@ -7,6 +7,7 @@ import type {EntityManager} from 'typeorm';
 import {CHANGE_OPERATION} from '@arc/core';
 import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
+import type {EditActionRow} from '../entity-schema/edit-session/edit-action.schema.js';
 
 /**
  * Fetcher for UseCase → UseCaseCategory many-to-many relationship.
@@ -32,6 +33,22 @@ export class UseCaseCategoryFetcher {
   ): Promise<Array<{usecaseSystemId: number; name: string}>> {
     if (usecaseSystemIds.length === 0) return [];
 
+    const actions =
+      sessionId === null
+        ? []
+        : await this.editActionsSvc.getByTable(
+            sessionId,
+            ENTITY_NAMES.UseCaseCategory,
+          );
+    return this.fetchManyWithActions(usecaseSystemIds, actions);
+  }
+
+  async fetchManyWithActions(
+    usecaseSystemIds: number[],
+    actions: readonly EditActionRow[],
+  ): Promise<Array<{usecaseSystemId: number; name: string}>> {
+    if (usecaseSystemIds.length === 0) return [];
+
     const baseRows = await this.manager
       .getRepository(ENTITY_NAMES.UseCase)
       .createQueryBuilder('uc')
@@ -41,12 +58,6 @@ export class UseCaseCategoryFetcher {
       .where('uc.systemId IN (:...ids)', {ids: usecaseSystemIds})
       .getRawMany<{usecaseSystemId: number; name: string}>();
 
-    if (sessionId === null) return baseRows;
-
-    const actions = await this.editActionsSvc.getByTable(
-      sessionId,
-      ENTITY_NAMES.UseCaseCategory,
-    );
     if (actions.length === 0) return baseRows;
 
     // Group baseline names per usecase and apply CREATE/DELETE overlay
@@ -62,7 +73,7 @@ export class UseCaseCategoryFetcher {
         name?: string;
       }>;
       const ucId = p.usecaseSystemId;
-      if (!ucId || !p.name || !namesByUsecase.has(ucId)) continue;
+      if (ucId === undefined || !p.name || !namesByUsecase.has(ucId)) continue;
       const names = namesByUsecase.get(ucId)!;
       if (action.operation === CHANGE_OPERATION.Create) names.add(p.name);
       else if (action.operation === CHANGE_OPERATION.Delete)

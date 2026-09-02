@@ -240,6 +240,7 @@ export class DbQueryServices implements QueryServices {
       this.keyValueDefQueryService,
       this.spfModuleQueryService,
       sessionRepo,
+      editActionsQueryService,
       usecaseOverlayFetcher,
       linkOverlayFetcher,
     );

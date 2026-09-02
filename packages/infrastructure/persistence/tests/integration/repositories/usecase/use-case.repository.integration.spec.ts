@@ -7,6 +7,7 @@ import type {DataSource, QueryRunner} from 'typeorm';
 import {
   USECASE_TYPE,
   SOURCE,
+  CHANGE_OPERATION,
   READ_MODE,
   type IdGenerationPort,
 } from '@arc/core';
@@ -26,6 +27,7 @@ import {TypeOrmUsecaseRepository} from '../../../../src/persistence-typeorm-sqll
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
@@ -210,6 +212,68 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(result[0].type).toBe(USECASE_TYPE.Linked);
     });
 
+    it('includes only the requested session-created usecase', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+      await qr.startTransaction();
+      await repo.create(
+        new UseCase({
+          systemId: 9001,
+          fileSystemId: FILE_ID,
+          alias: 'session-created',
+          keyVector: {valueSystemIds: []},
+          subgraphSystemIds: [],
+          subgraphPairs: [],
+        }),
+        {source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      await expect(repo.findBySystemIds(FILE_ID, [9001])).resolves.toEqual([
+        expect.objectContaining({systemId: 9001}),
+      ]);
+      await expect(repo.findBySystemIds(FILE_ID, [9002])).resolves.toEqual([]);
+    });
+
+    it('hydrates session-created GKV values and applies their DELETE payload', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+      const uc = new UseCase({
+        systemId: 9001,
+        fileSystemId: FILE_ID,
+        alias: 'gkv-overlay',
+        keyVector: {valueSystemIds: [7001, 7002]},
+        subgraphSystemIds: [],
+        subgraphPairs: [],
+      });
+      await qr.startTransaction();
+      const result = await repo.create(uc, {source: SOURCE.AutoRouting});
+      await qr.commitTransaction();
+
+      expect(
+        (await repo.findBySystemIds(FILE_ID, [uc.systemId]))[0].keyVector
+          .valueSystemIds,
+      ).toEqual([7001, 7002]);
+
+      await qr.startTransaction();
+      await makeWriter(qr.manager).writeDelete(
+        {
+          targetTable: ENTITY_NAMES.UsecaseGkvValues,
+          targetSystemId: 9003,
+          aggregateId: uc.systemId,
+          payload: {usecaseSystemId: uc.systemId, valueDefSystemId: 7001},
+          source: SOURCE.AutoRouting,
+        },
+        sessionId,
+        'test-group',
+        qr.manager,
+      );
+      await qr.commitTransaction();
+
+      expect(
+        (await repo.findBySystemIds(FILE_ID, [uc.systemId]))[0].keyVector
+          .valueSystemIds,
+      ).toEqual([7002]);
+    });
+
     it('hydrates subgraphSystemIds and subgraphPairs', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await linkSg(ds, 1000, SG_ID_1);
@@ -281,7 +345,13 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       );
       const repo = makeRepo(qr.manager, sessionId);
       const result = await repo.findWithActiveManualEdits(FILE_ID);
-      expect(result.map(u => u.systemId)).toContain(1000);
+      expect(result).toEqual([
+        expect.objectContaining({
+          usecase: expect.objectContaining({systemId: 1000}),
+          operation: CHANGE_OPERATION.Create,
+          referencedComponents: null,
+        }),
+      ]);
     });
 
     it('excludes AUTO_ROUTING edits', async () => {
@@ -293,6 +363,62 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       );
       const repo = makeRepo(qr.manager, sessionId);
       expect(await repo.findWithActiveManualEdits(FILE_ID)).toEqual([]);
+    });
+
+    it('preserves each manual action metadata and hydrated usecase', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await ds.query(
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
+         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, ?, 'MANUAL', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        [
+          sessionId,
+          1000,
+          1000,
+          JSON.stringify({
+            referencedComponents: {
+              sgSystemIds: [SG_ID_1],
+              dataLinkSystemIds: [600],
+              controlLinkSystemIds: [],
+            },
+          }),
+        ],
+      );
+
+      const [result] = await makeRepo(
+        qr.manager,
+        sessionId,
+      ).findWithActiveManualEdits(FILE_ID);
+      expect(result).toEqual(
+        expect.objectContaining({
+          changeId: expect.any(Number),
+          operation: CHANGE_OPERATION.Update,
+          usecase: expect.objectContaining({systemId: 1000}),
+          referencedComponents: {
+            sgSystemIds: [SG_ID_1],
+            dataLinkSystemIds: [600],
+            controlLinkSystemIds: [],
+          },
+        }),
+      );
+    });
+
+    it('retains a manual action when its effective usecase is missing', async () => {
+      await ds.query(
+        `INSERT INTO edit_actions (session_id, aggregate_id, target_system_id, target_table, operation, field_path, new_value, source, change_status, group_id, created_at, valid_until)
+         VALUES (?, ?, ?, 'UseCase', 'UPDATE', NULL, '{}', 'MANUAL', 'UNSTAGED', NULL, datetime('now'), NULL)`,
+        [sessionId, 9999, 9999],
+      );
+
+      await expect(
+        makeRepo(qr.manager, sessionId).findWithActiveManualEdits(FILE_ID),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          changeId: expect.any(Number),
+          operation: CHANGE_OPERATION.Update,
+          usecase: null,
+          referencedComponents: null,
+        }),
+      ]);
     });
 
     it('excludes superseded edits', async () => {
@@ -325,11 +451,11 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         ],
         keyVector: {valueSystemIds: []},
       });
-      await repo.create(uc, {source: SOURCE.AutoRouting});
+      const result = await repo.create(uc, {source: SOURCE.AutoRouting});
       await qr.commitTransaction();
 
       const rows: any[] = await ds.query(
-        `SELECT target_system_id, target_table, operation, source, change_status FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
+        `SELECT change_id, target_system_id, target_table, operation, source, change_status FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
         [sessionId, 1000],
       );
       expect(rows.map((r: any) => r.target_table).sort()).toEqual([
@@ -349,6 +475,8 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(new Set(relationshipIds).size).toBe(3);
       expect(relationshipIds).not.toContain(SG_ID_1);
       expect(relationshipIds).not.toContain(SG_ID_2);
+      const rootRow = rows.find((row: any) => row.target_table === 'UseCase');
+      expect(result).toEqual({systemId: 1000, changeId: rootRow.change_id});
     });
 
     it('creates distinct edit targets when usecases share an SG and pair', async () => {
@@ -390,6 +518,54 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(rows).toHaveLength(6);
       expect(new Set(rows.map(r => r.target_system_id)).size).toBe(6);
     });
+
+    it('stages GKV relationship actions in the usecase change group', async () => {
+      const repo = makeRepo(qr.manager, sessionId);
+      await qr.startTransaction();
+      await repo.create(
+        new UseCase({
+          systemId: 1000,
+          fileSystemId: FILE_ID,
+          alias: 'gkv-actions',
+          keyVector: {valueSystemIds: [7001, 7002]},
+          subgraphSystemIds: [SG_ID_1, SG_ID_2],
+          subgraphPairs: [
+            {
+              sourceSubgraphSystemId: SG_ID_1,
+              destSubgraphSystemId: SG_ID_2,
+            },
+          ],
+        }),
+        {source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      const rows: Array<{
+        target_table: string;
+        target_system_id: number;
+        group_id: string;
+        new_value: string;
+      }> = await ds.query(
+        `SELECT target_table, target_system_id, group_id, new_value
+           FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
+        [sessionId, 1000],
+      );
+      const gkvRows = rows.filter(
+        row => row.target_table === 'UsecaseGkvValues',
+      );
+      expect(rows).toHaveLength(6);
+      expect(gkvRows).toHaveLength(2);
+      expect(new Set(rows.map(row => row.group_id))).toEqual(
+        new Set(['test-group']),
+      );
+      expect(new Set(rows.map(row => row.target_system_id)).size).toBe(6);
+      expect(gkvRows.map(row => JSON.parse(row.new_value))).toEqual(
+        expect.arrayContaining([
+          {usecaseSystemId: 1000, valueDefSystemId: 7001},
+          {usecaseSystemId: 1000, valueDefSystemId: 7002},
+        ]),
+      );
+    });
   });
 
   // ── delete ───────────────────────────────────────────────────────────────────
@@ -409,16 +585,35 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         subgraphPairs: [],
         keyVector: {valueSystemIds: []},
       });
-      await repo.delete(uc.systemId, {source: SOURCE.AutoRouting});
+      const result = await repo.delete(uc.systemId, {
+        source: SOURCE.AutoRouting,
+      });
       await qr.commitTransaction();
 
       const rows: any[] = await ds.query(
-        `SELECT operation, source FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND target_table = 'UseCase'`,
+        `SELECT change_id, operation, source FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND target_table = 'UseCase'`,
         [sessionId, 1000],
       );
       expect(rows).toHaveLength(1);
       expect(rows[0].operation).toBe('DELETE');
       expect(rows[0].source).toBe('AUTO_ROUTING');
+      expect(result).toEqual({systemId: 1000, changeId: rows[0].change_id});
+    });
+
+    it('returns null when the edit is deferred to the pending-change cache', async () => {
+      await qr.startTransaction();
+      const result = await makeRepo(qr.manager, sessionId).delete(1000, {
+        cache: true,
+        source: SOURCE.AutoRouting,
+      });
+      await qr.commitTransaction();
+
+      expect(result).toBeNull();
+      const rows: any[] = await ds.query(
+        `SELECT change_id FROM edit_actions WHERE session_id = ? AND target_system_id = ?`,
+        [sessionId, 1000],
+      );
+      expect(rows).toEqual([]);
     });
   });
 
@@ -439,18 +634,19 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         subgraphPairs: [],
         keyVector: {valueSystemIds: []},
       });
-      await repo.changeType(uc.systemId, USECASE_TYPE.Island, {
+      const result = await repo.changeType(uc.systemId, USECASE_TYPE.Island, {
         source: SOURCE.AutoRouting,
       });
       await qr.commitTransaction();
 
       const rows: any[] = await ds.query(
-        `SELECT operation, source, new_value FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND target_table = 'UseCase'`,
+        `SELECT change_id, operation, source, new_value FROM edit_actions WHERE session_id = ? AND target_system_id = ? AND target_table = 'UseCase'`,
         [sessionId, 1000],
       );
       expect(rows).toHaveLength(1);
       expect(rows[0].operation).toBe('UPDATE');
       expect(JSON.parse(rows[0].new_value).type).toBe(USECASE_TYPE.Island);
+      expect(result).toEqual({systemId: 1000, changeId: rows[0].change_id});
     });
   });
 
@@ -476,7 +672,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         ],
         keyVector: {valueSystemIds: []},
       });
-      await repo.reverseSgPairDirection(uc.systemId, SG_ID_1, SG_ID_2, {
+      const result = await repo.reverseSgPairDirection(uc.systemId, SG_ID_1, SG_ID_2, {
         source: SOURCE.AutoRouting,
       });
       await qr.commitTransaction();
@@ -493,17 +689,47 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(nv.sourceSubgraphSystemId).toBe(SG_ID_2);
       expect(nv.destSubgraphSystemId).toBe(SG_ID_1);
 
+      const rootRows: any[] = await ds.query(
+        `SELECT change_id, new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? AND target_table = 'UseCase'`,
+        [sessionId, 1000],
+      );
+      expect(rootRows).toEqual([
+        expect.objectContaining({new_value: '{}'}),
+      ]);
+      expect(result).toEqual({systemId: 1000, changeId: rootRows[0].change_id});
+
       const [overlaid] = await repo.findBySystemIds(FILE_ID, [1000]);
       expect(overlaid.subgraphPairs).toEqual([
         {sourceSubgraphSystemId: SG_ID_2, destSubgraphSystemId: SG_ID_1},
       ]);
+    });
+
+    it('returns null without a root marker when the reversal is deferred', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Island);
+      await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
+      await qr.startTransaction();
+
+      const result = await makeRepo(qr.manager, sessionId).reverseSgPairDirection(
+        1000,
+        SG_ID_1,
+        SG_ID_2,
+        {cache: true, source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      expect(result).toBeNull();
+      const rows: any[] = await ds.query(
+        `SELECT change_id FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
+        [sessionId, 1000],
+      );
+      expect(rows).toEqual([]);
     });
   });
 
   // ── applyStructuralChange ────────────────────────────────────────────────────
 
   describe('applyStructuralChange', () => {
-    it('emits removed pairs, removed SGs, added SGs, added pairs in order (no type row — type changes via changeType)', async () => {
+    it('emits a root marker for structural-only changes', async () => {
       await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
       await linkSg(ds, 1000, SG_ID_1);
       await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
@@ -519,7 +745,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         subgraphPairs: [],
         keyVector: {valueSystemIds: []},
       });
-      await repo.applyStructuralChange(
+      const result = await repo.applyStructuralChange(
         uc.systemId,
         {
           removedPairs: [
@@ -536,7 +762,7 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       await qr.commitTransaction();
 
       const rows: any[] = await ds.query(
-        `SELECT target_table, operation FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
+        `SELECT change_id, target_table, operation, new_value FROM edit_actions WHERE session_id = ? AND aggregate_id = ? ORDER BY change_id`,
         [sessionId, 1000],
       );
       expect(rows.map((r: any) => `${r.target_table}:${r.operation}`)).toEqual([
@@ -544,7 +770,48 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         'UseCaseSubgraph:DELETE',
         'UseCaseSubgraph:CREATE',
         'UseCaseSubgraphPair:CREATE',
+        'UseCase:UPDATE',
       ]);
+      const rootRow = rows.find((row: any) => row.target_table === 'UseCase');
+      expect(rootRow.new_value).toBe('{}');
+      expect(result).toEqual({systemId: 1000, changeId: rootRow.change_id});
+    });
+
+    it('returns null without emitting a marker for a structural no-op', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await qr.startTransaction();
+      const result = await makeRepo(qr.manager, sessionId).applyStructuralChange(
+        1000,
+        {},
+        {source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      expect(result).toBeNull();
+      const rows: any[] = await ds.query(
+        `SELECT change_id FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
+        [sessionId, 1000],
+      );
+      expect(rows).toEqual([]);
+    });
+
+    it('returns null without a root marker when a structural change is deferred', async () => {
+      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
+      await qr.startTransaction();
+
+      const result = await makeRepo(qr.manager, sessionId).applyStructuralChange(
+        1000,
+        {addedSgSystemIds: [SG_ID_1]},
+        {cache: true, source: SOURCE.AutoRouting},
+      );
+      await qr.commitTransaction();
+
+      expect(result).toBeNull();
+      const rows: any[] = await ds.query(
+        `SELECT change_id FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
+        [sessionId, 1000],
+      );
+      expect(rows).toEqual([]);
     });
 
     it('emits a UseCase UPDATE when newType is provided', async () => {

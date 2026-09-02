@@ -3,7 +3,7 @@
  SPDX-License-Identifier: BSD-3-Clause
 -->
 
-# LLD4 — Deletion Scope & Disconnected Transition
+# LLD4 — Deletion Scope & `ISLAND` → `LINKED` Transition
 
 **Status:** Draft
 **Parent:** [`../overall-design.md`](../overall-design.md)
@@ -19,11 +19,11 @@ UCs before the routing search runs:
 | Phase | Service | Placement |
 |---|---|---|
 | 2 | `DeletionScopeService` | Half A — pre-routing |
-| 3 | `DisconnectedTransitionSvc` | Half A |
+| 3 | `IslandTransitionService` | Half A |
 
 By the end of Phase 3, the pipeline holds:
 - The set of UCs marked for deletion (`markedForDeletion`)
-- The set of Disconnected → Connected transitions (`disconnectedTransitions`)
+- The set of `ISLAND` → `LINKED` transitions (`islandTransitions`)
 - Any direction corrections on control-link-held pairs
 - Reconstruction path candidates for single-path deleted UCs (fed into Phase 8's
   Combination Expansion via `dfsPaths`)
@@ -42,7 +42,8 @@ collision handling apply.
 | FR-DEL-02 | 2 | §5.2 (fail-fast) |
 | FR-DEL-03 | 2 | §5.3 (marking) |
 | FR-DEL-06 | 2 | §5.4 (topology + reconstruction) |
-| FR-VAL-04 | 2 | §5.2 (deletion UC-scope completeness) |
+| FR-VAL-04 | 2 | §5.2 (affected UC-scope completeness) |
+| FR-API-07 (deletion-side closure) | 2 | §5.2 (after FR-DEL-02) |
 | FR-STATUS-04 Step 1 | 3 | §6.1 (direction correction) |
 | FR-STATUS-04 Step 2 | 3 | §6.2 (coverage + transition) |
 | FR-EXT-01/02/03 | — | §7 (context only — cone + main DFS own these) |
@@ -61,30 +62,46 @@ collision handling apply.
 **Upstream (input to Phase 2):** `RoutingContext.input` fully built by handler:
 - `input.graphEdits` — assembled from aggregate repos' `findManualEditsSinceLastRouting`
 - `input.selectedUsecaseSystemIds` — client payload (for FR-DEL-02 gate)
-- `input.staleUcs` — Disconnected UCs from prior sessions (used by Phase 3)
+- `input.effectiveRoutingScope` — handler-derived boundary for reconstruction traversal
+- `input.islandUcs` — committed `ISLAND` UCs present before the run (used by Phase 3)
 
 **Downstream (output after Phase 3):** `RoutingContext` populated with:
+- `context.affectedUcSystemIds` — full file-wide set requiring deletion, structural
+  mutation, or type degradation
 - `context.markedForDeletion` — UC identifiers pending deletion (from Phase 2)
 - `context.reconstructionPaths` — bounded-DFS paths for single-path deleted UCs
   (from Phase 2; joined into `context.dfsPaths` before Phase 8)
 - `context.deletionPreservedUCs` — multi-path UCs where all pairs survived (from
   Phase 2; SG-set trimming instructions for Phase 11)
-- `context.degradedToDisconnected` — Connected UCs whose data-link was deleted but
-  a control-link remains between the same SGs (from Phase 2; auto Connected →
-  Disconnected transition per FR-STATUS-02(b))
-- `context.disconnectedTransitions` — from Phase 3 (Disconnected → Connected)
+- `context.degradedToIsland` — `LINKED` UCs whose data-link was deleted but
+  a control-link remains between the same SGs (from Phase 2; auto
+  `LINKED` → `ISLAND` transition per FR-STATUS-02(b))
+- `context.islandTransitions` — from Phase 3 (`ISLAND` → `LINKED`)
 
 **Repo dependencies:**
-- `IUsecaseRepository.findAll(fileSystemId, {readMode: 'COMMITTED'})` — Phase 2 loads all UCs (pre-session state) into `context.allUcs`. Subsequent per-SG-deletion, per-link-deletion, per-UC lookups (findByContainingSg, findByContainingLink, findBySystemId) are performed as **in-memory filters** over `context.allUcs` — no additional repo calls. Committed readMode is essential: delete-crud handlers cascade to UC junctions, so overlay reads would hide the impacted rows.
-- `IDataLinkRepository.findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` — Phase 2 pair survival check, Phase 3 coverage check
-- `IControlLinkRepository.findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` — Phase 2 I7 pair-link presence, Phase 3 direction correction
+- `IUsecaseRepository.findAll(fileSystemId, {readMode: 'COMMITTED'})` — Phase 2 loads
+  all UCs (pre-session state) into `context.allUcs`. Subsequent per-SG, per-link-pair,
+  and per-UC lookups are **in-memory filters** over `context.allUcs`; no removed reverse
+  lookup methods are called. Committed readMode is essential because delete-crud
+  handlers cascade to UC junctions, so overlay reads would hide affected rows.
+- `IDataLinkRepository.findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` — Phase 2
+  deletion-impact checks pass no request-only exclusions; Phase 3 may apply routing exclusions
+- `IControlLinkRepository.findLinksByPair(sgA, sgB, fileSystemId, excludedIds)` — same
+  distinction for I7 support and Phase 3 direction correction
 - `IDataLinkRepository.findIntraUsecaseByFile(fileSystemId, excludedIds)` — Phase 2 bounded-DFS reconstruction
 
-All repo calls go through the edit-crud overlay (committed + STAGED).
+All graph/link repo calls use the effective edit-crud overlay (committed + STAGED).
+The explicit `findAll(..., {readMode: 'COMMITTED'})` UC snapshot is the exception used
+to retain deletion impact evidence hidden by overlay cascades.
 
 ---
 
 ## 4. Data Structures
+
+### Affected UC Set (Phase 2 output)
+
+The union of UCs requiring deletion, structural mutation, or type degradation. This is
+the set gated by FR-DEL-02 and returned in full when any member is unselected.
 
 ### 4.1 `MarkedForDeletion` (Phase 2 output)
 
@@ -127,7 +144,7 @@ flow through Phase 8's Combination Expansion uniformly with main-DFS output.
 
 ### 4.4 `DegradedUc` (Phase 2 output — FR-STATUS-02(b))
 
-For Connected UCs where a data-link deletion left the pair with only control-link
+For `LINKED` UCs where a data-link deletion left the pair with only control-link
 support:
 
 ```
@@ -141,17 +158,17 @@ DegradedUc {
 }
 ```
 
-Phase 11 emits: `IUsecaseRepository.update(ucId, {status: 'Disconnected'})`. A single
-`ARC-ROUTING-UC-AUTO-DISCONNECTED` warning is emitted per UC, carrying the list of
-degraded pairs.
+Phase 11 emits: `IUsecaseRepository.update(ucId, {type: 'ISLAND'})`. A single
+`ARC-ROUTING-UC-AUTO-ISLAND` warning is emitted per UC,
+carrying the list of degraded pairs.
 
-### 4.5 `DisconnectedTransition` (Phase 3 output — reverse direction)
+### 4.5 `IslandTransition` (Phase 3 `ISLAND` → `LINKED` output)
 
 ```
-DisconnectedTransition {
+IslandTransition {
   ucSystemId:            UcSystemId
   directionCorrections:  DirectionCorrection[]     // Step 1 output
-  transitioning:         boolean                   // Step 2 result: true = Disconnected → Connected
+  transitioning:         boolean                   // Step 2 result: true = ISLAND → LINKED
   addedSgSystemIds:      number[]                  // transparent-bridge SGs added by coverage paths
   addedPairs:            Pair[]                    // bridge-mediated pairs added
 }
@@ -166,16 +183,23 @@ DirectionCorrection {
 
 ## 5. Phase 2 — DeletionScopeService
 
-Runs after Phase 1 (PreValidation) and before Phase 3. Detects impacted UCs from the
-deletion delta, fails fast on FR-DEL-02, then handles topology-aware reconstruction
-per FR-DEL-06.
+Runs after Phase 1 (PreValidation) and before Phase 3. It examines the file-wide
+committed pre-session UC set, classifies every UC that requires deletion, structural
+mutation, or type degradation, fails fast on FR-DEL-02, then handles topology-aware
+reconstruction per FR-DEL-06.
 
-### 5.1 FR-DEL-01: Detect all impacted UCs
+In manual mode, Phase 2 still performs file-wide classification and the FR-DEL-02 gate.
+It skips the automatic bounded-DFS reconstruction branch; manual pair discovery remains
+limited to the explicitly supplied effective routing scope.
+
+### 5.1 FR-DEL-01: Detect all affected UCs
 
 **Rule:** For each deleted component (SG or intra-usecase link), determine whether
 the deletion actually breaks anything in a UC. Only breaking deletions add the UC to
-`impactedUcIds`. Non-breaking cases either produce no output (fully covered) or a
-warning + auto-transition (data-link deleted with only control-link left).
+`impactedUcIds`. Structural substitutions are added to `structurallyAffectedUcIds`, and
+`LINKED`-to-`ISLAND` transitions are added to `degradedToIsland`. The union
+of these sets is the file-wide affected-UC set used by FR-DEL-02. Fully covered link
+deletions that require no UC mutation produce no output.
 
 **Deletion precedence for `reasonPerUc`:** SG deletion > data-link deletion >
 control-link deletion. Higher-precedence reasons are set first and not overwritten
@@ -185,6 +209,7 @@ by later, lower-precedence deletions on the same UC.
 
 ```
 impactedUcIds: Set<UcSystemId> := ∅
+structurallyAffectedUcIds: Set<UcSystemId> := ∅
 reasonPerUc:   Map<UcSystemId, DeletionReason> := empty
 
 // Priority 1 (highest): SG deletions — always impacting
@@ -197,8 +222,9 @@ for each sg in input.graphEdits.deletedSgs:
 
 // Priority 2: data-link deletions — impacting only if pair loses data-link coverage
 for each dl in input.graphEdits.deletedDataLinks:
-  survivingDataLinks := IDataLinkRepository.findLinksByPair(dl.sourceSg, dl.destSg, fileSystemId, excluded)
-  survivingCtrlLinks := IControlLinkRepository.findLinksByPair(dl.sourceSg, dl.destSg, fileSystemId, excluded)
+  // Routing-only exclusions must not make a persisted UC appear structurally broken.
+  survivingDataLinks := IDataLinkRepository.findLinksByPair(dl.sourceSg, dl.destSg, fileSystemId, [])
+  survivingCtrlLinks := IControlLinkRepository.findLinksByPair(dl.sourceSg, dl.destSg, fileSystemId, [])
 
   if survivingDataLinks.length > 0:
     continue  // another data-link supports the pair; fully covered; no impact, no warning
@@ -206,27 +232,29 @@ for each dl in input.graphEdits.deletedDataLinks:
   // NEW: Transparent bridge substitution check (MDF Scenario 4 — subgraph-boundary offload)
   // If a path from dl.sourceSg → dl.destSg exists through IsMdf-only intermediates,
   // this is a transparent topology change (MDF module offload with intermediate SG).
-  // Do NOT impact UCs — the main pipeline discovers the new path via cone/DFS
-  // and FR-DUP-03(b1) identity-preserving interior extension updates existing UCs to include the bridge.
+  // The main pipeline discovers the new path via cone/DFS and FR-DUP-03(b1)
+  // updates existing UCs to include the bridge. Record those UCs for FR-DEL-02.
   transparentBridgePath := findTransparentBridgePath(
                               from        = dl.sourceSg,
                               to          = dl.destSg,
-                              adjacency   = intraUsecaseDataLinkAdjacency,   // post-overlay, minus excluded
+                              adjacency   = intraUsecaseDataLinkAdjacency restricted to input.effectiveRoutingScope,
                               isMdfFilter = intermediates must have IsMdf=true,
                               maxDepth    = NFR-PERF-01 cap,
                             )
   if transparentBridgePath is not null:
-    continue  // transparent MDF substitution — no impact recorded; downstream phases handle the update
+    for each uc in context.allUcs containing the deleted pair:
+      structurallyAffectedUcIds.add(uc.systemId)
+    continue
 
   if survivingCtrlLinks.length > 0:
     // Only control-link left — pair I7-supported but not data-link-covered.
-    // Auto-transition Connected → Disconnected per FR-STATUS-02(b); warn user.
+    // Auto-transition LINKED → ISLAND per FR-STATUS-02(b); warn user.
     ucs := context.allUcs.filter(uc => uc.subgraphPairs.some(p =>
              (p.sourceSubgraphSystemId == dl.sourceSg && p.destSubgraphSystemId == dl.destSg) ||
              (p.sourceSubgraphSystemId == dl.destSg && p.destSubgraphSystemId == dl.sourceSg)))
     for each uc in ucs:
-      if uc.type == 'Connected':                  // only Connected UCs auto-transition
-        addOrMerge(context.degradedToDisconnected, uc.systemId, {
+      if uc.type == 'LINKED':                     // only LINKED UCs auto-transition
+        addOrMerge(context.degradedToIsland, uc.systemId, {
           sourceSgSystemId: dl.sourceSg,
           destSgSystemId:   dl.destSg,
           deletedDataLinkId: dl.systemId,
@@ -234,7 +262,9 @@ for each dl in input.graphEdits.deletedDataLinks:
     continue
 
   // No surviving links between the pair — pair broken; UC impacted.
-  ucs := IUsecaseRepository.findByContainingLink(dl.systemId, fileSystemId)
+  ucs := context.allUcs.filter(uc => uc.subgraphPairs.some(p =>
+           (p.sourceSubgraphSystemId == dl.sourceSg && p.destSubgraphSystemId == dl.destSg) ||
+           (p.sourceSubgraphSystemId == dl.destSg && p.destSubgraphSystemId == dl.sourceSg)))
   for each uc in ucs:
     if not impactedUcIds.has(uc.systemId):
       impactedUcIds.add(uc.systemId)
@@ -242,8 +272,8 @@ for each dl in input.graphEdits.deletedDataLinks:
 
 // Priority 3 (lowest): control-link deletions — impacting only if pair loses all support
 for each cl in input.graphEdits.deletedControlLinks:
-  survivingDataLinks := IDataLinkRepository.findLinksByPair(cl.sourceSg, cl.destSg, fileSystemId, excluded)
-  survivingCtrlLinks := IControlLinkRepository.findLinksByPair(cl.sourceSg, cl.destSg, fileSystemId, excluded)
+  survivingDataLinks := IDataLinkRepository.findLinksByPair(cl.sourceSg, cl.destSg, fileSystemId, [])
+  survivingCtrlLinks := IControlLinkRepository.findLinksByPair(cl.sourceSg, cl.destSg, fileSystemId, [])
 
   if survivingDataLinks.length > 0 or survivingCtrlLinks.length > 0:
     continue  // pair still supported (data or another control); deletion is benign; no impact
@@ -258,31 +288,34 @@ for each cl in input.graphEdits.deletedControlLinks:
       reasonPerUc.set(uc.systemId, {kind: 'component-deleted', itemKind: 'control-link', itemSystemId: cl.systemId})
 
 // End: emit warnings for auto-transition cases
-for each entry in context.degradedToDisconnected:
+for each entry in context.degradedToIsland:
   context.warnings.push({
-    code: ARC-ROUTING-UC-AUTO-DISCONNECTED,
+    code: ARC-ROUTING-UC-AUTO-ISLAND,
     impactedEntity: { kind: 'usecase', systemId: entry.ucSystemId },
     details: { degradedPairs: entry.degradedPairs }
   })
+
+affectedUcIds := impactedUcIds
+                 ∪ structurallyAffectedUcIds
+                 ∪ set(context.degradedToIsland[*].ucSystemId)
+context.affectedUcSystemIds := affectedUcIds
 ```
 
 **Notes:**
-- `findLinksByPair` uses the post-overlay effective state — STAGED deletions have
-  already been applied, so "surviving" queries reflect the true post-deletion graph.
+- Deletion-impact `findLinksByPair` calls use the post-overlay state after STAGED
+  deletions but deliberately ignore request-only routing exclusions. Therefore
+  "surviving" means present in the actual post-deletion graph.
 - `findTransparentBridgePath` runs bounded DFS from `sourceSg` to `destSg` in the
-  post-deletion adjacency, only stepping through SGs where `isMdf=true`. Returns the
-  full path (including endpoints) if found, null otherwise. Enables **MDF Scenario 4**
-  transparent topology substitution: when the user offloads a module at a subgraph
-  boundary, MDF inserts an intermediate `isMdf=true` SG plus IPC data-links; the
-  deletion of the original direct link is not treated as impacting because a
-  transparent bridge path exists. Phase 5–9 discover the new path naturally and
-  FR-DUP-03(b1) identity-preserving interior extension updates the affected UC in
-  place.
+  post-deletion adjacency restricted to `input.effectiveRoutingScope`, only stepping
+  through SGs where `isMdf=true`. Returns the full path (including endpoints) if found,
+  null otherwise. For **MDF Scenario 4**, every UC containing the replaced pair is
+  structurally affected and enters the FR-DEL-02 selection gate. Phase 5–9 then discover
+  the new path and FR-DUP-03(b1) updates the selected UC in place.
 - `addOrMerge` is pseudocode for "add to the list, merging pairs if the UC already
   has an entry." One warning per UC, even if multiple pairs degraded in it.
-- Disconnected UCs with data-link deletion + control-link left: no auto-transition
-  needed (already Disconnected). No warning either — this is expected state churn on
-  Disconnected UCs. If the pair loses all support, the UC does become impacted via
+- `ISLAND` UCs with data-link deletion + control-link left: no auto-transition
+  needed (already `ISLAND`). No warning either — this is expected state churn on
+  `ISLAND` UCs. If the pair loses all support, the UC does become impacted via
   the "no surviving links" branch above.
 
 **Complexity:** O(deletions × avg-UCs-per-item + deletions × constant-link-lookup).
@@ -290,52 +323,92 @@ Repo methods use indexed lookups. Bounded by NFR-PERF-01.
 
 **Edge cases:**
 - **Same UC touched by multiple deletions:** precedence rule (SG > data-link >
-  control-link) governs `reasonPerUc`. If a UC is also `degradedToDisconnected`
+  control-link) governs `reasonPerUc`. If a UC is also `degradedToIsland`
   AND `impactedUcIds`, the `impactedUcIds` marking wins — the UC goes to the
   deletion flow (topology detection + reconstruction attempt). Rationale: if a UC
   has both a broken pair (loss of all support) and a degraded pair (data-link gone,
   control-link left), the broken pair takes precedence — the UC needs the full
   deletion workflow.
-- **Deleted control-link on a Disconnected UC:** control-link deletion where pair
+- **Deleted control-link on an `ISLAND` UC:** control-link deletion where pair
   loses all support → UC impacted (marked for deletion). The UC was already
-  Disconnected; deletion workflow decides its fate. No degradation transition.
+  `ISLAND`; deletion workflow decides its fate. No degradation transition.
 - **UC that was already `changeStatus = UNSTAGED` from a prior session:** in the
   overlay; still detected via repo query.
 
-### 5.2 FR-VAL-04 + FR-DEL-02: Deletion UC-scope completeness (fail-fast)
+### 5.2 FR-VAL-04 + FR-DEL-02: Affected UC-scope completeness (fail-fast)
 
-**Rule:** If any UC in `impactedUcIds` is absent from `input.selectedUsecaseSystemIds`,
-return an error listing the **full impacted set** (both already selected and newly
-identified). Routing does not proceed.
+**Rule:** If any UC in `affectedUcIds` is absent from
+`input.selectedUsecaseSystemIds`, return an error containing the **full affected set**
+and the missing subset. Routing does not proceed. This includes UCs that would be
+deleted, structurally updated, or degraded from `LINKED` to `ISLAND`.
 
 **Algorithm:**
 
 ```
-missingUcs := impactedUcIds \ setOf(input.selectedUsecaseSystemIds)
+missingUcs := affectedUcIds \ setOf(input.selectedUsecaseSystemIds)
 if missingUcs is non-empty:
   return Result.fail([{
     code: ARC-ROUTING-DEL-02,
     details: {
-      fullImpactedUcSet: Array.from(impactedUcIds),   // full set for UI to auto-select
-      missingUcs: Array.from(missingUcs),             // subset the user didn't include
+      fullAffectedUcSet: Array.from(affectedUcIds),
+      missingUcs: Array.from(missingUcs),
     }
   }])
 ```
 
 **Blocking. Issue code:** `ARC-ROUTING-DEL-02`. HTTP 422.
 
-**UI contract:** the response's `fullImpactedUcSet` lets the UI:
-1. Auto-select all impacted UCs in `selectedUsecaseSystemIds`.
+**Client contract:** the response's `fullAffectedUcSet` lets the client:
+1. Include all affected UCs in `selectedUsecaseSystemIds`.
 2. Load each SG's SGKV instances from DB (UC-filtered against the expanded selection).
 3. Re-present the form for the user to adjust KVs.
 4. User re-invokes `create-usecases` with the expanded selection and full SG map.
 
-FR-API-03 (cone completeness) enforces the SG-map side of this contract on the
-re-invocation; it runs at Phase 6 (LLD1).
+FR-API-03 enforces the selected-scope SG-map side of this contract on the re-invocation.
+After the affected-UC gate succeeds, FR-API-07 enforces deletion-side closure:
 
-**Edge case — empty impacted set.** No components deleted, or components deleted
-that weren't in any UC. Nothing to check; Phase 2 short-circuits and proceeds. Phase
-3 still runs (transitions are triggered by *additions* too, not just deletions).
+```
+deletedSgIds := set(input.graphEdits.deletedSgs[*].systemId)
+deletedDlIds := system IDs of intra-usecase links in input.graphEdits.deletedDataLinks
+deletedClIds := system IDs in input.graphEdits.deletedControlLinks
+
+requiredSurvivingEndpointSgIds := ∅
+for each dl in input.graphEdits.deletedDataLinks where dl.linkScope == 'intra_usecase':
+  if dl.sourceSgId ∉ deletedSgIds:
+    requiredSurvivingEndpointSgIds.add(dl.sourceSgId)
+  if dl.destSgId ∉ deletedSgIds:
+    requiredSurvivingEndpointSgIds.add(dl.destSgId)
+
+excludedDeletedSgIds := deletedSgIds ∩ input.excludedSubgraphSystemIds
+excludedDeletedDlIds := deletedDlIds ∩ input.excludedDataLinkSystemIds
+excludedDeletedClIds := deletedClIds ∩ input.excludedControlLinkSystemIds
+missingSurvivingEndpointSgIds :=
+  requiredSurvivingEndpointSgIds \ input.inputSubgraphs
+excludedSurvivingEndpointSgIds :=
+  requiredSurvivingEndpointSgIds ∩ input.excludedSubgraphSystemIds
+
+if any deletion-side conflict set is non-empty:
+  return Result.fail([{
+    code: ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT,
+    details: all non-empty deletion-side conflict sets
+  }])
+```
+
+Deleted control-link endpoints are deliberately absent from
+`requiredSurvivingEndpointSgIds`: they do not force automatic routing scope. The control
+link remains visible to the Phase 2 support/impact checks above and to downstream orphan
+validation. In manual mode, it participates in fallback only when its endpoints are
+already in manual effective scope.
+
+**Error precedence:** when `missingUcs` is non-empty, return only `ARC-ROUTING-DEL-02`
+for this pass. Deletion-side `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` is evaluated after
+the client retries with the full affected UC selection. This preserves the client
+workflow that first learns every UC and SG it must add.
+
+**Edge case — empty affected set.** No components were deleted, or the deletions
+require no UC mutation. FR-DEL-02 has nothing to check, but deletion-side FR-API-07 still
+runs because an orphan deleted link may have no affected UC. Phase 3 still runs
+(transitions are triggered by *additions* too, not just deletions).
 
 ### 5.3 FR-DEL-03: Mark UCs for deletion
 
@@ -391,8 +464,8 @@ for each uc in multiPathUcs:
       brokenPairs.push(pair)
       continue
     // Supporting link (data or control) still present? (I7)
-    hasDataLink := IDataLinkRepository.findLinksByPair(A, B, fileSystemId, excluded).length > 0
-    hasCtrlLink := IControlLinkRepository.findLinksByPair(A, B, fileSystemId, excluded).length > 0
+    hasDataLink := IDataLinkRepository.findLinksByPair(A, B, fileSystemId, []).length > 0
+    hasCtrlLink := IControlLinkRepository.findLinksByPair(A, B, fileSystemId, []).length > 0
     if hasDataLink or hasCtrlLink:
       survivingPairs.push(pair)
     else:
@@ -414,7 +487,7 @@ for each uc in multiPathUcs:
 **Design rationale — multi-path UCs get no reconstruction.** These UCs were created
 manually (auto-routing only produces single-path shape per FR-STATUS-01). Attempting
 auto-reconstruction would produce a topologically-different UC — misleading to the
-user. If the user wants a replacement, they use `create-manual-usecase`.
+user. If the user wants a replacement, they use `create-manual-usecases`.
 
 #### 5.4.b Single-path branch (FR-DEL-06 steps 1–7)
 
@@ -445,12 +518,19 @@ for each {uc, startSg, endSg} in singlePathUcs:
     context.reconstructionPaths.push({originalUcSystemId: uc.systemId, path})
 ```
 
+Skipping endpoint-anchored reconstruction does not suppress normal routing of the
+surviving graph. Deleting an SG also deletes its incident intra-usecase data-links;
+under FR-CONE-03, Phase 5 seeds each surviving in-scope endpoint of those links
+independently. FR-API-07 guarantees that each surviving endpoint is active and
+non-excluded. Phases 6 and 7 can therefore discover valid multi-SG fragments on either
+side of the deletion. The deleted endpoint is not seeded or traversed, and single-SG
+fragments remain subject to FR-DEL-04's manual-only rule.
+
 **Bounded DFS specifics:**
-- Uses `adjacency` built from all intra-usecase data-links in the file (post-overlay,
-  minus `input.excludedDataLinkSystemIds`).
-- **Not** restricted to the cone — the cone is computed later (Phase 6). The bounded
-  DFS scope is the whole graph minus exclusions, but bounded by `endSg` as forced
-  terminal.
+- Uses `adjacency` built from post-overlay intra-usecase data-links whose endpoints are
+  both in `input.effectiveRoutingScope`, minus effective data-link exclusions.
+- It is **not** restricted to the cone, which is computed later, but it is restricted to
+  the same effective routing graph and bounded by `endSg` as forced terminal.
 - `maxDepth` from NFR-PERF-01 — same cap as Phase 7's main DFS.
 - **Cycle handling:** if DFS visits an SG already in the current stack, terminate
   that branch (do not emit — a cyclic reconstruction path doesn't make sense as a
@@ -467,11 +547,13 @@ for each {uc, startSg, endSg} in singlePathUcs:
   B := ecLink.sourceSg
   C := ecLink.destSg
 
-  ucFilter := buildUcFilter(input.selectedUsecaseSystemIds)   # same shape as FR-KV-02
+  filteringUcs := input.selectedUsecases.filter(
+    selected => selected.systemId ∉ context.markedForDeletion.ucSystemIds)
+  ucFilter := buildUcFilter(filteringUcs)   # same preserved snapshot and rule as FR-KV-02
   bBaseline := applyUcFilterToSg(B, ucFilter, ISubgraphRepository)   # shared utility
   cBaseline := applyUcFilterToSg(C, ucFilter, ISubgraphRepository)
-  bApi := input.activeSubgraphs[B]?.sgkvInstances ?? []
-  cApi := input.activeSubgraphs[C]?.sgkvInstances ?? []
+  bApi := input.activeSubgraphs[B].sgkvInstances   # completeness already validated
+  cApi := input.activeSubgraphs[C].sgkvInstances
   bKvChanged := not setEqual(bApi, bBaseline)
   cKvChanged := not setEqual(cApi, cBaseline)
 
@@ -511,25 +593,25 @@ in one place and gives Phase 8 a single unified path list to expand.
 
 ---
 
-## 6. Phase 3 — DisconnectedTransitionSvc
+## 6. Phase 3 — `IslandTransitionService`
 
-Runs after Phase 2 (DeletionScope). Handles FR-STATUS-04: promote Disconnected UCs
-to Connected when new links restore coverage, with control-link-guarded direction
+Runs after Phase 2 (DeletionScope). Handles FR-STATUS-04: promote `ISLAND` UCs
+to `LINKED` when new links restore coverage, with control-link-guarded direction
 correction as a preliminary step.
 
 Manual mode: this phase is a no-op — manual UC creation doesn't scan existing
-Disconnected UCs for transitions.
+`ISLAND` UCs for transitions.
 
 ### 6.1 FR-STATUS-04 Step 1: Direction correction
 
-**Rule:** For each pair `(A, B)` in a stale Disconnected UC, if a data-link exists
+**Rule:** For each pair `(A, B)` in an `ISLAND` UC present before the run, if a data-link exists
 in direction `B → A` AND a control-link exists between A and B (the pair is
 "control-link-held"), correct the stored pair to `(B, A)`.
 
-**Algorithm — per pair in each stale Disconnected UC:**
+**Algorithm — per pair in each pre-existing `ISLAND` UC:**
 
 ```
-for each uc in input.staleUcs where uc.status == Disconnected:
+for each uc in input.islandUcs where uc.type == 'ISLAND':
   transition := { ucSystemId: uc.systemId, directionCorrections: [], ... }
 
   for each pair (A, B) in uc.pairs:
@@ -573,14 +655,14 @@ control-link (still present) and the newly-appearing data-link. I7 (pair-link
 presence) is preserved. Once the data-link is committed, the control-link becomes
 redundant for pair support but stays in the UC as a separate link.
 
-### 6.2 FR-STATUS-04 Step 2: Coverage check + status transition
+### 6.2 FR-STATUS-04 Step 2: Coverage check + type transition
 
 **Rule:** For each pair (possibly corrected in Step 1), check if a traversable
 intra-usecase data-link path exists from source SG to dest SG, using only:
 - Direct intra-usecase data-links between them, OR
 - Paths through transparent bridge SGs (`IsMdf=true`) as intermediate nodes.
 
-If **all** pairs are covered, promote the UC to Connected.
+If **all** pairs are covered, promote the UC to `LINKED`.
 
 **Algorithm:**
 
@@ -601,7 +683,8 @@ for each transition in [preliminary transitions from §6.1]:
       continue  // covered directly
 
     // Bridge-mediated coverage: bounded DFS from A to B, allowed intermediates = SGs with IsMdf=true
-    bridgePath := boundedDfsThroughBridges(A, B, excluded, maxDepth)
+    bridgePath := boundedDfsThroughBridges(
+      A, B, input.effectiveRoutingScope, excluded, maxDepth)
     if bridgePath is null:
       allCovered := false
       break
@@ -617,7 +700,7 @@ for each transition in [preliminary transitions from §6.1]:
     transition.transitioning := true
     transition.addedSgSystemIds := Array.from(addedSgs)
     transition.addedPairs := Array.from(addedPairs)
-    context.disconnectedTransitions.push(transition)
+    context.islandTransitions.push(transition)
   else:
     // Direction corrections don't apply if the UC doesn't transition
     // (per FR-STATUS-04: "Partial coverage does not trigger conversion")
@@ -626,21 +709,22 @@ for each transition in [preliminary transitions from §6.1]:
 
 **Bridge SG rule (FR-MDF-01):** an SG with `IsMdf=true` acts as a transparent
 intermediate. The path `A → bridge1 → bridge2 → B` is valid coverage if bridge1 and
-bridge2 both have `IsMdf=true`.
+bridge2 both have `IsMdf=true` and every SG in the path belongs to
+`input.effectiveRoutingScope`.
 
 **Not covered — regular SG intermediates:** a path `A → regularSg → B` where
 `regularSg` is not in the UC's pair set does **not** count. FR-STATUS-04 Step 2
 disallows this.
 
 **Not covered — partial:** if some pairs cover and others don't, the UC stays
-Disconnected. The partially-corrected direction is not persisted (rolled back
+`ISLAND`. The partially-corrected direction is not persisted (rolled back
 implicitly by discarding the transition).
 
 **Complexity:** each pair does one direct data-link lookup + potentially one bounded
 DFS through bridge SGs. Bounded by NFR-PERF-01.
 
-**Output written to `context.disconnectedTransitions`.** Phase 11 emits:
-- `IUsecaseRepository.update(ucId, {status: Connected, subgraphs: existing ∪ addedSgs, pairs: existing ∪ addedPairs})`
+**Output written to `context.islandTransitions`.** Phase 11 emits:
+- `IUsecaseRepository.update(ucId, {type: 'LINKED', subgraphs: existing ∪ addedSgs, pairs: existing ∪ addedPairs})`
 - One `reverseDirection(ucId, currentSourceSgSystemId, currentDestSgSystemId)` per
   entry in `directionCorrections`. The persistence adapter resolves the relationship
   row's internal `system_id`; that identifier does not enter the core model.
@@ -668,11 +752,12 @@ Listed here only for completeness; nothing in Phase 2 or Phase 3 is extension-sp
 
 | Phase | Code | Severity | Trigger |
 |---|---|---|---|
-| 2 | `ARC-ROUTING-DEL-02` | Blocking (422) | Impacted UC absent from `selectedUsecaseSystemIds` (FR-DEL-02, FR-VAL-04) |
-| 2 | `ARC-ROUTING-UC-AUTO-DISCONNECTED` | Warning (200) | Connected UC's data-link deleted but control-link remains between the same SGs (FR-STATUS-02(b) auto-transition) |
+| 2 | `ARC-ROUTING-DEL-02` | Blocking (422) | A UC requiring deletion, structural mutation, or type degradation is absent from `selectedUsecaseSystemIds` (FR-DEL-02, FR-VAL-04) |
+| 2 | `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` | Blocking (422) | After FR-DEL-02 passes, a deleted SG/link is explicitly excluded or a surviving deleted-data-link endpoint is missing/excluded (FR-API-07) |
+| 2 | `ARC-ROUTING-UC-AUTO-ISLAND` | Warning (200) | `LINKED` UC's data-link deleted but control-link remains between the same SGs (FR-STATUS-02(b) auto-transition to `ISLAND`) |
 
 Phase 3 has no blocking codes — direction correction and transition are best-effort;
-UCs that can't transition stay Disconnected without error.
+UCs that can't transition stay `ISLAND` without error.
 
 **Silent behaviors** (no issue emitted):
 - Control-link deletion where another link (data or control) still supports the pair
@@ -696,18 +781,31 @@ branches.
 - T-P2-c2: Control-link deleted, another control-link exists between same SGs → NOT impacted (benign)
 - T-P2-c3: Control-link deleted, no other link between same SGs → UC impacted (pair loses I7 support)
 - T-P2-d1: Data-link deleted, another data-link between same SGs → NOT impacted, no warning
-- T-P2-d2: Data-link deleted, only control-link left between same SGs → NOT impacted, but Connected UC gets `ARC-ROUTING-UC-AUTO-DISCONNECTED` warning + status auto-transitions to Disconnected
+- T-P2-d2: Data-link deleted, only control-link left between same SGs → UC is affected by type degradation, gets `ARC-ROUTING-UC-AUTO-ISLAND`, and transitions to `ISLAND` when selected
+- T-P2-d2-selection: The degraded UC is absent from `selectedUsecaseSystemIds` → 422 with full affected and missing sets
 - T-P2-d3: Data-link deleted, no other link → UC impacted (pair broken)
-- T-P2-d4: Data-link deleted, only control-link left, UC is already Disconnected → no auto-transition (already Disconnected), no warning
-- T-P2-mdf-a: **MDF Scenario 4 (single intermediate)** — direct L1(SG1→SG2) deleted; SG_INT (isMdf=true) added; L2(SG1→SG_INT) and L3(SG_INT→SG2) added → transparent bridge path found → UC-A NOT impacted → FR-DEL-02 not gated → downstream Phase 9 FR-DUP-03(b1) identity-preserving interior extension UPDATES UC-A to include SG_INT
-- T-P2-mdf-b: **MDF Scenario 4 (chain of IsMdf bridges)** — L1(SG1→SG2) deleted; chain SG_INT1→SG_INT2 (both isMdf=true) inserted → transparent bridge path found via chain → UC-A NOT impacted → UC-A UPDATED to include both bridges
+- T-P2-d4: Data-link deleted, only control-link left, UC is already `ISLAND` → no auto-transition (already `ISLAND`), no warning
+- T-P2-exclusion: A surviving support link is request-excluded but not deleted → it
+  still prevents a false file-wide deletion impact
+- T-P2-mdf-a: **MDF Scenario 4 (single intermediate)** — direct L1(SG1→SG2) deleted; SG_INT (isMdf=true) added; L2(SG1→SG_INT) and L3(SG_INT→SG2) added → transparent bridge path found → UC-A is affected by structural mutation and must be selected → downstream Phase 9 FR-DUP-03(b1) identity-preserving interior extension UPDATES UC-A to include SG_INT
+- T-P2-mdf-selection: A UC requiring transparent-bridge structural update is absent from `selectedUsecaseSystemIds` → 422 with full affected and missing sets
+- T-P2-mdf-b: **MDF Scenario 4 (chain of IsMdf bridges)** — L1(SG1→SG2) deleted; chain SG_INT1→SG_INT2 (both isMdf=true) inserted → transparent bridge path found via chain → selected UC-A UPDATED to include both bridges
 - T-P2-mdf-c: **Not MDF (non-IsMdf intermediate)** — L1(SG1→SG2) deleted; a regular SG (not isMdf) inserted between them → transparent bridge check fails → falls through to normal impact flow → FR-DEL-02 fires if UC-A unselected
 - T-P2-mdf-d: **Mixed — some deletions transparent, some not** — two data-links deleted; one has transparent bridge substitution, other doesn't → transparent one skipped, other impacts UC → FR-DEL-02 fires for the non-transparent one
 - T-P2-e: No deletions → Phase 2 short-circuits
 - T-P2-f-precedence: Same UC touched by SG deletion AND data-link deletion → `reasonPerUc` = SG (higher precedence)
 - T-P2-g-precedence: Same UC touched by data-link deletion AND control-link deletion (both breaking) → `reasonPerUc` = data-link
-- T-P2-h: All impacted UCs already in `selectedUsecaseSystemIds` → no error; proceed
+- T-P2-h: All affected UCs already in `selectedUsecaseSystemIds` → no error; proceed
 - T-P2-i: UC has one broken pair AND one degraded pair (data-link deleted, only control-link left) → UC goes to `impactedUcIds` (broken pair takes precedence); degradation entry NOT added
+
+**Phase 2 — deletion-side structural-edit closure (FR-API-07):**
+- T-P2-edit-a: A deletion affects an unselected UC and also has a missing/excluded surviving endpoint → return only `ARC-ROUTING-DEL-02` on the first pass
+- T-P2-edit-b: Client retries with every affected UC selected but a deleted SG is explicitly excluded → `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
+- T-P2-edit-c: Deleted data-link or control-link ID is explicitly excluded → `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
+- T-P2-edit-d: Deleted data-link has a surviving endpoint missing from `activeSubgraphs` or explicitly excluded → `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
+- T-P2-edit-e: Deleted data-link endpoint SG is also deleted → that endpoint is not required; every surviving endpoint remains required
+- T-P2-edit-f: Deleted control-link endpoint is outside auto effective scope → no edit-scope error; link still participates in Phase 2 support/impact checks and downstream orphan validation
+- T-P2-edit-g: Deleted orphan link has no affected UC but is explicitly excluded → FR-DEL-02 passes with an empty set, then `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
 
 **Phase 2 — multi-path pair survival (FR-DEL-06 step 8):**
 - T-P2-f: Multi-path UC, isolated SG (in SG set, no pairs) deleted → all pairs survive; UC un-marked; SG removed from UC's SG set (DeletionPreservedUC)
@@ -722,27 +820,30 @@ branches.
 - T-P2-m: Single-path UC with cycle in graph (A → B → C, plus B → A) → bounded DFS terminates on cycle; no cyclic reconstruction path emitted
 - T-P2-n: Reconstruction path duplicates a path from main DFS (later, Phase 7) → both in `dfsPaths`; FR-DUP-03(a)/(b1) silent branches dedup at Phase 9 (exact match → no-op; identity-preserving interior extension → silent auto-update). Any other overlap surfaces via FR-DUP-04.
 
+**Phase 2 + Phase 5–7 deletion-fragment interaction:**
+- T-P2P5-a: Single-path UC [A → B → C → D → E], SG C and incident links B→C/C→D deleted, no alternate A→E path → reconstruction emits nothing; B and D are independently seeded by the deleted links, and main DFS evaluates surviving multi-SG fragments [A, B] and [D, E]
+
 **Phase 3 — direction correction (FR-STATUS-04 Step 1):**
-- T-P3-a: Disconnected UC pair (A, B), data-link A→B appears, control-link present → no correction (matches direction)
-- T-P3-b: Disconnected UC pair (A, B), data-link B→A appears, control-link present → correction to (B, A)
-- T-P3-c: Disconnected UC pair (A, B), data-link B→A appears, no control-link → no correction (originally data-link derived; FR-DEL applies)
-- T-P3-d: Disconnected UC pair (A, B), no data-link at all → no correction; Step 2 finds uncovered
+- T-P3-a: `ISLAND` UC pair (A, B), data-link A→B appears, control-link present → no correction (matches direction)
+- T-P3-b: `ISLAND` UC pair (A, B), data-link B→A appears, control-link present → correction to (B, A)
+- T-P3-c: `ISLAND` UC pair (A, B), data-link B→A appears, no control-link → no correction (originally data-link derived; FR-DEL applies)
+- T-P3-d: `ISLAND` UC pair (A, B), no data-link at all → no correction; Step 2 finds uncovered
 
 **Phase 3 — coverage + transition (FR-STATUS-04 Step 2):**
-- T-P3-e: All pairs data-link covered → transition to Connected
+- T-P3-e: All pairs data-link covered → transition to `LINKED`
 - T-P3-f: One pair covered via bridge SG `IsMdf=true` → transition; bridge SG + mediated pairs added to UC
-- T-P3-g: One pair covered via non-bridge SG intermediate → pair not covered; UC stays Disconnected
-- T-P3-h: Partial coverage (some pairs yes, some no) → UC stays Disconnected; direction corrections NOT persisted
-- T-P3-i: Manual mode → Phase 3 runs but no-ops (input.staleUcs empty for manual)
+- T-P3-g: One pair covered via non-bridge SG intermediate → pair not covered; UC stays `ISLAND`
+- T-P3-h: Partial coverage (some pairs yes, some no) → UC stays `ISLAND`; direction corrections NOT persisted
+- T-P3-i: Manual mode → Phase 3 runs but no-ops (input.islandUcs empty for manual)
 - T-P3-j: Chain of bridge SGs A → br1 → br2 → B → transition with br1 and br2 both added
 
 **Phase 2 + Phase 3 interaction:**
-- T-P2P3-a: UC-A impacted by deletion; also a Disconnected UC transitions. Independent — both effects recorded.
-- T-P2P3-b: UC-B is impacted (in `markedForDeletion`) AND also in `staleUcs` — Phase 3 skips it (only scans non-deleted Disconnected UCs). Add filter in Phase 3 to exclude `markedForDeletion`.
+- T-P2P3-a: UC-A impacted by deletion; also an `ISLAND` UC transitions. Independent — both effects recorded.
+- T-P2P3-b: UC-B is impacted (in `markedForDeletion`) AND also in `islandUcs` — Phase 3 skips it (only scans non-deleted `ISLAND` UCs). Add filter in Phase 3 to exclude `markedForDeletion`.
 
 **Legacy test integration:** T-cases from
 `C:\Workspaces\qact.win.8.3.qact_83_ref\SGKV-Routing-Tests-Design-Agnostic.md` covering
-deletion and Disconnected-transition scenarios will be mapped into the implementation
+deletion and `ISLAND`-transition scenarios will be mapped into the implementation
 plan's test suite. See task "Incorporate legacy tests into plan."
 
 ---
@@ -756,29 +857,26 @@ different roots, is this multi-path or two-single-paths? Per the FR text (`start
 assumption: **treat as multi-path**. Manual UCs with disjoint sub-topologies are rare
 and multi-path pair-level survival semantics handle them safely.
 
-**D2 — Reconstruction path filtering against cone.** Phase 2's bounded DFS runs on
-the whole graph, not the cone. Phase 6 (LLD1) computes the cone with a scope
-boundary. If the reconstruction path passes through SGs *outside* the cone (i.e., in
-UCs not selected by the user), is it emitted? Design assumption: **yes, emit**. If
-those SGs aren't in the API map, Phase 6's FR-API-03 will catch it at cone
-completeness check and error out. This defers cone-scope enforcement to Phase 6
-uniformly.
+**D2 — Reconstruction path scope.** File-wide traversal is used only to discover the
+complete affected-UC set. Phase 2's reconstruction DFS is bounded by
+`input.effectiveRoutingScope`, the same graph available to automatic seed/cone/DFS
+routing. A reconstruction path cannot import an SG merely because it exists in the DB.
 
-**D3 — Reconstruction path with new SGs.** If the reconstruction path passes through
-a *new* SG (added in `graphEdits.addedSgs`), does the same FR-EXT-01 rule apply
-(must be in API map)? Design assumption: yes; same as D2 — Phase 6 catches it.
+**D3 — Reconstruction path with new SGs.** A new SG participates only when it is an
+explicit, non-excluded member of `activeSubgraphs`, and therefore of
+`effectiveRoutingScope`.
 
 **D4 — Multiple reconstruction paths per single-path UC.** If bounded DFS finds
 multiple alternate routes (e.g., A→X→C and A→Y→C), do we emit all of them or just
 one? Design assumption: **emit all**. Phase 8 expands each into UC candidates; Phase
 9 dedups. Emitting all gives the user visibility into alternatives.
 
-**D5 — Direction correction on unselected UCs.** FR-STATUS-04 scans `input.staleUcs`
-(all Disconnected UCs in the DB). Do we correct pairs on Disconnected UCs that
+**D5 — Direction correction on unselected UCs.** FR-STATUS-04 scans `input.islandUcs`
+(all `ISLAND` UCs in the DB). Do we correct pairs on `ISLAND` UCs that
 weren't in `selectedUsecaseSystemIds`? Design assumption: **yes if they're in
-scope**. `staleUcs` includes all Disconnected UCs; direction correction is a
+scope**. `islandUcs` includes all `ISLAND` UCs; direction correction is a
 lightweight in-scope UC repair, not "new routing," so it's safe to run broadly.
-Alternative interpretation (restrict to selected UCs) would leave Disconnected UCs
+Alternative interpretation (restrict to selected UCs) would leave `ISLAND` UCs
 in outdated state — worse UX. Final call: implementation plan.
 
 ---

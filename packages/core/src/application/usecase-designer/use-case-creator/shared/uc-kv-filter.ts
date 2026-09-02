@@ -6,7 +6,7 @@
 import type {
   SgkvEntry,
   SubgraphRepository,
-} from '../../ports/persistence/repositories/subgraph/subgraph.repository.js';
+} from '../../../ports/persistence/repositories/subgraph/subgraph.repository.js';
 
 /**
  * UC-filter map: KeyDefSystemId → Set<ValueDefSystemId>.

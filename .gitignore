@@ -69,4 +69,5 @@ AGENTS.md
 .ai/skills/quartz-*/
 .mcp.json
 
+# Documentation plans
 docs/**/plans/

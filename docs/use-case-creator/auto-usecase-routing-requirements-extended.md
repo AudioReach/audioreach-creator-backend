@@ -96,8 +96,9 @@ When graph changes are evaluated against existing EC bridge UCs:
 
 When an EC bridge UC is DELETED due to structural component deletion, it follows the
 same deletion workflow as any UC (core reqs FR-DEL-01 through FR-DEL-05): all UCs
-containing the deleted component are identified, impacted UCs must be selected by the
-user, and the user may choose to preserve the UC as Disconnected (FR-DEL-05).
+requiring deletion, structural mutation, or type degradation are identified file-wide,
+all affected UCs must be selected by the caller, and the caller may choose to preserve
+the UC as `ISLAND` (FR-DEL-05).
 
 ### 1.4 Legacy EC UC compatibility
 
@@ -128,7 +129,7 @@ When Phase 8 produces a new-scheme Bridge UC candidate for an EC data-link L
      is not in `context.markedForDeletion`**.
 - Otherwise the Bridge candidate is emitted normally.
 
-Left and Right UC candidates (`type=Connected` in the new scheme) are **not** subject
+Left and Right UC candidates (`type=LINKED` in the new scheme) are **not** subject
 to this suppression — SG-set overlap with an existing legacy EC UC alone does not
 suppress them. However, same-GKV collisions between a Left/Right candidate and any
 existing UC (including the legacy EC UC) are still governed by the unified I1 GKV
@@ -182,17 +183,17 @@ non-EC side of the path, e.g., between A and the EC's left endpoint B):
 
 A UC's `type` is derived from its pair set:
 - `type = EC` iff the pair set contains at least one `isEc=true` data-link.
-- `type = Disconnected` iff any pair in the pair set has no data-link coverage
+- `type = ISLAND` iff any pair in the pair set has no data-link coverage
   (only control-link support, per FR-STATUS-02 semantics).
-- `type = Connected` otherwise.
+- `type = LINKED` otherwise.
 
 When a routing operation adds or removes a supporting data-link, the affected UC's
 `type` shall be updated at Phase 11 (RoutingChangeStager) based on the resulting
 pair set. Examples:
 - Legacy EC UC has its internal EC data-link deleted (with no MDF substitution) →
-  type transitions to `Connected` (if all pairs data-link covered) or `Disconnected`
+  type transitions to `LINKED` (if all pairs data-link covered) or `ISLAND`
   (if any pair loses coverage).
-- Non-EC Connected UC has an EC data-link added inside → not possible; adding an EC
+- Non-EC `LINKED` UC has an EC data-link added inside → not possible; adding an EC
   connection would trigger the new-scheme 3-UC generation, not modify an existing UC.
 
 *Cross-references:* FR-MDF-01 (MDF transparent bridge substitution); FR-DUP-03(b1)
@@ -220,29 +221,27 @@ subgraph:
   (the empty instance) and therefore does not multiply the number of UC candidates —
   the total combination count equals the product of only the non-MDF SGs' instance
   counts.
-- **API map exempt:** The subgraph is exempt from the mandatory API map rule (FR-API-03)
-  and the scope boundary rule (FR-CONE-07) of core reqs. It participates in routing
-  paths automatically without requiring a user-provided entry in the API's SG map.
-  The routing engine auto-populates the SG's SGKV instance list with one empty
-  instance during KV resolution (Phase 4).
-- **No KVs allowed:** If the API input provides any SGKV instances for an IsMdf
-  subgraph, the system shall return an error. Users must not assign KVs to MDF
-  subgraphs (they are typically hidden in the UI for this reason).
+- **Explicit scope entry:** The subgraph follows FR-API-03 and FR-CONE-07 like every
+  other SG. If it is a non-excluded selected-scope SG or is intended to participate as
+  an out-of-selection SG, it must appear in `activeSubgraphs` with an intentional empty
+  SGKV contribution. It never enters routing solely because it is present in the DB.
+- **No KVs allowed:** If the API input assigns any non-empty SGKV values to an IsMdf
+  subgraph, the system shall return an error. The empty contribution is normalized to
+  one empty SGKV instance during KV resolution (Phase 4).
 - **Transparent bridge substitution (MDF Scenario 4):** When a user deletes a direct
   intra-usecase data-link between two SGs *and* adds one or more IsMdf SGs forming a
   bridge path between them (typical of MDF offloading at subgraph boundaries), the
-  deletion shall NOT be treated as impacting any UC referencing the deleted pair.
-  The routing algorithm detects the transparent-bridge alternate path in the
-  deletion-scope phase and lets the normal pipeline discover the new path via cone
-  and DFS traversal. FR-DUP-03(b1) identity-preserving interior extension then
-  silently updates the existing UC in place — inserting the IsMdf SG(s) into the
-  UC's SG set and rewriting the pair set accordingly. No FR-DEL-02 fail-fast fires,
-  and no new UC is created.
+  deletion shall be classified as a structural mutation for every UC referencing the
+  deleted pair. Those UCs are members of the FR-DEL-02 affected set and must be
+  selected. The routing algorithm detects the transparent-bridge alternate path within
+  the effective routing scope and lets the normal pipeline discover the new path via
+  cone and DFS traversal. FR-DUP-03(b1) identity-preserving interior extension then
+  silently updates the selected existing UC in place — inserting the IsMdf SG(s) into
+  the UC's SG set and rewriting the pair set accordingly. No new UC is created.
 
 *The mechanism for detecting and setting `IsMdf` (e.g., based on the presence of
 IPC Tx and IPC Rx modules within the subgraph) is deferred to the MDF V2 feature
-implementation. At that point, FR-API-03 and FR-CONE-07 in core requirements will be
-formally updated to document this exception.*
+implementation. MDF changes KV contribution behavior, not routing-scope membership.*
 
 ---
 
@@ -266,23 +265,25 @@ For each UC marked for deletion, examine its stored pair set:
   this topology; only manual UC creation can) → skip the bounded-DFS reconstruction
   and apply pair-level survival semantics (step 8).
 
-*Note on Disconnected UCs:* No explicit status-based branch is needed. Bounded DFS
+*Note on `ISLAND` UCs:* No explicit type-based branch is needed. Bounded DFS
 traverses only intra-usecase data-links (FR-DFS-02), so pairs that are control-link-
 only cannot be reconstructed. This is handled naturally by step 7 (no path found → no
-reconstruction candidate). Disconnected UCs may still be single-path topologically,
+reconstruction candidate). `ISLAND` UCs may still be single-path topologically,
 in which case they go through the bounded DFS path — the DFS will either find no data-
 link path (matching step 7) or find a data-link-only alternative path (which becomes a
-new candidate, orthogonal to the original Disconnected UC's fate).
+new candidate, orthogonal to the original `ISLAND` UC's fate).
 
 **Bounded-DFS reconstruction — for single-path UCs:**
 
 1. Extract the deleted UC's **start SG** (root of its subgraph path) and **end SG**
    (leaf of its subgraph path).
-2. If both start and end SGs are still present in the graph (neither was deleted as
-   a component): run a bounded DFS from the start SG to the end SG, treating the end
-   SG as a forced leaf boundary within this scoped pass.
-3. The bounded DFS uses the same API map KVs already provided (mandatory via
-   FR-DEL-02 and FR-API-03 of core reqs). No new API input is required.
+2. If both start and end SGs are still present in the effective routing scope (neither
+   was deleted or excluded), run a bounded DFS from the start SG to the end SG within
+   that same scope, treating the end SG as a forced leaf boundary.
+3. The bounded DFS uses the same API map KVs already provided. FR-DEL-02 ensures every
+   affected UC is selected, and FR-API-03/07 ensure every required non-excluded,
+   non-deleted selected-scope SG is explicit input before reconstruction runs. The DFS
+   cannot import additional SGs from the DB.
 4. FR-DFS-05 (Cartesian product expansion) and FR-DFS-06 (conflict detection) of
    core reqs apply. Combinations where new SGs' KVs conflict with a required
    combination are silently discarded.
@@ -294,13 +295,13 @@ new candidate, orthogonal to the original Disconnected UC's fate).
 7. **If both start and end SGs are still present but the bounded DFS finds no valid
    path from start to end** (e.g., intermediate SGs or links were deleted and no
    alternative route exists in the current graph, OR every candidate combination
-   produces a KV conflict, OR the original UC was Disconnected and the required route
+   produces a KV conflict, OR the original UC was `ISLAND` and the required route
    passes through a control-link-only pair that DFS cannot traverse per FR-DFS-02),
    no additional UC candidate is emitted from this reconstruction pass. The UC
    remains in the `markedForDeletion` set from the main deletion scenario
    (FR-DEL-03). Its final fate is decided by the user via FR-DEL-05:
    - **Accept deletion:** UC is dropped at commit.
-   - **Preserve as Disconnected (FR-DEL-05):** UC's SG set and pair set are updated to
+   - **Preserve as `ISLAND` (FR-DEL-05):** UC's SG set and pair set are updated to
      drop the deleted-component's pair entries and any SGs that became unreachable
      within the UC. The stub may end up with an SG set that includes SGs with no
      surviving pairs — those SGs are candidates for the orphan check (FR-VAL-01) if
@@ -321,9 +322,9 @@ new candidate, orthogonal to the original Disconnected UC's fate).
    - If **some pairs broken** → UC stays in `markedForDeletion`. User decides via
      FR-DEL-05:
      - **Accept deletion:** UC dropped at commit.
-     - **Preserve as Disconnected:** UC's SG set and pair set are trimmed to only
+      - **Preserve as `ISLAND`:** UC's SG set and pair set are trimmed to only
        surviving components. Auto-routing does not attempt to discover replacement
-       paths — the user must manually re-declare via `create-manual-usecase` if they
+       paths — the user must manually re-declare via `create-manual-usecases` if they
        want a different topology.
 
 *This enables the system to detect path transformations (e.g., `A→B` becoming
@@ -338,8 +339,8 @@ additional SGKV instances to the new SG and re-call the API.
 
 ## 4. Additional Pre-Validation Rules
 
-*Core reqs have FR-API-03 (cone completeness). The following adds checks that run
-before DFS begins.*
+*Core reqs have FR-API-03 (selected-scope input completeness before KV resolution or
+seed detection). The following adds checks that run before DFS begins.*
 
 #### FR-PREVAL-03: SLS / CSLS chain resolution runs before routing
 Before any routing pre-validation (FR-PREVAL-01, FR-PREVAL-02) or routing phase runs,
@@ -367,7 +368,7 @@ pre-validation) → routing pipeline (KV resolution, cone, DFS, etc.).
 **Applies to both endpoints:**
 - `create-usecases` (auto-routing, FR-UC-02) — routing depends on complete
   intra-usecase data-links.
-- `create-manual-usecase` (manual, FR-UC-01) — manual pair derivation queries DB
+- `create-manual-usecases` (manual, FR-UC-01) — manual pair derivation queries DB
   data-links and control-links (FR-UC-01 step 4); those queries also depend on
   chain resolution being complete.
 
@@ -413,18 +414,18 @@ the effective post-commit state (committed + STAGED), applying the following che
 order. This runs whether or not the user called `create-usecases` after the last graph
 edit — it is the last line of defense against inconsistent state hitting the DB.
 
-**(a) Direction correction on Disconnected UCs (safety net for FR-STATUS-04):**
+**(a) Direction correction on `ISLAND` UCs (safety net for FR-STATUS-04):**
 
-Apply FR-STATUS-04's Step 1 (direction correction) to every Disconnected UC in the
+Apply FR-STATUS-04's Step 1 (direction correction) to every `ISLAND` UC in the
 commit scope, whether or not `create-usecases` was called after the last graph edit. If
 a data-link exists in the direction opposite to a stored pair, correct the pair to match
 the data-link direction. Corrected pairs are staged as UPDATE edit-actions before the
 commit proceeds. After correction, evaluate FR-STATUS-04 Step 2 (coverage) — a UC that
-now has all pairs covered transitions to Connected as part of the same commit.
+now has all pairs covered transitions to `LINKED` as part of the same commit.
 
-**(b) Path re-validation for newly staged UCs (original FR-COMMIT-01):**
+**(b1) Path re-validation for newly staged UCs (original FR-COMMIT-01):**
 
-For every newly created staged UC (regardless of Connected or Disconnected status):
+For every newly created staged UC (regardless of `LINKED` or `ISLAND` type):
 
 - **SG existence:** All SGs in the UC's SG set must still exist in the effective
   post-commit graph.
@@ -434,19 +435,19 @@ For every newly created staged UC (regardless of Connected or Disconnected statu
   direction) must be present between A and B in the effective post-commit graph. A
   pair with no supporting link is dangling and invalid — commit rejected.
 
-- **Connected-status coherence:** If the UC's status is **Connected**, every pair must
+- **`LINKED`-type coherence:** If the UC's type is **`LINKED`**, every pair must
   additionally satisfy FR-STATUS-04's coverage rule — an intra-usecase data-link in
   the pair's stored direction, or a bridge-mediated path per FR-STATUS-04 Step 2.
-  Control-link-only pairs are **not** sufficient for Connected status. A Connected UC
+  Control-link-only pairs are **not** sufficient for `LINKED` type. A `LINKED` UC
   with an uncovered pair at commit time indicates the graph drifted since routing
   last ran; either safety-net check (a) has already corrected the pair direction
   (rare), or the commit is rejected — the user must run auto-routing to normalize
-  the UC's status (transition to Disconnected), delete the affected UC, or restore
+  the UC's type (transition to `ISLAND`), delete the affected UC, or restore
   the missing data-link.
 
-- **Disconnected-status validity:** If the UC's status is **Disconnected**, pair-link
+- **`ISLAND`-type validity:** If the UC's type is **`ISLAND`**, pair-link
   presence (I7) is the sole per-pair requirement. A pair with control-link coverage
-  and no data-link is valid — manual Disconnected UCs may have control-link-only
+  and no data-link is valid — manual `ISLAND` UCs may have control-link-only
   pairs per FR-UC-01 step 4. Data-link direction mismatch (data-link exists in the
   opposite direction) is handled by safety-net check (a) before (b) runs.
 
@@ -458,10 +459,41 @@ For every newly created staged UC (regardless of Connected or Disconnected statu
 Any UC that fails path re-validation causes the commit to be rejected with an error
 identifying the failing UCs and the offending pairs.
 
-*Scope for (b):* Applies to staged UCs created in the current edit session. It does not
-modify or validate existing committed UCs (governed by FR-LIFE-01 in the core reqs). It
-catches the case where a structural change occurred between the routing call and the
-commit call, breaking a newly staged UC's path.
+*Scope for (b1):* Applies to staged UCs created in the current edit session. It catches
+the case where a structural change occurred between the routing call and the commit
+call, breaking a newly staged UC's path.
+
+**(b2) Existing-UC invalidation after staged structural deletion:**
+
+When the commit scope contains a staged DELETE for an SG, data-link, or control-link,
+the system shall identify existing committed UCs that referenced the deleted SG or the
+deleted link's SG pair in the committed pre-session state. This lookup must not rely
+only on the session overlay because the overlay can already hide the deleted component
+or cascaded UC junction rows.
+
+Each affected UC shall then be re-validated against the effective post-commit state:
+
+- Every SG still referenced by the UC must exist.
+- Every stored pair must retain at least one supporting intra-usecase data-link or
+  control-link in either direction (I7).
+- A `LINKED` UC must still satisfy the `LINKED`-type coverage rule from (b1).
+- If another surviving link still supports the pair, the link deletion alone does not
+  invalidate the UC.
+- If staged routing output, a structural UC update, or a staged UC deletion has already
+  normalized the affected UC, that UC passes this check.
+
+The check is state-based: it does not track whether `create-usecases` was called. If an
+affected UC remains stale, reject the entire commit with HTTP 422 and issue code
+`ARC-COMMIT-ROUTING-REQUIRED`. The issue shall identify the affected UC system IDs,
+offending SGs/pairs, and triggering deleted component IDs, and direct the client to call
+`POST /arc-api/v1/projects/:projectId/create-usecases` with the affected UCs selected
+before retrying commit. The user may instead explicitly update/delete the affected UC
+or restore the deleted component; any remediation is accepted when the resulting
+effective post-commit state satisfies this check.
+
+This closes the direct-commit gap: deleting the only link supporting an existing UC
+pair cannot pass merely because the deleted link is no longer present to be reported as
+an orphan by check (c).
 
 **(c) Orphan detection safety net (enforces I5, FR-VAL-01, FR-VAL-02, FR-VAL-03):**
 
@@ -470,8 +502,8 @@ typically arise when the user adds a new SG or a new intra-usecase link but does
 run `create-usecases` before attempting to commit — the new item is not a member of any
 UC, violating the orphan-free invariant.
 
-- **Orphan SG:** any SG present in the graph that is not a member of any UC (Connected
-  or Disconnected). Enforces I5.
+- **Orphan SG:** any SG present in the graph that is not a member of any UC (`LINKED`,
+  `ISLAND`, or `EC`). Enforces I5.
 - **Orphan intra-usecase link:** any intra-usecase link (data-link OR control-link)
   whose `(source_sg, dest_sg)` is not present in at least one UC's pair set. Enforces
   FR-VAL-03.
@@ -493,7 +525,7 @@ edit-action's creation time) still exists in the effective post-commit graph AND
 not marked for deletion.
 
 **Applies to:**
-- Manual UC creation via `create-manual-usecase` (`operation = CREATE`).
+- Manual UC creation via `create-manual-usecases` (`operation = CREATE`).
 - FR-DUP-04 user-choice materializations:
   - `CREATE` edit-actions from `PATH_A` / `PATH_B` / `MERGE` (two new paths) or
     `REPLACE_WITH_NEW` (new vs existing DB UC);
@@ -529,18 +561,18 @@ than adding cross-edit-action integrity checks at delete time (which would be
 expensive across many handlers), the commit-time gate catches the inconsistency
 uniformly. The autofix mechanism preserves the user's ability to still commit
 their other staged edits — they just lose the broken manual UC (which they can
-recreate via `create-manual-usecase` or by re-running `create-usecases` and
+recreate via `create-manual-usecases` or by re-running `create-usecases` and
 re-selecting the collision option, if still wanted).
 
-*Interaction with recreation:* if the user re-invokes `create-manual-usecase`
+*Interaction with recreation:* if the user re-invokes `create-manual-usecases`
 after the autofix, the new manual UC edit-action captures a fresh
 `referencedComponents` reflecting the current graph state. Direction/component
 drift is corrected implicitly at recreation.
 
-**Rejection semantics:** Checks (a), (b), (c), (d) run in order. Any failure causes the
-whole commit to be rejected — no partial commit. The response identifies which check
-failed and which entities caused the failure. Autofix suggestions per check may be
-combined by the client before retrying the commit.
+**Rejection semantics:** Checks (a), (b1), (b2), (c), (d) run in order. Any failure
+causes the whole commit to be rejected — no partial commit. The response identifies
+which check failed and which entities caused the failure. Autofix suggestions per check
+may be combined by the client before retrying the commit.
 
 ---
 
@@ -560,9 +592,87 @@ boundary (FR-EC-02).
 ### W4: MDF V2 Path Traversal
 MDF bridge subgraphs (`IsMdf = true`) already exist in the DB. When routing traverses
 a path that includes an MDF bridge SG, it is treated as pass-through — no KV
-contribution, no API map entry required (FR-MDF-01). The user does not need to
-explicitly include or assign KVs to MDF bridge SGs; the system handles them
-transparently.
+contribution. It must nevertheless be an explicit member of `activeSubgraphs` when it
+is in the effective routing scope, using an empty SGKV contribution (FR-MDF-01).
+
+### W5 / FR-UC-UPDATE-01: Replace an existing UC's structure
+
+The system shall expose
+`PUT /arc-api/v1/projects/:projectId/usecases/:usecaseSystemId/structure` to replace one
+existing UC's GKV, SG membership, and SG-pair set atomically. This is a new structural
+write API; it does not extend the existing alias-only `PATCH /usecases/:usecaseSystemId`.
+
+**Request:**
+
+```typescript
+{
+  activeSubgraphs: Array<{
+    systemId: string;
+    valueSystemIds: string[]; // exactly one selected SGKV case
+  }>;
+  dataLinkSystemIds: string[]; // exact selected data links; may be empty
+}
+```
+
+**Validation and behavior:**
+
+- The target UC, every selected SG, every selected SGKV, and every selected data-link
+  must exist in the same file's effective session overlay.
+- `activeSubgraphs` must be non-empty and contain unique SG IDs. Each entry selects
+  exactly one SGKV case. The selected SGKVs must combine into exactly one internally
+  consistent, non-empty UC GKV using the same pure GKV validation rules as manual UC
+  creation.
+- `dataLinkSystemIds` is the complete desired data-link selection. Every selected link
+  must have both endpoint SGs in `activeSubgraphs`. The server derives directed SG pairs
+  from those links and deduplicates repeated SG pairs.
+- Control-link IDs are not accepted or auto-discovered by this API.
+- Disconnected structures and isolated selected SGs are valid. An empty data-link list
+  is therefore allowed.
+- If another effective UC already owns the resulting GKV, reject with HTTP 409 and
+  identify the conflicting UC. The target UC itself is excluded from this comparison.
+- Replace the target UC's GKV rows, SG membership rows, and SG-pair rows as one
+  handler-owned transaction. Any failure rolls back the complete replacement.
+- Recompute the resulting internal UC type from the replacement topology using the
+  existing `LINKED` / `ISLAND` / `EC` classification rules. Emit
+  `source = MANUAL` edit-actions using the shared MANUAL staging policy; edit source
+  records provenance and is not a UC type.
+- Store `referencedComponents = {sgSystemIds, dataLinkSystemIds,
+  controlLinkSystemIds: []}` on the UC UPDATE edit-action so FR-COMMIT-01(d) can validate
+  it at stage/commit time.
+- Allow only active `DESIGNER` and `DIFF_MERGE` sessions.
+
+**Response:** HTTP 200 with the effective updated UC plus the ambient edit-action
+`groupId`, nested so operation metadata is separate from entity data:
+
+```typescript
+{
+  usecase: {
+    systemId: string;
+    keyValuePairs: KeyValuePairDto[];
+    usecaseAliasId?: number;
+    usecaseAliasName?: string;
+    usecaseCategory?: string;
+    changeId: string;
+    subgraphSystemIds: string[];
+    subgraphPairs: Array<{
+      sourceSubgraphSystemId: string;
+      destSubgraphSystemId: string;
+    }>;
+  };
+  groupId: string;
+}
+```
+
+The structural-update endpoint owns this dedicated rich UC schema. Only `systemId` and
+`changeId` overlap with the compact references returned by create-usecases and
+create-manual-usecases. It does not expose the internal UC type; the implementation
+recomputes that type from the resulting topology for internal routing behavior.
+
+**Implementation boundary:** reuse the pure SGKV/GKV validation extracted for manual
+UC creation, but do not add an Update mode to the 12-phase auto-routing pipeline. The
+handler computes a delta from the current overlay UC and extends the existing atomic
+`UsecaseRepository.applyStructuralChange` capability to replace GKV relationships in
+the same edit-action group.
 
 ---
 
@@ -585,17 +695,16 @@ longer a blocking error — they surface as an `ARC-ROUTING-SAME-GKV-CHOICE-REQU
 issue with `Path A` / `Path B` (two new paths) or `Keep existing` / `Create new UC`
 (new vs existing DB UC) options. See core requirements §3.6 FR-DUP-04.
 
-### C-04: Disconnected UC Deletion Behavior — RESOLVED (core req correct)
+### C-04: `ISLAND` UC Deletion Behavior — RESOLVED (core req correct)
 **Resolution:** FR-DEL-01 through FR-DEL-05 apply to ALL UCs regardless of type.
-A Disconnected UC containing a deleted component follows the same deletion workflow.
-The user may choose to preserve it as Disconnected (FR-DEL-05).
+An `ISLAND` UC containing a deleted component follows the same deletion workflow.
+The user may choose to preserve it as `ISLAND` (FR-DEL-05).
 
-### C-05: MDF Implicit Injection — RESOLVED (FR-MDF-01 exemption)
-**Resolution:** MDF subgraphs (`IsMdf = true`) are exempt from FR-API-03 and
-FR-CONE-07. They are pass-through nodes already present in the DB — DFS traverses
-them naturally with no injection needed. Providing KVs for an IsMdf subgraph is an
-error. See FR-MDF-01. FR-API-03 and FR-CONE-07 will be formally updated when MDF V2
-is implemented.
+### C-05: MDF Implicit Injection — RESOLVED (no scope exemption)
+**Resolution:** MDF subgraphs (`IsMdf = true`) are pass-through nodes but are not exempt
+from FR-API-03 or FR-CONE-07. An MDF SG in the effective routing scope must be explicit
+in `activeSubgraphs` with an empty contribution; assigning non-empty KVs is an error.
+See FR-MDF-01.
 
 ---
 
@@ -618,12 +727,12 @@ is implemented.
 | Stage/reject workflow | FR-STAGE-01, FR-EXT-03 |
 | New UCs start unstaged | FR-LIFE-02 |
 | Commit orphan-free gate | I5 |
-| Connected/Disconnected UC status | FR-STATUS-01 through FR-STATUS-03 |
+| `LINKED`/`ISLAND` UC type | FR-STATUS-01 through FR-STATUS-03 |
 | Cycle detection → warning | FR-DFS-04 |
 | Single-SG UC from leaf with KVs | FR-DFS-03, FR-DEL-04 |
 | Cross-usecase links not traversed | FR-DFS-02 |
-| Control links for Disconnected UC pair derivation | FR-UC-01 step 4, FR-API-04 |
-| Disconnected UC transition to Connected | FR-STATUS-04 governs the Disconnected → Connected transition. Disconnected status is NOT permanent: when a routing session determines all pairs are covered, the UC converts in-place. New Connected UCs may also be created separately when the path structure differs. |
+| Control links for `ISLAND` UC pair derivation | FR-UC-01 step 4, FR-API-04 |
+| `ISLAND` UC transition to `LINKED` | FR-STATUS-04 governs the `ISLAND` → `LINKED` transition. `ISLAND` type is NOT permanent: when a routing session determines all pairs are covered, the UC converts in-place. New `LINKED` UCs may also be created separately when the path structure differs. |
 | KV-only changes preserve existing UCs | FR-LIFE-01 |
 | Existing UC deletion only via structural change | FR-DEL-01 through FR-DEL-05 |
 | End-to-end only in single routing pass | FR-DFS-03 (emit at leaf) |

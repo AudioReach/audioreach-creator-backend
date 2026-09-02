@@ -4,6 +4,7 @@
  */
 
 import type {EditOptions} from '../../edit-options.js';
+import {CHANGE_OPERATION} from '../../../../shared/change-vocabulary.js';
 import type {UseCase} from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 import type {SubgraphPair} from '../shared/links-for-pair.js';
@@ -12,14 +13,10 @@ export {READ_MODE} from '../shared/read-options.js';
 import type {ReadOptions} from '../shared/read-options.js';
 
 /**
- * Components referenced by a manually-created or user-chosen UseCase
- * edit-action. Serialized into `edit_actions.new_value` alongside the
- * CREATE / structural-change payload so that FR-COMMIT-01(d) and the
- * routing-time pre-check (ARC-ROUTING-MANUAL-UC-BROKEN-DEPS) can validate
- * every listed component still exists in the effective post-commit graph.
+ * Components referenced by a manual UseCase edit. Stored with the edit so
+ * validation can confirm that each SG and link still exists.
  *
- * Consumers: `create-manual-usecase`  `ResolveSameGkvCollisionCommand`
- * apply-fix for FR-DUP-04. Auto-routing writes omit this.
+ * Auto-routing edits omit this payload.
  */
 export interface ReferencedComponents {
   sgSystemIds: number[];
@@ -27,23 +24,31 @@ export interface ReferencedComponents {
   controlLinkSystemIds: number[];
 }
 
+export interface ActiveManualUsecaseEdit {
+  readonly changeId: number;
+  readonly usecase: UseCase | null;
+  readonly operation:
+    | typeof CHANGE_OPERATION.Create
+    | typeof CHANGE_OPERATION.Update;
+  readonly referencedComponents: ReferencedComponents | null;
+}
+
+/**
+ * Compact reference to the canonical UseCase-level edit action emitted by a
+ * write. `null` is returned when no edit action is emitted, such as a
+ * structural no-op or a write deferred through the pending-change cache.
+ */
+export interface UsecaseChangeRef {
+  readonly systemId: number;
+  readonly changeId: number;
+}
+
 /**
  * Structural delta applied atomically to a UseCase by
  * `applyStructuralChange`. All fields optional; the adapter emits a group of
  * edit-actions sharing one groupId reflecting the union of changes.
  *
- * Cases where this is used:
- *   - FR-DUP-03(b1) identity-preserving interior extension (add interior
- *     SGs + replace pair set + possibly recompute type; may un-mark from
- *     deletion).
- *   - FR-STATUS-04 Disconnected → Connected transition (add bridge SGs +
- *     add bridge-mediated pairs + change type).
- *   - FR-DEL-05 preserve-Disconnected trim (remove SGs + remove pairs +
- *     change type → Disconnected).
- *   - FR-DUP-04 MERGE apply-fix (add SGs + add pairs + change type;
- *     `referencedComponents` also provided).
- *   - FR-EC-07 Rule D un-mark on legacy UC reconstruction match
- *     (`cancelPendingDelete: true`; may also add SGs / pairs).
+ * Used to extend, trim, rebuild, or otherwise update a UseCase structure.
  */
 export interface StructuralDelta {
   addedSgSystemIds?: readonly number[];
@@ -51,16 +56,11 @@ export interface StructuralDelta {
   addedPairs?: readonly SubgraphPair[];
   removedPairs?: readonly SubgraphPair[];
   /**
-   * Recomputed UsecaseType per FR-EC-07 Rule E (or FR-STATUS-04 transition,
-   * or preserve-Disconnected trim). Omit when the structural change does
-   * not affect type.
+   * Replacement type. Omit when the structural change does not affect type.
    */
   newType?: UsecaseType;
   /**
-   * If true, the adapter cancels any pending `DELETE UseCase` edit-action
-   * currently staged for this UC (FR-EC-07 Rule D — legacy EC UC that was
-   * marked for deletion by Phase 2 gets un-marked when Phase 9 matches it
-   * via FR-DUP-03(b1) silent auto-update).
+   * If true, cancel any pending `DELETE UseCase` edit for this UC.
    */
   cancelPendingDelete?: boolean;
 }
@@ -80,8 +80,8 @@ export interface UsecaseRepository {
    * Returns the UCs on `fileSystemId` whose `systemId` is in `ucSystemIds`.
    * Empty input → []. Missing IDs are silently omitted.
    *
-   * `readMode` defaults to `READ_MODE.Overlay`. Phase 2 in automatic-uc-creation -impact detection
-   * uses `READ_MODE.Committed` to see pre-session state.
+   * `readMode` defaults to `READ_MODE.Overlay`; committed mode ignores
+   * session edits.
    */
   findBySystemIds(
     fileSystemId: number,
@@ -91,11 +91,8 @@ export interface UsecaseRepository {
 
   /**
    * Returns all UCs on `fileSystemId`. `readMode` defaults to
-   * `READ_MODE.Overlay`. Phase 2 (LLD4) uses `READ_MODE.Committed` to
-   * populate `context.allUcs` at the start of routing — subsequent phases
-   * filter this in memory (findByContainingSg, findByContainingLink,
-   * findByGkv, findLegacyEcUcsContainingPair, findByStatus) rather than
-   * making additional repo calls.
+   * `READ_MODE.Overlay`. Committed mode returns pre-session state; callers
+   * can filter the returned collection in memory.
    */
   findAll(fileSystemId: number, options?: ReadOptions): Promise<UseCase[]>;
 
@@ -105,22 +102,17 @@ export interface UsecaseRepository {
    * `target_table='UseCase'`, `source='MANUAL'`, and `valid_until IS NULL`
    * (not superseded, not committed).
    *
-   * Consumer: PR 6 Phase 9 stale-MANUAL pre-check for FR-DUP-04. Phase 9
-   * parses each edit-action's `referencedComponents` payload and verifies
-   * every listed SG/link still exists in the effective post-commit graph;
-   * if any is missing, routing halts with
-   * `ARC-ROUTING-MANUAL-UC-BROKEN-DEPS`.
+   * Each result retains the edit ID, operation, effective UseCase (or null),
+   * and referenced component payload (or null) for dependency validation.
    *
-   * Why no `change_status` filter: MANUAL edit-actions may resolve to
-   * either `STAGED` or `UNSTAGED` depending on the framework's current
-   * REQ-EA-05 policy (see chapter preface "Design Note" on the pending
-   * decision). This query is defined in terms of source only —
-   * source='MANUAL' identifies user-authored edit-actions regardless of
-   * staging policy.
+   * No `change_status` filter is applied: source identifies user-authored
+   * edits regardless of their staging state.
    * Not affected by `readMode` — this query is inherently about
    * `edit_actions` state, not overlay-vs-committed base rows.
    */
-  findWithActiveManualEdits(fileSystemId: number): Promise<UseCase[]>;
+  findWithActiveManualEdits(
+    fileSystemId: number,
+  ): Promise<ActiveManualUsecaseEdit[]>;
 
   /**
    * Creates a UseCase. Emits a CREATE `edit_actions` row for the base
@@ -128,30 +120,31 @@ export interface UsecaseRepository {
    * (in `UseCaseSubgraph`) and per `uc.subgraphPairs` element (in
    * `UseCaseSubgraphPair`), all sharing the ambient groupId.
    *
-   * When `referencedComponents` is provided the payload is merged into the
-   * base UseCase CREATE row's `new_value` for FR-COMMIT-01(d) /
-   * ARC-ROUTING-MANUAL-UC-BROKEN-DEPS integrity checks. Auto-routing
-   * (Phase 11) omits the third parameter.
+   * When provided, `referencedComponents` is merged into the base CREATE
+   * payload. Auto-routing omits the third parameter.
    */
   create(
     uc: UseCase,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
-  ): Promise<void>;
+  ): Promise<UsecaseChangeRef | null>;
 
   /**
    * Soft-deletes a UseCase by emitting a DELETE `edit_actions` row on the
    * base `UseCase` row. Junction rows (`use_case_subgraphs`,
    * `use_case_subgraph_pairs`) cascade at the physical layer on flush.
    */
-  delete(ucSystemId: number, options?: EditOptions): Promise<void>;
+  delete(
+    ucSystemId: number,
+    options?: EditOptions,
+  ): Promise<UsecaseChangeRef | null>;
 
   /**
    * Applies a routing-shaped structural delta to `uc`. Emits one atomic
    * group of `edit_actions` sharing the ambient groupId, covering
    * (in the following order):
    *   1. optional `cancelPendingDelete` (removes any pending
-   *      `DELETE UseCase` edit-action for this UC — FR-EC-07 Rule D).
+   *      `DELETE UseCase` edit for this UC).
    *   2. `removedPairs` → per-pair DELETE on `UseCaseSubgraphPair`.
    *   3. `removedSgSystemIds` → per-SG DELETE on `UseCaseSubgraph`.
    *   4. `addedSgSystemIds` → per-SG CREATE on `UseCaseSubgraph`.
@@ -160,27 +153,25 @@ export interface UsecaseRepository {
    *
    * When `referencedComponents` is provided it is merged into the base-row
    * UPDATE's `new_value` (creating one if `newType` is absent — the row
-   * exists solely to carry the payload) for FR-COMMIT-01(d) integrity checks.
+   * exists solely to carry the payload).
    */
   applyStructuralChange(
     ucSystemId: number,
     delta: StructuralDelta,
     options?: EditOptions,
     referencedComponents?: ReferencedComponents,
-  ): Promise<void>;
+  ): Promise<UsecaseChangeRef | null>;
 
   /**
    * Type-only mutation. Emits a single UPDATE delta on the `UseCase` row
-   * setting `type`. Used by FR-STATUS-02(b) auto-degrade and pure
-   * FR-EC-07 Rule E recompute where no SG/pair set change accompanies the
-   * type change. When SG/pair mutations DO accompany a type change, callers
-   * use `applyStructuralChange` with `newType` set instead.
+   * setting `type`. Use `applyStructuralChange` when SG or pair mutations
+   * accompany the type change.
    */
   changeType(
     ucSystemId: number,
     newType: UsecaseType,
     options?: EditOptions,
-  ): Promise<void>;
+  ): Promise<UsecaseChangeRef | null>;
 
   /**
    * Reverses the stored direction of a specific pair inside `uc`.
@@ -191,16 +182,13 @@ export interface UsecaseRepository {
    * for this UC only. Other UCs that reference the same unordered SG pair
    * are unaffected — each needs its own call if applicable.
    *
-   * Emitted by Phase 11 for FR-STATUS-04 Step 1 direction correction: the
-   * Disconnected UC's pair was originally control-link-derived (arbitrary
-   * direction per FR-UC-01 step 4's smaller-SG-ID rule); a data-link has
-   * appeared in the opposite direction; the data-link's direction is
-   * authoritative.
+   * Used when a data-link establishes the opposite direction for a pair that
+   * previously used an arbitrary control-link-derived direction.
    */
   reverseSgPairDirection(
     ucSystemId: number,
     currentSourceSgSystemId: number,
     currentDestSgSystemId: number,
     options?: EditOptions,
-  ): Promise<void>;
+  ): Promise<UsecaseChangeRef | null>;
 }

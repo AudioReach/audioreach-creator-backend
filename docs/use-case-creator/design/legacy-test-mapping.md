@@ -13,7 +13,7 @@
 - Legacy "SG" → New "Subgraph" (unchanged conceptually)
 - Legacy "GKV / KvSet" → New "GKV (union of KVs from SGKV combinations)"
 - Legacy "SelectedKvs" filtering → New "API-provided `activeSubgraphs.sgkvInstances`" + FR-KV-02/03 flow
-- Legacy "manual usecase" → New "Disconnected UC (FR-UC-01 or FR-STATUS-02)"
+- Legacy "manual usecase" → New "`ISLAND` UC (FR-UC-01 or FR-STATUS-02)"
 - Legacy "auto-fix" → New "FR-VAL-01 delete-orphans workflow" (client-side; not routing-owned)
 - Legacy "MDF / transparent bridge" → New "IsMdf SG (FR-MDF-01)"
 - Legacy "EC / edge-connection" → New "EC routing (LLD5, FR-EC-01..06)"
@@ -25,8 +25,8 @@
 | # | Legacy behavior | Our resolution | Affected tests |
 |---|---|---|---|
 | C1 | Cycle → blocking `CycleDetectedError` | Warning (`ARC-ROUTING-CYCLE-DETECTED`); path emitted as leaf per FR-DFS-04 | T1-004, T2-014, T2-015 |
-| C2 | Disconnected → Connected on link addition | Kept legacy behavior (FR-STATUS-04) — conversion allowed | T1-016, T2-036, T2-068 (tests remain valid) |
-| C3 | Regular + overlapping Disconnected same GKV → blocking error | Superseded by C5 (2026-08-19) — no auto-block; user chooses via FR-DUP-04 | T1-035, T1-036 (now under C5) |
+| C2 | `ISLAND` → `LINKED` on link addition | Kept legacy behavior (FR-STATUS-04) — conversion allowed | T1-016, T2-036, T2-068 (tests remain valid) |
+| C3 | `LINKED` + overlapping `ISLAND` same GKV → blocking error | Superseded by C5 (2026-08-19) — no auto-block; user chooses via FR-DUP-04 | T1-035, T1-036 (now under C5) |
 | C4 | Zero-KV head prepend adds new UC, existing unchanged | Merge per FR-DUP-03(b1) identity-preserving interior extension — **contradiction retained; T2-047 needs adaptation** | T2-047 |
 | C5 | Same-GKV collisions auto-merge or auto-error | Superseded by FR-DUP-04 (2026-08-19): all same-GKV collisions (except FR-DUP-03(a) exact-match no-op and FR-DUP-03(b1) identity-preserving interior extension silent auto-update) require user choice via `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` blocking issue with FixOptions | T1-008, T1-012, T1-029, T1-030, T1-031, T1-032, T1-033, T1-034, T1-035, T1-036, T2-002, T2-018, T2-023, T2-024, T2-025, T2-026, T2-027, T2-028, T2-033, T2-040, T2-043, T2-048, T2-049, T2-050 |
 
@@ -72,7 +72,7 @@ Legacy validation and structural checks that run before any routing.
 | T1-020 | Empty subsystem blocks + auto-fix | FR-VAL-02 (Phase 10) | Split into: (a) routing returns `ARC-ROUTING-ORPHAN-SUBSYSTEM` warning; (b) delete-orphan flow (out of routing scope) |
 | T1-024 | Stale intra-usecase link (link references deleted SG) | FR-PREVAL-01 | Blocking `ARC-ROUTING-PREVAL-DATALINK-INTEGRITY`; auto-fix out of routing scope |
 | T2-019 | Multiple isolated nodes + inter-usecase link not traversable | FR-PREVAL-02 + FR-DFS-02 | Island warnings + inter-usecase link excluded from adjacency |
-| T2-020 | Island nodes non-blocking warnings | FR-PREVAL-02 | **Adaptation required:** legacy expects 3 UCs including 2 single-SG UCs `{A:1}[SG1]` and `{B:2}[SG2]`. Per updated FR-DEL-04, auto workflow does NOT create single-SG UCs. Adapted expected result: 1 UC `{C:3}[SG3, SG4]` + 2 `ARC-ROUTING-ISLAND-DETECTED` warnings + 2 `ARC-ROUTING-ORPHAN-SG-HAS-KVS` hints (one per isolated SG with KVs). User must invoke `create-manual-usecase` to create the two single-SG UCs. |
+| T2-020 | Island nodes non-blocking warnings | FR-PREVAL-02 | **Adaptation required:** legacy expects 3 UCs including 2 single-SG UCs `{A:1}[SG1]` and `{B:2}[SG2]`. Per updated FR-DEL-04, auto workflow does NOT create single-SG UCs. Adapted expected result: 1 UC `{C:3}[SG3, SG4]` + 2 `ARC-ROUTING-ISLAND-DETECTED` warnings + 2 `ARC-ROUTING-ORPHAN-SG-HAS-KVS` hints (one per isolated SG with KVs). User must invoke `create-manual-usecases` to create the two single-SG UCs. |
 | T2-022 | Orphaned pass-through after link deletion | FR-VAL-01 (Phase 10) | Blocking at commit (I5), warning at routing time |
 | T2-031 | Delete hub node → 4 stale links | FR-PREVAL-01 | Each stale link → `ARC-ROUTING-PREVAL-DATALINK-INTEGRITY` per FR-PREVAL-01 |
 | T2-032 | Container boundary meta-links → 7 stale links | FR-PREVAL-01 | Same treatment; adapt to our subsystem-link model (chain resolver runs first) |
@@ -109,11 +109,12 @@ Seed identification from graph edits and API input.
 
 ### 3.4 Phase 6 · ConeComputationService (LLD1)
 
-Bidirectional cone expansion, scope boundary, cone completeness.
+Selected-scope input completeness before seed detection, followed by bidirectional cone
+expansion bounded by the effective routing scope.
 
 | Legacy test | Description | Target FR | Adaptation |
 |---|---|---|---|
-| T1-021 | Missing KV selection entry (SG in cone but not in API map) | FR-API-03 | Blocking `ARC-ROUTING-PREVAL-CONE-INCOMPLETE` |
+| T1-021 | Missing KV selection entry (non-excluded selected-scope SG absent from API map) | FR-API-03 | Blocking `ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE` before KV/seed/cone work |
 | T1-022 | Unselected UC impacted by modification | FR-DEL-02 (Phase 2) | Cross-reference — this fits DeletionScope, not Cone |
 
 ### 3.5 Phase 7 · DfsRoutingService (LLD2)
@@ -162,22 +163,22 @@ Impact detection, fail-fast, multi-path pair survival, single-path reconstructio
 | T2-003 | Deletion + addition mixed result → 3 scopes | FR-DEL-01/03 | Multiple deletions and additions in one session |
 | T2-030 | Session cascade deletes → empty container | FR-VAL-02 (Phase 10) | Delete flow orphans surface as warnings |
 | T2-033 | Insert + bypass, shared hub → two UCs updated | FR-DEL-01/06 + FR-DUP-04 | **C5:** multi-path reconstruction; overlapping same-GKV candidates → user-choice for non-identity-preserving cases |
-| T2-034 | Disconnected UC — SG deleted, link deleted, 3 impacts | FR-DEL-01/03 | Applies to Disconnected UCs equally (per requirements) |
+| T2-034 | `ISLAND` UC — SG deleted, link deleted, 3 impacts | FR-DEL-01/03 | Applies to `ISLAND` UCs equally (per requirements) |
 | T2-060 | Isolated scope, delete shared link, 3 impacted unselected | FR-DEL-02 | Fail-fast on unselected impacted UCs |
 | T2-061 | Multi-module port reroute → FR-41 gate | FR-DEL-02 | Blocking on unselected impacted UC |
 | T2-062 | Bridge cascade delete → orphans | FR-DEL-01 + FR-VAL-01 | Cascading deletion + orphan warnings |
 | T2-067 | Parallel transparent bridges, delete-one preserves UC | FR-DEL-06 multi-path survival | Two bridge paths → pair survives when one deleted (multi-path UC) |
 
-### 3.8 Phase 3 · DisconnectedTransitionSvc (LLD4)
+### 3.8 Phase 3 · `IslandTransitionService` (LLD4)
 
-Direction correction + Disconnected → Connected transition.
+Direction correction + `ISLAND` → `LINKED` transition.
 
 | Legacy test | Description | Target FR | Adaptation |
 |---|---|---|---|
-| T1-015 | Disconnected UC unchanged when new routed path discovered | FR-STATUS-04 (no transition applicable) + FR-LIFE-01 | As-is |
-| T1-016 | Disconnected UC becomes Connected on link addition | FR-STATUS-04 Step 2 | As-is (C2 kept legacy behavior) |
+| T1-015 | `ISLAND` UC unchanged when new routed path discovered | FR-STATUS-04 (no transition applicable) + FR-LIFE-01 | As-is |
+| T1-016 | `ISLAND` UC becomes `LINKED` on link addition | FR-STATUS-04 Step 2 | As-is (C2 kept legacy behavior) |
 | T2-036 | Partial/full/indirect connection scenarios | FR-STATUS-04 Step 2 | Partial and indirect don't trigger; full via bridge does |
-| T2-068 | Bridge connects Disconnected → Connected → bridge removed → cascade | FR-STATUS-04 + FR-DEL-01 | As-is |
+| T2-068 | Bridge connects `ISLAND` → `LINKED` → bridge removed → cascade | FR-STATUS-04 + FR-DEL-01 | As-is |
 
 ### 3.9 Phase 9 · Classification (folded into plan)
 
@@ -187,14 +188,14 @@ Duplicate detection, merge, no-op, and type conflicts.
 |---|---|---|---|
 | T1-008 | Existing UC becomes nested sub-path (unchanged) | FR-LIFE-01 + FR-DUP-03(b1) or FR-DUP-04 depending on endpoints | **C5:** if new path endpoints match existing UC and interior grows with empty-KV SGs → FR-DUP-03(b1) silent auto-update (matches legacy "unchanged sub-path" if interior is empty-KV). Otherwise → FR-DUP-04 user-choice with `Keep existing` / `Replace with new` / `Merge`. |
 | T1-012 | Duplicate GKV, disjoint paths → error | FR-DUP-04 | **C5:** blocking `ARC-ROUTING-SAME-GKV-CHOICE-REQUIRED` with `Path A` / `Path B` (no Merge) |
-| T1-029 | Two disjoint Disconnected UCs, same GKV → error | FR-DUP-04 | **C5:** same treatment as T1-012 (type does not matter) |
-| T1-030 | Committed Disconnected + new disjoint Disconnected, same GKV → error | FR-DUP-04 | **C5:** blocking with `Keep existing` / `Create new UC` (disjoint, new-vs-existing) |
-| T1-031 | Two overlapping Disconnected UCs, same GKV → merged | FR-DUP-04 | **C5:** user-choice with `Path A` / `Path B` / `Merge`; legacy auto-merge → user picks `Merge` |
-| T1-032 | Existing Disconnected extended by overlapping Disconnected | FR-DUP-04 | **C5:** user-choice with `Keep existing` / `Replace with new` / `Merge`; legacy auto-extend → user picks `Merge` |
-| T1-033 | Regular + disjoint Disconnected, same GKV → error | FR-DUP-04 | **C5:** blocking with `Keep existing` / `Create new UC` (disjoint, no Merge) |
-| T1-034 | Existing regular + new disjoint Disconnected, same GKV → error | FR-DUP-04 | **C5:** same treatment as T1-033 |
-| T1-035 | Regular + overlapping Disconnected, same GKV → type conflict | FR-DUP-04 | **C5:** was blocking `ARC-ROUTING-DUP-TYPE-01`; now user-choice with `Keep existing` / `Replace with new` / `Merge` (type does not matter to collision rule) |
-| T1-036 | Existing regular + new overlapping Disconnected → type conflict | FR-DUP-04 | **C5:** same treatment as T1-035 |
+| T1-029 | Two disjoint `ISLAND` UCs, same GKV → error | FR-DUP-04 | **C5:** same treatment as T1-012 (type does not matter) |
+| T1-030 | Committed `ISLAND` + new disjoint `ISLAND`, same GKV → error | FR-DUP-04 | **C5:** blocking with `Keep existing` / `Create new UC` (disjoint, new-vs-existing) |
+| T1-031 | Two overlapping `ISLAND` UCs, same GKV → merged | FR-DUP-04 | **C5:** user-choice with `Path A` / `Path B` / `Merge`; legacy auto-merge → user picks `Merge` |
+| T1-032 | Existing `ISLAND` extended by overlapping `ISLAND` | FR-DUP-04 | **C5:** user-choice with `Keep existing` / `Replace with new` / `Merge`; legacy auto-extend → user picks `Merge` |
+| T1-033 | `LINKED` + disjoint `ISLAND`, same GKV → error | FR-DUP-04 | **C5:** blocking with `Keep existing` / `Create new UC` (disjoint, no Merge) |
+| T1-034 | Existing regular + new disjoint `ISLAND`, same GKV → error | FR-DUP-04 | **C5:** same treatment as T1-033 |
+| T1-035 | `LINKED` + overlapping `ISLAND`, same GKV → type conflict | FR-DUP-04 | **C5:** was blocking `ARC-ROUTING-DUP-TYPE-01`; now user-choice with `Keep existing` / `Replace with new` / `Merge` (type does not matter to collision rule) |
+| T1-036 | Existing regular + new overlapping `ISLAND` → type conflict | FR-DUP-04 | **C5:** same treatment as T1-035 |
 | T2-002 | Diamond, existing updated + new branch | FR-DUP-04 | **C5:** legacy auto-merge → user-choice with `Keep existing` / `Replace with new` / `Merge`; user picks `Merge` |
 | T2-021 | Deselect head KV, existing survives, new UC created | FR-LIFE-01 + FR-DFS-09 | Existing UC UNCHANGED |
 | T2-026 | Diamond link addition, two paths same key set → merge (Case A) | FR-DUP-04 | **C5:** two new paths with overlap → user-choice with `Path A` / `Path B` / `Merge`; user picks `Merge` |
@@ -286,7 +287,7 @@ T1-028, T2-054, T2-055, T2-056, T2-063, T2-064
 | Phase 7 (DFS) | T1-001, T1-004, T1-005, T1-006, T2-001, T2-002, T2-014, T2-015, T2-016, T2-017, T2-018 | 11 |
 | Phase 8 (CombinationExpansion) | T1-002, T1-003, T2-009, T2-010, T2-011, T2-012, T2-023, T2-024, T2-025, T2-046 | 10 |
 | Phase 2 (DeletionScope) | T1-014, T1-022, T2-003, T2-030, T2-033, T2-034, T2-060, T2-061, T2-062, T2-067 | 10 |
-| Phase 3 (DisconnectedTransition) | T1-015, T1-016, T2-036, T2-068 | 4 |
+| Phase 3 (`IslandTransitionService`) | T1-015, T1-016, T2-036, T2-068 | 4 |
 | Phase 9 (Classification) | T1-008, T1-012, T1-029, T1-030, T1-031, T1-032, T1-033, T1-034, T1-035, T1-036, T2-002, T2-021, T2-026, T2-027, T2-028, T2-046, T2-047, T2-048, T2-049, T2-050 | 20 |
 | Phase 10 (OrphanValidation) | T1-010, T1-011, T1-020, T2-029, T2-030 | 5 |
 | Phase 11+12 (Stager + Response) | T1-027, T2-057 | 2 |

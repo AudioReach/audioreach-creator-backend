@@ -7,7 +7,7 @@
 
 **Status:** Draft
 **Parent:** [`../overall-design.md`](../overall-design.md)
-**Last updated:** 2026-08-08
+**Last updated:** 2026-09-04
 
 ---
 
@@ -32,8 +32,10 @@ cone.
 
 | Requirement | Phase | Section |
 |---|---|---|
-| FR-PREVAL-01 | 1 | §5.1 |
-| FR-PREVAL-02 | 1 | §5.2 |
+| FR-API-07 (addition-side closure) | Handler pre-step | §5.1 |
+| FR-API-03 | Handler pre-step | §5.2 |
+| FR-PREVAL-01 | 1 | §5.3 |
+| FR-PREVAL-02 | 1 | §5.4 |
 | FR-KV-01 | 4 | §6.1 |
 | FR-KV-02 | 4 | §6.2 |
 | FR-KV-03 | 4 | §6.3 |
@@ -44,7 +46,6 @@ cone.
 | FR-CONE-06 | 5 | §7.5 |
 | FR-CONE-04 | 6 | §8.1 |
 | FR-CONE-07 | 6 | §8.2 |
-| FR-API-03 | 6 | §8.3 |
 
 FR-VAL-04 (deletion UC-scope completeness) is enforced at Phase 2 (DeletionScope) —
 see LLD4. It's not part of Phase 1 because it depends on impacted-UC detection.
@@ -55,7 +56,12 @@ see LLD4. It's not part of Phase 1 because it depends on impacted-UC detection.
 
 **Upstream (input to Phase 1):** `RoutingContext.input` fully built by handler:
 - `input.selectedUsecaseSystemIds` — client payload
+- `input.selectedUsecases` — those UCs loaded once from the effective overlay by the handler
 - `input.activeSubgraphs` — `[{sgSystemId, sgkvInstances[]}]` from client
+- `input.selectedScopeSubgraphs` — union of memberships in `selectedUsecases`
+- `input.inputSubgraphs` — SG IDs in `activeSubgraphs`
+- `input.outOfSelectionSubgraphs` — `inputSubgraphs − selectedScopeSubgraphs`
+- `input.effectiveRoutingScope` — `inputSubgraphs − excludedSubgraphSystemIds − deletedSubgraphSystemIds`
 - `input.graphEdits` — `GraphEditSummary` assembled by the handler from `findManualEditsSinceLastRouting` on subgraph/data-link/control-link repos
 - `input.excludedDataLinkSystemIds`, `input.excludedControlLinkSystemIds`, `input.excludedSubgraphSystemIds` (FR-API-05/06)
 
@@ -68,12 +74,11 @@ Phase 7 (DFS, LLD2) reads `cones` and `kvResolutions`.
 
 **Repo dependencies:**
 - `ISubgraphRepository.getSgkvsBySgIds(fileSystemId, sgSystemIds)` — Phase 4 (SGKV is child of Subgraph aggregate)
-- `IUsecaseRepository.findBySystemIds(fileSystemId, ids)` — Phase 4 (UC filter)
 - `IUsecaseRepository.findAll(fileSystemId)` — Phase 5 (FR-CONE-02 new-SG detection)
 ## 3.1 Effective exclusion set (FR-API-05 + FR-API-06)
 
-Before phase algorithms run, the routing engine derives an **effective exclusion set**
-from the client payload:
+Before phase algorithms run, the handler derives the scope sets and an **effective
+exclusion set** from the client payload and its selected-UC snapshot:
 
 ```
 effectiveExcludedSgIds   := set(input.excludedSubgraphSystemIds)
@@ -82,9 +87,19 @@ effectiveExcludedDlIds   := set(input.excludedDataLinkSystemIds)
                                                 dl.sourceSg ∈ effectiveExcludedSgIds
                                                 OR dl.destSg ∈ effectiveExcludedSgIds }
 effectiveExcludedClIds   := set(input.excludedControlLinkSystemIds)
-                              ∪ { cl.systemId : cl is intra-usecase control-link where
-                                                cl.sourceSg ∈ effectiveExcludedSgIds
-                                                OR cl.destSg ∈ effectiveExcludedSgIds }
+                               ∪ { cl.systemId : cl is intra-usecase control-link where
+                                                 cl.sourceSg ∈ effectiveExcludedSgIds
+                                                 OR cl.destSg ∈ effectiveExcludedSgIds }
+deletedSgIds             := set(input.graphEdits.deletedSgs[*].systemId)
+```
+
+The scope equations are:
+
+```
+selectedScopeSubgraphs := union(input.selectedUsecases[*].subgraphs)
+inputSubgraphs         := set(input.activeSubgraphs[*].sgSystemId)
+outOfSelectionSubgraphs := inputSubgraphs \ selectedScopeSubgraphs
+effectiveRoutingScope  := inputSubgraphs \ effectiveExcludedSgIds \ deletedSgIds
 ```
 
 Every repo call that takes an `excludedIds` parameter passes the corresponding
@@ -94,7 +109,9 @@ callers don't need to enumerate them client-side.
 **Data structure additions to `RoutingContext.input`:**
 - `excludedSubgraphSystemIds: number[]` (from client, may be empty)
 - Derived (not part of client payload; computed by handler and stored for reuse):
-  `effectiveExcludedSgIds`, `effectiveExcludedDlIds`, `effectiveExcludedClIds`
+  `selectedUsecases`, `selectedScopeSubgraphs`, `inputSubgraphs`,
+  `outOfSelectionSubgraphs`, `effectiveRoutingScope`, `effectiveExcludedSgIds`,
+  `effectiveExcludedDlIds`, `effectiveExcludedClIds`
 
 ---
 
@@ -146,7 +163,7 @@ Seeds {
   reasons:      Map<SgSystemId, SeedReason>   // for diagnostics / logging
 }
 
-SeedReason = 'kv-changed' | 'new-sg' | 'link-added' | 'link-deleted' | 'no-uc-context' | 'out-of-uc-context'
+SeedReason = 'kv-changed' | 'new-sg' | 'link-added' | 'link-deleted' | 'no-uc-context' | 'out-of-selection'
 ```
 
 Only `sgSystemIds` drives Phase 6; `reasons` is informational.
@@ -166,25 +183,92 @@ Cones {
 
 ## 5. Phase 1 — PreValidationService
 
-Runs first in the pipeline. Fast, cheap, catches structural issues before any
-expensive work.
+The handler completes §5.1 and §5.2 before manual pair discovery or engine invocation.
+Phase 1 then performs the structural checks in §5.3 and §5.4. These checks are fast and
+run before expensive work.
 
-### 5.1 FR-PREVAL-01: Data link integrity
+### 5.1 FR-API-07: Addition-side structural-edit closure
 
-**Rule:** Every intra-usecase data-link in the routing scope must reference two
+**Rule:** Current-session additions cannot be suppressed by request exclusions. Added
+SGs and both endpoints of added intra-usecase data-links must be explicit, non-excluded
+routing input. Added control-links cannot be explicitly excluded but do not force their
+endpoint SGs into automatic routing scope. Deletion-side closure is deferred to Phase 2
+so FR-DEL-02 can return the full affected-UC set first (LLD4 §5.2).
+
+```
+deletedSgIds := set(input.graphEdits.deletedSgs[*].systemId)
+addedSgIds   := set(input.graphEdits.addedSgs[*].systemId)
+addedDlIds   := system IDs of intra-usecase links in input.graphEdits.addedDataLinks
+addedClIds   := system IDs in input.graphEdits.addedControlLinks
+
+requiredEndpointSgIds := ∅
+for each dl in input.graphEdits.addedDataLinks where dl.linkScope == 'intra_usecase':
+  requiredEndpointSgIds.add(dl.sourceSgId)
+  requiredEndpointSgIds.add(dl.destSgId)
+
+excludedAddedSgIds := addedSgIds ∩ input.excludedSubgraphSystemIds
+excludedAddedDlIds := addedDlIds ∩ input.excludedDataLinkSystemIds
+excludedAddedClIds := addedClIds ∩ input.excludedControlLinkSystemIds
+
+missingAddedSgs := addedSgIds \ input.inputSubgraphs
+missingRequiredEndpoints := requiredEndpointSgIds \ input.inputSubgraphs
+excludedRequiredEndpoints := requiredEndpointSgIds ∩ input.excludedSubgraphSystemIds
+deletedAddedLinkEndpoints := endpoints(input.graphEdits.addedDataLinks) ∩ deletedSgIds
+
+if any set above is non-empty:
+  return Result.fail([{
+    code: ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT,
+    details: all non-empty conflict sets
+  }])
+```
+
+After this validation, session-deleted SGs are removed from `effectiveRoutingScope`
+even if stale client input includes them. They and all deleted link edits remain in
+`graphEdits` for Phase 2's FR-DEL-02-first deletion-side closure. Added control-link
+endpoints are deliberately absent from `requiredEndpointSgIds`.
+
+**Blocking. Issue code:** `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`. HTTP 422.
+
+### 5.2 FR-API-03: Selected-scope input completeness
+
+**Rule:** Before KV resolution, seed detection, or manual pair discovery, every
+non-excluded, non-deleted selected-scope SG must appear in `activeSubgraphs`.
+
+```
+requiredSelectedSubgraphs := input.selectedScopeSubgraphs
+                             \ input.effectiveExcludedSgIds
+                             \ set(input.graphEdits.deletedSgs[*].systemId)
+missing := requiredSelectedSubgraphs \ input.inputSubgraphs
+
+if missing is non-empty:
+  return Result.fail([{
+    code: ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE,
+    impactedEntities: missing.map(sg => ({kind: 'subgraph', systemId: sg}))
+  }])
+```
+
+An excluded selected-scope SG may be absent only if FR-API-07 does not require it as an
+added SG or data-link endpoint. A session-deleted selected-scope SG may be absent. If an
+eligible excluded or deleted SG is also present in `activeSubgraphs`, it is silently
+omitted from `effectiveRoutingScope`. The deleted SG remains in
+`input.graphEdits.deletedSgs` for Phase 2 impact analysis; removing it from routing scope
+does not discard deletion evidence. After this check, the API map is the sole SGKV source
+for every SG routing may use.
+
+### 5.3 FR-PREVAL-01: Data link integrity
+
+**Rule:** Every intra-usecase data-link in the effective routing scope must reference two
 subgraphs that exist in the DB.
 
 **Algorithm:**
 
 ```
-sgIds := union of:
-  - all SG ids in selected UCs (from repo)
-  - all SG ids in input.activeSubgraphs
-  - all SG ids referenced by intra-usecase data-links in the file (post-overlay)
+sgIds := input.effectiveRoutingScope
 
 validSgIds := ISubgraphRepository.findByIds(fileSystemId, sgIds).map(sg => sg.systemId)
 
-for each intra-usecase data-link L in the file (post-overlay, minus excluded ids):
+for each intra-usecase data-link L whose endpoints are in sgIds
+    (post-overlay, minus effective exclusions):
   if L.sourceSgId ∉ validSgIds or L.destSgId ∉ validSgIds:
     context.warnings.push(nothing)  // no — this is BLOCKING per FR-PREVAL-01
     issues.push(ARC-ROUTING-PREVAL-DATALINK-INTEGRITY, impactedEntity=L.systemId)
@@ -196,21 +280,19 @@ if issues.length > 0: return Result.fail(issues)
 
 **Edge cases:**
 - Excluded data-links (`input.excludedDataLinkSystemIds`) are skipped — they're not
-  part of routing scope.
+  part of the effective routing scope.
 - SLS-resolved data-links (staged by the handler pre-step) are included via overlay.
 - Control-links are not checked here — FR-PREVAL-01 is data-link-specific.
 
-### 5.2 FR-PREVAL-02: Disconnected subgraph island detection
+### 5.4 FR-PREVAL-02: Disconnected subgraph island detection
 
-**Rule:** SGs in the routing scope with no intra-usecase data-link to any other SG in
+**Rule:** SGs in the effective routing scope with no intra-usecase data-link to any other SG in
 the scope are "islands." Report as **warning**; routing continues.
 
 **Algorithm:**
 
 ```
-routingScopeSgs := union of:
-  - all SG ids in selected UCs
-  - all SG ids in input.activeSubgraphs
+routingScopeSgs := input.effectiveRoutingScope
 
 adjacency := build undirected adjacency from intra-usecase data-links between
              routingScopeSgs (post-overlay, minus excluded)
@@ -223,11 +305,11 @@ for each sg in routingScopeSgs:
     })
 ```
 
-**Non-blocking.** Islands remain in the routing scope; downstream phases handle them
+**Non-blocking.** Islands remain in the effective routing scope; downstream phases handle them
 as SGs with no pair (they'll become orphans per FR-VAL-01 if not absorbed into any
 UC via control-link fallback in manual mode).
 
-**Edge case:** If a routing scope SG has intra-usecase control-links but no data-links,
+**Edge case:** If an effective-scope SG has intra-usecase control-links but no data-links,
 it's still an island for FR-PREVAL-02 (rule is data-link-specific). Manual mode may
 still route it via FR-UC-01 step 4.
 
@@ -235,22 +317,21 @@ still route it via FR-UC-01 step 4.
 
 ## 6. Phase 4 — KvResolutionService
 
-Runs after Halves A's Phases 1–3 (PreValidation, DeletionScope, DisconnectedTransition).
+Runs after Half A's Phases 1–3 (PreValidation, DeletionScope, and the legacy-named
+`IslandTransitionService` for `ISLAND` → `LINKED`).
 Prepares the SGKV data that Phase 8 (Combination Expansion) will consume.
 
 Implements the three-step KV pipeline (FR-KV-01/02/03) exactly as specified.
 
 ### 6.1 FR-KV-01: Step 1 — Load SGKV from DB
 
-**Rule:** For every SG referenced (via selected UCs or API input), load complete
-SGKV records from DB.
+**Rule:** For every SG in `input.effectiveRoutingScope`, load complete SGKV records
+from DB for baseline comparison only.
 
 **Algorithm:**
 
 ```
-sgIdsToLoad := union of:
-  - all SG ids in selected UCs (from IUsecaseRepository)
-  - all SG ids in input.activeSubgraphs
+sgIdsToLoad := input.effectiveRoutingScope
 
 dbSgkvs: Map<SgSystemId, SgkvInstance[]>
        := ISubgraphRepository.getSgkvsBySgIds(fileSystemId, sgIdsToLoad)
@@ -272,12 +353,12 @@ left with zero KVs are dropped.
 **Algorithm:**
 
 ```
-if input.selectedUsecaseSystemIds is empty:
+if input.selectedUsecases is empty:
   ucFilteredBaseline := empty map (per FR-CONE-05)
 else:
   // Exclude UCs marked for deletion by Phase 2 (FR-KV-02 revised)
-  filteringUcIds := setOf(input.selectedUsecaseSystemIds) \ context.markedForDeletion.ucSystemIds
-  filteringUcs   := IUsecaseRepository.findBySystemIds(fileSystemId, filteringUcIds)
+  filteringUcs := input.selectedUsecases.filter(
+    uc => uc.systemId ∉ context.markedForDeletion.ucSystemIds)
 
   ucFilter: Map<KeyDefId, Set<ValueDefId>> := empty
   for each uc in filteringUcs:
@@ -306,9 +387,10 @@ other UCs) from generating irrelevant new GKV combinations later.
 
 ### 6.3 FR-KV-03: Step 3 — Apply API input
 
-**Rule:** For each SG in `input.activeSubgraphs`, discard the Step-2 result and
-replace it entirely with the API-provided SGKV instances. Every SG in routing scope
-must be present in the API map; missing SGs → FR-API-03 error at Phase 6.
+**Rule:** For each SG in `input.effectiveRoutingScope`, discard the Step-2 result and
+replace it entirely with the API-provided SGKV instances. Handler-level FR-API-03
+validation has already guaranteed explicit input for every selected-scope SG that may
+route.
 
 **Algorithm:**
 
@@ -318,33 +400,24 @@ for each entry in input.activeSubgraphs:
   // FR-API-06: silently drop excluded SGs from the API map
   if entry.sgSystemId ∈ effectiveExcludedSgIds:
     continue
-  perSg[entry.sgSystemId] := entry.sgkvInstances
-
-// IsMdf auto-population — FR-MDF-01 exempts IsMdf SGs from the API map;
-// they contribute one empty SGKV instance to every routing path through them.
-// Populate for both newly-added IsMdf SGs and any pre-existing IsMdf SGs
-// that end up in the routing scope (e.g., inherited from a selected UC).
-// Excluded SGs (FR-API-06) are omitted.
-isMdfSgIds := ISubgraphRepository.findIsMdfInScope(
-                fileSystemId,
-                allScopeSgIds = union(selectedUcSgIds, activeSubgraphs.map(s=>s.sgSystemId), graphEdits.addedSgs)
-                                  \ effectiveExcludedSgIds,
-              )
-for each sgId in isMdfSgIds:
-  if perSg does not have sgId:
-    perSg[sgId] := [{sgkvSystemId: null, keyValues: []}]
-
-// Sanity: non-IsMdf routing-scope SGs not in the API map are FR-API-03 errors (caught in Phase 6)
+  perSg[entry.sgSystemId] := entry.sgkvInstances is empty
+    ? [{sgkvSystemId: null, keyValues: []}]
+    : entry.sgkvInstances
 context.kvResolutions.perSg := perSg
 ```
 
 **Edge cases:**
 - **Empty list `[]` for a user-provided SG** — the SG contributes one empty SGKV instance. Valid; means "user
   declares no KV contribution for this SG."
-- **API map missing a non-IsMdf SG in routing scope** — deferred error, caught by FR-API-03
-  after cone is computed.
-- **IsMdf SG present in `activeSubgraphs` with KVs** — malformed input; per FR-MDF-01 users must not assign KVs to IsMdf SGs. Blocking `ARC-ROUTING-MDF-01` (owned by plan-folded FR-MDF-01 handling, but Phase 4 is the natural detection point).
-- **IsMdf SG NOT in `activeSubgraphs`** — normal case; auto-populated with empty SGKV instance per above.
+- **Selected-scope SG missing from the API map** — already rejected by handler-level
+  FR-API-03 before this phase.
+- **IsMdf SG present in `activeSubgraphs` with non-empty KVs** — malformed input; per
+  FR-MDF-01 MDF SGs accept only an empty contribution. Blocking
+  `ARC-ROUTING-MDF-01`.
+- **IsMdf SG omitted from `activeSubgraphs`** — it is not part of the effective routing
+  scope. If it is a non-excluded selected-scope SG, FR-API-03 rejects the request. If it
+  is a current-session added SG or a required data-link endpoint, FR-API-07 rejects the
+  omission independently.
 
 **Invariant enforced:** I6 (SGKV internal consistency). Each SGKV instance must have
 at most one `KeyValue` per `keyDefSystemId`. Malformed instances → issue code
@@ -393,26 +466,40 @@ This is a set difference — O(SGs in file). Cached once per pipeline invocation
 
 ### 7.3 FR-CONE-03: New or deleted intra-usecase links as seeds
 
-**Rule:** Both endpoints of a newly-added or deleted intra-usecase link are seeds.
+**Rule:** A newly-added intra-usecase link seeds both endpoints. FR-API-07 has already
+guaranteed that both are in the effective routing scope. A deleted intra-usecase link
+seeds each surviving endpoint independently; an endpoint SG deleted in the same session
+is absent from the effective routing scope.
 
 **Algorithm:**
 
 ```
 for each dl in input.graphEdits.addedDataLinks:
-  if dl.linkScope == 'intra_usecase':
+  if dl.linkScope == 'intra_usecase'
+      and dl.sourceSgId ∈ input.effectiveRoutingScope
+      and dl.destSgId ∈ input.effectiveRoutingScope:
     seeds.add(dl.sourceSgId, reason='link-added')
     seeds.add(dl.destSgId,   reason='link-added')
 
 for each dl in input.graphEdits.deletedDataLinks:
   if dl.linkScope == 'intra_usecase':
-    seeds.add(dl.sourceSgId, reason='link-deleted')
-    seeds.add(dl.destSgId,   reason='link-deleted')
+    if dl.sourceSgId ∈ input.effectiveRoutingScope:
+      seeds.add(dl.sourceSgId, reason='link-deleted')
+    if dl.destSgId ∈ input.effectiveRoutingScope:
+      seeds.add(dl.destSgId, reason='link-deleted')
 
 // Control-link edits: NOT seeds for the DFS cone.
 // DFS is data-link driven per FR-DFS-02; control-link edits do not trigger re-routing.
 // Exception: manual UC mode uses control-links for pair discovery, but that runs in
-// the create-manual-usecase handler, not via seed-driven routing.
+// the create-manual-usecases handler, not via seed-driven routing.
 ```
+
+The asymmetric rule is intentional. FR-API-07 rejects a new link whose endpoints are not
+both routable. A deleted link can leave a valid multi-SG fragment on either surviving
+side. Seeding each surviving endpoint ensures those fragments reach cone computation
+even when the other endpoint SG was deleted and no KV-change seed is available. The
+deleted endpoint never enters the cone; excluding a surviving endpoint is a
+pre-validation error rather than a no-seed case.
 
 **Edge case — pair already exists.** If a "new" data-link connects two SGs that
 already share a `use_case_subgraph_pairs` entry, is it still a seed? Per FR-CONE-03
@@ -421,49 +508,44 @@ previously in the graph). The downstream classifier (Phase 9) will detect that n
 new UC results and no-op via FR-DUP-03(a). Design choice: don't optimize seed
 detection to filter these out — it complicates FR-CONE-03 and the cost is trivial.
 
-### 7.4 FR-CONE-05: Empty selected UC list → all API SGs are seeds
+### 7.4 FR-CONE-05: Empty selected UC list → all effective-scope SGs are seeds
 
-**Rule:** When `input.selectedUsecaseSystemIds` is empty, every SG in the API map is
-a seed.
+**Rule:** When `input.selectedUsecases` is empty, every SG in
+`input.effectiveRoutingScope` is an out-of-selection SG and is a seed.
 
 **Algorithm:**
 
-Emerges automatically from FR-CONE-01: with `ucFilteredBaseline` empty (Phase 4 §6.2
-short-circuit), every API SG's baseline is `[]` and its API set is non-empty (or empty
-but different from "no entry" — see below), so every SG becomes a seed via FR-CONE-01.
+Add every effective-scope SG with reason `no-uc-context`. This explicit rule also covers
+an SG whose intentional empty API contribution is set-equal to its empty baseline.
 
-**Edge case — empty API SGKV list `[]` with empty baseline.** An SG with `perSg[sg] =
-[]` (empty list) has API-set `∅`. Its baseline is also `∅` (no UCs selected). Sets
-are equal → NOT a seed per FR-CONE-01.
+An empty API SGKV contribution does not suppress this seed rule.
 
-This is fine when the empty-list SG is completely disconnected from the rest of the
-graph (nothing to route). If it *is* connected (e.g., via a new data-link), FR-CONE-03
-picks it up anyway.
+### 7.5 FR-CONE-06: Out-of-selection SG → automatic seed
 
-### 7.5 FR-CONE-06: Out-of-selected-UC-context SG → automatic seed
-
-**Rule:** An SG in the API input that is a member of some non-selected UC (i.e.,
-exists in DB but not in any selected UC) is an automatic seed.
+**Rule:** Every SG in `input.outOfSelectionSubgraphs` is an automatic seed, whether it
+is new or belongs to a non-selected UC.
 
 **Algorithm:**
 
 ```
-selectedUcSgIds := union of sgs across selectedUcs
-for each sgId in kvResolutions.perSg.keys():
-  if sgId ∈ allUcSgIds and sgId ∉ selectedUcSgIds:
-    seeds.add(sgId, reason='out-of-uc-context')
+for each sgId in input.outOfSelectionSubgraphs:
+  if sgId ∈ input.effectiveRoutingScope:
+    seeds.add(sgId, reason='out-of-selection')
 ```
 
-For these SGs: `ucFilteredBaseline[sg]` is `∅` (Step 2 has no reference to filter
-against), Step 3 replaces with API input. FR-CONE-01 usually catches it, but
-FR-CONE-06 is explicit for clarity.
+For these SGs, Step 2 may produce a DB-derived baseline filtered by the selected UCs'
+GKV values. Step 3 still replaces that baseline with API input. FR-CONE-06 seeds the SG
+independently, so its classification does not depend on whether the two sets happen to
+match.
 
 ---
 
 ## 8. Phase 6 — ConeComputationService
 
 Expands the seed set into a bounded cone via bidirectional traversal. Feeds Phase 7
-(DFS). Ends with FR-API-03 completeness check.
+(DFS). FR-API-03 and FR-API-07 addition-side validation have already completed in the
+handler pre-step; FR-API-07 deletion-side validation completed in Phase 2 after the
+FR-DEL-02 gate.
 
 ### 8.1 FR-CONE-04: Bidirectional expansion
 
@@ -483,6 +565,7 @@ queue: Queue<SgSystemId> := seeds.sgSystemIds.copy()
 while queue not empty:
   sg := queue.dequeue()
   if sg ∈ visited: continue
+  if sg ∉ input.effectiveRoutingScope: continue
   visited.add(sg)
   for each neighbor in (adjacency[sg] ∪ reverse[sg]):
     if neighbor is within scope boundary (FR-CONE-07):
@@ -499,24 +582,19 @@ using iterative queue.
 
 ### 8.2 FR-CONE-07: Scope boundary (non-deletion)
 
-**Rule:** Cone expansion does not cross into SGs that (a) belong only to non-selected
-UCs AND (b) are not in the API input.
+**Rule:** Cone expansion does not cross outside `input.effectiveRoutingScope`.
 
 **Algorithm — the "within scope" predicate:**
 
 ```
-scopeBoundarySgs := union of:
-  - all sgs in selectedUcs (from repo)
-  - all sgs in input.activeSubgraphs (i.e., kvResolutions.perSg.keys)
-
-isWithinScope(sg) := sg ∈ scopeBoundarySgs
+isWithinScope(sg) := sg ∈ input.effectiveRoutingScope
 ```
 
 Phase 2 (DeletionScope, LLD4) uses a bounded DFS existence check per impacted pair
 (FR-DEL-06 multi-path survival), not the cone. Phase 6's cone covers the routing
-region for Phase 7's path-enumeration DFS — including deletion-affected SGs, because
-deleted-link endpoints are seeds via FR-CONE-03. Both DFSes operate on the same
-post-deletion graph state; they answer different questions:
+region for Phase 7's path-enumeration DFS — including post-deletion fragments, because
+each surviving in-scope endpoint of a deleted link is a seed via FR-CONE-03. Both DFSes
+operate on the same post-deletion graph state; they answer different questions:
 
 - **Phase 2 DFS:** "does *any* path between A and B still exist?" — bounded
   existence check per impacted pair.
@@ -524,33 +602,9 @@ post-deletion graph state; they answer different questions:
   enumeration for new UC candidates (FR-DEL-04 broken-path replacement, plus
   extension/creation).
 
-### 8.3 FR-API-03: Cone completeness pre-validation
+### 8.3 Cone root identification
 
-**Rule:** After the cone is computed, every SG in the cone must appear in the API's
-SG map. Missing SGs → blocking error listing them.
-
-**Algorithm:**
-
-```
-apiSgIds := set(kvResolutions.perSg.keys())
-missing: SgSystemId[] := []
-for each sg in cones.sgSystemIds:
-  if sg ∉ apiSgIds:
-    missing.push(sg)
-
-if missing.length > 0:
-  return Result.fail([{
-    code: ARC-ROUTING-PREVAL-CONE-INCOMPLETE,
-    impactedEntities: missing.map(sg => ({kind: 'subgraph', systemId: sg}))
-  }])
-```
-
-**Design note:** because FR-CONE-07 bounds expansion to SGs already in the API map or
-selected-UC scope, this check should almost always pass. It's a safety net for the
-edge case where a cone reaches an SG that's in a selected UC but not in the API map
-— the caller must re-invoke with that SG included.
-
-**Deferred cone-root identification.** After the cone is finalized:
+After the cone is finalized:
 
 ```
 cones.rootSgs := { sg ∈ cones.sgSystemIds
@@ -569,8 +623,9 @@ traversal.
 |---|---|---|---|
 | 1 | `ARC-ROUTING-PREVAL-DATALINK-INTEGRITY` | Blocking (422) | Data-link references non-existent SG |
 | 1 | `ARC-ROUTING-ISLAND-DETECTED` | Warning (200) | SG has no intra-usecase data-link |
+| Handler pre-step | `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT` | Blocking (422) | Current-session added entity is explicitly excluded, or an added SG/data-link endpoint is missing, excluded, or deleted |
+| Handler pre-step | `ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE` | Blocking (422) | Non-excluded selected-scope SG missing from `activeSubgraphs` |
 | 4 | `ARC-ROUTING-SGKV-MALFORMED` | Blocking (422) | SGKV instance has 2+ values for same Key (I6) |
-| 6 | `ARC-ROUTING-PREVAL-CONE-INCOMPLETE` | Blocking (422) | Cone SG missing from API map |
 
 All blocking codes trigger `Result.fail`; orchestrator halts; handler rolls back tx.
 
@@ -582,38 +637,51 @@ Concrete test cases come in the implementation plan. These scenarios ensure the 
 covers all requirement branches.
 
 **Phase 1:**
+- T-P1-edit-a: Added SG is absent from `activeSubgraphs` or explicitly excluded → `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
+- T-P1-edit-b: Added data-link ID is explicitly excluded → `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
+- T-P1-edit-c: Added data-link has a missing, excluded, or deleted endpoint SG → `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
+- T-P1-edit-d: Added control-link ID is explicitly excluded → `ARC-ROUTING-PREVAL-EDIT-SCOPE-CONFLICT`
+- T-P1-edit-e: Added control-link endpoint is outside auto effective scope → no edit-scope error; link remains visible to integrity/orphan checks but does not seed DFS
+- T-P1-scope-a: Every non-excluded selected-scope SG is in `activeSubgraphs` → proceed
+- T-P1-scope-b: A required selected-scope SG is missing → `ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE`
+- T-P1-scope-c: An unchanged, non-required selected-scope SG is explicitly excluded and absent → proceed
+- T-P1-scope-d: A session-deleted SG is absent from `activeSubgraphs` → proceed; DELETE remains in `graphEdits`
+- T-P1-scope-e: Stale client input includes a session-deleted SG → silently omit it from `effectiveRoutingScope`
 - T-P1-a: All data-links have valid SG references → no issues
 - T-P1-b: One data-link points to deleted SG → `ARC-ROUTING-PREVAL-DATALINK-INTEGRITY`
 - T-P1-c: SG in scope with zero intra-usecase data-links → `ARC-ROUTING-ISLAND-DETECTED` warning
 - T-P1-d: SG has control-link only (no data-link) → still counts as island (data-link specific)
 
 **Phase 4 (KV):**
-- T-P4-a: Empty selected UCs → baseline is `∅` for all SGs; every API SG becomes seed
+- T-P4-a: Empty selected UCs → baseline is `∅`; every effective-scope SG becomes seed
 - T-P4-b: SGKV instance filtered to zero KVs → dropped from baseline
 - T-P4-c: API replaces DB entirely; DB not used as routing source
 - T-P4-d: Empty API list `[]` → one empty SGKV instance in `perSg`
 - T-P4-e: SGKV with 2 Values for same Key → `ARC-ROUTING-SGKV-MALFORMED`
-- T-P4-f: **IsMdf SG auto-population** — SG_INT (isMdf=true) in `graphEdits.addedSgs` but NOT in `activeSubgraphs` → `perSg[SG_INT] = [{sgkvSystemId: null, keyValues: []}]` (one empty instance)
-- T-P4-g: **IsMdf SG from prior UC in scope** — an existing UC in `selectedUsecaseSystemIds` already contains an isMdf SG → auto-populated too (defensive: covers inherited scope)
-- T-P4-h: **IsMdf SG with user-provided KV** — user erroneously included isMdf SG in `activeSubgraphs` with non-empty SGKV instances → `ARC-ROUTING-MDF-01` blocking (FR-MDF-01 "No KVs allowed")
-- T-P4-i: **Excluded SG in activeSubgraphs (FR-API-06)** — user includes an SG in `activeSubgraphs` that is also in `excludedSubgraphSystemIds` → silently dropped from `perSg`; no error
-- T-P4-j: **Excluded SG's incident links auto-excluded** — SG-X in `excludedSubgraphSystemIds`; data-links L1(X→Y) and L2(Z→X) → both L1 and L2 in `effectiveExcludedDlIds`, treated as excluded even without being listed in `excludedDataLinkSystemIds`
+- T-P4-f: **IsMdf SG with explicit empty contribution** → normalized to one empty SGKV instance
+- T-P4-g: **Selected IsMdf SG omitted from input** → handler-level `ARC-ROUTING-PREVAL-SCOPE-INCOMPLETE`
+- T-P4-h: **IsMdf SG with user-provided non-empty KV** → `ARC-ROUTING-MDF-01` blocking
+- T-P4-i: **Eligible unchanged excluded SG in activeSubgraphs (FR-API-06)** — user includes an unchanged, non-required SG in `activeSubgraphs` and `excludedSubgraphSystemIds` → silently dropped from `perSg`; no error
+- T-P4-j: **Eligible excluded SG's unchanged incident links auto-excluded** — unchanged SG-X in `excludedSubgraphSystemIds`; unchanged data-links L1(X→Y) and L2(Z→X) → both L1 and L2 in `effectiveExcludedDlIds`, treated as excluded even without being listed in `excludedDataLinkSystemIds`
 
 **Phase 5 (Seeds):**
 - T-P5-a: API SGKV differs from UC-filtered baseline → seed (FR-CONE-01)
 - T-P5-b: Brand new SG (not in any UC) → seed (FR-CONE-02)
 - T-P5-c: New intra-usecase data-link → both endpoints are seeds
-- T-P5-d: Deleted intra-usecase data-link → both endpoints are seeds
-- T-P5-e: New control-link → NOT seed (data-link-only rule)
-- T-P5-f: SG in non-selected UC but in API → seed (FR-CONE-06)
-- T-P5-g: New data-link between already-paired SGs → still seed (design choice per §7.3)
+- T-P5-d: Deleted intra-usecase data-link with both endpoints in scope → both endpoints are seeds
+- T-P5-e1: Deleted intra-usecase data-link with one deleted endpoint → only the surviving in-scope endpoint is a seed
+- T-P5-f: Deleted intra-usecase data-link whose endpoint SGs were both deleted → no seed
+- T-P5-g: New control-link → NOT seed (data-link-only rule)
+- T-P5-h: Out-of-selection SG in effective scope → seed (FR-CONE-06)
+- T-P5-i: New data-link between already-paired SGs → still seed (design choice per §7.3)
 
 **Phase 6 (Cone):**
 - T-P6-a: Bidirectional expansion from single seed
 - T-P6-b: Two seeds with overlapping cones → union
-- T-P6-c: Cone stops at scope boundary (SG in non-selected UC not in API)
-- T-P6-d: Cone SG missing from API map → `ARC-ROUTING-PREVAL-CONE-INCOMPLETE`
+- T-P6-c: Cone stops at `effectiveRoutingScope` boundary
+- T-P6-d: Adjacency reaches an SG outside `effectiveRoutingScope` → traversal does not cross boundary
 - T-P6-e: Cycle in data-link graph → no infinite expansion; visited set bounds it
+- T-P6-f: SG deletion removes an incident data-link → cone expands from the surviving endpoint through its post-deletion fragment without entering the deleted SG
 
 ---
 

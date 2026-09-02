@@ -10,6 +10,7 @@ import {
   Result,
   RESULT_KIND,
 } from '../../../../../src/application/shared/result/result.js';
+import {USECASE_TYPE} from '../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import type {QueryServices} from '../../../../../src/application/ports/persistence/query-services/query-services.js';
 import {UseCaseReadModel} from '../../../../../src/application/ports/persistence/query-services/usecase/query-models/usecase-read-model.js';
 
@@ -69,5 +70,23 @@ describe('GetAllUseCasesHandler', () => {
     );
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data[0].usecaseCategory).toBe('catA,catB');
+  });
+
+  it('maps the UseCase type from the read model', async () => {
+    const qs = buildServices([
+      new UseCaseReadModel(
+        1,
+        [],
+        undefined,
+        undefined,
+        undefined,
+        USECASE_TYPE.Ec,
+      ),
+    ]);
+    const result = await new GetAllUseCasesHandler(qs).handle(
+      new GetAllUseCasesQuery(1, 'c'),
+    );
+    if (result.kind !== RESULT_KIND.Ok) return;
+    expect(result.data[0].usecaseType).toBe(USECASE_TYPE.Ec);
   });
 });
