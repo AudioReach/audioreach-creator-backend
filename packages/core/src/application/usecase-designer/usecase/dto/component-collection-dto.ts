@@ -13,6 +13,7 @@ import type {ComponentsReadModel} from '../../../ports/persistence/query-service
 import type {SpfModuleReadModel} from '../../../ports/persistence/query-services/spf-module/spf-module-read-model.js';
 import type {DataLinkReadModel} from '../../../ports/persistence/query-services/link/data-link-read-model.js';
 import type {ControlLinkReadModel} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
+import {CONNECTION_TYPE} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
 import type {
   ComponentsWithSubsystemsReadModel,
   SubsystemNodeReadModel,
@@ -38,6 +39,15 @@ export const ControlLinkDtoSchema = z.object({
     .string()
     .describe('Destination (peer B) port system ID'),
   isInterUsecase: z.boolean().describe('Whether the link is inter-usecase'),
+  connectionType: z
+    .enum([
+      CONNECTION_TYPE.ModuleModule,
+      CONNECTION_TYPE.ModuleSubsystem,
+      CONNECTION_TYPE.SubsystemModule,
+      CONNECTION_TYPE.SubsystemSubsystem,
+    ])
+    .describe('Connection type derived from node types at each endpoint'),
+  parentId: z.string().nullable().describe('Parent subsystem system ID, or null'),
 });
 
 export type DataLinkDto = z.infer<typeof DataLinkDtoSchema>;
@@ -140,7 +150,9 @@ export function mapControlLink(
     sourcePortSystemId: String(l.nodeAPortSystemId),
     destinationSystemId: String(l.peerNodeBSystemId),
     destinationPortSystemId: String(l.nodeBPortSystemId),
-    isInterUsecase: false,
+    isInterUsecase: l.isInterUsecase,
+    connectionType: l.connectionType,
+    parentId: l.parentId != null ? String(l.parentId) : null,
   };
 }
 

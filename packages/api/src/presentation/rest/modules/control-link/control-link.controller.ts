@@ -29,7 +29,6 @@ import {
 import {
   ControlLinkResponseDto,
   ControlLinkPropertiesResponseDto,
-  DeleteControlLinkResponseDto,
 } from './dto/control-link-response.dto.js';
 import {ApiDocumentationWithExample} from '../../common/swagger-doc/swagger.decorator.js';
 import {ApiResult} from '../../common/dto/api-response/api-result.dto.js';
@@ -252,8 +251,8 @@ export class ControlLinkController extends BaseController {
   ): Promise<ApiResult<ControlLinkResponseDto[]>> {
     const command = new PatchControlLinkPropertiesCommand(
       controlLinkSystemId,
-      body.allocatedIntents?.intents,
-      body.heapId?.value,
+      body.AllocatedIntents?.intents,
+      body.HeapId?.value,
     );
 
     const modified = await this.commandBus.execute<ControlLinkDto[]>(command, session);
@@ -321,7 +320,7 @@ export class ControlLinkController extends BaseController {
       {
         status: HttpStatus.OK,
         description: 'Control link deleted successfully',
-        dto: DeleteControlLinkResponseDto,
+        dto: ControlLinkResponseDto,
       },
       {
         status: HttpStatus.NOT_FOUND,
@@ -337,9 +336,9 @@ export class ControlLinkController extends BaseController {
     @Param('projectId') _projectId: string,
     @Param('controlLinkSystemId', ParseIntPipe) controlLinkSystemId: number,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<DeleteControlLinkResponseDto>> {
+  ): Promise<ApiResult<ControlLinkResponseDto>> {
     const command = new DeleteControlLinkCommand(controlLinkSystemId);
-    const result = await this.commandBus.execute<{systemId: string}>(command, session);
+    const result = await this.commandBus.execute<ControlLinkDto>(command, session);
     return toApiResult(Result.ok(result));
   }
 }

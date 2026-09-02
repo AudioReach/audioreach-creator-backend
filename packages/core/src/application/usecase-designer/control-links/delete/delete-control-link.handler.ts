@@ -8,13 +8,16 @@ import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {IdGenerationPort} from '../../../ports/id-generation/id-generation.port.js';
 import type {QueryServices} from '../../../ports/persistence/query-services/query-services.js';
 import type {DeleteControlLinkCommand} from './delete-control-link.command.js';
+import type {ControlLinkDto} from '../../usecase/dto/component-collection-dto.js';
 import {ResourceNotFoundException} from '../../../../shared/exceptions/index.js';
 import {NodeType} from '../../../../domain/entities/usecase-data/node/node.js';
 import {ControlIntentPropagationService} from '../../../../domain/services/subsystem-control-links/control-intent-propagation.service.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import {CONFIGURATION_INCLUDES} from '../../../ports/persistence/query-services/configuration-includes.js';
+import {CONNECTION_TYPE} from '../../../ports/persistence/query-services/link/control-link-read-model.js';
+import {mapControlLink} from '../../usecase/dto/component-collection-dto.js';
 
-export type DeleteControlLinkResult = {systemId: string};
+export type DeleteControlLinkResult = ControlLinkDto;
 
 export class DeleteControlLinkHandler implements CommandHandler<
   DeleteControlLinkCommand,
@@ -50,6 +53,31 @@ export class DeleteControlLinkHandler implements CommandHandler<
       throw new ResourceNotFoundException(`ControlLink ${command.controlLinkSystemId} not found`);
     }
 
+    // Derive connectionType for the response snapshot (FR-DCL-05)
+    const [startIsModule, endIsModule] = await Promise.all([
+      this.queryServices.spfModuleQueryService.findOne(controlLink.peerNodeASystemId, fileSystemId).then(() => true).catch(() => false),
+      this.queryServices.spfModuleQueryService.findOne(controlLink.peerNodeBSystemId, fileSystemId).then(() => true).catch(() => false),
+    ]);
+    let connectionType: typeof CONNECTION_TYPE[keyof typeof CONNECTION_TYPE];
+    if (startIsModule && endIsModule) connectionType = CONNECTION_TYPE.ModuleModule;
+    else if (startIsModule) connectionType = CONNECTION_TYPE.ModuleSubsystem;
+    else if (endIsModule) connectionType = CONNECTION_TYPE.SubsystemModule;
+    else connectionType = CONNECTION_TYPE.SubsystemSubsystem;
+
+    // FR-DCL-05: snapshot before deletion for undo support
+    const snapshot = mapControlLink({
+      systemId: controlLink.systemId,
+      peerNodeASystemId: controlLink.peerNodeASystemId,
+      peerNodeBSystemId: controlLink.peerNodeBSystemId,
+      nodeAPortSystemId: controlLink.nodeAPortSystemId,
+      nodeBPortSystemId: controlLink.nodeBPortSystemId,
+      heapId: controlLink.heapId,
+      linkType: controlLink.linkType,
+      connectionType,
+      isInterUsecase: controlLink.linkType === 'INTER_USECASE',
+      parentId: null,
+    });
+
     // FR-DCL-03: soft delete
     await repo.softDeleteControlLink(command.controlLinkSystemId);
 
@@ -60,7 +88,7 @@ export class DeleteControlLinkHandler implements CommandHandler<
     await this.cleanupPortIntents(portAId, controlLink.peerNodeASystemId, fileSystemId);
     await this.cleanupPortIntents(portBId, controlLink.peerNodeBSystemId, fileSystemId);
 
-    return {systemId: String(command.controlLinkSystemId)};
+    return snapshot;
   }
 
   private async cleanupPortIntents(
@@ -127,7 +155,6 @@ export class DeleteControlLinkHandler implements CommandHandler<
       // Subsystem port: use ControlIntentPropagationService.findPortsToClear
       const allScls = await repo.getAllSubsystemControlLinks(fileSystemId);
 
-      // Remove the deleted link's SCL from the "remaining" set
       const remainingScls = allScls.map(scl => ({
         peerNodeASystemId: scl.peerNodeASystemId,
         peerNodeBSystemId: scl.peerNodeBSystemId,
@@ -140,7 +167,7 @@ export class DeleteControlLinkHandler implements CommandHandler<
         nodeTypeMap: new Map([[nodeSystemId, NodeType.Subsystem]]),
         deletedSubsystemControlLink: {
           peerNodeASystemId: nodeSystemId,
-          peerNodeBSystemId: nodeSystemId, // simplified — pass the port's own node
+          peerNodeBSystemId: nodeSystemId,
         },
       });
 

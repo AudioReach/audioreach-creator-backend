@@ -126,7 +126,7 @@ export class PatchControlLinkPropertiesRequest {
   @IsOptional()
   @ValidateNested()
   @Type(() => AllocatedIntentsDto)
-  allocatedIntents?: AllocatedIntentsDto;
+  AllocatedIntents?: AllocatedIntentsDto;
 
   @ApiProperty({
     description: 'New heap ID value',
@@ -136,7 +136,7 @@ export class PatchControlLinkPropertiesRequest {
   @IsOptional()
   @ValidateNested()
   @Type(() => HeapIdValueDto)
-  heapId?: HeapIdValueDto;
+  HeapId?: HeapIdValueDto;
 }
 
 /**

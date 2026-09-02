@@ -12,13 +12,15 @@ import type {
   DataLinkReadModel,
   ControlLinkReadModel,
 } from '@arc/core';
-import {PORT_IO_TYPE} from '@arc/core';
+import {PORT_IO_TYPE, CONNECTION_TYPE} from '@arc/core';
+import {NODE_TYPE} from '../../entity-schema/usecase-data/node/node.schema.js';
 import type {
   ValueDefinitionRow,
   NodeRow,
   DataLinkRow,
   ControlLinkRow,
 } from '../../entity-schema/index.js';
+import {LINK_TYPE} from '@arc/core';
 
 export const UseCaseQueryMappers = {
   mapValueToKeyVector(value: ValueDefinitionRow): KeyValuePairReadModel {
@@ -81,7 +83,19 @@ export const UseCaseQueryMappers = {
     };
   },
 
-  mapToComponentControlLinkReadModel(cl: ControlLinkRow): ControlLinkReadModel {
+  mapToComponentControlLinkReadModel(
+    cl: ControlLinkRow,
+    nodeTypeA?: string,
+    nodeTypeB?: string,
+  ): ControlLinkReadModel {
+    const aIsModule = (nodeTypeA ?? NODE_TYPE.Module) === NODE_TYPE.Module;
+    const bIsModule = (nodeTypeB ?? NODE_TYPE.Module) === NODE_TYPE.Module;
+    let connectionType: ControlLinkReadModel['connectionType'];
+    if (aIsModule && bIsModule) connectionType = CONNECTION_TYPE.ModuleModule;
+    else if (aIsModule && !bIsModule) connectionType = CONNECTION_TYPE.ModuleSubsystem;
+    else if (!aIsModule && bIsModule) connectionType = CONNECTION_TYPE.SubsystemModule;
+    else connectionType = CONNECTION_TYPE.SubsystemSubsystem;
+
     return {
       systemId: cl.systemId,
       peerNodeASystemId: cl.peerNodeASystemId,
@@ -90,6 +104,9 @@ export const UseCaseQueryMappers = {
       nodeBPortSystemId: cl.nodeBPortSystemId,
       heapId: cl.heapId,
       linkType: cl.linkType,
+      connectionType,
+      isInterUsecase: cl.linkType === LINK_TYPE.InterUsecase,
+      parentId: null,
     };
   },
 
