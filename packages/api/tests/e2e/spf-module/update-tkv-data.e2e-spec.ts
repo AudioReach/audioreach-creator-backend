@@ -185,7 +185,7 @@ describe('PUT tag-data — input validation', () => {
         `/arc-api/v1/projects/${projectId}/spf-modules/not-a-number/tag-data/1/1`,
       )
       .set('Authorization', `Bearer ${authToken}`)
-      .send({parameters: []});
+      .send({parameters: [{}]});
     expect(res.status).toBe(400);
   });
 
@@ -195,7 +195,7 @@ describe('PUT tag-data — input validation', () => {
         `/arc-api/v1/projects/${projectId}/spf-modules/1/tag-data/not-a-number/1`,
       )
       .set('Authorization', `Bearer ${authToken}`)
-      .send({parameters: []});
+      .send({parameters: [{}]});
     expect(res.status).toBe(400);
   });
 
@@ -205,7 +205,7 @@ describe('PUT tag-data — input validation', () => {
         `/arc-api/v1/projects/${projectId}/spf-modules/1/tag-data/1/not-a-number`,
       )
       .set('Authorization', `Bearer ${authToken}`)
-      .send({parameters: []});
+      .send({parameters: [{}]});
     expect(res.status).toBe(400);
   });
 
