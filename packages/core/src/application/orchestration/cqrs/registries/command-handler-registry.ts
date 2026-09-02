@@ -101,6 +101,8 @@ import {DeleteControlLinkCommand} from '../../../usecase-designer/control-links/
 import {DeleteControlLinkHandler} from '../../../usecase-designer/control-links/delete/delete-control-link.handler.js';
 import {PutCkvCalDataCommand} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
 import {PutCkvCalDataHandler} from '../../../usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.handler.js';
+import {UpdateTkvCalDataCommand} from '../../../usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.command.js';
+import {UpdateTkvCalDataHandler} from '../../../usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.handler.js';
 
 export interface CommandHandlerDependencies {
   uow: UnitOfWork;
@@ -260,6 +262,10 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(PutCkvCalDataCommand, {
       create: deps => new PutCkvCalDataHandler(deps.uow, deps.logger),
+    });
+
+    this.commandHandlerFactories.set(UpdateTkvCalDataCommand, {
+      create: deps => new UpdateTkvCalDataHandler(deps.uow, deps.logger),
     });
   }
 }

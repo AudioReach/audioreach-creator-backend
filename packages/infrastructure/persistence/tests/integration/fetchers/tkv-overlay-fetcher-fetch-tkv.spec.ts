@@ -178,3 +178,36 @@ describe('TkvOverlayFetcher.fetchTkv', () => {
     expect(result?.values).toEqual([]);
   });
 });
+
+describe('TkvOverlayFetcher.fetchModuleTagIdMap', () => {
+  beforeAll(setupIntegrationTest);
+  afterAll(teardownIntegrationTest);
+  beforeEach(setupEachTest);
+
+  it('returns true when the tag map row is in DB', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    const result = await makeFetcher(ds).fetchModuleTagIdMap(
+      TAG_MAP_ID,
+      MODULE_ID,
+      null,
+    );
+    expect(result).toBe(true);
+  });
+
+  it('returns false when systemId does not match', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    expect(
+      await makeFetcher(ds).fetchModuleTagIdMap(9999, MODULE_ID, null),
+    ).toBe(false);
+  });
+
+  it('returns false when spfModuleSystemId does not match', async () => {
+    const ds = getTestDataSource();
+    await seedBase(ds);
+    expect(
+      await makeFetcher(ds).fetchModuleTagIdMap(TAG_MAP_ID, 9999, null),
+    ).toBe(false);
+  });
+});

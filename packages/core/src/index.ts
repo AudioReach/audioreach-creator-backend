@@ -350,6 +350,8 @@ export type {
 } from './application/usecase-designer/spf-module/dto/element-dto.js';
 export * from './application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
 export * from './application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data-result.js';
+export * from './application/usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.command.js';
+export * from './application/usecase-designer/spf-module/update-tag-data/update-tkv-cal-data-result.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';

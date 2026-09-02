@@ -19,6 +19,7 @@ import {
   UseInterceptors,
   BadRequestException,
   NotImplementedException,
+  InternalServerErrorException,
   UseGuards,
 } from '@nestjs/common';
 import {ApiTags, ApiExtraModels, ApiParam, ApiQuery} from '@nestjs/swagger';
@@ -56,6 +57,8 @@ import {
   CreateModuleCommand,
   PutCkvCalDataCommand,
   type PutCkvCalDataResult,
+  UpdateTkvCalDataCommand,
+  type UpdateTkvCalDataResult,
   SpfModulesQuery as SpfModuleQuery,
   GetCkvCalibrationDataQuery,
   GetTkvCalibrationDataQuery,
@@ -586,6 +589,7 @@ export class SpfModuleController extends BaseController {
   /**
    * Update tag data for an SPF module.
    */
+  @UseGuards(SessionGuard)
   @Put('/:spfModuleSystemId/tag-data/:tagSystemId/:tkvSystemId')
   @ApiParam({
     name: 'spfModuleSystemId',
@@ -662,21 +666,43 @@ export class SpfModuleController extends BaseController {
     @Param('tagSystemId') tagSystemId: string,
     @Param('tkvSystemId') tkvSystemId: string,
     @Body() updateRequest: UpdateTkvRequestDto,
+    @ArcSession() session: ActiveSession,
   ): Promise<ApiResult<TkvCalDataResponseDto>> {
-    await Promise.resolve(); // Placeholder to satisfy linter
-    console.log(
-      'Updating tag data for SPF module:',
+    const command = new UpdateTkvCalDataCommand(
       spfModuleSystemId,
-      'in project:',
-      projectId,
-      'with tag system ID:',
       tagSystemId,
-      'and TKV system ID:',
       tkvSystemId,
-      'for parameters:',
-      updateRequest.data.map(p => p.systemId).join(', '),
+      updateRequest.parameters,
+      updateRequest.uiPersistence,
     );
-    throw new NotImplementedException('updateTagData is not implemented yet');
+    const putResult = await this.commandBus.execute<
+      Result<UpdateTkvCalDataResult>
+    >(command, session);
+    if (putResult.kind === RESULT_KIND.Fail)
+      throw new InternalServerErrorException(
+        'UpdateTkvCalDataHandler returned unexpected Fail result',
+      );
+
+    let data: TkvCalDataResponseDto | undefined;
+    if (putResult.data.succeededParamSystemIds.length > 0) {
+      const clientId = 'client-id';
+      const query = new GetTkvCalibrationDataQuery(
+        projectId,
+        spfModuleSystemId,
+        tagSystemId,
+        tkvSystemId,
+        clientId,
+        putResult.data.succeededParamSystemIds.join(','),
+      );
+      const readResult =
+        await this.queryBus.execute<Result<TkvCalDataResponseDto>>(query);
+      data = readResult.kind !== RESULT_KIND.Fail ? readResult.data : undefined;
+    }
+
+    const issues = putResult.issues ?? [];
+    const resultEnvelope =
+      issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
+    return toApiResult(resultEnvelope);
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────

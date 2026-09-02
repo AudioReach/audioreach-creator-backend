@@ -268,6 +268,46 @@ export class TkvOverlayFetcher {
     return this.payloadFetcher.fetchMany(tkvSystemId, sessionId);
   }
 
+  /**
+   * Returns true if the module_tag_id_map row exists (in DB or session overlay),
+   * false if deleted in the active session or absent from the DB.
+   *
+   * Overlay aggregateId for ModuleTagIdMap = spfModuleSystemId.
+   */
+  async fetchModuleTagIdMap(
+    moduleTagIdMapSystemId: number,
+    spfModuleSystemId: number,
+    sessionId: number | null,
+  ): Promise<boolean> {
+    if (sessionId !== null) {
+      const actions = await this.editActionsSvc.getByAggregateAndTable(
+        sessionId,
+        spfModuleSystemId,
+        ENTITY_NAMES.ModuleTagIdMap,
+      );
+      if (
+        actions.some(
+          a =>
+            a.operation === CHANGE_OPERATION.Create &&
+            a.targetSystemId === moduleTagIdMapSystemId,
+        )
+      )
+        return true;
+      if (
+        actions.some(
+          a =>
+            a.operation === CHANGE_OPERATION.Delete &&
+            a.targetSystemId === moduleTagIdMapSystemId,
+        )
+      )
+        return false;
+    }
+    const count = await this.manager
+      .getRepository(ENTITY_NAMES.ModuleTagIdMap)
+      .count({where: {systemId: moduleTagIdMapSystemId, spfModuleSystemId}});
+    return count > 0;
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private toOverlaidTagMap(r: ModuleTagIdMapRow): OverlaidModuleTagIdMap {
