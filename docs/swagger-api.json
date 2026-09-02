@@ -15572,16 +15572,20 @@
       "UpdateTkvRequestDto": {
         "type": "object",
         "properties": {
-          "data": {
-            "description": "Array of parameter data to write, one entry per PID.",
+          "parameters": {
+            "description": "Array of tag calibration data updates for multiple parameters",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ParameterSummaryDto"
+              "$ref": "#/components/schemas/ParameterDto"
             }
+          },
+          "uiPersistence": {
+            "description": "UI persistence string",
+            "type": "string"
           }
         },
         "required": [
-          "data"
+          "parameters"
         ]
       },
       "CreateSpfModuleRequestDto": {
