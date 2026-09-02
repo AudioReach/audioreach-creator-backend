@@ -4,12 +4,24 @@
  */
 
 import {ApiProperty} from '@nestjs/swagger';
-import {ParameterSummaryDto} from '../../../../common/dto/parameter-summary.dto.js';
+import {IsArray, ArrayNotEmpty, IsOptional, IsString} from 'class-validator';
+import {ParameterDto} from '../../../../common/dto/parameter.dto.js';
 
 export class UpdateTkvRequestDto {
   @ApiProperty({
-    description: 'Array of parameter data to write, one entry per PID.',
-    type: [ParameterSummaryDto],
+    description:
+      'Array of tag calibration data updates for multiple parameters',
+    type: [ParameterDto],
   })
-  data!: ParameterSummaryDto[];
+  @IsArray()
+  @ArrayNotEmpty()
+  parameters!: ParameterDto[];
+
+  @ApiProperty({
+    description: 'UI persistence string',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  uiPersistence?: string;
 }

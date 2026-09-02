@@ -114,6 +114,7 @@ export * from './application/usecase-designer/usecase/get-component-with-subsyst
 export * from './shared/filter/index.js';
 export type {ParameterPayloadReadModel} from './application/ports/persistence/query-services/spf-module/ckv/ckv-read-model.js';
 export * from './application/ports/persistence/query-services/spf-module/ckv/ckv-query-service.js';
+export * from './application/ports/persistence/query-services/spf-module/tkv/tkv-query-service.js';
 
 // SPF module query services and read models
 export * from './application/ports/persistence/query-services/spf-module/spf-module-query-service.js';
@@ -317,6 +318,8 @@ export {CkvCalDataDtoSchema} from './application/usecase-designer/spf-module/get
 export type {CkvCalDataDto} from './application/usecase-designer/spf-module/get-cal-data/ckv-cal-data-dto.js';
 export {TkvCalDataDtoSchema} from './application/usecase-designer/spf-module/get-tag-data/tkv-cal-data-dto.js';
 export type {TkvCalDataDto} from './application/usecase-designer/spf-module/get-tag-data/tkv-cal-data-dto.js';
+export * from './application/usecase-designer/spf-module/get-tag-data/get-tkv-cal-data.query.js';
+export * from './application/usecase-designer/spf-module/get-tag-data/get-tkv-cal-data.handler.js';
 export {ParameterDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export type {ParameterDto} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
 export {ParameterSummaryDtoSchema} from './application/usecase-designer/spf-module/dto/parameter-dto.js';
@@ -347,6 +350,8 @@ export type {
 } from './application/usecase-designer/spf-module/dto/element-dto.js';
 export * from './application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data.command.js';
 export * from './application/usecase-designer/spf-module/put-cal-data/put-ckv-cal-data-result.js';
+export * from './application/usecase-designer/spf-module/update-tag-data/update-tkv-cal-data.command.js';
+export * from './application/usecase-designer/spf-module/update-tag-data/update-tkv-cal-data-result.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.query.js';
 export * from './application/usecase-designer/spf-module/get/get-module-compact.handler.js';
 export * from './application/usecase-designer/usecase/get-all/index.js';

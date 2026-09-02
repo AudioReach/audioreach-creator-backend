@@ -107,4 +107,26 @@ export interface ModuleRepository {
     payloadUpdates: CkvPayloadUpdate[],
     uiPersistence?: string,
   ): Promise<void>;
+
+  moduleTagIdMapExists(
+    spfModuleSystemId: number,
+    moduleTagIdMapSystemId: number,
+  ): Promise<boolean>;
+
+  tkvExists(
+    moduleTagIdMapSystemId: number,
+    tkvSystemId: number,
+  ): Promise<boolean>;
+
+  getExistingTkvPayloads(
+    moduleTagIdMapSystemId: number,
+    tkvSystemId: number,
+  ): Promise<ExistingPayloadRow[]>;
+
+  setTkvCalData(
+    moduleTagIdMapSystemId: number,
+    tkvSystemId: number,
+    payloadUpdates: CkvPayloadUpdate[],
+    uiPersistence?: string,
+  ): Promise<void>;
 }

@@ -9,6 +9,7 @@ import {
   type SpfModuleReadModel,
   type SpfTuningConfigService,
   type CkvQueryService,
+  type TkvQueryService,
   type KeyValueDefQueryService,
   type ISessionRepository,
   type Issue,
@@ -29,6 +30,7 @@ import {UsecaseOverlayFetcher} from '../../fetchers/usecase-overlay-fetcher.js';
 import {UseCaseCategoryFetcher} from '../../fetchers/usecase-category-fetcher.js';
 import {UsecaseGkvValuesFetcher} from '../../fetchers/usecase-gkv-values-fetcher.js';
 import {DbCkvCalibrationQueryService} from '../module-calibration/db-ckv-calibration-query-service.js';
+import {DbTkvCalibrationQueryService} from '../module-calibration/db-tkv-calibration-query-service.js';
 import type {SubgraphRow} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import type {ContainerRow} from '../../entity-schema/usecase-data/container/container.schema.js';
 import {
@@ -99,6 +101,7 @@ interface DefinitionCapabilityData {
 export class DbSpfModuleQueryService implements SpfModuleQueryService {
   readonly spfTuningConfigService: SpfTuningConfigService;
   readonly ckvQueryService: CkvQueryService;
+  readonly tkvQueryService: TkvQueryService;
   private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
   private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly usecaseFetcher: UsecaseOverlayFetcher;
@@ -117,6 +120,11 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   ) {
     this.spfTuningConfigService = tuningConfigSvc;
     this.ckvQueryService = new DbCkvCalibrationQueryService(
+      dataSource,
+      editActionsQuerySvc,
+      keyValueDefQuerySvc,
+    );
+    this.tkvQueryService = new DbTkvCalibrationQueryService(
       dataSource,
       editActionsQuerySvc,
       keyValueDefQuerySvc,

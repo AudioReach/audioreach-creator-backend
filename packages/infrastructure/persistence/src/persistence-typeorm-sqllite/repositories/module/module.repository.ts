@@ -21,6 +21,8 @@ import {PortOverlayFetcher} from '../../fetchers/port-overlay-fetcher.js';
 import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
 import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-fetcher.js';
+import {TkvOverlayFetcher} from '../../fetchers/tkv-overlay-fetcher.js';
+import {TkvParameterPayloadFetcher} from '../../fetchers/tkv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
@@ -28,6 +30,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly portFetcher: PortOverlayFetcher;
   private readonly ckvOverlayFetcher: CkvOverlayFetcher;
+  private readonly tkvOverlayFetcher: TkvOverlayFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -46,6 +49,11 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       manager,
       editActionsQs,
       new CkvParameterPayloadFetcher(manager, editActionsQs),
+    );
+    this.tkvOverlayFetcher = new TkvOverlayFetcher(
+      manager,
+      editActionsQs,
+      new TkvParameterPayloadFetcher(manager, editActionsQs),
     );
   }
 
@@ -404,6 +412,81 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           targetSystemId: ckvSystemId,
           aggregateId: spfModuleSystemId,
           delta: {uiPersistence: uiPersistence},
+        },
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+  }
+
+  async moduleTagIdMapExists(
+    spfModuleSystemId: number,
+    moduleTagIdMapSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    return this.tkvOverlayFetcher.fetchModuleTagIdMap(
+      moduleTagIdMapSystemId,
+      spfModuleSystemId,
+      sessionId,
+    );
+  }
+
+  async tkvExists(
+    moduleTagIdMapSystemId: number,
+    tkvSystemId: number,
+  ): Promise<boolean> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const row = await this.tkvOverlayFetcher.fetchTkv(
+      tkvSystemId,
+      moduleTagIdMapSystemId,
+      sessionId,
+    );
+    return row !== null;
+  }
+
+  async getExistingTkvPayloads(
+    _moduleTagIdMapSystemId: number,
+    tkvSystemId: number,
+  ): Promise<ExistingPayloadRow[]> {
+    const sessionId = this.uow.getWriteContext().session.sessionId;
+    const rows = await this.tkvOverlayFetcher.fetchPayloads(
+      tkvSystemId,
+      sessionId,
+    );
+    return rows.map(r => ({
+      systemId: r.systemId,
+      parameterSystemId: r.parameterSystemId,
+    }));
+  }
+
+  async setTkvCalData(
+    moduleTagIdMapSystemId: number,
+    tkvSystemId: number,
+    payloadUpdates: CkvPayloadUpdate[],
+    uiPersistence?: string,
+  ): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+    if (payloadUpdates.length > 0) {
+      await this.writer.writeDeltaBatch(
+        payloadUpdates.map(u => ({
+          targetTable: ENTITY_NAMES.TkvParameterPayload,
+          targetSystemId: u.payloadSystemId,
+          aggregateId: moduleTagIdMapSystemId,
+          delta: {payload: u.payload},
+        })),
+        session.sessionId,
+        groupId,
+        this.manager,
+      );
+    }
+    if (uiPersistence !== undefined) {
+      await this.writer.writeDelta(
+        {
+          targetTable: ENTITY_NAMES.Tkv,
+          targetSystemId: tkvSystemId,
+          aggregateId: moduleTagIdMapSystemId,
+          delta: {uiPersistence},
         },
         session.sessionId,
         groupId,
