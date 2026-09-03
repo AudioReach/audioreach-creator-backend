@@ -4,12 +4,9 @@
  */
 
 import type {SessionMode} from '../../../../shared/change-vocabulary.js';
+import type {ProjectBase} from '../../../../../domain/entities/usecase-data/project/project.js';
 
-export interface ProjectSummary {
-  systemId: number;
-  name: string;
-  description: string;
-  type: string;
+export interface ProjectReadModel extends ProjectBase {
   sessionMode: SessionMode;
 }
 
@@ -59,11 +56,11 @@ export interface ProjectQueryService {
    * Get all projects with their current session mode (READONLY if no active session).
    * Uses a single LEFT JOIN query to avoid N+1.
    */
-  getAllProjectsWithSessionMode(): Promise<ProjectSummary[]>;
+  getAllProjects(): Promise<ProjectReadModel[]>;
 
   /**
    * Get a single project with its current session mode.
    * Returns null if the project does not exist.
    */
-  getProjectWithSessionMode(projectId: number): Promise<ProjectSummary | null>;
+  getProject(projectId: number): Promise<ProjectReadModel | null>;
 }

@@ -4,28 +4,21 @@
  */
 
 import type {QueryHandler} from '../../orchestration/cqrs/queries/query-handler.js';
-import type {
-  GetProjectsQuery,
-  ProjectInfoResult,
-} from './get-projects.query.js';
+import type {GetProjectsQuery} from './get-projects.query.js';
+import type {ProjectDto} from '../dto/project-dto.js';
+import {mapProject} from '../dto/project-dto.js';
 import type {QueryServices} from '../../ports/persistence/query-services/query-services.js';
 
 export class GetProjectsHandler implements QueryHandler<
   GetProjectsQuery,
-  Promise<ProjectInfoResult[]>
+  Promise<ProjectDto[]>
 > {
   constructor(private readonly queryServices: QueryServices) {}
 
-  async handle(_query: GetProjectsQuery): Promise<ProjectInfoResult[]> {
-    const summaries =
-      await this.queryServices.projectQueryService.getAllProjectsWithSessionMode();
+  async handle(_query: GetProjectsQuery): Promise<ProjectDto[]> {
+    const projects =
+      await this.queryServices.projectQueryService.getAllProjects();
 
-    return summaries.map(s => ({
-      projectId: s.systemId,
-      name: s.name,
-      description: s.description,
-      type: s.type,
-      sessionMode: s.sessionMode,
-    }));
+    return projects.map(p => mapProject(p));
   }
 }

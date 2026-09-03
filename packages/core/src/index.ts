@@ -471,6 +471,7 @@ export * from './application/file-operations/download-file/download-file.query.j
 export * from './application/file-operations/download-file/download-file.handler.js';
 export * from './application/project/project-file-properties.query.js';
 export * from './application/project/project-file-properties.handler.js';
+export * from './application/project/dto/project-dto.js';
 export * from './application/project/get-all/get-projects.query.js';
 export * from './application/project/get-all/get-projects.handler.js';
 export * from './application/project/get/get-project.query.js';

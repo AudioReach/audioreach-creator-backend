@@ -5,7 +5,6 @@
 
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
-import type {QueryServices} from '../../ports/persistence/query-services/query-services.js';
 import type {DeleteProjectCommand} from './delete-project.command.js';
 import {ResourceNotFoundException} from '../../../shared/exceptions/resource-not-found.exception.js';
 
@@ -13,17 +12,13 @@ export class DeleteProjectHandler implements CommandHandler<
   DeleteProjectCommand,
   void
 > {
-  constructor(
-    private readonly uow: UnitOfWork,
-    private readonly queryServices: QueryServices,
-  ) {}
+  constructor(private readonly uow: UnitOfWork) {}
 
   async handle(cmd: DeleteProjectCommand): Promise<void> {
-    const existing =
-      await this.queryServices.projectQueryService.getProjectWithSessionMode(
-        cmd.projectId,
-      );
-    if (!existing) {
+    const exists = await this.uow
+      .getProjectRepository()
+      .projectExists(cmd.projectId);
+    if (!exists) {
       throw new ResourceNotFoundException(
         `Project '${cmd.projectId}' not found.`,
       );

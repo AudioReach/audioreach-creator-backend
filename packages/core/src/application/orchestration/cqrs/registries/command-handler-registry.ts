@@ -180,21 +180,11 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(CreateDataLinkCommand, {
-      create: deps =>
-        new CreateDataLinkHandler(
-          deps.uow,
-          deps.queryServices,
-          deps.idGeneration,
-        ),
+      create: deps => new CreateDataLinkHandler(deps.uow, deps.idGeneration),
     });
 
     this.commandHandlerFactories.set(CreateControlLinkCommand, {
-      create: deps =>
-        new CreateControlLinkHandler(
-          deps.uow,
-          deps.queryServices,
-          deps.idGeneration,
-        ),
+      create: deps => new CreateControlLinkHandler(deps.uow, deps.idGeneration),
     });
 
     this.commandHandlerFactories.set(DeleteDataLinkCommand, {
@@ -267,11 +257,11 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(UpdateProjectCommand, {
-      create: deps => new UpdateProjectHandler(deps.uow, deps.queryServices),
+      create: deps => new UpdateProjectHandler(deps.uow),
     });
 
     this.commandHandlerFactories.set(DeleteProjectCommand, {
-      create: deps => new DeleteProjectHandler(deps.uow, deps.queryServices),
+      create: deps => new DeleteProjectHandler(deps.uow),
     });
   }
 }

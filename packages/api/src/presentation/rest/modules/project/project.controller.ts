@@ -57,7 +57,7 @@ import type {
   SessionResult,
   ActiveSession,
   SessionMode as CoreSessionMode,
-  ProjectInfoResult,
+  ProjectDto,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
@@ -339,7 +339,7 @@ export class ProjectController {
       tag: 'project',
     });
 
-    const results = await this.queryBus.execute<ProjectInfoResult[]>(
+    const results = await this.queryBus.execute<ProjectDto[]>(
       new GetProjectsQuery(),
     );
 
@@ -456,12 +456,21 @@ export class ProjectController {
     @Param('projectId') projectId: string,
     @Body() updateProjectInfoRequest: ProjectInfoUpdateDto,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const result = await this.commandBus.execute<ProjectInfoResult>(
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    await this.commandBus.execute<void>(
       new UpdateProjectCommand(
-        Number(projectId),
+        parsedProjectId,
         updateProjectInfoRequest.name,
         updateProjectInfoRequest.description,
       ),
+    );
+
+    const result = await this.queryBus.execute<ProjectDto>(
+      new GetProjectQuery(parsedProjectId),
     );
 
     const dto: ProjectInfoResponseDto = {
@@ -769,8 +778,12 @@ export class ProjectController {
     },
   })
   async deleteProject(@Param('projectId') projectId: string): Promise<void> {
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
     await this.commandBus.execute<void>(
-      new DeleteProjectCommand(Number(projectId)),
+      new DeleteProjectCommand(parsedProjectId),
     );
   }
 
@@ -1492,8 +1505,12 @@ export class ProjectController {
   private async fetchProjectInfoResponse(
     projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    const result = await this.queryBus.execute<ProjectInfoResult>(
-      new GetProjectQuery(Number(projectId)),
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+    const result = await this.queryBus.execute<ProjectDto>(
+      new GetProjectQuery(parsedProjectId),
     );
     const dto: ProjectInfoResponseDto = {
       projectId: String(result.projectId),

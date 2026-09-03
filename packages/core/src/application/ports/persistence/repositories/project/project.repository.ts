@@ -53,6 +53,8 @@ export interface ProjectRepository {
     dataLossIssues: ValidationIssue[],
   ): Promise<void>;
 
+  projectExists(systemId: number): Promise<boolean>;
+
   deleteProject(systemId: number): Promise<void>;
 
   /**

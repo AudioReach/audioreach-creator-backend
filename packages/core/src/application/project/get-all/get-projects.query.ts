@@ -10,11 +10,3 @@ export class GetProjectsQuery extends BaseQuery {
     super('');
   }
 }
-
-export interface ProjectInfoResult {
-  projectId: number;
-  name: string;
-  description: string;
-  type: string;
-  sessionMode: string;
-}

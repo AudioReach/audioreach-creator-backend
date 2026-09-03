@@ -5,57 +5,45 @@
 
 import {
   type ProjectQueryService,
-  type ProjectSummary,
+  type ProjectReadModel,
+  type ProjectType,
   ResourceNotFoundException,
-  SESSION_MODE,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
-import type {ProjectRow} from '../entity-schema/index.js';
 import {DbFileQuery} from './db-file-query.js';
-import {ENTITY_NAMES} from '../entity-schema/entity-table-names.js';
-import {SESSION_STATUS} from '../entity-schema/edit-session/project-session.schema.js';
+import {ProjectFetcher} from '../fetchers/project-fetcher.js';
 
-/**
- * Database implementation of ProjectQueryService
- * Handles querying project-related data from the database
- */
 export class DbProjectQueryService implements ProjectQueryService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly fetcher: ProjectFetcher;
+
+  constructor(private readonly dataSource: DataSource) {
+    this.fetcher = new ProjectFetcher(dataSource.manager);
+  }
 
   async getFileIdByProjectId(projectId: number): Promise<number> {
-    const project = (await this.dataSource
-      .getRepository(ENTITY_NAMES.Project)
-      .createQueryBuilder('p')
-      .leftJoinAndSelect('p.files', 'f')
-      .where('p.systemId = :projectId', {projectId})
-      .getOne()) as ProjectRow | null;
+    const row = await this.fetcher.fetchOneWithFile(projectId);
 
-    if (!project?.files || project.files.length === 0) {
+    if (!row?.files || row.files.length === 0) {
       throw new ResourceNotFoundException(
         `Project with ID ${projectId} not found or has no associated files`,
       );
     }
 
-    return project.files[0].systemId;
+    return row.files[0].systemId;
   }
 
   async getFileNamesByProjectId(
     projectId: number,
   ): Promise<{acdb: string; awsp: string}> {
-    const project = (await this.dataSource
-      .getRepository(ENTITY_NAMES.Project)
-      .createQueryBuilder('p')
-      .leftJoinAndSelect('p.files', 'f')
-      .where('p.systemId = :projectId', {projectId})
-      .getOne()) as ProjectRow | null;
+    const row = await this.fetcher.fetchOneWithFile(projectId);
 
-    if (!project?.files || project.files.length === 0) {
+    if (!row?.files || row.files.length === 0) {
       throw new ResourceNotFoundException(
         `Project with ID ${projectId} not found or has no associated files`,
       );
     }
 
-    const file = project.files[0];
+    const file = row.files[0];
     // fileName is stored as JSON: { acdb: "...", awsp: "...", uploadedAt: "..." }
     const parsed = JSON.parse(file.fileName) as {
       acdb: string;
@@ -99,93 +87,26 @@ export class DbProjectQueryService implements ProjectQueryService {
     };
   }
 
-  async getAllProjectsWithSessionMode(): Promise<ProjectSummary[]> {
-    const rows: Array<{
-      systemId: number;
-      name: string;
-      description: string;
-      type: string;
-      sessionMode: string | null;
-    }> = await this.dataSource
-      .getRepository(ENTITY_NAMES.Project)
-      .createQueryBuilder('p')
-      .leftJoin('p.files', 'f')
-      .leftJoin(
-        ENTITY_NAMES.ProjectSession,
-        'ps',
-        'ps.fileSystemId = f.systemId AND ps.status = :activeStatus',
-        {activeStatus: SESSION_STATUS.Active},
-      )
-      .select([
-        'p.systemId AS systemId',
-        'p.name AS name',
-        'p.description AS description',
-        'p.type AS type',
-        'MAX(ps.session_mode) AS sessionMode',
-      ])
-      .groupBy('p.systemId')
-      .addGroupBy('p.name')
-      .addGroupBy('p.description')
-      .addGroupBy('p.type')
-      .orderBy('p.systemId', 'ASC')
-      .getRawMany();
-
+  async getAllProjects(): Promise<ProjectReadModel[]> {
+    const rows = await this.fetcher.fetchMany();
     return rows.map(r => ({
       systemId: r.systemId,
       name: r.name,
       description: r.description,
-      type: r.type,
-      sessionMode:
-        (r.sessionMode as ProjectSummary['sessionMode']) ??
-        SESSION_MODE.ReadOnly,
+      type: r.type as ProjectType,
+      sessionMode: r.sessionMode as ProjectReadModel['sessionMode'],
     }));
   }
 
-  async getProjectWithSessionMode(
-    projectId: number,
-  ): Promise<ProjectSummary | null> {
-    const row:
-      | {
-          systemId: number;
-          name: string;
-          description: string;
-          type: string;
-          sessionMode: string | null;
-        }
-      | undefined = await this.dataSource
-      .getRepository(ENTITY_NAMES.Project)
-      .createQueryBuilder('p')
-      .leftJoin('p.files', 'f')
-      .leftJoin(
-        ENTITY_NAMES.ProjectSession,
-        'ps',
-        'ps.fileSystemId = f.systemId AND ps.status = :activeStatus',
-        {activeStatus: SESSION_STATUS.Active},
-      )
-      .select([
-        'p.systemId AS systemId',
-        'p.name AS name',
-        'p.description AS description',
-        'p.type AS type',
-        'MAX(ps.session_mode) AS sessionMode',
-      ])
-      .where('p.systemId = :projectId', {projectId})
-      .groupBy('p.systemId')
-      .addGroupBy('p.name')
-      .addGroupBy('p.description')
-      .addGroupBy('p.type')
-      .getRawOne();
-
+  async getProject(projectId: number): Promise<ProjectReadModel | null> {
+    const row = await this.fetcher.fetchOne(projectId);
     if (!row) return null;
-
     return {
       systemId: row.systemId,
       name: row.name,
       description: row.description,
-      type: row.type,
-      sessionMode:
-        (row.sessionMode as ProjectSummary['sessionMode']) ??
-        SESSION_MODE.ReadOnly,
+      type: row.type as ProjectType,
+      sessionMode: row.sessionMode as ProjectReadModel['sessionMode'],
     };
   }
 }
