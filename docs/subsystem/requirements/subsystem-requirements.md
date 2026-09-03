@@ -122,7 +122,8 @@ Use the move-out operation (FR-SS-08) to relocate children before deleting.
 #### FR-SS-03: Rename subsystem
 
 A subsystem's name can be updated by its system ID.
-To remove a name, pass an empty string — the system resets the name to the auto-generated default (`SS_0x{id:X8}`).
+An empty or whitespace-only name leaves the existing name unchanged; it does not reset the name
+to an auto-generated default.
 The new name must be **globally unique** (case-insensitive) across all subsystems within the project.
 If the name is already in use by a different subsystem, the operation must fail with an error
 indicating the duplicate name.
