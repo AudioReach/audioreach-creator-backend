@@ -142,14 +142,19 @@ export interface SubsystemEditRepository {
   removeDataPort(portSystemId: number, subsystemSystemId: number, options?: EditOptions): Promise<void>;
   addControlPort(port: ControlPort, subsystemSystemId: number, options?: EditOptions): Promise<void>;
   removeControlPort(portSystemId: number, subsystemSystemId: number, options?: EditOptions): Promise<void>;
-  moveComponents(
-    subgraphSystemIds: number[],
-    subsystemSystemIds: number[],
-    targetSubsystemSystemId: number | null,
+  updateParentId(
+    subsystemSystemId: number,
+    parentSubsystemSystemId: number | null,
     options?: EditOptions,
   ): Promise<void>;
 }
 ```
+
+The existing `ModuleRepository` gains the corresponding `updateParentId(moduleSystemId,
+parentSubsystemSystemId, options?)` write method. A component move is an application operation,
+not a `SubsystemRepository` bulk write: the core handler resolves the affected modules and calls
+the repository for each one, while it calls `SubsystemRepository.updateParentId` for each selected
+subsystem.
 
 Command-handler method coverage:
 
@@ -159,13 +164,15 @@ Command-handler method coverage:
 | `DeleteSubsystemHandler` | `deleteSubsystem` |
 | `PatchSubsystemHandler` | `renameSubsystem`, `addDataPort`, `removeDataPort`, `addControlPort`, `removeControlPort` |
 | `SetSubsystemFilteredKeysHandler` | `setFilteredKeys` |
-| `MoveSubsystemComponentsHandler` | `moveComponents` |
+| `MoveSubsystemComponentsHandler` | `ModuleRepository.updateParentId`, `SubsystemRepository.updateParentId`, link repositories |
 
 ### 4.2 Adapter (persistence)
 
 **File:** `packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/subsystem/subsystem.repository.ts`
 
 Extend the existing TypeORM subsystem repository with the write methods — do **not** create a separate adapter file.
+`updateParentId` writes the `nodes.parent_id` delta for a subsystem node. The TypeORM module
+repository implements the matching module-node delta method.
 
 `aggregateId` is always the subsystem's `systemId` — including for child `DataPort` and
 `ControlPort` rows.
@@ -346,17 +353,16 @@ export class PatchSubsystemCommand extends BaseCommand {
 4. If absent → throw ResourceNotFoundException
 
 Rename (if name is defined):
-5a. resolvedName = name.trim() === ''
-      ? `SS_0x${subsystem.subsystemId padded to 8 hex digits}`  // reset to default
-      : name
-5b. If resolvedName.length > 255 → throw InvalidOperationException
-5c. Validate global case-insensitive uniqueness through the session-aware read service
+5a. If name.trim() === '': do not stage a rename; retain subsystem.name
+5b. Otherwise, if name.length > 255 → throw InvalidOperationException
+5c. Otherwise validate global case-insensitive uniqueness through the session-aware read service
     If taken → throw DomainRuleViolationException (duplicate name, I1)
-5d. await repo.renameSubsystem(subsystemSystemId, resolvedName)
+5d. Otherwise await repo.renameSubsystem(subsystemSystemId, name)
 
 Data port count (inputDataPortCount and/or outputDataPortCount defined):
-6. applyDataPortCountChange(PORT_IO_TYPE.Input, inputDataPortCount)
-   applyDataPortCountChange(PORT_IO_TYPE.Output, outputDataPortCount)
+6. allocatedDataPortIds = Set of all subsystem.dataPorts[*].dataPortId
+   applyDataPortCountChange(PORT_IO_TYPE.Input, inputDataPortCount, allocatedDataPortIds)
+   applyDataPortCountChange(PORT_IO_TYPE.Output, outputDataPortCount, allocatedDataPortIds)
    (each direction is independent — partial success is allowed per FR-SS-05)
 
 Control port count (controlPortCount defined):
@@ -377,7 +383,7 @@ direction failed, or `Result.ok({groupId})` when all requested changes succeeded
 
 #### Port count change algorithm
 
-**`applyDataPortCountChange(direction, requested)`:**
+**`applyDataPortCountChange(direction, requested, allocatedDataPortIds)`:**
 
 ```
 current = subsystem.dataPorts filtered by direction
@@ -385,32 +391,44 @@ if requested === undefined: return (no-op)
 if requested === current.length: return (no-op)
 
 if requested > current.length:
-  allPortIds = Set of all subsystem.dataPorts[*].dataPortId (both directions)
-  for _ in 0..(requested - current.length):
-    portId = minAvailableId(allPortIds)   // smallest positive integer not in set
-    allPortIds.add(portId)
+  portIds = nextDataPortIds(
+    allocatedDataPortIds,
+    direction === PORT_IO_TYPE.Input,
+    MODULE_PORT_STRATEGIES.SEQUENTIAL,
+    requested - current.length,
+  )
+  for portId in portIds:
     portSystemId = await idGeneration.getNextId(fileSystemId)
     await repo.addDataPort(
       new DataPort({ systemId: portSystemId, dataPortId: portId, portIoType: direction, isStatic: false, name: '' }),
       subsystemSystemId,
     )
+    allocatedDataPortIds.add(portId)
 
 if requested < current.length:
-  occupiedIds = await dataLinkRepo.getLinksByPortSystemIds(current.map(p => p.systemId), fileSystemId)
-                  .map(link => link.portSystemId)
-  unoccupied = current.filter(p => !occupiedIds.has(p.systemId))
-  toRemove = current.length - requested
-  if unoccupied.length < toRemove:
-    return IssueFactory.occupiedPortCannotBeRemoved(...) // caller records a per-direction issue
-  candidates = unoccupied.sortBy(p => p.dataPortId descending).slice(0, toRemove)
-  for each port in candidates: await repo.removeDataPort(port.systemId, subsystemSystemId)
+  links = await dataLinkRepo.getLinksByPortSystemIds(current.map(p => p.systemId), fileSystemId)
+  outcome = resolvePortCountChange(
+    current,
+    requested,
+    Number.MAX_SAFE_INTEGER,
+    links,
+    ISSUE_ENTITY_TYPE.DataPort,
+    subsystemSystemId,
+  )
+  if outcome is fail: return its issues // caller records a per-direction issue
+  for each portSystemId in outcome.data.toRemove:
+    await repo.removeDataPort(portSystemId, subsystemSystemId)
 ```
 
-**Port ID gap-filling:** `minAvailableId(existingIds)` returns the smallest integer ≥ 1 not
-present in the set. Input and output data ports share a single ID space per subsystem.
+The handler reuses `nextDataPortIds` and `resolvePortCountChange` from the module PATCH flow
+instead of duplicating port allocation and occupied-port detection. Passing the sequential module
+strategy with one shared allocation set across both directions preserves the subsystem's shared,
+gap-filling ID space even when one PATCH increases both counts. `resolvePortCountChange` also
+supplies the link-aware failure issues and the port IDs to remove.
 
-**`applyControlPortCountChange(requested)`** follows the same pattern using `controlPorts` and
-`controlLinkRepo.getLinksByPortSystemIds`.
+**`applyControlPortCountChange(requested)`** likewise reuses `resolvePortCountChange` with
+`controlPorts` and `controlLinkRepo.getLinksByPortSystemIds`; it uses `nextControlPortIds` for
+new control-port IDs.
 
 The controller performs a follow-up read after a committed complete or partial result and
 returns the updated `SubsystemDto` together with any issues.
@@ -518,28 +536,32 @@ For each id in subgraphSystemIds:
 6a. id already a direct child of target location → DomainRuleViolationException (duplicate child, I2)
 
 After all validations pass:
-7. await repo.moveComponents(
-      subgraphSystemIds,
-      subsystemSystemIds,
-      targetSubsystemSystemId,
-    )
+7. Resolve each supplied subgraph to its member modules through the session-aware topology reader.
+   For each module, call `moduleRepo.updateParentId(moduleSystemId, targetSubsystemSystemId)`.
+8. For each selected subsystem, recursively load its descendant topology for link reconstruction,
+   then call `subsystemRepo.updateParentId(subsystemSystemId, targetSubsystemSystemId)`.
+   Descendants retain their direct parent IDs, so moving a subsystem preserves its internal tree.
 
-All component re-parenting uses the current write context and the same transaction/group ID.
+The handler owns this traversal and the calls to both repositories in `packages/core`; adapters
+only stage their respective `nodes.parent_id` deltas. Every re-parenting write uses the current
+write context and the same transaction/group ID.
 
 Link reconstruction (after all re-parenting):
-8. Identify all data links and control links that now cross the new boundary
-   without passing through a boundary port — these are invalid.
-9. Remove each invalid link → DataLinkRepository / ControlLinkRepository (tracked in removedDataLinks / removedControlLinks)
-10. For each removed link, construct replacement links that route through the
-   subsystem's boundary ports — new links are staged via the respective link
-   repository (tracked in addedDataLinks / addedControlLinks)
-11. Any subsystems whose port wiring changed are tracked in subsystemPortChanges
+9. Identify every affected data and control subsystem-link segment in both the committed state
+   and the active edit-session overlay.
+10. For resolved segments (a non-null data/control-link ID), follow FR-VL-20a: directly stage
+    deletion of the old segments, retain the physical DataLink or ControlLink, and create the
+    complete replacement chain for the new hierarchy.
+11. For unresolved overlay-only segments (a null data/control-link ID), stage deletion when the
+    move affects either endpoint or boundary. They have no physical link to retain and cannot be
+    safely re-parented as a partial chain.
+12. Any subsystems whose port wiring changed are tracked in subsystemPortChanges.
 
-12. await uow.commit()
-13. return { groupId, updatedModules, updatedSubsystems,
-             addedDataLinks, removedDataLinks,
-             addedControlLinks, removedControlLinks,
-             subsystemPortChanges }
+13. await uow.commit()
+14. return { groupId, updatedModules, updatedSubsystems,
+              addedDataLinks, removedDataLinks,
+              addedControlLinks, removedControlLinks,
+              subsystemPortChanges }
 ```
 
 The controller maps the handler result directly to `MoveSubsystemComponentsResponseDto` — no
@@ -756,8 +778,9 @@ out-of-range unsigned IDs with `BadRequestException`. They are the only HTTP-to-
 conversion point: request and response DTOs retain string IDs, while commands and repositories
 use numeric IDs.
 
-The HTTP client provides component IDs and the target subsystem/root only. The handler performs
-the required re-parenting through `SubsystemEditRepository.moveComponents(...)` inside the
+The HTTP client provides component IDs and the target subsystem/root only. The core handler
+resolves subgraphs to their module nodes, calls `ModuleRepository.updateParentId` for those
+modules, and calls `SubsystemRepository.updateParentId` for selected subsystem nodes inside the
 current session transaction.
 
 `MoveSubsystemComponentsRequestDto` does not expose persistence-layer aggregate details.
@@ -853,10 +876,16 @@ packages/api/src/presentation/rest/modules/subsystem/
 
 ```
 packages/core/src/application/ports/persistence/repositories/subsystem/
-  subsystem.repository.ts                     ← add the five-command write contracts, including moveComponents
+  subsystem.repository.ts                     ← add write contracts, including updateParentId
+
+packages/core/src/application/ports/persistence/repositories/module/
+  module.repository.ts                        ← add updateParentId for moved subgraph modules
 
 packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/subsystem/
-  subsystem.repository.ts                     ← add write method implementations
+  subsystem.repository.ts                     ← add write method implementations, including updateParentId
+
+packages/infrastructure/persistence/src/persistence-typeorm-sqllite/repositories/module/
+  module.repository.ts                        ← add updateParentId implementation
 
 packages/core/src/application/orchestration/cqrs/registries/
   command-handler-registry.ts                 ← register 5 new handlers
