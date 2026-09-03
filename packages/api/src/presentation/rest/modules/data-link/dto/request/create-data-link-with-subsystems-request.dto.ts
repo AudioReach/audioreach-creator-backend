@@ -6,30 +6,27 @@
 import {IsBoolean, IsOptional, IsString} from 'class-validator';
 import {ApiProperty} from '@nestjs/swagger';
 
-export class CreateDataLinkRequest {
+export class CreateDataLinkWithSubsystemsRequest {
   @ApiProperty({
-    description: 'System ID of the source module node',
+    description: 'System ID of the source node (module or subsystem)',
     type: 'string',
   })
   @IsString()
-  sourceModuleSystemId!: string;
+  sourceNodeSystemId!: string;
 
-  @ApiProperty({
-    description: 'System ID of the source port (must be OUTPUT)',
-    type: 'string',
-  })
+  @ApiProperty({description: 'System ID of the source port', type: 'string'})
   @IsString()
   sourcePortSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the destination module node',
+    description: 'System ID of the destination node (module or subsystem)',
     type: 'string',
   })
   @IsString()
-  destinationModuleSystemId!: string;
+  destinationNodeSystemId!: string;
 
   @ApiProperty({
-    description: 'System ID of the destination port (must be INPUT)',
+    description: 'System ID of the destination port',
     type: 'string',
   })
   @IsString()
@@ -37,7 +34,7 @@ export class CreateDataLinkRequest {
 
   @ApiProperty({
     description:
-      'If true, derives INTER_USECASE linkType. Server validates source and dest subgraphs are in different usecases.',
+      'If true, derives INTER_USECASE linkType. Only meaningful when both endpoints are modules.',
     type: 'boolean',
     required: false,
   })
@@ -46,7 +43,8 @@ export class CreateDataLinkRequest {
   isInterUsecase?: boolean;
 
   @ApiProperty({
-    description: 'EC flag. Only valid when derived linkType is INTRA_USECASE.',
+    description:
+      'EC flag. Only valid when both endpoints are modules and derived linkType is INTRA_USECASE.',
     type: 'boolean',
     required: false,
   })

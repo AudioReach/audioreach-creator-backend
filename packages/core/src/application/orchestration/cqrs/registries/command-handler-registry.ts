@@ -93,6 +93,8 @@ import {UpdateContainerPropertyCommand} from '../../../usecase-designer/containe
 import {UpdateContainerPropertyHandler} from '../../../usecase-designer/container/update-property/update-container-property.handler.js';
 import {CreateDataLinkCommand} from '../../../usecase-designer/data-links/create/create-data-link.command.js';
 import {CreateDataLinkHandler} from '../../../usecase-designer/data-links/create/create-data-link.handler.js';
+import {CreateDataLinkWithSubsystemsCommand} from '../../../usecase-designer/data-links/create/create-data-link-with-subsystems.command.js';
+import {CreateDataLinkWithSubsystemsHandler} from '../../../usecase-designer/data-links/create/create-data-link-with-subsystems.handler.js';
 import {DeleteDataLinkCommand} from '../../../usecase-designer/data-links/delete/delete-data-link.command.js';
 import {DeleteDataLinkHandler} from '../../../usecase-designer/data-links/delete/delete-data-link.handler.js';
 import {CreateControlLinkCommand} from '../../../usecase-designer/control-links/create/create-control-link.command.js';
@@ -176,12 +178,12 @@ export class CommandHandlerRegistry {
     });
 
     this.commandHandlerFactories.set(CreateDataLinkCommand, {
+      create: deps => new CreateDataLinkHandler(deps.uow, deps.idGeneration),
+    });
+
+    this.commandHandlerFactories.set(CreateDataLinkWithSubsystemsCommand, {
       create: deps =>
-        new CreateDataLinkHandler(
-          deps.uow,
-          deps.queryServices,
-          deps.idGeneration,
-        ),
+        new CreateDataLinkWithSubsystemsHandler(deps.uow, deps.idGeneration),
     });
 
     this.commandHandlerFactories.set(CreateControlLinkCommand, {

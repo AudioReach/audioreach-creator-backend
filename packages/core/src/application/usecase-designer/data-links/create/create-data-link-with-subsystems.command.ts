@@ -5,11 +5,11 @@
 
 import {BaseCommand} from '../../../shared/base-command.js';
 
-export class CreateDataLinkCommand extends BaseCommand {
+export class CreateDataLinkWithSubsystemsCommand extends BaseCommand {
   constructor(
-    public readonly sourceModuleSystemId: string,
+    public readonly sourceNodeSystemId: string,
     public readonly sourcePortSystemId: string,
-    public readonly destinationModuleSystemId: string,
+    public readonly destinationNodeSystemId: string,
     public readonly destinationPortSystemId: string,
     public readonly isInterUsecase?: boolean,
     public readonly isEc?: boolean,

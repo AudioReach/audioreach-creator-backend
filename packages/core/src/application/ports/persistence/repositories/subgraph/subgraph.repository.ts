@@ -23,6 +23,16 @@ export interface SubgraphRepository {
   subgraphExists(systemId: number, fileSystemId: number): Promise<boolean>;
 
   /**
+   * Returns the usecaseSystemId that owns the given subgraph (via
+   * use_case_subgraphs). Returns null if not found.
+   * Used to validate INTER_USECASE links (FR-DL-09).
+   */
+  getUsecaseSystemIdForSubgraph(
+    subgraphSystemId: number,
+    fileSystemId: number,
+  ): Promise<number | null>;
+
+  /**
    * Stages CREATE rows for the Subgraph aggregate root and all its
    * SubgraphPropertyData children.
    * All rows share the ambient groupId so the whole creation is one undo unit.

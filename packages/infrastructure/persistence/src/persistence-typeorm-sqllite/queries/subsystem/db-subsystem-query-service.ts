@@ -8,7 +8,7 @@ import type {
   SubsystemQueryService,
   SubsystemReadModel,
   ControlLinkReadModel,
-  DataLinkReadModel,
+  SubsystemDataLinkReadModel,
 } from '@arc/core';
 import {Result, IssueFactory} from '@arc/core';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
@@ -154,10 +154,16 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
     }
   }
 
+  /**
+   * Returns virtual data-link segments from subsystem_data_links for the given usecases.
+   * Same scoping and overlay pattern as findControlLinkSegmentsByUsecaseIds.
+   * Returns SubsystemDataLinkReadModel (not DataLinkReadModel) so callers get the
+   * dataLinkSystemId parent reference and the correct type.
+   */
   async findDataLinkSegmentsByUsecaseIds(
     usecaseSystemIds: number[],
     fileSystemId: number,
-  ): Promise<Result<DataLinkReadModel[]>> {
+  ): Promise<Result<SubsystemDataLinkReadModel[]>> {
     if (usecaseSystemIds.length === 0) return Result.ok([]);
     try {
       const sessionId = await resolveActiveSessionId(
@@ -175,10 +181,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
           'sdl.destination_node_system_id AS "destinationNodeSystemId"',
           'sdl.source_port_system_id      AS "sourcePortSystemId"',
           'sdl.destination_port_system_id AS "destinationPortSystemId"',
-          'dl.link_type                   AS "linkType"',
-          'dl.is_ec                       AS "isEc"',
-          'dl.source_subgraph_system_id   AS "sourceSubgraphSystemId"',
-          'dl.dest_subgraph_system_id     AS "destSubgraphSystemId"',
+          'dl.system_id                   AS "dataLinkSystemId"',
         ])
         .addSelect(`${JSON.stringify(fileSystemId)}`, '"fileSystemId"')
         .from('subsystem_data_links', 'sdl')
@@ -216,7 +219,7 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
       );
       return Result.ok(
         links.map(dl =>
-          UseCaseQueryMappers.mapToComponentDataLinkReadModel(dl),
+          UseCaseQueryMappers.mapToSubsystemDataLinkReadModel(dl),
         ),
       );
     } catch (error) {

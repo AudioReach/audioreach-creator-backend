@@ -11,6 +11,7 @@ import type {
   IntentReadModel,
   DataLinkReadModel,
   ControlLinkReadModel,
+  SubsystemDataLinkReadModel,
 } from '@arc/core';
 import {PORT_IO_TYPE} from '@arc/core';
 import type {ValueDefinitionRow, NodeRow} from '../../entity-schema/index.js';
@@ -75,6 +76,19 @@ export const UseCaseQueryMappers = {
       destinationPortSystemId: dl.destinationPortSystemId,
       linkType: dl.linkType,
       isEc: dl.isEc,
+    };
+  },
+
+  mapToSubsystemDataLinkReadModel(
+    dl: DataLinkBase & {dataLinkSystemId?: number | null},
+  ): SubsystemDataLinkReadModel {
+    return {
+      systemId: dl.systemId,
+      sourceNodeSystemId: dl.sourceNodeSystemId,
+      destinationNodeSystemId: dl.destinationNodeSystemId,
+      sourcePortSystemId: dl.sourcePortSystemId,
+      destinationPortSystemId: dl.destinationPortSystemId,
+      dataLinkSystemId: dl.dataLinkSystemId ?? null,
     };
   },
 

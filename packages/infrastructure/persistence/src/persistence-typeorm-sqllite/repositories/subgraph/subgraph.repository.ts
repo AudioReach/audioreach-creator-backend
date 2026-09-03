@@ -116,6 +116,25 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
     return rows.map(r => this.hydrate(r));
   }
 
+  async getUsecaseSystemIdForSubgraph(
+    subgraphSystemId: number,
+    fileSystemId: number,
+  ): Promise<number | null> {
+    const row = await this.manager
+      .createQueryBuilder()
+      .select('ucs.usecase_system_id', 'usecaseSystemId')
+      .from(ENTITY_NAMES.UseCaseSubgraph, 'ucs')
+      .innerJoin(
+        ENTITY_NAMES.UseCase,
+        'uc',
+        'uc.systemId = ucs.usecaseSystemId AND uc.fileSystemId = :fileSystemId',
+        {fileSystemId},
+      )
+      .where('ucs.subgraphSystemId = :subgraphSystemId', {subgraphSystemId})
+      .getRawOne<{usecaseSystemId: number}>();
+    return row ? Number(row.usecaseSystemId) : null;
+  }
+
   async findChangedInSession(
     fileSystemId: number,
   ): Promise<SessionChanged<Subgraph>> {
