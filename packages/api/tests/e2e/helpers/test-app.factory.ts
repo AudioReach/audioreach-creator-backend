@@ -82,7 +82,8 @@ export async function createTestApp(): Promise<INestApplication> {
       const newDataSource = new DataSource({
         type: 'sqlite',
         database: ':memory:', // Each connection gets its own in-memory database
-        ...base,
+        entities: base.entities,
+        synchronize: false,
       });
 
       await newDataSource.initialize();

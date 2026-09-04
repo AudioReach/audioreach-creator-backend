@@ -3,6 +3,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import type {SessionMode} from '../../../../shared/change-vocabulary.js';
+import type {ProjectBase} from '../../../../../domain/entities/usecase-data/project/project.js';
+
+export interface ProjectReadModel extends ProjectBase {
+  sessionMode: SessionMode;
+}
+
 /**
  * Query service interface for project queries
  */
@@ -44,4 +51,16 @@ export interface ProjectQueryService {
     modifiedDate: number;
     oemInfo: string;
   }>;
+
+  /**
+   * Get all projects with their current session mode (READONLY if no active session).
+   * Uses a single LEFT JOIN query to avoid N+1.
+   */
+  getAllProjects(): Promise<ProjectReadModel[]>;
+
+  /**
+   * Get a single project with its current session mode.
+   * Returns null if the project does not exist.
+   */
+  getProject(projectId: number): Promise<ProjectReadModel | null>;
 }

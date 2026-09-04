@@ -14,7 +14,7 @@ import {
   Query,
   HttpStatus,
   UseInterceptors,
-  //UseGuards,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -40,10 +40,12 @@ import {
   type TagDefinitionDto,
   type Result,
 } from '@arc/core';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../../decorators/client-id.decorator.js';
 
 @ApiTags('key-definition')
 @Controller('arc-api/v1/projects')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 @UseInterceptors(PartialSuccessInterceptor)
 @ApiExtraModels(ApiResult, KeyDefinitionResponseDto)
 @ApiExtraModels(ApiResult, TagDefinitionResponseDto)
@@ -103,6 +105,7 @@ export class KeyDefinitionController {
   })
   async getKeyDefinitions(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('keyDefinitionId') keyDefinitionId?: string,
   ): Promise<ApiResult<KeyDefinitionResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
@@ -123,7 +126,7 @@ export class KeyDefinitionController {
     const query = new GetAllKeyDefinitionsQuery(
       parsedProjectId,
       parsedKeyId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result =
@@ -167,6 +170,7 @@ export class KeyDefinitionController {
   async getKeyDefinition(
     @Param('projectId') projectId: string,
     @Param('keySystemId') keySystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<KeyDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
@@ -181,7 +185,7 @@ export class KeyDefinitionController {
     const query = new GetKeyDefinitionQuery(
       parsedProjectId,
       parsedKeySystemId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result = await this.queryBus.execute<Result<KeyDefinitionDto>>(query);
@@ -277,6 +281,7 @@ export class KeyDefinitionController {
   })
   async getTagDefinitions(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('tagDefinitionId') tagDefinitionId?: string,
   ): Promise<ApiResult<TagDefinitionResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
@@ -297,7 +302,7 @@ export class KeyDefinitionController {
     const query = new GetAllTagDefinitionsQuery(
       parsedProjectId,
       parsedTagId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result =
@@ -341,6 +346,7 @@ export class KeyDefinitionController {
   async getTagDefinition(
     @Param('projectId') projectId: string,
     @Param('tagSystemId') tagSystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<TagDefinitionResponseDto>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
@@ -355,7 +361,7 @@ export class KeyDefinitionController {
     const query = new GetTagDefinitionQuery(
       parsedProjectId,
       parsedTagSystemId,
-      'client-id', // TODO: get actual clientId from JWT
+      clientId,
     );
 
     const result = await this.queryBus.execute<Result<TagDefinitionDto>>(query);

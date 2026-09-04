@@ -8,7 +8,7 @@ import {BaseQuery} from '../../shared/base-query.js';
 export class GetLogsByProjectQuery extends BaseQuery {
   constructor(
     public readonly projectId: string,
-    clientId: string,
+    public readonly clientId: string,
   ) {
     super(clientId);
   }

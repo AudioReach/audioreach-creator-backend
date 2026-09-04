@@ -42,7 +42,7 @@ describe('LogController', () => {
       const logger = makeLogger();
       const controller = new LogController(logger, makeQueryBus() as any);
 
-      controller.log(makeDto({level: LogLevel.Info}));
+      controller.log(makeDto({level: LogLevel.Info}), 'client-id');
 
       expect(logger.logInfo).toHaveBeenCalledTimes(1);
       expect(logger.logInfo).toHaveBeenCalledWith(
@@ -59,35 +59,35 @@ describe('LogController', () => {
     it('calls logVerbose for level Verbose', () => {
       const logger = makeLogger();
       const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Verbose}));
+      controller.log(makeDto({level: LogLevel.Verbose}), '');
       expect(logger.logVerbose).toHaveBeenCalledTimes(1);
     });
 
     it('calls logDebug for level Debug', () => {
       const logger = makeLogger();
       const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Debug}));
+      controller.log(makeDto({level: LogLevel.Debug}), '');
       expect(logger.logDebug).toHaveBeenCalledTimes(1);
     });
 
     it('calls logWarn for level Warn', () => {
       const logger = makeLogger();
       const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Warn}));
+      controller.log(makeDto({level: LogLevel.Warn}), '');
       expect(logger.logWarn).toHaveBeenCalledTimes(1);
     });
 
     it('calls logError for level Error', () => {
       const logger = makeLogger();
       const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Error}));
+      controller.log(makeDto({level: LogLevel.Error}), '');
       expect(logger.logError).toHaveBeenCalledTimes(1);
     });
 
     it('calls logCritical for level Critical', () => {
       const logger = makeLogger();
       const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Critical}));
+      controller.log(makeDto({level: LogLevel.Critical}), '');
       expect(logger.logCritical).toHaveBeenCalledTimes(1);
     });
 
@@ -96,6 +96,7 @@ describe('LogController', () => {
       const controller = new LogController(logger, makeQueryBus() as any);
       controller.log(
         makeDto({level: LogLevel.Error, error: 'something went wrong'}),
+        '',
       );
       const call = (logger.logError as jest.Mock).mock.calls[0][0] as any;
       expect(call.error).toBe('something went wrong');
@@ -104,7 +105,7 @@ describe('LogController', () => {
     it('leaves error undefined when dto.error is absent', () => {
       const logger = makeLogger();
       const controller = new LogController(logger, makeQueryBus() as any);
-      controller.log(makeDto({level: LogLevel.Info}));
+      controller.log(makeDto({level: LogLevel.Info}), '');
       const call = (logger.logInfo as jest.Mock).mock.calls[0][0] as any;
       expect(call.error).toBeUndefined();
     });
@@ -130,7 +131,7 @@ describe('LogController', () => {
       (queryBus.execute as jest.Mock).mockResolvedValue(entries);
 
       const controller = new LogController(logger, queryBus as any);
-      const result = await controller.getLogs('proj-42');
+      const result = await controller.getLogs('proj-42', 'client-id');
 
       expect(queryBus.execute).toHaveBeenCalledTimes(1);
       expect(result.data).toHaveLength(1);
@@ -149,7 +150,7 @@ describe('LogController', () => {
       (queryBus.execute as jest.Mock).mockResolvedValue([]);
 
       const controller = new LogController(makeLogger(), queryBus as any);
-      const result = await controller.getLogs('proj-99');
+      const result = await controller.getLogs('proj-99', 'client-id');
 
       expect(result.data).toEqual([]);
     });

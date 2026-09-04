@@ -18,6 +18,8 @@ import {
 } from '@nestjs/common';
 import {ApiTags, ApiParam, ApiExtraModels} from '@nestjs/swagger';
 import {BaseController} from '../base/base.controller.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
 import {
   ContainerPropertiesResponseDto,
   ContainerResponseDto,
@@ -56,7 +58,7 @@ import {
  */
 @ApiTags('containers')
 @Controller('arc-api/v1/projects/:projectId/containers')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 @ApiExtraModels(
   ConfigElementDto,
   ElementTemplateArrayDto,
@@ -115,10 +117,11 @@ export class ContainerController extends BaseController {
   async queryContainers(
     @Param('projectId') projectId: string,
     @Body() _request: SystemIdsRequestDto,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ContainerResponseDto[]>> {
     const query = new ContainerQuery(
       Number.parseInt(projectId, 10), // radix 10 guards against octal misparse
-      'client-id', // TODO: extract real clientId from JWT once auth wiring is done
+      clientId,
     );
 
     const result = await this.queryBus.execute<Result<ContainerDto[]>>(query);
@@ -161,11 +164,12 @@ export class ContainerController extends BaseController {
   async getContainerProperties(
     @Param('projectId') projectId: string,
     @Param('containerSystemId') containerSystemId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ContainerPropertiesResponseDto>> {
     const query = new GetContainerPropertiesQuery(
       Number.parseInt(projectId, 10),
       Number.parseInt(containerSystemId, 10),
-      'client-id',
+      clientId,
     );
     const result =
       await this.queryBus.execute<Result<ContainerPropertiesResponseDto>>(
@@ -261,6 +265,7 @@ export class ContainerController extends BaseController {
     @Param('propSystemId', ParseIntPipe) propSystemId: number,
     @Body() dto: UpdatePropertyRequestDto,
     @ArcSession() session: ActiveSession,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ContainerPropertiesResponseDto>> {
     await this.commandBus.execute<void>(
       new UpdateContainerPropertyCommand(containerSystemId, propSystemId, [
@@ -271,7 +276,7 @@ export class ContainerController extends BaseController {
     const query = new GetContainerPropertiesQuery(
       Number.parseInt(projectId, 10),
       containerSystemId,
-      'api-client',
+      clientId,
     );
     const result =
       await this.queryBus.execute<Result<ContainerPropertiesResponseDto>>(

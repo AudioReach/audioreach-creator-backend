@@ -4,6 +4,7 @@
  */
 
 import {EntitySchema} from 'typeorm';
+import type {ArcDbFileRow} from '../project-data/arc-db-file.schema.js';
 
 export const RESTORE_TYPE = {
   EditSnapshot: 'EDIT_SNAPSHOT',
@@ -20,6 +21,7 @@ export interface RestorePointRow {
   snapshotData: string; // json
   description: string | null;
   createdAt: Date;
+  file?: ArcDbFileRow;
 }
 
 export const RestorePointSchema = new EntitySchema<RestorePointRow>({
@@ -61,6 +63,17 @@ export const RestorePointSchema = new EntitySchema<RestorePointRow>({
       name: 'created_at',
       type: 'datetime',
       createDate: true,
+    },
+  },
+  relations: {
+    file: {
+      type: 'many-to-one',
+      target: 'ArcDbFile',
+      joinColumn: {
+        name: 'file_system_id',
+        referencedColumnName: 'systemId',
+      },
+      onDelete: 'CASCADE',
     },
   },
   indices: [

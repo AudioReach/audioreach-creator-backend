@@ -15,7 +15,6 @@ import {
   Param,
   Patch,
   Post,
-  Request,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -44,6 +43,10 @@ import {
   Result,
   StartSessionCommand,
   EndSessionCommand,
+  GetProjectsQuery,
+  GetProjectQuery,
+  UpdateProjectCommand,
+  DeleteProjectCommand,
 } from '@arc/core';
 import type {
   PathRef,
@@ -54,15 +57,10 @@ import type {
   SessionResult,
   ActiveSession,
   SessionMode as CoreSessionMode,
+  ProjectDto,
 } from '@arc/core';
 import {promises as fsPromises} from 'node:fs';
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    clientId?: string;
-    [key: string]: unknown;
-  };
-}
 import * as os from 'node:os';
 import path from 'node:path';
 import type {Response} from 'express';
@@ -94,9 +92,11 @@ import {SessionMode} from './enums/session-mode.enum.js';
 import {MultipartResponseHelper} from '../../../../infrastructure-wrapper/helpers/multipart-response.helper.js';
 import {SessionGuard} from '../../../../guards/session-guard.js';
 import {ArcSession} from '../../../../guards/arc-session.decorator.js';
+import {AuthGuard} from '@nestjs/passport';
+import {ClientId} from '../../../../decorators/client-id.decorator.js';
 
 @Controller('arc-api/v1/projects')
-//@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
 export class ProjectController {
   constructor(
     private readonly commandBus: CommandBus,
@@ -328,13 +328,30 @@ export class ProjectController {
     },
   })
   async getProjects(
-    @Request() req: AuthenticatedRequest,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto[]>> {
-    // Extract client ID from JWT token
-    const clientId = req.user?.clientId;
-    console.log('Getting projects for client:', clientId);
-    await Promise.resolve();
-    throw new NotImplementedException('getProjects is not implemented yet');
+    this.logger.logInfo({
+      component: 'ProjectController',
+      action: 'getProjects',
+      msg: 'Fetching all projects',
+      clientId,
+      timestamp: new Date(),
+      tag: 'project',
+    });
+
+    const results = await this.queryBus.execute<ProjectDto[]>(
+      new GetProjectsQuery(),
+    );
+
+    const dtos: ProjectInfoResponseDto[] = results.map(r => ({
+      projectId: String(r.projectId),
+      name: r.name,
+      description: r.description,
+      projectType: r.type as ProjectType,
+      sessionMode: (r.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    }));
+
+    return toApiResult(Result.ok(dtos));
   }
 
   @Get('/:projectId')
@@ -375,10 +392,9 @@ export class ProjectController {
     },
   })
   async getProject(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException('getProject is not implemented yet');
+    return this.fetchProjectInfoResponse(projectId);
   }
 
   @Patch('/:projectId')
@@ -437,13 +453,35 @@ export class ProjectController {
     },
   })
   async updateProjectInfo(
-    @Param('projectId') _projectId: string,
-    @Body() _updateProjectInfoRequest: ProjectInfoUpdateDto,
+    @Param('projectId') projectId: string,
+    @Body() updateProjectInfoRequest: ProjectInfoUpdateDto,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'updateProjectInfo is not implemented yet',
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+
+    await this.commandBus.execute<void>(
+      new UpdateProjectCommand(
+        parsedProjectId,
+        updateProjectInfoRequest.name,
+        updateProjectInfoRequest.description,
+      ),
     );
+
+    const result = await this.queryBus.execute<ProjectDto>(
+      new GetProjectQuery(parsedProjectId),
+    );
+
+    const dto: ProjectInfoResponseDto = {
+      projectId: String(result.projectId),
+      name: result.name,
+      description: result.description,
+      projectType: result.type as ProjectType,
+      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    };
+
+    return toApiResult(Result.ok(dto));
   }
 
   @Post('/:projectId/connect')
@@ -484,12 +522,9 @@ export class ProjectController {
     },
   })
   async connectToProject(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'connectToProject is not implemented yet',
-    );
+    return this.fetchProjectInfoResponse(projectId);
   }
 
   @Post('/:projectId/disconnect')
@@ -531,12 +566,9 @@ export class ProjectController {
     },
   })
   async disconnectFromProject(
-    @Param('projectId') _projectId: string,
+    @Param('projectId') projectId: string,
   ): Promise<ApiResult<ProjectInfoResponseDto>> {
-    await Promise.resolve();
-    throw new NotImplementedException(
-      'disconnectFromProject is not implemented yet',
-    );
+    return this.fetchProjectInfoResponse(projectId);
   }
 
   /**
@@ -626,10 +658,8 @@ export class ProjectController {
   async downloadArcDbFiles(
     @Param('projectId') projectId: string,
     @Res() res: Response,
+    @ClientId() clientId: string,
   ): Promise<void> {
-    const clientId = '';
-    // TODO: gather from jwt
-
     this.logger.logInfo({
       component: 'ProjectController',
       action: 'downloadArcDbFiles',
@@ -710,10 +740,8 @@ export class ProjectController {
   })
   async getFileProperties(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
   ): Promise<ApiResult<ProjectFilePropertiesResponseDto>> {
-    const clientId = '';
-    // TODO: gather from jwt
-
     const result = await this.queryBus.execute<ProjectFilePropertiesResult>(
       new ProjectFilePropertiesQuery(projectId, clientId),
     );
@@ -749,10 +777,14 @@ export class ProjectController {
       ],
     },
   })
-  async deleteProject(@Param('projectId') _projectId: string): Promise<void> {
-    // ToDo: Add Code to delete Project Logs
-    await Promise.resolve();
-    throw new NotImplementedException('deleteProject is not implemented yet');
+  async deleteProject(@Param('projectId') projectId: string): Promise<void> {
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+    await this.commandBus.execute<void>(
+      new DeleteProjectCommand(parsedProjectId),
+    );
   }
 
   //TODO: Add this API when diff-merge is needed
@@ -1468,5 +1500,25 @@ export class ProjectController {
       sessionMode: s.sessionMode as unknown as SessionMode,
       summary: s.summary,
     }));
+  }
+
+  private async fetchProjectInfoResponse(
+    projectId: string,
+  ): Promise<ApiResult<ProjectInfoResponseDto>> {
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
+    }
+    const result = await this.queryBus.execute<ProjectDto>(
+      new GetProjectQuery(parsedProjectId),
+    );
+    const dto: ProjectInfoResponseDto = {
+      projectId: String(result.projectId),
+      name: result.name,
+      description: result.description,
+      projectType: result.type as ProjectType,
+      sessionMode: (result.sessionMode as SessionMode) ?? SessionMode.ReadOnly,
+    };
+    return toApiResult(Result.ok(dto));
   }
 }
