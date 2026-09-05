@@ -21,6 +21,7 @@ import type {SubsystemQueryService} from './subsystem/subsystem-query-service.js
 import type {ContainerPropertyDefQueryService} from './container-property-definition/container-property-def-query-service.js';
 import type {SubgraphPropertyDefQueryService} from './subgraph-property-definition/subgraph-property-def-query-service.js';
 import type {LogQueryService} from './logging/log-query-service.js';
+import type {VcpmQueryService} from './vcpm/vcpm-query-service.js';
 
 export interface QueryServices {
   readonly modulesQueryService: ModuleQueryService;
@@ -42,4 +43,5 @@ export interface QueryServices {
   readonly subgraphPropertyDefQueryService: SubgraphPropertyDefQueryService;
   readonly driverModuleDefinitionQueryService: DriverModuleDefinitionQueryService;
   readonly logQueryService: LogQueryService;
+  readonly vcpmQueryService: VcpmQueryService;
 }
