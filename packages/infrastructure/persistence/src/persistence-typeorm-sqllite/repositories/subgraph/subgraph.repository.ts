@@ -6,6 +6,8 @@
 import type {EntityManager} from 'typeorm';
 import type {
   SubgraphRepository,
+  SubgraphWithProperties,
+  VcpmModuleDefinitionWithParamsReadModel,
   UnitOfWork,
   EditOptions,
   Subgraph,
@@ -164,7 +166,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
           aggregateId: subgraph.systemId,
           payload: {
             subgraphSystemId: subgraph.systemId,
-            propertyDefinitionSystemId: prop.propertyDefinitionSystemId,
+            propertySystemId: prop.propertyDefinitionSystemId,
             payload: prop.getPayloadCopy() ?? null,
           },
           ...options,

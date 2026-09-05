@@ -38,4 +38,13 @@ export interface SubgraphPropertyDefQueryService {
   getAllDetailedSubgraphPropertyDefinitionsWithElements(
     fileSystemId: number,
   ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel[]>>;
+
+  /**
+   * Returns a single subgraph property definition including elementsStructure.
+   * Result.fail with ERROR_CODES.ENTITY_NOT_FOUND if not found.
+   */
+  getSubgraphPropertyDefinitionWithElements(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<SubgraphPropertyDefinitionWithElementsReadModel>>;
 }
