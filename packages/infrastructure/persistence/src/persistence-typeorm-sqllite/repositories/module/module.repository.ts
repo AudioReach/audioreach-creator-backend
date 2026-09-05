@@ -11,6 +11,7 @@ import type {
   SpfModuleBase,
   ExistingPayloadRow,
   CkvPayloadUpdate,
+  ModuleForContainer,
 } from '@arc/core';
 import {SpfModule, DataPort, ControlPort} from '@arc/core';
 import type {PendingChangeWriter} from '../../services/pending-change-writer.js';
@@ -22,12 +23,15 @@ import {IntentFetcher} from '../../fetchers/intent-fetcher.js';
 import {CkvOverlayFetcher} from '../../fetchers/ckv-overlay-fetcher.js';
 import {CkvParameterPayloadFetcher} from '../../fetchers/ckv-parameter-payload-fetcher.js';
 import {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
+import {SpfModuleDefinitionFetcher} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-fetcher.js';
+import type {OverlaidSpfModuleDefinition} from '../../fetchers/definitions/spf-module-definitions/spf-module-definition-fetcher.js';
 
 export class TypeOrmModuleRepository implements ModuleRepository {
   private readonly spfModuleFetcher: SpfModuleOverlayFetcher;
   private readonly nodeFetcher: NodeOverlayFetcher;
   private readonly portFetcher: PortOverlayFetcher;
   private readonly ckvOverlayFetcher: CkvOverlayFetcher;
+  private readonly spfModuleDefinitionFetcher: SpfModuleDefinitionFetcher;
 
   constructor(
     private readonly writer: PendingChangeWriter,
@@ -46,6 +50,10 @@ export class TypeOrmModuleRepository implements ModuleRepository {
       manager,
       editActionsQs,
       new CkvParameterPayloadFetcher(manager, editActionsQs),
+    );
+    this.spfModuleDefinitionFetcher = new SpfModuleDefinitionFetcher(
+      manager,
+      editActionsQs,
     );
   }
 
@@ -421,5 +429,65 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     // CkvParameterPayload CREATE rows in FK order.
     // See: docs/edit-crud/design/add-module-calibration-defaults-design.md §6
     return Promise.reject(new Error('createCkv: not yet implemented'));
+  }
+
+  async getModulesByContainerId(
+    containerSystemId: number,
+    fileSystemId: number,
+  ): Promise<ModuleForContainer[]> {
+    const {session} = this.uow.getWriteContext();
+
+    const rows = await this.spfModuleFetcher.fetchMany(
+      fileSystemId,
+      session.sessionId,
+      {containerSystemId},
+    );
+
+    if (rows.length === 0) return [];
+
+    const definitionSystemIds = [
+      ...new Set(rows.map(r => r.definitionSystemId)),
+    ];
+
+    const defRoots = await Promise.all(
+      definitionSystemIds.map(defId =>
+        this.spfModuleDefinitionFetcher.fetchOne(
+          defId,
+          fileSystemId,
+          session.sessionId,
+        ),
+      ),
+    );
+
+    const defMap = new Map(
+      defRoots
+        .filter((d): d is OverlaidSpfModuleDefinition => d !== null)
+        .map(d => [d.systemId, d]),
+    );
+
+    return rows.map(r => {
+      const def = defMap.get(r.definitionSystemId);
+      return {
+        moduleSystemId: r.systemId,
+        containerTypeIds: def?.containerTypeSystemIds ?? [],
+        displayName: def?.displayName ?? '',
+      };
+    });
+  }
+
+  async updateHeapId(moduleSystemId: number, heapId: number): Promise<void> {
+    const {session, groupId} = this.uow.getWriteContext();
+
+    await this.writer.writeDelta(
+      {
+        targetTable: ENTITY_NAMES.SpfModule,
+        targetSystemId: moduleSystemId,
+        aggregateId: moduleSystemId,
+        delta: {heapId},
+      },
+      session.sessionId,
+      groupId,
+      this.manager,
+    );
   }
 }

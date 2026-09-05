@@ -198,4 +198,14 @@ export const IssueFactory = {
       severity: IssueSeverity.Error,
     };
   },
+
+  containerCapabilityMismatch(moduleDisplayName: string): Issue {
+    return {
+      code: ISSUE_CODE.CONTAINER_CAPABILITY_MISMATCH,
+      message:
+        `Module '${moduleDisplayName}' does not support any of the selected capability IDs. ` +
+        `The module's allowed container types do not intersect with the requested capability list.`,
+      severity: IssueSeverity.Error,
+    };
+  },
 } as const;

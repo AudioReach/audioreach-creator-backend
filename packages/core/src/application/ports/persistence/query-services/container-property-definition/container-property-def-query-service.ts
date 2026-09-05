@@ -38,4 +38,14 @@ export interface ContainerPropertyDefQueryService {
   getAllDetailedContainerPropertyDefinitionsWithElements(
     fileSystemId: number,
   ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel[]>>;
+
+  /**
+   * Returns a single container property definition by systemId, including
+   * the `elementsStructure` field needed for serializing/parsing parameter data.
+   * Result.fail if not found.
+   */
+  getContainerPropertyDefinitionWithElements(
+    propertySystemId: number,
+    fileSystemId: number,
+  ): Promise<Result<ContainerPropertyDefinitionWithElementsReadModel>>;
 }

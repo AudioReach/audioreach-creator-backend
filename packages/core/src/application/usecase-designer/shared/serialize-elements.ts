@@ -27,6 +27,21 @@ import {evaluateFormula} from './utils/formular-evaluator.js';
 /** DTO alias for element arrays (GET response uses this; PUT input round-trips it back). */
 const ELEMENT_ARRAY_DTO_TYPE = 'ElementTemplateArray' as const;
 
+/**
+ * Casts a write-side DTO element array to ElementData[] for serializeParameterData.
+ *
+ * Both ParameterElementDto (full read-side) and ParameterElementSummaryDto
+ * (write-side subset) are structurally compatible at runtime: serializeConfigElement
+ * only reads input.type (discriminant) and input.value (the numeric string).
+ * dataType, min, max, isReadOnly and other fields are resolved entirely from
+ * elementsStructure (the definition schema), not from the input elements.
+ * The double cast is required because Zod summary DTOs declare value: unknown
+ * while ElementData requires value: string.
+ */
+export function mapToElementData(elements: unknown[]): ElementCalData[] {
+  return elements as unknown as ElementCalData[];
+}
+
 type SerializeResult =
   | {ok: true; value: Uint8Array}
   | {ok: false; error: string};

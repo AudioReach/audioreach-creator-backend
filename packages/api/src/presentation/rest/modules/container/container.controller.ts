@@ -5,7 +5,6 @@
 
 import {
   Controller,
-  NotImplementedException,
   Post,
   Get,
   Patch,
@@ -44,8 +43,11 @@ import {
   CommandBus,
   ContainerQuery,
   GetContainerPropertiesQuery,
+  GetContainerPropertyQuery,
   UpdateContainerPropertyCommand,
   Result,
+  mapPropertyToDto,
+  type PropertyDataDto,
   type ActiveSession,
   type ContainerDto,
 } from '@arc/core';
@@ -205,22 +207,24 @@ export class ContainerController extends BaseController {
     ],
   })
   async getContainerProperty(
-    @Param('projectId') projectId: string,
-    @Param('containerSystemId') containerSystemId: string,
-    @Param('propertySystemId') propertySystemId: string,
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Param('containerSystemId', ParseIntPipe) containerSystemId: number,
+    @Param('propertySystemId', ParseIntPipe) propertySystemId: number,
   ): Promise<ApiResult<PropertyResponseDto>> {
-    await Promise.resolve();
-    console.log(
-      `Getting property ${propertySystemId} for container ${containerSystemId} in project ${projectId}`,
+    const query = new GetContainerPropertyQuery(
+      projectId,
+      containerSystemId,
+      propertySystemId,
+      'api-client',
     );
-    throw new NotImplementedException(
-      'getContainerProperty is not implemented yet',
-    );
+    const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+    return toApiResult(result, data => mapPropertyToDto(data));
   }
 
   /**
    * Update a container property.
-   * Returns 400 if propSystemId maps to the capabilities property.
+   * Returns 400 for invalid property values, 403 without an active session,
+   * and 422 when the capability list is incompatible with module definitions.
    */
   @Patch('/:containerSystemId/properties/:propSystemId')
   @ApiParam({
@@ -250,6 +254,14 @@ export class ContainerController extends BaseController {
         description: 'Container or property not found',
       },
       {
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid property value',
+      },
+      {
+        status: HttpStatus.FORBIDDEN,
+        description: 'No active session',
+      },
+      {
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description: 'Failed to update property',
       },
@@ -261,22 +273,22 @@ export class ContainerController extends BaseController {
     @Param('propSystemId', ParseIntPipe) propSystemId: number,
     @Body() dto: UpdatePropertyRequestDto,
     @ArcSession() session: ActiveSession,
-  ): Promise<ApiResult<ContainerPropertiesResponseDto>> {
+  ): Promise<ApiResult<PropertyResponseDto>> {
     await this.commandBus.execute<void>(
-      new UpdateContainerPropertyCommand(containerSystemId, propSystemId, [
-        dto,
-      ]),
+      new UpdateContainerPropertyCommand(
+        containerSystemId,
+        propSystemId,
+        dto.elements,
+      ),
       session,
     );
-    const query = new GetContainerPropertiesQuery(
+    const query = new GetContainerPropertyQuery(
       Number.parseInt(projectId, 10),
       containerSystemId,
+      propSystemId,
       'api-client',
     );
-    const result =
-      await this.queryBus.execute<Result<ContainerPropertiesResponseDto>>(
-        query,
-      );
-    return toApiResult(result);
+    const result = await this.queryBus.execute<Result<PropertyDataDto>>(query);
+    return toApiResult(result, data => mapPropertyToDto(data));
   }
 }

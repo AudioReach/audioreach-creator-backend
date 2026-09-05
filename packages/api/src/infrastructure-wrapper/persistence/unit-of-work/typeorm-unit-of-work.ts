@@ -191,7 +191,7 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
   }
 
   getPropertyDefinitionsRepository(): PropertyDefinitionsRepository {
-    return new TypeOrmPropertyDefinitionsRepository();
+    return new TypeOrmPropertyDefinitionsRepository(this.queryRunner.manager);
   }
 
   // ── Existing repositories ─────────────────────────────────────────────────

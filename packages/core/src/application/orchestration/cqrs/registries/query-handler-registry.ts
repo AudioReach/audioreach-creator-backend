@@ -61,6 +61,8 @@ import {GetLogsByProjectQuery} from '../../../logging/get-logs/get-logs-by-proje
 import {GetLogsByProjectHandler} from '../../../logging/get-logs/get-logs-by-project.handler.js';
 import {GetContainerPropertiesQuery} from '../../../usecase-designer/container/get-properties/get-container-properties.query.js';
 import {GetContainerPropertiesHandler} from '../../../usecase-designer/container/get-properties/get-container-properties.handler.js';
+import {GetContainerPropertyQuery} from '../../../usecase-designer/container/get-property/get-container-property.query.js';
+import {GetContainerPropertyHandler} from '../../../usecase-designer/container/get-property/get-container-property.handler.js';
 import {GetSubgraphPropertiesQuery} from '../../../usecase-designer/subgraph/get-properties/get-subgraph-properties.query.js';
 import {GetSubgraphPropertiesHandler} from '../../../usecase-designer/subgraph/get-properties/get-subgraph-properties.handler.js';
 import {GetVcpmCkvQuery} from '../../../usecase-designer/subgraph/get-vcpm-ckv/get-vcpm-ckv.query.js';
@@ -245,6 +247,11 @@ export class QueryHandlerRegistry {
     this.queryHandlerFactories.set(GetContainerPropertiesQuery, {
       create: (deps: QueryHandlerDependencies) =>
         new GetContainerPropertiesHandler(deps.queryServices),
+    });
+
+    this.queryHandlerFactories.set(GetContainerPropertyQuery, {
+      create: (deps: QueryHandlerDependencies) =>
+        new GetContainerPropertyHandler(deps.queryServices),
     });
 
     this.queryHandlerFactories.set(GetSubgraphPropertiesQuery, {

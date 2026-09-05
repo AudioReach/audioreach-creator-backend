@@ -64,6 +64,7 @@ export type {
   ModuleRepository,
   ExistingPayloadRow,
   CkvPayloadUpdate,
+  ModuleForContainer,
 } from './application/ports/persistence/repositories/module/module.repository.js';
 export type {ContainerRepository} from './application/ports/persistence/repositories/container/container.repository.js';
 export type {
@@ -271,6 +272,8 @@ export type {
 } from './shared/dto/element-data/element-union.js';
 export {PropertyDtoSchema} from './shared/dto/property-dto.js';
 export type {PropertyDto} from './shared/dto/property-dto.js';
+export {mapPropertyToDto} from './shared/dto/property-dto.js';
+export type {PropertyDataDto} from './application/usecase-designer/shared/property-read-model.js';
 
 // Container query handlers
 export * from './application/usecase-designer/container/query/query-containers.query.js';
@@ -399,6 +402,8 @@ export {UpdateVcpmCalDataCommand} from './application/usecase-designer/subgraph/
 export {UpdateContainerPropertyCommand} from './application/usecase-designer/container/update-property/update-container-property.command.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.query.js';
 export * from './application/usecase-designer/container/get-properties/get-container-properties.handler.js';
+export * from './application/usecase-designer/container/get-property/get-container-property.query.js';
+export * from './application/usecase-designer/container/get-property/get-container-property.handler.js';
 export {ContainerPropertiesDtoSchema} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export type {ContainerPropertiesDto} from './application/usecase-designer/container/dto/container-properties-dto.js';
 export {SubsystemDtoSchema} from './application/usecase-designer/subsystem/dto/subsystem-dto.js';
