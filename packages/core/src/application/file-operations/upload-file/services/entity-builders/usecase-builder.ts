@@ -11,6 +11,7 @@ import {
   USECASE_TYPE,
   type UsecaseType,
 } from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import type {AwspUsecaseType} from '../../../shared/awsp-serializers/v1/ui-metadata/ui-metadata.schema.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {GkvAliasChunk} from '../../../shared/acdb-chunks/gkv-alias-chunk.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
@@ -41,9 +42,14 @@ export class UsecaseBuilder {
     let successCount = 0;
     let errorCount = 0;
 
-    // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds
-    const resolvedUiUsecases: {type: UsecaseType; valueSystemIdSet: string}[] =
-      [];
+    // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds + type
+    const resolvedUiUsecases: {
+      type: UsecaseType;
+      orderedKeys?: Array<{id: number}>;
+      reviewedAt?: string;
+      categoryName?: string;
+      valueSystemIdSet: string;
+    }[] = [];
     for (const uiUc of uiMetadata?.usecases ?? []) {
       const pairs = parseKeyValueString(uiUc.keyValue);
       const ids = pairs
@@ -56,10 +62,12 @@ export class UsecaseBuilder {
         .filter(id => id !== undefined)
         .map(id => id as number)
         .sort((a, b) => a - b);
-      const validValues = Object.values(USECASE_TYPE) as string[];
-      if (ids.length > 0 && validValues.includes(uiUc.type)) {
+      if (ids.length > 0) {
         resolvedUiUsecases.push({
-          type: uiUc.type as UsecaseType,
+          type: mapAwspTypeToUsecaseType(uiUc.type),
+          orderedKeys: uiUc.orderedKeys,
+          reviewedAt: uiUc.reviewedAt,
+          categoryName: uiUc.categoryName,
           valueSystemIdSet: ids.join(','),
         });
       }
@@ -102,7 +110,13 @@ export class UsecaseBuilder {
     index: number,
     fileSystemId: number,
     gkvAliasChunk?: GkvAliasChunk,
-    resolvedUiUsecases: {type: UsecaseType; valueSystemIdSet: string}[] = [],
+    resolvedUiUsecases: {
+      type: UsecaseType;
+      orderedKeys?: Array<{id: number}>;
+      reviewedAt?: string;
+      categoryName?: string;
+      valueSystemIdSet: string;
+    }[] = [],
   ): Promise<UseCase> {
     const keyVector = this.convertToKeyVector(entry, index);
     const systemId = await this.idGenerator.getNextId(fileSystemId);
@@ -155,7 +169,6 @@ export class UsecaseBuilder {
     const matched = resolvedUiUsecases.find(
       u => u.valueSystemIdSet === sortedSet,
     );
-    const type = matched?.type;
 
     return new UseCase({
       systemId,
@@ -165,8 +178,10 @@ export class UsecaseBuilder {
       subgraphPairs,
       alias: aliasEntry?.usecaseName,
       aliasId: aliasEntry?.usecaseId,
-      categories: undefined, //TODO:
-      type,
+      categories: matched?.categoryName ? [matched.categoryName] : undefined,
+      type: matched?.type,
+      orderedKeys: matched?.orderedKeys,
+      reviewedAt: matched?.reviewedAt,
     });
   }
 
@@ -217,5 +232,16 @@ export class UsecaseBuilder {
     }
 
     return {valueSystemIds};
+  }
+}
+
+function mapAwspTypeToUsecaseType(t: AwspUsecaseType): UsecaseType {
+  switch (t) {
+    case 'Ec':
+      return USECASE_TYPE.Ec;
+    case 'Linked':
+      return USECASE_TYPE.Linked;
+    case 'Island':
+      return USECASE_TYPE.Island;
   }
 }

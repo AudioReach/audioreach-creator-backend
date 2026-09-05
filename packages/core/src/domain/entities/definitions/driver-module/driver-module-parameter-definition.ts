@@ -11,6 +11,7 @@ export interface DriverModuleParameterDefinitionInit {
   maxSize: number;
   paramStructure: string; // JSON string
   driverModuleDefinitionSystemId: number;
+  copySrcParamId?: number;
 }
 
 /**
@@ -25,6 +26,7 @@ export class DriverModuleParameterDefinition {
   maxSize: number;
   paramStructure: string; // JSON string
   driverModuleDefinitionSystemId: number;
+  copySrcParamId?: number;
 
   constructor(init: DriverModuleParameterDefinitionInit) {
     this.systemId = init.systemId;
@@ -34,5 +36,6 @@ export class DriverModuleParameterDefinition {
     this.maxSize = init.maxSize;
     this.paramStructure = init.paramStructure;
     this.driverModuleDefinitionSystemId = init.driverModuleDefinitionSystemId;
+    this.copySrcParamId = init.copySrcParamId;
   }
 }

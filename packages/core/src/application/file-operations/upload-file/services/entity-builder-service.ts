@@ -519,6 +519,7 @@ export class EntityBuilderService {
       this.containerProcessorMap, // Pass container-to-processor map
       activeControlPortInfo,
       parsedAcdb, // Pass parsedAcdb for calibration data attachment
+      parsedAwsp.getUiMetadata(), // Pass ui-metadata for reviewedAt/aliasName
     );
 
     this.logger?.logInfo({

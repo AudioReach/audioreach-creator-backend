@@ -67,6 +67,7 @@ export class TagDefinitionInserter {
       name: tag.name,
       description: tag.description,
       isVoice: tag.isVoice,
+      isSpfTag: tag.isSpfTag,
       cHeaderEnumName: tag.cHeaderEnumName,
       cHeaderEnumValue: tag.cHeaderEnumValue,
     }));

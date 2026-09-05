@@ -190,6 +190,18 @@ export class TypeOrmBulkImportRepository implements BulkImportRepository {
       defaultProcessorDomain: data.defaultProcessorDomain,
       rtcConfig: JSON.stringify(data.rtc.toJSON()),
       alsaLibConfig: JSON.stringify(data.alsaLib.toJSON()),
+      validationConfig:
+        data.validation != null
+          ? JSON.stringify(data.validation.toJSON())
+          : null,
+      alsaMetaData:
+        data.alsaMetaData != null
+          ? JSON.stringify(data.alsaMetaData.map(d => d.toJSON()))
+          : null,
+      alsaTagData:
+        data.alsaTagData != null
+          ? JSON.stringify(data.alsaTagData.map(d => d.toJSON()))
+          : null,
     });
   }
 }

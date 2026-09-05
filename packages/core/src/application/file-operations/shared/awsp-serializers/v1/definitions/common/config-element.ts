@@ -7,7 +7,14 @@ import {AwspBaseElement} from './base-element.js';
 import type {DataType} from './type/data-type.js';
 import type {DisplayType} from './type/display-type.js';
 import type {ElementPolicy} from './type/element-policy.js';
-import {ConfigElementSchema} from './config-element.schema.js';
+import {
+  ConfigElementSchema,
+  type DependentOnElement,
+  type Range,
+  type DefaultDataDependency,
+  type BitField,
+  type GroupIndex,
+} from './config-element.schema.js';
 
 /**
  * Represents a configuration element with data type and display properties.
@@ -47,6 +54,21 @@ export class AwspConfigElement extends AwspBaseElement {
   /** List of default data dependencies (optional) */
   defaultDataDepends?: string[];
 
+  // Extra serializable fields preserved for round-trip fidelity
+  userDefaultValue?: string;
+  isHide?: boolean;
+  byteSize?: string;
+  rawDataSizeFormula?: string;
+  formula?: string;
+  uiValPrecision?: number;
+  min?: string;
+  max?: string;
+  dependentOnElements?: DependentOnElement[];
+  rangeList?: Range[];
+  bitFields?: BitField[];
+  groupIndex?: GroupIndex[];
+  defaultDataDependencies?: DefaultDataDependency[];
+
   /**
    * Parse JSON data into AwspConfigElement instance
    * @param data - Raw JSON data
@@ -76,6 +98,19 @@ export class AwspConfigElement extends AwspBaseElement {
       precision: this.precision,
       linkedByForFormula: this.linkedByForFormula,
       defaultDataDepends: this.defaultDataDepends,
+      userDefaultValue: this.userDefaultValue,
+      isHide: this.isHide,
+      byteSize: this.byteSize,
+      rawDataSizeFormula: this.rawDataSizeFormula,
+      formula: this.formula,
+      uiValPrecision: this.uiValPrecision,
+      min: this.min,
+      max: this.max,
+      dependentOnElements: this.dependentOnElements,
+      rangeList: this.rangeList,
+      bitFields: this.bitFields,
+      groupIndex: this.groupIndex,
+      defaultDataDependencies: this.defaultDataDependencies,
     };
   }
 }

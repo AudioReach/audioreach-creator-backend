@@ -18,6 +18,7 @@ export interface SubgraphBase {
   name: string;
   isImported: boolean;
   fileSystemId: number;
+  reviewedAt?: string;
 }
 
 export interface SubgraphRow extends EntityBaseRow, SubgraphBase {
@@ -38,6 +39,12 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
     subgraphId: {name: 'subgraph_id', type: 'integer'},
     isImported: {name: 'is_imported', type: 'integer'}, // SQLite stores boolean as 0/1
     fileSystemId: {name: 'file_system_id', type: 'integer'},
+    reviewedAt: {
+      name: 'reviewed_at',
+      type: 'varchar',
+      length: 100,
+      nullable: true,
+    },
   },
   relations: {
     // Inverse for convenience.

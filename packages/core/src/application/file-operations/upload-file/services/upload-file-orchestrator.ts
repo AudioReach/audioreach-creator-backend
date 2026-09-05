@@ -39,6 +39,7 @@ import {PARSED_CHUNK_TYPES} from '../../shared/constants/chunk-types.js';
 import type {DataLink} from '../../../../domain/entities/usecase-data/links/data-link.js';
 import type {ControlLink} from '../../../../domain/entities/usecase-data/links/control-link.js';
 import type {Subsystem} from '../../../../domain/entities/usecase-data/subsystem/subsystem.js';
+import {UiSwitchesResolver} from './ui-switches-resolver.js';
 
 /**
  * Large block size for ID reservation to cover all entities in a file upload.
@@ -80,6 +81,10 @@ export interface UploadOrchestratorResult {
    * Undefined if header chunk was not found or failed to parse.
    */
   headerData?: AcdbHeaderData;
+  /** Switches JSON with systemId-keyed references, ready to store on the file record. */
+  uiSwitchesJson?: string;
+  /** Raw srsMetadata JSON for pass-through storage on the file record. */
+  uiSrsMetadataJson?: string;
 }
 
 export class UploadFileOrchestrator {
@@ -93,6 +98,10 @@ export class UploadFileOrchestrator {
   private parsedAcdb: ParsedAcdb | null = null;
   private parsedAwsp: ParsedAwsp | null = null;
   private currentFileId: number = 0;
+
+  // UI-metadata extras resolved after entity insertions
+  private uiSwitchesJson: string | undefined = undefined;
+  private uiSrsMetadataJson: string | undefined = undefined;
 
   /**
    * DATA_LOSS issues collected during bulk-insert.
@@ -291,7 +300,37 @@ export class UploadFileOrchestrator {
       issues: this.issueCollector.getIssues(),
       dataLossIssues: [...this.dataLossIssues],
       headerData: this.extractHeaderData(),
+      uiSwitchesJson: this.uiSwitchesJson,
+      uiSrsMetadataJson: this.uiSrsMetadataJson,
     };
+  }
+
+  /**
+   * Phase 7b: Resolve UI-metadata extras after all entity insertions.
+   * Switches references are translated from instanceId to systemId.
+   * srsMetadata is stored as raw JSON pass-through.
+   */
+  private resolveUiMetadataExtras(): void {
+    const uiMetadata = this.parsedAwsp?.getUiMetadata();
+    if (!uiMetadata) return;
+
+    if (uiMetadata.switches && uiMetadata.switches.length > 0) {
+      const resolver = new UiSwitchesResolver(this.logger);
+      this.uiSwitchesJson = resolver.resolve(
+        uiMetadata.switches,
+        this.foreignKeyMapper,
+      );
+    }
+
+    if (uiMetadata.srsMetadata) {
+      try {
+        this.uiSrsMetadataJson = JSON.stringify(
+          uiMetadata.srsMetadata.toJSON(),
+        );
+      } catch {
+        // Non-fatal: pass-through failure logs silently
+      }
+    }
   }
 
   /**
@@ -416,6 +455,10 @@ export class UploadFileOrchestrator {
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
+
+      // Phase 7b: Resolve and store UI-metadata extras (switches, srsMetadata)
+      // Runs after all module/link insertions so ForeignKeyMapper is fully populated.
+      this.resolveUiMetadataExtras();
 
       // Phase 8: Insert Configuration (no dependencies — just needs fileId)
       await this.insertConfiguration(bulkRepo);

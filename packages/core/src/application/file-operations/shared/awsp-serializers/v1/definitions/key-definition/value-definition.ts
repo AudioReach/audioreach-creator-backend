@@ -47,7 +47,8 @@ export class AwspValueDefinition extends BaseDefinition {
       name: this.name,
       description: this.description,
       enumMember: this.enumMember,
-      specialValue: this.specialValue,
+      specialityValue:
+        this.specialValue !== undefined ? Number(this.specialValue) : undefined,
     };
   }
 }

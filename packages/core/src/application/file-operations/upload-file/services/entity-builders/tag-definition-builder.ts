@@ -61,7 +61,7 @@ export class TagDefinitionBuilder {
           keysAllowed.push(
             new TagDefKeyDefLink({
               keyReferenceSystemId: keySystemId,
-              tagEnumValue: supportedKey.enumValue,
+              tagEnumValue: supportedKey.enumMember,
             }),
           );
         }
@@ -75,6 +75,7 @@ export class TagDefinitionBuilder {
         description: awspTagDef.description,
         keysAllowed,
         isVoice: awspTagDef.isVoice ?? false,
+        isSpfTag: awspTagDef.isSpfTag,
         cHeaderEnumName: awspTagDef.enumName,
         cHeaderEnumValue: awspTagDef.enumMember,
         fileSystemId,

@@ -65,6 +65,16 @@ export interface ProjectRepository {
   ): Promise<void>;
 
   /**
+   * Store opaque ui-metadata extras (switches JSON and srsMetadata JSON) on the file record.
+   * Called at the end of upload after all entity insertions have completed.
+   */
+  updateFileUiMetadataExtras(
+    fileSystemId: number,
+    uiSwitchesJson: string | undefined,
+    uiSrsMetadataJson: string | undefined,
+  ): Promise<void>;
+
+  /**
    * Returns the port strategy for the given file, or null when no
    * configuration row exists. Callers in the core layer apply the
    * INPUT_EVEN_OUTPUT_ODD default so the absence of configuration is

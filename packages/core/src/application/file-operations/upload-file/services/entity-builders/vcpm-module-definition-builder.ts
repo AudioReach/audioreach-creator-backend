@@ -162,6 +162,7 @@ export class VcpmModuleDefinitionBuilder {
           elementsStructure: JSON.stringify(awspParam.elements),
           isPersistent: false,
           isReadOnly: awspParam.isReadOnly ?? false,
+          copySrcParamId: awspParam.copySrcParamId,
         });
 
         definition.parameters.push(param);

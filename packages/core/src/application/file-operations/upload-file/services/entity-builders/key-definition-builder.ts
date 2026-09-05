@@ -395,6 +395,7 @@ export class KeyDefinitionBuilder {
       isGraphKey: awsp.isGraphKey ?? true, //TODO: fix workspace file
       isVoice: awsp.isVoice ?? false,
       isDynamic: awsp.isDynamic ?? false,
+      isSpfKey: awsp.isSpfKey,
       values: domainValues,
 
       // TODO: Implement specialty mapping when available

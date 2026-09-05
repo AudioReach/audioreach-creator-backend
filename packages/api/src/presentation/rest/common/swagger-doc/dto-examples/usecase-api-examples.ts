@@ -178,7 +178,7 @@ export const UsecaseResponseDtoExample = {
     ];
     return Object.assign(new UsecaseResponseDto(), {
       systemId: '1',
-      usecaseType: 'Regular',
+      usecaseType: 'LINKED',
       gkv: {systemId: '1', keyValuePairs: keyvalueInfo},
       aliasId: 101,
       alias: 'PCM_Deep_Buffer_MBDRC_Playback_Speaker',
@@ -217,7 +217,7 @@ export const UseCaseIdentifierCollectionExample = {
     listOfUsecases.push(
       Object.assign(new UsecaseResponseDto(), {
         systemId: '2',
-        usecaseType: 'Regular',
+        usecaseType: 'LINKED',
         gkv: {systemId: '2', keyValuePairs: keyvalueInfo},
         aliasId: 102,
         alias: 'PCM_Offload_MBDRC_Playback_Speaker',

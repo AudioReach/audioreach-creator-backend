@@ -4,9 +4,9 @@
  */
 
 export const USECASE_TYPE = {
-  Connected: 'CONNECTED',
-  Disconnected: 'DISCONNECTED',
   Ec: 'EC',
+  Linked: 'LINKED',
+  Island: 'ISLAND',
 } as const;
 
 export type UsecaseType = (typeof USECASE_TYPE)[keyof typeof USECASE_TYPE];

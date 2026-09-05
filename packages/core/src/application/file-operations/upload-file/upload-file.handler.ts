@@ -158,6 +158,20 @@ export class UploadFileHandler implements CommandHandler<
           .getProjectRepository()
           .updateFileHeader(fileSystemId, uploadResult.headerData);
       }
+
+      // Persist UI-metadata extras (switches JSON, srsMetadata JSON) if available
+      if (
+        uploadResult.uiSwitchesJson !== undefined ||
+        uploadResult.uiSrsMetadataJson !== undefined
+      ) {
+        await this.uow
+          .getProjectRepository()
+          .updateFileUiMetadataExtras(
+            fileSystemId,
+            uploadResult.uiSwitchesJson,
+            uploadResult.uiSrsMetadataJson,
+          );
+      }
     } catch (error) {
       await this.uow.getProjectRepository().deleteProject(project.systemId);
       throw new Error(

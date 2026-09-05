@@ -15,8 +15,11 @@ import {groupRawFailures} from '../common/group-raw-failures.js';
 import type {StepResult} from '../common/step-result.js';
 import {
   UseCaseSchema,
+  UseCaseCategorySchema,
   UsecaseGkvValuesSchema,
+  UseCaseCategoryJoinSchema,
   type UseCaseRow,
+  type UseCaseCategoryRow,
 } from '../../../entity-schema/usecase-data/use-case.js';
 import {
   UseCaseSubgraphSchema,
@@ -43,10 +46,11 @@ export class UseCaseInserter {
       i => !rootStep.failedEntityIds.has(i.systemId),
     );
 
-    const [gkvStep, subgraphStep, pairStep] = await Promise.all([
+    const [gkvStep, subgraphStep, pairStep, categoryStep] = await Promise.all([
       this.insertGkvRows(activeItems),
       this.insertSubgraphRows(activeItems),
       this.insertSubgraphPairRows(activeItems),
+      this.insertCategoryRows(activeItems),
     ]);
 
     const allRawFailures: RawFailure[] = [
@@ -54,6 +58,7 @@ export class UseCaseInserter {
       ...gkvStep.rawFailures,
       ...subgraphStep.rawFailures,
       ...pairStep.rawFailures,
+      ...categoryStep.rawFailures,
     ];
 
     return groupRawFailures(
@@ -70,6 +75,10 @@ export class UseCaseInserter {
       alias: item.alias ?? '',
       fileSystemId: item.fileSystemId,
       type: item.type,
+      orderedKeys: item.orderedKeys
+        ? JSON.stringify(item.orderedKeys)
+        : undefined,
+      reviewedAt: item.reviewedAt,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -207,5 +216,99 @@ export class UseCaseInserter {
     });
 
     return {rawFailures, failedEntityIds: new Set()};
+  }
+
+  private async insertCategoryRows(items: UseCase[]): Promise<StepResult> {
+    const rawFailures: RawFailure[] = [];
+
+    const categoryNames = [
+      ...new Set(items.flatMap(i => i.categories ?? [])),
+    ].filter(name => name.length > 0);
+
+    if (categoryNames.length === 0)
+      return {rawFailures: [], failedEntityIds: new Set()};
+
+    const {categorySystemIdByName, upsertFailures} =
+      await this.upsertCategories(categoryNames, items);
+    rawFailures.push(...upsertFailures);
+
+    for (const item of items) {
+      const failures = await this.insertCategoryJoinRows(
+        item,
+        categorySystemIdByName,
+      );
+      rawFailures.push(...failures);
+    }
+
+    return {rawFailures, failedEntityIds: new Set()};
+  }
+
+  private async upsertCategories(
+    categoryNames: string[],
+    items: UseCase[],
+  ): Promise<{
+    categorySystemIdByName: Map<string, number>;
+    upsertFailures: RawFailure[];
+  }> {
+    const categorySystemIdByName = new Map<string, number>();
+    const upsertFailures: RawFailure[] = [];
+    for (const name of categoryNames) {
+      try {
+        await this.manager
+          .createQueryBuilder()
+          .insert()
+          .into(UseCaseCategorySchema)
+          .values({name} as Partial<UseCaseCategoryRow>)
+          .orIgnore()
+          .execute();
+        const row = await this.manager.findOne<UseCaseCategoryRow>(
+          UseCaseCategorySchema,
+          {where: {name} as {name: string}},
+        );
+        if (row) categorySystemIdByName.set(name, row.systemId);
+      } catch (error: unknown) {
+        const dbError = error instanceof Error ? error.message : String(error);
+        for (const item of items.filter(i => i.categories?.includes(name))) {
+          upsertFailures.push({
+            systemId: item.systemId,
+            entityLabel: 'UseCaseCategory',
+            failedRowJson: `(category='${name}')`,
+            dbError,
+          });
+        }
+      }
+    }
+    return {categorySystemIdByName, upsertFailures};
+  }
+
+  private async insertCategoryJoinRows(
+    item: UseCase,
+    categorySystemIdByName: Map<string, number>,
+  ): Promise<RawFailure[]> {
+    const rawFailures: RawFailure[] = [];
+    for (const categoryName of item.categories ?? []) {
+      const categorySystemId = categorySystemIdByName.get(categoryName);
+      if (!categorySystemId) continue;
+      try {
+        await this.manager
+          .createQueryBuilder()
+          .insert()
+          .into(UseCaseCategoryJoinSchema)
+          .values({
+            useCaseSystemId: item.systemId,
+            categorySystemId: categorySystemId,
+          })
+          .orIgnore()
+          .execute();
+      } catch (error: unknown) {
+        rawFailures.push({
+          systemId: item.systemId,
+          entityLabel: 'UseCaseCategory',
+          failedRowJson: `(usecaseSystemId=${item.systemId}, categoryName=${categoryName})`,
+          dbError: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return rawFailures;
   }
 }

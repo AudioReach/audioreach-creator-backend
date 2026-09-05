@@ -18,7 +18,7 @@ describe('AwspParamDefinitionSchema', () => {
     const result = AwspParamDefinitionSchema.parse(validData);
     expect(result.id).toBe(1);
     expect(result.name).toBe('test_param');
-    expect(result.toolPolicies).toEqual(['Calibration', 'Rtc']);
+    expect(result.toolPolicies).toEqual(['Calibration', 'RTC']);
     expect(result.pidType).toBe('Shared');
   });
 

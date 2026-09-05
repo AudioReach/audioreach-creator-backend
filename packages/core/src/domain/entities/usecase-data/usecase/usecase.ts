@@ -29,6 +29,8 @@ export interface UseCaseInit {
   subgraphSystemIds: number[];
   subgraphPairs: SubgraphPair[];
   type?: UsecaseType;
+  orderedKeys?: Array<{id: number}>;
+  reviewedAt?: string;
 }
 
 export class UseCase {
@@ -42,6 +44,8 @@ export class UseCase {
   aliasId?: number;
   categories?: string[];
   type?: UsecaseType;
+  orderedKeys?: Array<{id: number}>;
+  reviewedAt?: string;
 
   private readonly subgraphIdSet = new Set<number>();
   private readonly subgraphPairKeys = new Set<string>();
@@ -54,6 +58,8 @@ export class UseCase {
     this.aliasId = initParams.aliasId;
     this.categories = initParams.categories;
     this.type = initParams.type;
+    this.orderedKeys = initParams.orderedKeys;
+    this.reviewedAt = initParams.reviewedAt;
     for (const id of initParams.subgraphSystemIds) {
       this.AddSubgraph(id);
     }

@@ -4,6 +4,6 @@
  */
 
 /**
- * Arc element policy values
+ * Arc element policy values (matches ElementPolicy enum: Basic, Advanced)
  */
-export type ElementPolicy = 'Hidden' | 'Basic' | 'Advanced';
+export type ElementPolicy = 'Basic' | 'Advanced';

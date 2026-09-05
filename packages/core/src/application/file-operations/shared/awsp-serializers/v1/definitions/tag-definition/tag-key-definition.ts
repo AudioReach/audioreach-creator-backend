@@ -17,8 +17,8 @@ export class AwspTagKeyDefinition extends BaseDefinition {
   /** Name of the tag key definition */
   name!: string;
 
-  /** optional enumeration value associated with the tag key definition */
-  enumValue?: string;
+  /** optional enumeration member associated with the tag key definition */
+  enumMember?: string;
 
   /**
    * Parse JSON data into AwspTagKeyDefinition instance
@@ -39,7 +39,7 @@ export class AwspTagKeyDefinition extends BaseDefinition {
     return {
       id: this.id,
       name: this.name,
-      enumValue: this.enumValue,
+      enumMember: this.enumMember,
     };
   }
 }
