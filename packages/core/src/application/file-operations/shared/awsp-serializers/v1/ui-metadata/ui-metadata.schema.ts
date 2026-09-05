@@ -14,13 +14,16 @@ export const UiOrderedKeySchema = z.object({
   id: HexIdSchema,
 });
 
+const AwspUsecaseTypeSchema = z.enum(['Ec', 'Linked', 'Island']);
+export const AWSP_USECASE_TYPE = AwspUsecaseTypeSchema.enum;
+export type AwspUsecaseType = z.infer<typeof AwspUsecaseTypeSchema>;
+
 export const UiUsecaseSchema = z.object({
   keyValue: z.string(),
   aliasId: z.string().optional(),
   aliasName: z.string().optional(),
   categoryName: z.string().optional(),
-  isEc: z.boolean().optional(),
-  skipRouting: z.boolean().optional(),
+  type: AwspUsecaseTypeSchema,
   orderedKeys: z.array(UiOrderedKeySchema).optional().default([]),
   reviewedAt: z.string().optional(),
 });
@@ -161,7 +164,7 @@ export const SrsActionPersistenceSchema = z.object({
 });
 
 export const SrsMetadataPersistenceSchema = z.object({
-  SrsCategories: z.array(SrsActionPersistenceSchema).optional().default([]),
+  srsCategories: z.array(SrsActionPersistenceSchema).optional().default([]),
 });
 
 // ===== Root UiMetadata Schema =====

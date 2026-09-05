@@ -64,22 +64,20 @@ export class UseCaseInserter {
     return groupRawFailures(
       allRawFailures,
       bySystemId,
-      uc => `UseCase (systemId=${uc.systemId}, aliasId=${uc.aliasId ?? 0})`,
+      uc => `UseCase (systemId=${uc.systemId}, aliasId=${uc.aliasId})`,
     );
   }
 
   private async insertUseCaseRows(items: UseCase[]): Promise<StepResult> {
     const rows: InsertRow<UseCaseRow>[] = items.map(item => ({
       systemId: item.systemId,
-      aliasId: item.aliasId ?? 0,
-      alias: item.alias ?? '',
+      aliasId: item.aliasId,
+      alias: item.alias,
       fileSystemId: item.fileSystemId,
-      isEc: item.isEc,
-      skipRouting: item.skipRouting,
+      type: item.type,
       orderedKeys: item.orderedKeys
         ? JSON.stringify(item.orderedKeys)
         : undefined,
-      reviewedAt: item.reviewedAt,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -230,7 +228,7 @@ export class UseCaseInserter {
       return {rawFailures: [], failedEntityIds: new Set()};
 
     const {categorySystemIdByName, upsertFailures} =
-      await this.upsertCategories(categoryNames, items);
+      await this.insertCategoryRowsWithIds(categoryNames, items);
     rawFailures.push(...upsertFailures);
 
     for (const item of items) {
@@ -244,7 +242,7 @@ export class UseCaseInserter {
     return {rawFailures, failedEntityIds: new Set()};
   }
 
-  private async upsertCategories(
+  private async insertCategoryRowsWithIds(
     categoryNames: string[],
     items: UseCase[],
   ): Promise<{

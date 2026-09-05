@@ -63,6 +63,7 @@ import type {DataLinkRow} from '../../entity-schema/usecase-data/Links/data-link
 import type {ControlLinkRow} from '../../entity-schema/usecase-data/Links/control-link.js';
 import type {SubsystemRow} from '../../entity-schema/usecase-data/subsystem/subsystem.js';
 import type {ArcDbFileRow} from '../../entity-schema/project-data/arc-db-file.schema.js';
+import {EntityReviewedAtSchema} from '../../entity-schema/usecase-data/entity-reviewed-at.schema.js';
 import type {
   ModuleTagIdMapRow,
   TkvRow,
@@ -1260,7 +1261,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           ? undefined
           : Boolean(row.isCalibrationKey),
       isGraphKey: row.isGraphKey == null ? undefined : Boolean(row.isGraphKey),
-      isSPFKey: row.isSPFKey == null ? undefined : Boolean(row.isSPFKey),
+      isSpfKey: row.isSpfKey == null ? undefined : Boolean(row.isSpfKey),
       enumName: row.enumName ?? undefined,
       enumMember: row.enumMember ?? undefined,
       calKeyEnumMember: row.calKeyEnumMember ?? undefined,
@@ -1308,8 +1309,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       name: row.name,
       description: row.description ?? undefined,
       isVoice: Boolean(row.isVoice),
-      isSPFTagKey:
-        row.isSPFTagKey == null ? undefined : Boolean(row.isSPFTagKey),
+      isSpfTag: row.isSpfTag == null ? undefined : Boolean(row.isSpfTag),
       enumName: row.cHeaderEnumName ?? undefined,
       enumMember: row.cHeaderEnumValue ?? undefined,
       supportedKeys: linksMap.get(row.systemId) ?? [],
@@ -1831,6 +1831,19 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           .getOne() as Promise<ArcDbFileRow | null>,
       ]);
 
+    // Fetch reviewed-at side-table rows and build lookup map
+    const reviewedAtRows = await this.dataSource
+      .getRepository(EntityReviewedAtSchema)
+      .createQueryBuilder('era')
+      .where('era.fileSystemId = :fileSystemId', {fileSystemId})
+      .getMany();
+    const reviewedAtMap = new Map(
+      reviewedAtRows.map(r => [
+        `${r.entityType}:${r.entitySystemId}`,
+        r.reviewedAt,
+      ]),
+    );
+
     // Build uiUsecases
     const uiUsecases: UiUsecaseDownloadModel[] = (
       ucRows as unknown as Array<
@@ -1859,10 +1872,9 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         valueIds,
         aliasId: uc.aliasId,
         aliasName: uc.alias ?? '',
-        isEc: uc.isEc,
-        skipRouting: uc.skipRouting,
+        type: uc.type,
         orderedKeys: uc.orderedKeys ?? undefined,
-        reviewedAt: uc.reviewedAt,
+        reviewedAt: reviewedAtMap.get(`usecase:${uc.systemId}`),
         categoryName: (uc.categories as Array<{name?: string}> | undefined)?.[0]
           ?.name,
       };
@@ -1887,7 +1899,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         systemId: sg.systemId,
         subgraphId: sg.subgraphId,
         name: sg.name,
-        reviewedAt: sg.reviewedAt,
+        reviewedAt: reviewedAtMap.get(`subgraph:${sg.systemId}`),
         sgkvValueIds,
       };
     });
@@ -1923,7 +1935,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         instanceId: m.instanceId,
         definitionId: m.definition?.moduleDefinitionId ?? 0,
         aliasName: m.alias ?? '',
-        reviewedAt: m.reviewedAt,
+        reviewedAt: reviewedAtMap.get(`module:${m.systemId}`),
         ckvs,
       };
     });

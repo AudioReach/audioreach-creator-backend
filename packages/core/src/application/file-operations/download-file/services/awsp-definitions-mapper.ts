@@ -68,7 +68,7 @@ export class AwspDefinitionsMapper {
       instance.isDynamic = model.isDynamic;
       instance.isCalKey = model.isCalibrationKey;
       instance.isGraphKey = model.isGraphKey;
-      instance.isSPFKey = model.isSPFKey;
+      instance.isSpfKey = model.isSpfKey;
       instance.enumName = model.enumName;
       instance.enumMember = model.enumMember;
       instance.calKeyEnumMember = model.calKeyEnumMember;
@@ -109,7 +109,7 @@ export class AwspDefinitionsMapper {
       instance.isVoice = model.isVoice;
       instance.enumName = model.enumName;
       instance.enumMember = model.enumMember;
-      instance.isSPFTagKey = model.isSPFTagKey;
+      instance.isSpfTag = model.isSpfTag;
       instance.keys = model.supportedKeys.map(sk => {
         const link = new AwspTagKeyDefinition();
         link.id = sk.keyId;

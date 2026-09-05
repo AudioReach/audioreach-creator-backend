@@ -109,7 +109,6 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       name: s.name,
       isImported: s.isImported,
       fileSystemId: s.fileSystemId,
-      reviewedAt: s.reviewedAt,
     }));
 
     const {failedEntities} = await BatchInserter.insert(

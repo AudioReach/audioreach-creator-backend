@@ -11,6 +11,7 @@ import type {Logger} from '../../../../../../../src/shared/types/logger.interfac
 import type {IdGenerationPort} from '../../../../../../../src/application/ports/id-generation/id-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
 import {asSystemId} from '../../../../../../../src/shared/types/branded-ids.js';
+import {USECASE_TYPE} from '../../../../../../../src/domain/entities/usecase-data/usecase/usecase-type.js';
 import {
   createMockLogger,
   createMockIdGenerator,
@@ -503,7 +504,7 @@ describe('UsecaseBuilder', () => {
   });
 
   describe('UsecaseBuilder isEc from ui-metadata', () => {
-    it('should assign isEc=true when GKV set matches a ui-metadata usecase entry with isEc=true', async () => {
+    it('should assign type=Ec when GKV set matches a ui-metadata usecase entry with type Ec', async () => {
       mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(999));
       mockForeignKeyMapper.getSubgraphSystemId.mockReturnValue(asSystemId(100));
 
@@ -514,7 +515,7 @@ describe('UsecaseBuilder', () => {
         subgraphs: [],
         modules: [],
         dataLinks: [],
-        usecases: [{isEc: true, keyValue: '[0xA2000000: 0xA3000000]'}],
+        usecases: [{type: 'Ec', keyValue: '[0xA2000000: 0xA3000000]'}],
       };
 
       const usecaseEntry: UsecaseEntry = {
@@ -531,10 +532,10 @@ describe('UsecaseBuilder', () => {
         undefined,
         uiMetadata as any,
       );
-      expect(usecases[0].isEc).toBe(true);
+      expect(usecases[0].type).toBe(USECASE_TYPE.Ec);
     });
 
-    it('should leave isEc undefined when no ui-metadata GKV match', async () => {
+    it('should leave type undefined when no ui-metadata GKV match', async () => {
       mockForeignKeyMapper.getValueSystemId.mockReturnValue(asSystemId(999));
       const uiMetadata = {
         version: {major: 1, minor: 0},
@@ -556,7 +557,7 @@ describe('UsecaseBuilder', () => {
         undefined,
         uiMetadata as any,
       );
-      expect(usecases[0].isEc).toBeUndefined();
+      expect(usecases[0].type).toBeUndefined();
     });
   });
 });

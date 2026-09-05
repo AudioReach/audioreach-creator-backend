@@ -24,6 +24,7 @@ import type {
   DriverModuleDefinition,
   ModuleManagerData,
   ConfigurationData,
+  EntityReviewedAt,
 } from '@arc/core';
 
 /**
@@ -210,4 +211,14 @@ export interface BulkImportRepository {
     systemId: number,
     data: ConfigurationData,
   ): Promise<void>;
+
+  /**
+   * Inserts reviewed-at metadata rows for usecases, subgraphs, and modules.
+   * These rows are sourced from ui-metadata.json in the AWSP file.
+   *
+   * @param items - Reviewed-at entries with entity type, entity system ID, and timestamp
+   */
+  insertEntityReviewedAt(
+    items: readonly EntityReviewedAt[],
+  ): Promise<BulkInsertResult>;
 }

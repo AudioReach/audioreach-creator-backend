@@ -15,7 +15,7 @@ export const TagDefinitionSchema = z.object({
   isVoice: z.boolean().optional(),
   enumName: z.string().optional(),
   enumMember: z.string().optional(), // was: enumValue
-  isSPFTagKey: z.boolean().optional(),
+  isSpfTag: z.boolean().optional(),
 });
 
 export type TagDefinition = z.infer<typeof TagDefinitionSchema>;

@@ -64,7 +64,7 @@ export class KeyDefinitionInserter {
       isDynamic: key.isDynamic,
       isCalibrationKey: key.isCalibrationKey,
       isGraphKey: key.isGraphKey,
-      isSPFKey: key.isSPFKey,
+      isSpfKey: key.isSpfKey,
       specialityKeyValue:
         key.specialityKeyValue === undefined
           ? undefined

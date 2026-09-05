@@ -37,6 +37,14 @@ import type {
   PersistedSwitchMetaLink,
 } from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
+import {
+  USECASE_TYPE,
+  type UsecaseType,
+} from '../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import {
+  AWSP_USECASE_TYPE,
+  type AwspUsecaseType,
+} from '../../shared/awsp-serializers/v1/ui-metadata/ui-metadata.schema.js';
 import {v4 as uuidv4} from 'uuid';
 
 /**
@@ -80,10 +88,9 @@ export class UiMetadataBuilder {
       } catch (error) {
         this.logger?.logWarn({
           component: 'UiMetadataBuilder',
-          action: 'parseSrsMetadata',
-          msg: `Failed to parse uiSrsMetadataJson — srsMetadata will be omitted`,
+          msg: 'parseSrsMetadata',
+          description: `Failed to parse uiSrsMetadataJson — srsMetadata will be omitted`,
           error: error instanceof Error ? error : new Error(String(error)),
-          timestamp: new Date(),
           tag: 'download-file',
         });
       }
@@ -168,9 +175,7 @@ export class UiMetadataBuilder {
         : undefined;
       usecase.aliasName = uc.aliasName || undefined;
       usecase.categoryName = uc.categoryName;
-      usecase.isEc = uc.isEc != null ? Boolean(uc.isEc) : undefined;
-      usecase.skipRouting =
-        uc.skipRouting != null ? Boolean(uc.skipRouting) : undefined;
+      usecase.type = mapUsecaseTypeToAwspType(uc.type);
       usecase.orderedKeys = uc.orderedKeys
         ? (JSON.parse(uc.orderedKeys) as Array<{id: number}>)
         : [];
@@ -399,5 +404,18 @@ export class UiMetadataBuilder {
         `0x${keyId.toString(16).toUpperCase().padStart(8, '0')}:0x${valueIds[i].toString(16).toUpperCase().padStart(8, '0')}`,
     );
     return `[${parts.join(' ')}]`;
+  }
+}
+
+function mapUsecaseTypeToAwspType(
+  t: UsecaseType | undefined | null,
+): AwspUsecaseType {
+  switch (t) {
+    case USECASE_TYPE.Ec:
+      return AWSP_USECASE_TYPE.Ec;
+    case USECASE_TYPE.Island:
+      return AWSP_USECASE_TYPE.Island;
+    default:
+      return AWSP_USECASE_TYPE.Linked;
   }
 }

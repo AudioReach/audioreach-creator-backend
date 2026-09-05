@@ -86,6 +86,7 @@ import {
 } from './usecase-data/use-case.js';
 import {UseCaseSubgraphSchema} from './usecase-data/use-case-subgraph.schema.js';
 import {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.schema.js';
+import {EntityReviewedAtSchema} from './usecase-data/entity-reviewed-at.schema.js';
 import {EditActionSchema} from './edit-session/edit-action.schema.js';
 import {SessionEntityVersionSchema} from './edit-session/session-entity-version.schema.js';
 import {RestorePointSchema} from './edit-session/restore-point.schema.js';
@@ -310,6 +311,12 @@ export type {
 } from './usecase-data/use-case-subgraph-pair.schema.js';
 export {UseCaseSubgraphPairSchema} from './usecase-data/use-case-subgraph-pair.schema.js';
 
+export type {
+  EntityReviewedAtBase,
+  EntityReviewedAtRow,
+} from './usecase-data/entity-reviewed-at.schema.js';
+export {EntityReviewedAtSchema} from './usecase-data/entity-reviewed-at.schema.js';
+
 export type {EditActionRow} from './edit-session/edit-action.schema.js';
 export {EditActionSchema} from './edit-session/edit-action.schema.js';
 export type {SessionEntityVersionRow} from './edit-session/session-entity-version.schema.js';
@@ -424,6 +431,7 @@ export function getAllEntitySchemas(
     UseCaseCategoryJoinSchema,
     UseCaseSubgraphSchema,
     UseCaseSubgraphPairSchema,
+    EntityReviewedAtSchema,
 
     EditActionSchema,
     SessionEntityVersionSchema,

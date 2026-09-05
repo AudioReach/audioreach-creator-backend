@@ -100,7 +100,7 @@ export function mapKeyValuePair(
 export function mapUseCase(uc: UseCaseReadModel): UseCaseDto {
   return {
     systemId: String(uc.systemId),
-    usecaseType: 'Regular',
+    usecaseType: 'LINKED',
     keyValuePairs: uc.gkv.map(kv => mapKeyValuePair(kv)),
     usecaseAliasId: uc.aliasId,
     usecaseAliasName: uc.alias,

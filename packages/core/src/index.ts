@@ -548,6 +548,7 @@ export * from './domain/entities/usecase-data/project/project.js';
 export * from './domain/entities/usecase-data/project/arc-db-file.js';
 export * from './domain/entities/usecase-data/usecase/usecase.js';
 export * from './domain/entities/usecase-data/usecase/usecase-type.js';
+export * from './domain/entities/usecase-data/entity-reviewed-at.js';
 
 // Domain entities - module manager
 export * from './domain/entities/module-manager/module-manager-data.js';

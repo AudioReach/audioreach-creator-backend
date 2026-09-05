@@ -5,6 +5,9 @@
 
 import type {UnitOfWork} from '../../../ports/persistence/unit-of-work.js';
 import type {BulkImportRepository} from '../../../ports/persistence/repositories/bulk-import/bulk-import.repository.js';
+import type {Subgraph} from '../../../../domain/entities/usecase-data/subgraph/subgraph.js';
+import type {SpfModule} from '../../../../domain/entities/usecase-data/module/spf-module.js';
+import type {UseCase} from '../../../../domain/entities/usecase-data/usecase/usecase.js';
 import type {BulkInsertResult} from '../../../ports/persistence/repositories/bulk-import/bulk-insert-result-types.js';
 import {EntityBuilderService} from './entity-builder-service.js';
 import {ForeignKeyMapper} from './foreign-key-mapper.js';
@@ -102,6 +105,11 @@ export class UploadFileOrchestrator {
   // UI-metadata extras resolved after entity insertions
   private uiSwitchesJson: string | undefined = undefined;
   private uiSrsMetadataJson: string | undefined = undefined;
+
+  // Entity arrays accumulated during build phases, used for reviewed-at collection
+  private builtSubgraphs: Subgraph[] = [];
+  private builtSpfModules: SpfModule[] = [];
+  private builtUsecases: UseCase[] = [];
 
   /**
    * DATA_LOSS issues collected during bulk-insert.
@@ -455,6 +463,9 @@ export class UploadFileOrchestrator {
 
       // Phase 7: Build and Insert Usecases (depend on all value definitions)
       await this.buildAndInsertUsecases(bulkRepo);
+
+      // Phase 7c: Build and insert entity reviewed-at side-table rows
+      await this.buildAndInsertReviewedAtRows(bulkRepo);
 
       // Phase 7b: Resolve and store UI-metadata extras (switches, srsMetadata)
       // Runs after all module/link insertions so ForeignKeyMapper is fully populated.
@@ -1110,6 +1121,9 @@ export class UploadFileOrchestrator {
     // Collect build issues
     this.issueCollector.addIssues(result.issues);
 
+    // Store built entities for reviewed-at collection
+    this.builtSubgraphs = result.entities;
+
     if (result.entities.length > 0) {
       // Insert subgraphs and capture result
       const insertResult = await bulkRepo.insertSubgraphs(result.entities);
@@ -1211,6 +1225,9 @@ export class UploadFileOrchestrator {
 
     // Collect build issues
     this.issueCollector.addIssues(result.issues);
+
+    // Store built entities for reviewed-at collection
+    this.builtSpfModules = result.entities;
 
     if (result.entities.length > 0) {
       // Insert SPF Modules (with CKVs already attached)
@@ -1465,6 +1482,9 @@ export class UploadFileOrchestrator {
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_USECASE_BUILD),
     );
 
+    // Store built entities for reviewed-at collection
+    this.builtUsecases = usecases;
+
     if (usecases.length > 0) {
       // Profile insertion phase
       this.profiler?.start(PROFILER_OPERATIONS.USECASE_INSERT);
@@ -1499,6 +1519,31 @@ export class UploadFileOrchestrator {
             .join('\n\t'),
         });
       }
+    }
+  }
+
+  private async buildAndInsertReviewedAtRows(
+    bulkRepo: BulkImportRepository,
+  ): Promise<void> {
+    const rows = this.builderService.buildEntityReviewedAt(
+      this.currentFileId,
+      this.parsedAwsp?.getUiMetadata(),
+      this.builtSubgraphs,
+      this.builtSpfModules,
+      this.builtUsecases,
+    );
+    if (rows.length === 0) return;
+    const result = await bulkRepo.insertEntityReviewedAt(rows);
+    if (!result.ok) {
+      this.logger?.logError({
+        msg: 'reviewed_at_insertion_failed',
+        description: `Failed to insert some reviewed-at rows: ${result.errors.length} failures`,
+        component: 'UploadFileOrchestrator',
+        tag: 'database-persistence',
+        error: result.errors
+          .map(e => `${e.message}\n\t\tDetails: ${e.details}`)
+          .join('\n\t'),
+      });
     }
   }
 

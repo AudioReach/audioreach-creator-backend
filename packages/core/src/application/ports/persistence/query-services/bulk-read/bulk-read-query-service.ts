@@ -8,6 +8,7 @@ import type {
   CodecInfo,
 } from '../../../../file-operations/shared/acdb-chunks/header-chunk.js';
 import type {ModulePortStrategy} from '../../../../file-operations/shared/awsp-serializers/v1/configuration/types.js';
+import type {UsecaseType} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
 
 /**
  * ACDB project header metadata from database.
@@ -286,7 +287,7 @@ export interface KeyDefinitionDownloadModel {
   isDynamic?: boolean;
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
-  isSPFKey?: boolean;
+  isSpfKey?: boolean;
   enumName?: string;
   enumMember?: string;
   calKeyEnumMember?: string;
@@ -314,7 +315,7 @@ export interface TagDefinitionDownloadModel {
   name: string;
   description?: string;
   isVoice: boolean;
-  isSPFTagKey?: boolean;
+  isSpfTag?: boolean;
   enumName?: string;
   enumMember?: string;
   supportedKeys: TagKeyDownloadModel[];
@@ -496,8 +497,7 @@ export interface UiUsecaseDownloadModel {
   valueIds: number[];
   aliasId: number;
   aliasName: string;
-  isEc?: boolean;
-  skipRouting?: boolean;
+  type?: UsecaseType;
   orderedKeys?: string;
   reviewedAt?: string;
   categoryName?: string;

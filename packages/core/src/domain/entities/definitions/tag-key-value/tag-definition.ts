@@ -14,7 +14,7 @@ export interface TagDefinitionInit {
   description?: string;
   keysAllowed: TagDefKeyDefLink[];
   isVoice: boolean;
-  isSPFTagKey?: boolean;
+  isSpfTag?: boolean;
   cHeaderEnumName?: string;
   cHeaderEnumValue?: string;
   fileSystemId: number;
@@ -27,7 +27,7 @@ export class TagDefinition {
   name: string;
   description?: string;
   isVoice: boolean;
-  isSPFTagKey?: boolean;
+  isSpfTag?: boolean;
   cHeaderEnumName?: string;
   cHeaderEnumValue?: string;
   fileSystemId: number;
@@ -40,7 +40,7 @@ export class TagDefinition {
     this.name = initParam.name;
     this.description = initParam.description;
     this.isVoice = initParam.isVoice;
-    this.isSPFTagKey = initParam.isSPFTagKey;
+    this.isSpfTag = initParam.isSpfTag;
     this.cHeaderEnumName = initParam.cHeaderEnumName;
     this.cHeaderEnumValue = initParam.cHeaderEnumValue;
     this.fileSystemId = initParam.fileSystemId;

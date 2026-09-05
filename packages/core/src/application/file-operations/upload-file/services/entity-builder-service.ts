@@ -36,7 +36,15 @@ import {CalibrationDataBuilder} from './entity-builders/calibration-data-builder
 import {UsecaseBuilder} from './entity-builders/usecase-builder.js';
 import {SubgraphBuilder} from './entity-builders/subgraph-builder.js';
 import {SubsystemBuilder} from './entity-builders/subsystem-builder.js';
-import type {UiSubsystem} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
+import {
+  type UiSubsystem,
+  type UiMetadata,
+  parseKeyValueString,
+} from '../../shared/awsp-serializers/v1/ui-metadata/index.js';
+import {
+  REVIEWED_AT_ENTITY_TYPE,
+  type EntityReviewedAt,
+} from '../../../../domain/entities/usecase-data/entity-reviewed-at.js';
 import {
   ContainerBuilder,
   type ContainerBuildResult,
@@ -515,11 +523,10 @@ export class EntityBuilderService {
       portStrategy,
       modulePropertyConfigs,
       spfModuleDefinitions,
-      awspTagDefinitions, // Pass AWSP tag definitions for tag data value resolution
-      this.containerProcessorMap, // Pass container-to-processor map
+      awspTagDefinitions,
+      this.containerProcessorMap,
       activeControlPortInfo,
-      parsedAcdb, // Pass parsedAcdb for calibration data attachment
-      parsedAwsp.getUiMetadata(), // Pass ui-metadata for reviewedAt/aliasName
+      parsedAcdb,
     );
 
     this.logger?.logInfo({
@@ -727,6 +734,123 @@ export class EntityBuilderService {
     });
 
     return usecases;
+  }
+
+  /**
+   * Build reviewed-at rows for all three entity types from ui-metadata.
+   * Called once after subgraphs, modules, and usecases are built and have system IDs.
+   */
+  buildEntityReviewedAt(
+    fileSystemId: number,
+    uiMetadata: UiMetadata | undefined,
+    subgraphs: readonly Subgraph[],
+    modules: readonly SpfModule[],
+    usecases: readonly UseCase[],
+  ): EntityReviewedAt[] {
+    if (!uiMetadata) return [];
+
+    return [
+      ...this.buildSubgraphReviewedAt(fileSystemId, uiMetadata, subgraphs),
+      ...this.buildModuleReviewedAt(fileSystemId, uiMetadata, modules),
+      ...this.buildUsecaseReviewedAt(fileSystemId, uiMetadata, usecases),
+    ];
+  }
+
+  private buildSubgraphReviewedAt(
+    fileSystemId: number,
+    uiMetadata: UiMetadata,
+    subgraphs: readonly Subgraph[],
+  ): EntityReviewedAt[] {
+    if (uiMetadata.subgraphs.length === 0) return [];
+
+    const rows: EntityReviewedAt[] = [];
+    const uiSubgraphMap = new Map(uiMetadata.subgraphs.map(s => [s.id, s]));
+    for (const sg of subgraphs) {
+      const reviewedAt = uiSubgraphMap.get(sg.subgraphId)?.reviewedAt;
+      if (reviewedAt != null) {
+        rows.push({
+          fileSystemId,
+          entityType: REVIEWED_AT_ENTITY_TYPE.Subgraph,
+          entitySystemId: sg.systemId,
+          reviewedAt,
+        });
+      }
+    }
+    return rows;
+  }
+
+  private buildModuleReviewedAt(
+    fileSystemId: number,
+    uiMetadata: UiMetadata,
+    modules: readonly SpfModule[],
+  ): EntityReviewedAt[] {
+    if (uiMetadata.modules.length === 0) return [];
+
+    const rows: EntityReviewedAt[] = [];
+    const uiModuleMap = new Map(uiMetadata.modules.map(m => [m.instanceId, m]));
+    for (const mod of modules) {
+      const reviewedAt = uiModuleMap.get(mod.instanceId)?.reviewedAt;
+      if (reviewedAt != null) {
+        rows.push({
+          fileSystemId,
+          entityType: REVIEWED_AT_ENTITY_TYPE.Module,
+          entitySystemId: mod.systemId,
+          reviewedAt,
+        });
+      }
+    }
+    return rows;
+  }
+
+  private buildUsecaseReviewedAt(
+    fileSystemId: number,
+    uiMetadata: UiMetadata,
+    usecases: readonly UseCase[],
+  ): EntityReviewedAt[] {
+    if (uiMetadata.usecases.length === 0) return [];
+
+    const resolvedUiUsecases: {reviewedAt: string; valueSystemIdSet: string}[] =
+      [];
+    for (const uiUc of uiMetadata.usecases) {
+      if (!uiUc.reviewedAt) continue;
+      const pairs = parseKeyValueString(uiUc.keyValue);
+      const ids = pairs
+        .map(({keyId, valueId}) =>
+          this.foreignKeyMapper.getValueSystemId(
+            asNaturalId(keyId),
+            asNaturalId(valueId),
+          ),
+        )
+        .filter((id): id is NonNullable<typeof id> => id != null)
+        .sort((a, b) => a - b);
+      if (ids.length > 0) {
+        resolvedUiUsecases.push({
+          reviewedAt: uiUc.reviewedAt,
+          valueSystemIdSet: ids.join(','),
+        });
+      }
+    }
+
+    if (resolvedUiUsecases.length === 0) return [];
+
+    const rows: EntityReviewedAt[] = [];
+    for (const uc of usecases) {
+      const sortedSet = [...uc.keyVector.valueSystemIds]
+        .sort((a, b) => a - b)
+        .join(',');
+      const matched = resolvedUiUsecases.find(
+        u => u.valueSystemIdSet === sortedSet,
+      );
+      if (matched) {
+        rows.push({
+          fileSystemId,
+          entityType: REVIEWED_AT_ENTITY_TYPE.UseCase,
+          entitySystemId: uc.systemId,
+          reviewedAt: matched.reviewedAt,
+        });
+      }
+    }
+    return rows;
   }
 
   /**

@@ -9,7 +9,6 @@ import {
   RtcConfigSchema,
   AlsaGroupSchema,
   AlsaLibConfigSchema,
-  TreatWarningAsErrorSchema,
   ValidationConfigSchema,
   AlsaFileGroupSchema,
   AlsaFileInfoSchema,
@@ -99,41 +98,41 @@ export class AlsaLibConfig extends BaseDefinition {
 
 // ─── Validation classes ───────────────────────────────────────────────────────
 
-export class TreatWarningAsError extends BaseDefinition {
-  mode?: string;
-  warningAsErrorCodes!: string[];
+export class ValidationDiagnosticEntry extends BaseDefinition {
+  code!: string;
+  severity!: string;
+  ignore!: boolean;
 
-  static fromJSON(data: unknown): TreatWarningAsError {
-    const validated = TreatWarningAsErrorSchema.parse(data);
-    return Object.assign(new TreatWarningAsError(), validated);
+  static fromJSON(data: unknown): ValidationDiagnosticEntry {
+    return Object.assign(new ValidationDiagnosticEntry(), data);
   }
 
   toJSON(): Record<string, unknown> {
-    return {mode: this.mode, warningAsErrorCodes: this.warningAsErrorCodes};
+    return {code: this.code, severity: this.severity, ignore: this.ignore};
   }
 }
 
 export class ValidationConfig extends BaseDefinition {
-  optionalSelectedValidations!: string[];
-  ignoreErrorCodes!: string[];
-  ignoreWarningCodes!: string[];
-  treatWarningAsError?: TreatWarningAsError;
+  diagnosticOverrides!: ValidationDiagnosticEntry[];
 
   static fromJSON(data: unknown): ValidationConfig {
     const validated = ValidationConfigSchema.parse(data);
     return this.hydrateInstance(
       new ValidationConfig(),
       validated as Record<string, unknown>,
-      [{field: 'treatWarningAsError', hydrator: TreatWarningAsError}],
+      [
+        {
+          field: 'diagnosticOverrides',
+          hydrator: ValidationDiagnosticEntry,
+          isArray: true,
+        },
+      ],
     );
   }
 
   toJSON(): Record<string, unknown> {
     return {
-      optionalSelectedValidations: this.optionalSelectedValidations,
-      ignoreErrorCodes: this.ignoreErrorCodes,
-      ignoreWarningCodes: this.ignoreWarningCodes,
-      treatWarningAsError: this.serializeField(this.treatWarningAsError),
+      diagnosticOverrides: this.serializeField(this.diagnosticOverrides),
     };
   }
 }

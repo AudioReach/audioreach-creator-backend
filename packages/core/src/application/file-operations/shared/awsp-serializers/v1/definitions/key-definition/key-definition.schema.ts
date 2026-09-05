@@ -40,7 +40,7 @@ export const KeyDefinitionSchema = z.object({
   graphKeyEnumMember: z.string().optional(), // was: graphKeyEnumValue
   isCalKey: z.boolean().optional(),
   calKeyEnumMember: z.string().optional(), // was: calKeyEnumValue
-  isSPFKey: z.boolean().optional(),
+  isSpfKey: z.boolean().optional(),
 });
 
 export type KeyDefinition = z.infer<typeof KeyDefinitionSchema>;

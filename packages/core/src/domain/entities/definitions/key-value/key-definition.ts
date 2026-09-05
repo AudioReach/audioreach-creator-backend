@@ -32,7 +32,7 @@ export interface KeyDefinitionInit {
 
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
-  isSPFKey?: boolean;
+  isSpfKey?: boolean;
 
   specialityKeyValue?: SpecialityKeyValue;
   cHeaderAttributes?: CHeaderAttributes;
@@ -53,7 +53,7 @@ export class KeyDefinition {
 
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
-  isSPFKey?: boolean;
+  isSpfKey?: boolean;
 
   specialityKeyValue?: SpecialityKeyValue;
   cHeaderAttributes?: CHeaderAttributes;
@@ -68,7 +68,7 @@ export class KeyDefinition {
     this.description = initParam.description ?? '';
     this.isCalibrationKey = initParam.isCalibrationKey ?? false;
     this.isGraphKey = initParam.isGraphKey ?? false;
-    this.isSPFKey = initParam.isSPFKey;
+    this.isSpfKey = initParam.isSpfKey;
     this.isVoice = initParam.isVoice ?? false;
     this.isDynamic = initParam.isDynamic ?? false;
     this.specialityKeyValue = initParam.specialityKeyValue;
