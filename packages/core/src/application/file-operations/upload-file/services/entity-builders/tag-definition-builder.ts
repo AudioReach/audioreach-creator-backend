@@ -75,7 +75,7 @@ export class TagDefinitionBuilder {
         description: awspTagDef.description,
         keysAllowed,
         isVoice: awspTagDef.isVoice ?? false,
-        isSPFTagKey: awspTagDef.isSPFTagKey,
+        isSpfTag: awspTagDef.isSpfTag,
         cHeaderEnumName: awspTagDef.enumName,
         cHeaderEnumValue: awspTagDef.enumMember,
         fileSystemId,

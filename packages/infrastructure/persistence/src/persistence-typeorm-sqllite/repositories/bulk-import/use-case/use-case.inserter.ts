@@ -74,8 +74,7 @@ export class UseCaseInserter {
       aliasId: item.aliasId ?? 0,
       alias: item.alias ?? '',
       fileSystemId: item.fileSystemId,
-      isEc: item.isEc,
-      skipRouting: item.skipRouting,
+      type: item.type,
       orderedKeys: item.orderedKeys
         ? JSON.stringify(item.orderedKeys)
         : undefined,

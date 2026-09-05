@@ -16,6 +16,7 @@ import {
   SwitchPersistenceSchema,
   SrsMetadataPersistenceSchema,
   UiMetadataSchema,
+  type AwspUsecaseType,
 } from './ui-metadata.schema.js';
 
 export class UiPayloadMapEntry extends BaseDefinition {
@@ -37,8 +38,7 @@ export class UiUsecase extends BaseDefinition {
   aliasId?: string;
   aliasName?: string;
   categoryName?: string;
-  isEc?: boolean;
-  skipRouting?: boolean;
+  type!: AwspUsecaseType;
   orderedKeys!: Array<{id: number}>;
   reviewedAt?: string;
 
@@ -53,8 +53,7 @@ export class UiUsecase extends BaseDefinition {
       aliasId: this.aliasId,
       aliasName: this.aliasName,
       categoryName: this.categoryName,
-      isEc: this.isEc,
-      skipRouting: this.skipRouting,
+      type: this.type,
       orderedKeys: this.orderedKeys,
       reviewedAt: this.reviewedAt,
     };
@@ -419,12 +418,12 @@ export class UiSrsAction extends BaseDefinition {
 }
 
 export class UiSrsMetadata extends BaseDefinition {
-  SrsCategories!: UiSrsAction[];
+  srsCategories!: UiSrsAction[];
 
   static fromJSON(data: unknown): UiSrsMetadata {
     const v = SrsMetadataPersistenceSchema.parse(data);
     const instance = new UiSrsMetadata();
-    instance.SrsCategories = v.SrsCategories.map(action => {
+    instance.srsCategories = v.srsCategories.map(action => {
       const a = new UiSrsAction();
       a.name = action.name;
       a.scripts = action.scripts.map(s => {
@@ -446,7 +445,7 @@ export class UiSrsMetadata extends BaseDefinition {
   }
 
   toJSON(): Record<string, unknown> {
-    return {SrsCategories: this.serializeField(this.SrsCategories)};
+    return {srsCategories: this.serializeField(this.srsCategories)};
   }
 }
 

@@ -34,7 +34,7 @@ export class AwspTagDefinition extends BaseDefinition {
   enumMember?: string;
 
   /** Indicates whether this tag is an SPF tag key (optional) */
-  isSPFTagKey?: boolean;
+  isSpfTag?: boolean;
 
   /**
    * Parse JSON data into TagDefinition instance
@@ -76,7 +76,7 @@ export class AwspTagDefinition extends BaseDefinition {
       isVoice: this.isVoice,
       enumName: this.enumName,
       enumMember: this.enumMember,
-      isSPFTagKey: this.isSPFTagKey,
+      isSpfTag: this.isSpfTag,
     };
   }
 }

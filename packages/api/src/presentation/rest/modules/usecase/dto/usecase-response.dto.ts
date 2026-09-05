@@ -18,9 +18,9 @@ export class UsecaseResponseDto extends createZodDto(UseCaseDtoSchema) {
 }
 
 export enum UsecaseType {
-  Ec = 'Ec',
-  Regular = 'Regular',
-  Manual = 'Manual',
+  Ec = 'EC',
+  Linked = 'LINKED',
+  Island = 'ISLAND',
 }
 
 export class SubsystemFilteredUsecasesResponseDto {

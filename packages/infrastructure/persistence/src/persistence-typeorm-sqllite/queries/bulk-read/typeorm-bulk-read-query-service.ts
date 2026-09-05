@@ -1260,7 +1260,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           ? undefined
           : Boolean(row.isCalibrationKey),
       isGraphKey: row.isGraphKey == null ? undefined : Boolean(row.isGraphKey),
-      isSPFKey: row.isSPFKey == null ? undefined : Boolean(row.isSPFKey),
+      isSpfKey: row.isSpfKey == null ? undefined : Boolean(row.isSpfKey),
       enumName: row.enumName ?? undefined,
       enumMember: row.enumMember ?? undefined,
       calKeyEnumMember: row.calKeyEnumMember ?? undefined,
@@ -1308,8 +1308,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       name: row.name,
       description: row.description ?? undefined,
       isVoice: Boolean(row.isVoice),
-      isSPFTagKey:
-        row.isSPFTagKey == null ? undefined : Boolean(row.isSPFTagKey),
+      isSpfTag: row.isSpfTag == null ? undefined : Boolean(row.isSpfTag),
       enumName: row.cHeaderEnumName ?? undefined,
       enumMember: row.cHeaderEnumValue ?? undefined,
       supportedKeys: linksMap.get(row.systemId) ?? [],
@@ -1859,8 +1858,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         valueIds,
         aliasId: uc.aliasId,
         aliasName: uc.alias ?? '',
-        isEc: uc.isEc,
-        skipRouting: uc.skipRouting,
+        type: uc.type,
         orderedKeys: uc.orderedKeys ?? undefined,
         reviewedAt: uc.reviewedAt,
         categoryName: (uc.categories as Array<{name?: string}> | undefined)?.[0]

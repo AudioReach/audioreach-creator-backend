@@ -53,7 +53,7 @@ export class AwspKeyDefinition extends BaseDefinition {
   calKeyEnumMember?: string;
 
   /** Optional flag indicating if this key is an SPF key */
-  isSPFKey?: boolean;
+  isSpfKey?: boolean;
 
   /**
    * Parse JSON data into AwspKeyDefinition instance
@@ -91,7 +91,7 @@ export class AwspKeyDefinition extends BaseDefinition {
       graphKeyEnumMember: this.graphKeyEnumMember,
       isCalKey: this.isCalKey,
       calKeyEnumMember: this.calKeyEnumMember,
-      isSPFKey: this.isSPFKey,
+      isSpfKey: this.isSpfKey,
     };
   }
 }

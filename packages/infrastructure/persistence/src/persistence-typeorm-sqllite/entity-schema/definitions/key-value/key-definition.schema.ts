@@ -18,9 +18,7 @@ export interface KeyDefinitionBase {
   description?: string;
   isCalibrationKey?: boolean;
   isGraphKey?: boolean;
-  isSPFKey?: boolean;
-  isVoice?: boolean;
-  isDynamic?: boolean;
+  isSpfKey?: boolean;
   specialityKeyValue?: string;
   enumMember?: string;
   enumName?: string;
@@ -91,7 +89,7 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
       type: 'boolean',
       nullable: true,
     },
-    isSPFKey: {
+    isSpfKey: {
       name: 'is_spf_key',
       type: 'boolean',
       nullable: true,

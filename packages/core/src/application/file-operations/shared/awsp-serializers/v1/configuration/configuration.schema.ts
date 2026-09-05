@@ -55,16 +55,17 @@ export const AlsaLibConfigSchema = z.object({
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
-export const TreatWarningAsErrorSchema = z.object({
-  mode: z.string().optional(),
-  warningAsErrorCodes: z.array(z.string()).optional().default([]),
+export const ValidationDiagnosticEntrySchema = z.object({
+  code: z.string(),
+  severity: z.string(),
+  ignore: z.boolean(),
 });
 
 export const ValidationConfigSchema = z.object({
-  optionalSelectedValidations: z.array(z.string()).optional().default([]),
-  ignoreErrorCodes: z.array(z.string()).optional().default([]),
-  ignoreWarningCodes: z.array(z.string()).optional().default([]),
-  treatWarningAsError: TreatWarningAsErrorSchema.optional(),
+  diagnosticOverrides: z
+    .array(ValidationDiagnosticEntrySchema)
+    .optional()
+    .default([]),
 });
 
 // ─── AlsaMetaData schemas ─────────────────────────────────────────────────────
@@ -140,7 +141,9 @@ export type ProcessorConfig = z.infer<typeof ProcessorConfigSchema>;
 export type RtcConfig = z.infer<typeof RtcConfigSchema>;
 export type AlsaGroup = z.infer<typeof AlsaGroupSchema>;
 export type AlsaLibConfig = z.infer<typeof AlsaLibConfigSchema>;
-export type TreatWarningAsError = z.infer<typeof TreatWarningAsErrorSchema>;
+export type ValidationDiagnosticEntry = z.infer<
+  typeof ValidationDiagnosticEntrySchema
+>;
 export type ValidationConfig = z.infer<typeof ValidationConfigSchema>;
 export type AlsaFileGroup = z.infer<typeof AlsaFileGroupSchema>;
 export type AlsaFileInfo = z.infer<typeof AlsaFileInfoSchema>;

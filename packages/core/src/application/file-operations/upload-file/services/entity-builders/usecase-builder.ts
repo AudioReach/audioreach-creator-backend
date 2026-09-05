@@ -7,6 +7,11 @@ import {
   type KeyVectorInput,
   type SubgraphPair,
 } from '../../../../../domain/entities/usecase-data/usecase/usecase.js';
+import {
+  USECASE_TYPE,
+  type UsecaseType,
+} from '../../../../../domain/entities/usecase-data/usecase/usecase-type.js';
+import type {AwspUsecaseType} from '../../../shared/awsp-serializers/v1/ui-metadata/ui-metadata.schema.js';
 import type {UsecaseEntry} from '../../../shared/acdb-chunks/usecase-data-chunk.js';
 import type {GkvAliasChunk} from '../../../shared/acdb-chunks/gkv-alias-chunk.js';
 import type {ForeignKeyMapper} from '../foreign-key-mapper.js';
@@ -37,10 +42,9 @@ export class UsecaseBuilder {
     let successCount = 0;
     let errorCount = 0;
 
-    // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds + isEc flag
+    // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds + type
     const resolvedUiUsecases: {
-      isEc: boolean;
-      skipRouting?: boolean;
+      type: UsecaseType;
       orderedKeys?: Array<{id: number}>;
       reviewedAt?: string;
       categoryName?: string;
@@ -60,8 +64,7 @@ export class UsecaseBuilder {
         .sort((a, b) => a - b);
       if (ids.length > 0) {
         resolvedUiUsecases.push({
-          isEc: uiUc.isEc ?? false,
-          skipRouting: uiUc.skipRouting,
+          type: mapAwspTypeToUsecaseType(uiUc.type),
           orderedKeys: uiUc.orderedKeys,
           reviewedAt: uiUc.reviewedAt,
           categoryName: uiUc.categoryName,
@@ -108,8 +111,7 @@ export class UsecaseBuilder {
     fileSystemId: number,
     gkvAliasChunk?: GkvAliasChunk,
     resolvedUiUsecases: {
-      isEc: boolean;
-      skipRouting?: boolean;
+      type: UsecaseType;
       orderedKeys?: Array<{id: number}>;
       reviewedAt?: string;
       categoryName?: string;
@@ -167,7 +169,6 @@ export class UsecaseBuilder {
     const matched = resolvedUiUsecases.find(
       u => u.valueSystemIdSet === sortedSet,
     );
-    const isEc = matched?.isEc;
 
     return new UseCase({
       systemId,
@@ -178,8 +179,7 @@ export class UsecaseBuilder {
       alias: aliasEntry?.usecaseName,
       aliasId: aliasEntry?.usecaseId,
       categories: matched?.categoryName ? [matched.categoryName] : undefined,
-      isEc,
-      skipRouting: matched?.skipRouting,
+      type: matched?.type,
       orderedKeys: matched?.orderedKeys,
       reviewedAt: matched?.reviewedAt,
     });
@@ -232,5 +232,16 @@ export class UsecaseBuilder {
     }
 
     return {valueSystemIds};
+  }
+}
+
+function mapAwspTypeToUsecaseType(t: AwspUsecaseType): UsecaseType {
+  switch (t) {
+    case 'Ec':
+      return USECASE_TYPE.Ec;
+    case 'Linked':
+      return USECASE_TYPE.Linked;
+    case 'Island':
+      return USECASE_TYPE.Island;
   }
 }

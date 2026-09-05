@@ -10,14 +10,14 @@ import type {UseCaseSubgraphRow} from './use-case-subgraph.schema.js';
 import type {UseCaseSubgraphPairRow} from './use-case-subgraph-pair.schema.js';
 import type {ValueDefinitionRow} from '../definitions/key-value/value-definition.schema.js';
 import {EntitySchema} from 'typeorm';
+import {type UsecaseType, USECASE_TYPE} from '@arc/core';
 
 export interface UseCaseBase {
   systemId: number;
   aliasId: number;
   alias: string;
   fileSystemId: number;
-  isEc?: boolean;
-  skipRouting?: boolean;
+  type?: UsecaseType;
   orderedKeys?: string;
   reviewedAt?: string;
 
@@ -65,15 +65,11 @@ export const UseCaseSchema = new EntitySchema<UseCaseRow>({
       type: 'integer',
       name: 'file_system_id',
     },
-    isEc: {
-      type: 'boolean',
+    type: {
+      type: 'simple-enum',
+      enum: Object.values(USECASE_TYPE),
       nullable: true,
-      name: 'is_ec',
-    },
-    skipRouting: {
-      type: 'boolean',
-      nullable: true,
-      name: 'skip_routing',
+      name: 'type',
     },
     orderedKeys: {
       type: 'text',
