@@ -4,6 +4,7 @@
  */
 
 import {CHANGE_OPERATION} from '../../shared/change-vocabulary.js';
+import type {ChangeOperation} from '../../shared/change-vocabulary.js';
 import {RESULT_KIND, Result} from '../../shared/result/result.js';
 import {IssueFactory} from '../../../shared/issues/factories.js';
 import type {
@@ -42,11 +43,11 @@ function compareActions(a: PendingApplyAction, b: PendingApplyAction): number {
 }
 
 export class SystemIdApplyRule implements ApplyRule {
-  readonly allowedOperations = [
+  readonly allowedOperations: readonly ChangeOperation[] = [
     CHANGE_OPERATION.Create,
     CHANGE_OPERATION.Update,
     CHANGE_OPERATION.Delete,
-  ] as const;
+  ];
 
   readonly targetType: string;
   private readonly slots: ApplyRuleSlots;
@@ -79,30 +80,9 @@ export class SystemIdApplyRule implements ApplyRule {
   reduce(
     actions: readonly PendingApplyAction[],
   ): ApplyRuleResult<PlannedMutation | null> {
-    if (actions.length === 0) {
-      return Result.fail<PlannedMutation | null>(
-        IssueFactory.invalidApplyAction(
-          this.targetType,
-          0,
-          0,
-          'Cannot reduce an empty action group',
-        ),
-      );
-    }
-
-    for (const action of actions) {
-      const issue = this.validateAction(action);
-      if (issue !== null) return Result.fail<PlannedMutation | null>(issue);
-      if (action.targetSystemId !== actions[0].targetSystemId) {
-        return Result.fail<PlannedMutation | null>(
-          IssueFactory.invalidApplyAction(
-            this.targetType,
-            action.aggregateId,
-            action.targetSystemId,
-            'A rule group contains more than one physical target',
-          ),
-        );
-      }
+    const validationIssue = this.validateActions(actions);
+    if (validationIssue !== null) {
+      return Result.fail<PlannedMutation | null>(validationIssue);
     }
 
     const ordered = [...actions].sort(compareActions);
@@ -127,23 +107,13 @@ export class SystemIdApplyRule implements ApplyRule {
       return Result.ok<PlannedMutation | null>(null);
     }
 
-    const operation =
-      deletes.length === 1
-        ? CHANGE_OPERATION.Delete
-        : creates.length === 1
-          ? CHANGE_OPERATION.Create
-          : CHANGE_OPERATION.Update;
+    const operation = this.operationFor(creates.length, deletes.length);
     const executionSlot = this.slotFor(operation, actions[0]);
     if (executionSlot.kind !== RESULT_KIND.Ok) {
       return Result.fail<PlannedMutation | null>(...executionSlot.issues);
     }
 
-    const base = creates[0]?.newValue ?? {};
-    const values = ordered
-      .filter(action => action.operation === CHANGE_OPERATION.Update)
-      .reduce<
-        Record<string, unknown>
-      >((merged, action) => ({...merged, ...action.newValue}), {...base});
+    const values = this.mergeValues(creates[0]?.newValue, ordered);
     const physicalValues =
       operation === CHANGE_OPERATION.Create
         ? {...values, systemId: actions[0].targetSystemId}
@@ -178,7 +148,7 @@ export class SystemIdApplyRule implements ApplyRule {
         `Action was dispatched to the ${this.targetType} rule`,
       );
     }
-    if (!this.allowedOperations.includes(action.operation as never)) {
+    if (!this.allowedOperations.includes(action.operation)) {
       return IssueFactory.invalidApplyOperation(
         action.targetType,
         action.aggregateId,
@@ -189,13 +159,59 @@ export class SystemIdApplyRule implements ApplyRule {
     return null;
   }
 
+  private validateActions(actions: readonly PendingApplyAction[]) {
+    if (actions.length === 0) {
+      return IssueFactory.invalidApplyAction(
+        this.targetType,
+        0,
+        0,
+        'Cannot reduce an empty action group',
+      );
+    }
+
+    for (const action of actions) {
+      const issue = this.validateAction(action);
+      if (issue !== null) return issue;
+      if (action.targetSystemId !== actions[0].targetSystemId) {
+        return IssueFactory.invalidApplyAction(
+          this.targetType,
+          action.aggregateId,
+          action.targetSystemId,
+          'A rule group contains more than one physical target',
+        );
+      }
+    }
+    return null;
+  }
+
+  private operationFor(
+    createCount: number,
+    deleteCount: number,
+  ): ChangeOperation {
+    if (deleteCount === 1) return CHANGE_OPERATION.Delete;
+    if (createCount === 1) return CHANGE_OPERATION.Create;
+    return CHANGE_OPERATION.Update;
+  }
+
+  private mergeValues(
+    createValues: Readonly<Record<string, unknown>> | undefined,
+    actions: readonly PendingApplyAction[],
+  ): Record<string, unknown> {
+    const values: Record<string, unknown> = {};
+    if (createValues !== undefined) Object.assign(values, createValues);
+    for (const action of actions) {
+      if (action.operation === CHANGE_OPERATION.Update) {
+        Object.assign(values, action.newValue);
+      }
+    }
+    return values;
+  }
+
   private slotFor(
-    operation: string,
+    operation: ChangeOperation,
     action: PendingApplyAction,
   ): ApplyRuleResult<ExecutionSlot> {
-    const slot = this.slots[operation as keyof ApplyRuleSlots] as
-      | ExecutionSlot
-      | undefined;
+    const slot = this.slots[operation];
     if (slot === undefined) {
       return Result.fail<ExecutionSlot>(
         IssueFactory.invalidApplyOperation(

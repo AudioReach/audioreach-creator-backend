@@ -5,21 +5,19 @@
 
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
-import type {ApplyChangesResult} from './apply-changes.types.js';
-import type {ApplyChangesCommand} from './apply-changes.command.js';
+import type {DiscardChangesCommand} from './discard-changes.command.js';
+import type {DiscardChangesResult} from './discard-changes.types.js';
 
-export class ApplyChangesHandler implements CommandHandler<
-  ApplyChangesCommand,
-  ApplyChangesResult
+export class DiscardChangesHandler implements CommandHandler<
+  DiscardChangesCommand,
+  DiscardChangesResult
 > {
   constructor(private readonly uow: UnitOfWork) {}
 
-  async handle(_command: ApplyChangesCommand): Promise<ApplyChangesResult> {
+  async handle(_command: DiscardChangesCommand): Promise<DiscardChangesResult> {
     await this.uow.startTransaction();
     try {
-      // The apply service performs validation, physical writes, commit
-      // recording, and edit-action history cleanup before this commit.
-      const result = await this.uow.getApplyChangesPort().apply();
+      const result = await this.uow.getDiscardChangesPort().discard();
       await this.uow.commit();
       return result;
     } catch (error) {

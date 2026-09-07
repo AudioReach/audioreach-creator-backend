@@ -14,6 +14,13 @@ export * from './migration-index.js';
 export * from './services/pending-change-cache.js';
 export * from './services/pending-change-writer.js';
 export {EditActionsQueryService} from './queries/edit-session/edit-actions-query-service.js';
+export {TypeOrmApplyChangesService} from './services/apply-changes/typeorm-apply-changes.service.js';
+export {TypeOrmDiscardChangesService} from './services/discard-changes/typeorm-discard-changes.service.js';
+export {
+  createDefaultApplyRuleRegistry,
+  createDefaultApplyTargetRegistry,
+} from './services/apply-changes/apply-target-registry.js';
+export {TypeOrmOperationExecutor} from './services/apply-changes/typeorm-operation-executor.js';
 
 // Session repository
 export {TypeOrmSessionRepository} from './repositories/session/typeorm-session.repository.js';

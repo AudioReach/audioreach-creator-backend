@@ -9,4 +9,3 @@ import type {ApplyChangesResult} from '../../../edit-session/apply-changes/apply
 export interface ApplyChangesPort {
   apply(): Promise<ApplyChangesResult>;
 }
-

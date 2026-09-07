@@ -51,4 +51,3 @@ export class ApplyRuleRegistry {
     this.rules.set(rule.targetType, rule);
   }
 }
-

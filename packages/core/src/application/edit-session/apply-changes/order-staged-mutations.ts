@@ -33,14 +33,12 @@ function edgeIdentity(edge: OperationDependency): [string, string] {
   ];
 }
 
-/**
- * Orders only supplied staged mutations. It never loads database rows,
- * synthesizes dependencies, or removes a mutation.
- */
-export function orderStagedMutations(
+type DependencyEdge = [string, string];
+
+function validateMutationIdentities(
   mutations: readonly PlannedMutation[],
   registry: ApplyRuleRegistry,
-): readonly PlannedMutation[] {
+): Map<string, PlannedMutation> {
   const byIdentity = new Map<string, PlannedMutation>();
   for (const mutation of mutations) {
     const key = identity(mutation.targetType, mutation.mutationKey);
@@ -52,11 +50,19 @@ export function orderStagedMutations(
     registry.getRule(mutation.targetType);
     byIdentity.set(key, mutation);
   }
+  return byIdentity;
+}
 
-  const edges: Array<[string, string]> = [];
+function collectDependencyEdges(
+  mutations: readonly PlannedMutation[],
+  byIdentity: ReadonlyMap<string, PlannedMutation>,
+  registry: ApplyRuleRegistry,
+): DependencyEdge[] {
+  const edges: DependencyEdge[] = [];
   for (const mutation of mutations) {
     const rule = registry.getRule(mutation.targetType);
-    for (const dependency of rule.dependencies(mutation, mutations)) {
+    const dependencies = rule.dependencies(mutation, mutations);
+    for (const dependency of dependencies) {
       const [beforeKey, afterKey] = edgeIdentity(dependency);
       const before = byIdentity.get(beforeKey);
       const after = byIdentity.get(afterKey);
@@ -69,66 +75,108 @@ export function orderStagedMutations(
       edges.push([beforeKey, afterKey]);
     }
   }
+  return edges;
+}
 
-  const slotKeys = [
-    ...new Set(
-      mutations.map(
-        mutation =>
-          `${mutation.executionSlot.phase}:${mutation.executionSlot.step}`,
-      ),
-    ),
-  ].sort((a, b) => {
-    const [aPhase, aStep] = a.split(':').map(Number);
-    const [bPhase, bStep] = b.split(':').map(Number);
-    return aPhase - bPhase || aStep - bStep;
-  });
+function slotKey(mutation: PlannedMutation): string {
+  return `${mutation.executionSlot.phase}:${mutation.executionSlot.step}`;
+}
 
-  const ordered: PlannedMutation[] = [];
-  for (const slotKey of slotKeys) {
-    const slotMutations = mutations.filter(
+function compareSlotKeys(a: string, b: string): number {
+  const [aPhase, aStep] = a.split(':').map(Number);
+  const [bPhase, bStep] = b.split(':').map(Number);
+  return aPhase - bPhase || aStep - bStep;
+}
+
+function sortedSlotKeys(mutations: readonly PlannedMutation[]): string[] {
+  const keys = new Set<string>();
+  for (const mutation of mutations) keys.add(slotKey(mutation));
+  return [...keys].sort(compareSlotKeys);
+}
+
+function buildSlotGraph(
+  slotMutations: readonly PlannedMutation[],
+  edges: readonly DependencyEdge[],
+): {
+  indegree: Map<string, number>;
+  outgoing: Map<string, string[]>;
+} {
+  const slotIdentities = new Set<string>();
+  for (const mutation of slotMutations) {
+    slotIdentities.add(identity(mutation.targetType, mutation.mutationKey));
+  }
+
+  const indegree = new Map<string, number>();
+  for (const mutationIdentity of slotIdentities) {
+    indegree.set(mutationIdentity, 0);
+  }
+
+  const outgoing = new Map<string, string[]>();
+  for (const [before, after] of edges) {
+    if (!slotIdentities.has(before) || !slotIdentities.has(after)) continue;
+    outgoing.set(before, [...(outgoing.get(before) ?? []), after]);
+    indegree.set(after, (indegree.get(after) ?? 0) + 1);
+  }
+  return {indegree, outgoing};
+}
+
+function orderSlotMutations(
+  slotKeyValue: string,
+  slotMutations: readonly PlannedMutation[],
+  edges: readonly DependencyEdge[],
+  byIdentity: ReadonlyMap<string, PlannedMutation>,
+): PlannedMutation[] {
+  const {indegree, outgoing} = buildSlotGraph(slotMutations, edges);
+  const ready = slotMutations
+    .filter(
       mutation =>
-        `${mutation.executionSlot.phase}:${mutation.executionSlot.step}` ===
-        slotKey,
-    );
-    const slotIdentities = new Set(
-      slotMutations.map(mutation =>
-        identity(mutation.targetType, mutation.mutationKey),
-      ),
-    );
-    const indegree = new Map([...slotIdentities].map(key => [key, 0]));
-    const outgoing = new Map<string, string[]>();
-    for (const [before, after] of edges) {
-      if (!slotIdentities.has(before) || !slotIdentities.has(after)) continue;
-      outgoing.set(before, [...(outgoing.get(before) ?? []), after]);
-      indegree.set(after, (indegree.get(after) ?? 0) + 1);
-    }
+        indegree.get(identity(mutation.targetType, mutation.mutationKey)) === 0,
+    )
+    .sort(compareMutations);
+  const ordered: PlannedMutation[] = [];
 
-    const ready = slotMutations
-      .filter(
-        mutation =>
-          indegree.get(identity(mutation.targetType, mutation.mutationKey)) === 0,
-      )
-      .sort(compareMutations);
-    let processed = 0;
-    while (ready.length > 0) {
-      const next = ready.shift()!;
-      ordered.push(next);
-      processed += 1;
-      const nextIdentity = identity(next.targetType, next.mutationKey);
-      for (const dependentKey of outgoing.get(nextIdentity) ?? []) {
-        const remaining = (indegree.get(dependentKey) ?? 0) - 1;
-        indegree.set(dependentKey, remaining);
-        if (remaining === 0) {
-          ready.push(byIdentity.get(dependentKey)!);
-          ready.sort(compareMutations);
-        }
+  while (ready.length > 0) {
+    const next = ready.shift();
+    if (next === undefined) break;
+    ordered.push(next);
+    const nextIdentity = identity(next.targetType, next.mutationKey);
+    for (const dependentKey of outgoing.get(nextIdentity) ?? []) {
+      const remaining = (indegree.get(dependentKey) ?? 0) - 1;
+      indegree.set(dependentKey, remaining);
+      if (remaining === 0) {
+        const dependent = byIdentity.get(dependentKey);
+        if (dependent !== undefined) ready.push(dependent);
+        ready.sort(compareMutations);
       }
     }
-    if (processed !== slotMutations.length) {
-      throw new InvalidOperationException(
-        `Staged mutation dependency cycle detected in execution slot ${slotKey}`,
-      );
-    }
+  }
+
+  if (ordered.length !== slotMutations.length) {
+    throw new InvalidOperationException(
+      `Staged mutation dependency cycle detected in execution slot ${slotKeyValue}`,
+    );
+  }
+  return ordered;
+}
+
+/**
+ * Orders only supplied staged mutations. It never loads database rows,
+ * synthesizes dependencies, or removes a mutation.
+ */
+export function orderStagedMutations(
+  mutations: readonly PlannedMutation[],
+  registry: ApplyRuleRegistry,
+): readonly PlannedMutation[] {
+  const byIdentity = validateMutationIdentities(mutations, registry);
+  const edges = collectDependencyEdges(mutations, byIdentity, registry);
+  const ordered: PlannedMutation[] = [];
+  for (const currentSlotKey of sortedSlotKeys(mutations)) {
+    const slotMutations = mutations.filter(
+      mutation => slotKey(mutation) === currentSlotKey,
+    );
+    ordered.push(
+      ...orderSlotMutations(currentSlotKey, slotMutations, edges, byIdentity),
+    );
   }
 
   if (ordered.length !== mutations.length) {
@@ -138,4 +186,3 @@ export function orderStagedMutations(
   }
   return ordered;
 }
-

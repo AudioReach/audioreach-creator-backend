@@ -3,13 +3,21 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHANGE_STATUS, CHANGE_OPERATION, SOURCE} from '@arc/core';
+import {
+  CHANGE_STATUS,
+  CHANGE_OPERATION,
+  SOURCE,
+  DomainRuleViolationException,
+  IssueFactory,
+  compositeValueFieldPath,
+} from '@arc/core';
 import type {ChangeStatus, Logger, Source} from '@arc/core';
 import type {EntityManager} from 'typeorm';
 import type {EntityName} from '../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../queries/edit-session/edit-actions-query-service.js';
 import type {PendingChangeCache} from './pending-change-cache.js';
 import {serializeBlobs} from '../utils/blob-serialization.js';
+import {isCompositeApplyTarget} from './apply-changes/apply-target-registry.js';
 
 // ── Spec types ────────────────────────────────────────────────────────────────
 
@@ -33,6 +41,8 @@ export type WriteCreateSpec = {
   targetSystemId: number;
   aggregateId: number;
   payload: Record<string, unknown>;
+  /** Canonical composite slot when the target has a value relationship key. */
+  fieldPath?: string | null;
   linkedEntityGroupId?: string;
   cache?: boolean;
   source?: Source;
@@ -46,6 +56,8 @@ export type WriteDeleteSpec = {
   targetSystemId: number;
   aggregateId: number;
   payload?: Record<string, unknown>;
+  /** Canonical composite slot when the target has a value relationship key. */
+  fieldPath?: string | null;
   linkedEntityGroupId?: string;
   cache?: boolean;
   source?: Source;
@@ -93,6 +105,17 @@ export class PendingChangeWriter {
     manager: EntityManager,
   ): Promise<number | null> {
     const fieldGroup = spec.fieldGroup ?? null;
+
+    if (isCompositeApplyTarget(spec.targetTable)) {
+      throw new DomainRuleViolationException([
+        IssueFactory.invalidApplyOperation(
+          spec.targetTable,
+          spec.aggregateId,
+          spec.targetSystemId,
+          CHANGE_OPERATION.Update,
+        ),
+      ]);
+    }
 
     if (spec.cache === true && fieldGroup === null) {
       throw new Error(
@@ -215,7 +238,11 @@ export class PendingChangeWriter {
       targetSystemId: spec.targetSystemId,
       targetTable: spec.targetTable,
       operation: CHANGE_OPERATION.Create,
-      fieldPath: '$' as string | null,
+      fieldPath: actionFieldPath(
+        spec.targetTable,
+        spec.payload,
+        spec.fieldPath,
+      ),
       newValue: spec.payload,
       source,
       changeStatus,
@@ -240,11 +267,18 @@ export class PendingChangeWriter {
     const source = spec.source ?? SOURCE.Manual;
     const changeStatus = this.resolveChangeStatus(source);
 
+    const payload = spec.payload ?? {};
+    const fieldPath = actionFieldPath(
+      spec.targetTable,
+      payload,
+      spec.fieldPath,
+    );
+
     await this.supersedeCurrent(
       sessionId,
       spec.targetSystemId,
       spec.targetTable,
-      null,
+      fieldPath,
       manager,
     );
 
@@ -254,8 +288,8 @@ export class PendingChangeWriter {
       targetSystemId: spec.targetSystemId,
       targetTable: spec.targetTable,
       operation: CHANGE_OPERATION.Delete,
-      fieldPath: null as string | null,
-      newValue: spec.payload ?? {},
+      fieldPath,
+      newValue: payload,
       source,
       changeStatus,
       groupId,
@@ -267,12 +301,14 @@ export class PendingChangeWriter {
       // baseVersion capture is derived from operation type in PendingChangeCache.flush()
       return null;
     } else {
-      await this.captureBaseVersion(
-        sessionId,
-        spec.targetTable,
-        spec.targetSystemId,
-        manager,
-      );
+      if (!isCompositeApplyTarget(spec.targetTable)) {
+        await this.captureBaseVersion(
+          sessionId,
+          spec.targetTable,
+          spec.targetSystemId,
+          manager,
+        );
+      }
       return this.insertRow(row, manager);
     }
   }
@@ -558,6 +594,40 @@ export class PendingChangeWriter {
       params,
     );
   }
+}
+
+function actionFieldPath(
+  targetTable: EntityName,
+  payload: Record<string, unknown>,
+  explicitFieldPath: string | null | undefined,
+): string | null {
+  if (!isCompositeApplyTarget(targetTable)) return explicitFieldPath ?? '$';
+  const valueDefSystemId = payload.valueDefSystemId;
+  if (
+    typeof valueDefSystemId !== 'number' ||
+    !Number.isInteger(valueDefSystemId)
+  ) {
+    throw new DomainRuleViolationException([
+      IssueFactory.invalidApplySpecialKey(
+        targetTable,
+        0,
+        0,
+        'valueDefSystemId',
+      ),
+    ]);
+  }
+  const expected = compositeValueFieldPath(valueDefSystemId);
+  if (explicitFieldPath !== undefined && explicitFieldPath !== expected) {
+    throw new DomainRuleViolationException([
+      IssueFactory.invalidApplySpecialKey(
+        targetTable,
+        0,
+        0,
+        `fieldPath must be ${expected}`,
+      ),
+    ]);
+  }
+  return expected;
 }
 
 function getGeneratedChangeId(result: unknown): number | undefined {

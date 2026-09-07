@@ -30,10 +30,13 @@ export function reduceCurrentActions(
   }
 
   const mutations: PlannedMutation[] = [];
-  for (const groupKey of [...groups.keys()].sort()) {
-    const group = groups.get(groupKey)!;
+  const sortedGroupKeys = [...groups.keys()].sort((a, b) => a.localeCompare(b));
+  for (const groupKey of sortedGroupKeys) {
+    const group = groups.get(groupKey);
+    if (group === undefined) continue;
     const rule = registry.getRule(group[0].targetType);
-    const result = rule.reduce(group);
+    const reduce = rule.reduce.bind(rule);
+    const result = reduce(group);
     if (result.kind === RESULT_KIND.Fail) {
       throw new DomainRuleViolationException(result.issues);
     }
@@ -41,4 +44,3 @@ export function reduceCurrentActions(
   }
   return mutations;
 }
-

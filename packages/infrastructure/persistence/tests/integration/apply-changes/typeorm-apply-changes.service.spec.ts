@@ -230,13 +230,20 @@ describe('TypeOrmApplyChangesService', () => {
        FROM edit_actions WHERE session_id = ? ORDER BY target_system_id`,
       [sessionId],
     );
-    expect(actions[0].valid_until).not.toBeNull();
-    expect(actions[1].valid_until).not.toBeNull();
-    expect(actions[2].valid_until).toBeNull();
-    expect(actions[3].valid_until).toBe('2026-01-01 00:00:00');
+    expect(actions).toEqual([
+      expect.objectContaining({
+        target_system_id: 702,
+        change_status: CHANGE_STATUS.Unstaged,
+        valid_until: null,
+      }),
+      expect.objectContaining({
+        target_system_id: 703,
+        valid_until: '2026-01-01 00:00:00',
+      }),
+    ]);
   });
 
-  it('records zero mutations and retires create-delete actions eliminated by reduction', async () => {
+  it('records zero mutations and removes create-delete action history eliminated by reduction', async () => {
     await insertAction({
       aggregateId: 80,
       targetSystemId: 800,
@@ -256,17 +263,58 @@ describe('TypeOrmApplyChangesService', () => {
       appliedEntityCount: 0,
       appliedAggregateCount: 0,
     });
-    const actions = await dataSource.query<Array<{valid_until: string | null}>>(
-      'SELECT valid_until FROM edit_actions WHERE session_id = ?',
+    const actions = await dataSource.query<Array<{change_id: number}>>(
+      'SELECT change_id FROM edit_actions WHERE session_id = ?',
       [sessionId],
     );
-    expect(actions.every(action => action.valid_until !== null)).toBe(true);
+    expect(actions).toEqual([]);
     await expect(
       dataSource.query(
         'SELECT change_count FROM session_commits WHERE session_id = ?',
         [sessionId],
       ),
     ).resolves.toEqual([{change_count: 0}]);
+  });
+
+  it('removes older history for applied slots but keeps unrelated stale history', async () => {
+    await dataSource.manager
+      .getRepository(ENTITY_NAMES.UseCaseCategory)
+      .insert({systemId: 810, name: 'Before'});
+    await insertAction({
+      aggregateId: 81,
+      targetSystemId: 810,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Old'},
+      validUntil: '2026-01-01 00:00:00',
+    });
+    await insertAction({
+      aggregateId: 81,
+      targetSystemId: 810,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Current'},
+    });
+    await insertAction({
+      aggregateId: 82,
+      targetSystemId: 811,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Unrelated history'},
+      validUntil: '2026-01-01 00:00:00',
+    });
+
+    await createService().apply();
+
+    const rows = await dataSource.query<
+      Array<{target_system_id: number; valid_until: string | null}>
+    >(
+      'SELECT target_system_id, valid_until FROM edit_actions WHERE session_id = ? ORDER BY target_system_id',
+      [sessionId],
+    );
+    expect(rows).toEqual([
+      {target_system_id: 811, valid_until: '2026-01-01 00:00:00'},
+    ]);
   });
 
   it('keeps separately staged parent and child deletes in the execution plan', async () => {
@@ -313,7 +361,7 @@ describe('TypeOrmApplyChangesService', () => {
     };
     const sessionRepository = {
       recordCommit: jest.fn(async () => 1),
-      cleanupAfterSuccessfulApply: jest.fn(async () => undefined),
+      deleteAppliedActionHistory: jest.fn(async () => 2),
     };
     const service = new TypeOrmApplyChangesService(
       writeContext,

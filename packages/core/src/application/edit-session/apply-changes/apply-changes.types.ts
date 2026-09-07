@@ -47,6 +47,17 @@ export type ApplyChangesResult = {
   appliedAggregateCount: number;
 };
 
+/**
+ * Persistence identity for one edit-action slot selected by apply. The slot
+ * is table-qualified so history cleanup cannot remove another target with the
+ * same numeric ID or field path.
+ */
+export type ApplyActionSlot = {
+  targetType: string;
+  targetSystemId: number;
+  fieldPath: string | null;
+};
+
 export type ApplyRuleResult<T> = Result<T>;
 
 export interface ApplyRule {
@@ -72,4 +83,3 @@ export type ApplyDependencyResolver = (
   mutation: PlannedMutation,
   candidates: readonly PlannedMutation[],
 ) => readonly OperationDependency[];
-

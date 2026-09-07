@@ -7,6 +7,7 @@ import {
   CHANGE_STATUS,
   orderStagedMutations,
   reduceCurrentActions,
+  type ApplyActionSlot,
   type ApplyChangesPort,
   type ApplyChangesResult,
   type ApplyRuleRegistry,
@@ -36,12 +37,11 @@ export class TypeOrmApplyChangesService implements ApplyChangesPort {
       sessionId,
       changeStatus: CHANGE_STATUS.Staged,
     });
-    const actions = rows.map(mapEditActionRow);
+
+    const cleanupSlots = uniqueActionSlots(rows);
+    const actions = rows.map(row => mapEditActionRow(row));
     const mutations = reduceCurrentActions(actions, this.ruleRegistry);
-    const orderedMutations = orderStagedMutations(
-      mutations,
-      this.ruleRegistry,
-    );
+    const orderedMutations = orderStagedMutations(mutations, this.ruleRegistry);
 
     for (const mutation of orderedMutations) {
       await this.operationExecutor.execute(mutation);
@@ -51,7 +51,13 @@ export class TypeOrmApplyChangesService implements ApplyChangesPort {
       sessionId,
       changeCount: orderedMutations.length,
     });
-    await this.sessionRepository.cleanupAfterSuccessfulApply(sessionId);
+    // Cleanup is deliberately before the handler commits. If deleting current
+    // rows or their older versions fails, the physical writes and commit row
+    // must roll back with the edit-action cleanup.
+    await this.sessionRepository.deleteAppliedActionHistory(
+      sessionId,
+      cleanupSlots,
+    );
 
     return {
       commitId,
@@ -61,4 +67,23 @@ export class TypeOrmApplyChangesService implements ApplyChangesPort {
       ).size,
     };
   }
+}
+
+function uniqueActionSlots(
+  rows: readonly {
+    targetTable: string;
+    targetSystemId: number;
+    fieldPath: string | null;
+  }[],
+): readonly ApplyActionSlot[] {
+  const slots = new Map<string, ApplyActionSlot>();
+  for (const row of rows) {
+    const key = `${row.targetTable}\u0000${row.targetSystemId}\u0000${row.fieldPath ?? ''}`;
+    slots.set(key, {
+      targetType: row.targetTable,
+      targetSystemId: row.targetSystemId,
+      fieldPath: row.fieldPath,
+    });
+  }
+  return [...slots.values()];
 }

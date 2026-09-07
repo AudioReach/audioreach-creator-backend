@@ -9,4 +9,3 @@ export type {
   ApplyRuleResult,
   ApplyRuleSlots,
 } from './apply-changes.types.js';
-

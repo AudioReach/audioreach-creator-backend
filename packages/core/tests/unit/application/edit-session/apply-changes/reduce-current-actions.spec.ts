@@ -75,4 +75,3 @@ describe('reduceCurrentActions', () => {
     ).toThrow('Unsupported apply target');
   });
 });
-

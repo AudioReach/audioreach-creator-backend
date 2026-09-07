@@ -3,10 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {
-  CHANGE_OPERATION,
-  RESULT_KIND,
-} from '../../../../../src/index.js';
+import {CHANGE_OPERATION, RESULT_KIND} from '../../../../../src/index.js';
 import {CompositeValueApplyRule} from '../../../../../src/application/edit-session/apply-changes/composite-value-apply-rule.js';
 import type {PendingApplyAction} from '../../../../../src/application/edit-session/apply-changes/apply-changes.types.js';
 
@@ -85,11 +82,7 @@ describe.each(cases)('CompositeValueApplyRule %s', (targetType, parentKey) => {
   });
 
   it('rejects a missing secondary key', () => {
-    const invalid = buildAction(
-      targetType,
-      parentKey,
-      CHANGE_OPERATION.Create,
-    );
+    const invalid = buildAction(targetType, parentKey, CHANGE_OPERATION.Create);
     invalid.newValue = {[parentKey]: 100};
 
     const result = rule.reduce([invalid]);
@@ -98,11 +91,7 @@ describe.each(cases)('CompositeValueApplyRule %s', (targetType, parentKey) => {
   });
 
   it('rejects a field path that conflicts with the payload key', () => {
-    const invalid = buildAction(
-      targetType,
-      parentKey,
-      CHANGE_OPERATION.Create,
-    );
+    const invalid = buildAction(targetType, parentKey, CHANGE_OPERATION.Create);
     invalid.fieldPath = '$key:valueDefSystemId=21';
 
     const result = rule.reduce([invalid]);
@@ -110,4 +99,3 @@ describe.each(cases)('CompositeValueApplyRule %s', (targetType, parentKey) => {
     expect(result.kind).toBe(RESULT_KIND.Fail);
   });
 });
-

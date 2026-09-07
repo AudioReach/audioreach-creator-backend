@@ -30,8 +30,8 @@ const identitySanitizer: ApplyTarget['sanitizeValues'] = values => values;
 function sanitizeUseCaseValues(
   values: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
-  const {referencedComponents: _referencedComponents, ...physicalValues} =
-    values;
+  const physicalValues = {...values};
+  delete physicalValues.referencedComponents;
   return physicalValues;
 }
 
@@ -60,11 +60,12 @@ export class ApplyTargetRegistry {
 }
 
 const PHASE = {
-  GraphRuntimeDelete: 1,
-  DefinitionUpsert: 2,
-  GraphRuntimeUpsert: 3,
-  MiscellaneousUpsert: 4,
-  DefinitionDelete: 5,
+  MiscellaneousDelete: 1,
+  GraphRuntimeDelete: 2,
+  DefinitionUpsert: 3,
+  GraphRuntimeUpsert: 4,
+  MiscellaneousUpsert: 5,
+  DefinitionDelete: 6,
 } as const;
 
 function slots(
@@ -74,15 +75,12 @@ function slots(
   createPhase = updatePhase,
   // Keep updates ahead of creates by default for uniqueness-sensitive tables.
   createStep = updateStep + 0.1,
+  deletePhase: number = updatePhase === PHASE.DefinitionUpsert
+    ? PHASE.DefinitionDelete
+    : PHASE.GraphRuntimeDelete,
 ): ApplyRuleSlots {
   return {
-    [CHANGE_OPERATION.Delete]: {
-      phase:
-        updatePhase === PHASE.DefinitionUpsert
-          ? PHASE.DefinitionDelete
-          : PHASE.GraphRuntimeDelete,
-      step: deleteStep,
-    },
+    [CHANGE_OPERATION.Delete]: {phase: deletePhase, step: deleteStep},
     [CHANGE_OPERATION.Update]: {phase: updatePhase, step: updateStep},
     [CHANGE_OPERATION.Create]: {phase: createPhase, step: createStep},
   };
@@ -386,20 +384,48 @@ const GENERIC_TARGETS: readonly GenericRegistration[] = [
   ),
   {
     targetType: ENTITY_NAMES.UseCaseCategory,
-    slots: slots(7, PHASE.MiscellaneousUpsert, 1),
+    slots: slots(
+      1,
+      PHASE.MiscellaneousUpsert,
+      1,
+      PHASE.MiscellaneousUpsert,
+      1.1,
+      PHASE.MiscellaneousDelete,
+    ),
   },
   {
     targetType: ENTITY_NAMES.ModuleManagerData,
-    slots: slots(8, PHASE.MiscellaneousUpsert, 2),
+    slots: slots(
+      2,
+      PHASE.MiscellaneousUpsert,
+      2,
+      PHASE.MiscellaneousUpsert,
+      2.1,
+      PHASE.MiscellaneousDelete,
+    ),
   },
   {
     targetType: ENTITY_NAMES.DriverModule,
-    slots: slots(8, PHASE.MiscellaneousUpsert, 3),
+    slots: slots(
+      3,
+      PHASE.MiscellaneousUpsert,
+      3,
+      PHASE.MiscellaneousUpsert,
+      3.1,
+      PHASE.MiscellaneousDelete,
+    ),
     dependencies: rootDependencies(DRIVER_TARGETS),
   },
   ...[ENTITY_NAMES.Dkv, ENTITY_NAMES.DkvParameterPayload].map(targetType => ({
     targetType,
-    slots: slots(8, PHASE.MiscellaneousUpsert, 3),
+    slots: slots(
+      3,
+      PHASE.MiscellaneousUpsert,
+      3,
+      PHASE.MiscellaneousUpsert,
+      3.1,
+      PHASE.MiscellaneousDelete,
+    ),
     dependencies: childDependencies([ENTITY_NAMES.DriverModule]),
   })),
   ...[
@@ -467,7 +493,7 @@ const COMPOSITE_TARGETS = [
     targetType: ENTITY_NAMES.DkvValues,
     parentKey: 'dkvSystemId',
     createSlot: {phase: PHASE.MiscellaneousUpsert, step: 4},
-    deleteSlot: {phase: PHASE.GraphRuntimeDelete, step: 8},
+    deleteSlot: {phase: PHASE.MiscellaneousDelete, step: 3},
     parentTarget: ENTITY_NAMES.Dkv,
   },
   {

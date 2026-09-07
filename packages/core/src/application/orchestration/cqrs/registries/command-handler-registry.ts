@@ -69,6 +69,10 @@ import {StartSessionCommand} from '../../../edit-session/start-session/start-ses
 import {StartSessionHandler} from '../../../edit-session/start-session/start-session.handler.js';
 import {EndSessionCommand} from '../../../edit-session/end-session/end-session.command.js';
 import {EndSessionHandler} from '../../../edit-session/end-session/end-session.handler.js';
+import {ApplyChangesCommand} from '../../../edit-session/apply-changes/apply-changes.command.js';
+import {ApplyChangesHandler} from '../../../edit-session/apply-changes/apply-changes.handler.js';
+import {DiscardChangesCommand} from '../../../edit-session/discard-changes/discard-changes.command.js';
+import {DiscardChangesHandler} from '../../../edit-session/discard-changes/discard-changes.handler.js';
 import {PatchSpfModuleCommand} from '../../../usecase-designer/spf-module/patch/patch-spf-module.command.js';
 import {PatchSpfModuleHandler} from '../../../usecase-designer/spf-module/patch/patch-spf-module.handler.js';
 import {CreateModuleCommand} from '../../../usecase-designer/spf-module/create-module/create-module.command.js';
@@ -219,6 +223,14 @@ export class CommandHandlerRegistry {
 
     this.commandHandlerFactories.set(EndSessionCommand, {
       create: deps => new EndSessionHandler(deps.uow, deps.naturalIdGeneration),
+    });
+
+    this.commandHandlerFactories.set(ApplyChangesCommand, {
+      create: deps => new ApplyChangesHandler(deps.uow),
+    });
+
+    this.commandHandlerFactories.set(DiscardChangesCommand, {
+      create: deps => new DiscardChangesHandler(deps.uow),
     });
 
     this.commandHandlerFactories.set(PatchSpfModuleCommand, {

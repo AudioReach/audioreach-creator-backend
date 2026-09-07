@@ -159,9 +159,10 @@ describe('PendingChangeWriter apply contract', () => {
       errorCode: 'DOMAIN_RULE_VIOLATION',
     });
 
-    const rows = await dataSource.query<
-      Array<{valid_until: string | null}>
-    >('SELECT valid_until FROM edit_actions WHERE session_id = ?', [sessionId]);
+    const rows = await dataSource.query<Array<{valid_until: string | null}>>(
+      'SELECT valid_until FROM edit_actions WHERE session_id = ?',
+      [sessionId],
+    );
     expect(rows).toEqual([{valid_until: null}]);
     expect(cache.isEmpty()).toBe(true);
   });
@@ -185,10 +186,9 @@ describe('PendingChangeWriter apply contract', () => {
 
     const [row] = await dataSource.query<
       Array<{field_path: string; new_value: string}>
-    >(
-      'SELECT field_path, new_value FROM edit_actions WHERE session_id = ?',
-      [sessionId],
-    );
+    >('SELECT field_path, new_value FROM edit_actions WHERE session_id = ?', [
+      sessionId,
+    ]);
     expect(row.field_path).toBe(FIELD_PATH);
     expect(JSON.parse(row.new_value)).toEqual(spec.payload);
   });

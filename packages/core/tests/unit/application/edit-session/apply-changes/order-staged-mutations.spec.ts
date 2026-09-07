@@ -78,12 +78,15 @@ function edge(before: PlannedMutation, after: PlannedMutation) {
 
 describe('orderStagedMutations', () => {
   it('orders non-empty slots by phase and step', () => {
-    const registry = new ApplyRuleRegistry([], [
-      new DependencyRule('Phase5'),
-      new DependencyRule('Phase1Step2'),
-      new DependencyRule('Phase1Step1'),
-      new DependencyRule('Phase3'),
-    ]);
+    const registry = new ApplyRuleRegistry(
+      [],
+      [
+        new DependencyRule('Phase5'),
+        new DependencyRule('Phase1Step2'),
+        new DependencyRule('Phase1Step1'),
+        new DependencyRule('Phase3'),
+      ],
+    );
     const input = [
       mutation('Phase5', 'm5', 5, 1),
       mutation('Phase1Step2', 'm12', 1, 2),
@@ -91,34 +94,84 @@ describe('orderStagedMutations', () => {
       mutation('Phase1Step1', 'm11', 1, 1),
     ];
 
-    expect(orderStagedMutations(input, registry).map(m => m.mutationKey)).toEqual(
-      ['m11', 'm12', 'm3', 'm5'],
+    expect(
+      orderStagedMutations(input, registry).map(m => m.mutationKey),
+    ).toEqual(['m11', 'm12', 'm3', 'm5']);
+  });
+
+  it('supports the six source-defined apply phases', () => {
+    const registry = new ApplyRuleRegistry(
+      [],
+      [
+        new DependencyRule('MiscDelete'),
+        new DependencyRule('GraphDelete'),
+        new DependencyRule('DefinitionUpsert'),
+        new DependencyRule('GraphUpsert'),
+        new DependencyRule('MiscUpsert'),
+        new DependencyRule('DefinitionDelete'),
+      ],
     );
+    const input = [
+      mutation(
+        'DefinitionDelete',
+        'definition-delete',
+        6,
+        1,
+        CHANGE_OPERATION.Delete,
+      ),
+      mutation('MiscUpsert', 'misc-upsert', 5, 1, CHANGE_OPERATION.Update),
+      mutation('GraphUpsert', 'graph-upsert', 4, 1, CHANGE_OPERATION.Create),
+      mutation(
+        'DefinitionUpsert',
+        'definition-upsert',
+        3,
+        1,
+        CHANGE_OPERATION.Update,
+      ),
+      mutation('GraphDelete', 'graph-delete', 2, 1, CHANGE_OPERATION.Delete),
+      mutation('MiscDelete', 'misc-delete', 1, 1, CHANGE_OPERATION.Delete),
+    ];
+
+    expect(
+      orderStagedMutations(input, registry).map(m => m.targetType),
+    ).toEqual([
+      'MiscDelete',
+      'GraphDelete',
+      'DefinitionUpsert',
+      'GraphUpsert',
+      'MiscUpsert',
+      'DefinitionDelete',
+    ]);
   });
 
   it('uses target type and mutation key as deterministic same-slot ties', () => {
-    const registry = new ApplyRuleRegistry([], [
-      new DependencyRule('B'),
-      new DependencyRule('A'),
-    ]);
+    const registry = new ApplyRuleRegistry(
+      [],
+      [new DependencyRule('B'), new DependencyRule('A')],
+    );
     const input = [
       mutation('B', '2', 3, 1),
       mutation('A', '2', 3, 1),
       mutation('A', '1', 3, 1),
     ];
 
-    expect(orderStagedMutations(input, registry).map(m => `${m.targetType}:${m.mutationKey}`)).toEqual(
-      ['A:1', 'A:2', 'B:2'],
-    );
+    expect(
+      orderStagedMutations(input, registry).map(
+        m => `${m.targetType}:${m.mutationKey}`,
+      ),
+    ).toEqual(['A:1', 'A:2', 'B:2']);
   });
 
   it('orders only dependencies whose two mutations are staged', () => {
     const parent = mutation('Parent', 'parent-1', 3, 1);
     const child = mutation('Child', 'child-1', 3, 1);
-    const registry = new ApplyRuleRegistry([], [
-      new DependencyRule('Parent'),
-      new DependencyRule('Child', current => [edge(parent, current)]),
-    ]);
+    const registry = new ApplyRuleRegistry(
+      [],
+      [
+        new DependencyRule('Parent'),
+        new DependencyRule('Child', current => [edge(parent, current)]),
+      ],
+    );
 
     expect(orderStagedMutations([child, parent], registry)).toEqual([
       parent,
@@ -140,17 +193,17 @@ describe('orderStagedMutations', () => {
       mutation('Child', 'child-update', 1, 3, CHANGE_OPERATION.Update),
       mutation('Child', 'child-delete', 1, 3, CHANGE_OPERATION.Delete),
     ];
-    const registry = new ApplyRuleRegistry([], [
-      new DependencyRule('Child'),
-      new DependencyRule('Root', current =>
-        children.map(child => edge(child, current)),
-      ),
-    ]);
-
-    const ordered = orderStagedMutations(
-      [rootDelete, ...children],
-      registry,
+    const registry = new ApplyRuleRegistry(
+      [],
+      [
+        new DependencyRule('Child'),
+        new DependencyRule('Root', current =>
+          children.map(child => edge(child, current)),
+        ),
+      ],
     );
+
+    const ordered = orderStagedMutations([rootDelete, ...children], registry);
 
     expect(ordered).toHaveLength(4);
     expect(ordered.at(-1)).toBe(rootDelete);
@@ -160,10 +213,13 @@ describe('orderStagedMutations', () => {
   it('rejects a dependency that reverses the fixed slot order', () => {
     const early = mutation('Early', 'early-1', 1, 1);
     const late = mutation('Late', 'late-1', 3, 1);
-    const registry = new ApplyRuleRegistry([], [
-      new DependencyRule('Early', current => [edge(late, current)]),
-      new DependencyRule('Late'),
-    ]);
+    const registry = new ApplyRuleRegistry(
+      [],
+      [
+        new DependencyRule('Early', current => [edge(late, current)]),
+        new DependencyRule('Late'),
+      ],
+    );
 
     expect(() => orderStagedMutations([early, late], registry)).toThrow(
       'conflicts with the fixed apply schedule',
@@ -173,14 +229,16 @@ describe('orderStagedMutations', () => {
   it('rejects a dependency cycle before returning an order', () => {
     const first = mutation('First', 'first-1', 3, 1);
     const second = mutation('Second', 'second-1', 3, 1);
-    const registry = new ApplyRuleRegistry([], [
-      new DependencyRule('First', current => [edge(second, current)]),
-      new DependencyRule('Second', current => [edge(first, current)]),
-    ]);
+    const registry = new ApplyRuleRegistry(
+      [],
+      [
+        new DependencyRule('First', current => [edge(second, current)]),
+        new DependencyRule('Second', current => [edge(first, current)]),
+      ],
+    );
 
     expect(() => orderStagedMutations([first, second], registry)).toThrow(
       'dependency cycle',
     );
   });
 });
-

@@ -12,7 +12,7 @@ import {setupE2ETest, teardownE2ETest} from '../helpers/e2e-test-setup.js';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 
-describe('E2E: POST /projects/:projectId/commit-changes', () => {
+describe('E2E: POST /projects/:projectId/discard-changes', () => {
   let app: INestApplication;
   let httpServer: unknown;
   let authToken: string;
@@ -54,66 +54,32 @@ describe('E2E: POST /projects/:projectId/commit-changes', () => {
     const projectId = await uploadProject();
 
     await request(httpServer as Parameters<typeof request>[0])
-      .post(`/arc-api/v1/projects/${projectId}/commit-changes`)
+      .post(`/arc-api/v1/projects/${projectId}/discard-changes`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({})
       .expect(403);
   }, 120_000);
 
-  it('accepts an omitted body and records a zero-count commit', async () => {
+  it('discards an empty active session successfully', async () => {
     const projectId = await uploadProject();
     await startSession(projectId);
 
     const response = await request(httpServer as Parameters<typeof request>[0])
-      .post(`/arc-api/v1/projects/${projectId}/commit-changes`)
+      .post(`/arc-api/v1/projects/${projectId}/discard-changes`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(response.body.data).toEqual({
-      commitId: expect.any(Number),
-      appliedEntityCount: 0,
-      appliedAggregateCount: 0,
-    });
+    expect(response.body.data).toEqual({discardedEditActionCount: 0});
   }, 120_000);
 
-  it('accepts an empty body and a second apply creates a new empty commit', async () => {
+  it('rejects selective discard fields', async () => {
     const projectId = await uploadProject();
     await startSession(projectId);
-
-    const first = await request(httpServer as Parameters<typeof request>[0])
-      .post(`/arc-api/v1/projects/${projectId}/commit-changes`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({})
-      .expect(200);
-    const second = await request(httpServer as Parameters<typeof request>[0])
-      .post(`/arc-api/v1/projects/${projectId}/commit-changes`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({})
-      .expect(200);
-
-    expect(second.body.data).toMatchObject({
-      appliedEntityCount: 0,
-      appliedAggregateCount: 0,
-    });
-    expect(second.body.data.commitId).toBeGreaterThan(
-      first.body.data.commitId as number,
-    );
-  }, 120_000);
-
-  it('rejects legacy changeIds and message fields', async () => {
-    const projectId = await uploadProject();
-    await startSession(projectId);
-    const endpoint = `/arc-api/v1/projects/${projectId}/commit-changes`;
 
     await request(httpServer as Parameters<typeof request>[0])
-      .post(endpoint)
+      .post(`/arc-api/v1/projects/${projectId}/discard-changes`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({changeIds: ['1']})
-      .expect(400);
-    await request(httpServer as Parameters<typeof request>[0])
-      .post(endpoint)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({message: 'subjective text'})
       .expect(400);
   }, 120_000);
 });

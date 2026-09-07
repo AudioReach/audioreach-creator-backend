@@ -4,6 +4,7 @@
  */
 
 import {CHANGE_OPERATION} from '../../shared/change-vocabulary.js';
+import type {ChangeOperation} from '../../shared/change-vocabulary.js';
 import {RESULT_KIND, Result} from '../../shared/result/result.js';
 import {IssueFactory} from '../../../shared/issues/factories.js';
 import type {
@@ -34,10 +35,10 @@ export function compositeValueFieldPath(valueDefSystemId: number): string {
 }
 
 export class CompositeValueApplyRule implements ApplyRule {
-  readonly allowedOperations = [
+  readonly allowedOperations: readonly ChangeOperation[] = [
     CHANGE_OPERATION.Create,
     CHANGE_OPERATION.Delete,
-  ] as const;
+  ];
 
   readonly targetType: string;
   private readonly parentKey: string;
@@ -151,7 +152,9 @@ export class CompositeValueApplyRule implements ApplyRule {
     return this.dependencyResolver(mutation, candidates);
   }
 
-  private identity(action: PendingApplyAction): ApplyRuleResult<CompositeIdentity> {
+  private identity(
+    action: PendingApplyAction,
+  ): ApplyRuleResult<CompositeIdentity> {
     if (action.targetType !== this.targetType) {
       return Result.fail<CompositeIdentity>(
         IssueFactory.invalidApplyAction(
@@ -162,7 +165,7 @@ export class CompositeValueApplyRule implements ApplyRule {
         ),
       );
     }
-    if (!this.allowedOperations.includes(action.operation as never)) {
+    if (!this.allowedOperations.includes(action.operation)) {
       return Result.fail<CompositeIdentity>(
         IssueFactory.invalidApplyOperation(
           action.targetType,
@@ -176,6 +179,8 @@ export class CompositeValueApplyRule implements ApplyRule {
     const parentSystemId = action.newValue[this.parentKey];
     const valueDefSystemId = action.newValue.valueDefSystemId;
     if (
+      typeof parentSystemId !== 'number' ||
+      typeof valueDefSystemId !== 'number' ||
       !Number.isInteger(parentSystemId) ||
       !Number.isInteger(valueDefSystemId) ||
       parentSystemId !== action.targetSystemId
@@ -190,9 +195,7 @@ export class CompositeValueApplyRule implements ApplyRule {
       );
     }
 
-    const expectedFieldPath = compositeValueFieldPath(
-      valueDefSystemId as number,
-    );
+    const expectedFieldPath = compositeValueFieldPath(valueDefSystemId);
     if (action.fieldPath !== expectedFieldPath) {
       return Result.fail<CompositeIdentity>(
         IssueFactory.invalidApplySpecialKey(
@@ -205,11 +208,11 @@ export class CompositeValueApplyRule implements ApplyRule {
     }
 
     return Result.ok<CompositeIdentity>({
-      parentSystemId: parentSystemId as number,
-      valueDefSystemId: valueDefSystemId as number,
+      parentSystemId,
+      valueDefSystemId,
       criteria: {
-        [this.parentKey]: parentSystemId as number,
-        valueDefSystemId: valueDefSystemId as number,
+        [this.parentKey]: parentSystemId,
+        valueDefSystemId,
       },
     });
   }
