@@ -7,9 +7,7 @@ import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
   SOURCE,
-  type ApplyChangesResult,
-  type ISessionRepository,
-  type PlannedMutation,
+  type ApplyChangesSummary,
   type WriteContext,
 } from '@arc/core';
 import {
@@ -34,9 +32,11 @@ import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-sch
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {TypeOrmSessionRepository} from '../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
 import {
-  createDefaultApplyRuleRegistry,
+  createDefaultApplyExecutionSchedule,
+  createDefaultApplyReductionRegistry,
   createDefaultApplyTargetRegistry,
 } from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-target-registry.js';
+import type {MainTableEntityWriteOperation} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-changes.types.js';
 import {mapEditActionRow} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/map-edit-action-row.js';
 import {TypeOrmApplyChangesService} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/typeorm-apply-changes.service.js';
 import {TypeOrmOperationExecutor} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/typeorm-operation-executor.js';
@@ -100,7 +100,8 @@ describe('TypeOrmApplyChangesService', () => {
     return new TypeOrmApplyChangesService(
       writeContext,
       new EditActionsQueryService(dataSource.manager),
-      createDefaultApplyRuleRegistry(),
+      createDefaultApplyReductionRegistry(),
+      createDefaultApplyExecutionSchedule(),
       new TypeOrmOperationExecutor(
         dataSource.manager,
         createDefaultApplyTargetRegistry(),
@@ -158,7 +159,7 @@ describe('TypeOrmApplyChangesService', () => {
 
     expect(mapEditActionRow(row)).toEqual({
       aggregateId: 10,
-      targetType: ENTITY_NAMES.UseCaseCategory,
+      entityName: ENTITY_NAMES.UseCaseCategory,
       targetSystemId: 20,
       operation: CHANGE_OPERATION.Update,
       fieldPath: 'name',
@@ -230,13 +231,20 @@ describe('TypeOrmApplyChangesService', () => {
        FROM edit_actions WHERE session_id = ? ORDER BY target_system_id`,
       [sessionId],
     );
-    expect(actions[0].valid_until).not.toBeNull();
-    expect(actions[1].valid_until).not.toBeNull();
-    expect(actions[2].valid_until).toBeNull();
-    expect(actions[3].valid_until).toBe('2026-01-01 00:00:00');
+    expect(actions).toEqual([
+      expect.objectContaining({
+        target_system_id: 702,
+        change_status: CHANGE_STATUS.Unstaged,
+        valid_until: null,
+      }),
+      expect.objectContaining({
+        target_system_id: 703,
+        valid_until: '2026-01-01 00:00:00',
+      }),
+    ]);
   });
 
-  it('records zero mutations and retires create-delete actions eliminated by reduction', async () => {
+  it('records zero mutations and removes create-delete action history eliminated by reduction', async () => {
     await insertAction({
       aggregateId: 80,
       targetSystemId: 800,
@@ -256,17 +264,58 @@ describe('TypeOrmApplyChangesService', () => {
       appliedEntityCount: 0,
       appliedAggregateCount: 0,
     });
-    const actions = await dataSource.query<Array<{valid_until: string | null}>>(
-      'SELECT valid_until FROM edit_actions WHERE session_id = ?',
+    const actions = await dataSource.query<Array<{change_id: number}>>(
+      'SELECT change_id FROM edit_actions WHERE session_id = ?',
       [sessionId],
     );
-    expect(actions.every(action => action.valid_until !== null)).toBe(true);
+    expect(actions).toEqual([]);
     await expect(
       dataSource.query(
         'SELECT change_count FROM session_commits WHERE session_id = ?',
         [sessionId],
       ),
     ).resolves.toEqual([{change_count: 0}]);
+  });
+
+  it('removes older history for applied slots but keeps unrelated stale history', async () => {
+    await dataSource.manager
+      .getRepository(ENTITY_NAMES.UseCaseCategory)
+      .insert({systemId: 810, name: 'Before'});
+    await insertAction({
+      aggregateId: 81,
+      targetSystemId: 810,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Old'},
+      validUntil: '2026-01-01 00:00:00',
+    });
+    await insertAction({
+      aggregateId: 81,
+      targetSystemId: 810,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Current'},
+    });
+    await insertAction({
+      aggregateId: 82,
+      targetSystemId: 811,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Unrelated history'},
+      validUntil: '2026-01-01 00:00:00',
+    });
+
+    await createService().apply();
+
+    const rows = await dataSource.query<
+      Array<{target_system_id: number; valid_until: string | null}>
+    >(
+      'SELECT target_system_id, valid_until FROM edit_actions WHERE session_id = ? ORDER BY target_system_id',
+      [sessionId],
+    );
+    expect(rows).toEqual([
+      {target_system_id: 811, valid_until: '2026-01-01 00:00:00'},
+    ]);
   });
 
   it('keeps separately staged parent and child deletes in the execution plan', async () => {
@@ -304,28 +353,30 @@ describe('TypeOrmApplyChangesService', () => {
         validUntil: null,
       },
     ];
-    const executed: PlannedMutation[] = [];
+    const executed: MainTableEntityWriteOperation[] = [];
     const editActions = {query: jest.fn(async () => rows)};
     const executor = {
-      execute: jest.fn(async (mutation: PlannedMutation) => {
-        executed.push(mutation);
+      validateOperations: jest.fn(),
+      execute: jest.fn(async (operation: MainTableEntityWriteOperation) => {
+        executed.push(operation);
       }),
     };
     const sessionRepository = {
       recordCommit: jest.fn(async () => 1),
-      cleanupAfterSuccessfulApply: jest.fn(async () => undefined),
+      deleteAppliedActionHistory: jest.fn(async () => 2),
     };
     const service = new TypeOrmApplyChangesService(
       writeContext,
       editActions as never,
-      createDefaultApplyRuleRegistry(),
+      createDefaultApplyReductionRegistry(),
+      createDefaultApplyExecutionSchedule(),
       executor as never,
-      sessionRepository as unknown as ISessionRepository,
+      sessionRepository,
     );
 
-    const result: ApplyChangesResult = await service.apply();
+    const result: ApplyChangesSummary = await service.apply();
 
-    expect(executed.map(mutation => mutation.targetType)).toEqual([
+    expect(executed.map(operation => operation.target.entityName)).toEqual([
       ENTITY_NAMES.ContainerPropertyData,
       ENTITY_NAMES.Container,
     ]);

@@ -20,6 +20,8 @@ import type {
   SubgraphRepository,
   SubsystemRepository,
   UsecaseRepository,
+  ApplyChangesSummary,
+  DiscardChangesSummary,
   Logger,
 } from '@arc/core';
 import type {QueryRunner, EntityManager} from 'typeorm';
@@ -39,6 +41,12 @@ import {
   TypeOrmUsecaseRepository,
   PendingChangeWriter,
   EditActionsQueryService,
+  TypeOrmApplyChangesService,
+  TypeOrmDiscardChangesService,
+  TypeOrmOperationExecutor,
+  createDefaultApplyExecutionSchedule,
+  createDefaultApplyReductionRegistry,
+  createDefaultApplyTargetRegistry,
 } from '@arc/persistence';
 import type {PendingChangeCache} from '@arc/persistence';
 
@@ -129,6 +137,29 @@ export class TypeOrmUnitOfWork implements UnitOfWork {
 
   getSessionRepository(): ISessionRepository {
     return new TypeOrmSessionRepository(this.queryRunner.manager);
+  }
+
+  /** Applies current staged actions using this UnitOfWork's transaction. */
+  async applyChanges(): Promise<ApplyChangesSummary> {
+    const manager = this.queryRunner.manager;
+    const applyService = new TypeOrmApplyChangesService(
+      this.getWriteContext(),
+      new EditActionsQueryService(manager),
+      createDefaultApplyReductionRegistry(),
+      createDefaultApplyExecutionSchedule(),
+      new TypeOrmOperationExecutor(manager, createDefaultApplyTargetRegistry()),
+      new TypeOrmSessionRepository(manager),
+    );
+    return applyService.apply();
+  }
+
+  /** Discards all edit actions using this UnitOfWork's transaction. */
+  async discardChanges(): Promise<DiscardChangesSummary> {
+    const discardService = new TypeOrmDiscardChangesService(
+      this.getWriteContext(),
+      new TypeOrmSessionRepository(this.queryRunner.manager),
+    );
+    return discardService.discard();
   }
 
   // ── Module write path (LLD2) ──────────────────────────────────────────────

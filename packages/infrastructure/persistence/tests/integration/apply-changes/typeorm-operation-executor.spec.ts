@@ -4,38 +4,38 @@
  */
 
 import {CHANGE_OPERATION} from '@arc/core';
-import type {PlannedMutation} from '@arc/core';
+import type {MainTableEntityWriteOperation} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-changes.types.js';
+import {createDefaultApplyTargetRegistry} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-target-registry.js';
+import {TypeOrmOperationExecutor} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/typeorm-operation-executor.js';
 import {
   getTestDataSource,
   setupEachTest,
   setupIntegrationTest,
   teardownIntegrationTest,
 } from '../helpers/test-database-setup.js';
-import {TypeOrmOperationExecutor} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/typeorm-operation-executor.js';
-import {createDefaultApplyTargetRegistry} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-target-registry.js';
 
-function mutation(
-  operation: PlannedMutation['operation'],
+function operation(
+  changeOperation: MainTableEntityWriteOperation['operation'],
   systemId: number,
-  values?: Readonly<Record<string, unknown>>,
-): PlannedMutation {
-  return {
-    targetType: 'UseCaseCategory',
-    mutationKey: `UseCaseCategory:${systemId}`,
+  values: Readonly<Record<string, unknown>> = {},
+): MainTableEntityWriteOperation {
+  const base = {
     aggregateId: systemId,
-    operation,
-    criteria: {systemId},
-    values,
-    executionSlot: {
-      phase:
-        operation === CHANGE_OPERATION.Delete
-          ? 1
-          : operation === CHANGE_OPERATION.Update
-            ? 4
-            : 4,
-      step: 1,
+    target: {
+      entityName: 'UseCaseCategory',
+      rowIdentifier: {
+        kind: 'SYSTEM_ID' as const,
+        values: {systemId},
+      },
     },
   };
+  if (changeOperation === CHANGE_OPERATION.Update) {
+    return {...base, operation: changeOperation, changes: values};
+  }
+  if (changeOperation === CHANGE_OPERATION.Delete) {
+    return {...base, operation: changeOperation};
+  }
+  return {...base, operation: changeOperation, values};
 }
 
 describe('TypeOrmOperationExecutor', () => {
@@ -43,7 +43,7 @@ describe('TypeOrmOperationExecutor', () => {
   afterAll(teardownIntegrationTest);
   beforeEach(setupEachTest);
 
-  it('executes create, update, and delete with prepared criteria', async () => {
+  it('executes create, update, and delete with the resolved row identity', async () => {
     const dataSource = getTestDataSource();
     const executor = new TypeOrmOperationExecutor(
       dataSource.manager,
@@ -51,13 +51,10 @@ describe('TypeOrmOperationExecutor', () => {
     );
 
     await executor.execute(
-      mutation(CHANGE_OPERATION.Create, 700, {
-        systemId: 700,
-        name: 'Initial',
-      }),
+      operation(CHANGE_OPERATION.Create, 700, {name: 'Initial'}),
     );
     await executor.execute(
-      mutation(CHANGE_OPERATION.Update, 700, {name: 'Updated'}),
+      operation(CHANGE_OPERATION.Update, 700, {name: 'Updated'}),
     );
 
     expect(
@@ -66,7 +63,7 @@ describe('TypeOrmOperationExecutor', () => {
       }),
     ).toMatchObject({systemId: 700, name: 'Updated'});
 
-    await executor.execute(mutation(CHANGE_OPERATION.Delete, 700));
+    await executor.execute(operation(CHANGE_OPERATION.Delete, 700));
     expect(
       await dataSource.manager.getRepository('UseCaseCategory').findOneBy({
         systemId: 700,
@@ -82,7 +79,7 @@ describe('TypeOrmOperationExecutor', () => {
 
     await expect(
       executor.execute(
-        mutation(CHANGE_OPERATION.Update, 999, {name: 'Missing'}),
+        operation(CHANGE_OPERATION.Update, 999, {name: 'Missing'}),
       ),
     ).rejects.toThrow('Expected one updated row, affected 0');
   });
@@ -92,15 +89,16 @@ describe('TypeOrmOperationExecutor', () => {
       getTestDataSource().manager,
       createDefaultApplyTargetRegistry(),
     );
-    const invalid = {
-      ...mutation(CHANGE_OPERATION.Create, 1, {systemId: 1}),
-      targetType: 'ProjectSession',
-      mutationKey: 'ProjectSession:1',
+    const invalid: MainTableEntityWriteOperation = {
+      ...operation(CHANGE_OPERATION.Create, 1),
+      target: {
+        entityName: 'ProjectSession',
+        rowIdentifier: {kind: 'SYSTEM_ID', values: {systemId: 1}},
+      },
     };
 
-    await expect(executor.execute(invalid)).rejects.toThrow(
+    expect(() => executor.validateOperations([invalid])).toThrow(
       'Unsupported apply target',
     );
   });
 });
-

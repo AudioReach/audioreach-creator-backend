@@ -17,6 +17,12 @@ export * from './application/orchestration/cqrs/errors.js';
 export {StartSessionCommand} from './application/edit-session/start-session/start-session.command.js';
 export {EndSessionCommand} from './application/edit-session/end-session/end-session.command.js';
 export type {SessionResult} from './application/edit-session/session-types.js';
+export * from './application/edit-session/apply-changes/apply-changes.types.js';
+export * from './application/edit-session/apply-changes/apply-changes.command.js';
+export * from './application/edit-session/apply-changes/apply-changes.handler.js';
+export * from './application/edit-session/discard-changes/discard-changes.command.js';
+export * from './application/edit-session/discard-changes/discard-changes.handler.js';
+export * from './application/edit-session/discard-changes/discard-changes.types.js';
 
 // Shared errors
 export * from './shared/errors/index.js';
