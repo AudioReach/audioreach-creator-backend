@@ -5,60 +5,81 @@
 
 import {
   CHANGE_STATUS,
-  orderStagedMutations,
-  reduceCurrentActions,
-  type ApplyChangesPort,
-  type ApplyChangesResult,
-  type ApplyRuleRegistry,
-  type ISessionRepository,
+  DomainRuleViolationException,
+  RESULT_KIND,
+  type ApplyChangesSummary,
   type WriteContext,
 } from '@arc/core';
+import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
 import type {EditActionsQueryService} from '../../queries/edit-session/edit-actions-query-service.js';
-import {mapEditActionRow} from './map-edit-action-row.js';
-import type {TypeOrmOperationExecutor} from './typeorm-operation-executor.js';
+import {orderMainTableMutations} from './apply-execution-order.js';
+import type {ApplyExecutionSchedule} from './apply-execution-order.js';
+import type {ApplyOperationReducer} from './apply-operation-reducer.js';
+import type {TypeOrmMutationExecutor} from './typeorm-mutation-executor.js';
 
-/**
- * Applies the current staged edit set through the QueryRunner-bound services.
- * The command handler owns the surrounding transaction and rollback policy.
- */
-export class TypeOrmApplyChangesService implements ApplyChangesPort {
+type ApplySessionRepository = {
+  recordCommit(input: {
+    sessionId: number;
+    changeCount: number;
+  }): Promise<number>;
+  deleteAppliedActionHistory(
+    sessionId: number,
+    rows: readonly EditActionRow[],
+  ): Promise<number>;
+};
+
+export class TypeOrmApplyChangesService {
   constructor(
     private readonly writeContext: WriteContext,
     private readonly editActions: EditActionsQueryService,
-    private readonly ruleRegistry: ApplyRuleRegistry,
-    private readonly operationExecutor: TypeOrmOperationExecutor,
-    private readonly sessionRepository: ISessionRepository,
+    private readonly operationReducer: ApplyOperationReducer,
+    private readonly executionSchedule: ApplyExecutionSchedule,
+    private readonly mutationExecutor: TypeOrmMutationExecutor,
+    private readonly sessionRepository: ApplySessionRepository,
   ) {}
 
-  async apply(): Promise<ApplyChangesResult> {
+  async apply(): Promise<ApplyChangesSummary> {
     const sessionId = this.writeContext.session.sessionId;
+
     const rows = await this.editActions.query({
       sessionId,
       changeStatus: CHANGE_STATUS.Staged,
     });
-    const actions = rows.map(mapEditActionRow);
-    const mutations = reduceCurrentActions(actions, this.ruleRegistry);
-    const orderedMutations = orderStagedMutations(
+
+    // eslint-disable-next-line unicorn/no-array-reduce, unicorn/no-array-callback-reference -- ApplyOperationReducer.reduce() is the LLD-required API, not Array.reduce().
+    const reductionResult = this.operationReducer.reduce(rows);
+    if (reductionResult.kind === RESULT_KIND.Fail) {
+      throw new DomainRuleViolationException(reductionResult.issues);
+    }
+    const mutations = reductionResult.data;
+
+    this.mutationExecutor.validateMutations(mutations);
+    const orderedMutations = orderMainTableMutations(
       mutations,
-      this.ruleRegistry,
+      this.executionSchedule,
     );
 
     for (const mutation of orderedMutations) {
-      await this.operationExecutor.execute(mutation);
+      await this.mutationExecutor.execute(mutation);
     }
 
     const commitId = await this.sessionRepository.recordCommit({
       sessionId,
       changeCount: orderedMutations.length,
     });
-    await this.sessionRepository.cleanupAfterSuccessfulApply(sessionId);
+
+    await this.sessionRepository.deleteAppliedActionHistory(sessionId, rows);
 
     return {
       commitId,
       appliedEntityCount: orderedMutations.length,
-      appliedAggregateCount: new Set(
-        orderedMutations.map(mutation => mutation.aggregateId),
-      ).size,
+      appliedAggregateCount: countDistinctAggregateIds(orderedMutations),
     };
   }
+}
+
+function countDistinctAggregateIds(
+  mutations: readonly Pick<EditActionRow, 'aggregateId'>[],
+): number {
+  return new Set(mutations.map(mutation => mutation.aggregateId)).size;
 }

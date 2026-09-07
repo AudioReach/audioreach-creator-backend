@@ -5,20 +5,27 @@
 
 import type {CommandHandler} from '../../orchestration/cqrs/commands/command-handler.js';
 import type {UnitOfWork} from '../../ports/persistence/unit-of-work.js';
-import type {ApplyChangesResult} from './apply-changes.types.js';
+import {Result} from '../../shared/result/result.js';
+import type {ApplyChangesSummary} from './apply-changes.types.js';
 import type {ApplyChangesCommand} from './apply-changes.command.js';
 
-export class ApplyChangesHandler
-  implements CommandHandler<ApplyChangesCommand, ApplyChangesResult>
-{
+export class ApplyChangesHandler implements CommandHandler<
+  ApplyChangesCommand,
+  Result<ApplyChangesSummary>
+> {
   constructor(private readonly uow: UnitOfWork) {}
 
-  async handle(_command: ApplyChangesCommand): Promise<ApplyChangesResult> {
+  async handle(
+    _command: ApplyChangesCommand,
+  ): Promise<Result<ApplyChangesSummary>> {
     await this.uow.startTransaction();
     try {
-      const result = await this.uow.getApplyChangesPort().apply();
+      const summary = await this.uow.applyChanges();
+
+      // TODO: Run post-apply validation here while the transaction is active.
+
       await this.uow.commit();
-      return result;
+      return Result.ok(summary);
     } catch (error) {
       if (this.uow.isInTransaction()) {
         await this.uow.rollback();

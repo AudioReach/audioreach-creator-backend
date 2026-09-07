@@ -26,7 +26,6 @@ import {
 import {ArcDbFileSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
-import {PendingChangeCache} from '../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {PendingChangeWriter} from '../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
 import {
   getTestDataSource,
@@ -45,7 +44,6 @@ describe('PendingChangeWriter apply contract', () => {
   let dataSource: DataSource;
   let queryRunner: QueryRunner;
   let sessionId: number;
-  let cache: PendingChangeCache;
   let writer: PendingChangeWriter;
 
   beforeAll(setupIntegrationTest);
@@ -80,10 +78,8 @@ describe('PendingChangeWriter apply contract', () => {
     sessionId = session.sessionId;
     queryRunner = dataSource.createQueryRunner();
     await queryRunner.connect();
-    cache = new PendingChangeCache();
     writer = new PendingChangeWriter(
       new EditActionsQueryService(queryRunner.manager),
-      cache,
     );
   });
 
@@ -159,14 +155,14 @@ describe('PendingChangeWriter apply contract', () => {
       errorCode: 'DOMAIN_RULE_VIOLATION',
     });
 
-    const rows = await dataSource.query<
-      Array<{valid_until: string | null}>
-    >('SELECT valid_until FROM edit_actions WHERE session_id = ?', [sessionId]);
+    const rows = await dataSource.query<Array<{valid_until: string | null}>>(
+      'SELECT valid_until FROM edit_actions WHERE session_id = ?',
+      [sessionId],
+    );
     expect(rows).toEqual([{valid_until: null}]);
-    expect(cache.isEmpty()).toBe(true);
   });
 
-  it('flushes a cached composite delete without querying a systemId version', async () => {
+  it('writes a composite delete without querying a systemId version', async () => {
     const spec = {
       targetTable: ENTITY_NAMES.UsecaseGkvValues,
       targetSystemId: USECASE_ID,
@@ -176,19 +172,16 @@ describe('PendingChangeWriter apply contract', () => {
         usecaseSystemId: USECASE_ID,
         valueDefSystemId: VALUE_DEF_ID,
       },
-      cache: true,
       source: SOURCE.Manual,
     } as const;
 
     await writer.writeDelete(spec, sessionId, 'group-1', queryRunner.manager);
-    await expect(cache.flush(queryRunner)).resolves.toBeUndefined();
 
     const [row] = await dataSource.query<
       Array<{field_path: string; new_value: string}>
-    >(
-      'SELECT field_path, new_value FROM edit_actions WHERE session_id = ?',
-      [sessionId],
-    );
+    >('SELECT field_path, new_value FROM edit_actions WHERE session_id = ?', [
+      sessionId,
+    ]);
     expect(row.field_path).toBe(FIELD_PATH);
     expect(JSON.parse(row.new_value)).toEqual(spec.payload);
   });

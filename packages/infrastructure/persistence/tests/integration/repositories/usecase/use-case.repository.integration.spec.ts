@@ -25,7 +25,6 @@ import {
 } from '../../helpers/test-database-setup.js';
 import {TypeOrmUsecaseRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/usecase/use-case.repository.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
@@ -125,10 +124,7 @@ async function linkPair(
 }
 
 function makeWriter(manager: QueryRunner['manager']): PendingChangeWriter {
-  return new PendingChangeWriter(
-    new EditActionsQueryService(manager),
-    new PendingChangeCache(),
-  );
+  return new PendingChangeWriter(new EditActionsQueryService(manager));
 }
 
 function makeUow(sessionId: number) {
@@ -657,22 +653,6 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
       expect(rows[0].source).toBe('AUTO_ROUTING');
       expect(result).toEqual({systemId: 1000, changeId: rows[0].change_id});
     });
-
-    it('returns null when the edit is deferred to the pending-change cache', async () => {
-      await qr.startTransaction();
-      const result = await makeRepo(qr.manager, sessionId).delete(1000, {
-        cache: true,
-        source: SOURCE.AutoRouting,
-      });
-      await qr.commitTransaction();
-
-      expect(result).toBeNull();
-      const rows: any[] = await ds.query(
-        `SELECT change_id FROM edit_actions WHERE session_id = ? AND target_system_id = ?`,
-        [sessionId, 1000],
-      );
-      expect(rows).toEqual([]);
-    });
   });
 
   // ── changeType ───────────────────────────────────────────────────────────────
@@ -764,28 +744,6 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         {sourceSubgraphSystemId: SG_ID_2, destSubgraphSystemId: SG_ID_1},
       ]);
     });
-
-    it('returns null without a root marker when the reversal is deferred', async () => {
-      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Island);
-      await linkPair(ds, 1000, SG_ID_1, SG_ID_2);
-      await qr.startTransaction();
-
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).reverseSgPairDirection(1000, SG_ID_1, SG_ID_2, {
-        cache: true,
-        source: SOURCE.AutoRouting,
-      });
-      await qr.commitTransaction();
-
-      expect(result).toBeNull();
-      const rows: any[] = await ds.query(
-        `SELECT change_id FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
-        [sessionId, 1000],
-      );
-      expect(rows).toEqual([]);
-    });
   });
 
   // ── applyStructuralChange ────────────────────────────────────────────────────
@@ -846,28 +804,6 @@ describe('TypeOrmUsecaseRepository (integration)', () => {
         qr.manager,
         sessionId,
       ).applyStructuralChange(1000, {}, {source: SOURCE.AutoRouting});
-      await qr.commitTransaction();
-
-      expect(result).toBeNull();
-      const rows: any[] = await ds.query(
-        `SELECT change_id FROM edit_actions WHERE session_id = ? AND aggregate_id = ?`,
-        [sessionId, 1000],
-      );
-      expect(rows).toEqual([]);
-    });
-
-    it('returns null without a root marker when a structural change is deferred', async () => {
-      await seedUseCase(ds, 1000, 1, 'uc-a', USECASE_TYPE.Linked);
-      await qr.startTransaction();
-
-      const result = await makeRepo(
-        qr.manager,
-        sessionId,
-      ).applyStructuralChange(
-        1000,
-        {addedSgSystemIds: [SG_ID_1]},
-        {cache: true, source: SOURCE.AutoRouting},
-      );
       await qr.commitTransaction();
 
       expect(result).toBeNull();

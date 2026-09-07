@@ -64,9 +64,7 @@ describe('E2E: POST /projects/:projectId/commit-changes', () => {
     const projectId = await uploadProject();
     await startSession(projectId);
 
-    const response = await request(
-      httpServer as Parameters<typeof request>[0],
-    )
+    const response = await request(httpServer as Parameters<typeof request>[0])
       .post(`/arc-api/v1/projects/${projectId}/commit-changes`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);

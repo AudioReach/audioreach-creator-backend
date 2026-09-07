@@ -22,7 +22,6 @@ import {
 import {TypeOrmSubgraphRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/subgraph/subgraph.repository.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -89,8 +88,7 @@ function makeRepo(
   fileSystemId = FILE_ID,
 ): TypeOrmSubgraphRepository {
   const editActionsQs = new EditActionsQueryService(ds);
-  const cache = new PendingChangeCache();
-  const writer = new PendingChangeWriter(editActionsQs, cache);
+  const writer = new PendingChangeWriter(editActionsQs);
   const uow = {
     getWriteContext: () => ({
       session: {sessionId, fileSystemId},

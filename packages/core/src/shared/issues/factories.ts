@@ -28,6 +28,74 @@ export const IssueFactory = {
     };
   },
 
+  unsupportedApplyTarget(targetType: string): Issue {
+    return {
+      code: ISSUE_CODE.APPLY_UNSUPPORTED_TARGET,
+      message: `Unsupported apply target: ${targetType}`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  invalidApplyAction(
+    targetType: string,
+    aggregateId: number,
+    targetSystemId: number,
+    reason: string,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.APPLY_INVALID_ACTION,
+      message:
+        `Invalid apply action for ${targetType} ` +
+        `(aggregateId=${aggregateId}, targetSystemId=${targetSystemId}): ${reason}`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  invalidApplyOperation(
+    targetType: string,
+    aggregateId: number,
+    targetSystemId: number,
+    operation: string,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.APPLY_INVALID_OPERATION,
+      message:
+        `Invalid apply operation ${operation} for ${targetType} ` +
+        `(aggregateId=${aggregateId}, targetSystemId=${targetSystemId})`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  invalidApplySpecialKey(
+    targetType: string,
+    aggregateId: number,
+    targetSystemId: number,
+    reason: string,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.APPLY_INVALID_SPECIAL_KEY,
+      message:
+        `Invalid composite apply key for ${targetType} ` +
+        `(aggregateId=${aggregateId}, targetSystemId=${targetSystemId}): ${reason}`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
+  applyPersistenceFailed(
+    targetType: string,
+    aggregateId: number,
+    mutationKey: string,
+    reason: string,
+  ): Issue {
+    return {
+      code: ISSUE_CODE.APPLY_PERSISTENCE_FAILED,
+      message:
+        `Apply persistence failed for ${targetType} ` +
+        `(aggregateId=${aggregateId}, mutationKey=${mutationKey}): ${reason}`,
+      severity: IssueSeverity.Error,
+    };
+  },
+
   notFound(
     entityType: IssueEntityType,
     systemId: number,

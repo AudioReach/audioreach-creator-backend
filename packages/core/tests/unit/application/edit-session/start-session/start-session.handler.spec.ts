@@ -57,7 +57,6 @@ function buildMockUow(
       .mockReturnValue(sessionRepo),
     setWriteContext: jest.fn(),
     getWriteContext: jest.fn(),
-    applyCachedActions: jest.fn(),
   } as unknown as jest.Mocked<UnitOfWork>;
 }
 

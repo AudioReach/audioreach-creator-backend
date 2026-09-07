@@ -30,7 +30,6 @@ import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {TypeOrmSubsystemRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/subsystem/subsystem.repository.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 
 const FILE_ID = 100;
@@ -191,10 +190,7 @@ function makeRepository(
   manager: QueryRunner['manager'],
   sessionId: number,
 ): TypeOrmSubsystemRepository {
-  const writer = new PendingChangeWriter(
-    new EditActionsQueryService(manager),
-    new PendingChangeCache(),
-  );
+  const writer = new PendingChangeWriter(new EditActionsQueryService(manager));
   const uow = {
     getWriteContext: () => ({
       session: {

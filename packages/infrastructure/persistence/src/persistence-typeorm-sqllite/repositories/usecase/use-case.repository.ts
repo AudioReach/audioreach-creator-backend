@@ -514,10 +514,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
     if (sgkvAssignments !== undefined) {
       usecaseDelta.sgkvAssignments = sgkvAssignments;
     }
-    if (
-      Object.keys(usecaseDelta).length === 0 &&
-      (!writeMarker || options?.cache === true)
-    ) {
+    if (Object.keys(usecaseDelta).length === 0 && !writeMarker) {
       return null;
     }
 

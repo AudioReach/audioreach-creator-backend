@@ -13,7 +13,6 @@ import {
 } from '../../helpers/test-database-setup.js';
 import {TypeOrmSubgraphRepository} from '../../../../src/persistence-typeorm-sqllite/repositories/subgraph/subgraph.repository.js';
 import {PendingChangeWriter} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-writer.js';
-import {PendingChangeCache} from '../../../../src/persistence-typeorm-sqllite/services/pending-change-cache.js';
 import {EditActionsQueryService} from '../../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
@@ -142,10 +141,7 @@ function makeRepo(
   manager: QueryRunner['manager'],
   sessionId = 0,
 ): TypeOrmSubgraphRepository {
-  const writer = new PendingChangeWriter(
-    new EditActionsQueryService(manager),
-    new PendingChangeCache(),
-  );
+  const writer = new PendingChangeWriter(new EditActionsQueryService(manager));
   const uow = {
     getWriteContext: () => ({
       session: {
@@ -298,7 +294,6 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       const sessionId = await seedSession(ds);
       await new PendingChangeWriter(
         new EditActionsQueryService(qr.manager),
-        new PendingChangeCache(),
       ).writeDelta(
         {
           targetTable: ENTITY_NAMES.ValueDefinition,
@@ -338,7 +333,6 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       const sessionId = await seedSession(ds);
       await new PendingChangeWriter(
         new EditActionsQueryService(qr.manager),
-        new PendingChangeCache(),
       ).writeDelta(
         {
           targetTable: ENTITY_NAMES.SubgraphPropertyDefinition,

@@ -3,45 +3,76 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {CHANGE_OPERATION, orderStagedMutations, RESULT_KIND} from '@arc/core';
+import {CHANGE_OPERATION, CHANGE_STATUS, RESULT_KIND, SOURCE} from '@arc/core';
+import type {EditActionRow} from '../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
+import type {
+  ApplyChangeOperation,
+  ReducedMainTableMutation,
+} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-changes.types.js';
+import {orderMainTableMutations} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-execution-order.js';
+import {ApplyOperationReducer} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-operation-reducer.js';
 import {
-  createDefaultApplyRuleRegistry,
+  createDefaultApplyExecutionSchedule,
+  createDefaultApplyReductionRegistry,
   createDefaultApplyTargetRegistry,
 } from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-target-registry.js';
 
-describe('default apply target registries', () => {
-  function action(
-    targetType: string,
-    targetSystemId: number,
-    operation: (typeof CHANGE_OPERATION)[keyof typeof CHANGE_OPERATION],
-    aggregateId = 1,
-    newValue: Record<string, unknown> = {},
-  ) {
-    return {
-      aggregateId,
-      targetType,
-      targetSystemId,
-      operation,
-      fieldPath: operation === CHANGE_OPERATION.Create ? '$' : null,
-      newValue,
-    };
-  }
+let nextChangeId = 1;
 
-  function reduce(
-    targetType: string,
-    pendingAction: ReturnType<typeof action>,
-  ) {
-    const result = createDefaultApplyRuleRegistry()
-      .getRule(targetType)
-      .reduce([pendingAction]);
-    expect(result.kind).toBe(RESULT_KIND.Ok);
-    if (result.kind !== RESULT_KIND.Ok || result.data === null) {
-      throw new Error(`Could not reduce ${targetType}`);
-    }
-    return result.data;
-  }
+function action(
+  targetTable: string,
+  targetSystemId: number,
+  operation: ApplyChangeOperation,
+  aggregateId = 1,
+  newValue: unknown = {},
+  fieldPath: string | null = operation === CHANGE_OPERATION.Create ? '$' : null,
+): EditActionRow {
+  return {
+    changeId: nextChangeId++,
+    sessionId: 1,
+    aggregateId,
+    targetSystemId,
+    targetTable: targetTable as EditActionRow['targetTable'],
+    operation,
+    fieldPath,
+    newValue,
+    source: SOURCE.Manual,
+    changeStatus: CHANGE_STATUS.Staged,
+    groupId: null,
+    linkedEntityGroupId: null,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    validUntil: null,
+  };
+}
 
-  it('registers current edit targets and rejects infrastructure tables', () => {
+function reduce(
+  rows: readonly EditActionRow[],
+): readonly ReducedMainTableMutation[] {
+  const result = new ApplyOperationReducer(
+    createDefaultApplyReductionRegistry(),
+  ).reduce(rows);
+  expect(result.kind).toBe(RESULT_KIND.Ok);
+  if (result.kind !== RESULT_KIND.Ok) {
+    throw new Error('Could not reduce edit-action rows');
+  }
+  return result.data;
+}
+
+function orderedEntityNames(
+  mutations: readonly ReducedMainTableMutation[],
+): string[] {
+  return orderMainTableMutations(
+    mutations,
+    createDefaultApplyExecutionSchedule(),
+  ).map(mutation => mutation.target.entityName);
+}
+
+describe('default apply persistence catalogue', () => {
+  beforeEach(() => {
+    nextChangeId = 1;
+  });
+
+  it('registers supported targets and rejects infrastructure tables', () => {
     const targets = createDefaultApplyTargetRegistry();
 
     expect(targets.get('SpfModule').entityName).toBe('SpfModule');
@@ -51,17 +82,18 @@ describe('default apply target registries', () => {
     );
   });
 
-  it('uses a dedicated key-only rule for composite value targets', () => {
-    const rules = createDefaultApplyRuleRegistry();
-    const result = rules.getRule('CkvValues').reduce([
-      {
-        aggregateId: 10,
-        targetType: 'CkvValues',
-        targetSystemId: 20,
-        operation: CHANGE_OPERATION.Update,
-        fieldPath: '$key:valueDefSystemId=30',
-        newValue: {ckvSystemId: 20, valueDefSystemId: 30},
-      },
+  it('uses a dedicated key-only reducer for composite value targets', () => {
+    const result = new ApplyOperationReducer(
+      createDefaultApplyReductionRegistry(),
+    ).reduce([
+      action(
+        'CkvValues',
+        20,
+        CHANGE_OPERATION.Update,
+        10,
+        {ckvSystemId: 20, valueDefSystemId: 30},
+        '$key:valueDefSystemId=30',
+      ),
     ]);
 
     expect(result.kind).toBe(RESULT_KIND.Fail);
@@ -79,162 +111,138 @@ describe('default apply target registries', () => {
     ).toEqual({systemId: 10, alias: 'voice'});
   });
 
-  it('orders module delete mutations from SpfModule to Node without a cycle', () => {
-    const registry = createDefaultApplyRuleRegistry();
-    const moduleDelete = reduce(
-      'SpfModule',
-      action('SpfModule', 10, CHANGE_OPERATION.Delete, 10),
-    );
-    const nodeDelete = reduce(
-      'Node',
+  it('uses the fixed module delete sequence', () => {
+    const operations = reduce([
       action('Node', 10, CHANGE_OPERATION.Delete, 10),
-    );
+      action('SpfModule', 10, CHANGE_OPERATION.Delete, 10),
+      action('DataPort', 11, CHANGE_OPERATION.Delete, 10),
+    ]);
 
-    expect(
-      orderStagedMutations([nodeDelete, moduleDelete], registry).map(
-        mutation => mutation.targetType,
-      ),
-    ).toEqual(['SpfModule', 'Node']);
+    expect(orderedEntityNames(operations)).toEqual([
+      'DataPort',
+      'SpfModule',
+      'Node',
+    ]);
   });
 
-  it('orders SPF definition parents before children on create and children before parents on delete', () => {
-    const registry = createDefaultApplyRuleRegistry();
-    const definitionCreate = reduce(
-      'SpfModuleDefinition',
-      action('SpfModuleDefinition', 10, CHANGE_OPERATION.Create, 10),
-    );
-    const groupCreate = reduce(
-      'DataPortGroup',
-      action('DataPortGroup', 11, CHANGE_OPERATION.Create, 10),
-    );
-    const portCreate = reduce(
-      'DataPortDefinition',
-      action('DataPortDefinition', 12, CHANGE_OPERATION.Create, 10),
-    );
-
-    expect(
-      orderStagedMutations(
-        [portCreate, groupCreate, definitionCreate],
-        registry,
-      ).map(mutation => mutation.targetType),
-    ).toEqual(['SpfModuleDefinition', 'DataPortGroup', 'DataPortDefinition']);
-
-    const definitionDelete = reduce(
-      'SpfModuleDefinition',
-      action('SpfModuleDefinition', 10, CHANGE_OPERATION.Delete, 10),
-    );
-    const groupDelete = reduce(
-      'DataPortGroup',
-      action('DataPortGroup', 11, CHANGE_OPERATION.Delete, 10),
-    );
-    const portDelete = reduce(
-      'DataPortDefinition',
-      action('DataPortDefinition', 12, CHANGE_OPERATION.Delete, 10),
-    );
-
-    expect(
-      orderStagedMutations(
-        [definitionDelete, groupDelete, portDelete],
-        registry,
-      ).map(mutation => mutation.targetType),
-    ).toEqual(['DataPortDefinition', 'DataPortGroup', 'SpfModuleDefinition']);
-  });
-
-  it('orders driver definition parameters around their parent', () => {
-    const registry = createDefaultApplyRuleRegistry();
-    const definitionCreate = reduce(
-      'DriverModuleDefinition',
-      action('DriverModuleDefinition', 20, CHANGE_OPERATION.Create, 20),
-    );
-    const parameterCreate = reduce(
-      'DriverModuleParameterDefinition',
+  it('runs use-case family deletes before other miscellaneous deletes', () => {
+    const operations = reduce([
+      action('UseCase', 100, CHANGE_OPERATION.Delete, 100),
+      action('UseCaseSubgraph', 101, CHANGE_OPERATION.Delete, 100),
+      action('UseCaseSubgraphPair', 102, CHANGE_OPERATION.Delete, 100),
       action(
-        'DriverModuleParameterDefinition',
-        21,
-        CHANGE_OPERATION.Create,
-        20,
-      ),
-    );
-
-    expect(
-      orderStagedMutations([parameterCreate, definitionCreate], registry).map(
-        mutation => mutation.targetType,
-      ),
-    ).toEqual(['DriverModuleDefinition', 'DriverModuleParameterDefinition']);
-
-    const definitionDelete = reduce(
-      'DriverModuleDefinition',
-      action('DriverModuleDefinition', 20, CHANGE_OPERATION.Delete, 20),
-    );
-    const parameterDelete = reduce(
-      'DriverModuleParameterDefinition',
-      action(
-        'DriverModuleParameterDefinition',
-        21,
+        'UsecaseGkvValues',
+        100,
         CHANGE_OPERATION.Delete,
-        20,
+        100,
+        {usecaseSystemId: 100, valueDefSystemId: 103},
+        '$key:valueDefSystemId=103',
       ),
-    );
+      action('UseCaseCategory', 200, CHANGE_OPERATION.Delete, 200),
+      action('ModuleManagerData', 300, CHANGE_OPERATION.Delete, 300),
+      action('DriverModule', 400, CHANGE_OPERATION.Delete, 400),
+      action('DataLink', 500, CHANGE_OPERATION.Delete, 500),
+    ]);
 
-    expect(
-      orderStagedMutations([definitionDelete, parameterDelete], registry).map(
-        mutation => mutation.targetType,
-      ),
-    ).toEqual(['DriverModuleParameterDefinition', 'DriverModuleDefinition']);
+    expect(orderedEntityNames(operations)).toEqual([
+      'UsecaseGkvValues',
+      'UseCaseSubgraph',
+      'UseCaseSubgraphPair',
+      'UseCase',
+      'UseCaseCategory',
+      'ModuleManagerData',
+      'DriverModule',
+      'DataLink',
+    ]);
   });
 
-  it('orders updates before creates in a shared execution group', () => {
-    const registry = createDefaultApplyRuleRegistry();
-    const update = reduce(
-      'UseCaseCategory',
+  it('orders SPF definition parents before children on create and reverses deletes', () => {
+    const creates = reduce([
+      action('SpfModuleDefinition', 10, CHANGE_OPERATION.Create, 10),
+      action('DataPortGroup', 11, CHANGE_OPERATION.Create, 10),
+      action('DataPortDefinition', 12, CHANGE_OPERATION.Create, 10),
+    ]);
+    const deletes = reduce([
+      action('SpfModuleDefinition', 10, CHANGE_OPERATION.Delete, 10),
+      action('DataPortGroup', 11, CHANGE_OPERATION.Delete, 10),
+      action('DataPortDefinition', 12, CHANGE_OPERATION.Delete, 10),
+    ]);
+
+    expect(orderedEntityNames(creates)).toEqual([
+      'SpfModuleDefinition',
+      'DataPortGroup',
+      'DataPortDefinition',
+    ]);
+    expect(orderedEntityNames(deletes)).toEqual([
+      'DataPortDefinition',
+      'DataPortGroup',
+      'SpfModuleDefinition',
+    ]);
+  });
+
+  it('orders updates before creates in one entity execution step', () => {
+    const operations = reduce([
       action('UseCaseCategory', 30, CHANGE_OPERATION.Update, 30, {
-        name: 'old-name',
+        name: 'updated',
       }),
-    );
-    const create = reduce(
-      'UseCaseCategory',
       action('UseCaseCategory', 31, CHANGE_OPERATION.Create, 31, {
-        name: 'old-name',
+        name: 'created',
       }),
-    );
+    ]);
 
     expect(
-      orderStagedMutations([create, update], registry).map(
-        mutation => mutation.operation,
-      ),
+      orderMainTableMutations(
+        operations,
+        createDefaultApplyExecutionSchedule(),
+      ).map(mutation => mutation.operation),
     ).toEqual([CHANGE_OPERATION.Update, CHANGE_OPERATION.Create]);
   });
 
-  it('orders subsystem link deletes before their link parent', () => {
-    const registry = createDefaultApplyRuleRegistry();
-    const dataLinkDelete = reduce(
-      'DataLink',
+  it('orders relationship deletes before link rows', () => {
+    const operations = reduce([
       action('DataLink', 40, CHANGE_OPERATION.Delete, 40),
-    );
-    const subsystemDataLinkDelete = reduce(
-      'SubsystemDataLink',
       action('SubsystemDataLink', 41, CHANGE_OPERATION.Delete, 40),
-    );
-    const controlLinkDelete = reduce(
-      'ControlLink',
       action('ControlLink', 42, CHANGE_OPERATION.Delete, 42),
-    );
-    const subsystemControlLinkDelete = reduce(
-      'SubsystemControlLink',
       action('SubsystemControlLink', 43, CHANGE_OPERATION.Delete, 42),
-    );
+    ]);
 
-    expect(
-      orderStagedMutations(
-        [dataLinkDelete, subsystemDataLinkDelete],
-        registry,
-      ).map(mutation => mutation.targetType),
-    ).toEqual(['SubsystemDataLink', 'DataLink']);
-    expect(
-      orderStagedMutations(
-        [controlLinkDelete, subsystemControlLinkDelete],
-        registry,
-      ).map(mutation => mutation.targetType),
-    ).toEqual(['SubsystemControlLink', 'ControlLink']);
+    expect(orderedEntityNames(operations)).toEqual([
+      'SubsystemDataLink',
+      'DataLink',
+      'SubsystemControlLink',
+      'ControlLink',
+    ]);
+  });
+
+  it('orders composite values after parent creates and before parent deletes', () => {
+    const value = {
+      ckvSystemId: 50,
+      valueDefSystemId: 60,
+    };
+    const creates = reduce([
+      action('Ckv', 50, CHANGE_OPERATION.Create, 50),
+      action(
+        'CkvValues',
+        50,
+        CHANGE_OPERATION.Create,
+        50,
+        value,
+        '$key:valueDefSystemId=60',
+      ),
+    ]);
+    const deletes = reduce([
+      action('Ckv', 50, CHANGE_OPERATION.Delete, 50),
+      action(
+        'CkvValues',
+        50,
+        CHANGE_OPERATION.Delete,
+        50,
+        value,
+        '$key:valueDefSystemId=60',
+      ),
+    ]);
+
+    expect(orderedEntityNames(creates)).toEqual(['Ckv', 'CkvValues']);
+    expect(orderedEntityNames(deletes)).toEqual(['CkvValues', 'Ckv']);
   });
 });

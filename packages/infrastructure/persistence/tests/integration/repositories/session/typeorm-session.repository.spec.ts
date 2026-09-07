@@ -19,6 +19,8 @@ import {
 import {CHANGE_STATUS, SOURCE, CHANGE_OPERATION} from '@arc/core';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
+import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
+import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/edit-action.schema.js';
 
 async function seedProjectAndFile(): Promise<{
   projectSystemId: number;
@@ -341,6 +343,105 @@ describe('TypeOrmSessionRepository (integration)', () => {
         {target_table: 'DataLink', target_system_id: 13},
         {target_table: 'UseCase', target_system_id: 14},
       ]);
+    });
+  });
+
+  describe('deleteAppliedActionHistory', () => {
+    it('deletes selected rows by changeId without deleting a newer current row in the same slot', async () => {
+      const {fileSystemId} = await seedProjectAndFile();
+      const sessionId = await repo.createSession({
+        fileSystemId,
+        sessionMode: SESSION_MODE.Designer,
+        userId: null,
+      });
+      const insertAction = async (
+        targetTable: string,
+        targetSystemId: number,
+        fieldPath: string | null,
+        validUntil: string | null,
+      ): Promise<number> => {
+        await ds.query(
+          `INSERT INTO edit_actions
+             (session_id, aggregate_id, target_system_id, target_table, operation,
+              field_path, new_value, source, change_status, group_id, valid_until)
+           VALUES (?, 1, ?, ?, ?, ?, '{}', ?, ?, NULL, ?)
+           RETURNING change_id`,
+          [
+            sessionId,
+            targetSystemId,
+            targetTable,
+            CHANGE_OPERATION.Update,
+            fieldPath,
+            SOURCE.Manual,
+            CHANGE_STATUS.Staged,
+            validUntil,
+          ],
+        );
+        const rows: Array<{change_id: number}> = await ds.query(
+          `SELECT last_insert_rowid() AS change_id`,
+        );
+        return rows[0].change_id;
+      };
+
+      const selectedChangeId = await insertAction(
+        ENTITY_NAMES.SpfModule,
+        20,
+        'alias',
+        null,
+      );
+      await ds.query(
+        `UPDATE edit_actions SET valid_until = ? WHERE change_id = ?`,
+        ['2026-01-01 00:00:00', selectedChangeId],
+      );
+      const olderHistoryChangeId = await insertAction(
+        ENTITY_NAMES.SpfModule,
+        20,
+        'alias',
+        '2026-01-02 00:00:00',
+      );
+      const newerCurrentChangeId = await insertAction(
+        ENTITY_NAMES.SpfModule,
+        20,
+        'alias',
+        null,
+      );
+      const differentTableCurrentChangeId = await insertAction(
+        ENTITY_NAMES.Node,
+        20,
+        'alias',
+        null,
+      );
+      const selectedRows = [
+        await ds.manager
+          .getRepository(EditActionSchema)
+          .findOneByOrFail({changeId: selectedChangeId}),
+      ];
+
+      expect(
+        await repo.deleteAppliedActionHistory(sessionId, selectedRows),
+      ).toBe(2);
+
+      const remaining: Array<{change_id: number; target_table: string}> =
+        await ds.query(
+          `SELECT change_id, target_table
+           FROM edit_actions
+           WHERE session_id = ?
+           ORDER BY change_id`,
+          [sessionId],
+        );
+      expect(remaining).toEqual([
+        {
+          change_id: newerCurrentChangeId,
+          target_table: ENTITY_NAMES.SpfModule,
+        },
+        {
+          change_id: differentTableCurrentChangeId,
+          target_table: ENTITY_NAMES.Node,
+        },
+      ]);
+      expect(
+        remaining.some(row => row.change_id === olderHistoryChangeId),
+      ).toBe(false);
     });
   });
 

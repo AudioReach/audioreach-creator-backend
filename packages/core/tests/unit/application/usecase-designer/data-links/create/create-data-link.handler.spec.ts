@@ -107,7 +107,6 @@ function makeUow(
       groupId: GROUP_ID,
     }),
     setWriteContext: jest.fn(),
-    applyCachedActions: jest.fn().mockResolvedValue(undefined),
     getSessionRepository: jest.fn(),
     getBulkImportRepository: jest.fn(),
     getProjectRepository: jest.fn(),

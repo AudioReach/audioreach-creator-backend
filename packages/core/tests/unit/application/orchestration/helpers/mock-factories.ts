@@ -28,7 +28,6 @@ export const createMockUnitOfWork = (): jest.Mocked<UnitOfWork> => {
     getRepository: jest.fn(),
     setWriteContext: jest.fn(),
     getWriteContext: jest.fn(),
-    applyCachedActions: jest.fn().mockResolvedValue(undefined),
     getSessionRepository: jest.fn(),
     getBulkImportRepository: jest.fn(),
     getProjectRepository: jest.fn(),

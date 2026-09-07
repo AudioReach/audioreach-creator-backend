@@ -6,10 +6,9 @@
 import {
   CHANGE_OPERATION,
   CHANGE_STATUS,
+  Result,
   SOURCE,
-  type ApplyChangesResult,
-  type ISessionRepository,
-  type PlannedMutation,
+  type ApplyChangesSummary,
   type WriteContext,
 } from '@arc/core';
 import {
@@ -34,12 +33,14 @@ import {ProjectSchema} from '../../../src/persistence-typeorm-sqllite/entity-sch
 import {EditActionsQueryService} from '../../../src/persistence-typeorm-sqllite/queries/edit-session/edit-actions-query-service.js';
 import {TypeOrmSessionRepository} from '../../../src/persistence-typeorm-sqllite/repositories/session/typeorm-session.repository.js';
 import {
-  createDefaultApplyRuleRegistry,
+  createDefaultApplyExecutionSchedule,
+  createDefaultApplyReductionRegistry,
   createDefaultApplyTargetRegistry,
 } from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-target-registry.js';
-import {mapEditActionRow} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/map-edit-action-row.js';
+import type {ReducedMainTableMutation} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-changes.types.js';
+import {ApplyOperationReducer} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/apply-operation-reducer.js';
 import {TypeOrmApplyChangesService} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/typeorm-apply-changes.service.js';
-import {TypeOrmOperationExecutor} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/typeorm-operation-executor.js';
+import {TypeOrmMutationExecutor} from '../../../src/persistence-typeorm-sqllite/services/apply-changes/typeorm-mutation-executor.js';
 import {
   getTestDataSource,
   getTestRepository,
@@ -100,8 +101,9 @@ describe('TypeOrmApplyChangesService', () => {
     return new TypeOrmApplyChangesService(
       writeContext,
       new EditActionsQueryService(dataSource.manager),
-      createDefaultApplyRuleRegistry(),
-      new TypeOrmOperationExecutor(
+      new ApplyOperationReducer(createDefaultApplyReductionRegistry()),
+      createDefaultApplyExecutionSchedule(),
+      new TypeOrmMutationExecutor(
         dataSource.manager,
         createDefaultApplyTargetRegistry(),
       ),
@@ -138,7 +140,7 @@ describe('TypeOrmApplyChangesService', () => {
     );
   }
 
-  it('maps persistence rows without exposing changeId', () => {
+  it('passes retained original edit-action rows to reducer and cleanup', async () => {
     const row = {
       changeId: 99,
       sessionId,
@@ -155,15 +157,49 @@ describe('TypeOrmApplyChangesService', () => {
       createdAt: new Date(),
       validUntil: null,
     } satisfies EditActionRow;
-
-    expect(mapEditActionRow(row)).toEqual({
+    const mutation: ReducedMainTableMutation = {
       aggregateId: 10,
-      targetType: ENTITY_NAMES.UseCaseCategory,
-      targetSystemId: 20,
+      target: {
+        entityName: ENTITY_NAMES.UseCaseCategory,
+        rowIdentifier: {kind: 'SYSTEM_ID', values: {systemId: 20}},
+      },
       operation: CHANGE_OPERATION.Update,
-      fieldPath: 'name',
-      newValue: {name: 'Updated'},
+      changes: {name: 'Updated'},
+    };
+    const editActions = {query: jest.fn(async () => [row])};
+    const operationReducer = {
+      reduce: jest.fn(() =>
+        Result.ok<readonly ReducedMainTableMutation[]>([mutation]),
+      ),
+    };
+    const mutationExecutor = {
+      validateMutations: jest.fn(),
+      execute: jest.fn(async () => undefined),
+    };
+    const sessionRepository = {
+      recordCommit: jest.fn(async () => 1),
+      deleteAppliedActionHistory: jest.fn(async () => 1),
+    };
+    const service = new TypeOrmApplyChangesService(
+      writeContext,
+      editActions as never,
+      operationReducer as never,
+      createDefaultApplyExecutionSchedule(),
+      mutationExecutor as never,
+      sessionRepository,
+    );
+
+    await expect(service.apply()).resolves.toEqual({
+      commitId: 1,
+      appliedEntityCount: 1,
+      appliedAggregateCount: 1,
     });
+    expect(operationReducer.reduce).toHaveBeenCalledWith([row]);
+    expect(operationReducer.reduce.mock.calls[0][0][0]).toBe(row);
+    expect(sessionRepository.deleteAppliedActionHistory).toHaveBeenCalledWith(
+      sessionId,
+      [row],
+    );
   });
 
   it('applies only current staged rows and records physical mutation counts', async () => {
@@ -230,13 +266,20 @@ describe('TypeOrmApplyChangesService', () => {
        FROM edit_actions WHERE session_id = ? ORDER BY target_system_id`,
       [sessionId],
     );
-    expect(actions[0].valid_until).not.toBeNull();
-    expect(actions[1].valid_until).not.toBeNull();
-    expect(actions[2].valid_until).toBeNull();
-    expect(actions[3].valid_until).toBe('2026-01-01 00:00:00');
+    expect(actions).toEqual([
+      expect.objectContaining({
+        target_system_id: 702,
+        change_status: CHANGE_STATUS.Unstaged,
+        valid_until: null,
+      }),
+      expect.objectContaining({
+        target_system_id: 703,
+        valid_until: '2026-01-01 00:00:00',
+      }),
+    ]);
   });
 
-  it('records zero mutations and retires create-delete actions eliminated by reduction', async () => {
+  it('records zero mutations and removes create-delete action history eliminated by reduction', async () => {
     await insertAction({
       aggregateId: 80,
       targetSystemId: 800,
@@ -256,17 +299,58 @@ describe('TypeOrmApplyChangesService', () => {
       appliedEntityCount: 0,
       appliedAggregateCount: 0,
     });
-    const actions = await dataSource.query<Array<{valid_until: string | null}>>(
-      'SELECT valid_until FROM edit_actions WHERE session_id = ?',
+    const actions = await dataSource.query<Array<{change_id: number}>>(
+      'SELECT change_id FROM edit_actions WHERE session_id = ?',
       [sessionId],
     );
-    expect(actions.every(action => action.valid_until !== null)).toBe(true);
+    expect(actions).toEqual([]);
     await expect(
       dataSource.query(
         'SELECT change_count FROM session_commits WHERE session_id = ?',
         [sessionId],
       ),
     ).resolves.toEqual([{change_count: 0}]);
+  });
+
+  it('removes older history for applied slots but keeps unrelated stale history', async () => {
+    await dataSource.manager
+      .getRepository(ENTITY_NAMES.UseCaseCategory)
+      .insert({systemId: 810, name: 'Before'});
+    await insertAction({
+      aggregateId: 81,
+      targetSystemId: 810,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Old'},
+      validUntil: '2026-01-01 00:00:00',
+    });
+    await insertAction({
+      aggregateId: 81,
+      targetSystemId: 810,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Current'},
+    });
+    await insertAction({
+      aggregateId: 82,
+      targetSystemId: 811,
+      operation: CHANGE_OPERATION.Update,
+      fieldPath: 'name',
+      newValue: {name: 'Unrelated history'},
+      validUntil: '2026-01-01 00:00:00',
+    });
+
+    await createService().apply();
+
+    const rows = await dataSource.query<
+      Array<{target_system_id: number; valid_until: string | null}>
+    >(
+      'SELECT target_system_id, valid_until FROM edit_actions WHERE session_id = ? ORDER BY target_system_id',
+      [sessionId],
+    );
+    expect(rows).toEqual([
+      {target_system_id: 811, valid_until: '2026-01-01 00:00:00'},
+    ]);
   });
 
   it('keeps separately staged parent and child deletes in the execution plan', async () => {
@@ -304,28 +388,30 @@ describe('TypeOrmApplyChangesService', () => {
         validUntil: null,
       },
     ];
-    const executed: PlannedMutation[] = [];
+    const executed: ReducedMainTableMutation[] = [];
     const editActions = {query: jest.fn(async () => rows)};
     const executor = {
-      execute: jest.fn(async (mutation: PlannedMutation) => {
+      validateMutations: jest.fn(),
+      execute: jest.fn(async (mutation: ReducedMainTableMutation) => {
         executed.push(mutation);
       }),
     };
     const sessionRepository = {
       recordCommit: jest.fn(async () => 1),
-      cleanupAfterSuccessfulApply: jest.fn(async () => undefined),
+      deleteAppliedActionHistory: jest.fn(async () => 2),
     };
     const service = new TypeOrmApplyChangesService(
       writeContext,
       editActions as never,
-      createDefaultApplyRuleRegistry(),
+      new ApplyOperationReducer(createDefaultApplyReductionRegistry()),
+      createDefaultApplyExecutionSchedule(),
       executor as never,
-      sessionRepository as unknown as ISessionRepository,
+      sessionRepository,
     );
 
-    const result: ApplyChangesResult = await service.apply();
+    const result: ApplyChangesSummary = await service.apply();
 
-    expect(executed.map(mutation => mutation.targetType)).toEqual([
+    expect(executed.map(operation => operation.target.entityName)).toEqual([
       ENTITY_NAMES.ContainerPropertyData,
       ENTITY_NAMES.Container,
     ]);
