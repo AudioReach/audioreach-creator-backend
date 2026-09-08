@@ -27,18 +27,13 @@ import type {DataLinkBase} from '../../entity-schema/usecase-data/Links/data-lin
  * Standard link overlay delegated to LinkOverlayFetcher (FR-3).
  */
 export class DbSubsystemQueryService implements SubsystemQueryService {
-  private readonly subsystemFetcher: SubsystemOverlayFetcher;
   private readonly overlayMerge = new OverlayMergeImpl();
 
   constructor(
     private readonly dataSource: DataSource,
     private readonly editActionsQuerySvc: EditActionsQueryService,
-  ) {
-    this.subsystemFetcher = new SubsystemOverlayFetcher(
-      dataSource.manager,
-      editActionsQuerySvc,
-    );
-  }
+    private readonly subsystemFetcher: SubsystemOverlayFetcher,
+  ) {}
 
   async findAll(fileSystemId: number): Promise<Result<SubsystemReadModel[]>> {
     try {
@@ -56,7 +51,8 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
           systemId: s.systemId,
           name: s.name,
           parentId: s.parentId,
-          filteredKeys: [], // TODO: load from SubsystemFilteredKey when filtered-by-subsystem is implemented
+          filteredKeys: [],
+          filteredKeySystemIds: s.filteredKeySystemIds,
         })),
       );
     } catch (error) {

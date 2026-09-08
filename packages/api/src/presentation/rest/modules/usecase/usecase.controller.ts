@@ -24,6 +24,7 @@ import {BaseController} from '../base/base.controller.js';
 import {
   UsecaseResponseDto,
   SubsystemFilteredUsecasesResponseDto,
+  SubsystemFilteredKvDto,
 } from './dto/usecase-response.dto.js';
 import {ComponentsResponseDto} from '../../common/dto/component-collection-response.dto.js';
 import {ComponentsWithSubsystemsResponseDto} from '../../common/dto/component-collection-with-subsystems.dto.js';
@@ -42,11 +43,16 @@ import {
   GetAllUseCasesQuery,
   GetComponentsQuery,
   GetComponentsWithSubsystemsQuery,
+  GetSubsystemFilteredUsecasesQuery,
   type Result,
   type UseCaseDto as CoreUseCaseDto,
+  type KeyValuePairReadModel,
   type ComponentCollectionDto as CoreComponentCollectionDto,
   type ComponentCollectionWithSubsystemsDto as CoreComponentsWithSubsystemsResponseDto,
+  type SubsystemFilteredReadModel,
+  type UseCaseReadModel,
   COMPONENT_SCOPE_TYPE,
+  RESULT_KIND,
   FilterParser,
   validateFilterFields,
 } from '@arc/core';
@@ -60,6 +66,52 @@ const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
   'subgraphId',
   'containerId',
 ]);
+
+/**
+ * Valid filter fields for GET /usecases/filtered-by-subsystem.
+ * This endpoint extends GET /usecases, so all existing filters remain valid.
+ */
+const SUBSYSTEM_FILTER_ALLOWED_FIELDS: ReadonlySet<string> = new Set([
+  ...USECASE_ALLOWED_FILTER_FIELDS,
+  'subsystemId',
+]);
+
+function toApiKeyValuePair(kv: KeyValuePairReadModel) {
+  return {
+    key: {
+      keyId: kv.key.keyId,
+      name: kv.key.name,
+      systemId: String(kv.key.systemId),
+    },
+    value: {
+      valueId: kv.value.valueId,
+      name: kv.value.name,
+      systemId: String(kv.value.systemId),
+    },
+  };
+}
+
+function toApiUsecase(uc: UseCaseReadModel) {
+  return {
+    systemId: String(uc.systemId),
+    usecaseType: 'Regular' as const,
+    keyValuePairs: uc.gkv.map(kv => toApiKeyValuePair(kv)),
+    usecaseAliasId: uc.aliasId,
+    usecaseAliasName: uc.alias,
+    usecaseCategory: uc.categories?.join(','),
+  };
+}
+
+function toSubsystemFilteredUsecasesResponse(
+  group: SubsystemFilteredReadModel,
+) {
+  return new SubsystemFilteredUsecasesResponseDto(
+    new SubsystemFilteredKvDto(
+      group.filteredGkv.map(kv => toApiKeyValuePair(kv)),
+    ),
+    group.usecases.map(usecase => toApiUsecase(usecase)),
+  );
+}
 
 /**
  * Controller to support all usecase related APIs
@@ -223,14 +275,17 @@ export class UseCaseController extends BaseController {
     required: false,
     type: 'string',
     description:
-      'Filter expression to filter usecases by subsystem ID. Supports natural query syntax with explicit operators.\n\n' +
+      'Filter expression to filter usecases by subsystem and existing usecase fields. Supports natural query syntax with explicit operators.\n\n' +
       '**Syntax:**\n' +
       '- Single condition: `subsystemId:value`\n' +
       '- AND operator: `subsystemId:value1 AND subsystemId:value2`\n' +
       '- OR operator: `subsystemId:value1 OR subsystemId:value2`\n' +
       '- Parentheses for grouping: `subsystemId:value1 AND (subsystemId:value2 OR subsystemId:value3)`\n\n' +
       '**Valid Fields:**\n' +
-      '- `subsystemId`: Subsystem system ID (only field supported by this endpoint)\n\n' +
+      '- `subsystemId`: Subsystem system ID\n' +
+      '- `spfModuleInstanceId`: SPF Module natural instance ID\n' +
+      '- `subgraphId`: Subgraph system ID\n' +
+      '- `containerId`: Container system ID\n\n' +
       '**Value Formats:**\n' +
       '- Hexadecimal: `0x1`\n' +
       '- Decimal: `1`\n\n' +
@@ -245,7 +300,7 @@ export class UseCaseController extends BaseController {
       '- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n' +
       '**Note:** \n' +
       '- Comma-separated values are NOT supported. Use explicit OR operator instead.\n' +
-      '- For filtering by spfModuleInstanceId, subgraphId, or containerId, use the `/usecases` endpoint instead.',
+      '- Existing usecase fields may be combined with `subsystemId` using AND/OR.',
     example: 'subsystemId:0x1 OR subsystemId:0x2',
   })
   @ApiDocumentationWithExample({
@@ -278,28 +333,49 @@ export class UseCaseController extends BaseController {
       },
     ],
   })
-  getSubsystemFilteredUsecases(
+  async getSubsystemFilteredUsecases(
     @Param('projectId') projectId: string,
     @Query('filter') filterExpression?: string,
   ): Promise<ApiResult<SubsystemFilteredUsecasesResponseDto[]>> {
-    console.log('Getting subsystem-filtered usecases for project:', projectId);
-
-    // TODO: Implement filter parsing and validation
-    if (filterExpression) {
-      console.log(
-        'Filter expression provided but not yet implemented:',
-        filterExpression,
-      );
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
     }
 
-    // TODO: Implement subsystem filtering logic
-    // 1. Query usecases with subsystem hierarchy
-    // 2. Group usecases by subsystem-filtered GKV
-    // 3. Create SubsystemFilteredUsecasesResponseDto instances
-    // 4. Return organized hierarchy
+    const {expression, issue} = FilterParser.tryParse(filterExpression);
+    if (issue) throw new BadRequestException(issue.message);
 
-    throw new NotImplementedException(
-      'getSubsystemFilteredUsecases is not implemented yet',
+    if (expression) {
+      const unknownField = validateFilterFields(
+        expression,
+        SUBSYSTEM_FILTER_ALLOWED_FIELDS,
+      );
+      if (unknownField) {
+        throw new BadRequestException(
+          `Unknown filter field: '${unknownField}'.`,
+        );
+      }
+    }
+
+    const query = new GetSubsystemFilteredUsecasesQuery(
+      parsedProjectId,
+      'client-id', // TODO: get actual clientId from JWT
+      expression,
+    );
+
+    const result =
+      await this.queryBus.execute<Result<SubsystemFilteredReadModel[]>>(query);
+
+    // FBS-06: handler returns parseError with INVALID_FILTER_VALUE for unknown subsystemId
+    if (
+      result.kind === RESULT_KIND.Fail &&
+      result.issues[0]?.code === 'INVALID_FILTER_VALUE'
+    ) {
+      throw new BadRequestException(result.issues[0].message);
+    }
+
+    return toApiResult(result, data =>
+      data.map(group => toSubsystemFilteredUsecasesResponse(group)),
     );
   }
 
