@@ -4,6 +4,10 @@
  */
 
 import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
+import type {VcpmCkvFetcher} from '../../fetchers/vcpm-ckv-fetcher.js';
+import type {VcpmParameterPayloadFetcher} from '../../fetchers/vcpm-parameter-payload-fetcher.js';
+import type {VcpmModuleParameterDefinitionFetcher} from '../../fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
+import type {VcpmCkvBase} from '../../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
 import {
   type SubgraphQueryService,
   type SubgraphReadModel,
@@ -13,6 +17,9 @@ import {
   type KeyValuePairListReadModel,
   type ConfigurationIncludes,
   type Issue,
+  type VcpmAggregateOptions,
+  type VcpmAggregateReadModel,
+  type VcpmCkvReadModel,
   Result,
   ERROR_CODES,
   IssueSeverity,
@@ -40,6 +47,9 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
     private readonly sessionRepo: ISessionRepository,
     private readonly keyValueDefSvc: KeyValueDefQueryService,
     subgraphFetcher: SubgraphOverlayFetcher,
+    private readonly vcpmCkvFetcher: VcpmCkvFetcher,
+    private readonly parameterPayloadFetcher: VcpmParameterPayloadFetcher,
+    private readonly parameterDefinitionFetcher: VcpmModuleParameterDefinitionFetcher,
   ) {
     this.subgraphFetcher = subgraphFetcher;
   }
@@ -195,5 +205,170 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         severity: IssueSeverity.Error,
       });
     }
+  }
+
+  async getVcpmAggregateBySubgraph(
+    subgraphSystemId: number,
+    fileSystemId: number,
+    options: VcpmAggregateOptions = {},
+  ): Promise<Result<VcpmAggregateReadModel>> {
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
+      const sessionId = session?.sessionId ?? null;
+
+      const selectedCkv =
+        options.ckvSystemId === undefined
+          ? null
+          : await this.vcpmCkvFetcher.fetchOne(
+              options.ckvSystemId,
+              subgraphSystemId,
+              fileSystemId,
+              sessionId,
+            );
+      let ckvRows: VcpmCkvBase[];
+      if (options.ckvSystemId === undefined) {
+        ckvRows = await this.vcpmCkvFetcher.fetchMany(
+          subgraphSystemId,
+          fileSystemId,
+          sessionId,
+        );
+      } else if (selectedCkv === null) {
+        ckvRows = [];
+      } else {
+        ckvRows = [selectedCkv];
+      }
+      const effectiveCkvSystemIds = new Set(ckvRows.map(ckv => ckv.systemId));
+
+      const [ckvs, linkRows] = await Promise.all([
+        this.resolveVcpmCkvValues(ckvRows, fileSystemId),
+        this.parameterPayloadFetcher.fetchParameterCkvLinksBySubgraph(
+          subgraphSystemId,
+          fileSystemId,
+          sessionId,
+          effectiveCkvSystemIds,
+        ),
+      ]);
+
+      const linksByParameter = new Map<number, Set<number>>();
+      for (const link of linkRows) {
+        const ckvIds =
+          linksByParameter.get(link.parameterSystemId) ?? new Set<number>();
+        ckvIds.add(link.ckvSystemId);
+        linksByParameter.set(link.parameterSystemId, ckvIds);
+      }
+
+      const payloadRows =
+        options.ckvSystemId === undefined || selectedCkv === null
+          ? []
+          : await this.parameterPayloadFetcher.fetchMany(
+              options.ckvSystemId,
+              subgraphSystemId,
+              fileSystemId,
+              sessionId,
+              effectiveCkvSystemIds,
+              options.paramSystemIds,
+            );
+      const payloads = payloadRows.map(row => ({
+        systemId: row.systemId,
+        vcpmParameterSystemId: row.vcpmParameterSystemId,
+        vcpmCkvSystemId: row.vcpmCkvSystemId,
+        payload: row.payload === null ? null : new Uint8Array(row.payload),
+      }));
+
+      const parameterSystemIds = [
+        ...new Set([
+          ...linkRows.map(row => row.parameterSystemId),
+          ...payloads.map(row => row.vcpmParameterSystemId),
+        ]),
+      ];
+      const definitionRows = await this.parameterDefinitionFetcher.fetchMany(
+        parameterSystemIds,
+        fileSystemId,
+      );
+
+      return Result.ok({
+        ckvs,
+        parameterCkvLinks: [...linksByParameter].map(
+          ([parameterSystemId, ckvSystemIds]) => ({
+            parameterSystemId,
+            ckvSystemIds: [...ckvSystemIds],
+          }),
+        ),
+        payloads,
+        parameterDefinitions: definitionRows.map(row => ({
+          systemId: row.systemId,
+          paramId: row.paramId,
+          name: row.name ?? '',
+          isReadOnly: row.isReadOnly,
+          elementsStructure: row.elementsStructure ?? '',
+        })),
+      });
+    } catch (error) {
+      return Result.fail({
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to query VCPM aggregate',
+        severity: IssueSeverity.Error,
+      });
+    }
+  }
+
+  private async resolveVcpmCkvValues(
+    rows: Array<{
+      systemId: number;
+      values: Array<{valueDefSystemId: number}>;
+    }>,
+    fileSystemId: number,
+  ): Promise<VcpmCkvReadModel[]> {
+    if (rows.length === 0) return [];
+
+    const valueDefIds = [
+      ...new Set(
+        rows.flatMap(row => row.values.map(value => value.valueDefSystemId)),
+      ),
+    ];
+    if (valueDefIds.length === 0) {
+      return rows.map(row => ({systemId: row.systemId, values: []}));
+    }
+
+    const result = await this.keyValueDefSvc.getKeyValueSummaryForGivenValues(
+      valueDefIds,
+      fileSystemId,
+    );
+    if (result.kind === RESULT_KIND.Fail) {
+      throw new Error('Failed to resolve CKV values for file ' + fileSystemId);
+    }
+
+    const pairs = new Map(
+      result.data.map(pair => [
+        pair.value.systemId,
+        {
+          key: {
+            naturalId: pair.key.naturalId,
+            name: pair.key.name,
+            systemId: String(pair.key.systemId),
+          },
+          value: {
+            naturalId: pair.value.naturalId,
+            name: pair.value.name,
+            systemId: String(pair.value.systemId),
+          },
+        },
+      ]),
+    );
+
+    return rows.map(row => ({
+      systemId: row.systemId,
+      values: row.values.map(value => {
+        const pair = pairs.get(value.valueDefSystemId);
+        if (pair === undefined) {
+          throw new Error('Missing value definition ' + value.valueDefSystemId);
+        }
+        return pair;
+      }),
+    }));
   }
 }

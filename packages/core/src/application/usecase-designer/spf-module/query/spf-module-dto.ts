@@ -5,6 +5,7 @@
 
 import {z} from 'zod';
 import {PropertyDtoSchema} from '../../../../shared/dto/property-dto.js';
+import {KeyValueInfoDtoSchema} from '../../../../shared/dto/key-value-info-dto.js';
 import type {SpfModuleReadModel} from '../../../ports/persistence/query-services/spf-module/spf-module-read-model.js';
 import type {
   CkvReadModel,
@@ -15,35 +16,6 @@ import type {DataPortReadModel} from '../../../ports/persistence/query-services/
 import type {ControlPortReadModel} from '../../../ports/persistence/query-services/spf-module/ports/control-port-read-model.js';
 import {RESULT_KIND} from '../../../shared/result/result.js';
 import type {Result} from '../../../shared/result/result.js';
-
-export const KeyInfoDtoSchema = z
-  .object({
-    naturalId: z.number().describe('Key id'),
-    name: z.string().describe('Key name'),
-    systemId: z.string().describe('Key system identifier'),
-  })
-  .meta({id: 'KeyInfoDto'});
-
-export type KeyInfoDto = z.infer<typeof KeyInfoDtoSchema>;
-
-export const ValueInfoDtoSchema = z
-  .object({
-    naturalId: z.number().describe('Value id'),
-    name: z.string().describe('Value name'),
-    systemId: z.string().describe('Value system identifier'),
-  })
-  .meta({id: 'ValueInfoDto'});
-
-export type ValueInfoDto = z.infer<typeof ValueInfoDtoSchema>;
-
-export const KeyValueInfoDtoSchema = z
-  .object({
-    key: KeyInfoDtoSchema.describe('Key information'),
-    value: ValueInfoDtoSchema.describe('Value information'),
-  })
-  .meta({id: 'KeyValueInfoDto'});
-
-export type KeyValueInfoDto = z.infer<typeof KeyValueInfoDtoSchema>;
 
 export const KeyValuePairsInfoDtoSchema = z
   .object({

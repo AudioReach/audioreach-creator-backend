@@ -4,7 +4,7 @@
  */
 
 import {z} from 'zod';
-import {KeyValueInfoDtoSchema} from '../../spf-module/query/spf-module-dto.js';
+import {KeyValueInfoDtoSchema} from '../../../../shared/dto/key-value-info-dto.js';
 
 const PropertyChangeDtoSchema = z.object({
   systemId: z.string(),
@@ -36,12 +36,7 @@ export const VcpmCkvDtoSchema = z.object({
       associatedCkvs: z.array(
         z.object({
           ckvSystemId: z.string(),
-          ckv: z.array(
-            z.object({
-              keyNaturalId: z.number().int(),
-              valueNaturalId: z.number().int(),
-            }),
-          ),
+          ckv: z.array(KeyValueInfoDtoSchema),
         }),
       ),
     }),
