@@ -43,45 +43,52 @@ export class GetVcpmCalDataHandler implements QueryHandler<
       );
     }
 
-    const ckv = await this.queryServices.vcpmQueryService.getVcpmCkv(
-      query.ckvSystemId,
-      query.subgraphSystemId,
-      fileSystemId,
+    const aggregateResult =
+      await this.queryServices.subgraphQueryService.getVcpmAggregateBySubgraph(
+        query.subgraphSystemId,
+        fileSystemId,
+        {
+          ckvSystemId: query.ckvSystemId,
+          paramSystemIds:
+            query.paramSystemIds.length > 0 ? query.paramSystemIds : undefined,
+        },
+      );
+    if (aggregateResult.kind === RESULT_KIND.Fail) {
+      throw new Error('Failed to load VCPM aggregate');
+    }
+
+    const aggregate = aggregateResult.data;
+    const ckv = aggregate.ckvs.find(
+      candidate => candidate.systemId === query.ckvSystemId,
     );
-    if (!ckv) {
+    if (ckv === undefined) {
       throw new ResourceNotFoundException(`CKV ${query.ckvSystemId} not found`);
     }
 
-    const payloads =
-      await this.queryServices.vcpmQueryService.getVcpmParameterPayloads(
-        query.ckvSystemId,
-        query.subgraphSystemId,
-        fileSystemId,
-        query.paramSystemIds.length > 0 ? query.paramSystemIds : undefined,
-      );
+    const definitionById = new Map(
+      aggregate.parameterDefinitions.map(definition => [
+        definition.systemId,
+        definition,
+      ]),
+    );
 
-    const paramSystemIds = payloads.map(p => p.vcpmParameterSystemId);
-    const paramDefs =
-      await this.queryServices.vcpmQueryService.getVcpmParameterDefinitions(
-        paramSystemIds,
-      );
-    const defMap = new Map(paramDefs.map(d => [d.systemId, d]));
-
-    const parameters = payloads.map(p => {
-      const def = defMap.get(p.vcpmParameterSystemId);
-      if (def === undefined) {
-        throw new ParameterDefinitionMissingError(p.vcpmParameterSystemId);
+    const parameters = aggregate.payloads.map(payload => {
+      const definition = definitionById.get(payload.vcpmParameterSystemId);
+      if (definition === undefined) {
+        throw new ParameterDefinitionMissingError(
+          payload.vcpmParameterSystemId,
+        );
       }
-      const elements: ParameterDto['elements'] = p.payload
+      const elements: ParameterDto['elements'] = payload.payload
         ? (mapElements(
-            parseParameterData(p.payload, def.elementsStructure),
+            parseParameterData(payload.payload, definition.elementsStructure),
           ) as ParameterDto['elements'])
         : [];
       return {
-        systemId: String(p.systemId),
-        parameterId: String(def.paramId),
-        name: def.name,
-        isReadOnly: def.isReadOnly,
+        systemId: String(payload.systemId),
+        naturalId: String(definition.paramId),
+        name: definition.name,
+        isReadOnly: definition.isReadOnly,
         elements,
       };
     });

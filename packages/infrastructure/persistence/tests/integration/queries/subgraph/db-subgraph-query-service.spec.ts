@@ -29,6 +29,10 @@ import {DbSubgraphQueryService} from '../../../../src/persistence-typeorm-sqllit
 import {SubgraphOverlayFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-overlay-fetcher.js';
 import {SubgraphPropertyDataFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-property-data-fetcher.js';
 import {SubgraphSgkvFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/subgraph-sgkv-fetcher.js';
+import {VcpmInstanceFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/vcpm-instance-fetcher.js';
+import {VcpmCkvFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/vcpm-ckv-fetcher.js';
+import {VcpmParameterPayloadFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/vcpm-parameter-payload-fetcher.js';
+import {VcpmModuleParameterDefinitionFetcher} from '../../../../src/persistence-typeorm-sqllite/fetchers/definitions/vcpm-module-definitions/vcpm-module-parameter-definition-fetcher.js';
 import {ENTITY_NAMES} from '../../../../src/persistence-typeorm-sqllite/entity-schema/entity-table-names.js';
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
@@ -172,21 +176,23 @@ describe('DbSubgraphQueryService.findPropertyPayloads (integration)', () => {
     await setupEachTest();
     ds = getTestDataSource();
     await seedProjectAndFile(ds);
+    const editActionsSvc = new EditActionsQueryService(ds.manager);
+    const vcpmInstanceFetcher = new VcpmInstanceFetcher(
+      ds.manager,
+      editActionsSvc,
+    );
     svc = new DbSubgraphQueryService(
       new TypeOrmSessionRepository(ds.manager),
       {getKeyValueSummaryForGivenValues: async () => Result.ok([])} as any,
       new SubgraphOverlayFetcher(
         ds.manager,
-        new EditActionsQueryService(ds.manager),
-        new SubgraphPropertyDataFetcher(
-          ds.manager,
-          new EditActionsQueryService(ds.manager),
-        ),
-        new SubgraphSgkvFetcher(
-          ds.manager,
-          new EditActionsQueryService(ds.manager),
-        ),
+        editActionsSvc,
+        new SubgraphPropertyDataFetcher(ds.manager, editActionsSvc),
+        new SubgraphSgkvFetcher(ds.manager, editActionsSvc),
       ),
+      new VcpmCkvFetcher(ds.manager, editActionsSvc, vcpmInstanceFetcher),
+      new VcpmParameterPayloadFetcher(ds.manager, editActionsSvc),
+      new VcpmModuleParameterDefinitionFetcher(ds.manager),
     );
   });
 

@@ -21,22 +21,29 @@ const PARAM_ID = 30;
 const PAYLOAD_ID = 20;
 
 const MOCK_KV = {
-  key: {keyId: 1, name: 'mode', systemId: '100'},
-  value: {valueId: 1, name: 'hifi', systemId: '200'},
+  key: {naturalId: 1, name: 'mode', systemId: '100'},
+  value: {naturalId: 1, name: 'hifi', systemId: '200'},
 };
-const MOCK_CKV = {systemId: CKV_ID, values: [MOCK_KV]};
-const MOCK_PAYLOAD = {
-  systemId: PAYLOAD_ID,
-  vcpmParameterSystemId: PARAM_ID,
-  vcpmCkvSystemId: CKV_ID,
-  payload: new Uint8Array([0, 0, 0, 0]),
-};
-const MOCK_DEF = {
-  systemId: PARAM_ID,
-  paramId: 1,
-  name: 'gain',
-  isReadOnly: false,
-  elementsStructure: '[]',
+const MOCK_AGGREGATE = {
+  ckvs: [{systemId: CKV_ID, values: [MOCK_KV]}],
+  parameterCkvLinks: [{parameterSystemId: PARAM_ID, ckvSystemIds: [CKV_ID]}],
+  payloads: [
+    {
+      systemId: PAYLOAD_ID,
+      vcpmParameterSystemId: PARAM_ID,
+      vcpmCkvSystemId: CKV_ID,
+      payload: new Uint8Array([0, 0, 0, 0]),
+    },
+  ],
+  parameterDefinitions: [
+    {
+      systemId: PARAM_ID,
+      paramId: 1,
+      name: 'gain',
+      isReadOnly: false,
+      elementsStructure: '[]',
+    },
+  ],
 };
 
 function makeQuery(paramSystemIds: number[] = []): GetVcpmCalDataQuery {
@@ -49,105 +56,79 @@ function makeQuery(paramSystemIds: number[] = []): GetVcpmCalDataQuery {
 }
 
 function makeServices(
-  overrides: {
-    fileSystemId?: number;
-    subgraphResult?: any;
-    ckv?: any;
-    payloads?: any[];
-    defs?: any[];
-  } = {},
+  aggregate = MOCK_AGGREGATE,
+  subgraphResult = Result.ok({systemId: SUBGRAPH_ID}),
 ): QueryServices {
   return {
     projectQueryService: {
-      getFileIdByProjectId: jest
-        .fn()
-        .mockResolvedValue(overrides.fileSystemId ?? FILE_ID),
+      getFileIdByProjectId: jest.fn().mockResolvedValue(FILE_ID),
     },
     subgraphQueryService: {
-      findPropertyPayloads: jest
+      findPropertyPayloads: jest.fn().mockResolvedValue(subgraphResult),
+      getVcpmAggregateBySubgraph: jest
         .fn()
-        .mockResolvedValue(
-          overrides.subgraphResult ?? Result.ok({systemId: SUBGRAPH_ID}),
-        ),
-    },
-    vcpmQueryService: {
-      getVcpmCkv: jest
-        .fn()
-        .mockResolvedValue(
-          overrides.ckv !== undefined ? overrides.ckv : MOCK_CKV,
-        ),
-      getVcpmParameterPayloads: jest
-        .fn()
-        .mockResolvedValue(overrides.payloads ?? [MOCK_PAYLOAD]),
-      getVcpmParameterDefinitions: jest
-        .fn()
-        .mockResolvedValue(overrides.defs ?? [MOCK_DEF]),
+        .mockResolvedValue(Result.ok(aggregate)),
     },
   } as unknown as QueryServices;
 }
 
 describe('GetVcpmCalDataHandler', () => {
-  it('throws ResourceNotFoundException when subgraph not found', async () => {
+  it('throws when the subgraph does not exist', async () => {
     const handler = new GetVcpmCalDataHandler(
-      makeServices({subgraphResult: Result.ok(null)}),
+      makeServices(MOCK_AGGREGATE, Result.ok(null)),
     );
     await expect(handler.handle(makeQuery())).rejects.toThrow(
       ResourceNotFoundException,
     );
   });
 
-  it('throws ResourceNotFoundException when CKV not found', async () => {
-    const handler = new GetVcpmCalDataHandler(makeServices({ckv: null}));
+  it('throws when the selected CKV is absent from the aggregate', async () => {
+    const handler = new GetVcpmCalDataHandler(
+      makeServices({...MOCK_AGGREGATE, ckvs: []}),
+    );
     await expect(handler.handle(makeQuery())).rejects.toThrow(
       ResourceNotFoundException,
     );
   });
 
-  it('returns CkvCalDataDto with correct shape', async () => {
+  it('passes the selected CKV and parameter filter to the aggregate query', async () => {
+    const services = makeServices();
+    const handler = new GetVcpmCalDataHandler(services);
+    await handler.handle(makeQuery([PARAM_ID]));
+    expect(
+      (services.subgraphQueryService.getVcpmAggregateBySubgraph as jest.Mock)
+        .mock.calls[0],
+    ).toEqual([
+      SUBGRAPH_ID,
+      FILE_ID,
+      {ckvSystemId: CKV_ID, paramSystemIds: [PARAM_ID]},
+    ]);
+  });
+
+  it('composes parsed elements and empty elements for null payloads', async () => {
     const handler = new GetVcpmCalDataHandler(makeServices());
     const result = await handler.handle(makeQuery());
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(result.data.systemId).toBe(String(CKV_ID));
     expect(result.data.Ckv).toEqual([MOCK_KV]);
-    expect(result.data.parameters).toHaveLength(1);
-    const p = result.data.parameters[0];
-    expect(p.systemId).toBe(String(PAYLOAD_ID));
-    expect(p.parameterId).toBe('1');
-    expect(p.name).toBe('gain');
-    expect(p.isReadOnly).toBe(false);
-    expect(p.elements).toEqual([]);
-  });
-
-  it('passes paramSystemIds filter to getVcpmParameterPayloads when provided', async () => {
-    const svc = makeServices();
-    const handler = new GetVcpmCalDataHandler(svc);
-    await handler.handle(makeQuery([PARAM_ID]));
-    expect(
-      (svc.vcpmQueryService.getVcpmParameterPayloads as jest.Mock).mock
-        .calls[0][3],
-    ).toEqual([PARAM_ID]);
-  });
-
-  it('passes undefined to getVcpmParameterPayloads when no filter', async () => {
-    const svc = makeServices();
-    const handler = new GetVcpmCalDataHandler(svc);
-    await handler.handle(makeQuery([]));
-    expect(
-      (svc.vcpmQueryService.getVcpmParameterPayloads as jest.Mock).mock
-        .calls[0][3],
-    ).toBeUndefined();
-  });
-
-  it('returns elements as [] when payload is null', async () => {
-    const handler = new GetVcpmCalDataHandler(
-      makeServices({payloads: [{...MOCK_PAYLOAD, payload: null}]}),
-    );
-    const result = await handler.handle(makeQuery());
+    expect(result.data.parameters[0].systemId).toBe(String(PAYLOAD_ID));
+    expect(result.data.parameters[0].naturalId).toBe('1');
     expect(result.data.parameters[0].elements).toEqual([]);
+
+    const nullPayloadHandler = new GetVcpmCalDataHandler(
+      makeServices({
+        ...MOCK_AGGREGATE,
+        payloads: [{...MOCK_AGGREGATE.payloads[0], payload: null}],
+      }),
+    );
+    const nullResult = await nullPayloadHandler.handle(makeQuery());
+    expect(nullResult.data.parameters[0].elements).toEqual([]);
   });
 
-  it('throws when a parameter definition is missing', async () => {
-    const handler = new GetVcpmCalDataHandler(makeServices({defs: []}));
+  it('throws when a payload has no parameter definition', async () => {
+    const handler = new GetVcpmCalDataHandler(
+      makeServices({...MOCK_AGGREGATE, parameterDefinitions: []}),
+    );
     await expect(handler.handle(makeQuery())).rejects.toThrow(
       ParameterDefinitionMissingError,
     );
