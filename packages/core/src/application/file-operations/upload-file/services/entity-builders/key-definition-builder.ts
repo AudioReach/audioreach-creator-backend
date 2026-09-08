@@ -128,7 +128,7 @@ export class KeyDefinitionBuilder {
 
       // Store key definition mapping immediately
       this.foreignKeyMapper.addKeyDefinitionMapping(
-        asNaturalId(keyDef.keyId),
+        asNaturalId(keyDef.naturalId),
         asSystemId(keyDef.systemId),
       );
 
@@ -138,8 +138,8 @@ export class KeyDefinitionBuilder {
 
         // Store value definition mapping immediately
         this.foreignKeyMapper.addValueDefinitionMapping(
-          asNaturalId(keyDef.keyId),
-          asNaturalId(valueDef.valueId),
+          asNaturalId(keyDef.naturalId),
+          asNaturalId(valueDef.naturalId),
           asSystemId(valueDef.systemId),
         );
       }
@@ -369,7 +369,7 @@ export class KeyDefinitionBuilder {
         try {
           const domainValue = new ValueDefinition({
             systemId: 0, // Will be generated during insertion
-            valueId: awspValue.id,
+            naturalId: awspValue.id,
             name: awspValue.name,
             description: awspValue.description,
             enumMember: awspValue.enumMember,
@@ -387,7 +387,7 @@ export class KeyDefinitionBuilder {
     // Create domain key definition
     const domainKeyDef = new KeyDefinition({
       systemId: 0, // Will be generated during insertion
-      keyId: awsp.id,
+      naturalId: awsp.id,
       fileSystemId: 0, // Placeholder - will be assigned during build process
       name: awsp.name,
       description: awsp.description,
@@ -425,7 +425,11 @@ export class KeyDefinitionBuilder {
     input: KeyDefinitionBuildInput,
   ): KeyDefinitionBuildOutput {
     const validKeyDefinitions: KeyDefinition[] = [];
-    const errors: Array<{keyId: number; keyName: string; error: string}> = [];
+    const errors: Array<{
+      keyId: number;
+      keyName: string;
+      error: string;
+    }> = [];
 
     for (const awspKeyDef of input.awspKeyDefinitions) {
       try {

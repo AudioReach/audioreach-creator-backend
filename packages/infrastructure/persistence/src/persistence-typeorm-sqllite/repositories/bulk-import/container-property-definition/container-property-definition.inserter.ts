@@ -30,7 +30,7 @@ export class ContainerPropertyDefinitionInserter {
     const rows: InsertRow<ContainerPropertyRow>[] = items.map(item => ({
       systemId: item.systemId,
       fileSystemId: item.fileSystemId,
-      propertyId: item.propertyId,
+      naturalId: item.naturalId,
       name: item.name,
       propertyType: item.type,
       description: item.description,
@@ -49,8 +49,8 @@ export class ContainerPropertyDefinitionInserter {
       const row = rows.find(r => r.systemId === error.systemId)!;
       return {
         systemId: item.systemId,
-        entityLabel: `ContainerPropertyDefinition (propertyId=${BinaryUtils.toHexString(item.propertyId)})`,
-        failedRowJson: `(propertyId=${BinaryUtils.toHexString(item.propertyId)}) Row: ${JSON.stringify(row)}`,
+        entityLabel: `ContainerPropertyDefinition (propertyId=${BinaryUtils.toHexString(item.naturalId)})`,
+        failedRowJson: `(propertyId=${BinaryUtils.toHexString(item.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -59,7 +59,7 @@ export class ContainerPropertyDefinitionInserter {
       rawFailures,
       aggregateById,
       item =>
-        `ContainerPropertyDefinition (propertyId=${BinaryUtils.toHexString(item.propertyId)})`,
+        `ContainerPropertyDefinition (propertyId=${BinaryUtils.toHexString(item.naturalId)})`,
     );
   }
 }

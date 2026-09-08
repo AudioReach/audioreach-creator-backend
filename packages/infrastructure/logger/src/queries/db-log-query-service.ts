@@ -28,10 +28,16 @@ export class DbLogQueryService implements LogQueryService {
       .getMany();
 
     return rows.map(row => ({
-      ...row,
+      systemId: row['id'],
+      level: row.level,
       timestamp: row.timestamp.toISOString(),
+      source: row.source,
       projectId: row.projectId ?? undefined,
+      component: row.component,
+      tag: row.tag,
+      msg: row.msg,
+      description: row.description,
       error: row.error ?? undefined,
-    })) as LogEntryReadModel[];
+    }));
   }
 }

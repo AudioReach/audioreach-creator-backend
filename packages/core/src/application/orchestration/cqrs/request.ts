@@ -4,6 +4,6 @@
  */
 
 export interface Request {
-  readonly id: string;
+  readonly requestToken: string;
   readonly timeStamp: Date;
 }

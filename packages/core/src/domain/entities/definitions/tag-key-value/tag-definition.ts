@@ -9,7 +9,7 @@ import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 
 export interface TagDefinitionInit {
   systemId: number;
-  tagId: number;
+  naturalId: number;
   name: string;
   description?: string;
   keysAllowed: TagDefKeyDefLink[];
@@ -22,7 +22,7 @@ export interface TagDefinitionInit {
 
 export class TagDefinition {
   readonly systemId: number;
-  readonly tagId: number;
+  readonly naturalId: number;
   readonly keysAllowed: TagDefKeyDefLink[] = [];
   name: string;
   description?: string;
@@ -36,7 +36,7 @@ export class TagDefinition {
 
   constructor(initParam: TagDefinitionInit) {
     this.systemId = initParam.systemId;
-    this.tagId = initParam.tagId;
+    this.naturalId = initParam.naturalId;
     this.name = initParam.name;
     this.description = initParam.description;
     this.isVoice = initParam.isVoice;
@@ -54,12 +54,12 @@ export class TagDefinition {
     assertNonNull(tagKey, 'tagKey is null');
     assertNonNull(
       tagKey.keyReferenceSystemId,
-      `keyReferenceSystemId is required for tag ${BinaryUtils.toHexString(this.tagId)}`,
+      `keyReferenceSystemId is required for tag ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     invariant(
       !this.keyIds.has(tagKey.keyReferenceSystemId),
-      `Tag Key ${BinaryUtils.toHexString(tagKey.keyReferenceSystemId)} already exists in TagDefinition for Tag: ${BinaryUtils.toHexString(this.tagId)}`,
+      `Tag Key ${BinaryUtils.toHexString(tagKey.keyReferenceSystemId)} already exists in TagDefinition for Tag: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     this.keyIds.add(tagKey.keyReferenceSystemId);

@@ -19,7 +19,7 @@ export interface TagKeyDefinitionReadModel {
  */
 export interface TagDefinitionReadModel {
   readonly systemId: number;
-  readonly tagId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly description?: string;
   readonly isVoice: boolean;

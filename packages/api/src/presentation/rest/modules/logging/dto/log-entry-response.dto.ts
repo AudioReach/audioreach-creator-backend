@@ -8,7 +8,7 @@ import type {LogLevel} from '@arc/core';
 
 export class LogEntryResponseDto {
   @ApiProperty()
-  id!: number;
+  systemId!: string;
 
   @ApiProperty()
   level!: LogLevel;

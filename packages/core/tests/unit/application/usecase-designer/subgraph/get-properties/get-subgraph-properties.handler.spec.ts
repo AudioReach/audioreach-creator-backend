@@ -30,7 +30,7 @@ const ELEMENTS_STRUCTURE = JSON.stringify([
 
 const mockDef: SubgraphPropertyDefinitionWithElementsReadModel = {
   systemId: 101,
-  propertyId: 55,
+  naturalId: 55,
   name: 'gain',
   description: 'Gain level',
   propertyType: 'SPF',
@@ -95,7 +95,7 @@ describe('GetSubgraphPropertiesHandler', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     expect(result.data!.properties).toHaveLength(1);
     expect(result.data!.properties[0].systemId).toBe('201');
-    expect(result.data!.properties[0].propertyId).toBe(55);
+    expect(result.data!.properties[0].naturalId).toBe(55);
     expect(result.data!.properties[0].propertyName).toBe('gain');
     expect(result.data!.properties[0].elements).not.toHaveLength(0);
   });

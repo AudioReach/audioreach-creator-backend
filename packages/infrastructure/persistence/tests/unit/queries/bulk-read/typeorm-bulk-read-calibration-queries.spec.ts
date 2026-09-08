@@ -52,8 +52,8 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
       {
         systemId: 1,
         module: {
-          instanceId: 300,
-          subgraph: {subgraphId: 100},
+          naturalId: 300,
+          subgraph: {naturalId: 100},
         },
       },
     ];
@@ -62,11 +62,11 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
     const valRows = [
       {
         ckvSystemId: 1,
-        valueDef: {keys: {keyId: 1, isDynamic: false}, valueId: 10},
+        valueDef: {keys: {naturalId: 1, isDynamic: false}, naturalId: 10},
       },
       {
         ckvSystemId: 1,
-        valueDef: {keys: {keyId: 2, isDynamic: true}, valueId: 20},
+        valueDef: {keys: {naturalId: 2, isDynamic: true}, naturalId: 20},
       },
     ];
 
@@ -74,7 +74,7 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
     const paramRows = [
       {
         ckvSystemId: 1,
-        spfParameter: {paramId: 400, pidType: 'SharedPersistent'},
+        spfParameter: {naturalId: 400, pidType: 'SharedPersistent'},
         payload: Buffer.from('DEADBEEF', 'hex'),
       },
     ];
@@ -87,23 +87,21 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
     const result = await repository.readCalibrationData(1);
 
     expect(result).toHaveLength(1);
-    expect(result[0].subgraphId).toBe(100);
+    expect(result[0].naturalId).toBe(100);
     expect(result[0].masterKeys).toEqual([
-      {keyId: 1, isDynamic: false},
-      {keyId: 2, isDynamic: true},
+      {keyNaturalId: 1, isDynamic: false},
+      {keyNaturalId: 2, isDynamic: true},
     ]);
     expect(result[0].keyValueCombinations).toHaveLength(1);
     expect(result[0].keyValueCombinations[0].keyIds).toEqual([1, 2]);
     expect(result[0].keyValueCombinations[0].valueIds).toEqual([10, 20]);
     expect(result[0].keyValueCombinations[0].modules).toHaveLength(1);
-    expect(result[0].keyValueCombinations[0].modules[0].moduleInstanceId).toBe(
-      300,
-    );
+    expect(result[0].keyValueCombinations[0].modules[0].naturalId).toBe(300);
     expect(
       result[0].keyValueCombinations[0].modules[0].parameters,
     ).toHaveLength(1);
     expect(
-      result[0].keyValueCombinations[0].modules[0].parameters[0].parameterId,
+      result[0].keyValueCombinations[0].modules[0].parameters[0].naturalId,
     ).toBe(400);
     expect(
       result[0].keyValueCombinations[0].modules[0].parameters[0].pidType,
@@ -112,18 +110,18 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
 
   it('should return calibration data for multiple subgraphs', async () => {
     const ckvRows = [
-      {systemId: 1, module: {instanceId: 10, subgraph: {subgraphId: 1}}},
-      {systemId: 2, module: {instanceId: 20, subgraph: {subgraphId: 2}}},
+      {systemId: 1, module: {naturalId: 10, subgraph: {naturalId: 1}}},
+      {systemId: 2, module: {naturalId: 20, subgraph: {naturalId: 2}}},
     ];
 
     const valRows = [
       {
         ckvSystemId: 1,
-        valueDef: {keys: {keyId: 1, isDynamic: false}, valueId: 10},
+        valueDef: {keys: {naturalId: 1, isDynamic: false}, naturalId: 10},
       },
       {
         ckvSystemId: 2,
-        valueDef: {keys: {keyId: 2, isDynamic: true}, valueId: 20},
+        valueDef: {keys: {naturalId: 2, isDynamic: true}, naturalId: 20},
       },
     ];
 
@@ -135,7 +133,7 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
     const result = await repository.readCalibrationData(1);
 
     expect(result).toHaveLength(2);
-    expect(result.map(r => r.subgraphId)).toEqual([1, 2]);
+    expect(result.map(r => r.naturalId)).toEqual([1, 2]);
   });
 
   describe('SQLite variable limit chunking', () => {
@@ -143,7 +141,7 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
       const ckvCount = 500;
       const ckvRows = Array.from({length: ckvCount}, (_, i) => ({
         systemId: i + 1,
-        module: {instanceId: i + 1, subgraph: {subgraphId: 1}},
+        module: {naturalId: i + 1, subgraph: {naturalId: 1}},
       }));
 
       (mockDataSource.getRepository as jest.Mock)
@@ -162,7 +160,7 @@ describe('TypeOrmBulkReadQueryService - readCalibrationData', () => {
       const ckvCount = 1500;
       const ckvRows = Array.from({length: ckvCount}, (_, i) => ({
         systemId: i + 1,
-        module: {instanceId: i + 1, subgraph: {subgraphId: 1}},
+        module: {naturalId: i + 1, subgraph: {naturalId: 1}},
       }));
 
       (mockDataSource.getRepository as jest.Mock)

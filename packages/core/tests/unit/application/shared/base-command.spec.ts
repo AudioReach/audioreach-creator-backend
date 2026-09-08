@@ -39,8 +39,8 @@ describe('BaseCommand', () => {
   describe('instance construction is unchanged', () => {
     it('id is auto-generated UUID string', () => {
       const cmd = new DefaultCommand();
-      expect(typeof cmd.id).toBe('string');
-      expect(cmd.id.length).toBeGreaterThan(0);
+      expect(typeof cmd.requestToken).toBe('string');
+      expect(cmd.requestToken.length).toBeGreaterThan(0);
     });
 
     it('timeStamp is a Date', () => {

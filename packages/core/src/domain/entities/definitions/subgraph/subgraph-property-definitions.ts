@@ -29,12 +29,12 @@ export class SubgraphPropertyDefinitions {
       'systemId is required for property in subgraph property',
     );
     assertNonNull(
-      propertyDefinition.propertyId,
+      propertyDefinition.naturalId,
       'propertyId is required for property in subgraph property',
     );
 
     const sysKey = `sys:${propertyDefinition.systemId}`;
-    const propKey = `prop:${propertyDefinition.propertyId}`;
+    const propKey = `prop:${propertyDefinition.naturalId}`;
 
     invariant(
       !this.propertyIds.has(sysKey),
@@ -42,7 +42,7 @@ export class SubgraphPropertyDefinitions {
     );
     invariant(
       !this.propertyIds.has(propKey),
-      `PropertyId ${BinaryUtils.toHexString(propertyDefinition.propertyId)} already exists in Subgraph PropertyDefinition`,
+      `PropertyId ${BinaryUtils.toHexString(propertyDefinition.naturalId)} already exists in Subgraph PropertyDefinition`,
     );
 
     this.propertyIds.add(sysKey);

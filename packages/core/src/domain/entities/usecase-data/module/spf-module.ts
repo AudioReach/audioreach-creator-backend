@@ -21,16 +21,16 @@ export interface SpfModuleBase {
 export class DuplicateTagExceptionError extends Error {
   constructor(
     readonly idType: 'systemId' | 'tagDefinitionSystemId',
-    readonly id: number,
+    readonly identifier: number,
   ) {
-    super(`Tag with ${idType} ${id} already exists`);
+    super(`Tag with ${idType} ${identifier} already exists`);
     this.name = 'DuplicateTagExceptionError';
   }
 }
 
 export interface SpfModuleInit {
   systemId: number;
-  instanceId: number;
+  naturalId: number;
   parentSystemId?: number;
   definitionSystemId: number;
   containerSystemId: number;
@@ -45,7 +45,7 @@ export class SpfModule extends Node implements SpfModuleBase {
   private readonly tagIds = new Set<string>();
   private readonly ckvCollection = new CkvCollection();
 
-  readonly instanceId: number;
+  readonly naturalId: number;
   readonly definitionSystemId: number;
   readonly containerSystemId: number;
   readonly subgraphSystemId: number;
@@ -62,10 +62,10 @@ export class SpfModule extends Node implements SpfModuleBase {
       type: NodeType.Module,
       dataPorts: init.dataPorts,
       controlPorts: init.controlPorts,
-      parentId: init.parentSystemId,
+      parentSystemId: init.parentSystemId,
       fileSystemId: init.fileSystemId,
     });
-    this.instanceId = init.instanceId;
+    this.naturalId = init.naturalId;
     this.definitionSystemId = init.definitionSystemId;
     this.containerSystemId = init.containerSystemId;
     this.subgraphSystemId = init.subgraphSystemId;

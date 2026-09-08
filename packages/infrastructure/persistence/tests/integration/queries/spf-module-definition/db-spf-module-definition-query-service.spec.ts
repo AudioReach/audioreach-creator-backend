@@ -226,7 +226,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
       (
         await processorDefinitionRepository.save({
           systemId: base,
-          processorDefinitionId: base,
+          naturalId: base,
           name: `Processor${moduleIndex}`,
           fileSystemId,
         })
@@ -235,7 +235,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
     const module = await moduleDefinitionRepository.save({
       systemId: base + 1,
       fileSystemId,
-      moduleDefinitionId: base + 1,
+      naturalId: base + 1,
       name: `Module${moduleIndex}`,
       processorSystemId: processor,
       stackSize: 0,
@@ -252,28 +252,28 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
     await dataPortDefinitionRepository.save({
       systemId: base + 3,
       dataPortGroupSystemId: portGroup.systemId,
-      dataPortId: base + 3,
+      naturalId: base + 3,
       name: `Port${moduleIndex}`,
     });
 
     const staticPort = await staticControlPortRepository.save({
       systemId: base + 4,
       moduleDefinitionSystemId: module.systemId,
-      portId: base + 4,
+      naturalId: base + 4,
       portName: `StaticPort${moduleIndex}`,
     });
 
     await staticIntentRepository.save({
       systemId: base + 5,
       staticControlPortDefinitionSystemId: staticPort.systemId,
-      intentId: base + 5,
+      naturalId: base + 5,
       name: `StaticIntent${moduleIndex}`,
     });
 
     await dynamicIntentRepository.save({
       systemId: base + 6,
       moduleDefinitionSystemId: module.systemId,
-      intentId: base + 6,
+      naturalId: base + 6,
       name: `DynamicIntent${moduleIndex}`,
       maxPort: 1,
     });
@@ -281,7 +281,7 @@ describe('DbSpfModuleDefinitionQueryService Integration Tests', () => {
     await parameterDefinitionRepository.save({
       systemId: base + 7,
       spfModuleDefinitionSystemId: module.systemId,
-      paramId: base + 7,
+      naturalId: base + 7,
       name: `Param${moduleIndex}`,
       maxSize: 4,
       pidType: 'test',

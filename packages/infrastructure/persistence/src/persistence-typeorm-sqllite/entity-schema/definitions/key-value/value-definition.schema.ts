@@ -11,7 +11,7 @@ import {EntitySchema} from 'typeorm';
 export interface ValueDefinitionBase {
   systemId: number;
   keySystemId: number;
-  valueId: number;
+  naturalId: number;
   name: string;
   description?: string;
   enumMember?: string;
@@ -27,7 +27,7 @@ export const ValueDefinitionSchema = new EntitySchema<ValueDefinitionRow>({
   tableName: 'arc_values',
   columns: {
     ...BaseColumnSchemaPart,
-    valueId: {
+    naturalId: {
       name: 'value_id',
       type: 'integer',
       unique: false,

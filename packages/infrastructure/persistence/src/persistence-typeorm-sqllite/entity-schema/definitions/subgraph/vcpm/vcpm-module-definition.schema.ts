@@ -14,7 +14,7 @@ import type {VcpmModuleAttributeRow} from './vcpm-module-attribute.schema.js';
 import type {ArcDbFileRow} from '../../../project-data/arc-db-file.schema.js';
 
 export interface VcpmModuleDefinitionRow extends EntityBaseRow {
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   displayName?: string;
   description?: string;
@@ -34,7 +34,7 @@ export const VcpmModuleDefinitionSchema =
     tableName: 'vcpm_module_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      moduleDefinitionId: {
+      naturalId: {
         type: 'integer',
         name: 'module_definition_id',
       },

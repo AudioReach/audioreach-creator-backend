@@ -41,23 +41,23 @@ describe('Tag Data Download Integration', () => {
         oemInfo: 'Test',
       },
       tagKeys: [
-        {tagId: 0x100, keyIds: [0x10, 0x20]},
-        {tagId: 0x200, keyIds: [0x30]},
+        {tagNaturalId: 0x100, keyIds: [0x10, 0x20]},
+        {tagNaturalId: 0x200, keyIds: [0x30]},
       ],
       tagData: [
         {
-          subgraphId: 1,
-          tagId: 0x100,
+          subgraphNaturalId: 1,
+          tagNaturalId: 0x100,
           numTagKeyValues: 2,
           tkvs: [
             {
               tagKeyValues: [0xa0, 0xb0],
               modules: [
                 {
-                  moduleInstanceId: 0x300,
+                  moduleInstanceNaturalId: 0x300,
                   parameters: [
-                    {parameterId: 0x400, payload: payload1},
-                    {parameterId: 0x401, payload: payload2},
+                    {parameterNaturalId: 0x400, payload: payload1},
+                    {parameterNaturalId: 0x401, payload: payload2},
                   ],
                 },
               ],
@@ -67,19 +67,19 @@ describe('Tag Data Download Integration', () => {
       ],
       taggedModules: [
         {
-          subgraphId: 1,
-          tagId: 0x100,
+          subgraphNaturalId: 1,
+          tagNaturalId: 0x100,
           isVoice: false,
           moduleInstances: [
-            {moduleId: 0x500, instanceId: 0x600},
-            {moduleId: 0x501, instanceId: 0x601},
+            {moduleNaturalId: 0x500, instanceNaturalId: 0x600},
+            {moduleNaturalId: 0x501, instanceNaturalId: 0x601},
           ],
         },
         {
-          subgraphId: 1,
-          tagId: 0x200,
+          subgraphNaturalId: 1,
+          tagNaturalId: 0x200,
           isVoice: true, // should be excluded from TMLU/TMDE
-          moduleInstances: [{moduleId: 0x700, instanceId: 0x800}],
+          moduleInstances: [{moduleNaturalId: 0x700, instanceNaturalId: 0x800}],
         },
       ],
     };

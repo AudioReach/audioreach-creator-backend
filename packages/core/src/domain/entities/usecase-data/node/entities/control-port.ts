@@ -5,7 +5,7 @@
 
 export interface ControlPortInit {
   systemId: number;
-  portId: number;
+  naturalId: number;
   isStatic: boolean;
   nodeSystemId: number;
   name?: string;
@@ -15,7 +15,7 @@ export interface ControlPortInit {
 
 export class ControlPort {
   systemId: number;
-  readonly portId: number;
+  readonly naturalId: number;
   readonly isStatic: boolean;
   nodeSystemId: number;
   readonly name?: string;
@@ -24,7 +24,7 @@ export class ControlPort {
 
   constructor(initParam: ControlPortInit) {
     this.systemId = initParam.systemId;
-    this.portId = initParam.portId;
+    this.naturalId = initParam.naturalId;
     this.isStatic = initParam.isStatic;
     this.nodeSystemId = initParam.nodeSystemId;
     this.name = initParam.name;

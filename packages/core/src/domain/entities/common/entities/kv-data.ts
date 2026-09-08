@@ -6,8 +6,10 @@
 import type {ModuleParameterData} from '../value-objects/module-parameter-data.js';
 
 export class DuplicateParameterPayloadError extends Error {
-  constructor(readonly parameterId: number) {
-    super(`Parameter payload with id ${parameterId} already exists`);
+  constructor(readonly parameterDefinitionSystemId: number) {
+    super(
+      `Parameter payload with system ID ${parameterDefinitionSystemId} already exists`,
+    );
     this.name = 'DuplicateParameterPayloadError';
   }
 }

@@ -8,7 +8,7 @@ import type {KeyDefinitionSummaryReadModel} from '../key-value/key-value-definit
 /**
  * Read model for a subsystem node.
  *
- * parentId — from nodes.parent_id — identifies the immediate parent subsystem.
+ * parentSystemId — from nodes.parent_id — identifies the immediate parent subsystem.
  *   undefined means this is a root subsystem (no parent).
  *   Used by buildSubsystemTree() in @arc/core to construct the recursive hierarchy.
  *
@@ -18,6 +18,6 @@ import type {KeyDefinitionSummaryReadModel} from '../key-value/key-value-definit
 export interface SubsystemReadModel {
   readonly systemId: number;
   readonly name: string;
-  readonly parentId?: number;
+  readonly parentSystemId?: number;
   readonly filteredKeys: KeyDefinitionSummaryReadModel[];
 }

@@ -22,7 +22,7 @@ export const KeyDefinitionProjections = {
     k: KeyDefinitionReadModel,
   ): KeyDefinitionSummaryReadModel => ({
     systemId: k.systemId,
-    keyId: k.keyId,
+    naturalId: k.naturalId,
     name: k.name,
     description: k.description,
   }),
@@ -40,7 +40,7 @@ export const ValueDefinitionProjections = {
     v: ValueDefinitionReadModel,
   ): ValueDefinitionSummaryReadModel => ({
     systemId: v.systemId,
-    valueId: v.valueId,
+    naturalId: v.naturalId,
     name: v.name,
     description: v.description,
   }),

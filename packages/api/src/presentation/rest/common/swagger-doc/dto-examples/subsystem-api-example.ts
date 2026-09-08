@@ -10,14 +10,14 @@ export const subsystemApiExample = Object.assign(
   new UpdateSubsystemResponseDto(),
   {
     systemId: '1',
-    id: 0xf0_10_00_01,
+    naturalId: 0xf0_10_00_01,
     name: 'Device_RX',
-    parentId: undefined,
+    parentSystemId: undefined,
     dataPorts: [],
     controlPorts: [],
     filteredKeys: [
       {
-        keyId: 0xa2_00_00_00,
+        naturalId: 0xa2_00_00_00,
         name: 'DeviceRX',
         systemId: '1',
       } satisfies KeyInfoDto,

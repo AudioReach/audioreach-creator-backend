@@ -14,7 +14,7 @@ import {EntitySchema} from 'typeorm';
 export interface ContainerBase {
   systemId: number;
   containerTypeSystemId: number;
-  containerId: number;
+  naturalId: number;
   fileSystemId: number;
 }
 
@@ -35,7 +35,7 @@ export const ContainerSchema = new EntitySchema<ContainerRow>({
       type: 'integer',
       nullable: true,
     },
-    containerId: {name: 'container_id', type: 'integer'},
+    naturalId: {name: 'container_id', type: 'integer'},
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
   relations: {
@@ -59,7 +59,7 @@ export const ContainerSchema = new EntitySchema<ContainerRow>({
   indices: [
     {
       name: 'uq_containers_container_id_file_system_id',
-      columns: ['containerId', 'fileSystemId'],
+      columns: ['naturalId', 'fileSystemId'],
       unique: true,
     },
   ],

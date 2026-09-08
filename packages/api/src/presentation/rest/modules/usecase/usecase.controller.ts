@@ -58,9 +58,9 @@ import {
  * Adding a new field: add here + add matching .register() in USECASE_PARAM_FILTER.
  */
 const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
-  'spfModuleInstanceId',
-  'subgraphId',
-  'containerId',
+  'spfModuleInstanceNaturalId',
+  'subgraphNaturalId',
+  'containerNaturalId',
 ]);
 
 /**
@@ -109,8 +109,8 @@ export class UseCaseController extends BaseController {
       '- Parentheses for grouping: `field1:value1 AND (field2:value2 OR field2:value3)`\n\n' +
       '**Valid Fields:**\n' +
       '- `spfModuleInstanceId`: SPF Module natural instance ID\n' +
-      '- `subgraphId`: Subgraph system ID\n' +
-      '- `containerId`: Container system ID\n\n' +
+      '- `subgraphNaturalId`: Subgraph natural ID\n' +
+      '- `containerNaturalId`: Container natural ID\n\n' +
       '**Value Formats:**\n' +
       '- Hexadecimal: `0x7656`\n' +
       '- Decimal: `30294`\n\n' +
@@ -121,12 +121,12 @@ export class UseCaseController extends BaseController {
       '**Examples:**\n' +
       '- Single condition: `spfModuleInstanceId:0x7656`\n' +
       '- OR operator: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657`\n' +
-      '- AND operator: `spfModuleInstanceId:0x7656 AND subgraphId:0x8978`\n' +
-      '- Complex with parentheses: `spfModuleInstanceId:0x7656 AND (containerId:0x8976 OR containerId:0x9877)`\n' +
-      '- Multiple ANDs: `spfModuleInstanceId:0x7656 AND subgraphId:0x8978 AND containerId:0x8976`\n' +
+      '- AND operator: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978`\n' +
+      '- Complex with parentheses: `spfModuleInstanceId:0x7656 AND (containerNaturalId:0x8976 OR containerNaturalId:0x9877)`\n' +
+      '- Multiple ANDs: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978 AND containerNaturalId:0x8976`\n' +
       '- Multiple ORs: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657 OR spfModuleInstanceId:0x7658`\n\n' +
       '**Note:** Comma-separated values are NOT supported. Use explicit OR operator instead.',
-    example: 'spfModuleInstanceId:0x7656 AND subgraphId:0x8978',
+    example: 'spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978',
   })
   @ApiDocumentationWithExample({
     summary: 'Get all usecases with optional filtering',
@@ -141,8 +141,8 @@ export class UseCaseController extends BaseController {
       'You can optionally filter usecases using the `filter` query parameter. ' +
       'The filter supports:\n' +
       '- `spfModuleInstanceId`: Filter by SPF module natural instance IDs\n' +
-      '- `subgraphId`: Filter by subgraph system IDs\n' +
-      '- `containerId`: Filter by container system IDs\n' +
+      '- `subgraphNaturalId`: Filter by subgraph natural IDs\n' +
+      '- `containerNaturalId`: Filter by container natural IDs\n' +
       '- Operators: Use `AND`, `OR`, and parentheses for complex filtering\n\n' +
       'See the filter parameter documentation for detailed examples and usage.',
     responses: [
@@ -248,7 +248,7 @@ export class UseCaseController extends BaseController {
       '- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n' +
       '**Note:** \n' +
       '- Comma-separated values are NOT supported. Use explicit OR operator instead.\n' +
-      '- For filtering by spfModuleInstanceId, subgraphId, or containerId, use the `/usecases` endpoint instead.',
+      '- For filtering by spfModuleInstanceId, subgraphNaturalId, or containerNaturalId, use the `/usecases` endpoint instead.',
     example: 'subsystemId:0x1 OR subsystemId:0x2',
   })
   @ApiDocumentationWithExample({

@@ -7,7 +7,7 @@ import {BaseQuery} from '../../../shared/base-query.js';
 
 /**
  * Query to retrieve all driver module definitions for a project, optionally
- * filtered by moduleDefinitionId/parameterId (AND semantics).
+ * filtered by moduleDefinitionNaturalId/parameterNaturalId (AND semantics).
  *
  * projectId: raw project system ID — resolved to fileSystemId inside the
  *            handler via ProjectQueryService (same pattern as
@@ -16,8 +16,8 @@ import {BaseQuery} from '../../../shared/base-query.js';
 export class GetAllDriverModuleDefinitionsQuery extends BaseQuery {
   constructor(
     public readonly projectId: number,
-    public readonly moduleDefinitionId: number | undefined,
-    public readonly parameterId: number | undefined,
+    public readonly moduleDefinitionNaturalId: number | undefined,
+    public readonly parameterNaturalId: number | undefined,
     clientId: string,
   ) {
     super(clientId);

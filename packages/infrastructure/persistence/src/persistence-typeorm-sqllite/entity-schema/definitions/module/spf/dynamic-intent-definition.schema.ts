@@ -13,7 +13,7 @@ import type {SpfModuleDefinitionRow} from './spf-module-definition.schema.js';
 /** Scalar columns only — used by overlay fetchers. */
 export interface DynamicIntentDefinitionBase {
   systemId: number;
-  intentId: number;
+  naturalId: number;
   name: string;
   maxPort: number;
   moduleDefinitionSystemId: number;
@@ -31,7 +31,7 @@ export const DynamicIntentDefinitionSchema =
     tableName: 'dynamic_intent_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      intentId: {
+      naturalId: {
         type: 'integer',
         name: 'intent_id',
       },

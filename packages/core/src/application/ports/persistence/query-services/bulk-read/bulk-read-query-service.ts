@@ -26,7 +26,7 @@ export interface ProjectHeaderMetadata {
  */
 export interface SubgraphPropertyDownloadModel {
   /** Property natural ID */
-  propertyId: number;
+  propertyNaturalId: number;
   /** Binary property payload */
   payload: Uint8Array;
 }
@@ -37,7 +37,7 @@ export interface SubgraphPropertyDownloadModel {
  */
 export interface ContainerPropertyDownloadModel {
   /** Property natural ID */
-  propertyId: number;
+  propertyNaturalId: number;
   /** Binary property payload */
   payload: Uint8Array;
 }
@@ -48,7 +48,7 @@ export interface ContainerPropertyDownloadModel {
  */
 export interface ContainerDownloadModel {
   /** Container natural ID */
-  containerId: number;
+  containerNaturalId: number;
   /** Container properties */
   properties: ContainerPropertyDownloadModel[];
 }
@@ -58,17 +58,17 @@ export interface ContainerDownloadModel {
  */
 export interface ModuleDownloadModel {
   /** Module instance natural ID */
-  instanceId: number;
+  instanceNaturalId: number;
   /** Module definition natural ID */
-  moduleId: number;
+  moduleNaturalId: number;
   /** Container natural ID */
-  containerId: number;
+  containerNaturalId: number;
   /** Maximum input ports */
   maxInputPorts: number;
   /** Maximum output ports */
   maxOutputPorts: number;
   /** Module properties (heap IDs, etc.) */
-  properties: Array<{propertyId: number; payload: Uint8Array}>;
+  properties: Array<{propertyNaturalId: number; payload: Uint8Array}>;
 }
 
 /**
@@ -76,13 +76,13 @@ export interface ModuleDownloadModel {
  */
 export interface DataLinkDownloadModel {
   /** Source module instance ID */
-  sourceInstanceId: number;
+  sourceInstanceNaturalId: number;
   /** Source port ID */
-  sourcePortId: number;
+  sourcePortNaturalId: number;
   /** Destination module instance ID */
-  destinationInstanceId: number;
+  destinationInstanceNaturalId: number;
   /** Destination port ID */
-  destinationPortId: number;
+  destinationPortNaturalId: number;
   /** Whether link crosses subgraph boundaries */
   isInterGraph: boolean;
 }
@@ -92,13 +92,13 @@ export interface DataLinkDownloadModel {
  */
 export interface ControlLinkDownloadModel {
   /** First peer module instance ID */
-  peer1InstanceId: number;
+  peer1InstanceNaturalId: number;
   /** First peer port ID */
-  peer1PortId: number;
+  peer1PortNaturalId: number;
   /** Second peer module instance ID */
-  peer2InstanceId: number;
+  peer2InstanceNaturalId: number;
   /** Second peer port ID */
-  peer2PortId: number;
+  peer2PortNaturalId: number;
   /** Whether link crosses subgraph boundaries */
   isInterGraph: boolean;
   /** Heap ID for control link */
@@ -112,9 +112,9 @@ export interface ControlLinkDownloadModel {
  */
 export interface VoiceTagDownloadModel {
   /** Tag natural ID */
-  tagId: number;
+  tagNaturalId: number;
   /** Module instance natural ID */
-  moduleInstanceId: number;
+  moduleInstanceNaturalId: number;
 }
 
 /**
@@ -125,7 +125,7 @@ export interface VoiceTagDownloadModel {
  */
 export interface SubgraphDownloadModel {
   /** Subgraph natural ID */
-  subgraphId: number;
+  naturalId: number;
   /** Subgraph properties — includes scenario ID payload used for voice detection */
   properties: SubgraphPropertyDownloadModel[];
   /** Modules in this subgraph */
@@ -158,8 +158,8 @@ export interface UsecaseDataDownloadModel {
 
   /** Subgraph connection pairs */
   subgraphPairs: Array<{
-    sourceSubgraphId: number;
-    destSubgraphId: number;
+    sourceSubgraphNaturalId: number;
+    destSubgraphNaturalId: number;
   }>;
 }
 
@@ -172,25 +172,25 @@ export interface UsecaseDataDownloadModel {
  */
 export interface CalibrationDataDownloadModel {
   /** Subgraph natural ID */
-  subgraphId: number;
+  naturalId: number;
 
   /**
    * Distinct key IDs across all CKVs in this subgraph, sorted ascending.
    * Used as master keys for voice subgraphs; ignored for audio.
    */
   masterKeys: Array<{
-    keyId: number;
+    keyNaturalId: number;
     isDynamic: boolean;
   }>;
 
-  /** Key-value combinations, sorted: subgraphId → keyIds → valueIds → moduleInstanceId */
+  /** Key-value combinations, sorted: subgraphNaturalId → keyIds → valueIds → moduleInstanceNaturalId */
   keyValueCombinations: Array<{
     keyIds: number[];
     valueIds: number[];
     modules: Array<{
-      moduleInstanceId: number;
+      naturalId: number;
       parameters: Array<{
-        parameterId: number;
+        naturalId: number;
         payload: Uint8Array;
         /** Used by audio chunk builder for DOT2 grouping. Voice chunk builder ignores it. */
         pidType: string;
@@ -200,64 +200,67 @@ export interface CalibrationDataDownloadModel {
 }
 
 /**
- * Global per-file map of tagId → sorted keyIds. Source: TagDefinition records.
+ * Global per-file map of tagNaturalId → sorted keyIds. Source: TagDefinition records.
  * Used to build the MTKL (MOD_TAG_KEYIDS_TABLE) chunk.
  */
 export interface TagKeysDownloadModel {
-  tagId: number;
+  tagNaturalId: number;
   keyIds: number[]; // sorted ASC
 }
 
 /**
- * Per-(subgraphId, tagId) TKV data with module/parameter payloads.
+ * Per-(subgraphNaturalId, tagNaturalId) TKV data with module/parameter payloads.
  * Used to build MTKT, MTLU, MTDE, MTDO chunks.
  */
 export interface TagDataDownloadModel {
-  subgraphId: number;
-  tagId: number;
+  subgraphNaturalId: number;
+  tagNaturalId: number;
   numTagKeyValues: number; // count of key slots → written as MTLU header field
   tkvs: Array<{
-    tagKeyValues: number[]; // VALUE IDs sorted by keyId ASC → written into MTLU vector
+    tagKeyValues: number[]; // VALUE IDs sorted by keyNaturalId ASC → written into MTLU vector
     modules: Array<{
-      moduleInstanceId: number;
-      parameters: Array<{parameterId: number; payload: Uint8Array}>;
+      naturalId: number;
+      parameters: Array<{naturalId: number; payload: Uint8Array}>;
     }>;
   }>;
 }
 
 /**
- * Per-(subgraphId, tagId) module instances (non-voice, filtered in app layer).
+ * Per-(subgraphNaturalId, tagNaturalId) module instances (non-voice, filtered in app layer).
  * Used to build TMLU, TMDE chunks.
  */
 export interface TaggedModuleDownloadModel {
-  subgraphId: number;
-  tagId: number;
+  subgraphNaturalId: number;
+  tagNaturalId: number;
   isVoice: boolean; // app layer filters isVoice=true before building chunks
-  moduleInstances: Array<{moduleId: number; instanceId: number}>; // sorted by [moduleId ASC, instanceId ASC]
+  moduleInstances: Array<{
+    moduleNaturalId: number;
+    instanceNaturalId: number;
+  }>; // sorted by [moduleNaturalId ASC, instanceNaturalId ASC]
 }
 
 /**
- * Per-(moduleDefinitionId, keyIds) group of driver calibration CKV data.
+ * Per-(moduleDefinitionNaturalId, keyIds) group of driver calibration CKV data.
  * Used to build GCLU, GCKT, GCDT, GCDE, GCDO chunks.
  *
  * Sorting contract (must be upheld by the query layer):
- *   outer: moduleDefinitionId ASC
+ *   outer: moduleDefinitionNaturalId ASC
  *   middle: keyIds lexicographic ASC
  *   inner: valueIds lexicographic ASC
- *   params: parameterId ASC
+ *   params: parameterNaturalId ASC
  */
 export interface DriverCalibrationDownloadModel {
   /** Natural module definition ID (MID) */
-  moduleDefinitionId: number;
+  naturalId: number;
   /** Sorted key IDs for this group — written to GCKT */
   keyIds: number[];
   /** CKV combinations for this (MID, keySet) group */
   ckvs: Array<{
-    /** VALUE IDs parallel to keyIds, sorted by keyId ASC — written to GCDT */
+    /** VALUE IDs parallel to keyIds, sorted by keyNaturalId ASC — written to GCDT */
     valueIds: number[];
-    /** Parameter payloads sorted by parameterId ASC — written to GCDE/GCDO */
+    /** Parameter payloads sorted by parameterNaturalId ASC — written to GCDE/GCDO */
     parameters: Array<{
-      parameterId: number;
+      naturalId: number;
       payload: Uint8Array;
     }>;
   }>;
@@ -268,7 +271,7 @@ export interface DriverCalibrationDownloadModel {
  * Nested inside KeyDefinitionDownloadModel.
  */
 export interface ValueDefinitionDownloadModel {
-  valueId: number;
+  valueNaturalId: number;
   name: string;
   description?: string;
   enumMember?: string;
@@ -280,7 +283,7 @@ export interface ValueDefinitionDownloadModel {
  * Maps directly to AwspKeyDefinition serializer fields.
  */
 export interface KeyDefinitionDownloadModel {
-  keyId: number;
+  keyNaturalId: number;
   name: string;
   description?: string;
   isVoice?: boolean;
@@ -301,7 +304,7 @@ export interface KeyDefinitionDownloadModel {
  * Nested inside TagDefinitionDownloadModel.
  */
 export interface TagKeyDownloadModel {
-  keyId: number; // natural ID from arc_keys.key_id
+  keyNaturalId: number; // natural ID from arc_keys.key_id
   keyName: string; // from arc_keys.name
   enumValue?: string; // from tag_key_def_links.tag_enum_value
 }
@@ -311,7 +314,7 @@ export interface TagKeyDownloadModel {
  * Maps directly to AwspTagDefinition serializer fields.
  */
 export interface TagDefinitionDownloadModel {
-  tagId: number;
+  tagNaturalId: number;
   name: string;
   description?: string;
   isVoice: boolean;
@@ -325,7 +328,7 @@ export interface TagDefinitionDownloadModel {
  * SPF module parameter definition download model.
  */
 export interface SpfParamDefDownloadModel {
-  paramId: number;
+  paramNaturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
@@ -333,14 +336,14 @@ export interface SpfParamDefDownloadModel {
   elementsStructure: string; // raw JSON
   isReadOnly: boolean;
   toolPolicies?: string; // raw JSON array string
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 }
 
 /**
  * Data port download model.
  */
 export interface DataPortDownloadModel {
-  portId: number;
+  portNaturalId: number;
   name?: string;
 }
 
@@ -357,7 +360,7 @@ export interface DataPortGroupDownloadModel {
  * Static intent download model.
  */
 export interface StaticIntentDownloadModel {
-  intentId: number;
+  intentNaturalId: number;
   name: string;
 }
 
@@ -365,7 +368,7 @@ export interface StaticIntentDownloadModel {
  * Static control port download model.
  */
 export interface StaticControlPortDownloadModel {
-  portId: number;
+  portNaturalId: number;
   portName: string;
   intents: StaticIntentDownloadModel[];
 }
@@ -374,7 +377,7 @@ export interface StaticControlPortDownloadModel {
  * Dynamic intent download model.
  */
 export interface DynamicIntentDownloadModel {
-  intentId: number;
+  intentNaturalId: number;
   name: string;
   maxPort: number;
 }
@@ -383,7 +386,7 @@ export interface DynamicIntentDownloadModel {
  * SPF module definition download model for .awsp definitions.json generation.
  */
 export interface SpfModuleDefinitionDownloadModel {
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   displayName?: string;
   description?: string;
@@ -402,7 +405,7 @@ export interface SpfModuleDefinitionDownloadModel {
  * Driver module parameter definition download model.
  */
 export interface DriverParamDefDownloadModel {
-  parameterId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
@@ -413,7 +416,7 @@ export interface DriverParamDefDownloadModel {
  * Driver module definition download model for .awsp definitions.json generation.
  */
 export interface DriverModuleDefinitionDownloadModel {
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   description?: string;
   groupName?: string;
@@ -424,7 +427,7 @@ export interface DriverModuleDefinitionDownloadModel {
  * VCPM module parameter definition download model.
  */
 export interface VcpmParamDefDownloadModel {
-  parameterId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
@@ -435,7 +438,7 @@ export interface VcpmParamDefDownloadModel {
  * VCPM module definition download model for .awsp definitions.json generation.
  */
 export interface VcpmModuleDefinitionDownloadModel {
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   description?: string;
   params: VcpmParamDefDownloadModel[];
@@ -446,7 +449,7 @@ export interface VcpmModuleDefinitionDownloadModel {
  * Sourced from subgraph_property_definitions (SG_CFG) and container_property_definitions (CONTAINTER_CFG).
  */
 export interface SpfPropertyDefinitionDownloadModel {
-  propertyId: number;
+  propertyNaturalId: number;
   name: string;
   description?: string;
   maxSize: number;
@@ -460,7 +463,7 @@ export interface SpfPropertyDefinitionDownloadModel {
  * Sourced from module_property_definitions.
  */
 export interface DriverPropertyDefinitionDownloadModel {
-  propertyId: number;
+  propertyNaturalId: number;
   name: string;
   description?: string;
   maxSize: number;
@@ -481,7 +484,7 @@ export interface ConfigurationDownloadModel {
 }
 
 export interface ProcessorDefinitionDownloadModel {
-  processorDefinitionId: number;
+  processorDefinitionNaturalId: number;
   name: string;
 }
 
@@ -495,7 +498,7 @@ export interface UiUsecaseDownloadModel {
   systemId: number;
   keyIds: number[];
   valueIds: number[];
-  aliasId: number;
+  aliasNaturalId: number;
   aliasName: string;
   type?: UsecaseType;
   orderedKeys?: string;
@@ -506,7 +509,7 @@ export interface UiUsecaseDownloadModel {
 /** UI-metadata subgraph row for .awsp reconstruction. */
 export interface UiSubgraphDownloadModel {
   systemId: number;
-  subgraphId: number;
+  subgraphNaturalId: number;
   name: string;
   reviewedAt?: string;
   sgkvValueIds: number[];
@@ -516,8 +519,8 @@ export interface UiSubgraphDownloadModel {
 export interface UiCkvDownloadModel {
   ckvSystemId: number;
   moduleSystemId: number;
-  moduleInstanceId: number;
-  moduleDefinitionId: number;
+  moduleInstanceNaturalId: number;
+  naturalId: number;
   uiPersistence: Uint8Array | null;
   valueIds: number[];
 }
@@ -525,8 +528,8 @@ export interface UiCkvDownloadModel {
 /** UI-metadata module row for .awsp reconstruction. */
 export interface UiModuleDownloadModel {
   systemId: number;
-  instanceId: number;
-  definitionId: number;
+  instanceNaturalId: number;
+  definitionNaturalId: number;
   aliasName: string;
   reviewedAt?: string;
   ckvs: UiCkvDownloadModel[];
@@ -535,18 +538,21 @@ export interface UiModuleDownloadModel {
 /** UI-metadata subsystem row for .awsp reconstruction. */
 export interface UiSubsystemDownloadModel {
   systemId: number;
-  subsystemId: number;
+  subsystemNaturalId: number;
   name: string;
   filteredKeyIds: number[];
-  children: Array<{id: number; type: 'Subgraph' | 'Subsystem' | 'Unknown'}>;
+  children: Array<{
+    naturalId: number;
+    type: 'Subgraph' | 'Subsystem' | 'Unknown';
+  }>;
 }
 
 /** UI-metadata data link row for .awsp reconstruction. */
 export interface UiDataLinkDownloadModel {
-  sourceInstanceId: number;
-  sourcePortId: number;
-  destinationInstanceId: number;
-  destinationPortId: number;
+  sourceInstanceNaturalId: number;
+  sourcePortNaturalId: number;
+  destinationInstanceNaturalId: number;
+  destinationPortNaturalId: number;
   isEc?: boolean;
 }
 
@@ -660,7 +666,7 @@ export interface BulkReadQueryService {
    * Read all key definitions with nested value definitions for .awsp generation.
    *
    * @param fileSystemId - The file system ID to scope the query
-   * @returns Array of key definitions ordered by keyId ascending
+   * @returns Array of key definitions ordered by keyNaturalId ascending
    */
   readKeyDefinitions(
     fileSystemId: number,
@@ -670,7 +676,7 @@ export interface BulkReadQueryService {
    * Read all tag definitions with nested supported key links for .awsp generation.
    *
    * @param fileSystemId - The file system ID to scope the query
-   * @returns Array of tag definitions ordered by tagId ascending
+   * @returns Array of tag definitions ordered by tagNaturalId ascending
    */
   readTagDefinitions(
     fileSystemId: number,
@@ -680,7 +686,7 @@ export interface BulkReadQueryService {
    * Read all SPF module definitions with nested parameters, ports, intents, and links for .awsp generation.
    *
    * @param fileSystemId - The file system ID to scope the query
-   * @returns Array of SPF module definitions ordered by moduleDefinitionId ascending
+   * @returns Array of SPF module definitions ordered by moduleDefinitionNaturalId ascending
    */
   readSpfModuleDefinitions(
     fileSystemId: number,
@@ -690,7 +696,7 @@ export interface BulkReadQueryService {
    * Read all driver module definitions with nested parameters for .awsp generation.
    *
    * @param fileSystemId - The file system ID to scope the query
-   * @returns Array of driver module definitions ordered by moduleDefinitionId ascending
+   * @returns Array of driver module definitions ordered by moduleDefinitionNaturalId ascending
    */
   readDriverModuleDefinitions(
     fileSystemId: number,
@@ -699,7 +705,7 @@ export interface BulkReadQueryService {
   /**
    * Read all VCPM module definitions for .awsp definitions.json generation.
    * @param fileSystemId - The file system ID to scope the query
-   * @returns Array of VCPM module definitions ordered by moduleDefinitionId ascending
+   * @returns Array of VCPM module definitions ordered by moduleDefinitionNaturalId ascending
    */
   readVcpmModuleDefinitions(
     fileSystemId: number,

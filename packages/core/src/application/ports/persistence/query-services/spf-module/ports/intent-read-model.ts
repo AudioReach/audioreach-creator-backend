@@ -5,6 +5,6 @@
 
 export interface IntentReadModel {
   readonly systemId: number;
-  readonly intentId: number;
+  readonly naturalId: number;
   readonly name: string;
 }

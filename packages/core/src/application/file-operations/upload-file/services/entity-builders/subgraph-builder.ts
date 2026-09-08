@@ -92,7 +92,7 @@ export class SubgraphBuilder {
       subgraph.fileSystemId = fileSystemId;
       subgraph.systemId = await this.idGenerator.getNextId(fileSystemId);
       this.foreignKeyMapper.addSubgraphMapping(
-        asNaturalId(subgraph.subgraphId),
+        asNaturalId(subgraph.naturalId),
         asSystemId(subgraph.systemId),
       );
       for (const sgkv of subgraph.sgkvs) {
@@ -217,7 +217,7 @@ export class SubgraphBuilder {
 
     return new Subgraph({
       systemId: 0,
-      subgraphId: subgraphPropertyData.subgraphId,
+      naturalId: subgraphPropertyData.subgraphId,
       name,
       isImported: false, //TODO: get from workspace
       fileSystemId: 0,

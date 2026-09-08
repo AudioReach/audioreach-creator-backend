@@ -7,6 +7,6 @@ import type {NaturalIdType} from './natural-id-type.js';
 
 export interface VmidRemapping {
   type: NaturalIdType;
-  oldId: number;
-  newId: number;
+  oldNaturalId: number;
+  newNaturalId: number;
 }

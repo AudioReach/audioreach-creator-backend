@@ -162,7 +162,7 @@ describe('ContainerOverlayFetcher (integration)', () => {
       targetTable: ENTITY_NAMES.Container,
       operation: CHANGE_OPERATION.Create,
       newValue: JSON.stringify({
-        containerId: 1,
+        naturalId: 1,
         containerTypeSystemId: 5,
         fileSystemId: FILE_ID,
       }),

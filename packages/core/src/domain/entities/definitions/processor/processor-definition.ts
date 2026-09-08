@@ -6,20 +6,20 @@
 export interface ProcessorDefinitionInit {
   systemId: number;
   name: string;
-  processorDefinitionId: number;
+  naturalId: number;
   fileSystemId: number;
 }
 
 export class ProcessorDefinition {
   systemId: number;
   name: string;
-  readonly processorDefinitionId: number;
+  readonly naturalId: number;
   fileSystemId: number;
 
   constructor(initParam: ProcessorDefinitionInit) {
     this.systemId = initParam.systemId;
     this.name = initParam.name;
-    this.processorDefinitionId = initParam.processorDefinitionId;
+    this.naturalId = initParam.naturalId;
     this.fileSystemId = initParam.fileSystemId;
   }
 }

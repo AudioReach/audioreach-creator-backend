@@ -14,7 +14,7 @@ import type {StaticIntentDefinitionRow} from './static-intent-definition.schema.
 /** Scalar columns only — used by overlay fetchers. */
 export interface StaticControlPortDefinitionBase {
   systemId: number;
-  portId: number;
+  naturalId: number;
   portName: string;
   moduleDefinitionSystemId: number;
 }
@@ -33,7 +33,7 @@ export const StaticControlPortDefinitionSchema =
     tableName: 'static_control_port_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      portId: {
+      naturalId: {
         type: 'integer',
         name: 'port_id',
       },

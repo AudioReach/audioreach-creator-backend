@@ -34,7 +34,7 @@ describe('GetAllTagDefinitionsHandler', () => {
     const tags: TagDefinitionReadModel[] = [
       {
         systemId: 1,
-        tagId: 100,
+        naturalId: 100,
         name: 'MyTag',
         isVoice: false,
         keys: [],
@@ -60,7 +60,7 @@ describe('GetAllTagDefinitionsHandler', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0]).toMatchObject({
       systemId: '1',
-      tagId: 100,
+      naturalId: 100,
       name: 'MyTag',
     });
   });
@@ -91,7 +91,7 @@ describe('GetAllTagDefinitionsHandler', () => {
     ).mockResolvedValue(42);
 
     const tags: TagDefinitionReadModel[] = [
-      {systemId: 1, tagId: 100, name: 'GoodTag', isVoice: false, keys: []},
+      {systemId: 1, naturalId: 100, name: 'GoodTag', isVoice: false, keys: []},
     ];
     const partial = Result.partial(tags, [
       {

@@ -27,7 +27,11 @@ import {HANDLER_KEYS} from '../../../shared/constants/registry-keys.js';
 // ─── Worker-serializable types ────────────────────────────────────────────────
 
 export interface SubsystemPathComputeInput {
-  links: Array<{systemId: number; nodeAId: number; nodeBId: number}>;
+  links: Array<{
+    systemId: number;
+    nodeANaturalId: number;
+    nodeBNaturalId: number;
+  }>;
   nodeParentMapEntries: [number, number | null][];
 }
 
@@ -54,13 +58,13 @@ type ControlPortKey = `c:${number}:${number}`; // `c:${linkIdx}:${subsystemSyste
 
 interface DataPortAssignment {
   systemId: number;
-  portId: number;
+  portNaturalId: number;
   portIoType: string;
 }
 
 interface ControlPortAssignment {
   systemId: number;
-  portId: number;
+  portNaturalId: number;
 }
 
 export class SubsystemBuilder {
@@ -118,8 +122,8 @@ export class SubsystemBuilder {
     );
     const paths = input.links.map(link => {
       const result = SubsystemBoundaryPathService.compute({
-        sourceNodeId: link.nodeAId,
-        destNodeId: link.nodeBId,
+        sourceNodeSystemId: link.nodeANaturalId,
+        destinationNodeSystemId: link.nodeBNaturalId,
         nodeParentMap,
       });
       if (result.nodeSequence.length <= 2) return null;
@@ -153,9 +157,9 @@ export class SubsystemBuilder {
       const subsystem = new Subsystem({
         systemId: nodeSystemId,
         fileSystemId,
-        parentId,
+        parentSystemId: parentId,
         name: entry.name,
-        subsystemId: entry.id,
+        naturalId: entry.id,
         filteredKeySystemIds: this.resolveFilteredKeys(entry),
         dataPorts: [],
         controlPorts: [],
@@ -267,7 +271,7 @@ export class SubsystemBuilder {
     const nodeParentMap = new Map<number, number | null>();
 
     for (const s of subsystems) {
-      nodeParentMap.set(s.systemId, s.parentId ?? null);
+      nodeParentMap.set(s.systemId, s.parentSystemId ?? null);
     }
 
     for (const [
@@ -309,14 +313,14 @@ export class SubsystemBuilder {
 
     const serializedDataLinks = dataLinks.map(l => ({
       systemId: l.systemId,
-      nodeAId: l.sourceNodeSystemId,
-      nodeBId: l.destinationNodeSystemId,
+      nodeANaturalId: l.sourceNodeSystemId,
+      nodeBNaturalId: l.destinationNodeSystemId,
     }));
 
     const serializedControlLinks = controlLinks.map(l => ({
       systemId: l.systemId,
-      nodeAId: l.peerNodeASystemId,
-      nodeBId: l.peerNodeBSystemId,
+      nodeANaturalId: l.peerNodeASystemId,
+      nodeBNaturalId: l.peerNodeBSystemId,
     }));
 
     // 4 tasks for data links, 1 for control links
@@ -388,8 +392,8 @@ export class SubsystemBuilder {
   ): (PathOutput | null)[] {
     return dataLinks.map(link => {
       const result = SubsystemBoundaryPathService.compute({
-        sourceNodeId: link.sourceNodeSystemId,
-        destNodeId: link.destinationNodeSystemId,
+        sourceNodeSystemId: link.sourceNodeSystemId,
+        destinationNodeSystemId: link.destinationNodeSystemId,
         nodeParentMap,
       });
       return result.nodeSequence.length > 2 ? result : null;
@@ -402,8 +406,8 @@ export class SubsystemBuilder {
   ): (PathOutput | null)[] {
     return controlLinks.map(link => {
       const result = SubsystemBoundaryPathService.compute({
-        sourceNodeId: link.peerNodeASystemId,
-        destNodeId: link.peerNodeBSystemId,
+        sourceNodeSystemId: link.peerNodeASystemId,
+        destinationNodeSystemId: link.peerNodeBSystemId,
         nodeParentMap,
       });
       return result.nodeSequence.length > 2 ? result : null;
@@ -420,9 +424,10 @@ export class SubsystemBuilder {
       if (!path) continue;
       const {nodeSequence, requiredPortType} = path;
       for (let j = 1; j < nodeSequence.length - 1; j++) {
-        const subsystemId = nodeSequence[j];
-        const key: DataPortKey = `d:${i}:${subsystemId}`;
-        const ioType = requiredPortType.get(subsystemId) ?? 'OUTPUT_INPUT';
+        const subsystemNaturalId = nodeSequence[j];
+        const key: DataPortKey = `d:${i}:${subsystemNaturalId}`;
+        const ioType =
+          requiredPortType.get(subsystemNaturalId) ?? 'OUTPUT_INPUT';
         reqs.set(key, {portIoType: ioType});
       }
     }
@@ -437,8 +442,8 @@ export class SubsystemBuilder {
       if (!path) continue;
       const {nodeSequence} = path;
       for (let j = 1; j < nodeSequence.length - 1; j++) {
-        const subsystemId = nodeSequence[j];
-        const key: ControlPortKey = `c:${i}:${subsystemId}`;
+        const subsystemNaturalId = nodeSequence[j];
+        const key: ControlPortKey = `c:${i}:${subsystemNaturalId}`;
         reqs.set(key, {});
       }
     }
@@ -455,13 +460,13 @@ export class SubsystemBuilder {
     const portCounters = new Map<number, number>();
 
     for (const [key, req] of reqs) {
-      const subsystemId = Number(key.split(':')[2]);
-      const counter = (portCounters.get(subsystemId) ?? 0) + 1;
-      portCounters.set(subsystemId, counter);
+      const subsystemNaturalId = Number(key.split(':')[2]);
+      const counter = (portCounters.get(subsystemNaturalId) ?? 0) + 1;
+      portCounters.set(subsystemNaturalId, counter);
       const systemId = await this.idGenerator.getNextId(fileSystemId);
       assignments.set(key, {
         systemId,
-        portId: counter,
+        portNaturalId: counter,
         portIoType: req.portIoType,
       });
     }
@@ -476,11 +481,11 @@ export class SubsystemBuilder {
     const portCounters = new Map<number, number>();
 
     for (const key of reqs.keys()) {
-      const subsystemId = Number(key.split(':')[2]);
-      const counter = (portCounters.get(subsystemId) ?? 0) + 1;
-      portCounters.set(subsystemId, counter);
+      const subsystemNaturalId = Number(key.split(':')[2]);
+      const counter = (portCounters.get(subsystemNaturalId) ?? 0) + 1;
+      portCounters.set(subsystemNaturalId, counter);
       const systemId = await this.idGenerator.getNextId(fileSystemId);
-      assignments.set(key, {systemId, portId: counter});
+      assignments.set(key, {systemId, portNaturalId: counter});
     }
     return assignments;
   }
@@ -543,26 +548,26 @@ export class SubsystemBuilder {
       const {nodeSequence} = path;
 
       for (let j = 0; j < nodeSequence.length - 1; j++) {
-        const nodeAId = nodeSequence[j];
-        const nodeBId = nodeSequence[j + 1];
+        const nodeANaturalId = nodeSequence[j];
+        const nodeBNaturalId = nodeSequence[j + 1];
 
         const nodeAPortSystemId =
           j === 0
             ? controlLink.nodeAPortSystemId
-            : assignments.get(`c:${i}:${nodeAId}`)!.systemId;
+            : assignments.get(`c:${i}:${nodeANaturalId}`)!.systemId;
 
         const nodeBPortSystemId =
           j === nodeSequence.length - 2
             ? controlLink.nodeBPortSystemId
-            : assignments.get(`c:${i}:${nodeBId}`)!.systemId;
+            : assignments.get(`c:${i}:${nodeBNaturalId}`)!.systemId;
 
         const segmentSystemId = await this.idGenerator.getNextId(fileSystemId);
 
         controlLink.subsystemControlLinks.push(
           new SubsystemControlLink(
             segmentSystemId,
-            nodeAId,
-            nodeBId,
+            nodeANaturalId,
+            nodeBNaturalId,
             nodeAPortSystemId,
             nodeBPortSystemId,
             controlLink.systemId,
@@ -585,14 +590,14 @@ export class SubsystemBuilder {
     const controlPortsBySubsystem = new Map<number, ControlPort[]>();
 
     for (const [key, assignment] of dataPortAssignments) {
-      const subsystemId = Number(key.split(':')[2]);
-      if (!dataPortsBySubsystem.has(subsystemId)) {
-        dataPortsBySubsystem.set(subsystemId, []);
+      const subsystemNaturalId = Number(key.split(':')[2]);
+      if (!dataPortsBySubsystem.has(subsystemNaturalId)) {
+        dataPortsBySubsystem.set(subsystemNaturalId, []);
       }
-      dataPortsBySubsystem.get(subsystemId)!.push(
+      dataPortsBySubsystem.get(subsystemNaturalId)!.push(
         new DataPort({
           systemId: assignment.systemId,
-          dataPortId: assignment.portId,
+          naturalId: assignment.portNaturalId,
           portIoType: assignment.portIoType as 'OUTPUT_INPUT' | 'INPUT_OUTPUT',
           isStatic: false,
         }),
@@ -600,16 +605,16 @@ export class SubsystemBuilder {
     }
 
     for (const [key, assignment] of controlPortAssignments) {
-      const subsystemId = Number(key.split(':')[2]);
-      if (!controlPortsBySubsystem.has(subsystemId)) {
-        controlPortsBySubsystem.set(subsystemId, []);
+      const subsystemNaturalId = Number(key.split(':')[2]);
+      if (!controlPortsBySubsystem.has(subsystemNaturalId)) {
+        controlPortsBySubsystem.set(subsystemNaturalId, []);
       }
-      controlPortsBySubsystem.get(subsystemId)!.push(
+      controlPortsBySubsystem.get(subsystemNaturalId)!.push(
         new ControlPort({
           systemId: assignment.systemId,
-          portId: assignment.portId,
+          naturalId: assignment.portNaturalId,
           isStatic: false,
-          nodeSystemId: subsystemId,
+          nodeSystemId: subsystemNaturalId,
           intentSystemIds: [],
         }),
       );
@@ -622,9 +627,9 @@ export class SubsystemBuilder {
       return new Subsystem({
         systemId: s.systemId,
         fileSystemId: s.fileSystemId,
-        parentId: s.parentId,
+        parentSystemId: s.parentSystemId,
         name: s.name,
-        subsystemId: s.subsystemId,
+        naturalId: s.naturalId,
         filteredKeySystemIds: s.filteredKeySystemIds,
         dataPorts: dataPorts ?? [],
         controlPorts: controlPorts ?? [],
@@ -703,12 +708,12 @@ export class SubsystemBuilder {
     const inDegree = this.computeInDegrees(subsystems, childToParent);
     const queue = [...inDegree.entries()]
       .filter(([, deg]) => deg === 0)
-      .map(([id]) => id);
+      .map(([naturalId]) => naturalId);
     const sorted: UiSubsystem[] = [];
 
     while (queue.length > 0) {
-      const id = queue.shift()!;
-      const entry = byId.get(id);
+      const naturalId = queue.shift()!;
+      const entry = byId.get(naturalId);
       if (entry) {
         sorted.push(entry);
         this.decrementChildDegrees(entry, inDegree, queue);

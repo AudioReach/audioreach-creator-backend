@@ -77,6 +77,7 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
   let authToken: string;
   let projectId: string | undefined;
   let volumeControlSystemId: string | undefined;
+  let volumeControlDefinitionSystemId: string | undefined;
   let tagSystemId: string | undefined;
   let tkvSystemId: string | undefined;
 
@@ -87,6 +88,7 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
     authToken = testSetup.authToken;
     projectId = undefined;
     volumeControlSystemId = undefined;
+    volumeControlDefinitionSystemId = undefined;
     tagSystemId = undefined;
     tkvSystemId = undefined;
 
@@ -111,6 +113,21 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
     }
 
     projectId = uploadResponse.body.data.projectId;
+
+    // Resolve the DB system ID for the VOLUME_CONTROL module definition (natural ID 0x0700101B)
+    const defResponse = await request(httpServer)
+      .get(`/arc-api/v1/projects/${projectId}/spf-module-definitions`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .timeout(30000);
+    const defDtos: any[] = defResponse.body?.data ?? [];
+    const volumeControlDefinition = defDtos.find(
+      (definition: any) => definition.naturalId === VOLUME_CONTROL_MODULE_ID,
+    );
+    if (volumeControlDefinition) {
+      volumeControlDefinitionSystemId = String(
+        volumeControlDefinition.systemId,
+      );
+    }
 
     // Get all usecases for this project
     const usecasesResponse = await request(httpServer)
@@ -166,7 +183,10 @@ describe('GET tag-data for VOLUME_CONTROL module (moduleId=0x0700101B)', () => {
 
       const moduleDtos: any[] = queryResponse.body.data ?? [];
       for (const moduleDto of moduleDtos) {
-        if (moduleDto.moduleId === VOLUME_CONTROL_MODULE_ID) {
+        if (
+          volumeControlDefinitionSystemId !== undefined &&
+          moduleDto.moduleDefinitionSystemId === volumeControlDefinitionSystemId
+        ) {
           const tags: any[] = moduleDto.tags ?? [];
           const tagWithTkv = tags.find((t: any) => (t.tkvs ?? []).length > 0);
           if (!tagWithTkv) continue;

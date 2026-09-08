@@ -7,5 +7,7 @@
     "paths": {
       "@arc/core": ["./index.ts"]
     }
-  }
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

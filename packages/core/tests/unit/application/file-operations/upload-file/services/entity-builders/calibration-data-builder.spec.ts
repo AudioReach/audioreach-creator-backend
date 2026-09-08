@@ -324,7 +324,7 @@ describe('CalibrationDataBuilder', () => {
     function makeSubgraph(subgraphId: number, systemId: number): Subgraph {
       return new Subgraph({
         systemId,
-        subgraphId,
+        naturalId: subgraphId,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: `sg_${subgraphId}`,
         isImported: false,
@@ -462,7 +462,7 @@ describe('CalibrationDataBuilder', () => {
       );
 
       expect(subgraph.vcpmDataInstance).toBeInstanceOf(VcpmInstance);
-      expect(subgraph.vcpmDataInstance!.vcpmModuleDefinitionId).toBe(50);
+      expect(subgraph.vcpmDataInstance!.vcpmModuleDefinitionSystemId).toBe(50);
     });
 
     it('should warn and skip when subgraph not found in provided list', async () => {
@@ -967,7 +967,7 @@ describe('CalibrationDataBuilder', () => {
 
       const subgraph = new Subgraph({
         systemId: 1,
-        subgraphId: 999,
+        naturalId: 999,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: 'sg_999',
         isImported: false,
@@ -1073,7 +1073,7 @@ describe('CalibrationDataBuilder', () => {
 
       const subgraph = new Subgraph({
         systemId: 1,
-        subgraphId: 999,
+        naturalId: 999,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: 'sg_999',
         isImported: false,
@@ -1160,7 +1160,7 @@ describe('CalibrationDataBuilder', () => {
 
       const subgraph = new Subgraph({
         systemId: 1,
-        subgraphId: 999,
+        naturalId: 999,
         fileSystemId: TEST_FILE_SYSTEM_ID,
         name: 'sg_999',
         isImported: false,

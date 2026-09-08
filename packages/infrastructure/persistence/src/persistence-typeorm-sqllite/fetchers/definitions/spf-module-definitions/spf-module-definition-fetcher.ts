@@ -125,14 +125,14 @@ export class SpfModuleDefinitionFetcher {
       .where('def.fileSystemId = :fileSystemId', {fileSystemId});
 
     if (filters.moduleDefinitionNaturalId !== undefined) {
-      qb.andWhere('def.moduleDefinitionId = :moduleDefinitionId', {
-        moduleDefinitionId: filters.moduleDefinitionNaturalId,
+      qb.andWhere('def.naturalId = :moduleDefinitionNaturalId', {
+        moduleDefinitionNaturalId: filters.moduleDefinitionNaturalId,
       });
     }
     if (filters.processorNaturalId !== undefined) {
       qb.leftJoin('def.processor', 'processor').andWhere(
-        'processor.processorDefinitionId = :processorId',
-        {processorId: filters.processorNaturalId},
+        'processor.naturalId = :processorNaturalId',
+        {processorNaturalId: filters.processorNaturalId},
       );
     }
     if (filters.parameterNaturalId !== undefined) {
@@ -142,9 +142,9 @@ export class SpfModuleDefinitionFetcher {
           .select('1')
           .from(ENTITY_NAMES.SpfModuleParameterDefinition, 'p2')
           .where('p2.spfModuleDefinitionSystemId = def.systemId')
-          .andWhere('p2.paramId = :parameterId')
+          .andWhere('p2.naturalId = :parameterId')
           .getQuery()})`,
-        {parameterId: filters.parameterNaturalId},
+        {naturalId: filters.parameterNaturalId},
       );
     }
 

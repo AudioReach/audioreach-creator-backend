@@ -15,8 +15,8 @@ import {asNaturalId} from '../../../../shared/types/branded-ids.js';
 import type {Logger} from '../../../../shared/types/logger.interface.js';
 
 /**
- * Resolves UiSwitch[] (instanceId-keyed) to a JSON string with systemId-keyed references.
- * Called after all spfModule insertions so ForeignKeyMapper has full instanceId→systemId coverage.
+ * Resolves UiSwitch[] (instanceNaturalId-keyed) to a JSON string with systemId-keyed references.
+ * Called after all spfModule insertions so ForeignKeyMapper has full instanceNaturalId→systemId coverage.
  */
 export class UiSwitchesResolver {
   constructor(private readonly logger?: Logger) {}
@@ -64,9 +64,9 @@ export class UiSwitchesResolver {
           }
           return {
             sourceSystemId: srcSysId as number,
-            sourcePortId: dl.sourcePortId,
+            sourcePortNaturalId: dl.sourcePortId,
             destSystemId: dstSysId as number,
-            destinationPortId: dl.destinationPortId,
+            destinationPortNaturalId: dl.destinationPortId,
             metaLinks: (dl.metaLinks ?? []).flatMap(ml => {
               const mlSrcSysId = fkMapper.getSpfModuleSystemId(
                 asNaturalId(ml.sourceId),
@@ -79,10 +79,10 @@ export class UiSwitchesResolver {
               return [
                 {
                   sourceSystemId: mlSrcSysId as number,
-                  sourcePortId: ml.sourcePortId,
+                  sourcePortNaturalId: ml.sourcePortId,
                   sourceType: ml.sourceType,
                   destinationSystemId: mlDstSysId as number,
-                  destinationPortId: ml.destinationPortId,
+                  destinationPortNaturalId: ml.destinationPortId,
                   destinationType: ml.destinationType,
                   category: ml.category,
                 },
@@ -111,9 +111,9 @@ export class UiSwitchesResolver {
           }
           return {
             sourceSystemId: srcSysId as number,
-            sourcePortId: cl.sourcePortId,
+            sourcePortNaturalId: cl.sourcePortId,
             destSystemId: dstSysId as number,
-            destinationPortId: cl.destinationPortId,
+            destinationPortNaturalId: cl.destinationPortId,
             metaLinks: (cl.metaLinks ?? []).flatMap(ml => {
               const mlSrcSysId = fkMapper.getSpfModuleSystemId(
                 asNaturalId(ml.sourceId),
@@ -126,10 +126,10 @@ export class UiSwitchesResolver {
               return [
                 {
                   sourceSystemId: mlSrcSysId as number,
-                  sourcePortId: ml.sourcePortId,
+                  sourcePortNaturalId: ml.sourcePortId,
                   sourceType: ml.sourceType,
                   destinationSystemId: mlDstSysId as number,
-                  destinationPortId: ml.destinationPortId,
+                  destinationPortNaturalId: ml.destinationPortId,
                   destinationType: ml.destinationType,
                   category: ml.category,
                 },
@@ -140,9 +140,9 @@ export class UiSwitchesResolver {
         .filter((cl): cl is PersistedSwitchControlLink => cl !== null);
 
       return {
-        id: sw.id,
-        parentSubgraphId: sw.parentSubgraphId,
-        parentSubsystemId: sw.parentSubsystemId,
+        naturalId: sw.id,
+        parentSubgraphNaturalId: sw.parentSubgraphId,
+        parentSubsystemNaturalId: sw.parentSubsystemId,
         type: sw.type,
         inputPort: sw.inputPort?.toJSON(),
         outputPort: sw.outputPort?.toJSON(),

@@ -28,8 +28,8 @@ const HAS_WATERMARK = new Set([
   NaturalIdType.MODINSTANCE,
 ]);
 
-function applyVmid(id: number, vmid: number): number {
-  return ((id & VMID_CLEAR) | ((vmid << 24) & VMID_MASK)) >>> 0;
+function applyVmid(naturalId: number, vmid: number): number {
+  return ((naturalId & VMID_CLEAR) | ((vmid << 24) & VMID_MASK)) >>> 0;
 }
 
 interface TypeState {
@@ -37,7 +37,7 @@ interface TypeState {
   min: number;
   max: number;
   watermark: number;
-  lastUsedId: number;
+  lastUsedNaturalId: number;
   lastUsedTimestamp: string;
 }
 
@@ -47,7 +47,7 @@ function makeState(range: {min: number; max: number}): TypeState {
     min: range.min,
     max: range.max,
     watermark: 0,
-    lastUsedId: 0,
+    lastUsedNaturalId: 0,
     lastUsedTimestamp: '',
   };
 }
@@ -81,7 +81,7 @@ export class NaturalIdGenerator {
       if (!s.usedIds.has(i)) {
         s.usedIds.add(i);
         if (HAS_WATERMARK.has(type)) s.watermark = i;
-        s.lastUsedId = i;
+        s.lastUsedNaturalId = i;
         s.lastUsedTimestamp = new Date().toISOString();
         return i;
       }
@@ -89,28 +89,29 @@ export class NaturalIdGenerator {
     return s.max + 1;
   }
 
-  register(type: NaturalIdType, id: number): boolean {
+  register(type: NaturalIdType, naturalId: number): boolean {
     const s = this.state[type];
-    if (id < s.min || id > s.max) return false;
-    if (s.usedIds.has(id)) return false;
-    s.usedIds.add(id);
-    s.lastUsedId = id;
+    if (naturalId < s.min || naturalId > s.max) return false;
+    if (s.usedIds.has(naturalId)) return false;
+    s.usedIds.add(naturalId);
+    s.lastUsedNaturalId = naturalId;
     s.lastUsedTimestamp = new Date().toISOString();
     return true;
   }
 
-  release(type: NaturalIdType, id: number): boolean {
+  release(type: NaturalIdType, naturalId: number): boolean {
     const s = this.state[type];
-    if (!s.usedIds.has(id)) return false;
-    s.usedIds.delete(id);
-    if (HAS_WATERMARK.has(type) && id > s.watermark) s.watermark = id;
-    s.lastUsedId = id;
+    if (!s.usedIds.has(naturalId)) return false;
+    s.usedIds.delete(naturalId);
+    if (HAS_WATERMARK.has(type) && naturalId > s.watermark)
+      s.watermark = naturalId;
+    s.lastUsedNaturalId = naturalId;
     s.lastUsedTimestamp = new Date().toISOString();
     return true;
   }
 
-  isUsed(type: NaturalIdType, id: number): boolean {
-    return this.state[type].usedIds.has(id);
+  isUsed(type: NaturalIdType, naturalId: number): boolean {
+    return this.state[type].usedIds.has(naturalId);
   }
 
   getRange(type: NaturalIdType): {min: number; max: number} {
@@ -141,10 +142,11 @@ export class NaturalIdGenerator {
       s.min = applyVmid(BASELINE_RANGES[type].min, vmid);
       s.max = applyVmid(BASELINE_RANGES[type].max, vmid);
       const newIds = new Set<number>();
-      for (const id of s.usedIds) {
-        const newId = applyVmid(id, vmid);
-        if (newId !== id) remappings.push({type, oldId: id, newId});
-        newIds.add(newId);
+      for (const naturalId of s.usedIds) {
+        const newNaturalId = applyVmid(naturalId, vmid);
+        if (newNaturalId !== naturalId)
+          remappings.push({type, oldNaturalId: naturalId, newNaturalId});
+        newIds.add(newNaturalId);
       }
       s.usedIds = newIds;
     }
@@ -162,8 +164,8 @@ export class NaturalIdGenerator {
     return this.vmid;
   }
 
-  lastUsedId(type: NaturalIdType): number {
-    return this.state[type].lastUsedId;
+  lastUsedNaturalId(type: NaturalIdType): number {
+    return this.state[type].lastUsedNaturalId;
   }
 
   lastUsedTimestamp(type: NaturalIdType): string {

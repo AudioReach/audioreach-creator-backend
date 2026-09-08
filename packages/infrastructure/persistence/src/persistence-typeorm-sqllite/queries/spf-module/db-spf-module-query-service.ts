@@ -19,7 +19,6 @@ import {
   IssueSeverity,
   RESULT_KIND,
 } from '@arc/core';
-import {ENTITY_NAMES} from '../../entity-schema/entity-table-names.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import {
   SpfModuleOverlayFetcher,
@@ -31,8 +30,6 @@ import {UseCaseCategoryFetcher} from '../../fetchers/usecase-category-fetcher.js
 import {UsecaseGkvValuesFetcher} from '../../fetchers/usecase-gkv-values-fetcher.js';
 import {DbCkvCalibrationQueryService} from '../module-calibration/db-ckv-calibration-query-service.js';
 import {DbTkvCalibrationQueryService} from '../module-calibration/db-tkv-calibration-query-service.js';
-import type {SubgraphRow} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
-import type {ContainerRow} from '../../entity-schema/usecase-data/container/container.schema.js';
 import {
   PortOverlayFetcher,
   type OverlaidDataPort,
@@ -46,14 +43,12 @@ import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
 
 interface ModuleRootData {
   systemId: number;
-  parentId?: number;
-  instanceId: number;
+  parentSystemId?: number;
+  naturalId: number;
   alias: string;
   definitionSystemId: number;
   subgraphSystemId: number;
   containerSystemId: number;
-  subgraphId: number;
-  containerId: number;
 }
 
 /**
@@ -65,7 +60,7 @@ interface ModuleRootData {
  */
 interface DefinitionCapabilityData {
   name: string;
-  moduleId: number;
+  moduleNaturalId: number;
   maxInputPortsSupported: number;
   maxOutputPortsSupported: number;
   maxControlPortsSupported: number;
@@ -112,7 +107,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
   private readonly linkFetcher: LinkOverlayFetcher;
 
   constructor(
-    private readonly dataSource: DataSource,
+    dataSource: DataSource,
     editActionsQuerySvc: EditActionsQueryService,
     tuningConfigSvc: SpfTuningConfigService,
     keyValueDefQuerySvc: KeyValueDefQueryService,
@@ -337,38 +332,39 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
 
           return {
             systemId: root.systemId,
-            parentId: root.parentId,
-            instanceId: root.instanceId,
+            parentSystemId: root.parentSystemId,
+            naturalId: root.naturalId,
             alias: root.alias,
             definitionSystemId: root.definitionSystemId,
             name: defCap.name,
-            moduleId: defCap.moduleId,
-            subgraphId: root.subgraphId,
-            containerId: root.containerId,
+            moduleDefinitionNaturalId: defCap.moduleNaturalId,
+            subgraphSystemId: root.subgraphSystemId,
+            containerSystemId: root.containerSystemId,
             maxInputPortsSupported: defCap.maxInputPortsSupported,
             maxOutputPortsSupported: defCap.maxOutputPortsSupported,
             maxControlPortsSupported: defCap.maxControlPortsSupported,
             dataPorts: ports.dataPorts.map(port => ({
               systemId: port.systemId,
-              portId: port.dataPortId,
+              naturalId: port.naturalId,
               // Definition name takes precedence; fall back to instance name stored on the row.
-              name:
-                defCap.dataPortNames.get(port.dataPortId) ?? port.name ?? '',
+              name: defCap.dataPortNames.get(port.naturalId) ?? port.name ?? '',
               portIoType: port.portIoType,
               isStatic: port.isStatic,
               totalLinksAtPort: dataLinkCounts.get(port.systemId) ?? 0,
             })),
             controlPorts: ports.controlPorts.map(port => ({
               systemId: port.systemId,
-              portId: port.portId,
-              name: defCap.controlPortNames.get(port.portId) ?? port.name ?? '',
+              naturalId: port.naturalId,
+              name:
+                defCap.controlPortNames.get(port.naturalId) ?? port.name ?? '',
               isStatic: port.isStatic,
               allocatedIntents: port.intents.map(i => ({
                 systemId: i.systemId,
-                intentId: i.intentId,
+                naturalId: i.naturalId,
                 // Definition name takes precedence; fall back to Intent_${intentId}.
                 name:
-                  defCap.intentNames.get(i.intentId) ?? `Intent_${i.intentId}`,
+                  defCap.intentNames.get(i.naturalId) ??
+                  `Intent_${i.naturalId}`,
               })),
               totalLinksAtPort: controlLinkCounts.get(port.systemId) ?? 0,
             })),
@@ -439,7 +435,7 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
 
         defCapMap.set(defId, {
           name: defRoot.name,
-          moduleId: defRoot.moduleDefinitionId,
+          moduleNaturalId: defRoot.naturalId,
           maxInputPortsSupported: portGroups
             .filter(g => g.portIoType === PORT_IO_TYPE.Input)
             .reduce((sum, g) => sum + g.maxAllowedPortCount, 0),
@@ -450,17 +446,17 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
           dataPortNames: new Map(
             portGroups.flatMap(g =>
               g.portDefinitions.map(
-                p => [p.dataPortId, p.name ?? ''] as [number, string],
+                p => [p.naturalId, p.name ?? ''] as [number, string],
               ),
             ),
           ),
           controlPortNames: new Map(
-            staticPorts.map(p => [p.portId, p.portName] as [number, string]),
+            staticPorts.map(p => [p.naturalId, p.portName] as [number, string]),
           ),
           intentNames: new Map(
             staticPorts.flatMap(p =>
               p.staticIntents.map(
-                i => [i.intentId, i.name] as [number, string],
+                i => [i.naturalId, i.name] as [number, string],
               ),
             ),
           ),
@@ -558,54 +554,22 @@ export class DbSpfModuleQueryService implements SpfModuleQueryService {
       const nodeMap = new Map(nodeRows.map(n => [n.systemId, n]));
       const overlaidModules: OverlaidSpfModule[] = spfRows.map(sm => ({
         ...sm,
-        parentId: nodeMap.get(sm.systemId)?.parentId ?? null,
+        parentSystemId: nodeMap.get(sm.systemId)?.parentSystemId ?? null,
       }));
 
-      if (overlaidModules.length === 0) return Result.ok([]);
-
-      // subgraphId and containerId are immutable business keys — no session
-      // overlay applies, so a direct batch query is safe (FR-7).
-      const subgraphSystemIds = [
-        ...new Set(overlaidModules.map(m => m.subgraphSystemId)),
-      ];
-      const containerSystemIds = [
-        ...new Set(overlaidModules.map(m => m.containerSystemId)),
-      ];
-
-      const [subgraphRows, containerRows] = await Promise.all([
-        this.dataSource
-          .getRepository(ENTITY_NAMES.Subgraph)
-          .createQueryBuilder('s')
-          .select(['s.systemId', 's.subgraphId'])
-          .where('s.systemId IN (:...ids)', {ids: subgraphSystemIds})
-          .getMany(),
-        this.dataSource
-          .getRepository(ENTITY_NAMES.Container)
-          .createQueryBuilder('c')
-          .select(['c.systemId', 'c.containerId'])
-          .where('c.systemId IN (:...ids)', {ids: containerSystemIds})
-          .getMany(),
-      ]);
-
-      const subgraphMap = new Map<number, number>(
-        (subgraphRows as SubgraphRow[]).map(r => [r.systemId, r.subgraphId]),
-      );
-      const containerMap = new Map<number, number>(
-        (containerRows as ContainerRow[]).map(r => [r.systemId, r.containerId]),
-      );
+      if (overlaidModules.length === 0) {
+        return Result.ok([]);
+      }
 
       return Result.ok(
         overlaidModules.map(m => ({
           systemId: m.systemId,
-          parentId: m.parentId ?? undefined,
-          instanceId: m.instanceId,
+          parentSystemId: m.parentSystemId ?? undefined,
+          naturalId: m.naturalId,
           alias: m.alias ?? '',
           definitionSystemId: m.definitionSystemId,
           subgraphSystemId: m.subgraphSystemId,
           containerSystemId: m.containerSystemId,
-          subgraphId: subgraphMap.get(m.subgraphSystemId) ?? m.subgraphSystemId,
-          containerId:
-            containerMap.get(m.containerSystemId) ?? m.containerSystemId,
         })),
       );
     } catch (error) {

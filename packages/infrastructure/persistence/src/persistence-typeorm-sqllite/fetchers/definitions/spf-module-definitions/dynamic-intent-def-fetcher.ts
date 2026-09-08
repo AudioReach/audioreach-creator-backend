@@ -16,7 +16,7 @@ import {
 /** Optional scalar filters for DynamicIntentDefinition queries. */
 export type DynamicIntentDefinitionFilters = {
   systemId?: number | number[];
-  intentId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   maxPort?: number | number[];
   moduleDefinitionSystemId?: number | number[];

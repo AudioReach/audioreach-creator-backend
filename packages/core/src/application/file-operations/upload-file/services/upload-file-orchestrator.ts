@@ -100,7 +100,7 @@ export class UploadFileOrchestrator {
   // Storage for parsed data to enable build-insert-build pattern
   private parsedAcdb: ParsedAcdb | null = null;
   private parsedAwsp: ParsedAwsp | null = null;
-  private currentFileId: number = 0;
+  private currentFileSystemId: number = 0;
 
   // UI-metadata extras resolved after entity insertions
   private uiSwitchesJson: string | undefined = undefined;
@@ -243,7 +243,7 @@ export class UploadFileOrchestrator {
   ): Promise<UploadOrchestratorResult> {
     this.issueCollector.clear();
     this.foreignKeyMapper.clear();
-    this.currentFileId = fileId;
+    this.currentFileSystemId = fileId;
     this.profiler?.start(PROFILER_OPERATIONS.FILE_ORCHESTRATION);
     this.logMemorySnapshot(
       this.profiler?.snapshot(MEMORY_SNAPSHOTS.BEFORE_PARSING),
@@ -264,7 +264,7 @@ export class UploadFileOrchestrator {
       );
 
       // Store file ID for use in build phases
-      this.currentFileId = fileId;
+      this.currentFileSystemId = fileId;
 
       this.logMemorySnapshot(
         this.profiler?.snapshot(MEMORY_SNAPSHOTS.AFTER_PARSING),
@@ -315,7 +315,7 @@ export class UploadFileOrchestrator {
 
   /**
    * Phase 7b: Resolve UI-metadata extras after all entity insertions.
-   * Switches references are translated from instanceId to systemId.
+   * Switches references are translated from instanceNaturalId to systemId.
    * srsMetadata is stored as raw JSON pass-through.
    */
   private resolveUiMetadataExtras(): void {
@@ -383,11 +383,14 @@ export class UploadFileOrchestrator {
 
     try {
       // Reserve a large block of IDs upfront to cover all entities
-      await this.idGenerator.reserveBlock(this.currentFileId, ID_BLOCK_SIZE);
+      await this.idGenerator.reserveBlock(
+        this.currentFileSystemId,
+        ID_BLOCK_SIZE,
+      );
 
       this.logger?.logInfo({
         msg: 'id_block_reserved',
-        description: `Reserved ${ID_BLOCK_SIZE} IDs for file ${this.currentFileId}`,
+        description: `Reserved ${ID_BLOCK_SIZE} IDs for file ${this.currentFileSystemId}`,
         component: 'UploadFileOrchestrator',
         tag: 'id-generation',
       });
@@ -447,7 +450,7 @@ export class UploadFileOrchestrator {
       } = uiSubsystems.length > 0
         ? await this.builderService.buildSubsystems(
             uiSubsystems,
-            this.currentFileId,
+            this.currentFileSystemId,
             dataLinks,
             controlLinks,
           )
@@ -488,11 +491,11 @@ export class UploadFileOrchestrator {
     } finally {
       // Persist the actual last used ID to reclaim unused IDs from the reserved block
       try {
-        await this.idGenerator.persistLastUsedId(this.currentFileId);
+        await this.idGenerator.persistLastUsedId(this.currentFileSystemId);
 
         this.logger?.logInfo({
           msg: 'id_last_used_persisted',
-          description: `Persisted last used ID for file ${this.currentFileId}`,
+          description: `Persisted last used ID for file ${this.currentFileSystemId}`,
           component: 'UploadFileOrchestrator',
           tag: 'id-generation',
         });
@@ -524,7 +527,7 @@ export class UploadFileOrchestrator {
     // Build key definitions with system IDs assigned
     const result = await this.builderService.buildKeyDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -642,7 +645,7 @@ export class UploadFileOrchestrator {
     // Build tag definitions with system IDs assigned
     const result = await this.builderService.buildTagDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -691,7 +694,7 @@ export class UploadFileOrchestrator {
     // Build processor definitions with system IDs assigned
     const result = await this.builderService.buildProcessorDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -742,7 +745,7 @@ export class UploadFileOrchestrator {
     // Build container type definitions with system IDs assigned
     const result = await this.builderService.buildContainerTypeDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -802,7 +805,7 @@ export class UploadFileOrchestrator {
     const result = await this.builderService.buildSpfModuleDefinitions(
       this.parsedAwsp!,
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -853,7 +856,7 @@ export class UploadFileOrchestrator {
     // Build module manager data with system IDs assigned
     const moduleManagerData = await this.builderService.buildModuleManagerData(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     if (moduleManagerData.length > 0) {
@@ -908,7 +911,7 @@ export class UploadFileOrchestrator {
     // Build driver module definitions with system IDs assigned
     const result = await this.builderService.buildDriverModuleDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -965,7 +968,7 @@ export class UploadFileOrchestrator {
 
     const result = await this.builderService.buildVcpmModuleDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     this.issueCollector.addIssues(result.issues);
@@ -1012,7 +1015,7 @@ export class UploadFileOrchestrator {
     // Build subgraph property definitions with system IDs assigned
     const result = await this.builderService.buildSubgraphPropertyDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -1063,7 +1066,7 @@ export class UploadFileOrchestrator {
     // Build container property definitions with system IDs assigned
     const result = await this.builderService.buildContainerPropertyDefinitions(
       this.parsedAwsp!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -1114,7 +1117,7 @@ export class UploadFileOrchestrator {
     // Build subgraphs with system IDs assigned
     const result = await this.builderService.buildSubgraphs(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
       this.parsedAwsp!,
     );
 
@@ -1164,7 +1167,7 @@ export class UploadFileOrchestrator {
     // Build containers with system IDs assigned
     const result = await this.builderService.buildContainers(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -1212,7 +1215,7 @@ export class UploadFileOrchestrator {
     this.profiler?.start(PROFILER_OPERATIONS.SPF_MODULE_BUILDING);
     const result = await this.builderService.buildSpfModules(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
       this.parsedAwsp!,
     );
     const buildMetrics = this.profiler?.end(
@@ -1277,7 +1280,7 @@ export class UploadFileOrchestrator {
     // Build driver modules with system IDs assigned and calibration data attached
     const result = await this.builderService.buildDriverModules(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
 
     // Collect build issues
@@ -1318,7 +1321,7 @@ export class UploadFileOrchestrator {
     this.profiler?.start(PROFILER_OPERATIONS.DATA_LINK_BUILDING);
     const dataLinks = await this.builderService.buildDataLinks(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
       this.parsedAwsp!,
     );
     this.logEntityBuildMetrics(
@@ -1338,7 +1341,7 @@ export class UploadFileOrchestrator {
     this.profiler?.start(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING);
     const result = await this.builderService.buildControlLinks(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
     );
     this.logEntityBuildMetrics(
       this.profiler?.end(PROFILER_OPERATIONS.CONTROL_LINK_BUILDING),
@@ -1471,7 +1474,7 @@ export class UploadFileOrchestrator {
     this.profiler?.start(PROFILER_OPERATIONS.USECASE_BUILDING);
     const usecases = await this.builderService.buildUsecases(
       this.parsedAcdb!,
-      this.currentFileId,
+      this.currentFileSystemId,
       this.parsedAwsp!,
     );
     const buildMetrics = this.profiler?.end(
@@ -1526,7 +1529,7 @@ export class UploadFileOrchestrator {
     bulkRepo: BulkImportRepository,
   ): Promise<void> {
     const rows = this.builderService.buildEntityReviewedAt(
-      this.currentFileId,
+      this.currentFileSystemId,
       this.parsedAwsp?.getUiMetadata(),
       this.builtSubgraphs,
       this.builtSpfModules,
@@ -1564,9 +1567,9 @@ export class UploadFileOrchestrator {
         'configuration.json is missing or unparsed — cannot persist configuration. Ensure the AWSP file contains a valid configuration.json.',
       );
     }
-    const systemId = await this.idGenerator.getNextId(this.currentFileId);
+    const systemId = await this.idGenerator.getNextId(this.currentFileSystemId);
     await bulkRepo.insertConfiguration(
-      this.currentFileId,
+      this.currentFileSystemId,
       systemId,
       configurationData,
     );

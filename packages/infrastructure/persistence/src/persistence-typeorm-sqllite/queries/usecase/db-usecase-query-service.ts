@@ -56,12 +56,12 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   // ── getAllUseCases ────────────────────────────────────────────────────────────
 
   async getAllUseCases(
-    fileId: number,
+    fileSystemId: number,
     filter?: FilterExpression,
   ): Promise<Result<UseCaseReadModel[]>> {
     try {
       const session =
-        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileSystemId);
       const sessionId = session?.sessionId ?? null;
 
       // If a filter is provided, run a lightweight SQL query to get matching IDs.
@@ -73,7 +73,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           .getRepository(ENTITY_NAMES.UseCase)
           .createQueryBuilder('uc')
           .select('uc.systemId')
-          .where('uc.fileSystemId = :fileId', {fileId});
+          .where('uc.fileSystemId = :fileSystemId', {fileSystemId});
         USECASE_PARAM_FILTER.apply(qb, filter, 'uc');
         const filtered = (await qb.getMany()) as Array<{systemId: number}>;
         restrictToIds = filtered.map(r => r.systemId);
@@ -82,7 +82,7 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
 
       // Fetcher handles UseCase scalars + GKV entry overlay + category assignments (FR-3).
       const overlaidUsecases = await this.usecaseFetcher.getUsecases(
-        fileId,
+        fileSystemId,
         sessionId,
         restrictToIds,
       );
@@ -100,12 +100,12 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       const pairsResult =
         await this.keyValueDefQuerySvc.getKeyValueSummaryForGivenValues(
           allValueDefIds,
-          fileId,
+          fileSystemId,
         );
 
       type KvPair = {
-        key: {systemId: number; keyId: number; name: string};
-        value: {systemId: number; valueId: number; name: string};
+        key: {systemId: number; naturalId: number; name: string};
+        value: {systemId: number; naturalId: number; name: string};
       };
       const pairsList: KvPair[] =
         pairsResult.kind === RESULT_KIND.Fail
@@ -122,12 +122,12 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
           .map(pair => ({
             key: {
               systemId: pair.key.systemId,
-              keyId: pair.key.keyId,
+              naturalId: pair.key.naturalId,
               name: pair.key.name,
             },
             value: {
               systemId: pair.value.systemId,
-              valueId: pair.value.valueId,
+              naturalId: pair.value.naturalId,
               name: pair.value.name,
             },
           }));

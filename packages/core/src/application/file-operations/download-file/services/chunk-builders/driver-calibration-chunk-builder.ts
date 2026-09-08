@@ -43,8 +43,8 @@ export const DriverCalibrationChunkBuilder = {
     const {datapool} = input;
 
     const sorted = [...input.driverCalibrationData].sort((a, b) => {
-      if (a.moduleDefinitionId !== b.moduleDefinitionId) {
-        return a.moduleDefinitionId - b.moduleDefinitionId;
+      if (a.naturalId !== b.naturalId) {
+        return a.naturalId - b.naturalId;
       }
       return compareNumberArrays(a.keyIds, b.keyIds);
     });
@@ -70,7 +70,7 @@ export const DriverCalibrationChunkBuilder = {
       });
 
       const moduleLutEntry: ModuleLookupEntry = {
-        moduleDefinitionId: entry.moduleDefinitionId,
+        moduleDefinitionId: entry.naturalId,
         calKeyTableEntries: [
           {
             offsetCalKeyTable: keyTableOffset,
@@ -92,11 +92,13 @@ function buildCkvEntries(
 ): CkvLookupEntry[] {
   return sortedCkvs.map(ckv => {
     const sortedParams = [...ckv.parameters].sort(
-      (a, b) => a.parameterId - b.parameterId,
+      (a, b) => a.naturalId - b.naturalId,
     );
 
     const defEntry: CalDefinitionEntry = {
-      calIdEntries: sortedParams.map(p => ({paramId: p.parameterId})),
+      calIdEntries: sortedParams.map(p => ({
+        paramId: p.naturalId,
+      })),
     };
     const defOffset = chunk.addCalDefinitionEntry(defEntry);
 

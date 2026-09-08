@@ -32,7 +32,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
     const properties: SubgraphPropertyDefinitionSummaryReadModel[] = [
       {
         systemId: 1,
-        propertyId: 100,
+        naturalId: 100,
         name: 'MyProperty',
         propertyType: PROPERTY_TYPE.Spf,
         isVoice: true,
@@ -64,7 +64,7 @@ describe('GetAllSubgraphPropertyDefinitionsHandler', () => {
     // Result is now mapped DTOs — verify count and key field mapping
     expect(result.data).toHaveLength(1);
     expect(result.data[0].systemId).toBe('1');
-    expect(result.data[0].propertyId).toBe(100);
+    expect(result.data[0].naturalId).toBe(100);
     expect(result.data[0].name).toBe('MyProperty');
     expect(result.data[0].type).toBe('SPF');
     expect(result.data[0].isVoice).toBe(true);

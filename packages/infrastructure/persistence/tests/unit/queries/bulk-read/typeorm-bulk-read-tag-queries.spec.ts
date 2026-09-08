@@ -46,7 +46,7 @@ describe('TypeOrmBulkReadQueryService — readTagKeys', () => {
   });
 
   it('returns empty array when tags have no key links', async () => {
-    const rows = [{tagId: 0x100, keys: []}];
+    const rows = [{naturalId: 0x100, keys: []}];
     (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce(
       makeRepo(makeMockQb(rows)),
     );
@@ -55,11 +55,14 @@ describe('TypeOrmBulkReadQueryService — readTagKeys', () => {
     expect(result).toEqual([]); // filtered out — no keys
   });
 
-  it('maps tagId and keyIds for a tag with key links', async () => {
+  it('maps tagNaturalId and keyIds for a tag with key links', async () => {
     const rows = [
       {
-        tagId: 0x100,
-        keys: [{keyDefinition: {keyId: 0x10}}, {keyDefinition: {keyId: 0x20}}],
+        naturalId: 0x100,
+        keys: [
+          {keyDefinition: {naturalId: 0x10}},
+          {keyDefinition: {naturalId: 0x20}},
+        ],
       },
     ];
     (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce(
@@ -69,15 +72,15 @@ describe('TypeOrmBulkReadQueryService — readTagKeys', () => {
     const result = await service.readTagKeys(1);
 
     expect(result).toHaveLength(1);
-    expect(result[0].tagId).toBe(0x100);
+    expect(result[0].tagNaturalId).toBe(0x100);
     expect(result[0].keyIds).toEqual([0x10, 0x20]);
   });
 
   it('filters out key links with null keyDefinition', async () => {
     const rows = [
       {
-        tagId: 0x100,
-        keys: [{keyDefinition: {keyId: 0x10}}, {keyDefinition: null}],
+        naturalId: 0x100,
+        keys: [{keyDefinition: {naturalId: 0x10}}, {keyDefinition: null}],
       },
     ];
     (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce(
@@ -91,8 +94,8 @@ describe('TypeOrmBulkReadQueryService — readTagKeys', () => {
 
   it('returns multiple tags in query result order', async () => {
     const rows = [
-      {tagId: 0x100, keys: [{keyDefinition: {keyId: 0x10}}]},
-      {tagId: 0x200, keys: [{keyDefinition: {keyId: 0x30}}]},
+      {naturalId: 0x100, keys: [{keyDefinition: {naturalId: 0x10}}]},
+      {naturalId: 0x200, keys: [{keyDefinition: {naturalId: 0x30}}]},
     ];
     (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce(
       makeRepo(makeMockQb(rows)),
@@ -101,8 +104,8 @@ describe('TypeOrmBulkReadQueryService — readTagKeys', () => {
     const result = await service.readTagKeys(1);
 
     expect(result).toHaveLength(2);
-    expect(result[0].tagId).toBe(0x100);
-    expect(result[1].tagId).toBe(0x200);
+    expect(result[0].tagNaturalId).toBe(0x100);
+    expect(result[1].tagNaturalId).toBe(0x200);
   });
 });
 
@@ -127,23 +130,23 @@ describe('TypeOrmBulkReadQueryService — readTaggedModuleData', () => {
     expect(result).toEqual([]);
   });
 
-  it('groups module instances by (subgraphId, tagId)', async () => {
+  it('groups module instances by (subgraphNaturalId, tagNaturalId)', async () => {
     const rows = [
       {
         module: {
-          subgraph: {subgraphId: 1},
-          definition: {moduleDefinitionId: 0xa0},
-          instanceId: 0xb0,
+          subgraph: {naturalId: 1},
+          definition: {naturalId: 0xa0},
+          naturalId: 0xb0,
         },
-        tagDefinition: {tagId: 0x10, isVoice: false},
+        tagDefinition: {naturalId: 0x10, isVoice: false},
       },
       {
         module: {
-          subgraph: {subgraphId: 1},
-          definition: {moduleDefinitionId: 0xa1},
-          instanceId: 0xb1,
+          subgraph: {naturalId: 1},
+          definition: {naturalId: 0xa1},
+          naturalId: 0xb1,
         },
-        tagDefinition: {tagId: 0x10, isVoice: false},
+        tagDefinition: {naturalId: 0x10, isVoice: false},
       },
     ];
     (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce(
@@ -153,37 +156,37 @@ describe('TypeOrmBulkReadQueryService — readTaggedModuleData', () => {
     const result = await service.readTaggedModuleData(1);
 
     expect(result).toHaveLength(1);
-    expect(result[0].subgraphId).toBe(1);
-    expect(result[0].tagId).toBe(0x10);
+    expect(result[0].subgraphNaturalId).toBe(1);
+    expect(result[0].tagNaturalId).toBe(0x10);
     expect(result[0].isVoice).toBe(false);
     expect(result[0].moduleInstances).toHaveLength(2);
     expect(result[0].moduleInstances[0]).toEqual({
-      moduleId: 0xa0,
-      instanceId: 0xb0,
+      moduleNaturalId: 0xa0,
+      instanceNaturalId: 0xb0,
     });
     expect(result[0].moduleInstances[1]).toEqual({
-      moduleId: 0xa1,
-      instanceId: 0xb1,
+      moduleNaturalId: 0xa1,
+      instanceNaturalId: 0xb1,
     });
   });
 
-  it('creates separate groups for different (subgraphId, tagId) pairs', async () => {
+  it('creates separate groups for different (subgraphNaturalId, tagNaturalId) pairs', async () => {
     const rows = [
       {
         module: {
-          subgraph: {subgraphId: 1},
-          definition: {moduleDefinitionId: 1},
-          instanceId: 10,
+          subgraph: {naturalId: 1},
+          definition: {naturalId: 1},
+          naturalId: 10,
         },
-        tagDefinition: {tagId: 0x10, isVoice: false},
+        tagDefinition: {naturalId: 0x10, isVoice: false},
       },
       {
         module: {
-          subgraph: {subgraphId: 1},
-          definition: {moduleDefinitionId: 2},
-          instanceId: 20,
+          subgraph: {naturalId: 1},
+          definition: {naturalId: 2},
+          naturalId: 20,
         },
-        tagDefinition: {tagId: 0x20, isVoice: true},
+        tagDefinition: {naturalId: 0x20, isVoice: true},
       },
     ];
     (mockDataSource.getRepository as jest.Mock).mockReturnValueOnce(
@@ -193,9 +196,9 @@ describe('TypeOrmBulkReadQueryService — readTaggedModuleData', () => {
     const result = await service.readTaggedModuleData(1);
 
     expect(result).toHaveLength(2);
-    expect(result[0].tagId).toBe(0x10);
+    expect(result[0].tagNaturalId).toBe(0x10);
     expect(result[0].isVoice).toBe(false);
-    expect(result[1].tagId).toBe(0x20);
+    expect(result[1].tagNaturalId).toBe(0x20);
     expect(result[1].isVoice).toBe(true);
   });
 });
@@ -228,8 +231,8 @@ describe('TypeOrmBulkReadQueryService — readTagData', () => {
     const mapRows = [
       {
         systemId: 1,
-        module: {subgraph: {subgraphId: 1}, instanceId: 100},
-        tagDefinition: {tagId: 0x10},
+        module: {subgraph: {naturalId: 1}, naturalId: 100},
+        tagDefinition: {naturalId: 0x10},
       },
     ];
 
@@ -246,8 +249,8 @@ describe('TypeOrmBulkReadQueryService — readTagData', () => {
     const mapRows = [
       {
         systemId: 1,
-        module: {subgraph: {subgraphId: 5}, instanceId: 300},
-        tagDefinition: {tagId: 0x100},
+        module: {subgraph: {naturalId: 5}, naturalId: 300},
+        tagDefinition: {naturalId: 0x100},
       },
     ];
 
@@ -256,15 +259,15 @@ describe('TypeOrmBulkReadQueryService — readTagData', () => {
 
     // Call 3: TKV values (Promise.all[0])
     const valRows = [
-      {tkvSystemId: 99, valueDef: {keys: {keyId: 0x10}, valueId: 0xa0}},
-      {tkvSystemId: 99, valueDef: {keys: {keyId: 0x20}, valueId: 0xb0}},
+      {tkvSystemId: 99, valueDef: {keys: {naturalId: 0x10}, naturalId: 0xa0}},
+      {tkvSystemId: 99, valueDef: {keys: {naturalId: 0x20}, naturalId: 0xb0}},
     ];
 
     // Call 4: TKV parameter payloads (Promise.all[1])
     const paramRows = [
       {
         tkvSystemId: 99,
-        spfParameter: {paramId: 0x400},
+        spfParameter: {naturalId: 0x400},
         payload: new Uint8Array([0xde, 0xad]),
       },
     ];
@@ -278,29 +281,29 @@ describe('TypeOrmBulkReadQueryService — readTagData', () => {
     const result = await service.readTagData(1);
 
     expect(result).toHaveLength(1);
-    expect(result[0].subgraphId).toBe(5);
-    expect(result[0].tagId).toBe(0x100);
+    expect(result[0].subgraphNaturalId).toBe(5);
+    expect(result[0].tagNaturalId).toBe(0x100);
     expect(result[0].numTagKeyValues).toBe(2);
     expect(result[0].tkvs).toHaveLength(1);
     expect(result[0].tkvs[0].tagKeyValues).toEqual([0xa0, 0xb0]);
-    expect(result[0].tkvs[0].modules[0].moduleInstanceId).toBe(300);
+    expect(result[0].tkvs[0].modules[0].naturalId).toBe(300);
     expect(result[0].tkvs[0].modules[0].parameters).toHaveLength(1);
-    expect(result[0].tkvs[0].modules[0].parameters[0].parameterId).toBe(0x400);
+    expect(result[0].tkvs[0].modules[0].parameters[0].naturalId).toBe(0x400);
   });
 
   it('sorts tagKeyValues by keyId ASC', async () => {
     const mapRows = [
       {
         systemId: 1,
-        module: {subgraph: {subgraphId: 1}, instanceId: 10},
-        tagDefinition: {tagId: 0x10},
+        module: {subgraph: {naturalId: 1}, naturalId: 10},
+        tagDefinition: {naturalId: 0x10},
       },
     ];
     const tkvRows = [{systemId: 10, moduleTagIdMapSystemId: 1}];
     // values out of keyId order — app layer sorts them
     const valRows = [
-      {tkvSystemId: 10, valueDef: {keys: {keyId: 0x20}, valueId: 0xb0}},
-      {tkvSystemId: 10, valueDef: {keys: {keyId: 0x10}, valueId: 0xa0}},
+      {tkvSystemId: 10, valueDef: {keys: {naturalId: 0x20}, naturalId: 0xb0}},
+      {tkvSystemId: 10, valueDef: {keys: {naturalId: 0x10}, naturalId: 0xa0}},
     ];
 
     (mockDataSource.getRepository as jest.Mock)
@@ -317,8 +320,8 @@ describe('TypeOrmBulkReadQueryService — readTagData', () => {
     const mapRows = [
       {
         systemId: 1,
-        module: {subgraph: {subgraphId: 1}, instanceId: 1},
-        tagDefinition: {tagId: 0x10},
+        module: {subgraph: {naturalId: 1}, naturalId: 1},
+        tagDefinition: {naturalId: 0x10},
       },
     ];
     const tkvRows = Array.from({length: 1500}, (_, i) => ({

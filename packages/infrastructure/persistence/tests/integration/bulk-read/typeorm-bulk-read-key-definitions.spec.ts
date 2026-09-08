@@ -88,7 +88,7 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
     const key = await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'Key100',
       isCalibrationKey: true,
       isGraphKey: false,
@@ -96,34 +96,34 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
     await valueRepository.save({
       systemId: nextId++,
       keySystemId: key.systemId,
-      valueId: 1001,
+      naturalId: 1001,
       name: 'Value1001',
       enumMember: 'ENUM_1001',
     });
     await valueRepository.save({
       systemId: nextId++,
       keySystemId: key.systemId,
-      valueId: 1002,
+      naturalId: 1002,
       name: 'Value1002',
     });
 
     const result = await repository.readKeyDefinitions(testFileSystemId);
 
     expect(result).toHaveLength(1);
-    expect(result[0].keyId).toBe(100);
+    expect(result[0].keyNaturalId).toBe(100);
     expect(result[0].name).toBe('Key100');
     expect(result[0].isCalibrationKey).toBe(true);
     expect(result[0].values).toHaveLength(2);
-    expect(result[0].values[0].valueId).toBe(1001);
+    expect(result[0].values[0].valueNaturalId).toBe(1001);
     expect(result[0].values[0].enumMember).toBe('ENUM_1001');
-    expect(result[0].values[1].valueId).toBe(1002);
+    expect(result[0].values[1].valueNaturalId).toBe(1002);
   });
 
   it('should return all optional fields', async () => {
     await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'Key200',
       description: 'A key',
       isVoice: true,
@@ -172,14 +172,14 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
     await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'OwnKey',
       isCalibrationKey: true,
     });
     await keyRepository.save({
       systemId: nextId++,
       fileSystemId: file2.systemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'OtherKey',
       isCalibrationKey: true,
     });
@@ -194,28 +194,28 @@ describe('TypeOrmBulkReadRepository - readKeyDefinitions', () => {
     await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 300,
+      naturalId: 300,
       name: 'Key300',
       isCalibrationKey: true,
     });
     await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'Key100',
       isCalibrationKey: true,
     });
     await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'Key200',
       isCalibrationKey: true,
     });
 
     const result = await repository.readKeyDefinitions(testFileSystemId);
 
-    expect(result.map(k => k.keyId)).toEqual([100, 200, 300]);
+    expect(result.map(k => k.keyNaturalId)).toEqual([100, 200, 300]);
   });
 });
 
@@ -283,14 +283,14 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     const key = await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'KeyA',
       isCalibrationKey: true,
     });
     const tag = await tagRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      tagId: 500,
+      naturalId: 500,
       name: 'TagX',
       isVoice: false,
     });
@@ -304,11 +304,11 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     const result = await repository.readTagDefinitions(testFileSystemId);
 
     expect(result).toHaveLength(1);
-    expect(result[0].tagId).toBe(500);
+    expect(result[0].tagNaturalId).toBe(500);
     expect(result[0].name).toBe('TagX');
     expect(result[0].isVoice).toBe(false);
     expect(result[0].supportedKeys).toHaveLength(1);
-    expect(result[0].supportedKeys[0].keyId).toBe(100);
+    expect(result[0].supportedKeys[0].keyNaturalId).toBe(100);
     expect(result[0].supportedKeys[0].keyName).toBe('KeyA');
     expect(result[0].supportedKeys[0].enumValue).toBe('TAG_ENUM_VAL');
   });
@@ -317,7 +317,7 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     await tagRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      tagId: 600,
+      naturalId: 600,
       name: 'TagY',
       description: 'A tag',
       isVoice: true,
@@ -337,7 +337,7 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     await tagRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      tagId: 700,
+      naturalId: 700,
       name: 'TagNoKeys',
       isVoice: false,
     });
@@ -374,14 +374,14 @@ describe('TypeOrmBulkReadRepository - readTagDefinitions', () => {
     await tagRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      tagId: 500,
+      naturalId: 500,
       name: 'OwnTag',
       isVoice: false,
     });
     await tagRepository.save({
       systemId: nextId++,
       fileSystemId: file2.systemId,
-      tagId: 600,
+      naturalId: 600,
       name: 'OtherTag',
       isVoice: false,
     });

@@ -47,12 +47,14 @@ function buildKeyIdsPayload(keyIds: number[]): Uint8Array {
 export const TagKeysChunkBuilder = {
   buildChunk(input: TagKeysChunkBuildInput): TagKeysChunkBuildResult {
     const chunk = new TagKeysChunk();
-    const sorted = [...input.tagKeys].sort((a, b) => a.tagId - b.tagId);
+    const sorted = [...input.tagKeys].sort(
+      (a, b) => a.tagNaturalId - b.tagNaturalId,
+    );
 
     for (const entry of sorted) {
       const payload = buildKeyIdsPayload(entry.keyIds);
       const poolOffset = input.datapool.addOrReuse(payload);
-      chunk.addTagKeyEntry(entry.tagId, poolOffset);
+      chunk.addTagKeyEntry(entry.tagNaturalId, poolOffset);
     }
 
     return {chunk};

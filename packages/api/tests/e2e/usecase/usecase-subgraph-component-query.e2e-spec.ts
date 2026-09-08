@@ -19,6 +19,7 @@ describe('Usecase & Subgraph Component Query E2E', () => {
   let projectId: string;
   let usecaseIds: string[];
   let subgraphSystemId: string | undefined;
+  let spfModuleInstanceNaturalId: string | undefined;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -59,7 +60,7 @@ describe('Usecase & Subgraph Component Query E2E', () => {
       usecaseIds = usecases.map((u: any) => String(u.systemId)).filter(Boolean);
     }
 
-    // Collect a subgraphSystemId for subgraph component tests
+    // Collect a subgraph system ID for subgraph component tests.
     if (usecaseIds.length > 0) {
       const componentsResp = await request(httpServer)
         .post(`/arc-api/v1/projects/${projectId}/usecases/components/query`)
@@ -70,7 +71,8 @@ describe('Usecase & Subgraph Component Query E2E', () => {
       if (componentsResp.status === 200) {
         const modules: any[] = componentsResp.body?.data?.spfModules ?? [];
         if (modules.length > 0) {
-          subgraphSystemId = String(modules[0].subgraphId);
+          subgraphSystemId = String(modules[0].subgraphSystemId);
+          spfModuleInstanceNaturalId = String(modules[0].naturalId);
         }
       }
     }
@@ -135,14 +137,14 @@ describe('Usecase & Subgraph Component Query E2E', () => {
       expect(resp.status).toBe(400);
     });
 
-    it('returns 200 with valid filter — subgraphId in hex', async () => {
-      if (!projectId || !subgraphSystemId) return;
+    it('returns 200 with valid filter — spfModuleInstanceNaturalId in hex', async () => {
+      if (!projectId || !spfModuleInstanceNaturalId) return;
 
-      const hexId = `0x${Number(subgraphSystemId).toString(16)}`;
+      const hexId = `0x${Number(spfModuleInstanceNaturalId).toString(16)}`;
 
       const resp = await request(httpServer)
         .get(
-          `/arc-api/v1/projects/${projectId}/usecases?filter=subgraphId:${hexId}`,
+          `/arc-api/v1/projects/${projectId}/usecases?filter=spfModuleInstanceNaturalId:${hexId}`,
         )
         .set('Authorization', `Bearer ${authToken}`)
         .timeout(30000);
@@ -171,7 +173,7 @@ describe('Usecase & Subgraph Component Query E2E', () => {
       expect(Array.isArray(data.controlLinks)).toBe(true);
     });
 
-    it('each module has systemId, subgraphId, containerId', async () => {
+    it('each module has systemId, subgraphSystemId, containerSystemId', async () => {
       if (!projectId || !usecaseIds.length) return;
 
       const resp = await request(httpServer)
@@ -184,8 +186,8 @@ describe('Usecase & Subgraph Component Query E2E', () => {
 
       const module = resp.body.data.spfModules[0];
       expect(module.systemId).toBeDefined();
-      expect(module.subgraphId).toBeDefined();
-      expect(module.containerId).toBeDefined();
+      expect(module.subgraphSystemId).toBeDefined();
+      expect(module.containerSystemId).toBeDefined();
     });
 
     it('returns 400 for empty systemIds', async () => {
@@ -371,7 +373,7 @@ describe('Usecase & Subgraph Component Query E2E', () => {
       if (resp.status !== 200 || !resp.body.data.spfModules.length) return;
 
       for (const module of resp.body.data.spfModules) {
-        expect(String(module.subgraphId)).toBe(subgraphSystemId);
+        expect(String(module.subgraphSystemId)).toBe(subgraphSystemId);
       }
     });
 

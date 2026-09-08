@@ -22,7 +22,7 @@ export interface CHeaderAttributes {
 
 export interface KeyDefinitionInit {
   systemId: number;
-  keyId: number;
+  naturalId: number;
   fileSystemId: number;
   name: string;
   description?: string;
@@ -41,7 +41,7 @@ export interface KeyDefinitionInit {
 
 export class KeyDefinition {
   systemId: number;
-  readonly keyId: number;
+  readonly naturalId: number;
   fileSystemId: number;
   readonly values: ValueDefinition[] = [];
 
@@ -62,7 +62,7 @@ export class KeyDefinition {
 
   constructor(initParam: KeyDefinitionInit) {
     this.systemId = initParam.systemId;
-    this.keyId = initParam.keyId;
+    this.naturalId = initParam.naturalId;
     this.fileSystemId = initParam.fileSystemId;
     this.name = initParam.name;
     this.description = initParam.description ?? '';
@@ -82,30 +82,30 @@ export class KeyDefinition {
   checkInvariants() {
     invariant(
       this.isGraphKey || this.isCalibrationKey,
-      `Key :${BinaryUtils.toHexString(this.keyId)} has to be either a graph or calibration`,
+      `Key :${BinaryUtils.toHexString(this.naturalId)} has to be either a graph or calibration`,
     );
   }
 
   private AddValue(valueDefinition: ValueDefinition): void {
     assertNonNull(
       valueDefinition,
-      `valueDefinition is null for key definition:${BinaryUtils.toHexString(this.keyId)}`,
+      `valueDefinition is null for key definition:${BinaryUtils.toHexString(this.naturalId)}`,
     );
     assertNonNull(
       valueDefinition.systemId,
-      `systemId is required for value in key ${BinaryUtils.toHexString(this.keyId)}`,
+      `systemId is required for value in key ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     assertNonNull(
-      valueDefinition.valueId,
-      `valueId is required for value in key ${BinaryUtils.toHexString(this.keyId)}`,
+      valueDefinition.naturalId,
+      `valueId is required for value in key ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     invariant(
-      !this.valueIds.has(valueDefinition.valueId),
-      `ValueId ${BinaryUtils.toHexString(valueDefinition.valueId)} already exists in ValueDefinition for key: ${BinaryUtils.toHexString(this.keyId)}`,
+      !this.valueIds.has(valueDefinition.naturalId),
+      `ValueId ${BinaryUtils.toHexString(valueDefinition.naturalId)} already exists in ValueDefinition for key: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
-    this.valueIds.add(valueDefinition.valueId);
+    this.valueIds.add(valueDefinition.naturalId);
     this.values.push(valueDefinition);
   }
 }

@@ -11,7 +11,7 @@ import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface ProcessorDefinitionBase {
   systemId: number;
-  processorDefinitionId: number;
+  naturalId: number;
   name: string;
   fileSystemId: number;
 }
@@ -28,7 +28,7 @@ export const ProcessorDefinitionSchema =
     tableName: 'processor_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      processorDefinitionId: {
+      naturalId: {
         type: 'integer',
         name: 'processor_definition_id',
       },

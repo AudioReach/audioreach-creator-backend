@@ -178,7 +178,7 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
   ): BaseModuleDefinitionSummaryReadModel {
     return {
       systemId: root.systemId,
-      moduleId: root.moduleDefinitionId,
+      naturalId: root.naturalId,
       name: root.name,
       displayName: undefined, // no column yet — LLD §6.1
       description: root.description,
@@ -194,7 +194,7 @@ export class DbDriverModuleDefinitionQueryService implements DriverModuleDefinit
   ): ParameterDefinitionSummaryReadModel {
     return {
       systemId: p.systemId,
-      paramId: p.parameterId,
+      naturalId: p.naturalId,
       name: p.name ?? '',
       description: p.description,
       isHidden: false, // no DTO field yet — LLD §6.2

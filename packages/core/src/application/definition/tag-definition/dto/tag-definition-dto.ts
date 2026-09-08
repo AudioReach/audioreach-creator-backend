@@ -12,14 +12,14 @@ import type {ValueDefinitionReadModel} from '../../../ports/persistence/query-se
 
 export const TagValueDefinitionDtoSchema = z.object({
   systemId: z.string().describe('Unique system identifier for the value'),
-  valueId: z.number().int().describe('Value identifier'),
+  naturalId: z.number().int().describe('Value identifier'),
   name: z.string().describe('Value name'),
   description: z.string().optional().describe('Value description'),
 });
 
 export const TagKeyDefinitionDtoSchema = z.object({
   systemId: z.string().describe('Unique system identifier for the key'),
-  keyId: z.number().int().describe('Key identifier'),
+  naturalId: z.number().int().describe('Key identifier'),
   name: z.string().describe('Key name'),
   description: z.string().optional().describe('Key description'),
   cHeaderEnumValue: z
@@ -32,7 +32,7 @@ export const TagKeyDefinitionDtoSchema = z.object({
 
 export const TagDefinitionDtoSchema = z.object({
   systemId: z.string().describe('Unique system identifier for the tag'),
-  tagId: z.number().int().describe('Tag identifier'),
+  naturalId: z.number().int().describe('Tag identifier'),
   name: z.string().describe('Tag name'),
   enumMember: z
     .string()
@@ -55,7 +55,7 @@ export function mapTagValue(
 ): z.infer<typeof TagValueDefinitionDtoSchema> {
   return {
     systemId: String(v.systemId),
-    valueId: v.valueId,
+    naturalId: v.naturalId,
     name: v.name,
     description: v.description,
   };
@@ -66,7 +66,7 @@ export function mapTagKey(
 ): z.infer<typeof TagKeyDefinitionDtoSchema> {
   return {
     systemId: String(k.keyDefinition.systemId),
-    keyId: k.keyDefinition.keyId,
+    naturalId: k.keyDefinition.naturalId,
     name: k.keyDefinition.name,
     description: k.keyDefinition.description,
     cHeaderEnumValue: k.cHeaderTagEnumMemberName ?? '',
@@ -77,7 +77,7 @@ export function mapTagKey(
 export function mapTagDefinition(t: TagDefinitionReadModel): TagDefinitionDto {
   return {
     systemId: String(t.systemId),
-    tagId: t.tagId,
+    naturalId: t.naturalId,
     name: t.name,
     enumMember: t.cHeaderEnumMember,
     enumName: t.cHeaderEnumName,

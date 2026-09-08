@@ -251,7 +251,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
           new SubgraphPropertyDefinition({
             systemId: definition.systemId,
             fileSystemId: definition.fileSystemId,
-            propertyId: definition.propertyId,
+            naturalId: definition.naturalId,
             name: definition.name ?? '',
             description: definition.description ?? undefined,
             maxSize: definition.maxSize,
@@ -316,7 +316,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
         targetSystemId: subgraph.systemId,
         aggregateId: subgraph.systemId,
         payload: {
-          subgraphId: subgraph.subgraphId,
+          naturalId: subgraph.naturalId,
           name: subgraph.name,
           isImported: subgraph.isImported,
           fileSystemId: subgraph.fileSystemId,
@@ -353,7 +353,7 @@ export class TypeOrmSubgraphRepository implements SubgraphRepository {
   private hydrate(base: SubgraphBase): Subgraph {
     return new SubgraphEntity({
       systemId: base.systemId,
-      subgraphId: base.subgraphId,
+      naturalId: base.naturalId,
       name: base.name,
       isImported: Boolean(base.isImported),
       fileSystemId: base.fileSystemId,

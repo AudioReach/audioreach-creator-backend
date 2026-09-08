@@ -6,14 +6,14 @@
 import {describe, it, expect} from '@jest/globals';
 import {VoiceCalibrationChunkBuilder} from '../../../../../../../src/application/file-operations/download-file/services/chunk-builders/voice-calibration-chunk-builder.js';
 import {DatapoolChunk} from '../../../../../../../src/application/file-operations/shared/acdb-chunks/datapool-chunk.js';
-import type {VoiceCalibrationDataDownloadModel} from '../../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
+import type {CalibrationDataDownloadModel} from '../../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 
 describe('VoiceCalibrationChunkBuilder', () => {
   describe('buildChunk', () => {
     it('should return empty chunk when no data provided', () => {
       // Arrange
       const datapool = new DatapoolChunk();
-      const input: VoiceCalibrationDataDownloadModel[] = [];
+      const input: CalibrationDataDownloadModel[] = [];
 
       // Act
       const result = VoiceCalibrationChunkBuilder.buildChunk({
@@ -29,12 +29,12 @@ describe('VoiceCalibrationChunkBuilder', () => {
     it('should build chunk with single subgraph and master keys', () => {
       // Arrange
       const datapool = new DatapoolChunk();
-      const input: VoiceCalibrationDataDownloadModel[] = [
+      const input: CalibrationDataDownloadModel[] = [
         {
-          subgraphId: 100,
+          naturalId: 100,
           masterKeys: [
-            {keyId: 1, isDynamic: true},
-            {keyId: 2, isDynamic: false},
+            {keyNaturalId: 1, isDynamic: true},
+            {keyNaturalId: 2, isDynamic: false},
           ],
           keyValueCombinations: [
             {
@@ -42,10 +42,16 @@ describe('VoiceCalibrationChunkBuilder', () => {
               valueIds: [10, 20],
               modules: [
                 {
-                  moduleInstanceId: 300,
+                  naturalId: 300,
                   parameters: [
-                    {parameterId: 400, payload: new Uint8Array([0xde, 0xad])},
-                    {parameterId: 401, payload: new Uint8Array([0xbe, 0xef])},
+                    {
+                      naturalId: 400,
+                      payload: new Uint8Array([0xde, 0xad]),
+                    },
+                    {
+                      naturalId: 401,
+                      payload: new Uint8Array([0xbe, 0xef]),
+                    },
                   ],
                 },
               ],

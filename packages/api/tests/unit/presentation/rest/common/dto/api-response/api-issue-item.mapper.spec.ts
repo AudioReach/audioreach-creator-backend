@@ -102,7 +102,7 @@ describe('api-issue-item.mapper', () => {
         },
         fixOptions: [
           {
-            id: 'delete-duplicate-link',
+            systemId: 'delete-duplicate-link',
             description: 'Delete the duplicate link',
             commandType: 'DELETE_LINK',
             commandPayload: {linkId: 4001},

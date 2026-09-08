@@ -71,7 +71,7 @@ export class DriverModuleDefinitionFetcher {
       const p = createAction.newValue as Partial<DriverModuleDefinitionBase>;
       return {
         systemId: createAction.targetSystemId,
-        moduleDefinitionId: p.moduleDefinitionId ?? 0,
+        naturalId: p.naturalId ?? 0,
         name: p.name ?? '',
         description: p.description,
         groupName: p.groupName,
@@ -102,8 +102,8 @@ export class DriverModuleDefinitionFetcher {
       .where('def.fileSystemId = :fileSystemId', {fileSystemId});
 
     if (filters.moduleDefinitionNaturalId !== undefined) {
-      qb.andWhere('def.moduleDefinitionId = :moduleDefinitionId', {
-        moduleDefinitionId: filters.moduleDefinitionNaturalId,
+      qb.andWhere('def.naturalId = :moduleDefinitionNaturalId', {
+        moduleDefinitionNaturalId: filters.moduleDefinitionNaturalId,
       });
     }
     if (filters.parameterNaturalId !== undefined) {

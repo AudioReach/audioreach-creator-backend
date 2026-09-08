@@ -138,7 +138,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'MyProperty',
         maxSize: 4,
         propertyType: 'SPF',
@@ -153,7 +153,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0]).toMatchObject({
         systemId: 1,
-        propertyId: 100,
+        naturalId: 100,
         name: 'MyProperty',
       });
     });
@@ -164,7 +164,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'FirstProperty',
         maxSize: 4,
         propertyType: 'SPF',
@@ -173,7 +173,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 2,
         fileSystemId,
-        propertyId: 200,
+        naturalId: 200,
         name: 'SecondProperty',
         maxSize: 4,
         propertyType: 'SPF',
@@ -188,7 +188,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       expect(result.kind).toBe(RESULT_KIND.Ok);
       if (result.kind !== RESULT_KIND.Ok) return;
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].propertyId).toBe(200);
+      expect(result.data[0].naturalId).toBe(200);
     });
 
     it('returns the same result when a session exists but has no pending changes (Tier 2)', async () => {
@@ -198,7 +198,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'MyProperty',
         maxSize: 4,
         propertyType: 'SPF',
@@ -220,7 +220,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'OriginalName',
         maxSize: 4,
         propertyType: 'SPF',
@@ -258,7 +258,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'MyProperty',
         maxSize: 4,
         propertyType: 'SPF',
@@ -296,7 +296,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'OriginalName',
         maxSize: 4,
         propertyType: 'SPF',
@@ -349,7 +349,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'MyProperty',
         maxSize: 4,
         propertyType: 'SPF',
@@ -374,7 +374,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'NullStructProp',
         maxSize: 0,
         propertyType: 'SPF',
@@ -398,7 +398,7 @@ describe('DbContainerPropertyDefQueryService Integration Tests', () => {
       await containerPropertyRepository.save({
         systemId: 1,
         fileSystemId,
-        propertyId: 100,
+        naturalId: 100,
         name: 'MyProperty',
         maxSize: 4,
         propertyType: 'SPF',

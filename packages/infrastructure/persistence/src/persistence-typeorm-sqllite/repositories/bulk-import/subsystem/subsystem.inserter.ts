@@ -81,7 +81,7 @@ export class SubsystemInserter implements BulkInserter<Subsystem> {
   private async insertNodes(subsystems: Subsystem[]): Promise<StepResult> {
     const rows: InsertRow<NodeRow>[] = subsystems.map(s => ({
       systemId: s.systemId,
-      parentId: s.parentId,
+      parentSystemId: s.parentSystemId,
       type: NODE_TYPE.Subsystem,
       fileSystemId: s.fileSystemId,
     }));
@@ -124,7 +124,7 @@ export class SubsystemInserter implements BulkInserter<Subsystem> {
     const rows: InsertRow<DataPortRow>[] = subsystems.flatMap(s =>
       s.dataPorts.map(port => ({
         systemId: port.systemId,
-        dataPortId: port.dataPortId,
+        naturalId: port.naturalId,
         portIoType: port.portIoType,
         isStatic: port.isStatic,
         name: port.name,
@@ -176,7 +176,7 @@ export class SubsystemInserter implements BulkInserter<Subsystem> {
     const rows: InsertRow<ControlPortRow>[] = subsystems.flatMap(s =>
       s.controlPorts.map(port => ({
         systemId: port.systemId,
-        portId: port.portId,
+        naturalId: port.naturalId,
         isStatic: port.isStatic,
         name: port.name,
         nodeSystemId: s.systemId,
@@ -216,7 +216,7 @@ export class SubsystemInserter implements BulkInserter<Subsystem> {
     const rows: InsertRow<SubsystemRow>[] = subsystems.map(s => ({
       systemId: s.systemId,
       name: s.name,
-      subsystemId: s.subsystemId,
+      ['subsystemId']: s.naturalId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(

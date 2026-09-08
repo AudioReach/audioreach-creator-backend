@@ -19,7 +19,7 @@ import {
  */
 export type DriverModuleParameterDefinitionFilters = {
   systemId?: number | number[];
-  parameterId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   description?: string | string[];
   maxSize?: number | number[];

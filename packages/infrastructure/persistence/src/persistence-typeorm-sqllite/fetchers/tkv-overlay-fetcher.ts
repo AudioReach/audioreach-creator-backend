@@ -101,7 +101,7 @@ export class TkvOverlayFetcher {
       .createQueryBuilder('tagMap')
       .leftJoinAndSelect('tagMap.tkvs', 'tkv')
       .leftJoinAndSelect('tkv.values', 'tkvValues')
-      .where('tagMap.spfModuleSystemId = :id', {id: moduleSystemId});
+      .where('tagMap.spfModuleSystemId = :moduleSystemId', {moduleSystemId});
     if (filters) applyEntityFilters(qb, 'tagMap', filters);
 
     if (includes === CONFIGURATION_INCLUDES.FullDetails) {

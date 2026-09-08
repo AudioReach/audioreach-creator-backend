@@ -7,7 +7,7 @@ import type {PortIoType} from '../../../../../domain/entities/common/enums/port-
 
 export interface DataPortReadModel {
   readonly systemId: number;
-  readonly portId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly portIoType: PortIoType;
   readonly isStatic: boolean;

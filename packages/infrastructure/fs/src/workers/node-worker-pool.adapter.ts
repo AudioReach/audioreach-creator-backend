@@ -91,9 +91,9 @@ export class NodeWorkerPoolAdapter implements WorkerPoolPort {
    */
   private initializePool(): void {
     for (let i = 0; i < this.poolSize; i++) {
-      // Pass worker data including logger configuration and worker ID
+      // Pass worker data including logger configuration and a worker label.
       const workerData = {
-        workerId: `worker-${i}`,
+        workerLabel: `worker-${i}`,
         hasLogger: !!this.logger,
       };
 

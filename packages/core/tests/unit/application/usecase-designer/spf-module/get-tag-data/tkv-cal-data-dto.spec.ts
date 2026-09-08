@@ -16,15 +16,15 @@ const mockTkv: TkvReadModel = {
   moduleTagIdMapSystemId: 5,
   keyValuePairs: [
     {
-      key: {keyId: 1, name: 'ch', systemId: 100},
-      value: {valueId: 2, name: 'stereo', systemId: 200},
+      key: {naturalId: 1, name: 'ch', systemId: 100},
+      value: {naturalId: 2, name: 'stereo', systemId: 200},
     },
   ],
 };
 
 const mockParam: ParameterCalibrationReadModel = {
   systemId: 20,
-  parameterId: 42,
+  naturalId: 42,
   name: 'gain',
   description: 'Gain param',
   isReadOnly: false,
@@ -46,7 +46,7 @@ describe('mapTkvCalDataDto', () => {
     const dto = mapTkvCalDataDto(mockTkv, [mockParam]);
     expect(dto.systemId).toBe('10');
     expect(dto.Tkv).toHaveLength(1);
-    expect(dto.Tkv[0].key.keyId).toBe(1);
+    expect(dto.Tkv[0].key.naturalId).toBe(1);
     expect(dto.Tkv[0].key.name).toBe('ch');
     expect(dto.Tkv[0].value.name).toBe('stereo');
     expect(dto.parameters).toHaveLength(1);

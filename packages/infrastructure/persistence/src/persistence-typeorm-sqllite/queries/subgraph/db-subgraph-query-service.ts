@@ -63,7 +63,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         return Result.ok(
           subgraphs.map(s => ({
             systemId: s.systemId,
-            naturalId: s.subgraphId,
+            naturalId: s.naturalId,
             name: s.name,
             isImported: s.isImported,
             sgkvs: null,
@@ -98,13 +98,13 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
         {
           key: {
             systemId: number;
-            keyId: number;
+            naturalId: number;
             name: string;
             description?: string;
           };
           value: {
             systemId: number;
-            valueId: number;
+            naturalId: number;
             name: string;
             description?: string;
           };
@@ -145,7 +145,7 @@ export class DbSubgraphQueryService implements SubgraphQueryService {
 
         return {
           systemId: s.systemId,
-          naturalId: s.subgraphId,
+          naturalId: s.naturalId,
           name: s.name,
           isImported: s.isImported,
           sgkvs,

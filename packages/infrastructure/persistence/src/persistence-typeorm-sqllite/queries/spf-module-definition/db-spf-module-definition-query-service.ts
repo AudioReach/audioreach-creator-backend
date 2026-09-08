@@ -255,7 +255,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       if (includes !== CONFIGURATION_INCLUDES.FullDetails) {
         return Result.ok({
           systemId: detail.systemId,
-          paramId: detail.paramId,
+          naturalId: detail.naturalId,
           name: detail.name,
           isReadOnly: detail.isReadOnly,
           description: detail.description,
@@ -361,7 +361,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
           aggregate.root.processorSystemId,
         ) ?? {
           systemId: aggregate.root.processorSystemId,
-          processorId: 0,
+          naturalId: 0,
           name: '',
         };
         data.push(
@@ -446,7 +446,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
           aggregate,
           processorMap.get(aggregate.root.processorSystemId) ?? {
             systemId: aggregate.root.processorSystemId,
-            processorId: 0,
+            naturalId: 0,
             name: '',
           },
           containerTypeNameMap,
@@ -566,7 +566,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
       .getRepository(ENTITY_NAMES.SpfModule)
       .createQueryBuilder('m')
       .select('m.fileSystemId')
-      .where('m.systemId = :id', {id: moduleSystemId})
+      .where('m.systemId = :moduleSystemId', {moduleSystemId})
       .getOne()) as {fileSystemId: number} | null;
     if (!row) return {fileSystemId: null, sessionId: null};
     const sessionId = await resolveActiveSessionId(
@@ -676,7 +676,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     for (const row of rows) {
       map.set(row.systemId, {
         systemId: row.systemId,
-        processorId: row.processorDefinitionId,
+        naturalId: row.naturalId,
         name: row.name,
       });
     }
@@ -756,7 +756,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
     return {
       systemId: agg.root.systemId,
       name: agg.root.name,
-      moduleId: agg.root.moduleDefinitionId,
+      naturalId: agg.root.naturalId,
       maxInputPortsSupported,
       maxOutputPortsSupported,
       maxControlPortsSupported,
@@ -773,7 +773,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): SpfModuleDefinitionSummaryReadModel {
     return {
       systemId: agg.root.systemId,
-      moduleId: agg.root.moduleDefinitionId,
+      naturalId: agg.root.naturalId,
       name: agg.root.name,
       displayName: agg.root.displayName ?? undefined,
       description: agg.root.description ?? undefined,
@@ -839,7 +839,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): DataPortDefinitionReadModel[] {
     return defs.map(p => ({
       systemId: p.systemId,
-      dataPortId: p.dataPortId,
+      naturalId: p.naturalId,
       name: p.name ?? '',
     }));
   }
@@ -849,7 +849,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): ControlPortDefinitionReadModel[] {
     return ports.map(p => ({
       systemId: p.systemId,
-      portId: p.portId,
+      naturalId: p.naturalId,
       portName: p.portName,
       staticIntents: this.mapStaticIntents(p.staticIntents),
     }));
@@ -860,7 +860,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): StaticIntentDefinitionReadModel[] {
     return intents.map(i => ({
       systemId: i.systemId,
-      intentId: i.intentId,
+      naturalId: i.naturalId,
       name: i.name,
     }));
   }
@@ -870,7 +870,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): DynamicIntentDefinitionReadModel[] {
     return intents.map(d => ({
       systemId: d.systemId,
-      intentId: d.intentId,
+      naturalId: d.naturalId,
       name: d.name,
       maxPort: d.maxPort,
     }));
@@ -881,7 +881,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): ParameterDefinitionReadModel {
     return {
       systemId: p.systemId,
-      paramId: p.paramId,
+      naturalId: p.naturalId,
       name: p.name ?? '',
       isReadOnly: p.isReadOnly,
       description: p.description,
@@ -895,7 +895,7 @@ export class DbSpfModuleDefinitionQueryService implements SpfModuleDefinitionQue
   ): ParameterDefinitionSummaryReadModel {
     return {
       systemId: p.systemId,
-      paramId: p.paramId,
+      naturalId: p.naturalId,
       name: p.name ?? '',
       description: p.description,
       isHidden: false, // not persisted yet

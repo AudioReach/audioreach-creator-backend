@@ -30,8 +30,8 @@ export class PatchSubgraphRequestDto extends createZodDto(
 
 export class UpdateSubgraphContainerIdRequestDto extends createZodDto(
   z.object({
-    oldContainerId: z.number().int(),
-    newContainerId: z.number().int(),
+    oldContainerNaturalId: z.number().int(),
+    newContainerNaturalId: z.number().int(),
   }),
 ) {}
 

@@ -18,7 +18,7 @@ describe('SPF Module Definition Query E2E (GET /arc-api/v1/projects/{projectId}/
   let authToken: string;
   let projectId: string | undefined;
   let sampleModuleSystemId: string | undefined;
-  let sampleModuleId: number | undefined;
+  let sampleModuleNaturalId: number | undefined;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -58,7 +58,7 @@ describe('SPF Module Definition Query E2E (GET /arc-api/v1/projects/{projectId}/
     const modules: any[] = listResponse.body.data ?? [];
     if (modules.length > 0) {
       sampleModuleSystemId = String(modules[0].systemId);
-      sampleModuleId = modules[0].moduleId;
+      sampleModuleNaturalId = modules[0].naturalId;
     }
 
     console.log(
@@ -86,12 +86,12 @@ describe('SPF Module Definition Query E2E (GET /arc-api/v1/projects/{projectId}/
 
     for (const module of response.body.data) {
       expect(typeof module.systemId).toBe('string');
-      expect(typeof module.moduleId).toBe('number');
+      expect(typeof module.naturalId).toBe('number');
       expect(typeof module.name).toBe('string');
       expect(Array.isArray(module.paramDefinitionsSummaryInfo)).toBe(true);
       expect(module.processorInfo).toBeDefined();
       expect(typeof module.processorInfo.systemId).toBe('string');
-      expect(typeof module.processorInfo.processorId).toBe('number');
+      expect(typeof module.processorInfo.naturalId).toBe('number');
       expect(module.moduleInfo).toBeDefined();
       expect(typeof module.isLoadedAtBootup).toBe('boolean');
       expect(typeof module.isCustomModule).toBe('boolean');
@@ -99,14 +99,14 @@ describe('SPF Module Definition Query E2E (GET /arc-api/v1/projects/{projectId}/
   });
 
   it('should filter by moduleDefinitionId when provided', async () => {
-    if (!projectId || sampleModuleId === undefined) {
-      console.warn('No projectId or sampleModuleId — skipping');
+    if (!projectId || sampleModuleNaturalId === undefined) {
+      console.warn('No projectId or sampleModuleNaturalId — skipping');
       return;
     }
 
     const response = await request(httpServer)
       .get(
-        `/arc-api/v1/projects/${projectId}/spf-module-definitions?moduleDefinitionId=${sampleModuleId}`,
+        `/arc-api/v1/projects/${projectId}/spf-module-definitions?moduleDefinitionId=${sampleModuleNaturalId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000)
@@ -114,7 +114,7 @@ describe('SPF Module Definition Query E2E (GET /arc-api/v1/projects/{projectId}/
 
     expect(response.body.data.length).toBeGreaterThan(0);
     for (const module of response.body.data) {
-      expect(module.moduleId).toBe(sampleModuleId);
+      expect(module.naturalId).toBe(sampleModuleNaturalId);
     }
   });
 
@@ -169,7 +169,7 @@ describe('SPF Module Definition Query E2E (GET /arc-api/v1/projects/{projectId}/
 
     const module = response.body.data;
     expect(module.systemId).toBe(sampleModuleSystemId);
-    expect(typeof module.moduleId).toBe('number');
+    expect(typeof module.naturalId).toBe('number');
     expect(typeof module.name).toBe('string');
     expect(Array.isArray(module.paramDefinitionsSummaryInfo)).toBe(true);
     expect(typeof module.isCustomModule).toBe('boolean');

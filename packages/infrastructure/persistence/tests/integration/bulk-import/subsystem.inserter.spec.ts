@@ -44,7 +44,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('KeyDefinition', {
     systemId: KEY_SYSTEM_ID,
     fileSystemId: FILE_ID,
-    keyId: 0xab000000,
+    naturalId: 0xab000000,
     name: 'GraphKey',
     version: 1,
   });
@@ -55,14 +55,14 @@ function buildSubsystem(
   name: string,
   subsystemId: number,
   filteredKeySystemIds: number[] = [],
-  parentId?: number,
+  parentSystemId?: number,
 ): Subsystem {
   return new Subsystem({
     systemId,
     fileSystemId: FILE_ID,
-    parentId,
+    parentSystemId,
     name,
-    subsystemId,
+    naturalId: subsystemId,
     filteredKeySystemIds,
     dataPorts: [],
     controlPorts: [],

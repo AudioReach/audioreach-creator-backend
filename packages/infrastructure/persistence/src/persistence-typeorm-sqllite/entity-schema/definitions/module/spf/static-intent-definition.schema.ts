@@ -13,7 +13,7 @@ import type {StaticControlPortDefinitionRow} from './static-control-port-definit
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface StaticIntentDefinitionBase {
   systemId: number;
-  intentId: number;
+  naturalId: number;
   name: string;
   staticControlPortDefinitionSystemId: number;
 }
@@ -29,7 +29,7 @@ export const StaticIntentDefinitionSchema =
     tableName: 'static_intent_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      intentId: {
+      naturalId: {
         type: 'integer',
         name: 'intent_id',
       },

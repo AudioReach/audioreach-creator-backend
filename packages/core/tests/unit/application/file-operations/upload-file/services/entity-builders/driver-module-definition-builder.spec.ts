@@ -55,7 +55,7 @@ describe('DriverModuleDefinitionBuilder', () => {
 
         expect(result.entities).toHaveLength(1);
         expect(result.issues).toHaveLength(0);
-        expect(result.entities[0].moduleDefinitionId).toBe(100);
+        expect(result.entities[0].naturalId).toBe(100);
         expect(result.entities[0].name).toBe('Driver Module 1');
         expect(result.entities[0].displayName).toBe('Driver Module 1 Display');
         expect(result.entities[0].systemId).toBeGreaterThan(0);
@@ -116,10 +116,10 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities[0].parameters).toHaveLength(2);
-        expect(result.entities[0].parameters[0].parameterId).toBe(1);
+        expect(result.entities[0].parameters[0].naturalId).toBe(1);
         expect(result.entities[0].parameters[0].name).toBe('Param 1');
         expect(result.entities[0].parameters[0].maxSize).toBe(100);
-        expect(result.entities[0].parameters[1].parameterId).toBe(2);
+        expect(result.entities[0].parameters[1].naturalId).toBe(2);
         expect(result.entities[0].parameters[1].name).toBe('Param 2');
         expect(result.entities[0].parameters[1].maxSize).toBe(200);
         expect(
@@ -178,8 +178,8 @@ describe('DriverModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.entities[0].moduleDefinitionId).toBe(100);
-        expect(result.entities[1].moduleDefinitionId).toBe(200);
+        expect(result.entities[0].naturalId).toBe(100);
+        expect(result.entities[1].naturalId).toBe(200);
       });
 
       it('should serialize parameter elements structure', async () => {

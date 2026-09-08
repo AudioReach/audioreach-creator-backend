@@ -29,7 +29,7 @@ export interface UseCaseInit {
   subgraphSystemIds: number[];
   subgraphPairs: SubgraphPair[];
   type?: UsecaseType;
-  orderedKeys?: Array<{id: number}>;
+  orderedKeys?: Array<{naturalId: number}>;
 }
 
 export class UseCase {
@@ -43,7 +43,7 @@ export class UseCase {
   aliasId?: number;
   categories?: string[];
   type?: UsecaseType;
-  orderedKeys?: Array<{id: number}>;
+  orderedKeys?: Array<{naturalId: number}>;
 
   private readonly subgraphIdSet = new Set<number>();
   private readonly subgraphPairKeys = new Set<string>();

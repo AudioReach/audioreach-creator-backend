@@ -9,7 +9,7 @@ import {KeyValuePairsInfoDtoSchema} from '../../spf-module/query/spf-module-dto.
 export const SubgraphDtoSchema = z
   .object({
     systemId: z.string().describe('System ID'),
-    id: z.number().int().describe('Component ID'),
+    naturalId: z.number().int().describe('Component natural ID'),
     name: z.string().optional().describe('Component name'),
     subGraphSharedType: z.string().describe('Subgraph shared type'),
     SGKV: z

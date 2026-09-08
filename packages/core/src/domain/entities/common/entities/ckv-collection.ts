@@ -8,9 +8,9 @@ import type {KvData} from './kv-data.js';
 export class DuplicateCkvExceptionError extends Error {
   constructor(
     readonly idType: 'systemId' | 'valueDefinitionSystemIds',
-    readonly id: number | string,
+    readonly identifier: number | string,
   ) {
-    super(`Ckv with ${idType} ${id} already exists`);
+    super(`Ckv with ${idType} ${identifier} already exists`);
     this.name = 'DuplicateCkvExceptionError';
   }
 }

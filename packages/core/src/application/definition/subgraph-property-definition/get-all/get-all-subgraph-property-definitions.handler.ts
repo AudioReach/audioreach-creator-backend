@@ -36,7 +36,7 @@ export class GetAllSubgraphPropertyDefinitionsHandler implements QueryHandler<
     const result =
       await this.queryServices.subgraphPropertyDefQueryService.getAllSubgraphPropertyDefinitionsSummary(
         fileId,
-        query.propertyDefinitionId,
+        query.propertyDefinitionNaturalId,
       );
 
     if (result.kind === RESULT_KIND.Fail) {

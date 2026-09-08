@@ -9,7 +9,7 @@ import type {SubgraphPropertyDefinition} from '../../../domain/entities/definiti
 
 export interface SubgraphInit {
   systemId: number;
-  subgraphId: number;
+  subgraphNaturalId: number;
   name: string;
   fileSystemId: number;
 }
@@ -39,7 +39,7 @@ export function buildSubgraphWithDefaults(
 
   return new Subgraph({
     systemId: init.systemId,
-    subgraphId: init.subgraphId,
+    naturalId: init.subgraphNaturalId,
     name: init.name,
     isImported: false,
     fileSystemId: init.fileSystemId,

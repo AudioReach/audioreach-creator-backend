@@ -30,12 +30,12 @@ export class ContainerPropertyDefinitions {
     );
 
     assertNonNull(
-      propertyDefinition.propertyId,
+      propertyDefinition.naturalId,
       'propertyId is null for container property',
     );
 
     const sysKey = `sys:${propertyDefinition.systemId}`;
-    const propKey = `prop:${propertyDefinition.propertyId}`;
+    const propKey = `prop:${propertyDefinition.naturalId}`;
 
     invariant(
       !this.propertyIds.has(sysKey),
@@ -43,7 +43,7 @@ export class ContainerPropertyDefinitions {
     );
     invariant(
       !this.propertyIds.has(propKey),
-      `PropertyId ${BinaryUtils.toHexString(propertyDefinition.propertyId)} already exists in container property definitions`,
+      `PropertyId ${BinaryUtils.toHexString(propertyDefinition.naturalId)} already exists in container property definitions`,
     );
 
     this.propertyIds.add(sysKey);

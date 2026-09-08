@@ -7,7 +7,7 @@ import type {IntentReadModel} from './intent-read-model.js';
 
 export interface ControlPortReadModel {
   readonly systemId: number;
-  readonly portId: number;
+  readonly naturalId: number;
   readonly name: string | null;
   readonly isStatic: boolean;
   readonly allocatedIntents: IntentReadModel[];

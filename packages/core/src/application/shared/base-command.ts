@@ -34,10 +34,10 @@ export abstract class BaseCommand implements Command {
    */
   static readonly allowedModes: readonly SessionMode[] = [];
 
-  readonly id: string;
+  readonly requestToken: string;
   readonly timeStamp: Date = new Date();
 
   constructor() {
-    this.id = generateUuid();
+    this.requestToken = generateUuid();
   }
 }

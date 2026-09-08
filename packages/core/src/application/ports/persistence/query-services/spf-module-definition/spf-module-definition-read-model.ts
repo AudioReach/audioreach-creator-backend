@@ -12,7 +12,7 @@ import type {BaseModuleDefinitionSummaryReadModel} from '../shared/module-defini
 
 export interface DataPortDefinitionReadModel {
   readonly systemId: number;
-  readonly dataPortId: number;
+  readonly naturalId: number;
   readonly name: string;
 }
 
@@ -25,20 +25,20 @@ export interface DataPortGroupReadModel {
 
 export interface StaticIntentDefinitionReadModel {
   readonly systemId: number;
-  readonly intentId: number;
+  readonly naturalId: number;
   readonly name: string;
 }
 
 export interface ControlPortDefinitionReadModel {
   readonly systemId: number;
-  readonly portId: number;
+  readonly naturalId: number;
   readonly portName: string;
   readonly staticIntents: StaticIntentDefinitionReadModel[] | null;
 }
 
 export interface DynamicIntentDefinitionReadModel {
   readonly systemId: number;
-  readonly intentId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly maxPort: number;
 }
@@ -46,7 +46,7 @@ export interface DynamicIntentDefinitionReadModel {
 /**
  * Read model for the SpfModuleDefinition aggregate.
  *
- * Identity fields (name, moduleId) are always populated.
+ * Identity fields (name, naturalId) are always populated.
  *
  * includeSummary — port capacity counts (null when not requested):
  *   maxInputPortsSupported, maxOutputPortsSupported, maxControlPortsSupported
@@ -61,7 +61,7 @@ export interface DynamicIntentDefinitionReadModel {
 export interface SpfModuleDefinitionReadModel {
   readonly systemId: number;
   readonly name: string;
-  readonly moduleId: number;
+  readonly naturalId: number;
 
   // includeSummary
   readonly maxInputPortsSupported: number | null;
@@ -77,7 +77,7 @@ export interface SpfModuleDefinitionReadModel {
 
 export interface ProcessorSummaryReadModel {
   readonly systemId: number;
-  readonly processorId: number;
+  readonly naturalId: number;
   readonly name: string;
 }
 

@@ -61,8 +61,8 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
   }
 
   async findByModuleIdAndProcId(
-    moduleId: number,
-    procId: number,
+    moduleNaturalId: number,
+    processorSystemId: number,
     fileSystemId: number,
   ): Promise<SpfModuleDefinition | null> {
     const defRow = await this.manager
@@ -70,8 +70,8 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
       .createQueryBuilder('smd')
       .select('smd.systemId')
       .where(
-        'smd.moduleDefinitionId = :moduleId AND smd.processorSystemId = :procId AND smd.fileSystemId = :fileSystemId',
-        {moduleId, procId, fileSystemId},
+        'smd.naturalId = :moduleNaturalId AND smd.processorSystemId = :processorSystemId AND smd.fileSystemId = :fileSystemId',
+        {moduleNaturalId, processorSystemId, fileSystemId},
       )
       .getOne();
 
@@ -103,7 +103,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
           staticPortDefinitions: g.portDefinitions.map(
             p =>
               new DataPortDefinition({
-                dataPortId: Number(p.dataPortId),
+                naturalId: Number(p.naturalId),
                 name: p.name ?? undefined,
               }),
           ),
@@ -113,7 +113,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     const staticControlPorts = staticPorts.map(
       p =>
         new StaticControlPortDefinition({
-          portId: Number(p.portId),
+          naturalId: Number(p.naturalId),
           portName: p.portName ? String(p.portName) : '',
         }),
     );
@@ -121,7 +121,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
     const dynamicIntentDomains = dynamicIntents.map(
       d =>
         new DynamicIntentDefinition({
-          intentId: Number(d.intentId),
+          naturalId: Number(d.naturalId),
           name: String(d.name),
           maxPort: Number(d.maxPort),
         }),
@@ -129,7 +129,7 @@ export class TypeOrmModuleDefinitionRepository implements ModuleDefinitionReposi
 
     return new SpfModuleDefinition({
       systemId: Number(root.systemId),
-      moduleDefinitionId: Number(root.moduleDefinitionId),
+      naturalId: Number(root.naturalId),
       name: String(root.name),
       displayName: root.displayName
         ? String(root.displayName)

@@ -31,7 +31,7 @@ const mockPayload: ParameterPayloadReadModel = {
 
 const mockDef: ParameterDefinitionReadModel = {
   systemId: 100,
-  paramId: 42,
+  naturalId: 42,
   name: 'gain',
   elementsStructure: JSON.stringify([
     {
@@ -145,7 +145,7 @@ describe('GetCkvCalibrationDataHandler', () => {
     // mockPayload.parameterSystemId = 100, mockDef.systemId = 100 → should match
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data.parameters[0].parameterId).toBe('42');
+    expect(result.data.parameters[0].naturalId).toBe('42');
   });
 
   it('throws ResourceNotFoundException when getSpfModule returns Result.fail', async () => {

@@ -16,7 +16,7 @@ import {KvHashGenerator} from '../../../../shared/utilities/kv-hash-generator.js
 /**
  * Mapper for managing foreign key mappings returned from bulk insertion operations.
  * Maintains mappings between natural keys (keyId, valueId) and generated systemIds.
- * Values are dependent on their parent keys: Map<keySystemId, Map<valueId, systemId>>
+ * Values are dependent on their parent keys: Map<keyId, Map<valueId, systemId>>
  */
 export class ForeignKeyMapper {
   private keyDefinitionMappings = new Map<NaturalId, SystemId>();
@@ -213,63 +213,66 @@ export class ForeignKeyMapper {
   /**
    * Add a single subgraph mapping
    */
-  addSubgraphMapping(subgraphId: NaturalId, systemId: SystemId): void {
-    if (this.subgraphMappings.has(subgraphId)) {
+  addSubgraphMapping(subgraphNaturalId: NaturalId, systemId: SystemId): void {
+    if (this.subgraphMappings.has(subgraphNaturalId)) {
       throw new Error(
-        `Subgraph ${subgraphId} already mapped to systemId ${this.subgraphMappings.get(subgraphId)}`,
+        `Subgraph ${subgraphNaturalId} already mapped to systemId ${this.subgraphMappings.get(subgraphNaturalId)}`,
       );
     }
-    this.subgraphMappings.set(subgraphId, systemId);
+    this.subgraphMappings.set(subgraphNaturalId, systemId);
   }
 
   /**
-   * Get systemId for a given subgraphId
+   * Get systemId for a given subgraphNaturalId
    */
-  getSubgraphSystemId(subgraphId: NaturalId): SystemId | undefined {
-    return this.subgraphMappings.get(subgraphId);
+  getSubgraphSystemId(subgraphNaturalId: NaturalId): SystemId | undefined {
+    return this.subgraphMappings.get(subgraphNaturalId);
   }
 
   /**
    * Add a single container mapping
    */
-  addContainerMapping(containerId: NaturalId, systemId: SystemId): void {
-    if (this.containerMappings.has(containerId)) {
+  addContainerMapping(containerNaturalId: NaturalId, systemId: SystemId): void {
+    if (this.containerMappings.has(containerNaturalId)) {
       throw new Error(
-        `Container ${containerId} already mapped to systemId ${this.containerMappings.get(containerId)}`,
+        `Container ${containerNaturalId} already mapped to systemId ${this.containerMappings.get(containerNaturalId)}`,
       );
     }
-    this.containerMappings.set(containerId, systemId);
+    this.containerMappings.set(containerNaturalId, systemId);
   }
 
   /**
-   * Get systemId for a given containerId
+   * Get systemId for a given containerNaturalId
    */
-  getContainerSystemId(containerId: NaturalId): SystemId | undefined {
-    return this.containerMappings.get(containerId);
+  getContainerSystemId(containerNaturalId: NaturalId): SystemId | undefined {
+    return this.containerMappings.get(containerNaturalId);
   }
 
   /**
    * Add a single processor definition mapping
    */
   addProcessorDefinitionMapping(
-    processorDefinitionId: NaturalId,
+    processorDefinitionNaturalId: NaturalId,
     systemId: SystemId,
   ): void {
-    if (this.processorDefinitionMappings.has(processorDefinitionId)) {
+    if (this.processorDefinitionMappings.has(processorDefinitionNaturalId)) {
       throw new Error(
-        `Processor definition ${processorDefinitionId} already mapped to systemId ${this.processorDefinitionMappings.get(processorDefinitionId)}`,
+        `Processor definition ${processorDefinitionNaturalId} already mapped to systemId ${this.processorDefinitionMappings.get(processorDefinitionNaturalId)}`,
       );
     }
-    this.processorDefinitionMappings.set(processorDefinitionId, systemId);
+    this.processorDefinitionMappings.set(
+      processorDefinitionNaturalId,
+      systemId,
+    );
   }
 
   /**
-   * Get systemId for a given processorDefinitionId
+   * Get systemId for a given processorDefinitionNaturalId
    */
   getProcessorDefinitionSystemId(
-    processorDefinitionId: NaturalId,
+    processorDefinitionNaturalId: NaturalId,
   ): SystemId | undefined {
-    return this.processorDefinitionMappings.get(processorDefinitionId);
+    return this.processorDefinitionMappings.get(processorDefinitionNaturalId);
   }
 
   /**
@@ -315,9 +318,9 @@ export class ForeignKeyMapper {
    * Get systemId for a given subgraph property definition ID
    */
   getSubgraphPropertyDefinitionSystemId(
-    propertyId: NaturalId,
+    propertyNaturalId: NaturalId,
   ): SystemId | undefined {
-    return this.propertyDefinitionMap.get(propertyId);
+    return this.propertyDefinitionMap.get(propertyNaturalId);
   }
 
   /**
@@ -341,9 +344,9 @@ export class ForeignKeyMapper {
    * Get systemId for a given container property definition ID
    */
   getContainerPropertyDefinitionSystemId(
-    propertyId: NaturalId,
+    propertyNaturalId: NaturalId,
   ): SystemId | undefined {
-    return this.propertyDefinitionMap.get(propertyId);
+    return this.propertyDefinitionMap.get(propertyNaturalId);
   }
 
   /**
@@ -408,7 +411,7 @@ export class ForeignKeyMapper {
    */
   addParamDefinitionMapping(
     moduleDefinitionId: SystemId,
-    paramId: NaturalId,
+    paramNaturalId: NaturalId,
     systemId: SystemId,
   ): void {
     if (!this.paramDefinitionMappingsByModuleId.has(moduleDefinitionId)) {
@@ -418,13 +421,13 @@ export class ForeignKeyMapper {
     const moduleParams =
       this.paramDefinitionMappingsByModuleId.get(moduleDefinitionId)!;
 
-    if (moduleParams.has(paramId)) {
+    if (moduleParams.has(paramNaturalId)) {
       throw new Error(
-        `Param ${paramId} already mapped for module ${moduleDefinitionId}`,
+        `Param ${paramNaturalId} already mapped for module ${moduleDefinitionId}`,
       );
     }
 
-    moduleParams.set(paramId, systemId);
+    moduleParams.set(paramNaturalId, systemId);
   }
 
   /**
@@ -432,11 +435,11 @@ export class ForeignKeyMapper {
    */
   getParamDefinitionSystemId(
     moduleDefinitionId: SystemId,
-    paramId: NaturalId,
+    paramNaturalId: NaturalId,
   ): SystemId | undefined {
     return this.paramDefinitionMappingsByModuleId
       .get(moduleDefinitionId)
-      ?.get(paramId);
+      ?.get(paramNaturalId);
   }
 
   /**
@@ -452,24 +455,27 @@ export class ForeignKeyMapper {
    * Add a single driver module definition mapping
    */
   addDriverModuleDefinitionMapping(
-    moduleDefinitionId: NaturalId,
+    moduleDefinitionNaturalId: NaturalId,
     systemId: SystemId,
   ): void {
-    if (this.driverModuleDefinitionMappings.has(moduleDefinitionId)) {
+    if (this.driverModuleDefinitionMappings.has(moduleDefinitionNaturalId)) {
       throw new Error(
-        `Driver module definition ${moduleDefinitionId} already mapped to systemId ${this.driverModuleDefinitionMappings.get(moduleDefinitionId)}`,
+        `Driver module definition ${moduleDefinitionNaturalId} already mapped to systemId ${this.driverModuleDefinitionMappings.get(moduleDefinitionNaturalId)}`,
       );
     }
-    this.driverModuleDefinitionMappings.set(moduleDefinitionId, systemId);
+    this.driverModuleDefinitionMappings.set(
+      moduleDefinitionNaturalId,
+      systemId,
+    );
   }
 
   /**
    * Get systemId for a given driver module definition ID
    */
   getDriverModuleDefinitionSystemId(
-    moduleDefinitionId: NaturalId,
+    moduleDefinitionNaturalId: NaturalId,
   ): SystemId | undefined {
-    return this.driverModuleDefinitionMappings.get(moduleDefinitionId);
+    return this.driverModuleDefinitionMappings.get(moduleDefinitionNaturalId);
   }
 
   /**
@@ -477,7 +483,7 @@ export class ForeignKeyMapper {
    */
   addDriverParamDefinitionMapping(
     driverModuleDefinitionId: SystemId,
-    paramId: NaturalId,
+    paramNaturalId: NaturalId,
     systemId: SystemId,
   ): void {
     if (
@@ -495,13 +501,13 @@ export class ForeignKeyMapper {
       driverModuleDefinitionId,
     )!;
 
-    if (moduleParams.has(paramId)) {
+    if (moduleParams.has(paramNaturalId)) {
       throw new Error(
-        `Driver param ${paramId} already mapped for module ${driverModuleDefinitionId}`,
+        `Driver param ${paramNaturalId} already mapped for module ${driverModuleDefinitionId}`,
       );
     }
 
-    moduleParams.set(paramId, systemId);
+    moduleParams.set(paramNaturalId, systemId);
   }
 
   /**
@@ -509,35 +515,35 @@ export class ForeignKeyMapper {
    */
   getDriverParamDefinitionSystemId(
     driverModuleDefinitionId: SystemId,
-    paramId: NaturalId,
+    paramNaturalId: NaturalId,
   ): SystemId | undefined {
     return this.driverParamDefinitionMappingsByModuleId
       .get(driverModuleDefinitionId)
-      ?.get(paramId);
+      ?.get(paramNaturalId);
   }
 
   /**
    * Add a VCPM module definition mapping
    */
   addVcpmModuleDefinitionMapping(
-    moduleDefinitionId: NaturalId,
+    moduleDefinitionNaturalId: NaturalId,
     systemId: SystemId,
   ): void {
-    if (this.vcpmModuleDefinitionMappings.has(moduleDefinitionId)) {
+    if (this.vcpmModuleDefinitionMappings.has(moduleDefinitionNaturalId)) {
       throw new Error(
-        `VCPM module definition ${moduleDefinitionId} already mapped to systemId ${this.vcpmModuleDefinitionMappings.get(moduleDefinitionId)}`,
+        `VCPM module definition ${moduleDefinitionNaturalId} already mapped to systemId ${this.vcpmModuleDefinitionMappings.get(moduleDefinitionNaturalId)}`,
       );
     }
-    this.vcpmModuleDefinitionMappings.set(moduleDefinitionId, systemId);
+    this.vcpmModuleDefinitionMappings.set(moduleDefinitionNaturalId, systemId);
   }
 
   /**
    * Get systemId for a given VCPM module definition ID
    */
   getVcpmModuleDefinitionSystemId(
-    moduleDefinitionId: NaturalId,
+    moduleDefinitionNaturalId: NaturalId,
   ): SystemId | undefined {
-    return this.vcpmModuleDefinitionMappings.get(moduleDefinitionId);
+    return this.vcpmModuleDefinitionMappings.get(moduleDefinitionNaturalId);
   }
 
   /**
@@ -545,7 +551,7 @@ export class ForeignKeyMapper {
    */
   addVcpmParamDefinitionMapping(
     vcpmModuleDefinitionId: SystemId,
-    paramId: NaturalId,
+    paramNaturalId: NaturalId,
     systemId: SystemId,
   ): void {
     if (
@@ -561,13 +567,13 @@ export class ForeignKeyMapper {
       vcpmModuleDefinitionId,
     )!;
 
-    if (moduleParams.has(paramId)) {
+    if (moduleParams.has(paramNaturalId)) {
       throw new Error(
-        `VCPM param ${paramId} already mapped for module ${vcpmModuleDefinitionId}`,
+        `VCPM param ${paramNaturalId} already mapped for module ${vcpmModuleDefinitionId}`,
       );
     }
 
-    moduleParams.set(paramId, systemId);
+    moduleParams.set(paramNaturalId, systemId);
   }
 
   /**
@@ -575,65 +581,67 @@ export class ForeignKeyMapper {
    */
   getVcpmParamDefinitionSystemId(
     vcpmModuleDefinitionId: SystemId,
-    paramId: NaturalId,
+    paramNaturalId: NaturalId,
   ): SystemId | undefined {
     return this.vcpmParamDefinitionMappingsByModuleId
       .get(vcpmModuleDefinitionId)
-      ?.get(paramId);
+      ?.get(paramNaturalId);
   }
 
   /**
    * Add a single driver module mapping
    */
   addDriverModuleMapping(
-    moduleDefinitionId: NaturalId,
+    moduleDefinitionNaturalId: NaturalId,
     systemId: SystemId,
   ): void {
-    if (this.driverModuleMappings.has(moduleDefinitionId)) {
+    if (this.driverModuleMappings.has(moduleDefinitionNaturalId)) {
       throw new Error(
-        `Driver module ${moduleDefinitionId} already mapped to systemId ${this.driverModuleMappings.get(moduleDefinitionId)}`,
+        `Driver module ${moduleDefinitionNaturalId} already mapped to systemId ${this.driverModuleMappings.get(moduleDefinitionNaturalId)}`,
       );
     }
-    this.driverModuleMappings.set(moduleDefinitionId, systemId);
+    this.driverModuleMappings.set(moduleDefinitionNaturalId, systemId);
   }
 
   /**
-   * Get systemId for a given driver module (by moduleDefinitionId)
+   * Get systemId for a given driver module (by moduleDefinitionNaturalId)
    */
-  getDriverModuleSystemId(moduleDefinitionId: NaturalId): SystemId | undefined {
-    return this.driverModuleMappings.get(moduleDefinitionId);
+  getDriverModuleSystemId(
+    moduleDefinitionNaturalId: NaturalId,
+  ): SystemId | undefined {
+    return this.driverModuleMappings.get(moduleDefinitionNaturalId);
   }
 
   /**
    * Add a single SPF module mapping
    */
-  addSpfModuleMapping(instanceId: NaturalId, systemId: SystemId): void {
-    if (this.spfModuleMappings.has(instanceId)) {
+  addSpfModuleMapping(instanceNaturalId: NaturalId, systemId: SystemId): void {
+    if (this.spfModuleMappings.has(instanceNaturalId)) {
       throw new Error(
-        `SPF module ${instanceId} already mapped to systemId ${this.spfModuleMappings.get(instanceId)}`,
+        `SPF module ${instanceNaturalId} already mapped to systemId ${this.spfModuleMappings.get(instanceNaturalId)}`,
       );
     }
-    this.spfModuleMappings.set(instanceId, systemId);
+    this.spfModuleMappings.set(instanceNaturalId, systemId);
   }
 
   /**
-   * Get systemId for a given module instanceId
+   * Get systemId for a given module instanceNaturalId
    */
-  getSpfModuleSystemId(instanceId: NaturalId): SystemId | undefined {
-    return this.spfModuleMappings.get(instanceId);
+  getSpfModuleSystemId(instanceNaturalId: NaturalId): SystemId | undefined {
+    return this.spfModuleMappings.get(instanceNaturalId);
   }
 
-  addSubsystemMapping(subsystemId: NaturalId, systemId: SystemId): void {
-    if (this.subsystemMappings.has(subsystemId)) {
+  addSubsystemMapping(subsystemNaturalId: NaturalId, systemId: SystemId): void {
+    if (this.subsystemMappings.has(subsystemNaturalId)) {
       throw new Error(
-        `Subsystem ${subsystemId} already mapped to systemId ${this.subsystemMappings.get(subsystemId)}`,
+        `Subsystem ${subsystemNaturalId} already mapped to systemId ${this.subsystemMappings.get(subsystemNaturalId)}`,
       );
     }
-    this.subsystemMappings.set(subsystemId, systemId);
+    this.subsystemMappings.set(subsystemNaturalId, systemId);
   }
 
-  getSubsystemSystemId(subsystemId: NaturalId): SystemId | undefined {
-    return this.subsystemMappings.get(subsystemId);
+  getSubsystemSystemId(subsystemNaturalId: NaturalId): SystemId | undefined {
+    return this.subsystemMappings.get(subsystemNaturalId);
   }
 
   getModuleInstanceSubgraphEntries(): ReadonlyMap<NaturalId, SystemId> {
@@ -641,16 +649,19 @@ export class ForeignKeyMapper {
   }
 
   addModuleInstanceSubgraphMapping(
-    instanceId: NaturalId,
+    instanceNaturalId: NaturalId,
     subgraphSystemId: SystemId,
   ): void {
-    this.moduleInstanceSubgraphMappings.set(instanceId, subgraphSystemId);
+    this.moduleInstanceSubgraphMappings.set(
+      instanceNaturalId,
+      subgraphSystemId,
+    );
   }
 
   getSubgraphSystemIdForModuleInstance(
-    instanceId: NaturalId,
+    instanceNaturalId: NaturalId,
   ): SystemId | undefined {
-    return this.moduleInstanceSubgraphMappings.get(instanceId);
+    return this.moduleInstanceSubgraphMappings.get(instanceNaturalId);
   }
 
   /**
@@ -801,18 +812,18 @@ export class ForeignKeyMapper {
    * Add a data link mapping keyed by natural IDs
    */
   addDataLinkMapping(
-    sourceInstanceId: number,
-    sourcePortId: number,
-    destinationInstanceId: number,
-    destinationPortId: number,
+    sourceInstanceNaturalId: number,
+    sourcePortNaturalId: number,
+    destinationInstanceNaturalId: number,
+    destinationPortNaturalId: number,
     systemId: SystemId,
   ): void {
     this.dataLinkMappings.set(
       this.buildDataLinkKey(
-        sourceInstanceId,
-        sourcePortId,
-        destinationInstanceId,
-        destinationPortId,
+        sourceInstanceNaturalId,
+        sourcePortNaturalId,
+        destinationInstanceNaturalId,
+        destinationPortNaturalId,
       ),
       systemId,
     );
@@ -822,28 +833,28 @@ export class ForeignKeyMapper {
    * Get systemId for a data link identified by its natural IDs
    */
   getDataLinkSystemId(
-    sourceInstanceId: number,
-    sourcePortId: number,
-    destinationInstanceId: number,
-    destinationPortId: number,
+    sourceInstanceNaturalId: number,
+    sourcePortNaturalId: number,
+    destinationInstanceNaturalId: number,
+    destinationPortNaturalId: number,
   ): SystemId | undefined {
     return this.dataLinkMappings.get(
       this.buildDataLinkKey(
-        sourceInstanceId,
-        sourcePortId,
-        destinationInstanceId,
-        destinationPortId,
+        sourceInstanceNaturalId,
+        sourcePortNaturalId,
+        destinationInstanceNaturalId,
+        destinationPortNaturalId,
       ),
     );
   }
 
   private buildDataLinkKey(
-    sourceInstanceId: number,
-    sourcePortId: number,
-    destinationInstanceId: number,
-    destinationPortId: number,
+    sourceInstanceNaturalId: number,
+    sourcePortNaturalId: number,
+    destinationInstanceNaturalId: number,
+    destinationPortNaturalId: number,
   ): string {
-    return `${sourceInstanceId}:${sourcePortId}->${destinationInstanceId}:${destinationPortId}`;
+    return `${sourceInstanceNaturalId}:${sourcePortNaturalId}->${destinationInstanceNaturalId}:${destinationPortNaturalId}`;
   }
 
   /**
@@ -856,20 +867,20 @@ export class ForeignKeyMapper {
   /**
    * Add a single tag definition mapping
    */
-  addTagDefinitionMapping(tagId: NaturalId, systemId: SystemId): void {
-    if (this.tagDefinitionMappings.has(tagId)) {
+  addTagDefinitionMapping(tagNaturalId: NaturalId, systemId: SystemId): void {
+    if (this.tagDefinitionMappings.has(tagNaturalId)) {
       throw new Error(
-        `Tag definition ${tagId} already mapped to systemId ${this.tagDefinitionMappings.get(tagId)}`,
+        `Tag definition ${tagNaturalId} already mapped to systemId ${this.tagDefinitionMappings.get(tagNaturalId)}`,
       );
     }
-    this.tagDefinitionMappings.set(tagId, systemId);
+    this.tagDefinitionMappings.set(tagNaturalId, systemId);
   }
 
   /**
-   * Get systemId for a given tagId
+   * Get systemId for a given tagNaturalId
    */
-  getTagDefinitionSystemId(tagId: NaturalId): SystemId | undefined {
-    return this.tagDefinitionMappings.get(tagId);
+  getTagDefinitionSystemId(tagNaturalId: NaturalId): SystemId | undefined {
+    return this.tagDefinitionMappings.get(tagNaturalId);
   }
 
   /**
@@ -916,7 +927,7 @@ export class ForeignKeyMapper {
     containerMappings: number;
     propertyDefinitionMappings: number;
     moduleDefinitionMappings: number;
-    paramDefinitionMappingsByModuleId: number;
+    paramDefinitionMappingsByModuleNaturalId: number;
     processorDefinitionMappings: number;
     containerTypeMappings: number;
     spfModuleMappings: number;
@@ -941,7 +952,7 @@ export class ForeignKeyMapper {
       containerMappings: this.containerMappings.size,
       propertyDefinitionMappings: this.propertyDefinitionMap.size,
       moduleDefinitionMappings: totalModuleDefinitions,
-      paramDefinitionMappingsByModuleId:
+      paramDefinitionMappingsByModuleNaturalId:
         this.paramDefinitionMappingsByModuleId.size,
       processorDefinitionMappings: this.processorDefinitionMappings.size,
       containerTypeMappings: this.containerTypeMappings.size,

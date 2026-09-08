@@ -111,8 +111,24 @@ async function findIirMbdrcCalData(
     .timeout(30_000);
 
   const moduleDtos: any[] = queryRes.body?.data ?? [];
+
+  // Resolve IIR_MBDRC definition system ID from its natural ID.
+  const defRes = await request(httpServer as Parameters<typeof request>[0])
+    .get(`/arc-api/v1/projects/${projectId}/spf-module-definitions`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(30_000);
+  const defDtos: any[] = defRes.body?.data ?? [];
+  const iirMbdrcDefinition = defDtos.find(
+    (definition: any) => definition.naturalId === IIR_MBDRC_MODULE_ID,
+  );
+  if (!iirMbdrcDefinition)
+    throw new Error(
+      'IIR_MBDRC module definition (0x07001017) not found in fixture',
+    );
+  const iirMbdrcDefinitionSystemId = String(iirMbdrcDefinition.systemId);
+
   let targetModule: any = moduleDtos.find(
-    (m: any) => m.moduleId === IIR_MBDRC_MODULE_ID,
+    (m: any) => m.moduleDefinitionSystemId === iirMbdrcDefinitionSystemId,
   );
   if (!targetModule)
     throw new Error('IIR_MBDRC module (0x07001017) not found in fixture');

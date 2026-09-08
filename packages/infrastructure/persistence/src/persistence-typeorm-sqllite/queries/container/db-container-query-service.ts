@@ -78,7 +78,7 @@ export class DbContainerQueryService implements ContainerQueryService {
           r =>
             ({
               systemId: r.systemId,
-              containerId: r.containerId,
+              naturalId: r.naturalId,
               containerTypeSystemId: r.containerTypeSystemId ?? null,
               containerTypeName: r.containerTypeSystemId
                 ? (typeNameMap.get(r.containerTypeSystemId) ?? null)

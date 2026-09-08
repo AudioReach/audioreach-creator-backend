@@ -92,8 +92,8 @@ describe('ChainResolutionService', () => {
       expect(chain.ssLinkSystemIds).toEqual([1, 2]);
       expect(chain.sourceModuleSystemId).toBe(1);
       expect(chain.destModuleSystemId).toBe(2);
-      expect(chain.sourcePortId).toBe(100);
-      expect(chain.destPortId).toBe(300);
+      expect(chain.sourcePortSystemId).toBe(100);
+      expect(chain.destPortSystemId).toBe(300);
     });
   });
 
@@ -138,14 +138,14 @@ describe('ChainResolutionService', () => {
       expect(chainA).toBeDefined();
       expect(chainA!.ssLinkSystemIds).toEqual([1, 2]);
       expect(chainA!.destModuleSystemId).toBe(2);
-      expect(chainA!.sourcePortId).toBe(101);
-      expect(chainA!.destPortId).toBe(301);
+      expect(chainA!.sourcePortSystemId).toBe(101);
+      expect(chainA!.destPortSystemId).toBe(301);
 
       expect(chainB).toBeDefined();
       expect(chainB!.ssLinkSystemIds).toEqual([3, 4]);
       expect(chainB!.destModuleSystemId).toBe(4);
-      expect(chainB!.sourcePortId).toBe(103);
-      expect(chainB!.destPortId).toBe(304);
+      expect(chainB!.sourcePortSystemId).toBe(103);
+      expect(chainB!.destPortSystemId).toBe(304);
     });
   });
 
@@ -173,7 +173,7 @@ describe('ChainResolutionService', () => {
       const incomplete = result.incompleteChains[0];
       expect(incomplete.ssLinkSystemIds).toEqual([1]);
       expect(incomplete.startModuleSystemId).toBe(1);
-      expect(incomplete.lastReachableNodeId).toBe(10);
+      expect(incomplete.lastReachableNodeSystemId).toBe(10);
     });
   });
 
@@ -251,14 +251,14 @@ describe('ChainResolutionService', () => {
       expect(chainToB).toBeDefined();
       expect(chainToB!.sourceModuleSystemId).toBe(1);
       expect(chainToB!.ssLinkSystemIds).toEqual([1, 2]);
-      expect(chainToB!.sourcePortId).toBe(101);
-      expect(chainToB!.destPortId).toBe(301);
+      expect(chainToB!.sourcePortSystemId).toBe(101);
+      expect(chainToB!.destPortSystemId).toBe(301);
 
       expect(chainToC).toBeDefined();
       expect(chainToC!.sourceModuleSystemId).toBe(1);
       expect(chainToC!.ssLinkSystemIds).toEqual([3, 4]);
-      expect(chainToC!.sourcePortId).toBe(102);
-      expect(chainToC!.destPortId).toBe(501);
+      expect(chainToC!.sourcePortSystemId).toBe(102);
+      expect(chainToC!.destPortSystemId).toBe(501);
     });
   });
 
@@ -289,8 +289,8 @@ describe('ChainResolutionService', () => {
       expect(chain.ssLinkSystemIds).toEqual([1, 2, 3]);
       expect(chain.sourceModuleSystemId).toBe(1);
       expect(chain.destModuleSystemId).toBe(2);
-      expect(chain.sourcePortId).toBe(100);
-      expect(chain.destPortId).toBe(400);
+      expect(chain.sourcePortSystemId).toBe(100);
+      expect(chain.destPortSystemId).toBe(400);
     });
   });
 });

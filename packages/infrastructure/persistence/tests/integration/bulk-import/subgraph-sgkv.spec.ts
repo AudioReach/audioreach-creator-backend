@@ -51,7 +51,7 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('KeyDefinition', {
     systemId: KEY_DEF_ID,
     fileSystemId: FILE_ID,
-    keyId: 1,
+    naturalId: 1,
     name: 'TestKey',
     version: 1,
   });
@@ -64,7 +64,7 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
     await manager.insert('ValueDefinition', {
       systemId,
       keySystemId: KEY_DEF_ID,
-      valueId,
+      naturalId: valueId,
       name: valueName,
       version: 1,
     });
@@ -76,7 +76,7 @@ async function seedHelperSubgraph(manager: EntityManager): Promise<void> {
     systemId: HELPER_SUBGRAPH_SYS_ID,
     fileSystemId: FILE_ID,
     name: 'HelperSubgraph',
-    subgraphId: 99,
+    naturalId: 99,
     isImported: 0,
     version: 1,
   });
@@ -85,7 +85,7 @@ async function seedHelperSubgraph(manager: EntityManager): Promise<void> {
 function buildSubgraph(sgkvs: {id: number; values: number[]}[]): Subgraph {
   return new Subgraph({
     systemId: SUBGRAPH_SYS_ID,
-    subgraphId: SUBGRAPH_NATURAL_ID,
+    naturalId: SUBGRAPH_NATURAL_ID,
     name: 'TestSubgraph',
     isImported: false,
     fileSystemId: FILE_ID,

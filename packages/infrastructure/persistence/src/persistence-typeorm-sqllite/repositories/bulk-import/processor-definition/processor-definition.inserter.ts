@@ -26,7 +26,7 @@ export class ProcessorDefinitionInserter {
 
     const rows: InsertRow<ProcessorDefinitionRow>[] = items.map(item => ({
       systemId: item.systemId,
-      processorDefinitionId: item.processorDefinitionId,
+      naturalId: item.naturalId,
       name: item.name,
       fileSystemId: item.fileSystemId,
     }));
@@ -42,8 +42,8 @@ export class ProcessorDefinitionInserter {
       const row = rows.find(r => r.systemId === error.systemId)!;
       return {
         systemId: item.systemId,
-        entityLabel: `ProcessorDefinition (processorDefinitionId=${BinaryUtils.toHexString(item.processorDefinitionId)})`,
-        failedRowJson: `(processorDefinitionId=${BinaryUtils.toHexString(item.processorDefinitionId)}) Row: ${JSON.stringify(row)}`,
+        entityLabel: `ProcessorDefinition (processorDefinitionId=${BinaryUtils.toHexString(item.naturalId)})`,
+        failedRowJson: `(processorDefinitionId=${BinaryUtils.toHexString(item.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -52,7 +52,7 @@ export class ProcessorDefinitionInserter {
       rawFailures,
       aggregateById,
       item =>
-        `ProcessorDefinition (processorDefinitionId=${BinaryUtils.toHexString(item.processorDefinitionId)})`,
+        `ProcessorDefinition (processorDefinitionId=${BinaryUtils.toHexString(item.naturalId)})`,
     );
   }
 }

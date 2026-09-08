@@ -223,7 +223,7 @@ describe('TypeOrmContainerRepository (integration)', () => {
     expect(definition).toMatchObject({
       systemId: 900,
       fileSystemId: FILE_ID,
-      propertyId: 0x08_00_10_13,
+      naturalId: 0x08_00_10_13,
       name: 'Effective Stack Size',
       description: 'Maximum module stack size',
       maxSize: 4,

@@ -127,7 +127,7 @@ export class UiMetadataBuilder {
     const map = new Map<number, number>();
     for (const kd of keyDefs) {
       for (const v of kd.values) {
-        map.set(v.valueId, kd.keyId);
+        map.set(v.valueNaturalId, kd.keyNaturalId);
       }
     }
     return map;
@@ -170,8 +170,8 @@ export class UiMetadataBuilder {
     return uiUsecases.map(uc => {
       const usecase = new UiUsecase();
       usecase.keyValue = this.buildKeyValueString(uc.keyIds, uc.valueIds);
-      usecase.aliasId = uc.aliasId
-        ? `0x${uc.aliasId.toString(16).toUpperCase().padStart(8, '0')}`
+      usecase.aliasId = uc.aliasNaturalId
+        ? `0x${uc.aliasNaturalId.toString(16).toUpperCase().padStart(8, '0')}`
         : undefined;
       usecase.aliasName = uc.aliasName || undefined;
       usecase.categoryName = uc.categoryName;
@@ -190,7 +190,7 @@ export class UiMetadataBuilder {
   ): UiSubgraph[] {
     return uiSubgraphs.map(sg => {
       const subgraph = new UiSubgraph();
-      subgraph.id = sg.subgraphId;
+      subgraph.id = sg.subgraphNaturalId;
       subgraph.name = sg.name;
       subgraph.reviewedAt = sg.reviewedAt ?? undefined;
       // supportedKeyValues: reconstruct from sgkvValueIds grouped by SGKV
@@ -207,8 +207,8 @@ export class UiMetadataBuilder {
   ): UiModule[] {
     return uiModules.map(mod => {
       const module = new UiModule();
-      module.definitionId = mod.definitionId;
-      module.instanceId = mod.instanceId;
+      module.definitionId = mod.definitionNaturalId;
+      module.instanceId = mod.instanceNaturalId;
       module.aliasName = mod.aliasName || undefined;
       module.reviewedAt = mod.reviewedAt ?? undefined;
       module.calViewUiPersistences =
@@ -222,12 +222,12 @@ export class UiMetadataBuilder {
   ): UiSubsystem[] {
     return uiSubsystems.map(ss => {
       const subsystem = new UiSubsystem();
-      subsystem.id = ss.subsystemId;
+      subsystem.id = ss.subsystemNaturalId;
       subsystem.name = ss.name;
       subsystem.filteredGraphKeys = undefined;
       subsystem.children = ss.children.map(c => {
         const child = new UiSubsystemChild();
-        child.id = c.id;
+        child.id = c.naturalId;
         child.type = c.type;
         return child;
       });
@@ -239,10 +239,10 @@ export class UiMetadataBuilder {
     return uiDataLinks.map(dl => {
       const link = new UiDataLink();
       link.isEcLink = Boolean(dl.isEc ?? false);
-      link.sourceId = dl.sourceInstanceId;
-      link.sourcePortId = dl.sourcePortId;
-      link.destinationId = dl.destinationInstanceId;
-      link.destinationPortId = dl.destinationPortId;
+      link.sourceId = dl.sourceInstanceNaturalId;
+      link.sourcePortId = dl.sourcePortNaturalId;
+      link.destinationId = dl.destinationInstanceNaturalId;
+      link.destinationPortId = dl.destinationPortNaturalId;
       return link;
     });
   }
@@ -264,7 +264,7 @@ export class UiMetadataBuilder {
     // Build live set from current DB state
     const liveSystemIds = new Set(uiModules.map(m => m.systemId));
     const systemIdToInstanceId = new Map(
-      uiModules.map(m => [m.systemId, m.instanceId]),
+      uiModules.map(m => [m.systemId, m.instanceNaturalId]),
     );
 
     return storedSwitches
@@ -334,9 +334,9 @@ export class UiMetadataBuilder {
 
   private rebuildSwitch(sw: PersistedSwitch): UiSwitch | null {
     const instance = new UiSwitch();
-    instance.id = sw.id;
-    instance.parentSubgraphId = sw.parentSubgraphId;
-    instance.parentSubsystemId = sw.parentSubsystemId;
+    instance.id = sw.naturalId;
+    instance.parentSubgraphId = sw.parentSubgraphNaturalId;
+    instance.parentSubsystemId = sw.parentSubsystemNaturalId;
     instance.type = sw.type;
     instance.inputPort = sw.inputPort
       ? Object.assign(new UiSwitchDataPortsInfo(), sw.inputPort)
@@ -350,17 +350,17 @@ export class UiMetadataBuilder {
     instance.dataLinks = sw.dataLinks.map(dl => {
       const link = new UiSwitchDataLink();
       link.sourceId = dl.sourceSystemId;
-      link.sourcePortId = dl.sourcePortId;
+      link.sourcePortId = dl.sourcePortNaturalId;
       link.destinationId = dl.destSystemId;
-      link.destinationPortId = dl.destinationPortId;
+      link.destinationPortId = dl.destinationPortNaturalId;
       link.metaLinks = (dl.metaLinks ?? []).map(
         (ml: PersistedSwitchMetaLink) => {
           const conn = new UiSwitchConnection();
           conn.sourceId = ml.sourceSystemId;
-          conn.sourcePortId = ml.sourcePortId;
+          conn.sourcePortId = ml.sourcePortNaturalId;
           conn.sourceType = ml.sourceType;
           conn.destinationId = ml.destinationSystemId;
-          conn.destinationPortId = ml.destinationPortId;
+          conn.destinationPortId = ml.destinationPortNaturalId;
           conn.destinationType = ml.destinationType;
           conn.category = ml.category;
           return conn;
@@ -371,17 +371,17 @@ export class UiMetadataBuilder {
     instance.controlLinks = sw.controlLinks.map(cl => {
       const link = new UiSwitchControlLink();
       link.sourceId = cl.sourceSystemId;
-      link.sourcePortId = cl.sourcePortId;
+      link.sourcePortId = cl.sourcePortNaturalId;
       link.destinationId = cl.destSystemId;
-      link.destinationPortId = cl.destinationPortId;
+      link.destinationPortId = cl.destinationPortNaturalId;
       link.metaLinks = (cl.metaLinks ?? []).map(
         (ml: PersistedSwitchMetaLink) => {
           const conn = new UiSwitchConnection();
           conn.sourceId = ml.sourceSystemId;
-          conn.sourcePortId = ml.sourcePortId;
+          conn.sourcePortId = ml.sourcePortNaturalId;
           conn.sourceType = ml.sourceType;
           conn.destinationId = ml.destinationSystemId;
-          conn.destinationPortId = ml.destinationPortId;
+          conn.destinationPortId = ml.destinationPortNaturalId;
           conn.destinationType = ml.destinationType;
           conn.category = ml.category;
           return conn;

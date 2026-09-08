@@ -152,14 +152,14 @@ describe('SpfModuleBuilder', () => {
         // Verify first module
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.entities[0].instanceId).toBe(101);
+        expect(result.entities[0].naturalId).toBe(101);
         expect(result.entities[0].definitionSystemId).toBe(300);
         expect(result.entities[0].containerSystemId).toBe(200);
         expect(result.entities[0].subgraphSystemId).toBe(100);
 
         // Verify second module
         expect(result.entities[1].systemId).toBeGreaterThan(0);
-        expect(result.entities[1].instanceId).toBe(102);
+        expect(result.entities[1].naturalId).toBe(102);
 
         // Verify ID generation was called
         expect(mockIdGenerator.getNextId).toHaveBeenCalled();

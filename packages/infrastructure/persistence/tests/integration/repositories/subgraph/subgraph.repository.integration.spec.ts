@@ -71,12 +71,12 @@ async function seedSession(ds: DataSource): Promise<number> {
 async function seedSubgraph(
   ds: DataSource,
   systemId: number,
-  subgraphId: number,
+  naturalId: number,
   name: string,
 ): Promise<void> {
   await ds.query(
     `INSERT INTO subgraphs (system_id, name, subgraph_id, is_imported, file_system_id) VALUES (?, ?, ?, 0, ?)`,
-    [systemId, name, subgraphId, FILE_ID],
+    [systemId, name, naturalId, FILE_ID],
   );
 }
 
@@ -239,7 +239,7 @@ describe('TypeOrmSubgraphRepository (integration)', () => {
       expect(definitions[0]).toBeInstanceOf(SubgraphPropertyDefinition);
       expect(definitions[0]).toMatchObject({
         systemId: 900,
-        propertyId: 0x08_00_10_12,
+        naturalId: 0x08_00_10_12,
         name: 'Effective Subgraph Property',
         type: 'SPF',
         isVoice: true,

@@ -4,16 +4,16 @@
  */
 
 export interface DataPortDefinitionInit {
-  dataPortId: number;
+  naturalId: number;
   name?: string;
 }
 
 export class DataPortDefinition {
-  readonly dataPortId: number;
+  readonly naturalId: number;
   name?: string;
 
   constructor(initParam: DataPortDefinitionInit) {
-    this.dataPortId = initParam.dataPortId;
+    this.naturalId = initParam.naturalId;
     this.name = initParam.name;
   }
 }

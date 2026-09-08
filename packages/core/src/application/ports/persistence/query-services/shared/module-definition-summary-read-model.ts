@@ -12,7 +12,7 @@ import type {ParameterDefinitionSummaryReadModel} from './parameter-definition-r
  */
 export interface BaseModuleDefinitionSummaryReadModel {
   readonly systemId: number;
-  readonly moduleId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly displayName?: string;
   readonly description?: string;

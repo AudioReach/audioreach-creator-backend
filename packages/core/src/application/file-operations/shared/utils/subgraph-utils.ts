@@ -12,7 +12,7 @@ import type {SubgraphPropertyDownloadModel} from '../../../ports/persistence/que
 /**
  * Returns true if the subgraph's scenario ID property indicates a voice-call subgraph.
  *
- * A subgraph is voice if it has propertyId === SUB_GRAPH_PROP_ID_SCENARIO_ID and
+ * A subgraph is voice if it has propertyNaturalId === SUB_GRAPH_PROP_ID_SCENARIO_ID and
  * the first byte of the payload equals SUB_GRAPH_PROP_ID_SCENARIO_VALUE_VOICE_CALL (0x03).
  *
  * The payload is stored as a little-endian 4-byte integer; reading payload[0] is
@@ -25,7 +25,7 @@ export function isVoiceSubgraph(
   properties: ReadonlyArray<SubgraphPropertyDownloadModel>,
 ): boolean {
   const scenarioProp = properties.find(
-    p => p.propertyId === SUB_GRAPH_PROP_ID_SCENARIO_ID,
+    p => p.propertyNaturalId === SUB_GRAPH_PROP_ID_SCENARIO_ID,
   );
   return (
     scenarioProp !== undefined &&

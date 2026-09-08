@@ -7,7 +7,7 @@ import {z} from 'zod';
 
 const PropertyChangeDtoSchema = z.object({
   systemId: z.string(),
-  propertyId: z.number().int(),
+  naturalId: z.number().int(),
   propertyName: z.string(),
 });
 
@@ -37,8 +37,8 @@ export const VcpmCkvDtoSchema = z.object({
           ckvSystemId: z.string(),
           ckv: z.array(
             z.object({
-              keyId: z.number().int(),
-              valueId: z.number().int(),
+              keyNaturalId: z.number().int(),
+              valueNaturalId: z.number().int(),
             }),
           ),
         }),
@@ -51,8 +51,8 @@ export const CreateVcpmCkvDtoSchema = z.object({
   ckvSystemId: z.string(),
   ckv: z.array(
     z.object({
-      keyId: z.number().int(),
-      valueId: z.number().int(),
+      keyNaturalId: z.number().int(),
+      valueNaturalId: z.number().int(),
     }),
   ),
 });

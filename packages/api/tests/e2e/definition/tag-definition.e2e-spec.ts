@@ -18,7 +18,7 @@ describe('Tag Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
   let authToken: string;
   let projectId: string | undefined;
   let sampleTagSystemId: string | undefined;
-  let sampleTagId: number | undefined;
+  let sampleTagNaturalId: number | undefined;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -58,7 +58,7 @@ describe('Tag Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
     const tags: any[] = listResponse.body.data ?? [];
     if (tags.length > 0) {
       sampleTagSystemId = String(tags[0].systemId);
-      sampleTagId = tags[0].tagId;
+      sampleTagNaturalId = tags[0].naturalId;
     }
 
     console.log(
@@ -86,19 +86,19 @@ describe('Tag Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
 
     for (const tag of response.body.data) {
       expect(typeof tag.systemId).toBe('string');
-      expect(typeof tag.tagId).toBe('number');
+      expect(typeof tag.naturalId).toBe('number');
       expect(typeof tag.name).toBe('string');
       expect(Array.isArray(tag.keyDefinitions)).toBe(true);
 
       for (const keyDef of tag.keyDefinitions) {
         expect(typeof keyDef.systemId).toBe('string');
-        expect(typeof keyDef.keyId).toBe('number');
+        expect(typeof keyDef.naturalId).toBe('number');
         expect(typeof keyDef.name).toBe('string');
         expect(Array.isArray(keyDef.values)).toBe(true);
 
         for (const value of keyDef.values) {
           expect(typeof value.systemId).toBe('string');
-          expect(typeof value.valueId).toBe('number');
+          expect(typeof value.naturalId).toBe('number');
           expect(typeof value.name).toBe('string');
         }
       }
@@ -106,14 +106,14 @@ describe('Tag Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
   });
 
   it('should filter by tagDefinitionId when provided', async () => {
-    if (!projectId || sampleTagId === undefined) {
-      console.warn('No projectId or sampleTagId — skipping');
+    if (!projectId || sampleTagNaturalId === undefined) {
+      console.warn('No projectId or sampleTagNaturalId — skipping');
       return;
     }
 
     const response = await request(httpServer)
       .get(
-        `/arc-api/v1/projects/${projectId}/definitions/tags?tagDefinitionId=${sampleTagId}`,
+        `/arc-api/v1/projects/${projectId}/definitions/tags?tagDefinitionId=${sampleTagNaturalId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000)
@@ -121,7 +121,7 @@ describe('Tag Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
 
     expect(response.body.data.length).toBeGreaterThan(0);
     for (const tag of response.body.data) {
-      expect(tag.tagId).toBe(sampleTagId);
+      expect(tag.naturalId).toBe(sampleTagNaturalId);
     }
   });
 
@@ -166,7 +166,7 @@ describe('Tag Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
       .expect(200);
 
     expect(response.body.data.systemId).toBe(sampleTagSystemId);
-    expect(typeof response.body.data.tagId).toBe('number');
+    expect(typeof response.body.data.naturalId).toBe('number');
     expect(Array.isArray(response.body.data.keyDefinitions)).toBe(true);
   });
 

@@ -13,7 +13,7 @@ import {EntitySchema} from 'typeorm';
 export interface KeyDefinitionBase {
   systemId: number;
   fileSystemId: number;
-  keyId: number;
+  naturalId: number;
   name: string;
   description?: string;
   isCalibrationKey?: boolean;
@@ -47,7 +47,7 @@ export const KeyDefinitionSchema = new EntitySchema<KeyDefinitionRow>({
       type: 'integer',
       nullable: false,
     },
-    keyId: {
+    naturalId: {
       name: 'key_id',
       type: 'integer',
       unique: false,

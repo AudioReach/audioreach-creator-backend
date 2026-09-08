@@ -86,7 +86,7 @@ export class CkvOverlayFetcher {
       .getRepository(ENTITY_NAMES.Ckv)
       .createQueryBuilder('ckv')
       .leftJoinAndSelect('ckv.values', 'ckvValues')
-      .where('ckv.spfModuleSystemId = :id', {id: moduleSystemId});
+      .where('ckv.spfModuleSystemId = :moduleSystemId', {moduleSystemId});
     if (filters) applyEntityFilters(qb, 'ckv', filters);
     const baseRows = (await qb.getMany()) as CkvRow[];
 

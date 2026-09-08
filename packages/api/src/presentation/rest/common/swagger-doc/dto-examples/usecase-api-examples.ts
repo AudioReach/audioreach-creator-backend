@@ -15,7 +15,7 @@ import {
   SystemIdsRequestDto,
   SubsystemFilteredKeyValuePairsInfoDto,
 } from '../../dto/index.js';
-import {CONN_CTRL_TYPE, EndPointLink} from '../../../common/utils/index.js';
+import {EndPointLink} from '../../../common/utils/index.js';
 import {
   SpfModuleResponseDto,
   DataPortResponseDto,
@@ -25,21 +25,21 @@ import {DataLinkResponseDto} from '../../../modules/data-link/dto/data-link-resp
 import {ControlLinkResponseDto} from '../../../modules/control-link/dto/control-link-response.dto.js';
 
 function kv(
-  keyId: number,
+  keyNaturalId: number,
   keyName: string,
   keySystemId: string,
-  valueId: number,
+  valueNaturalId: number,
   valueName: string,
   valueSystemId: string,
 ): KeyValueInfoDto {
   return Object.assign(new KeyValueInfoDto(), {
     key: Object.assign(new KeyInfoDto(), {
-      keyId,
+      naturalId: keyNaturalId,
       name: keyName,
       systemId: keySystemId,
     }),
     value: Object.assign(new ValueInfoDto(), {
-      valueId,
+      naturalId: valueNaturalId,
       name: valueName,
       systemId: valueSystemId,
     }),
@@ -179,10 +179,10 @@ export const UsecaseResponseDtoExample = {
     return Object.assign(new UsecaseResponseDto(), {
       systemId: '1',
       usecaseType: 'LINKED',
-      gkv: {systemId: '1', keyValuePairs: keyvalueInfo},
-      aliasId: 101,
-      alias: 'PCM_Deep_Buffer_MBDRC_Playback_Speaker',
-      categories: 'default',
+      keyValuePairs: keyvalueInfo,
+      usecaseAliasId: 101,
+      usecaseAliasName: 'PCM_Deep_Buffer_MBDRC_Playback_Speaker',
+      usecaseCategory: 'default',
     });
   },
 };
@@ -218,9 +218,9 @@ export const UseCaseIdentifierCollectionExample = {
       Object.assign(new UsecaseResponseDto(), {
         systemId: '2',
         usecaseType: 'LINKED',
-        gkv: {systemId: '2', keyValuePairs: keyvalueInfo},
-        aliasId: 102,
-        alias: 'PCM_Offload_MBDRC_Playback_Speaker',
+        keyValuePairs: keyvalueInfo,
+        usecaseAliasId: 102,
+        usecaseAliasName: 'PCM_Offload_MBDRC_Playback_Speaker',
       }),
     );
 
@@ -239,12 +239,12 @@ export const UsecaseComponentsExample = {
     // Create module instances
     const spfModule1 = Object.assign(new SpfModuleResponseDto(), {
       systemId: '1001',
-      id: 1001,
-      moduleId: 0x07_01_01_05,
+      naturalId: 1001,
+      moduleDefinitionSystemId: '117506309',
       name: 'PCM Decoder',
       alias: 'PCM_Decoder_1',
-      subgraphId: 501,
-      containerId: 601,
+      subgraphSystemId: '501',
+      containerSystemId: '601',
       maxInputPortsSupported: 2,
       maxOutputPortsSupported: 2,
       maxControlPortsSupported: 1,
@@ -259,12 +259,12 @@ export const UsecaseComponentsExample = {
 
     const spfModule2 = Object.assign(new SpfModuleResponseDto(), {
       systemId: '1002',
-      id: 1002,
-      moduleId: 0x07_01_01_06,
+      naturalId: 1002,
+      moduleDefinitionSystemId: '117506310',
       name: 'Audio MBDRC',
       alias: 'Audio_MBDRC_1',
-      subgraphId: 501,
-      containerId: 601,
+      subgraphSystemId: '501',
+      containerSystemId: '601',
       maxInputPortsSupported: 1,
       maxOutputPortsSupported: 1,
       maxControlPortsSupported: 2,
@@ -280,7 +280,7 @@ export const UsecaseComponentsExample = {
     // Add data ports to modules
     const inputPort1 = Object.assign(new DataPortResponseDto(), {
       systemId: '2001',
-      id: 2001,
+      naturalId: 2001,
       name: 'Input',
       portIoType: 'Input' as const,
       portType: 'Static' as const,
@@ -289,7 +289,7 @@ export const UsecaseComponentsExample = {
     });
     const outputPort1 = Object.assign(new DataPortResponseDto(), {
       systemId: '2002',
-      id: 2002,
+      naturalId: 2002,
       name: 'Output',
       portIoType: 'Output' as const,
       portType: 'Static' as const,
@@ -300,7 +300,7 @@ export const UsecaseComponentsExample = {
 
     const inputPort2 = Object.assign(new DataPortResponseDto(), {
       systemId: '2003',
-      id: 2003,
+      naturalId: 2003,
       name: 'Input',
       portIoType: 'Input' as const,
       portType: 'Static' as const,
@@ -309,7 +309,7 @@ export const UsecaseComponentsExample = {
     });
     const outputPort2 = Object.assign(new DataPortResponseDto(), {
       systemId: '2004',
-      id: 2004,
+      naturalId: 2004,
       name: 'Output',
       portIoType: 'Output' as const,
       portType: 'Static' as const,
@@ -321,7 +321,7 @@ export const UsecaseComponentsExample = {
     // Add control ports to modules
     const controlPort1 = Object.assign(new ControlPortResponseDto(), {
       systemId: '3001',
-      id: 3001,
+      naturalId: 3001,
       name: 'Control',
       portType: 'Static' as const,
       intents: [],
@@ -331,7 +331,7 @@ export const UsecaseComponentsExample = {
 
     const controlPort2 = Object.assign(new ControlPortResponseDto(), {
       systemId: '3002',
-      id: 3002,
+      naturalId: 3002,
       name: 'Control',
       portType: 'Static' as const,
       intents: [],
@@ -339,7 +339,7 @@ export const UsecaseComponentsExample = {
     });
     const controlPort3 = Object.assign(new ControlPortResponseDto(), {
       systemId: '3003',
-      id: 3003,
+      naturalId: 3003,
       name: 'Control',
       portType: 'Static' as const,
       intents: [],
@@ -355,14 +355,11 @@ export const UsecaseComponentsExample = {
     // Create data links
     const dataConnection = Object.assign(new DataLinkResponseDto(), {
       systemId: '4001',
-      id: 4001,
-      connectionType: CONN_CTRL_TYPE.MODULE_MODULE,
-      sourceId: 1001, // spfModule1
-      sourcePortId: 2002, // outputPort1
-      destinationId: 1002, // spfModule2
-      destinationPortId: 2003, // inputPort2
+      sourceSystemId: '1001', // spfModule1
+      sourcePortSystemId: '2002', // outputPort1
+      destinationSystemId: '1002', // spfModule2
+      destinationPortSystemId: '2003', // inputPort2
       isInterUsecase: false,
-      parentId: 601, // containerId
     });
 
     componentCollection.dataLinks = [
@@ -372,14 +369,11 @@ export const UsecaseComponentsExample = {
     // Create control links
     const controlLink = Object.assign(new ControlLinkResponseDto(), {
       systemId: '5001',
-      id: 5001,
-      connectionType: CONN_CTRL_TYPE.MODULE_MODULE,
-      sourceId: 1001, // spfModule1
-      sourcePortId: 3001, // controlPort1
-      destinationId: 1002, // spfModule2
-      destinationPortId: 3002, // controlPort2
+      sourceSystemId: '1001', // spfModule1
+      sourcePortSystemId: '3001', // controlPort1
+      destinationSystemId: '1002', // spfModule2
+      destinationPortSystemId: '3002', // controlPort2
       isInterUsecase: false,
-      parentId: 601, // containerId
     });
 
     componentCollection.controlLinks = [

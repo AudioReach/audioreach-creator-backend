@@ -5,7 +5,7 @@
 
 export interface ValueDefinitionInit {
   systemId: number;
-  valueId: number;
+  naturalId: number;
   name: string;
   description?: string;
   enumMember?: string;
@@ -15,14 +15,14 @@ export interface ValueDefinitionInit {
 export class ValueDefinition {
   systemId: number;
   // member of value entity
-  readonly valueId: number;
+  readonly naturalId: number;
   name: string;
   description: string;
   enumMember: string;
   specialValue: string;
   constructor(initParam: ValueDefinitionInit) {
     this.systemId = initParam.systemId;
-    this.valueId = initParam.valueId;
+    this.naturalId = initParam.naturalId;
     this.name = initParam.name;
     this.description = initParam.description ?? '';
     this.enumMember = initParam.enumMember ?? '';

@@ -12,8 +12,8 @@ class SupportedParameterInfoDto {
   })
   systemId!: string;
 
-  @ApiProperty({description: 'parameterId'})
-  parameterId!: string;
+  @ApiProperty({description: 'Natural ID (PID) of the parameter'})
+  naturalId!: string;
 
   @ApiProperty({description: 'Human-readable display name for the parameter'})
   name!: string;

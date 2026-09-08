@@ -14,7 +14,7 @@ import {EntitySchema} from 'typeorm';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface SubgraphBase {
   systemId: number;
-  subgraphId: number;
+  naturalId: number;
   name: string;
   isImported: boolean;
   fileSystemId: number;
@@ -35,7 +35,7 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
   columns: {
     ...BaseColumnSchemaPart,
     name: {type: 'varchar', length: 256},
-    subgraphId: {name: 'subgraph_id', type: 'integer'},
+    naturalId: {name: 'subgraph_id', type: 'integer'},
     isImported: {name: 'is_imported', type: 'integer'}, // SQLite stores boolean as 0/1
     fileSystemId: {name: 'file_system_id', type: 'integer'},
   },
@@ -71,7 +71,7 @@ export const SubgraphSchema = new EntitySchema<SubgraphRow>({
     },
     {
       name: 'uq_subgraphs_subgraph_id_file_system_id',
-      columns: ['subgraphId', 'fileSystemId'],
+      columns: ['naturalId', 'fileSystemId'],
       unique: true,
     },
   ],

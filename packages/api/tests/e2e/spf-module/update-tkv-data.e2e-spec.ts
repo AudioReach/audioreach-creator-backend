@@ -91,6 +91,18 @@ async function findVolumeControlTkvData(
   }
   if (ucIds.length === 0) throw new Error('Fixture has no usecases');
 
+  const defResponse = await request(httpServer as Parameters<typeof request>[0])
+    .get(`/arc-api/v1/projects/${projectId}/spf-module-definitions`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .timeout(30_000);
+  const defDtos: any[] = defResponse.body?.data ?? [];
+  const volumeControlDefinition = defDtos.find(
+    (definition: any) => definition.naturalId === VOLUME_CONTROL_MODULE_ID,
+  );
+  const volumeControlDefinitionSystemId = volumeControlDefinition
+    ? String(volumeControlDefinition.systemId)
+    : undefined;
+
   let spfModuleSystemId: string | undefined;
   let tagSystemId: string | undefined;
   let tkvSystemId: string | undefined;
@@ -123,7 +135,10 @@ async function findVolumeControlTkvData(
 
     const moduleDtos: any[] = queryRes.body.data ?? [];
     for (const moduleDto of moduleDtos) {
-      if (moduleDto.moduleId === VOLUME_CONTROL_MODULE_ID) {
+      if (
+        volumeControlDefinitionSystemId !== undefined &&
+        moduleDto.moduleDefinitionSystemId === volumeControlDefinitionSystemId
+      ) {
         const tags: any[] = moduleDto.tags ?? [];
         const tagWithTkv = tags.find((t: any) => (t.tkvs ?? []).length > 0);
         if (!tagWithTkv) continue;

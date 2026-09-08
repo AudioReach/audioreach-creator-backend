@@ -56,14 +56,14 @@ const BASE_PORT = 5000;
 function makeModule(id: number, parentId?: number): SpfModuleReadModel {
   return {
     systemId: id,
-    parentId,
-    instanceId: id,
+    parentSystemId: parentId,
+    naturalId: id,
     alias: `mod_${id}`,
     definitionSystemId: id + 1000,
     name: `Module ${id}`,
-    moduleId: id,
-    subgraphId: 9000,
-    containerId: 8000,
+    moduleDefinitionNaturalId: id,
+    subgraphSystemId: 9000,
+    containerSystemId: 8000,
     maxInputPortsSupported: 4,
     maxOutputPortsSupported: 4,
     maxControlPortsSupported: 4,
@@ -101,7 +101,12 @@ function makeControlLink(
 }
 
 function makeSub(id: number, parentId?: number): SubsystemReadModel {
-  return {systemId: id, name: `SS_${id}`, parentId, filteredKeys: []};
+  return {
+    systemId: id,
+    name: `SS_${id}`,
+    parentSystemId: parentId,
+    filteredKeys: [],
+  };
 }
 
 // =============================================================================

@@ -33,23 +33,23 @@ describe('TagDataChunkBuilder', () => {
     const datapool = new DatapoolChunk();
     const input = [
       {
-        subgraphId: 1,
-        tagId: 0x10,
+        subgraphNaturalId: 1,
+        tagNaturalId: 0x10,
         numTagKeyValues: 0,
         tkvs: [],
       },
       {
-        subgraphId: 1,
-        tagId: 0x20,
+        subgraphNaturalId: 1,
+        tagNaturalId: 0x20,
         numTagKeyValues: 1,
         tkvs: [
           {
             tagKeyValues: [0x30],
             modules: [
               {
-                moduleInstanceId: 0x40,
+                naturalId: 0x40,
                 parameters: [
-                  {parameterId: 0x50, payload: new Uint8Array([0x01])},
+                  {naturalId: 0x50, payload: new Uint8Array([0x01])},
                 ],
               },
             ],
@@ -70,16 +70,16 @@ describe('TagDataChunkBuilder', () => {
     const payload = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
     const input = [
       {
-        subgraphId: 5,
-        tagId: 0x10,
+        subgraphNaturalId: 5,
+        tagNaturalId: 0x10,
         numTagKeyValues: 1,
         tkvs: [
           {
             tagKeyValues: [0x20],
             modules: [
               {
-                moduleInstanceId: 0x30,
-                parameters: [{parameterId: 0x40, payload}],
+                naturalId: 0x30,
+                parameters: [{naturalId: 0x40, payload}],
               },
             ],
           },
@@ -136,27 +136,33 @@ describe('TagDataChunkBuilder', () => {
     const payload = new Uint8Array([0x01]);
     const input = [
       {
-        subgraphId: 1,
-        tagId: 10,
+        subgraphNaturalId: 1,
+        tagNaturalId: 10,
         numTagKeyValues: 1,
         tkvs: [
           {
             tagKeyValues: [1],
             modules: [
-              {moduleInstanceId: 1, parameters: [{parameterId: 1, payload}]},
+              {
+                naturalId: 1,
+                parameters: [{naturalId: 1, payload}],
+              },
             ],
           },
         ],
       },
       {
-        subgraphId: 1,
-        tagId: 20,
+        subgraphNaturalId: 1,
+        tagNaturalId: 20,
         numTagKeyValues: 1,
         tkvs: [
           {
             tagKeyValues: [2],
             modules: [
-              {moduleInstanceId: 2, parameters: [{parameterId: 2, payload}]},
+              {
+                naturalId: 2,
+                parameters: [{naturalId: 2, payload}],
+              },
             ],
           },
         ],
@@ -176,17 +182,17 @@ describe('TagDataChunkBuilder', () => {
     const datapool = new DatapoolChunk();
     const input = [
       {
-        subgraphId: 1,
-        tagId: 10,
+        subgraphNaturalId: 1,
+        tagNaturalId: 10,
         numTagKeyValues: 1,
         tkvs: [
           {
             tagKeyValues: [7],
             modules: [
               {
-                moduleInstanceId: 0x30,
+                naturalId: 0x30,
                 parameters: [
-                  {parameterId: 0x40, payload: new Uint8Array([0xaa])},
+                  {naturalId: 0x40, payload: new Uint8Array([0xaa])},
                 ],
               },
             ],
@@ -196,9 +202,9 @@ describe('TagDataChunkBuilder', () => {
             tagKeyValues: [7],
             modules: [
               {
-                moduleInstanceId: 0x20,
+                naturalId: 0x20,
                 parameters: [
-                  {parameterId: 0x50, payload: new Uint8Array([0xbb])},
+                  {naturalId: 0x50, payload: new Uint8Array([0xbb])},
                 ],
               },
             ],
@@ -228,13 +234,13 @@ describe('TagDataChunkBuilder', () => {
     const datapool = new DatapoolChunk();
     const payload = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
     const sharedModule = {
-      moduleInstanceId: 0x30,
-      parameters: [{parameterId: 0x40, payload}],
+      naturalId: 0x30,
+      parameters: [{naturalId: 0x40, payload}],
     };
     const input = [
       {
-        subgraphId: 1,
-        tagId: 10,
+        subgraphNaturalId: 1,
+        tagNaturalId: 10,
         numTagKeyValues: 1,
         tkvs: [
           {tagKeyValues: [1], modules: [sharedModule]},
@@ -266,13 +272,13 @@ describe('TagDataChunkBuilder', () => {
   it('sorts consolidated value vectors ascending', () => {
     const datapool = new DatapoolChunk();
     const mod = (iid: number) => ({
-      moduleInstanceId: iid,
-      parameters: [{parameterId: 1, payload: new Uint8Array([iid])}],
+      naturalId: iid,
+      parameters: [{naturalId: 1, payload: new Uint8Array([iid])}],
     });
     const input = [
       {
-        subgraphId: 1,
-        tagId: 10,
+        subgraphNaturalId: 1,
+        tagNaturalId: 10,
         numTagKeyValues: 1,
         tkvs: [
           {tagKeyValues: [9], modules: [mod(9)]},

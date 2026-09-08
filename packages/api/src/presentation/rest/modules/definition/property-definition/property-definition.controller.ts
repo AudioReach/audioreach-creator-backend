@@ -62,8 +62,8 @@ export class PropertyDefinitionController {
   })
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiQuery({
-    name: 'propertyDefinitionId',
-    description: 'Filter by property definition id',
+    name: 'propertyDefinitionNaturalId',
+    description: 'Filter by property definition natural id',
     required: false,
   })
   @ApiResponse({
@@ -95,26 +95,29 @@ export class PropertyDefinitionController {
   async getSubgraphPropertyDefinitions(
     @Param('projectId') projectId: string,
     @ClientId() clientId: string,
-    @Query('propertyDefinitionId') propertyDefinitionId?: string,
+    @Query('propertyDefinitionNaturalId') propertyDefinitionNaturalId?: string,
   ): Promise<ApiResult<SubgraphPropertyDefinitionSummaryResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
     }
 
-    let parsedPropertyDefinitionId: number | undefined;
-    if (propertyDefinitionId !== undefined) {
-      parsedPropertyDefinitionId = Number.parseInt(propertyDefinitionId, 10);
-      if (Number.isNaN(parsedPropertyDefinitionId)) {
+    let parsedPropertyDefinitionNaturalId: number | undefined;
+    if (propertyDefinitionNaturalId !== undefined) {
+      parsedPropertyDefinitionNaturalId = Number.parseInt(
+        propertyDefinitionNaturalId,
+        10,
+      );
+      if (Number.isNaN(parsedPropertyDefinitionNaturalId)) {
         throw new BadRequestException(
-          `Invalid property definition ID: ${propertyDefinitionId}`,
+          `Invalid property definition natural ID: ${propertyDefinitionNaturalId}`,
         );
       }
     }
 
     const query = new GetAllSubgraphPropertyDefinitionsQuery(
       parsedProjectId,
-      parsedPropertyDefinitionId,
+      parsedPropertyDefinitionNaturalId,
       clientId,
     );
 
@@ -224,8 +227,8 @@ export class PropertyDefinitionController {
   @Get(':projectId/definitions/container/properties')
   @ApiParam({name: 'projectId', description: 'Id of project', required: true})
   @ApiQuery({
-    name: 'propertyDefinitionId',
-    description: 'Filter by property definition id',
+    name: 'propertyDefinitionNaturalId',
+    description: 'Filter by property definition natural id',
     required: false,
   })
   @ApiOperation({
@@ -262,26 +265,29 @@ export class PropertyDefinitionController {
   async getContainerPropertyDefinitions(
     @Param('projectId') projectId: string,
     @ClientId() clientId: string,
-    @Query('propertyDefinitionId') propertyDefinitionId?: string,
+    @Query('propertyDefinitionNaturalId') propertyDefinitionNaturalId?: string,
   ): Promise<ApiResult<ContainerPropertyDefinitionSummaryResponseDto[]>> {
     const parsedProjectId = Number.parseInt(projectId, 10);
     if (Number.isNaN(parsedProjectId)) {
       throw new BadRequestException(`Invalid project ID: ${projectId}`);
     }
 
-    let parsedPropertyDefinitionId: number | undefined;
-    if (propertyDefinitionId !== undefined) {
-      parsedPropertyDefinitionId = Number.parseInt(propertyDefinitionId, 10);
-      if (Number.isNaN(parsedPropertyDefinitionId)) {
+    let parsedPropertyDefinitionNaturalId: number | undefined;
+    if (propertyDefinitionNaturalId !== undefined) {
+      parsedPropertyDefinitionNaturalId = Number.parseInt(
+        propertyDefinitionNaturalId,
+        10,
+      );
+      if (Number.isNaN(parsedPropertyDefinitionNaturalId)) {
         throw new BadRequestException(
-          `Invalid property definition ID: ${propertyDefinitionId}`,
+          `Invalid property definition natural ID: ${propertyDefinitionNaturalId}`,
         );
       }
     }
 
     const query = new GetAllContainerPropertyDefinitionsQuery(
       parsedProjectId,
-      parsedPropertyDefinitionId,
+      parsedPropertyDefinitionNaturalId,
       clientId,
     );
 

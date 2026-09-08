@@ -44,7 +44,7 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('ProcessorDefinition', {
     systemId: PROCESSOR_DEF_ID,
     fileSystemId: FILE_ID,
-    processorDefinitionId: 1,
+    naturalId: 1,
     name: 'TestProcessor',
     version: 1,
   });
@@ -52,7 +52,7 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('SpfModuleDefinition', {
     systemId: MODULE_DEF_ID,
     fileSystemId: FILE_ID,
-    moduleDefinitionId: 1,
+    naturalId: 1,
     name: 'TestModule',
     processorSystemId: PROCESSOR_DEF_ID,
     version: 1,
@@ -61,7 +61,7 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('SpfModuleDefinition', {
     systemId: 21,
     fileSystemId: FILE_ID,
-    moduleDefinitionId: 2,
+    naturalId: 2,
     name: 'TestModule2',
     processorSystemId: PROCESSOR_DEF_ID,
     version: 1,

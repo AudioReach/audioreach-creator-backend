@@ -8,13 +8,13 @@ import type {UseCaseReadModel} from '../../../ports/persistence/query-services/u
 import type {KeyValuePairReadModel} from '../../../ports/persistence/query-services/usecase/query-models/key-vector-read-model.js';
 
 const KeyInfoDtoSchema = z.object({
-  keyId: z.number().int().describe('Key id'),
+  naturalId: z.number().int().describe('Key id'),
   name: z.string().describe('Key name'),
   systemId: z.string().describe('Key system identifier'),
 });
 
 const ValueInfoDtoSchema = z.object({
-  valueId: z.number().int().describe('Value id'),
+  naturalId: z.number().int().describe('Value id'),
   name: z.string().describe('Value name'),
   systemId: z.string().describe('Value system identifier'),
 });
@@ -85,12 +85,12 @@ export function mapKeyValuePair(
 ): z.infer<typeof KeyValueInfoDtoSchema> {
   return {
     key: {
-      keyId: kv.key.keyId,
+      naturalId: kv.key.naturalId,
       name: kv.key.name,
       systemId: String(kv.key.systemId),
     },
     value: {
-      valueId: kv.value.valueId,
+      naturalId: kv.value.naturalId,
       name: kv.value.name,
       systemId: String(kv.value.systemId),
     },

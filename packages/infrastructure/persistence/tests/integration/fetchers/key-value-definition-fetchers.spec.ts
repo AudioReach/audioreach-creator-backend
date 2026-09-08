@@ -130,7 +130,7 @@ describe('Key/value definition fetchers', () => {
     const keyOne = await keyRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'KeyOne',
       description: 'First key',
       isCalibrationKey: true,
@@ -141,19 +141,19 @@ describe('Key/value definition fetchers', () => {
     await keyRepository.save({
       systemId: 2,
       fileSystemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'KeyTwo',
     });
     await valueRepository.save({
       systemId: 11,
       keySystemId: keyOne.systemId,
-      valueId: 101,
+      naturalId: 101,
       name: 'ValueOne',
     });
     await valueRepository.save({
       systemId: 12,
       keySystemId: keyOne.systemId,
-      valueId: 102,
+      naturalId: 102,
       name: 'ValueTwo',
     });
 
@@ -164,7 +164,7 @@ describe('Key/value definition fetchers', () => {
     });
     const values = await valueFetcher.fetchMany('all', null, {
       keySystemId: keyOne.systemId,
-      valueId: 102,
+      naturalId: 102,
       name: 'ValueTwo',
     });
 
@@ -189,7 +189,7 @@ describe('Key/value definition fetchers', () => {
       fieldPath: '$',
       newValue: {
         fileSystemId,
-        keyId: 500,
+        naturalId: 500,
         name: 'CreatedKey',
         isCalibrationKey: true,
         isGraphKey: false,
@@ -225,7 +225,7 @@ describe('Key/value definition fetchers', () => {
       fieldPath: '$',
       newValue: {
         keySystemId,
-        valueId: 600,
+        naturalId: 600,
         name: 'CreatedValue',
       },
       source: SOURCE.Manual,
@@ -256,7 +256,7 @@ describe('Key/value definition fetchers', () => {
     const one = await keyFetcher.fetchOne(keySystemId, fileSystemId, sessionId);
     const filteredValues = await valueFetcher.fetchMany('all', sessionId, {
       keySystemId,
-      valueId: 600,
+      naturalId: 600,
     });
 
     expect(many).toHaveLength(1);

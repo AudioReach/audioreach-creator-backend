@@ -32,9 +32,9 @@ export interface SubsystemDatalinkResolutionResult {
     /** The module where the chain ends. */
     destModuleSystemId: number;
     /** First link's sourcePortSystemId → DataLink.sourcePortSystemId */
-    sourcePortId: number;
+    sourcePortSystemId: number;
     /** Last link's destPortSystemId → DataLink.destPortSystemId */
-    destPortId: number;
+    destPortSystemId: number;
   }[];
 
   incompleteChains: {
@@ -43,7 +43,7 @@ export interface SubsystemDatalinkResolutionResult {
     /** Module where the chain begins. */
     startModuleSystemId: number;
     /** Last node reached before the dead end or cycle (may be a subsystem or module). */
-    lastReachableNodeId: number;
+    lastReachableNodeSystemId: number;
   }[];
 }
 
@@ -52,16 +52,16 @@ export interface SubsystemDatalinkResolutionResult {
 // ---------------------------------------------------------------------------
 
 interface LinkEdge {
-  ssLinkId: number;
-  destNodeId: number;
-  srcPortId: number;
-  dstPortId: number;
+  ssLinkSystemId: number;
+  destinationNodeSystemId: number;
+  sourcePortSystemId: number;
+  destinationPortSystemId: number;
 }
 
 interface TraversedLink {
-  ssLinkId: number;
-  srcPortId: number;
-  dstPortId: number;
+  ssLinkSystemId: number;
+  sourcePortSystemId: number;
+  destinationPortSystemId: number;
 }
 
 interface TraverseCtx {
@@ -87,43 +87,51 @@ function traverse(
 
   if (!outgoing || outgoing.length === 0) {
     ctx.incompleteChains.push({
-      ssLinkSystemIds: accumulated.map(l => l.ssLinkId),
+      ssLinkSystemIds: accumulated.map(l => l.ssLinkSystemId),
       startModuleSystemId,
-      lastReachableNodeId: currentNode,
+      lastReachableNodeSystemId: currentNode,
     });
     return;
   }
 
   for (const edge of outgoing) {
-    const {ssLinkId, destNodeId, srcPortId, dstPortId} = edge;
-    const resolvedFirstSrcPort = firstSrcPortId ?? srcPortId;
-    const newAccumulated = [...accumulated, {ssLinkId, srcPortId, dstPortId}];
+    const {
+      ssLinkSystemId,
+      destinationNodeSystemId,
+      sourcePortSystemId,
+      destinationPortSystemId,
+    } = edge;
+    const resolvedFirstSrcPort = firstSrcPortId ?? sourcePortSystemId;
+    const newAccumulated = [
+      ...accumulated,
+      {ssLinkSystemId, sourcePortSystemId, destinationPortSystemId},
+    ];
 
-    if (visited.has(destNodeId)) {
+    if (visited.has(destinationNodeSystemId)) {
       ctx.incompleteChains.push({
-        ssLinkSystemIds: newAccumulated.map(l => l.ssLinkId),
+        ssLinkSystemIds: newAccumulated.map(l => l.ssLinkSystemId),
         startModuleSystemId,
-        lastReachableNodeId: destNodeId,
+        lastReachableNodeSystemId: destinationNodeSystemId,
       });
       continue;
     }
 
     if (
-      ctx.nodeTypeMap.get(destNodeId) === NodeType.Module &&
-      destNodeId !== startModuleSystemId
+      ctx.nodeTypeMap.get(destinationNodeSystemId) === NodeType.Module &&
+      destinationNodeSystemId !== startModuleSystemId
     ) {
       ctx.completeChains.push({
-        ssLinkSystemIds: newAccumulated.map(l => l.ssLinkId),
+        ssLinkSystemIds: newAccumulated.map(l => l.ssLinkSystemId),
         sourceModuleSystemId: startModuleSystemId,
-        destModuleSystemId: destNodeId,
-        sourcePortId: resolvedFirstSrcPort,
-        destPortId: dstPortId,
+        destModuleSystemId: destinationNodeSystemId,
+        sourcePortSystemId: resolvedFirstSrcPort,
+        destPortSystemId: destinationPortSystemId,
       });
       continue;
     }
 
     traverse(
-      destNodeId,
+      destinationNodeSystemId,
       newAccumulated,
       new Set([...visited, currentNode]),
       resolvedFirstSrcPort,
@@ -166,10 +174,10 @@ export const ChainResolutionService = {
 
     for (const link of unresolvedSubsystemLinks) {
       const edge: LinkEdge = {
-        ssLinkId: link.systemId,
-        destNodeId: link.destinationNodeSystemId,
-        srcPortId: link.sourcePortSystemId,
-        dstPortId: link.destinationPortSystemId,
+        ssLinkSystemId: link.systemId,
+        destinationNodeSystemId: link.destinationNodeSystemId,
+        sourcePortSystemId: link.sourcePortSystemId,
+        destinationPortSystemId: link.destinationPortSystemId,
       };
 
       const existing = adjacency.get(link.sourceNodeSystemId);

@@ -31,7 +31,7 @@ export class GetAllTagDefinitionsHandler implements QueryHandler<
     const result =
       await this.queryServices.tagDefinitionQueryService.getAllTagDefinitions(
         fileId,
-        query.tagId,
+        query.tagNaturalId,
       );
 
     if (result.kind === RESULT_KIND.Fail) return result;

@@ -13,9 +13,9 @@ export class EntityNotFoundError extends Error {
 
   constructor(
     public readonly entityType: string,
-    public readonly id: number,
+    public readonly entitySystemId: number,
   ) {
-    super(`${entityType} not found: id=${id}`);
+    super(`${entityType} not found: systemId=${entitySystemId}`);
     this.name = 'EntityNotFoundError';
   }
 }

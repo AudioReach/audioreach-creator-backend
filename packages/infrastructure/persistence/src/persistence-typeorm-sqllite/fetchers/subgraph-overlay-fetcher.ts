@@ -30,7 +30,7 @@ export type {OverlaidSgkv} from './subgraph-sgkv-fetcher.js';
  */
 export type SubgraphFilters = {
   systemId?: number | number[];
-  subgraphId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   isImported?: boolean;
   $or?: SubgraphFilters[];

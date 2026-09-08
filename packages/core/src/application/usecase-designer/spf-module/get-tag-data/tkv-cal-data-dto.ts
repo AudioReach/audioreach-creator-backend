@@ -11,12 +11,12 @@ import type {TkvReadModel} from '../../../ports/persistence/query-services/spf-m
 
 const TkvKeyValuePairSchema = z.object({
   key: z.object({
-    keyId: z.number().int().describe('Key definition ID'),
+    naturalId: z.number().int().describe('Key definition ID'),
     name: z.string().describe('Key name'),
     systemId: z.string().describe('Key system ID'),
   }),
   value: z.object({
-    valueId: z.number().int().describe('Value definition ID'),
+    naturalId: z.number().int().describe('Value definition ID'),
     name: z.string().describe('Value name'),
     systemId: z.string().describe('Value system ID'),
   }),
@@ -38,12 +38,12 @@ export function mapTkvCalDataDto(
     systemId: tkv.systemId.toString(),
     Tkv: (tkv.keyValuePairs ?? []).map(kv => ({
       key: {
-        keyId: kv.key.keyId,
+        naturalId: kv.key.naturalId,
         name: kv.key.name,
         systemId: String(kv.key.systemId),
       },
       value: {
-        valueId: kv.value.valueId,
+        naturalId: kv.value.naturalId,
         name: kv.value.name,
         systemId: String(kv.value.systemId),
       },

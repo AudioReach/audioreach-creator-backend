@@ -8,7 +8,7 @@ import type {BaseModuleDefinitionSummaryReadModel} from '../../../ports/persiste
 
 const DriverParameterSummaryInfoDtoSchema = z.object({
   systemId: z.string().describe('Unique system identifier for the param'),
-  paramId: z.number().int().describe('Parameter identifier'),
+  naturalId: z.number().int().describe('Parameter identifier'),
   name: z.string().describe('Name of the parameter'),
   description: z.string().describe('Description of the parameter'),
   isReadOnly: z.boolean().describe('Indicates if the parameter is read-only'),
@@ -19,7 +19,7 @@ const DriverParameterSummaryInfoDtoSchema = z.object({
 export const DriverModuleDefinitionDtoSchema = z
   .object({
     systemId: z.string().describe('Unique system identifier for the module'),
-    moduleId: z.number().int().describe('Module identifier'),
+    naturalId: z.number().int().describe('Module identifier'),
     name: z.string().describe('Module name'),
     displayName: z.string().describe('Display name of the module'),
     description: z.string().describe('Description of the module'),
@@ -47,13 +47,13 @@ export function mapDriverModuleDefinition(
 ): DriverModuleDefinitionDto {
   return {
     systemId: String(row.systemId),
-    moduleId: row.moduleId,
+    naturalId: row.naturalId,
     name: row.name,
     displayName: row.displayName ?? '',
     description: row.description ?? '',
     paramDefinitionsSummaryInfo: row.parameterDefinitions.map(p => ({
       systemId: String(p.systemId),
-      paramId: p.paramId,
+      naturalId: p.naturalId,
       name: p.name ?? '',
       description: p.description ?? '',
       isReadOnly: p.isReadOnly ?? false,

@@ -9,14 +9,14 @@ import {CkvCollection} from '../../../common/entities/ckv-collection.js';
 export interface VcpmModuleInstanceInit {
   systemId: number;
   subgraphSystemId: number;
-  vcpmDefinitionId: number;
+  vcpmModuleDefinitionSystemId: number;
 }
 export class VcpmInstance {
   private readonly ckvCollection = new CkvCollection();
 
   readonly systemId: number;
   readonly subgraphSystemId: number;
-  readonly vcpmModuleDefinitionId: number;
+  readonly vcpmModuleDefinitionSystemId: number;
 
   get ckvs(): readonly KvData[] {
     return this.ckvCollection.ckvs;
@@ -25,7 +25,7 @@ export class VcpmInstance {
   constructor(initParams: VcpmModuleInstanceInit) {
     this.systemId = initParams.systemId;
     this.subgraphSystemId = initParams.subgraphSystemId;
-    this.vcpmModuleDefinitionId = initParams.vcpmDefinitionId;
+    this.vcpmModuleDefinitionSystemId = initParams.vcpmModuleDefinitionSystemId;
   }
 
   addCkv(kvData: KvData) {

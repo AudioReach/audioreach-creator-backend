@@ -154,7 +154,7 @@ export class TypeOrmUsecaseRepository implements UsecaseRepository {
         targetSystemId: uc.systemId,
         aggregateId: uc.systemId,
         payload: {
-          aliasId: uc.aliasId ?? 0,
+          ['aliasId']: uc.aliasId ?? 0,
           alias: uc.alias ?? '',
           type: uc.type ?? null,
           fileSystemId: uc.fileSystemId,

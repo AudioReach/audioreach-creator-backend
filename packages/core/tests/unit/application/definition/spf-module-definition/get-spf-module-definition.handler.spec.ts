@@ -16,7 +16,7 @@ const createReadModel = (
   overrides?: Partial<SpfModuleDefinitionSummaryReadModel>,
 ): SpfModuleDefinitionSummaryReadModel => ({
   systemId: 1,
-  moduleId: 100,
+  naturalId: 100,
   name: 'SpfModule',
   parameterDefinitions: [],
   processorInfo: {systemId: 1, processorId: 1, name: 'Processor'},
@@ -98,7 +98,7 @@ describe('GetSpfModuleDefinitionHandler', () => {
 
     // Result is a mapped DTO — verify key fields are present and mapped
     expect(result.systemId).toBe('123');
-    expect(result.moduleId).toBe(readModel.moduleId);
+    expect(result.naturalId).toBe(readModel.naturalId);
     expect(result.name).toBe(readModel.name);
   });
 

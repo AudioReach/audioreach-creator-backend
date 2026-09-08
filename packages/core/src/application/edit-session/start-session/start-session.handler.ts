@@ -55,7 +55,10 @@ export class StartSessionHandler implements CommandHandler<
       if (existing !== null) {
         throw new InvalidOperationException(
           `An active session already exists for project ${cmd.projectId} (sessionId ${existing.sessionId}, mode ${existing.mode}). End it before starting a new one.`,
-          {existingSessionId: existing.sessionId, existingMode: existing.mode},
+          {
+            existingSessionSystemId: existing.sessionId,
+            existingMode: existing.mode,
+          },
         );
       }
 

@@ -29,7 +29,7 @@ import type {UsecaseGkvValuesFetcher} from './usecase-gkv-values-fetcher.js';
  */
 export type UseCaseFilters = {
   systemId?: number | number[];
-  aliasId?: number | number[];
+  naturalId?: number | number[];
   alias?: string | string[];
   type?: string | string[];
   $or?: UseCaseFilters[];

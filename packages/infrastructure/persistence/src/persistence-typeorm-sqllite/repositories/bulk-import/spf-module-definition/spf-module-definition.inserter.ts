@@ -61,12 +61,12 @@ type StaticControlPortDefinition =
 
 interface DataPortGroupStepResult {
   stepResult: StepResult;
-  groupToGeneratedId: Map<DataPortGroupDefinition, number>;
+  groupToGeneratedSystemId: Map<DataPortGroupDefinition, number>;
 }
 
 interface StaticControlPortStepResult {
   stepResult: StepResult;
-  portToGeneratedId: Map<StaticControlPortDefinition, number>;
+  portToGeneratedSystemId: Map<StaticControlPortDefinition, number>;
 }
 
 export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefinition> {
@@ -107,12 +107,12 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
     const dataPortDefsResult = await this.insertDataPortDefinitions(
       activeItems,
       failedGroupIds,
-      dataGroupResult.groupToGeneratedId,
+      dataGroupResult.groupToGeneratedSystemId,
     );
     const staticIntentsResult = await this.insertStaticIntents(
       activeItems,
       failedPortIds,
-      staticPortResult.portToGeneratedId,
+      staticPortResult.portToGeneratedSystemId,
     );
 
     const allRawFailures: RawFailure[] = [
@@ -131,7 +131,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       allRawFailures,
       moduleBySystemId,
       mod =>
-        `SpfModuleDefinition (moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}, name='${mod.name}')`,
+        `SpfModuleDefinition (moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}, name='${mod.name}')`,
     );
   }
 
@@ -140,7 +140,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   ): Promise<StepResult> {
     const rows: InsertRow<SpfModuleDefinitionRow>[] = items.map(mod => ({
       systemId: mod.systemId,
-      moduleDefinitionId: mod.moduleDefinitionId,
+      naturalId: mod.naturalId,
       name: mod.name,
       displayName: mod.displayName,
       description: mod.description,
@@ -164,7 +164,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: mod.systemId,
         entityLabel: 'SpfModuleDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -180,7 +180,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   ): Promise<StepResult> {
     const contextBySystemId = new Map<
       number,
-      {mod: SpfModuleDefinition; paramId: number}
+      {mod: SpfModuleDefinition; paramNaturalId: number}
     >();
 
     const rows: InsertRow<SpfModuleParameterDefinitionRow>[] = items.flatMap(
@@ -188,7 +188,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
         mod.parameters.map(param => {
           const row: InsertRow<SpfModuleParameterDefinitionRow> = {
             systemId: param.systemId,
-            paramId: param.paramId,
+            naturalId: param.naturalId,
             name: param.name,
             description: param.description,
             maxSize: param.maxSize ?? 0,
@@ -200,12 +200,12 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
               param.toolPolicies.length > 0
                 ? JSON.stringify(param.toolPolicies)
                 : undefined,
-            copySrcParamId: param.copySrcParamId,
+            copySrcParamNaturalId: param.copySrcParamNaturalId,
             spfModuleDefinitionSystemId: mod.systemId,
           };
           contextBySystemId.set(param.systemId, {
             mod,
-            paramId: param.paramId,
+            paramNaturalId: param.naturalId,
           });
           return row;
         }),
@@ -225,7 +225,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'SpfModuleParameterDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, paramId=${BinaryUtils.toHexString(ctx.paramId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, paramId=${BinaryUtils.toHexString(ctx.paramNaturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -274,7 +274,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'ModuleAttribute',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, attrName='${ctx.attrName}') Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, attrName='${ctx.attrName}') Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -288,7 +288,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   private async insertDataPortGroups(
     items: SpfModuleDefinition[],
   ): Promise<DataPortGroupStepResult> {
-    const groupToGeneratedId = new Map<DataPortGroupDefinition, number>();
+    const groupToGeneratedSystemId = new Map<DataPortGroupDefinition, number>();
     const contextBySystemId = new Map<
       number,
       {
@@ -304,7 +304,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       for (let idx = 0; idx < mod.dataPortGroups.length; idx++) {
         const group = mod.dataPortGroups[idx];
         const systemId = await this.idGeneration.getNextId(mod.fileSystemId);
-        groupToGeneratedId.set(group, systemId);
+        groupToGeneratedSystemId.set(group, systemId);
         contextBySystemId.set(systemId, {mod, group, idx});
         rows.push({
           systemId,
@@ -316,7 +316,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
     }
 
     if (rows.length === 0) {
-      return {stepResult: emptyStepResult(), groupToGeneratedId};
+      return {stepResult: emptyStepResult(), groupToGeneratedSystemId};
     }
 
     const {failedEntities} = await BatchInserter.insert(
@@ -331,7 +331,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'DataPortGroup',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, portIoType=${ctx.group.portIoType}, groupIndex=${ctx.idx}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, portIoType=${ctx.group.portIoType}, groupIndex=${ctx.idx}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -341,14 +341,17 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
         rawFailures,
         failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
       },
-      groupToGeneratedId,
+      groupToGeneratedSystemId,
     };
   }
 
   private async insertStaticControlPorts(
     items: SpfModuleDefinition[],
   ): Promise<StaticControlPortStepResult> {
-    const portToGeneratedId = new Map<StaticControlPortDefinition, number>();
+    const portToGeneratedSystemId = new Map<
+      StaticControlPortDefinition,
+      number
+    >();
     const contextBySystemId = new Map<
       number,
       {mod: SpfModuleDefinition; port: StaticControlPortDefinition}
@@ -359,11 +362,11 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
     for (const mod of items) {
       for (const port of mod.staticControlPorts) {
         const systemId = await this.idGeneration.getNextId(mod.fileSystemId);
-        portToGeneratedId.set(port, systemId);
+        portToGeneratedSystemId.set(port, systemId);
         contextBySystemId.set(systemId, {mod, port});
         rows.push({
           systemId,
-          portId: port.portId,
+          naturalId: port.naturalId,
           portName: port.portName,
           moduleDefinitionSystemId: mod.systemId,
         });
@@ -371,7 +374,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
     }
 
     if (rows.length === 0) {
-      return {stepResult: emptyStepResult(), portToGeneratedId};
+      return {stepResult: emptyStepResult(), portToGeneratedSystemId};
     }
 
     const {failedEntities} = await BatchInserter.insert(
@@ -386,7 +389,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'StaticControlPortDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, portId=${BinaryUtils.toHexString(ctx.port.portId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, portId=${BinaryUtils.toHexString(ctx.port.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -396,7 +399,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
         rawFailures,
         failedEntityIds: new Set(failedEntities.map(e => e.systemId)),
       },
-      portToGeneratedId,
+      portToGeneratedSystemId,
     };
   }
 
@@ -405,7 +408,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   ): Promise<StepResult> {
     const contextBySystemId = new Map<
       number,
-      {mod: SpfModuleDefinition; intentId: number}
+      {mod: SpfModuleDefinition; intentNaturalId: number}
     >();
 
     const rows: InsertRow<DynamicIntentDefinitionRow>[] = [];
@@ -413,10 +416,13 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
     for (const mod of items) {
       for (const intent of mod.dynamicIntents) {
         const systemId = await this.idGeneration.getNextId(mod.fileSystemId);
-        contextBySystemId.set(systemId, {mod, intentId: intent.intentId});
+        contextBySystemId.set(systemId, {
+          mod,
+          intentNaturalId: intent.naturalId,
+        });
         rows.push({
           systemId,
-          intentId: intent.intentId,
+          naturalId: intent.naturalId,
           name: intent.name,
           maxPort: intent.maxPort,
           moduleDefinitionSystemId: mod.systemId,
@@ -438,7 +444,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'DynamicIntentDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, intentId=${BinaryUtils.toHexString(ctx.intentId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, intentId=${BinaryUtils.toHexString(ctx.intentNaturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -482,7 +488,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
           rawFailures.push({
             systemId: mod.systemId,
             entityLabel: 'ModuleDefinitionContainerTypeLink',
-            failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}) Row: ${JSON.stringify(row)}`,
+            failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
             dbError:
               rowError instanceof Error ? rowError.message : String(rowError),
           });
@@ -499,27 +505,30 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   private async insertDataPortDefinitions(
     items: SpfModuleDefinition[],
     failedGroupIds: Set<number>,
-    groupToGeneratedId: Map<DataPortGroupDefinition, number>,
+    groupToGeneratedSystemId: Map<DataPortGroupDefinition, number>,
   ): Promise<StepResult> {
     const contextBySystemId = new Map<
       number,
-      {mod: SpfModuleDefinition; dataPortId: number}
+      {mod: SpfModuleDefinition; dataPortNaturalId: number}
     >();
 
     const rows: InsertRow<DataPortDefinitionRow>[] = [];
 
     for (const mod of items) {
       for (const group of mod.dataPortGroups) {
-        const groupSystemId = groupToGeneratedId.get(group);
+        const groupSystemId = groupToGeneratedSystemId.get(group);
         if (groupSystemId === undefined || failedGroupIds.has(groupSystemId)) {
           continue;
         }
         for (const port of group.staticPortDefinitions) {
           const systemId = await this.idGeneration.getNextId(mod.fileSystemId);
-          contextBySystemId.set(systemId, {mod, dataPortId: port.dataPortId});
+          contextBySystemId.set(systemId, {
+            mod,
+            dataPortNaturalId: port.naturalId,
+          });
           rows.push({
             systemId,
-            dataPortId: port.dataPortId,
+            naturalId: port.naturalId,
             name: port.name,
             dataPortGroupSystemId: groupSystemId,
           });
@@ -541,7 +550,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'DataPortDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, dataPortId=${BinaryUtils.toHexString(ctx.dataPortId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, dataPortId=${BinaryUtils.toHexString(ctx.dataPortNaturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -555,30 +564,30 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
   private async insertStaticIntents(
     items: SpfModuleDefinition[],
     failedPortIds: Set<number>,
-    portToGeneratedId: Map<StaticControlPortDefinition, number>,
+    portToGeneratedSystemId: Map<StaticControlPortDefinition, number>,
   ): Promise<StepResult> {
     const contextBySystemId = new Map<
       number,
-      {mod: SpfModuleDefinition; portId: number; intentId: number}
+      {mod: SpfModuleDefinition; portNaturalId: number; intentNaturalId: number}
     >();
 
     const rows: InsertRow<StaticIntentDefinitionRow>[] = [];
 
     for (const mod of items) {
       for (const port of mod.staticControlPorts) {
-        const portSystemId = portToGeneratedId.get(port);
+        const portSystemId = portToGeneratedSystemId.get(port);
         if (portSystemId === undefined || failedPortIds.has(portSystemId)) {
           continue;
         }
         for (const intent of port.staticIntents) {
           contextBySystemId.set(intent.systemId, {
             mod,
-            portId: port.portId,
-            intentId: intent.intentId,
+            portNaturalId: port.naturalId,
+            intentNaturalId: intent.naturalId,
           });
           rows.push({
             systemId: intent.systemId,
-            intentId: intent.intentId,
+            naturalId: intent.naturalId,
             name: intent.name,
             staticControlPortDefinitionSystemId: portSystemId,
           });
@@ -600,7 +609,7 @@ export class SpfModuleDefinitionInserter implements BulkInserter<SpfModuleDefini
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'StaticIntentDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, portId=${BinaryUtils.toHexString(ctx.portId)}, intentId=${BinaryUtils.toHexString(ctx.intentId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, portId=${BinaryUtils.toHexString(ctx.portNaturalId)}, intentId=${BinaryUtils.toHexString(ctx.intentNaturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });

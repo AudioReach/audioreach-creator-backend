@@ -71,7 +71,7 @@ describe('KeyDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(1);
-        expect(result.entities[0].keyId).toBe(100);
+        expect(result.entities[0].naturalId).toBe(100);
         expect(result.entities[0].name).toBe('Test Key');
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
@@ -112,7 +112,7 @@ describe('KeyDefinitionBuilder', () => {
 
         const mockKey1 = new KeyDefinition({
           systemId: 0,
-          keyId: 100,
+          naturalId: 100,
           fileSystemId: 0,
           name: 'Key 1',
           description: '',
@@ -128,7 +128,7 @@ describe('KeyDefinitionBuilder', () => {
 
         const mockKey2 = new KeyDefinition({
           systemId: 0,
-          keyId: 200,
+          naturalId: 200,
           fileSystemId: 0,
           name: 'Key 2',
           description: '',
@@ -221,8 +221,8 @@ describe('KeyDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.entities[0].keyId).toBe(100);
-        expect(result.entities[1].keyId).toBe(200);
+        expect(result.entities[0].naturalId).toBe(100);
+        expect(result.entities[1].naturalId).toBe(200);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -345,8 +345,8 @@ describe('KeyDefinitionBuilder', () => {
         );
 
         expect(result.entities[0].values).toHaveLength(2);
-        expect(result.entities[0].values[0].valueId).toBe(1);
-        expect(result.entities[0].values[1].valueId).toBe(2);
+        expect(result.entities[0].values[0].naturalId).toBe(1);
+        expect(result.entities[0].values[1].naturalId).toBe(2);
       });
 
       it('should handle keys with all optional fields populated', async () => {
@@ -520,7 +520,7 @@ describe('KeyDefinitionBuilder', () => {
         const result = KeyDefinitionBuilder.transformKeyDefinition(awspKey);
 
         expect(result.systemId).toBe(0);
-        expect(result.keyId).toBe(100);
+        expect(result.naturalId).toBe(100);
         expect(result.fileSystemId).toBe(0);
         expect(result.name).toBe('Test Key');
         expect(result.description).toBe('Test Description');
@@ -556,7 +556,7 @@ describe('KeyDefinitionBuilder', () => {
 
         expect(result.values).toHaveLength(1);
         expect(result.values[0].systemId).toBe(0);
-        expect(result.values[0].valueId).toBe(1);
+        expect(result.values[0].naturalId).toBe(1);
         expect(result.values[0].name).toBe('Value 1');
         expect(result.values[0].description).toBe('Value 1 desc');
         expect(result.values[0].enumMember).toBe('1');

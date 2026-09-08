@@ -147,11 +147,12 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
     for (const module of response.body.data) {
       // Identity fields
       expect(typeof module.systemId).toBe('string');
+      expect(typeof module.naturalId).toBe('number');
       expect(typeof module.alias).toBe('string');
       expect(typeof module.name).toBe('string');
-      expect(typeof module.moduleId).toBe('number');
-      expect(typeof module.subgraphId).toBe('number');
-      expect(typeof module.containerId).toBe('number');
+      expect(typeof module.moduleDefinitionSystemId).toBe('string');
+      expect(typeof module.subgraphSystemId).toBe('string');
+      expect(typeof module.containerSystemId).toBe('string');
 
       // Definition capability counts
       expect(typeof module.maxInputPortsSupported).toBe('number');
@@ -182,7 +183,8 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
         expect(typeof port.controlPortName).toBe('string'); // resolved from definition
         expect(Array.isArray(port.intents)).toBe(true);
         for (const intent of port.intents) {
-          expect(typeof intent.id).toBe('number');
+          expect(typeof intent.naturalId).toBe('number');
+          expect(intent.id).toBeUndefined();
           expect(typeof intent.name).toBe('string'); // resolved from definition
           // Should no longer be generated synthetic name
           expect(intent.name).not.toMatch(/^Intent_\d+$/);
@@ -309,14 +311,14 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
         expect(Array.isArray(ckv.supportedParameters)).toBe(true);
 
         for (const kv of ckv.keyValuePairs) {
-          expect(typeof kv.key.keyId).toBe('number');
+          expect(typeof kv.key.naturalId).toBe('number');
           expect(typeof kv.key.name).toBe('string');
-          expect(typeof kv.value.valueId).toBe('number');
+          expect(typeof kv.value.naturalId).toBe('number');
           expect(typeof kv.value.name).toBe('string');
         }
 
         for (const param of ckv.supportedParameters) {
-          expect(typeof param.paramId).toBe('number');
+          expect(typeof param.naturalId).toBe('number');
           expect(typeof param.paramSystemId).toBe('string');
           expect(typeof param.name).toBe('string');
         }
@@ -348,7 +350,7 @@ describe('SPF Module Query E2E (POST /arc-api/v1/projects/{projectId}/spf-module
 
       for (const tag of module.tags) {
         expect(typeof tag.systemId).toBe('string');
-        expect(typeof tag.tagId).toBe('number');
+        expect(typeof tag.naturalId).toBe('number');
         expect(typeof tag.tagName).toBe('string');
         expect(Array.isArray(tag.tkvs)).toBe(true);
 

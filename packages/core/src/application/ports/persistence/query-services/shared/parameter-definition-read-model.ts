@@ -5,12 +5,12 @@
 /**
  * Full projection of the SpfModuleParameterDefinition domain entity.
  *
- * summary=true     → systemId, paramId, name, description, pidType
+ * summary=true     → systemId, naturalId, name, description, pidType
  * fullDetails=true → all fields
  */
 export interface ParameterDefinitionReadModel {
   readonly systemId: number;
-  readonly paramId: number;
+  readonly naturalId: number;
   readonly name?: string;
   readonly description?: string;
   readonly pidType: string;

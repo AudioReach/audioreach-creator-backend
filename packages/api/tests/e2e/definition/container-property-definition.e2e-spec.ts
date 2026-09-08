@@ -18,7 +18,7 @@ describe('Container Property Definition Query E2E (GET /arc-api/v1/projects/{pro
   let authToken: string;
   let projectId: string | undefined;
   let samplePropertySystemId: string | undefined;
-  let samplePropertyId: number | undefined;
+  let samplePropertyNaturalId: number | undefined;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -58,7 +58,7 @@ describe('Container Property Definition Query E2E (GET /arc-api/v1/projects/{pro
     const properties: any[] = listResponse.body.data ?? [];
     if (properties.length > 0) {
       samplePropertySystemId = String(properties[0].systemId);
-      samplePropertyId = properties[0].propertyId;
+      samplePropertyNaturalId = properties[0].naturalId;
     }
   }, 350000);
 
@@ -82,7 +82,7 @@ describe('Container Property Definition Query E2E (GET /arc-api/v1/projects/{pro
 
     for (const property of response.body.data) {
       expect(typeof property.systemId).toBe('string');
-      expect(typeof property.propertyId).toBe('number');
+      expect(typeof property.naturalId).toBe('number');
       expect(typeof property.name).toBe('string');
       expect(typeof property.type).toBe('string');
       expect(property.elements).toBeUndefined();
@@ -90,14 +90,14 @@ describe('Container Property Definition Query E2E (GET /arc-api/v1/projects/{pro
   });
 
   it('should filter by propertyDefinitionId when provided', async () => {
-    if (!projectId || samplePropertyId === undefined) {
-      console.warn('No projectId or samplePropertyId — skipping');
+    if (!projectId || samplePropertyNaturalId === undefined) {
+      console.warn('No projectId or samplePropertyNaturalId — skipping');
       return;
     }
 
     const response = await request(httpServer)
       .get(
-        `/arc-api/v1/projects/${projectId}/definitions/container/properties?propertyDefinitionId=${samplePropertyId}`,
+        `/arc-api/v1/projects/${projectId}/definitions/container/properties?propertyDefinitionNaturalId=${samplePropertyNaturalId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000)
@@ -105,7 +105,7 @@ describe('Container Property Definition Query E2E (GET /arc-api/v1/projects/{pro
 
     expect(response.body.data.length).toBeGreaterThan(0);
     for (const property of response.body.data) {
-      expect(property.propertyId).toBe(samplePropertyId);
+      expect(property.naturalId).toBe(samplePropertyNaturalId);
     }
   });
 
@@ -117,7 +117,7 @@ describe('Container Property Definition Query E2E (GET /arc-api/v1/projects/{pro
 
     const response = await request(httpServer)
       .get(
-        `/arc-api/v1/projects/${projectId}/definitions/container/properties?propertyDefinitionId=999999999`,
+        `/arc-api/v1/projects/${projectId}/definitions/container/properties?propertyDefinitionNaturalId=999999999`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000)
@@ -150,7 +150,7 @@ describe('Container Property Definition Query E2E (GET /arc-api/v1/projects/{pro
       .expect(200);
 
     expect(typeof response.body.data.systemId).toBe('string');
-    expect(typeof response.body.data.propertyId).toBe('number');
+    expect(typeof response.body.data.naturalId).toBe('number');
     expect(typeof response.body.data.name).toBe('string');
     expect(typeof response.body.data.type).toBe('string');
     expect(response.body.data.elements).toBeUndefined();

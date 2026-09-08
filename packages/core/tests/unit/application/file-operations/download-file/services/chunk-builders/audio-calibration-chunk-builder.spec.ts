@@ -31,14 +31,14 @@ describe('AudioCalibrationChunkBuilder', () => {
       } = {
         audioCalibrationData: [
           {
-            subgraphId: 100,
+            naturalId: 100,
             keyValueCombinations: [
               {
                 keyIds: [1, 2],
                 valueIds: [10, 20],
                 modules: [
                   {
-                    moduleInstanceId: 5,
+                    moduleInstanceNaturalId: 5,
                     parameters: [
                       {
                         parameterId: 101,

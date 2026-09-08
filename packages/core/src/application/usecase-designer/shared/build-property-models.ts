@@ -25,7 +25,7 @@ export function buildPropertyModels(
     if (p === undefined) {
       issues.push({
         code: ISSUE_CODE.PROPERTY_PAYLOAD_NOT_FOUND,
-        message: `No payload found for property definition with systemId ${def.systemId} (propertyId ${def.propertyId})`,
+        message: `No payload found for property definition with systemId ${def.systemId} (propertyId ${def.naturalId})`,
         severity: IssueSeverity.Error,
       });
       continue;
@@ -36,7 +36,7 @@ export function buildPropertyModels(
         : [];
     data.push({
       systemId: p.systemId,
-      propertyId: def.propertyId,
+      naturalId: def.naturalId,
       propertyName: def.name,
       elements,
     });

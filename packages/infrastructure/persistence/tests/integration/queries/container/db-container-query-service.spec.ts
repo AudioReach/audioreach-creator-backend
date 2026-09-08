@@ -118,7 +118,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
     await getTestRepository(ContainerPropertyDefinitionSchema).save({
       systemId,
       fileSystemId,
-      propertyId: systemId,
+      naturalId: systemId,
       name: `prop-${systemId}`,
       maxSize: 4,
       propertyType: 'SPF',
@@ -142,7 +142,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
 
       await containerRepository.save({
         systemId: 1,
-        containerId: 10,
+        naturalId: 10,
         containerTypeSystemId: 0,
         fileSystemId,
       });
@@ -171,7 +171,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
 
       await containerRepository.save({
         systemId: 1,
-        containerId: 10,
+        naturalId: 10,
         containerTypeSystemId: 0,
         fileSystemId,
       });
@@ -197,7 +197,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
 
       await containerRepository.save({
         systemId: 1,
-        containerId: 10,
+        naturalId: 10,
         containerTypeSystemId: 0,
         fileSystemId,
       });
@@ -239,7 +239,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
 
       await containerRepository.save({
         systemId: 1,
-        containerId: 10,
+        naturalId: 10,
         containerTypeSystemId: 0,
         fileSystemId,
       });
@@ -281,7 +281,7 @@ describe('DbContainerQueryService.findPropertyPayloads Integration Tests', () =>
         fieldPath: null,
         newValue: {
           systemId: 2,
-          containerId: 20,
+          naturalId: 20,
           containerTypeSystemId: 0,
           fileSystemId,
         },

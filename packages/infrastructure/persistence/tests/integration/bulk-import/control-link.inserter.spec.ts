@@ -51,7 +51,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 
   await manager.insert('Subgraph', {
     systemId: SUBGRAPH_ID,
-    subgraphId: 1,
+    naturalId: 1,
     name: 'test-subgraph',
     isImported: 0,
     fileSystemId: FILE_ID,
@@ -79,28 +79,28 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 
   await manager.insert('ControlPort', {
     systemId: PORT_A_ID,
-    portId: 1,
+    naturalId: 1,
     isStatic: 1,
     nodeSystemId: NODE_A_ID,
     version: 1,
   });
   await manager.insert('ControlPort', {
     systemId: PORT_B_ID,
-    portId: 2,
+    naturalId: 2,
     isStatic: 1,
     nodeSystemId: NODE_B_ID,
     version: 1,
   });
   await manager.insert('ControlPort', {
     systemId: SCL_PORT_A_ID,
-    portId: 1,
+    naturalId: 1,
     isStatic: 0,
     nodeSystemId: SUBSYSTEM_NODE_ID,
     version: 1,
   });
   await manager.insert('ControlPort', {
     systemId: SCL_PORT_B_ID,
-    portId: 2,
+    naturalId: 2,
     isStatic: 0,
     nodeSystemId: SUBSYSTEM_NODE_ID,
     version: 1,
@@ -209,14 +209,14 @@ describe('ControlLinkInserter', () => {
     });
     await manager.insert('ControlPort', {
       systemId: 302,
-      portId: 3,
+      naturalId: 3,
       isStatic: 1,
       nodeSystemId: 202,
       version: 1,
     });
     await manager.insert('ControlPort', {
       systemId: 303,
-      portId: 4,
+      naturalId: 4,
       isStatic: 1,
       nodeSystemId: 203,
       version: 1,
@@ -292,14 +292,14 @@ describe('ControlLinkInserter', () => {
     });
     await manager.insert('ControlPort', {
       systemId: 304,
-      portId: 5,
+      naturalId: 5,
       isStatic: 1,
       nodeSystemId: 204,
       version: 1,
     });
     await manager.insert('ControlPort', {
       systemId: 305,
-      portId: 6,
+      naturalId: 6,
       isStatic: 1,
       nodeSystemId: 205,
       version: 1,

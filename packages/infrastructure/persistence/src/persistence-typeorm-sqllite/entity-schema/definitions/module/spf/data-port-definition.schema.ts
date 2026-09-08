@@ -14,7 +14,7 @@ import type {DataPortGroupRow} from './data-group-definition.schema.js';
 /** Scalar columns only — used by overlay fetchers. */
 export interface DataPortDefinitionBase {
   systemId: number;
-  dataPortId: number;
+  naturalId: number;
   name?: string;
   dataPortGroupSystemId: number;
 }
@@ -30,7 +30,7 @@ export const DataPortDefinitionSchema = new EntitySchema<DataPortDefinitionRow>(
     tableName: 'data_port_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      dataPortId: {
+      naturalId: {
         type: 'integer',
         name: 'data_port_id',
       },

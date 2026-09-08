@@ -26,7 +26,7 @@ export type SpfModuleFilters = {
   subgraphSystemId?: number | number[];
   containerSystemId?: number | number[];
   definitionSystemId?: number | number[];
-  instanceId?: number | number[];
+  naturalId?: number | number[];
   alias?: string | string[];
   $or?: SpfModuleFilters[];
 };
@@ -37,7 +37,7 @@ export type SpfModuleFilters = {
  * from nodes and merged at the call site.
  */
 export interface OverlaidSpfModule extends SpfModuleBase {
-  parentId: number | null;
+  parentSystemId: number | null;
 }
 
 /**

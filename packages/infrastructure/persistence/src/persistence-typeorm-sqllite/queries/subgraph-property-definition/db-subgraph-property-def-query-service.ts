@@ -64,7 +64,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
       const filtered =
         propertyNaturalId === undefined
           ? rows
-          : rows.filter(r => r.propertyId === propertyNaturalId);
+          : rows.filter(r => r.naturalId === propertyNaturalId);
 
       return Result.ok(filtered.map(r => this.toSummaryReadModel(r)));
     } catch (error) {
@@ -149,7 +149,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
   ): SubgraphPropertyDefinitionSummaryReadModel {
     return {
       systemId: row.systemId,
-      propertyId: row.propertyId,
+      naturalId: row.naturalId,
       name: row.name,
       description: row.description,
       propertyType: row.propertyType,
@@ -171,7 +171,7 @@ export class DbSubgraphPropertyDefQueryService implements SubgraphPropertyDefQue
   ): SubgraphPropertyDefinitionWithElementsReadModel {
     return {
       systemId: row.systemId,
-      propertyId: row.propertyId,
+      naturalId: row.naturalId,
       name: row.name,
       description: row.description,
       propertyType: row.propertyType,

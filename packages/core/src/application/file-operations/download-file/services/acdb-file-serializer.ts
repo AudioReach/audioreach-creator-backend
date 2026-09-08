@@ -219,14 +219,14 @@ export class AcdbFileSerializer {
     voice: CalibrationDataDownloadModel[];
   } {
     const propsBySubgraph = new Map(
-      subgraphData.map(sg => [sg.subgraphId, sg.properties]),
+      subgraphData.map(sg => [sg.naturalId, sg.properties]),
     );
 
     const audio: CalibrationDataDownloadModel[] = [];
     const voice: CalibrationDataDownloadModel[] = [];
 
     for (const entry of calibrationData) {
-      const properties = propsBySubgraph.get(entry.subgraphId) ?? [];
+      const properties = propsBySubgraph.get(entry.naturalId) ?? [];
       if (isVoiceSubgraph(properties)) {
         voice.push(entry);
       } else {

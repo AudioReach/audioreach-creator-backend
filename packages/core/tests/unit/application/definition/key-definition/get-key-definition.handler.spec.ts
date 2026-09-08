@@ -31,7 +31,7 @@ describe('GetKeyDefinitionHandler', () => {
 
     const key: KeyDefinitionReadModel = {
       systemId: 1,
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
       values: [],
     };
@@ -52,7 +52,7 @@ describe('GetKeyDefinitionHandler', () => {
     ).toHaveBeenCalledWith(1, 42);
     expect(result.data).toMatchObject({
       systemId: '1',
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
       values: [],
     });

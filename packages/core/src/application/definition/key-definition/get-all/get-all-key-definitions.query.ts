@@ -8,7 +8,7 @@ import {BaseQuery} from '../../../shared/base-query.js';
 export class GetAllKeyDefinitionsQuery extends BaseQuery {
   constructor(
     public readonly projectId: number,
-    public readonly keyId: number | undefined,
+    public readonly keyNaturalId: number | undefined,
     clientId: string,
   ) {
     super(clientId);

@@ -10,7 +10,7 @@ import {EntitySchema} from 'typeorm';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface ControlPortBase {
   systemId: number;
-  portId: number;
+  naturalId: number;
   name?: string;
   isStatic: boolean;
   nodeSystemId: number;
@@ -25,7 +25,7 @@ export interface ControlPortRow extends EntityBaseRow, ControlPortBase {
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface IntentBase {
   systemId: number;
-  intentId: number;
+  naturalId: number;
   controlPortSystemId: number;
 }
 
@@ -38,7 +38,7 @@ export const ControlPortSchema = new EntitySchema<ControlPortRow>({
   tableName: 'control_ports',
   columns: {
     ...BaseColumnSchemaPart,
-    portId: {
+    naturalId: {
       type: 'integer',
       name: 'port_id',
     },
@@ -76,7 +76,7 @@ export const ControlPortSchema = new EntitySchema<ControlPortRow>({
   indices: [
     {
       name: 'uk_control_port_node_port',
-      columns: ['nodeSystemId', 'portId'],
+      columns: ['nodeSystemId', 'naturalId'],
       unique: true,
     },
   ],
@@ -87,7 +87,7 @@ export const IntentSchema = new EntitySchema<IntentRow>({
   tableName: 'intents',
   columns: {
     ...BaseColumnSchemaPart,
-    intentId: {
+    naturalId: {
       type: 'integer',
       name: 'intent_id',
     },
@@ -110,7 +110,7 @@ export const IntentSchema = new EntitySchema<IntentRow>({
   indices: [
     {
       name: 'uk_intent_control_port_intent',
-      columns: ['controlPortSystemId', 'intentId'],
+      columns: ['controlPortSystemId', 'naturalId'],
       unique: true,
     },
   ],

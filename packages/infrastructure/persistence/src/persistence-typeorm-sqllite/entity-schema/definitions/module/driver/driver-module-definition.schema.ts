@@ -14,7 +14,7 @@ import type {ArcDbFileRow} from '../../../project-data/arc-db-file.schema.js';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface DriverModuleDefinitionBase {
   systemId: number;
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   description?: string;
   groupName?: string;
@@ -34,7 +34,7 @@ export const DriverModuleDefinitionSchema =
     tableName: 'driver_module_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      moduleDefinitionId: {
+      naturalId: {
         type: 'integer',
         name: 'module_definition_id',
       },

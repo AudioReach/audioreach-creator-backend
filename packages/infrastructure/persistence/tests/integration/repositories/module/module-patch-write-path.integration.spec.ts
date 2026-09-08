@@ -147,7 +147,7 @@ describe('Module PATCH write path (integration)', () => {
     await repo.renameModule(MODULE_ID, 'new-alias');
     const port = new DataPort({
       systemId: 700,
-      dataPortId: 3,
+      naturalId: 3,
       portIoType: 'OUTPUT',
       isStatic: false,
     });

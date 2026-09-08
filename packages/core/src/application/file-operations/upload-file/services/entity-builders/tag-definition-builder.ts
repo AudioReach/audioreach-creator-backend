@@ -70,7 +70,7 @@ export class TagDefinitionBuilder {
       // Create TagDefinition entity
       const tagDefinition = new TagDefinition({
         systemId,
-        tagId: awspTagDef.id,
+        naturalId: awspTagDef.id,
         name: awspTagDef.name,
         description: awspTagDef.description,
         keysAllowed,

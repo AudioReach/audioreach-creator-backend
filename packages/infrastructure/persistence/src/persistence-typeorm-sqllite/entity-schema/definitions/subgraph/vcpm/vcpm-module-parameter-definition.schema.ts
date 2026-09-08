@@ -12,7 +12,7 @@ import type {VcpmModuleDefinitionRow} from './vcpm-module-definition.schema.js';
 import type {VcpmParameterPayloadRow} from '../../../usecase-data/subgraph/subgraph-vcpm-data.js';
 
 export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
-  paramId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
@@ -21,7 +21,7 @@ export interface VcpmModuleParameterDefinitionRow extends EntityBaseRow {
   isReadOnly: boolean;
   toolPolicies?: string;
   elementsStructure: string; // JSON
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 
   // Foreign key relation
   vcpmModuleDefinitionSystemId: number;
@@ -37,7 +37,7 @@ export const VcpmModuleParameterDefinitionSchema =
     tableName: 'vcpm_module_parameter_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      paramId: {
+      naturalId: {
         type: 'integer',
         name: 'param_id',
       },
@@ -79,7 +79,7 @@ export const VcpmModuleParameterDefinitionSchema =
         name: 'elements_structure',
         nullable: true,
       },
-      copySrcParamId: {
+      copySrcParamNaturalId: {
         type: 'integer',
         nullable: true,
         name: 'copy_src_param_id',

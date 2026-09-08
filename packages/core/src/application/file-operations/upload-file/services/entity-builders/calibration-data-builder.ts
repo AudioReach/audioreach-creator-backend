@@ -675,7 +675,7 @@ export class CalibrationDataBuilder {
 
   /**
    * Builds VcpmInstance entities from the VCPM_CALDATA chunk and attaches them
-   * to the matching Subgraph entities by subgraphId.
+   * to the matching Subgraph entities by subgraphNaturalId.
    */
   async attachVcpmDataToSubgraphs(
     parsedAcdb: ParsedAcdb,
@@ -713,21 +713,21 @@ export class CalibrationDataBuilder {
     if (vcpmDefinitionSystemId === undefined) {
       this.logger?.logWarn({
         msg: 'vcpm_definition_not_found',
-        description: `VCPM module definition not found for voiceModuleInstanceId=${voiceCalChunk.voiceModuleInstanceId} — skipping VCPM data attachment`,
+        description: `VCPM module definition not found for voiceModuleInstanceNaturalId=${voiceCalChunk.voiceModuleInstanceId} — skipping VCPM data attachment`,
         component: 'CalibrationDataBuilder',
         tag: 'vcpm-building',
       });
       return;
     }
 
-    const subgraphByNaturalId = new Map(subgraphs.map(s => [s.subgraphId, s]));
+    const subgraphByNaturalId = new Map(subgraphs.map(s => [s.naturalId, s]));
 
     for (const sgCalTbl of voiceCalChunk.subgraphCalTables) {
       const subgraph = subgraphByNaturalId.get(sgCalTbl.subgraphId);
       if (!subgraph) {
         this.logger?.logWarn({
           msg: 'vcpm_subgraph_not_found',
-          description: `Subgraph not found for subgraphId=${sgCalTbl.subgraphId} — skipping VCPM data for this subgraph`,
+          description: `Subgraph not found for subgraphNaturalId=${sgCalTbl.subgraphId} — skipping VCPM data for this subgraph`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
         });
@@ -748,7 +748,7 @@ export class CalibrationDataBuilder {
       } catch (error) {
         this.logger?.logWarn({
           msg: 'vcpm_instance_build_failed',
-          description: `Failed to build VCPM instance for subgraphId=${sgCalTbl.subgraphId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          description: `Failed to build VCPM instance for subgraphNaturalId=${sgCalTbl.subgraphId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           component: 'CalibrationDataBuilder',
           tag: 'vcpm-building',
         });
@@ -777,7 +777,7 @@ export class CalibrationDataBuilder {
     const vcpmInstance = new VcpmInstance({
       systemId: instanceSystemId,
       subgraphSystemId,
-      vcpmDefinitionId: vcpmDefinitionSystemId,
+      vcpmModuleDefinitionSystemId: vcpmDefinitionSystemId,
     });
 
     const masterKeyTbl = voiceCalChunk.getMasterKeyTable(

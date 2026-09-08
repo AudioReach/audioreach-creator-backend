@@ -69,17 +69,20 @@ export class ContainerPropertyDefinitionFetcher {
    * Returns one container property definition by natural property ID with the
    * active session overlay applied.
    */
-  async fetchOneByPropertyId(
+  async fetchOneByPropertyNaturalId(
     fileSystemId: number,
-    propertyId: number,
+    propertyNaturalId: number,
     sessionId: number | null,
   ): Promise<ContainerPropertyBase | null> {
     const baselineRow = (await this.manager
       .getRepository(ENTITY_NAMES.ContainerProperty)
       .createQueryBuilder('cp')
       .where(
-        'cp.fileSystemId = :fileSystemId AND cp.propertyId = :propertyId',
-        {fileSystemId, propertyId},
+        'cp.fileSystemId = :fileSystemId AND cp.naturalId = :propertyNaturalId',
+        {
+          fileSystemId,
+          propertyNaturalId,
+        },
       )
       .getOne()) as ContainerPropertyBase | null;
 
@@ -92,7 +95,11 @@ export class ContainerPropertyDefinitionFetcher {
     const createdAction = actions.find(
       action =>
         action.operation === CHANGE_OPERATION.Create &&
-        matchesPropertyId(action.newValue, fileSystemId, propertyId),
+        matchesPropertyNaturalId(
+          action.newValue,
+          fileSystemId,
+          propertyNaturalId,
+        ),
     );
     const systemId = baselineRow?.systemId ?? createdAction?.targetSystemId;
     if (systemId === undefined) return null;
@@ -106,14 +113,15 @@ export class ContainerPropertyDefinitionFetcher {
   }
 }
 
-function matchesPropertyId(
+function matchesPropertyNaturalId(
   value: unknown,
   fileSystemId: number,
-  propertyId: number,
+  propertyNaturalId: number,
 ): boolean {
   if (value === null || typeof value !== 'object') return false;
   const property = value as Partial<ContainerPropertyBase>;
   return (
-    property.fileSystemId === fileSystemId && property.propertyId === propertyId
+    property.fileSystemId === fileSystemId &&
+    property.naturalId === propertyNaturalId
   );
 }

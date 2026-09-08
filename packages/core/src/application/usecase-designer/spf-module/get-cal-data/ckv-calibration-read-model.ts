@@ -8,7 +8,7 @@ import type {ParamType} from '../../../../domain/entities/definitions/common/typ
 
 export interface ParameterCalibrationReadModel {
   readonly systemId: number;
-  parameterId: number;
+  naturalId: number;
   name: string;
   description?: string;
   isReadOnly: boolean;

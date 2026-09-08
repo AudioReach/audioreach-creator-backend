@@ -51,7 +51,7 @@ export interface WorkerErrorDetails {
   handlerKey?: string;
 
   /** Worker identifier */
-  workerId?: string;
+  workerKey?: string;
 
   /** Task execution start time */
   startTime?: Date;

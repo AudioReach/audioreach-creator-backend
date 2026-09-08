@@ -30,7 +30,7 @@ export class SubgraphPropertyDefinitionInserter {
     const rows: InsertRow<SubgraphPropertyRow>[] = items.map(item => ({
       systemId: item.systemId,
       fileSystemId: item.fileSystemId,
-      propertyId: item.propertyId,
+      naturalId: item.naturalId,
       name: item.name,
       propertyType: item.type,
       description: item.description,
@@ -51,7 +51,7 @@ export class SubgraphPropertyDefinitionInserter {
       return {
         systemId: item.systemId,
         entityLabel: 'SubgraphPropertyDefinition',
-        failedRowJson: `(propertyId=${BinaryUtils.toHexString(item.propertyId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(propertyId=${BinaryUtils.toHexString(item.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -60,7 +60,7 @@ export class SubgraphPropertyDefinitionInserter {
       rawFailures,
       aggregateById,
       item =>
-        `SubgraphPropertyDefinition (propertyId=${BinaryUtils.toHexString(item.propertyId)})`,
+        `SubgraphPropertyDefinition (propertyId=${BinaryUtils.toHexString(item.naturalId)})`,
     );
   }
 }
