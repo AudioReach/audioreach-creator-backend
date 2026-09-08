@@ -23,6 +23,7 @@ import type {
   DataLinkQueryService,
   ControlLinkQueryService,
   SubsystemQueryService,
+  VcpmQueryService,
   Logger,
 } from '@arc/core';
 import {DataSource} from 'typeorm';
@@ -58,6 +59,8 @@ import {TkvParameterPayloadFetcher} from '../fetchers/tkv-parameter-payload-fetc
 import {TkvOverlayFetcher} from '../fetchers/tkv-overlay-fetcher.js';
 import {SpfModuleOverlayFetcher} from '../fetchers/spf-module-overlay-fetcher.js';
 import {SpfModuleParameterDefinitionFetcher} from '../fetchers/definitions/spf-module-definitions/spf-module-parameter-definition-fetcher.js';
+import {VcpmOverlayFetcher} from '../fetchers/vcpm-overlay-fetcher.js';
+import {DbVcpmQueryService} from './vcpm/db-vcpm-query-service.js';
 
 class DbModuleQueryService implements ModuleQueryService {}
 
@@ -81,6 +84,7 @@ export class DbQueryServices implements QueryServices {
   readonly dataLinkQueryService: DataLinkQueryService;
   readonly controlLinkQueryService: ControlLinkQueryService;
   readonly subsystemQueryService: SubsystemQueryService;
+  readonly vcpmQueryService: VcpmQueryService;
 
   constructor(
     dataSource: DataSource,
@@ -166,6 +170,16 @@ export class DbQueryServices implements QueryServices {
     this.keyValueDefQueryService = new DbKeyValueDefQueryService(
       dataSource,
       editActionsQueryService,
+    );
+
+    const vcpmOverlayFetcher = new VcpmOverlayFetcher(
+      dataSource.manager,
+      editActionsQueryService,
+    );
+    this.vcpmQueryService = new DbVcpmQueryService(
+      vcpmOverlayFetcher,
+      this.keyValueDefQueryService,
+      sessionRepo,
     );
 
     this.tagDefinitionQueryService = new DbTagDefinitionQueryService(
