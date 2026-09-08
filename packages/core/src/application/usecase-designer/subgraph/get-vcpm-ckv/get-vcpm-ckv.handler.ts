@@ -40,64 +40,46 @@ export class GetVcpmCkvHandler implements QueryHandler<
       );
     }
 
-    const instance =
-      await this.queryServices.vcpmQueryService.getVcpmInstanceBySubgraph(
+    const aggregateResult =
+      await this.queryServices.subgraphQueryService.getVcpmAggregateBySubgraph(
         query.subgraphSystemId,
         fileSystemId,
       );
-    if (!instance) {
+    if (aggregateResult.kind === RESULT_KIND.Fail) {
+      throw new Error('Failed to load VCPM aggregate');
+    }
+
+    const aggregate = aggregateResult.data;
+    if (aggregate.parameterCkvLinks.length === 0) {
       return Result.ok({configuredParams: []});
     }
 
-    // Payloads are used only to identify which parameters are configured — the binary
-    // payload content is not read here. Null payloads are valid (parameter configured
-    // but not yet written) and are intentionally not treated as an error at this layer.
-    const allPayloads =
-      await this.queryServices.vcpmQueryService.getVcpmParameterPayloadsByInstance(
-        instance.systemId,
-        query.subgraphSystemId,
-        fileSystemId,
-      );
+    const definitionById = new Map(
+      aggregate.parameterDefinitions.map(definition => [
+        definition.systemId,
+        definition,
+      ]),
+    );
+    const ckvById = new Map(aggregate.ckvs.map(ckv => [ckv.systemId, ckv]));
 
-    const uniqueParamIds = [
-      ...new Set(allPayloads.map(p => p.vcpmParameterSystemId)),
-    ];
-    if (uniqueParamIds.length === 0) {
-      return Result.ok({configuredParams: []});
-    }
-
-    const [ckvs, paramDefs] = await Promise.all([
-      this.queryServices.vcpmQueryService.getVcpmCkvsByInstance(
-        instance.systemId,
-        query.subgraphSystemId,
-        fileSystemId,
-      ),
-      this.queryServices.vcpmQueryService.getVcpmParameterDefinitions(
-        uniqueParamIds,
-      ),
-    ]);
-    const defMap = new Map(paramDefs.map(d => [d.systemId, d]));
-
-    const configuredParams = uniqueParamIds.map(paramId => {
-      const def = defMap.get(paramId);
-      if (def === undefined) {
-        throw new ParameterDefinitionMissingError(paramId);
+    const configuredParams = aggregate.parameterCkvLinks.map(link => {
+      const definition = definitionById.get(link.parameterSystemId);
+      if (definition === undefined) {
+        throw new ParameterDefinitionMissingError(link.parameterSystemId);
       }
       return {
-        paramSystemId: String(paramId),
-        paramName: def.name,
-        associatedCkvs: ckvs
-          .filter(ckv =>
-            allPayloads.some(
-              p =>
-                p.vcpmParameterSystemId === paramId &&
-                p.vcpmCkvSystemId === ckv.systemId,
-            ),
-          )
-          .map(ckv => ({
+        paramSystemId: String(link.parameterSystemId),
+        paramName: definition.name,
+        associatedCkvs: link.ckvSystemIds.map(ckvSystemId => {
+          const ckv = ckvById.get(ckvSystemId);
+          if (ckv === undefined) {
+            throw new Error(`Missing CKV ${ckvSystemId} in VCPM summary`);
+          }
+          return {
             ckvSystemId: String(ckv.systemId),
             ckv: ckv.values,
-          })),
+          };
+        }),
       };
     });
 

@@ -4,8 +4,8 @@
  */
 
 import {z} from 'zod';
+import {KeyInfoDtoSchema} from '../../../../shared/dto/key-value-info-dto.js';
 import {
-  KeyInfoDtoSchema,
   DataPortDtoSchema,
   ControlPortDtoSchema,
 } from '../../spf-module/query/spf-module-dto.js';

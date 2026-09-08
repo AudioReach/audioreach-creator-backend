@@ -109,6 +109,12 @@ import type {
   VcpmParameterPayloadRow,
 } from '../../entity-schema/usecase-data/subgraph/subgraph-vcpm-data.js';
 
+type VcpmCalibrationParameter = {
+  naturalId: number;
+  payload: Uint8Array;
+  pidType: string;
+};
+
 /**
  * TypeORM implementation of BulkReadQueryService.
  * All queries use TypeORM Query Builder — no raw dataSource.query() calls.
@@ -1028,18 +1034,9 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   ): CalibrationDataDownloadModel[] {
     type Augmented = VcpmCkvRow & {values: VcpmCkvValuesRow[]};
 
-    const paramMap = new Map<
-      number,
-      Array<{naturalId: number; payload: Uint8Array; pidType: string}>
-    >();
+    const paramMap = new Map<number, VcpmCalibrationParameter[]>();
     for (const row of paramRows) {
-      if (!paramMap.has(row.vcpmCkvSystemId))
-        paramMap.set(row.vcpmCkvSystemId, []);
-      paramMap.get(row.vcpmCkvSystemId)!.push({
-        naturalId: row.vcpmParameter.naturalId,
-        payload: row.payload,
-        pidType: '',
-      });
+      this.addVcpmCalibrationParameter(paramMap, row);
     }
 
     const result: CalibrationDataDownloadModel[] = [];
@@ -1105,6 +1102,23 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   }
 
   // ─── Tag Keys ─────────────────────────────────────────────────────────────
+
+  private addVcpmCalibrationParameter(
+    paramMap: Map<number, VcpmCalibrationParameter[]>,
+    row: VcpmParameterPayloadRow,
+  ): void {
+    // Download models require binary calibration data. A nullable database
+    // payload represents an incomplete row and must not be emitted.
+    if (row.payload === null) return;
+
+    const parameters = paramMap.get(row.vcpmCkvSystemId) ?? [];
+    parameters.push({
+      naturalId: row.vcpmParameter.naturalId,
+      payload: row.payload,
+      pidType: '',
+    });
+    paramMap.set(row.vcpmCkvSystemId, parameters);
+  }
 
   async readTagKeys(fileSystemId: number): Promise<TagKeysDownloadModel[]> {
     const rows = (await this.dataSource
