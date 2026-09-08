@@ -44,11 +44,14 @@ import {
   GetAllUseCasesQuery,
   GetComponentsQuery,
   GetComponentsWithSubsystemsQuery,
+  GetSubsystemFilteredUsecasesQuery,
   type Result,
   type UseCaseDto as CoreUseCaseDto,
   type ComponentCollectionDto as CoreComponentCollectionDto,
   type ComponentCollectionWithSubsystemsDto as CoreComponentsWithSubsystemsResponseDto,
+  type SubsystemFilteredReadModel,
   COMPONENT_SCOPE_TYPE,
+  RESULT_KIND,
   FilterParser,
   validateFilterFields,
 } from '@arc/core';
@@ -62,6 +65,21 @@ const USECASE_ALLOWED_FILTER_FIELDS: ReadonlySet<string> = new Set([
   'subgraphNaturalId',
   'containerNaturalId',
 ]);
+
+/**
+ * Valid filter fields for GET /usecases/filtered-by-subsystem.
+ * This endpoint extends GET /usecases, so all existing filters remain valid.
+ */
+const SUBSYSTEM_FILTER_ALLOWED_FIELDS: ReadonlySet<string> = new Set([
+  ...USECASE_ALLOWED_FILTER_FIELDS,
+  'subsystemId',
+]);
+
+function toSubsystemFilteredUsecasesResponse(
+  group: SubsystemFilteredReadModel,
+) {
+  return Object.assign(new SubsystemFilteredUsecasesResponseDto(), group);
+}
 
 /**
  * Controller to support all usecase related APIs
@@ -108,7 +126,7 @@ export class UseCaseController extends BaseController {
       '- OR operator: `field1:value1 OR field1:value2`\n' +
       '- Parentheses for grouping: `field1:value1 AND (field2:value2 OR field2:value3)`\n\n' +
       '**Valid Fields:**\n' +
-      '- `spfModuleInstanceId`: SPF Module natural instance ID\n' +
+      '- `spfModuleInstanceNaturalId`: SPF Module natural instance ID\n' +
       '- `subgraphNaturalId`: Subgraph natural ID\n' +
       '- `containerNaturalId`: Container natural ID\n\n' +
       '**Value Formats:**\n' +
@@ -119,14 +137,14 @@ export class UseCaseController extends BaseController {
       '- `OR`: At least one condition must be true\n' +
       '- Parentheses `()`: Group conditions for precedence control\n\n' +
       '**Examples:**\n' +
-      '- Single condition: `spfModuleInstanceId:0x7656`\n' +
-      '- OR operator: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657`\n' +
-      '- AND operator: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978`\n' +
-      '- Complex with parentheses: `spfModuleInstanceId:0x7656 AND (containerNaturalId:0x8976 OR containerNaturalId:0x9877)`\n' +
-      '- Multiple ANDs: `spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978 AND containerNaturalId:0x8976`\n' +
-      '- Multiple ORs: `spfModuleInstanceId:0x7656 OR spfModuleInstanceId:0x7657 OR spfModuleInstanceId:0x7658`\n\n' +
+      '- Single condition: `spfModuleInstanceNaturalId:0x7656`\n' +
+      '- OR operator: `spfModuleInstanceNaturalId:0x7656 OR spfModuleInstanceNaturalId:0x7657`\n' +
+      '- AND operator: `spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978`\n' +
+      '- Complex with parentheses: `spfModuleInstanceNaturalId:0x7656 AND (containerNaturalId:0x8976 OR containerNaturalId:0x9877)`\n' +
+      '- Multiple ANDs: `spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978 AND containerNaturalId:0x8976`\n' +
+      '- Multiple ORs: `spfModuleInstanceNaturalId:0x7656 OR spfModuleInstanceNaturalId:0x7657 OR spfModuleInstanceNaturalId:0x7658`\n\n' +
       '**Note:** Comma-separated values are NOT supported. Use explicit OR operator instead.',
-    example: 'spfModuleInstanceId:0x7656 AND subgraphNaturalId:0x8978',
+    example: 'spfModuleInstanceNaturalId:0x7656 AND subgraphNaturalId:0x8978',
   })
   @ApiDocumentationWithExample({
     summary: 'Get all usecases with optional filtering',
@@ -140,7 +158,7 @@ export class UseCaseController extends BaseController {
       '**Optional Filtering:**\n' +
       'You can optionally filter usecases using the `filter` query parameter. ' +
       'The filter supports:\n' +
-      '- `spfModuleInstanceId`: Filter by SPF module natural instance IDs\n' +
+      '- `spfModuleInstanceNaturalId`: Filter by SPF module natural instance IDs\n' +
       '- `subgraphNaturalId`: Filter by subgraph natural IDs\n' +
       '- `containerNaturalId`: Filter by container natural IDs\n' +
       '- Operators: Use `AND`, `OR`, and parentheses for complex filtering\n\n' +
@@ -226,14 +244,17 @@ export class UseCaseController extends BaseController {
     required: false,
     type: 'string',
     description:
-      'Filter expression to filter usecases by subsystem ID. Supports natural query syntax with explicit operators.\n\n' +
+      'Filter expression to filter usecases by subsystem and existing usecase fields. Supports natural query syntax with explicit operators.\n\n' +
       '**Syntax:**\n' +
       '- Single condition: `subsystemId:value`\n' +
       '- AND operator: `subsystemId:value1 AND subsystemId:value2`\n' +
       '- OR operator: `subsystemId:value1 OR subsystemId:value2`\n' +
       '- Parentheses for grouping: `subsystemId:value1 AND (subsystemId:value2 OR subsystemId:value3)`\n\n' +
       '**Valid Fields:**\n' +
-      '- `subsystemId`: Subsystem system ID (only field supported by this endpoint)\n\n' +
+      '- `subsystemId`: Subsystem natural ID\n' +
+      '- `spfModuleInstanceNaturalId`: SPF Module natural instance ID\n' +
+      '- `subgraphNaturalId`: Subgraph natural ID\n' +
+      '- `containerNaturalId`: Container natural ID\n\n' +
       '**Value Formats:**\n' +
       '- Hexadecimal: `0x1`\n' +
       '- Decimal: `1`\n\n' +
@@ -248,7 +269,7 @@ export class UseCaseController extends BaseController {
       '- Complex with parentheses: `subsystemId:0x1 AND (subsystemId:0x2 OR subsystemId:0x3)`\n\n' +
       '**Note:** \n' +
       '- Comma-separated values are NOT supported. Use explicit OR operator instead.\n' +
-      '- For filtering by spfModuleInstanceId, subgraphNaturalId, or containerNaturalId, use the `/usecases` endpoint instead.',
+      '- For filtering by spfModuleInstanceNaturalId, subgraphNaturalId, or containerNaturalId, use the `/usecases` endpoint instead.',
     example: 'subsystemId:0x1 OR subsystemId:0x2',
   })
   @ApiDocumentationWithExample({
@@ -281,28 +302,50 @@ export class UseCaseController extends BaseController {
       },
     ],
   })
-  getSubsystemFilteredUsecases(
+  async getSubsystemFilteredUsecases(
     @Param('projectId') projectId: string,
+    @ClientId() clientId: string,
     @Query('filter') filterExpression?: string,
   ): Promise<ApiResult<SubsystemFilteredUsecasesResponseDto[]>> {
-    console.log('Getting subsystem-filtered usecases for project:', projectId);
-
-    // TODO: Implement filter parsing and validation
-    if (filterExpression) {
-      console.log(
-        'Filter expression provided but not yet implemented:',
-        filterExpression,
-      );
+    const parsedProjectId = Number.parseInt(projectId, 10);
+    if (Number.isNaN(parsedProjectId)) {
+      throw new BadRequestException(`Invalid project ID: ${projectId}`);
     }
 
-    // TODO: Implement subsystem filtering logic
-    // 1. Query usecases with subsystem hierarchy
-    // 2. Group usecases by subsystem-filtered GKV
-    // 3. Create SubsystemFilteredUsecasesResponseDto instances
-    // 4. Return organized hierarchy
+    const {expression, issue} = FilterParser.tryParse(filterExpression);
+    if (issue) throw new BadRequestException(issue.message);
 
-    throw new NotImplementedException(
-      'getSubsystemFilteredUsecases is not implemented yet',
+    if (expression) {
+      const unknownField = validateFilterFields(
+        expression,
+        SUBSYSTEM_FILTER_ALLOWED_FIELDS,
+      );
+      if (unknownField) {
+        throw new BadRequestException(
+          `Unknown filter field: '${unknownField}'.`,
+        );
+      }
+    }
+
+    const query = new GetSubsystemFilteredUsecasesQuery(
+      parsedProjectId,
+      clientId,
+      expression,
+    );
+
+    const result =
+      await this.queryBus.execute<Result<SubsystemFilteredReadModel[]>>(query);
+
+    // FBS-06: handler returns parseError with INVALID_FILTER_VALUE for unknown subsystemId
+    if (
+      result.kind === RESULT_KIND.Fail &&
+      result.issues[0]?.code === 'INVALID_FILTER_VALUE'
+    ) {
+      throw new BadRequestException(result.issues[0].message);
+    }
+
+    return toApiResult(result, data =>
+      data.map(group => toSubsystemFilteredUsecasesResponse(group)),
     );
   }
 

@@ -17,7 +17,15 @@ import type {KeyDefinitionSummaryReadModel} from '../key-value/key-value-definit
  */
 export interface SubsystemReadModel {
   readonly systemId: number;
+  /** Natural subsystem identifier used by subsystem filter expressions. */
+  readonly subsystemNaturalId?: number;
   readonly name: string;
   readonly parentSystemId?: number;
   readonly filteredKeys: KeyDefinitionSummaryReadModel[];
+  /**
+   * System IDs of key definitions associated through the subsystem's
+   * filtered-key relation. This derived field is matched against usecase GKV
+   * key system IDs; it is not a column on the Subsystem entity.
+   */
+  readonly filteredKeySystemIds?: readonly number[];
 }

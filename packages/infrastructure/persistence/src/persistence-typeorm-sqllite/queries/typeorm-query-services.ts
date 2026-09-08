@@ -248,6 +248,8 @@ export class DbQueryServices implements QueryServices {
       editActionsQueryService,
       usecaseOverlayFetcher,
       linkOverlayFetcher,
+      subsystemOverlayFetcher,
+      subgraphOverlayFetcher,
     );
 
     // Individual link + subsystem query services
