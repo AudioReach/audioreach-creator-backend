@@ -6,6 +6,7 @@
 import {
   UsecaseResponseDto,
   SubsystemFilteredUsecasesResponseDto,
+  SubsystemFilteredKvDto,
 } from '../../../modules/usecase/dto/usecase-response.dto.js';
 import {ComponentsResponseDto} from '../../dto/component-collection-response.dto.js';
 import {
@@ -13,7 +14,6 @@ import {
   KeyInfoDto,
   ValueInfoDto,
   SystemIdsRequestDto,
-  SubsystemFilteredKeyValuePairsInfoDto,
 } from '../../dto/index.js';
 import {EndPointLink} from '../../../common/utils/index.js';
 import {
@@ -57,8 +57,8 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     const ucExamples = UseCaseIdentifierCollectionExample.getExample();
     const keyvalueInfo = [
       kv(
-        0xac_db_f1_00,
-        'Subsystem',
+        0xa1_00_00_00,
+        'StreamType',
         'sys1',
         0xf0_10_00_2e,
         'Playback_stream_DevPP',
@@ -66,21 +66,22 @@ export const SubsystemFilteredUseCaseCollectionExample = {
       ),
       kv(
         0xac_00_00_00,
-        'Subsystem',
+        'DeviceType',
         'sys2',
         0xf0_10_00_34,
         'Rx_Devices',
         'val2',
       ),
     ];
-    const filteredKv = Object.assign(
-      new SubsystemFilteredKeyValuePairsInfoDto(),
-      {
-        keyValuePairs: keyvalueInfo,
-      },
-    );
+    const filteredKv = Object.assign(new SubsystemFilteredKvDto(), {
+      keyValuePairs: keyvalueInfo,
+      subsystems: [{subsystemNaturalId: 1, name: 'Voice'}],
+    });
     ssFilteredUcCollection.push(
-      new SubsystemFilteredUsecasesResponseDto(filteredKv, ucExamples),
+      Object.assign(new SubsystemFilteredUsecasesResponseDto(), {
+        filteredKv,
+        usecases: ucExamples,
+      }),
     );
 
     return ssFilteredUcCollection;
@@ -95,8 +96,8 @@ export const SubsystemFilteredUseCaseCollectionExample = {
     // First filtered group
     const keyvalueInfo1 = [
       kv(
-        0xac_db_f1_00,
-        'Subsystem',
+        0xa1_00_00_00,
+        'StreamType',
         'sys3',
         0xf0_10_00_2e,
         'Playback_stream_DevPP',
@@ -104,27 +105,31 @@ export const SubsystemFilteredUseCaseCollectionExample = {
       ),
       kv(
         0xac_00_00_00,
-        'Subsystem',
+        'DeviceType',
         'sys4',
         0xf0_10_00_34,
         'Rx_Devices',
         'val4',
       ),
     ];
-    const filteredKv1 = Object.assign(
-      new SubsystemFilteredKeyValuePairsInfoDto(),
-      {keyValuePairs: keyvalueInfo1},
-    );
+    const filteredKv1 = Object.assign(new SubsystemFilteredKvDto(), {
+      keyValuePairs: keyvalueInfo1,
+    });
     const usecases1 = [UsecaseResponseDtoExample.getExample()];
     collection.push(
-      new SubsystemFilteredUsecasesResponseDto(filteredKv1, usecases1),
+      Object.assign(new SubsystemFilteredUsecasesResponseDto(), {
+        filteredKv: Object.assign(filteredKv1, {
+          subsystems: [{subsystemNaturalId: 3, name: 'Voice'}],
+        }),
+        usecases: usecases1,
+      }),
     );
 
     // Second filtered group
     const keyvalueInfo2 = [
       kv(
-        0xac_db_f1_01,
-        'Subsystem',
+        0xa1_00_00_01,
+        'StreamType',
         'sys5',
         0xf0_10_00_3a,
         'Record_stream_DevPP',
@@ -132,20 +137,24 @@ export const SubsystemFilteredUseCaseCollectionExample = {
       ),
       kv(
         0xac_00_00_01,
-        'Subsystem',
+        'DeviceType',
         'sys6',
         0xf0_10_00_35,
         'Tx_Devices',
         'val6',
       ),
     ];
-    const filteredKv2 = Object.assign(
-      new SubsystemFilteredKeyValuePairsInfoDto(),
-      {keyValuePairs: keyvalueInfo2},
-    );
+    const filteredKv2 = Object.assign(new SubsystemFilteredKvDto(), {
+      keyValuePairs: keyvalueInfo2,
+    });
     const usecases2 = UseCaseIdentifierCollectionExample.getExample();
     collection.push(
-      new SubsystemFilteredUsecasesResponseDto(filteredKv2, usecases2),
+      Object.assign(new SubsystemFilteredUsecasesResponseDto(), {
+        filteredKv: Object.assign(filteredKv2, {
+          subsystems: [{subsystemNaturalId: 5, name: 'Voice'}],
+        }),
+        usecases: usecases2,
+      }),
     );
 
     return collection;

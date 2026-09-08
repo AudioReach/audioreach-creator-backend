@@ -14,6 +14,10 @@ import type {
   KeyValueDefQueryService,
   ISessionRepository,
   SpfModuleQueryService,
+  SpfModuleReadModel,
+  UsecaseFilteredGkvData,
+  SubsystemFilteredModule,
+  SubsystemReadModel,
   KeyValuePairReadModel,
 } from '@arc/core';
 import {CHANGE_OPERATION, Result, IssueFactory, RESULT_KIND} from '@arc/core';
@@ -25,6 +29,10 @@ import {
   UsecaseOverlayFetcher,
 } from '../../fetchers/usecase-overlay-fetcher.js';
 import {LinkOverlayFetcher} from '../../fetchers/link-overlay-fetcher.js';
+import type {OverlaidSubsystem} from '../../fetchers/subsystem-overlay-fetcher.js';
+import {SubsystemOverlayFetcher} from '../../fetchers/subsystem-overlay-fetcher.js';
+import {SubgraphOverlayFetcher} from '../../fetchers/subgraph-overlay-fetcher.js';
+import type {SubgraphBase} from '../../entity-schema/usecase-data/subgraph/subgraph.schema.js';
 import {resolveActiveSessionId} from '../shared/session-resolver.js';
 import type {EditActionsQueryService} from '../edit-session/edit-actions-query-service.js';
 import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.schema.js';
@@ -48,6 +56,8 @@ import type {EditActionRow} from '../../entity-schema/edit-session/edit-action.s
 export class DbUseCaseQueryService implements UseCaseQueryService {
   private readonly usecaseFetcher: UsecaseOverlayFetcher;
   private readonly linkFetcher: LinkOverlayFetcher;
+  private readonly subsystemFetcher: SubsystemOverlayFetcher;
+  private readonly subgraphFetcher: SubgraphOverlayFetcher;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -57,9 +67,13 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
     private readonly editActionsQuerySvc: EditActionsQueryService,
     usecaseFetcher: UsecaseOverlayFetcher,
     linkFetcher: LinkOverlayFetcher,
+    subsystemFetcher: SubsystemOverlayFetcher,
+    subgraphFetcher: SubgraphOverlayFetcher,
   ) {
     this.usecaseFetcher = usecaseFetcher;
     this.linkFetcher = linkFetcher;
+    this.subsystemFetcher = subsystemFetcher;
+    this.subgraphFetcher = subgraphFetcher;
   }
 
   // ── getAllUseCases ────────────────────────────────────────────────────────────
@@ -130,6 +144,81 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
       return Result.fail(
         IssueFactory.dbError(
           error instanceof Error ? error.message : 'Failed to query usecases',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Loads the effective read-side data required by the core
+   * subsystem-filtered GKV algorithm.
+   *
+   * Usecase and subsystem overlays are fetched directly. SPF modules are
+   * loaded through the module query service because it assembles module,
+   * node, subgraph, and container data. Subgraphs provide the mapping from
+   * subgraph system IDs to their natural IDs for filter evaluation.
+   */
+  async getUsecaseFilteredGkvData(
+    fileId: number,
+  ): Promise<Result<UsecaseFilteredGkvData>> {
+    const usecasesResult = await this.getAllUseCases(fileId);
+    if (usecasesResult.kind === RESULT_KIND.Fail) return usecasesResult;
+
+    try {
+      const session =
+        await this.sessionRepo.findActiveSessionByFileSystemId(fileId);
+      const sessionId = session?.sessionId ?? null;
+      const usecases = usecasesResult.data;
+
+      if (usecases.length === 0) {
+        const data: UsecaseFilteredGkvData = {
+          usecases: [],
+          subgraphSystemIdsByUsecase: new Map(),
+          subgraphNaturalIdsBySystemId: new Map(),
+          subsystems: [],
+          modules: [],
+        };
+        return usecasesResult.kind === RESULT_KIND.Partial
+          ? Result.partial(data, usecasesResult.issues)
+          : Result.ok(data);
+      }
+
+      const usecaseSystemIds = usecases.map(usecase => usecase.systemId);
+      const [effectiveUsecases, subsystems, modulesResult, subgraphs] =
+        await Promise.all([
+          this.usecaseFetcher.getUsecases(fileId, sessionId, usecaseSystemIds),
+          this.subsystemFetcher.fetchAll(fileId, sessionId),
+          this.spfModuleQuerySvc.findByUsecaseIds(usecaseSystemIds, fileId),
+          this.subgraphFetcher.fetchMany(fileId, sessionId),
+        ]);
+
+      if (modulesResult.kind === RESULT_KIND.Fail) {
+        return Result.fail(...modulesResult.issues);
+      }
+
+      const data = this.mapSubsystemFilteredGkvData(
+        usecases,
+        effectiveUsecases,
+        subsystems,
+        modulesResult.data,
+        subgraphs,
+      );
+      const issues = [
+        ...(usecasesResult.kind === RESULT_KIND.Partial
+          ? usecasesResult.issues
+          : []),
+        ...(modulesResult.kind === RESULT_KIND.Partial
+          ? modulesResult.issues
+          : []),
+      ];
+
+      return issues.length > 0 ? Result.partial(data, issues) : Result.ok(data);
+    } catch (error) {
+      return Result.fail(
+        IssueFactory.dbError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load subsystem-filtered GKV data',
         ),
       );
     }
@@ -314,6 +403,53 @@ export class DbUseCaseQueryService implements UseCaseQueryService {
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────
+
+  private mapSubsystemFilteredGkvData(
+    usecases: readonly UseCaseReadModel[],
+    effectiveUsecases: readonly OverlaidUseCase[],
+    subsystems: readonly OverlaidSubsystem[],
+    modules: readonly SpfModuleReadModel[],
+    subgraphs: readonly SubgraphBase[],
+  ): UsecaseFilteredGkvData {
+    const effectiveUsecaseById = new Map(
+      effectiveUsecases.map(usecase => [usecase.systemId, usecase]),
+    );
+    const subgraphSystemIdsByUsecase = new Map<number, readonly number[]>(
+      usecases.map(usecase => [
+        usecase.systemId,
+        effectiveUsecaseById.get(usecase.systemId)?.subgraphSystemIds ?? [],
+      ]),
+    );
+    const subgraphNaturalIdsBySystemId = new Map(
+      subgraphs.map(subgraph => [subgraph.systemId, subgraph.naturalId]),
+    );
+
+    const mappedSubsystems: SubsystemReadModel[] = subsystems.map(
+      subsystem => ({
+        systemId: subsystem.systemId,
+        subsystemNaturalId: subsystem.subsystemId,
+        name: subsystem.name,
+        parentSystemId: subsystem.parentSystemId,
+        filteredKeys: [],
+        filteredKeySystemIds: subsystem.filteredKeySystemIds,
+      }),
+    );
+    const mappedModules: SubsystemFilteredModule[] = modules.map(module => ({
+      systemId: module.systemId,
+      parentSystemId: module.parentSystemId,
+      moduleNaturalId: module.naturalId,
+      subgraphSystemId: module.subgraphSystemId,
+      containerSystemId: module.containerSystemId,
+    }));
+
+    return {
+      usecases: [...usecases],
+      subgraphSystemIdsByUsecase,
+      subgraphNaturalIdsBySystemId,
+      subsystems: mappedSubsystems,
+      modules: mappedModules,
+    };
+  }
 
   /**
    * Looks up fileSystemId from any of the given usecase system IDs.

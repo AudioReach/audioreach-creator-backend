@@ -15,7 +15,7 @@ import type {FilterExpression, FilterValue} from '@arc/core';
  *   name:         'subgraphId'
  *   valueType:    'number'
  *   addCondition: adds EXISTS subquery checking use_case_subgraphs
- *   evaluate:     checks uc.subgraphs?.some(s => s.systemId === value)
+ *   evaluate:     checks the related subgraph's natural subgraphId
  */
 export interface ParamFilterField<TEntity = unknown> {
   /** Field name as it appears in the filter string, e.g. 'subgraphId' */
