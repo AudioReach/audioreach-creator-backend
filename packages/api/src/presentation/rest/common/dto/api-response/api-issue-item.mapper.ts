@@ -36,7 +36,7 @@ export function toApiIssueItem(issue: Issue): ApiIssueItem {
   if (issue.fixOptions !== undefined && issue.fixOptions.length > 0) {
     dto.fixOptions = issue.fixOptions.map(fo => {
       const fixOptionDto = new ApiFixOptionDto();
-      fixOptionDto.id = fo.id;
+      fixOptionDto.id = fo.systemId;
       fixOptionDto.description = fo.description;
       fixOptionDto.commandType = fo.commandType;
       fixOptionDto.commandPayload = fo.commandPayload;

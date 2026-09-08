@@ -255,14 +255,17 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
     const pairsMap = new Map<
       number,
-      Array<{sourceSubgraphId: number; destSubgraphId: number}>
+      Array<{
+        sourceSubgraphNaturalId: number;
+        destSubgraphNaturalId: number;
+      }>
     >();
     for (const pair of pairRows) {
       const ucId = pair.useCase!.systemId;
       if (!pairsMap.has(ucId)) pairsMap.set(ucId, []);
       pairsMap.get(ucId)!.push({
-        sourceSubgraphId: pair.sourceSubgraph!.subgraphId,
-        destSubgraphId: pair.destSubgraph!.subgraphId,
+        sourceSubgraphNaturalId: pair.sourceSubgraph!.naturalId,
+        destSubgraphNaturalId: pair.destSubgraph!.naturalId,
       });
     }
 
@@ -271,7 +274,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       keyIds: this.extractKeyIds(uc),
       valueIds: this.extractValueIds(uc),
       subgraphIds: (uc.subgraphMemberships ?? [])
-        .map(membership => membership.subgraph!.subgraphId)
+        .map(membership => membership.subgraph!.naturalId)
         .sort((a, b) => a - b),
       subgraphPairs: pairsMap.get(uc.systemId) ?? [],
     }));
@@ -301,8 +304,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('ucsp.destSubgraph', 'dst')
       .where('uc.fileSystemId = :fileSystemId', {fileSystemId})
       .orderBy('uc.systemId', 'ASC')
-      .addOrderBy('src.subgraphId', 'ASC')
-      .addOrderBy('dst.subgraphId', 'ASC')
+      .addOrderBy('src.naturalId', 'ASC')
+      .addOrderBy('dst.naturalId', 'ASC')
       .getMany() as Promise<UseCaseSubgraphPairRow[]>;
   }
 
@@ -312,9 +315,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
    */
   private extractKeyIds(uc: UseCaseRow): number[] {
     const sorted = [...(uc.gkvEntries ?? [])].sort(
-      (a, b) => (a.valueDef?.keys?.keyId ?? 0) - (b.valueDef?.keys?.keyId ?? 0),
+      (a, b) =>
+        (a.valueDef?.keys?.naturalId ?? 0) - (b.valueDef?.keys?.naturalId ?? 0),
     );
-    return [...new Set(sorted.map(g => g.valueDef!.keys.keyId))];
+    return [...new Set(sorted.map(g => g.valueDef!.keys.naturalId))];
   }
 
   /**
@@ -322,9 +326,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
    */
   private extractValueIds(uc: UseCaseRow): number[] {
     const sorted = [...(uc.gkvEntries ?? [])].sort(
-      (a, b) => (a.valueDef?.keys?.keyId ?? 0) - (b.valueDef?.keys?.keyId ?? 0),
+      (a, b) =>
+        (a.valueDef?.keys?.naturalId ?? 0) - (b.valueDef?.keys?.naturalId ?? 0),
     );
-    return [...new Set(sorted.map(g => g.valueDef!.valueId))];
+    return [...new Set(sorted.map(g => g.valueDef!.naturalId))];
   }
 
   /**
@@ -382,12 +387,12 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     const voiceTagMap = this.buildVoiceTagMap(voiceTagRows);
 
     return subgraphRows.map(sg => ({
-      subgraphId: sg.subgraphId,
-      properties: propertyMap.get(sg.subgraphId) ?? [],
-      modules: moduleMap.get(sg.subgraphId) ?? [],
-      dataLinks: dataLinkMap.get(sg.subgraphId) ?? [],
-      controlLinks: controlLinkMap.get(sg.subgraphId) ?? [],
-      voiceTags: voiceTagMap.get(sg.subgraphId) ?? [],
+      naturalId: sg.naturalId,
+      properties: propertyMap.get(sg.naturalId) ?? [],
+      modules: moduleMap.get(sg.naturalId) ?? [],
+      dataLinks: dataLinkMap.get(sg.naturalId) ?? [],
+      controlLinks: controlLinkMap.get(sg.naturalId) ?? [],
+      voiceTags: voiceTagMap.get(sg.naturalId) ?? [],
     }));
   }
 
@@ -396,7 +401,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .getRepository(ENTITY_NAMES.Subgraph)
       .createQueryBuilder('sg')
       .where('sg.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('sg.subgraphId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
       .getMany() as Promise<SubgraphRow[]>;
   }
 
@@ -409,8 +414,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('spd.subgraph', 'sg')
       .leftJoinAndSelect('spd.subgraphPropertyDefinition', 'def')
       .where('sg.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('def.propertyId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('def.naturalId', 'ASC')
       .getMany() as Promise<SubgraphPropertyDataRow[]>;
   }
 
@@ -426,8 +431,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('sm.node', 'n')
       .leftJoinAndSelect('n.dataPorts', 'dp')
       .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('sm.instanceId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('sm.naturalId', 'ASC')
       .getMany() as Promise<SpfModuleRow[]>;
   }
 
@@ -446,8 +451,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .andWhere('dl.linkType IN (:...types)', {
         types: [LINK_TYPE.IntraSubgraph, LINK_TYPE.InterUsecase],
       })
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('src_mod.instanceId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('src_mod.naturalId', 'ASC')
       .getMany() as Promise<DataLinkRow[]>;
   }
 
@@ -470,8 +475,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .andWhere('cl.linkType IN (:...types)', {
         types: [LINK_TYPE.IntraSubgraph, LINK_TYPE.InterUsecase],
       })
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('peer1_mod.instanceId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('peer1_mod.naturalId', 'ASC')
       .getMany() as Promise<ControlLinkRow[]>;
   }
 
@@ -486,9 +491,9 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('mtim.tagDefinition', 'td')
       .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
       .andWhere('td.isVoice = :isVoice', {isVoice: true})
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('td.tagId', 'ASC')
-      .addOrderBy('sm.instanceId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('td.naturalId', 'ASC')
+      .addOrderBy('sm.naturalId', 'ASC')
       .getMany() as Promise<ModuleTagIdMapRow[]>;
   }
 
@@ -496,17 +501,17 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
   private buildPropertyMap(
     rows: SubgraphPropertyDataRow[],
-  ): Map<number, Array<{propertyId: number; payload: Uint8Array}>> {
+  ): Map<number, Array<{propertyNaturalId: number; payload: Uint8Array}>> {
     const map = new Map<
       number,
-      Array<{propertyId: number; payload: Uint8Array}>
+      Array<{propertyNaturalId: number; payload: Uint8Array}>
     >();
     for (const row of rows) {
       if (row.subgraph == null || row.payload == null) continue;
-      const sgId = row.subgraph.subgraphId;
+      const sgId = row.subgraph.naturalId;
       if (!map.has(sgId)) map.set(sgId, []);
       map.get(sgId)!.push({
-        propertyId: row.subgraphPropertyDefinition.propertyId,
+        propertyNaturalId: row.subgraphPropertyDefinition.naturalId,
         payload: row.payload,
       });
     }
@@ -516,36 +521,36 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   private buildModuleMap(rows: SpfModuleRow[]): Map<
     number,
     Array<{
-      instanceId: number;
-      moduleId: number;
-      containerId: number;
+      instanceNaturalId: number;
+      moduleNaturalId: number;
+      containerNaturalId: number;
       maxInputPorts: number;
       maxOutputPorts: number;
-      properties: Array<{propertyId: number; payload: Uint8Array}>;
+      properties: Array<{propertyNaturalId: number; payload: Uint8Array}>;
     }>
   > {
     const map = new Map<
       number,
       Array<{
-        instanceId: number;
-        moduleId: number;
-        containerId: number;
+        instanceNaturalId: number;
+        moduleNaturalId: number;
+        containerNaturalId: number;
         maxInputPorts: number;
         maxOutputPorts: number;
-        properties: Array<{propertyId: number; payload: Uint8Array}>;
+        properties: Array<{propertyNaturalId: number; payload: Uint8Array}>;
       }>
     >();
 
     for (const sm of rows) {
-      const sgId = sm.subgraph!.subgraphId;
+      const sgId = sm.subgraph!.naturalId;
       if (!map.has(sgId)) map.set(sgId, []);
 
       const dataPorts = sm.node?.dataPorts ?? [];
 
       map.get(sgId)!.push({
-        instanceId: sm.instanceId,
-        moduleId: sm.definition!.moduleDefinitionId,
-        containerId: sm.container!.containerId,
+        instanceNaturalId: sm.naturalId,
+        moduleNaturalId: sm.definition!.naturalId,
+        containerNaturalId: sm.container!.naturalId,
         maxInputPorts: dataPorts.filter(
           dp => dp.portIoType === PORT_IO_TYPE.Input,
         ).length,
@@ -553,7 +558,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           dp => dp.portIoType === PORT_IO_TYPE.Output,
         ).length,
         properties: (sm.spfModulePropertiesData ?? []).map(d => ({
-          propertyId: d.propertyDefinition.propertyId,
+          propertyNaturalId: d.propertyDefinition.naturalId,
           payload: d.payload,
         })),
       });
@@ -564,32 +569,32 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   private buildDataLinkMap(rows: DataLinkRow[]): Map<
     number,
     Array<{
-      sourceInstanceId: number;
-      sourcePortId: number;
-      destinationInstanceId: number;
-      destinationPortId: number;
+      sourceInstanceNaturalId: number;
+      sourcePortNaturalId: number;
+      destinationInstanceNaturalId: number;
+      destinationPortNaturalId: number;
       isInterGraph: boolean;
     }>
   > {
     const map = new Map<
       number,
       Array<{
-        sourceInstanceId: number;
-        sourcePortId: number;
-        destinationInstanceId: number;
-        destinationPortId: number;
+        sourceInstanceNaturalId: number;
+        sourcePortNaturalId: number;
+        destinationInstanceNaturalId: number;
+        destinationPortNaturalId: number;
         isInterGraph: boolean;
       }>
     >();
 
     for (const dl of rows) {
-      const sgId = dl.sourceSubgraph!.subgraphId;
+      const sgId = dl.sourceSubgraph!.naturalId;
       if (!map.has(sgId)) map.set(sgId, []);
       map.get(sgId)!.push({
-        sourceInstanceId: dl.sourceNode!.spfModule!.instanceId,
-        sourcePortId: dl.sourcePort!.dataPortId,
-        destinationInstanceId: dl.destinationNode!.spfModule!.instanceId,
-        destinationPortId: dl.destinationPort!.dataPortId,
+        sourceInstanceNaturalId: dl.sourceNode!.spfModule!.naturalId,
+        sourcePortNaturalId: dl.sourcePort!.naturalId,
+        destinationInstanceNaturalId: dl.destinationNode!.spfModule!.naturalId,
+        destinationPortNaturalId: dl.destinationPort!.naturalId,
         isInterGraph: dl.linkType === LINK_TYPE.InterUsecase,
       });
     }
@@ -599,10 +604,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   private buildControlLinkMap(rows: ControlLinkRow[]): Map<
     number,
     Array<{
-      peer1InstanceId: number;
-      peer1PortId: number;
-      peer2InstanceId: number;
-      peer2PortId: number;
+      peer1InstanceNaturalId: number;
+      peer1PortNaturalId: number;
+      peer2InstanceNaturalId: number;
+      peer2PortNaturalId: number;
       isInterGraph: boolean;
       heapId?: number;
       intentIds: number[];
@@ -611,10 +616,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     const map = new Map<
       number,
       Array<{
-        peer1InstanceId: number;
-        peer1PortId: number;
-        peer2InstanceId: number;
-        peer2PortId: number;
+        peer1InstanceNaturalId: number;
+        peer1PortNaturalId: number;
+        peer2InstanceNaturalId: number;
+        peer2PortNaturalId: number;
         isInterGraph: boolean;
         heapId?: number;
         intentIds: number[];
@@ -622,7 +627,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     >();
 
     for (const cl of rows) {
-      const sgId = cl.sourceSubgraph!.subgraphId;
+      const sgId = cl.sourceSubgraph!.naturalId;
       if (!map.has(sgId)) map.set(sgId, []);
 
       // Collect intent IDs from both ports, dedup, sort numerically
@@ -630,15 +635,15 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         ...(cl.nodeAPort?.allocatedIntents ?? []),
         ...(cl.nodeBPort?.allocatedIntents ?? []),
       ];
-      const intentIds = [...new Set(allIntents.map(i => i.intentId))].sort(
+      const intentIds = [...new Set(allIntents.map(i => i.naturalId))].sort(
         (a, b) => a - b,
       );
 
       map.get(sgId)!.push({
-        peer1InstanceId: cl.peerNodeA!.spfModule!.instanceId,
-        peer1PortId: cl.nodeAPort!.portId,
-        peer2InstanceId: cl.peerNodeB!.spfModule!.instanceId,
-        peer2PortId: cl.nodeBPort!.portId,
+        peer1InstanceNaturalId: cl.peerNodeA!.spfModule!.naturalId,
+        peer1PortNaturalId: cl.nodeAPort!.naturalId,
+        peer2InstanceNaturalId: cl.peerNodeB!.spfModule!.naturalId,
+        peer2PortNaturalId: cl.nodeBPort!.naturalId,
         isInterGraph: cl.linkType === LINK_TYPE.InterUsecase,
         heapId: cl.heapId ?? undefined,
         intentIds,
@@ -649,17 +654,20 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
   private buildVoiceTagMap(
     rows: ModuleTagIdMapRow[],
-  ): Map<number, Array<{tagId: number; moduleInstanceId: number}>> {
+  ): Map<
+    number,
+    Array<{tagNaturalId: number; moduleInstanceNaturalId: number}>
+  > {
     const map = new Map<
       number,
-      Array<{tagId: number; moduleInstanceId: number}>
+      Array<{tagNaturalId: number; moduleInstanceNaturalId: number}>
     >();
     for (const row of rows) {
-      const sgId = row.module!.subgraph!.subgraphId;
+      const sgId = row.module!.subgraph!.naturalId;
       if (!map.has(sgId)) map.set(sgId, []);
       map.get(sgId)!.push({
-        tagId: row.tagDefinition!.tagId,
-        moduleInstanceId: row.module!.instanceId,
+        tagNaturalId: row.tagDefinition!.naturalId,
+        moduleInstanceNaturalId: row.module!.naturalId,
       });
     }
     return map;
@@ -676,16 +684,16 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('c.containerPropertyData', 'cpd')
       .leftJoinAndSelect('cpd.containerProperty', 'cp')
       .where('c.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('c.containerId', 'ASC')
-      .addOrderBy('cp.propertyId', 'ASC')
+      .orderBy('c.naturalId', 'ASC')
+      .addOrderBy('cp.naturalId', 'ASC')
       .getMany()) as ContainerRow[];
 
     return containers.map(c => ({
-      containerId: c.containerId,
+      containerNaturalId: c.naturalId,
       properties: (c.containerPropertyData ?? [])
         .filter(cpd => cpd.containerProperty != null && cpd.payload != null)
         .map(cpd => ({
-          propertyId: cpd.containerProperty.propertyId,
+          propertyNaturalId: cpd.containerProperty.naturalId,
           payload: cpd.payload!,
         })),
     }));
@@ -723,8 +731,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('ckv.module', 'sm')
       .leftJoinAndSelect('sm.subgraph', 'sg')
       .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('sm.instanceId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('sm.naturalId', 'ASC')
       .getMany() as Promise<CkvRow[]>;
   }
 
@@ -749,7 +757,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .leftJoinAndSelect('cpp.spfParameter', 'param')
         .where('cpp.ckvSystemId IN (:...ids)', {ids})
         .orderBy('cpp.ckvSystemId', 'ASC')
-        .addOrderBy('param.paramId', 'ASC'),
+        .addOrderBy('param.naturalId', 'ASC'),
     ) as Promise<CkvParameterPayloadRow[]>;
   }
 
@@ -782,27 +790,28 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       entry: e,
       vals: [...(e.values ?? [])].sort(
         (x, y) =>
-          (x.valueDef?.keys?.keyId ?? 0) - (y.valueDef?.keys?.keyId ?? 0),
+          (x.valueDef?.keys?.naturalId ?? 0) -
+          (y.valueDef?.keys?.naturalId ?? 0),
       ),
     }));
 
     prepared.sort((a, b) => {
-      const sgA = a.entry.module?.subgraph?.subgraphId ?? 0;
-      const sgB = b.entry.module?.subgraph?.subgraphId ?? 0;
+      const sgA = a.entry.module?.subgraph?.naturalId ?? 0;
+      const sgB = b.entry.module?.subgraph?.naturalId ?? 0;
       if (sgA !== sgB) return sgA - sgB;
 
       const keyDiff = compareNumberArrays(
-        a.vals.map(v => v.valueDef?.keys?.keyId ?? 0),
-        b.vals.map(v => v.valueDef?.keys?.keyId ?? 0),
+        a.vals.map(v => v.valueDef?.keys?.naturalId ?? 0),
+        b.vals.map(v => v.valueDef?.keys?.naturalId ?? 0),
       );
       if (keyDiff !== 0) return keyDiff;
       const valDiff = compareNumberArrays(
-        a.vals.map(v => v.valueDef?.valueId ?? 0),
-        b.vals.map(v => v.valueDef?.valueId ?? 0),
+        a.vals.map(v => v.valueDef?.naturalId ?? 0),
+        b.vals.map(v => v.valueDef?.naturalId ?? 0),
       );
       if (valDiff !== 0) return valDiff;
       return (
-        (a.entry.module?.instanceId ?? 0) - (b.entry.module?.instanceId ?? 0)
+        (a.entry.module?.naturalId ?? 0) - (b.entry.module?.naturalId ?? 0)
       );
     });
 
@@ -815,12 +824,16 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   ): CalibrationDataDownloadModel[] {
     const paramMap = new Map<
       number,
-      Array<{parameterId: number; payload: Uint8Array; pidType: string}>
+      Array<{
+        naturalId: number;
+        payload: Uint8Array;
+        pidType: string;
+      }>
     >();
     for (const row of paramRows) {
       if (!paramMap.has(row.ckvSystemId)) paramMap.set(row.ckvSystemId, []);
       paramMap.get(row.ckvSystemId)!.push({
-        parameterId: row.spfParameter!.paramId,
+        naturalId: row.spfParameter!.naturalId,
         payload: row.payload!,
         pidType: row.spfParameter!.pidType,
       });
@@ -834,17 +847,22 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     const masterKeyTracker = new Map<number, Map<number, boolean>>();
 
     for (const ckv of sortedEntries) {
-      const subgraphId = ckv.module!.subgraph!.subgraphId;
+      const subgraphId = ckv.module!.subgraph!.naturalId;
 
       const vals = [...(ckv.values ?? [])].sort(
         (x, y) =>
-          (x.valueDef?.keys?.keyId ?? 0) - (y.valueDef?.keys?.keyId ?? 0),
+          (x.valueDef?.keys?.naturalId ?? 0) -
+          (y.valueDef?.keys?.naturalId ?? 0),
       );
-      const keyIds = vals.map((v: CkvValuesRow) => v.valueDef!.keys.keyId);
-      const valueIds = vals.map((v: CkvValuesRow) => v.valueDef!.valueId);
+      const keyIds = vals.map((v: CkvValuesRow) => v.valueDef!.keys.naturalId);
+      const valueIds = vals.map((v: CkvValuesRow) => v.valueDef!.naturalId);
 
-      if (!currentSg || currentSg.subgraphId !== subgraphId) {
-        currentSg = {subgraphId, masterKeys: [], keyValueCombinations: []};
+      if (!currentSg || currentSg.naturalId !== subgraphId) {
+        currentSg = {
+          naturalId: subgraphId,
+          masterKeys: [],
+          keyValueCombinations: [],
+        };
         result.push(currentSg);
         currentKvCombo = null;
         masterKeyTracker.set(subgraphId, new Map());
@@ -852,7 +870,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
       const mkMap = masterKeyTracker.get(subgraphId)!;
       for (const val of vals) {
-        const keyId = val.valueDef!.keys.keyId;
+        const keyId = val.valueDef!.keys.naturalId;
         if (!mkMap.has(keyId)) {
           mkMap.set(keyId, val.valueDef!.keys.isDynamic ?? false);
         }
@@ -868,16 +886,19 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       }
 
       currentKvCombo.modules.push({
-        moduleInstanceId: ckv.module!.instanceId,
+        naturalId: ckv.module!.naturalId,
         parameters: paramMap.get(ckv.systemId) ?? [],
       });
     }
 
     for (const sg of result) {
-      const mkMap = masterKeyTracker.get(sg.subgraphId)!;
+      const mkMap = masterKeyTracker.get(sg.naturalId)!;
       sg.masterKeys = [...mkMap.entries()]
         .sort(([a], [b]) => a - b)
-        .map(([keyId, isDynamic]) => ({keyId, isDynamic}));
+        .map(([keyNaturalId, isDynamic]) => ({
+          keyNaturalId: keyNaturalId,
+          isDynamic,
+        }));
     }
 
     return result;
@@ -892,17 +913,17 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('td.keys', 'link')
       .leftJoinAndSelect('link.keyDefinition', 'kd')
       .where('td.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('td.tagId', 'ASC')
-      .addOrderBy('kd.keyId', 'ASC')
+      .addOrderBy('td.naturalId', 'ASC')
+      .addOrderBy('kd.naturalId', 'ASC')
       .getMany()) as TagDefinitionRow[];
 
     return rows
       .filter(td => (td.keys ?? []).length > 0)
       .map(td => ({
-        tagId: td.tagId,
+        tagNaturalId: td.naturalId,
         keyIds: (td.keys ?? [])
           .filter(link => link.keyDefinition != null)
-          .map(link => link.keyDefinition!.keyId),
+          .map(link => link.keyDefinition!.naturalId),
       }));
   }
 
@@ -919,32 +940,37 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('sm.definition', 'def')
       .leftJoinAndSelect('mtim.tagDefinition', 'td')
       .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('td.tagId', 'ASC')
-      .addOrderBy('def.moduleDefinitionId', 'ASC')
-      .addOrderBy('sm.instanceId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('td.naturalId', 'ASC')
+      .addOrderBy('def.naturalId', 'ASC')
+      .addOrderBy('sm.naturalId', 'ASC')
       .getMany()) as ModuleTagIdMapRow[];
 
     const result: TaggedModuleDownloadModel[] = [];
     let current: TaggedModuleDownloadModel | null = null;
 
     for (const row of rows) {
-      const subgraphId = row.module!.subgraph!.subgraphId;
-      const tagId = row.tagDefinition!.tagId;
+      const subgraphId = row.module!.subgraph!.naturalId;
+      const tagId = row.tagDefinition!.naturalId;
       const isVoice = row.tagDefinition!.isVoice;
 
       if (
         !current ||
-        current.subgraphId !== subgraphId ||
-        current.tagId !== tagId
+        current.subgraphNaturalId !== subgraphId ||
+        current.tagNaturalId !== tagId
       ) {
-        current = {subgraphId, tagId, isVoice, moduleInstances: []};
+        current = {
+          subgraphNaturalId: subgraphId,
+          tagNaturalId: tagId,
+          isVoice,
+          moduleInstances: [],
+        };
         result.push(current);
       }
 
       current.moduleInstances.push({
-        moduleId: row.module!.definition!.moduleDefinitionId,
-        instanceId: row.module!.instanceId,
+        moduleNaturalId: row.module!.definition!.naturalId,
+        instanceNaturalId: row.module!.naturalId,
       });
     }
 
@@ -996,8 +1022,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('sm.subgraph', 'sg')
       .leftJoinAndSelect('mtim.tagDefinition', 'td')
       .where('sm.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('sg.subgraphId', 'ASC')
-      .addOrderBy('td.tagId', 'ASC')
+      .orderBy('sg.naturalId', 'ASC')
+      .addOrderBy('td.naturalId', 'ASC')
       .getMany() as Promise<ModuleTagIdMapRow[]>;
   }
 
@@ -1031,7 +1057,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .leftJoinAndSelect('tpp.spfParameter', 'param')
         .where('tpp.tkvSystemId IN (:...ids)', {ids})
         .orderBy('tpp.tkvSystemId', 'ASC')
-        .addOrderBy('param.paramId', 'ASC'),
+        .addOrderBy('param.naturalId', 'ASC'),
     ) as Promise<TkvParameterPayloadRow[]>;
   }
 
@@ -1041,12 +1067,12 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
   ): TagDataDownloadModel[] {
     const paramMap = new Map<
       number,
-      Array<{parameterId: number; payload: Uint8Array}>
+      Array<{naturalId: number; payload: Uint8Array}>
     >();
     for (const row of paramRows) {
       if (!paramMap.has(row.tkvSystemId)) paramMap.set(row.tkvSystemId, []);
       paramMap.get(row.tkvSystemId)!.push({
-        parameterId: row.spfParameter!.paramId,
+        naturalId: row.spfParameter!.naturalId,
         payload: row.payload!,
       });
     }
@@ -1055,32 +1081,38 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     let current: TagDataDownloadModel | null = null;
 
     for (const row of rows) {
-      const subgraphId = row.module!.subgraph!.subgraphId;
-      const tagId = row.tagDefinition!.tagId;
+      const subgraphId = row.module!.subgraph!.naturalId;
+      const tagId = row.tagDefinition!.naturalId;
 
       if (
         !current ||
-        current.subgraphId !== subgraphId ||
-        current.tagId !== tagId
+        current.subgraphNaturalId !== subgraphId ||
+        current.tagNaturalId !== tagId
       ) {
         const firstTkv = (row.tkvs ?? [])[0];
         const numTagKeyValues = (firstTkv?.values ?? []).length;
-        current = {subgraphId, tagId, numTagKeyValues, tkvs: []};
+        current = {
+          subgraphNaturalId: subgraphId,
+          tagNaturalId: tagId,
+          numTagKeyValues,
+          tkvs: [],
+        };
         result.push(current);
       }
 
       for (const tkv of row.tkvs ?? []) {
         const vals = [...(tkv.values ?? [])].sort(
           (a, b) =>
-            (a.valueDef?.keys?.keyId ?? 0) - (b.valueDef?.keys?.keyId ?? 0),
+            (a.valueDef?.keys?.naturalId ?? 0) -
+            (b.valueDef?.keys?.naturalId ?? 0),
         );
-        const tagKeyValues = vals.map(v => v.valueDef!.valueId);
+        const tagKeyValues = vals.map(v => v.valueDef!.naturalId);
 
         current.tkvs.push({
           tagKeyValues,
           modules: [
             {
-              moduleInstanceId: row.module!.instanceId,
+              naturalId: row.module!.naturalId,
               parameters: paramMap.get(tkv.systemId) ?? [],
             },
           ],
@@ -1122,7 +1154,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .leftJoinAndSelect('dkv.driverModule', 'dm')
       .leftJoinAndSelect('dm.definition', 'dmd')
       .where('dm.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('dmd.moduleDefinitionId', 'ASC')
+      .orderBy('dmd.naturalId', 'ASC')
       .addOrderBy('dkv.systemId', 'ASC')
       .getMany() as Promise<DkvRow[]>;
   }
@@ -1148,7 +1180,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .leftJoinAndSelect('dpp.driverParameter', 'dmpd')
         .where('dpp.dkvSystemId IN (:...ids)', {ids})
         .orderBy('dpp.dkvSystemId', 'ASC')
-        .addOrderBy('dmpd.parameterId', 'ASC'),
+        .addOrderBy('dmpd.naturalId', 'ASC'),
     ) as Promise<DkvParameterPayloadRow[]>;
   }
 
@@ -1159,13 +1191,13 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     // Build param map: dkvSystemId → sorted parameters
     const paramMap = new Map<
       number,
-      Array<{parameterId: number; payload: Uint8Array}>
+      Array<{naturalId: number; payload: Uint8Array}>
     >();
     for (const row of paramRows) {
       if (!paramMap.has(row.dkvSystemId)) paramMap.set(row.dkvSystemId, []);
       if (row.payload) {
         paramMap.get(row.dkvSystemId)!.push({
-          parameterId: row.driverParameter!.parameterId,
+          naturalId: row.driverParameter!.naturalId,
           payload: row.payload,
         });
       }
@@ -1176,20 +1208,24 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     const groupOrder: string[] = [];
 
     for (const dkv of dkvEntries) {
-      const moduleDefinitionId =
-        dkv.driverModule?.definition?.moduleDefinitionId ?? 0;
+      const moduleDefinitionId = dkv.driverModule?.definition?.naturalId ?? 0;
 
       const vals = [...(dkv.values ?? [])].sort(
         (a, b) =>
-          (a.valueDef?.keys?.keyId ?? 0) - (b.valueDef?.keys?.keyId ?? 0),
+          (a.valueDef?.keys?.naturalId ?? 0) -
+          (b.valueDef?.keys?.naturalId ?? 0),
       );
-      const keyIds = vals.map(v => v.valueDef!.keys.keyId);
-      const valueIds = vals.map(v => v.valueDef!.valueId);
+      const keyIds = vals.map(v => v.valueDef!.keys.naturalId);
+      const valueIds = vals.map(v => v.valueDef!.naturalId);
 
       const groupKey = `${moduleDefinitionId}:${keyIds.join(',')}`;
 
       if (!groupMap.has(groupKey)) {
-        groupMap.set(groupKey, {moduleDefinitionId, keyIds, ckvs: []});
+        groupMap.set(groupKey, {
+          naturalId: moduleDefinitionId,
+          keyIds,
+          ckvs: [],
+        });
         groupOrder.push(groupKey);
       }
 
@@ -1202,8 +1238,8 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     // Sort groups: moduleDefinitionId ASC, then keyIds lex ASC
     const result = groupOrder.map(k => groupMap.get(k)!);
     result.sort((a, b) => {
-      if (a.moduleDefinitionId !== b.moduleDefinitionId) {
-        return a.moduleDefinitionId - b.moduleDefinitionId;
+      if (a.naturalId !== b.naturalId) {
+        return a.naturalId - b.naturalId;
       }
       return compareNumberArrays(a.keyIds, b.keyIds);
     });
@@ -1224,15 +1260,15 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .getRepository(ENTITY_NAMES.KeyDefinition)
         .createQueryBuilder('k')
         .where('k.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('k.keyId', 'ASC')
+        .orderBy('k.naturalId', 'ASC')
         .getMany() as Promise<KeyDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.ValueDefinition)
         .createQueryBuilder('v')
         .innerJoin('v.keys', 'k')
         .where('k.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('k.keyId', 'ASC')
-        .addOrderBy('v.valueId', 'ASC')
+        .orderBy('k.naturalId', 'ASC')
+        .addOrderBy('v.naturalId', 'ASC')
         .getMany() as Promise<ValueDefinitionRow[]>,
     ]);
 
@@ -1242,7 +1278,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         valuesMap.set(row.keySystemId, []);
       }
       valuesMap.get(row.keySystemId)!.push({
-        valueId: row.valueId,
+        valueNaturalId: row.naturalId,
         name: row.name,
         description: row.description ?? undefined,
         enumMember: row.enumMember ?? undefined,
@@ -1251,7 +1287,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     }
 
     return keyRows.map(row => ({
-      keyId: row.keyId,
+      keyNaturalId: row.naturalId,
       name: row.name,
       description: row.description ?? undefined,
       isVoice: row.isVoice == null ? undefined : Boolean(row.isVoice),
@@ -1279,7 +1315,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .getRepository(ENTITY_NAMES.TagDefinition)
         .createQueryBuilder('td')
         .where('td.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('td.tagId', 'ASC')
+        .orderBy('td.naturalId', 'ASC')
         .getMany() as Promise<TagDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.TagKeyDefLink)
@@ -1288,7 +1324,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('link.tagDefinition', 'td')
         .where('td.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('link.tagDefinitionSystemId', 'ASC')
-        .addOrderBy('key.keyId', 'ASC')
+        .addOrderBy('key.naturalId', 'ASC')
         .getMany() as Promise<TagKeyDefLinkRow[]>,
     ]);
 
@@ -1298,14 +1334,14 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         linksMap.set(link.tagDefinitionSystemId, []);
       }
       linksMap.get(link.tagDefinitionSystemId)!.push({
-        keyId: link.keyDefinition!.keyId,
+        keyNaturalId: link.keyDefinition!.naturalId,
         keyName: link.keyDefinition!.name,
         enumValue: link.tagEnumValue ?? undefined,
       });
     }
 
     return tagRows.map(row => ({
-      tagId: row.tagId,
+      tagNaturalId: row.naturalId,
       name: row.name,
       description: row.description ?? undefined,
       isVoice: Boolean(row.isVoice),
@@ -1334,7 +1370,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .createQueryBuilder('def')
         .leftJoinAndSelect('def.processor', 'pd')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('def.moduleDefinitionId', 'ASC')
+        .orderBy('def.naturalId', 'ASC')
         .getMany() as Promise<SpfModuleDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.SpfModuleParameterDefinition)
@@ -1342,7 +1378,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('param.spfModuleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('param.spfModuleDefinitionSystemId', 'ASC')
-        .addOrderBy('param.paramId', 'ASC')
+        .addOrderBy('param.naturalId', 'ASC')
         .getMany() as Promise<SpfModuleParameterDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.DataPortGroup)
@@ -1358,7 +1394,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('pg.moduleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('port.dataPortGroupSystemId', 'ASC')
-        .addOrderBy('port.dataPortId', 'ASC')
+        .addOrderBy('port.naturalId', 'ASC')
         .getMany() as Promise<DataPortDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.StaticControlPortDefinition)
@@ -1366,7 +1402,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('sp.moduleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('sp.moduleDefinitionSystemId', 'ASC')
-        .addOrderBy('sp.portId', 'ASC')
+        .addOrderBy('sp.naturalId', 'ASC')
         .getMany() as Promise<StaticControlPortDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.StaticIntentDefinition)
@@ -1375,7 +1411,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('sp.moduleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('si.staticControlPortDefinitionSystemId', 'ASC')
-        .addOrderBy('si.intentId', 'ASC')
+        .addOrderBy('si.naturalId', 'ASC')
         .getMany() as Promise<StaticIntentDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.DynamicIntentDefinition)
@@ -1383,7 +1419,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('di.moduleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('di.moduleDefinitionSystemId', 'ASC')
-        .addOrderBy('di.intentId', 'ASC')
+        .addOrderBy('di.naturalId', 'ASC')
         .getMany() as Promise<DynamicIntentDefinitionRow[]>,
       this.dataSource
         .getRepository('ModuleDefinitionContainerTypeLink')
@@ -1409,7 +1445,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     );
 
     return moduleRows.map(row => ({
-      moduleDefinitionId: row.moduleDefinitionId,
+      naturalId: row.naturalId,
       name: row.name,
       displayName: row.displayName ?? undefined,
       description: row.description ?? undefined,
@@ -1421,9 +1457,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       staticControlPorts: staticPortsMap.get(row.systemId) ?? [],
       dynamicIntents: dynamicIntentsMap.get(row.systemId) ?? [],
       supportedProcessorIds:
-        row.processor?.processorDefinitionId != null
-          ? [row.processor.processorDefinitionId]
-          : [],
+        row.processor?.naturalId != null ? [row.processor.naturalId] : [],
       supportedContainerTypes: containerTypeIdsMap.get(row.systemId) ?? [],
     }));
   }
@@ -1436,7 +1470,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       if (!map.has(row.spfModuleDefinitionSystemId))
         map.set(row.spfModuleDefinitionSystemId, []);
       map.get(row.spfModuleDefinitionSystemId)!.push({
-        paramId: row.paramId,
+        paramNaturalId: row.naturalId,
         name: row.name ?? undefined,
         description: row.description ?? undefined,
         maxSize: row.maxSize,
@@ -1444,7 +1478,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         elementsStructure: row.elementsStructure ?? '[]',
         isReadOnly: Boolean(row.isReadOnly),
         toolPolicies: row.toolPolicies ?? undefined,
-        copySrcParamId: row.copySrcParamId ?? undefined,
+        copySrcParamNaturalId: row.copySrcParamNaturalId ?? undefined,
       });
     }
     return map;
@@ -1458,7 +1492,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       if (!map.has(row.dataPortGroupSystemId))
         map.set(row.dataPortGroupSystemId, []);
       map.get(row.dataPortGroupSystemId)!.push({
-        portId: row.dataPortId,
+        portNaturalId: row.naturalId,
         name: row.name ?? undefined,
       });
     }
@@ -1490,7 +1524,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       if (!map.has(row.staticControlPortDefinitionSystemId))
         map.set(row.staticControlPortDefinitionSystemId, []);
       map.get(row.staticControlPortDefinitionSystemId)!.push({
-        intentId: row.intentId,
+        intentNaturalId: row.naturalId,
         name: row.name,
       });
     }
@@ -1506,7 +1540,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       if (!map.has(row.moduleDefinitionSystemId))
         map.set(row.moduleDefinitionSystemId, []);
       map.get(row.moduleDefinitionSystemId)!.push({
-        portId: row.portId,
+        portNaturalId: row.naturalId,
         portName: row.portName ?? '',
         intents: staticIntentsMap.get(row.systemId) ?? [],
       });
@@ -1522,7 +1556,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       if (!map.has(row.moduleDefinitionSystemId))
         map.set(row.moduleDefinitionSystemId, []);
       map.get(row.moduleDefinitionSystemId)!.push({
-        intentId: row.intentId,
+        intentNaturalId: row.naturalId,
         name: row.name,
         maxPort: row.maxPort,
       });
@@ -1550,7 +1584,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .getRepository(ENTITY_NAMES.DriverModuleDefinition)
         .createQueryBuilder('def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('def.moduleDefinitionId', 'ASC')
+        .orderBy('def.naturalId', 'ASC')
         .getMany() as Promise<DriverModuleDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.DriverModuleParameterDefinition)
@@ -1558,7 +1592,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('param.driverModuleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('param.driverModuleDefinitionSystemId', 'ASC')
-        .addOrderBy('param.parameterId', 'ASC')
+        .addOrderBy('param.naturalId', 'ASC')
         .getMany() as Promise<DriverModuleParameterDefinitionRow[]>,
     ]);
 
@@ -1567,7 +1601,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       if (!paramsMap.has(row.driverModuleDefinitionSystemId))
         paramsMap.set(row.driverModuleDefinitionSystemId, []);
       paramsMap.get(row.driverModuleDefinitionSystemId)!.push({
-        parameterId: row.parameterId,
+        naturalId: row.naturalId,
         name: row.name ?? undefined,
         description: row.description ?? undefined,
         maxSize: row.maxSize,
@@ -1576,7 +1610,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     }
 
     return moduleRows.map(row => ({
-      moduleDefinitionId: row.moduleDefinitionId,
+      naturalId: row.naturalId,
       name: row.name,
       description: row.description ?? undefined,
       groupName: row.groupName ?? undefined,
@@ -1592,7 +1626,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .getRepository(ENTITY_NAMES.VcpmModuleDefinition)
         .createQueryBuilder('def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('def.moduleDefinitionId', 'ASC')
+        .orderBy('def.naturalId', 'ASC')
         .getMany() as Promise<VcpmModuleDefinitionRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.VcpmModuleParameterDefinition)
@@ -1600,7 +1634,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .innerJoin('param.vcpmModuleDefinition', 'def')
         .where('def.fileSystemId = :fileSystemId', {fileSystemId})
         .orderBy('param.vcpmModuleDefinitionSystemId', 'ASC')
-        .addOrderBy('param.paramId', 'ASC')
+        .addOrderBy('param.naturalId', 'ASC')
         .getMany() as Promise<VcpmModuleParameterDefinitionRow[]>,
     ]);
 
@@ -1609,7 +1643,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       if (!paramsMap.has(row.vcpmModuleDefinitionSystemId))
         paramsMap.set(row.vcpmModuleDefinitionSystemId, []);
       paramsMap.get(row.vcpmModuleDefinitionSystemId)!.push({
-        parameterId: row.paramId,
+        naturalId: row.naturalId,
         name: row.name ?? undefined,
         description: row.description ?? undefined,
         maxSize: row.maxSize,
@@ -1618,7 +1652,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     }
 
     return moduleRows.map(row => ({
-      moduleDefinitionId: row.moduleDefinitionId,
+      naturalId: row.naturalId,
       name: row.name,
       description: row.description ?? undefined,
       params: paramsMap.get(row.systemId) ?? [],
@@ -1633,19 +1667,19 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .getRepository(ENTITY_NAMES.SubgraphPropertyDefinition)
         .createQueryBuilder('sp')
         .where('sp.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('sp.propertyId', 'ASC')
+        .orderBy('sp.naturalId', 'ASC')
         .getMany() as Promise<SubgraphPropertyRow[]>,
       this.dataSource
         .getRepository(ENTITY_NAMES.ContainerProperty)
         .createQueryBuilder('cp')
         .where('cp.fileSystemId = :fileSystemId', {fileSystemId})
-        .orderBy('cp.propertyId', 'ASC')
+        .orderBy('cp.naturalId', 'ASC')
         .getMany() as Promise<ContainerPropertyRow[]>,
     ]);
 
     const result: SpfPropertyDefinitionDownloadModel[] = [
       ...subgraphRows.map(row => ({
-        propertyId: row.propertyId,
+        propertyNaturalId: row.naturalId,
         name: row.name,
         description: row.description ?? undefined,
         maxSize: row.maxSize,
@@ -1654,7 +1688,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         isVoice: Boolean(row.isVoice),
       })),
       ...containerRows.map(row => ({
-        propertyId: row.propertyId,
+        propertyNaturalId: row.naturalId,
         name: row.name,
         description: row.description ?? undefined,
         maxSize: row.maxSize,
@@ -1673,11 +1707,11 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .getRepository(ENTITY_NAMES.ModulePropertyDefinition)
       .createQueryBuilder('prop')
       .where('prop.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('prop.propertyId', 'ASC')
+      .orderBy('prop.naturalId', 'ASC')
       .getMany()) as ModulePropertyRow[];
 
     return rows.map(row => ({
-      propertyId: row.propertyId,
+      propertyNaturalId: row.naturalId,
       name: row.name,
       description: row.description ?? undefined,
       maxSize: row.maxSize,
@@ -1723,11 +1757,11 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       .getRepository(ENTITY_NAMES.ProcessorDefinition)
       .createQueryBuilder('pd')
       .where('pd.fileSystemId = :fileSystemId', {fileSystemId})
-      .orderBy('pd.processorDefinitionId', 'ASC')
+      .orderBy('pd.naturalId', 'ASC')
       .getMany()) as ProcessorDefinitionRow[];
 
     return rows.map(row => ({
-      processorDefinitionId: row.processorDefinitionId,
+      processorDefinitionNaturalId: row.naturalId,
       name: row.name,
     }));
   }
@@ -1849,7 +1883,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       ucRows as unknown as Array<
         UseCaseRow & {
           gkvEntries?: Array<{
-            valueDef?: {keys?: {keyId?: number}; valueId?: number};
+            valueDef?: {keys?: {naturalId?: number}; naturalId?: number};
           }>;
           categories?: Array<{name?: string}>;
         }
@@ -1859,18 +1893,18 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       const keyIds = gkvEntries
         .map(
           e =>
-            (e.valueDef as {keys?: {keyId?: number}} | undefined)?.keys
-              ?.keyId ?? 0,
+            (e.valueDef as {keys?: {naturalId?: number}} | undefined)?.keys
+              ?.naturalId ?? 0,
         )
         .filter(Boolean);
       const valueIds = gkvEntries
-        .map(e => e.valueDef?.valueId ?? 0)
+        .map(e => e.valueDef?.naturalId ?? 0)
         .filter(Boolean);
       return {
         systemId: uc.systemId,
         keyIds,
         valueIds,
-        aliasId: uc.aliasId,
+        aliasNaturalId: uc.aliasId,
         aliasName: uc.alias ?? '',
         type: uc.type,
         orderedKeys: uc.orderedKeys ?? undefined,
@@ -1886,18 +1920,18 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         SubgraphRow & {
           sgkvs?: Array<{
             values?: Array<{
-              valueDef?: {valueId?: number; keys?: {keyId?: number}};
+              valueDef?: {naturalId?: number; keys?: {naturalId?: number}};
             }>;
           }>;
         }
       >
     ).map(sg => {
       const sgkvValueIds: number[] = (sg.sgkvs ?? []).flatMap(kv =>
-        (kv.values ?? []).map(v => v.valueDef?.valueId ?? 0).filter(Boolean),
+        (kv.values ?? []).map(v => v.valueDef?.naturalId ?? 0).filter(Boolean),
       );
       return {
         systemId: sg.systemId,
-        subgraphId: sg.subgraphId,
+        subgraphNaturalId: sg.naturalId,
         name: sg.name,
         reviewedAt: reviewedAtMap.get(`subgraph:${sg.systemId}`),
         sgkvValueIds,
@@ -1911,29 +1945,32 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
           ckvs?: Array<
             CkvRow & {
               values?: Array<{
-                valueDef?: {valueId?: number; keys?: {keyId?: number}};
+                valueDef?: {naturalId?: number; keys?: {naturalId?: number}};
               }>;
               uiPersistence?: Uint8Array | null;
             }
           >;
-          definition?: {moduleDefinitionId?: number};
+          definition?: {naturalId?: number};
         }
       >
     ).map(m => {
       const ckvs: UiCkvDownloadModel[] = (m.ckvs ?? []).map(ckv => ({
         ckvSystemId: ckv.systemId,
         moduleSystemId: m.systemId,
-        moduleInstanceId: m.instanceId,
-        moduleDefinitionId: m.definition?.moduleDefinitionId ?? 0,
+        moduleInstanceNaturalId: m.naturalId,
+        naturalId: m.definition?.naturalId ?? 0,
         uiPersistence: ckv.uiPersistence ?? null,
         valueIds: (ckv.values ?? [])
-          .map((v: {valueDef?: {valueId?: number}}) => v.valueDef?.valueId ?? 0)
+          .map(
+            (v: {valueDef?: {naturalId?: number}}) =>
+              v.valueDef?.naturalId ?? 0,
+          )
           .filter(Boolean),
       }));
       return {
         systemId: m.systemId,
-        instanceId: m.instanceId,
-        definitionId: m.definition?.moduleDefinitionId ?? 0,
+        instanceNaturalId: m.naturalId,
+        definitionNaturalId: m.definition?.naturalId ?? 0,
         aliasName: m.alias ?? '',
         reviewedAt: reviewedAtMap.get(`module:${m.systemId}`),
         ckvs,
@@ -1947,10 +1984,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
     type ChildNodeRow = {
       systemId?: number;
-      parentId?: number;
+      parentSystemId?: number;
       type?: string;
-      spfModule?: {instanceId?: number};
-      subsystem?: {subsystemId?: number};
+      spfModule?: {naturalId?: number};
+      subsystem?: {['subsystemId']?: number};
     };
 
     let childNodeRows: ChildNodeRow[] = [];
@@ -1960,7 +1997,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         .createQueryBuilder('child')
         .leftJoinAndSelect('child.spfModule', 'childMod')
         .leftJoinAndSelect('child.subsystem', 'childSs')
-        .where('child.parentId IN (:...parentIds)', {
+        .where('child.parentSystemId IN (:...parentIds)', {
           parentIds: subsystemNodeIds,
         })
         .getMany()) as ChildNodeRow[];
@@ -1968,10 +2005,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
 
     const childrenByParentId = new Map<number, ChildNodeRow[]>();
     for (const child of childNodeRows) {
-      if (child.parentId === undefined) continue;
-      const list = childrenByParentId.get(child.parentId) ?? [];
+      if (child.parentSystemId === undefined) continue;
+      const list = childrenByParentId.get(child.parentSystemId) ?? [];
       list.push(child);
-      childrenByParentId.set(child.parentId, list);
+      childrenByParentId.set(child.parentSystemId, list);
     }
 
     const uiSubsystems: UiSubsystemDownloadModel[] = (
@@ -1985,10 +2022,10 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
       const children = nodeChildren
         .filter(c => c.type === 'module' || c.type === 'subsystem')
         .map(c => ({
-          id:
+          naturalId:
             c.type === 'module'
-              ? (c.spfModule?.instanceId ?? 0)
-              : (c.subsystem?.subsystemId ?? 0),
+              ? (c.spfModule?.naturalId ?? 0)
+              : (c.subsystem?.['subsystemId'] ?? 0),
           type:
             c.type === 'module'
               ? ('Subgraph' as const)
@@ -1996,7 +2033,7 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
         }));
       return {
         systemId: ss.systemId,
-        subsystemId: ss.subsystemId ?? 0,
+        subsystemNaturalId: ss.subsystemId ?? 0,
         name: ss.name,
         filteredKeyIds: [],
         children,
@@ -2007,18 +2044,19 @@ export class TypeOrmBulkReadQueryService implements BulkReadQueryService {
     const uiDataLinks: UiDataLinkDownloadModel[] = (
       dlRows as unknown as Array<
         DataLinkRow & {
-          sourceNode?: {spfModule?: {instanceId?: number}};
-          sourcePort?: {dataPortId?: number};
-          destinationNode?: {spfModule?: {instanceId?: number}};
-          destinationPort?: {dataPortId?: number};
+          sourceNode?: {spfModule?: {naturalId?: number}};
+          sourcePort?: {naturalId?: number};
+          destinationNode?: {spfModule?: {naturalId?: number}};
+          destinationPort?: {naturalId?: number};
           isEc?: boolean;
         }
       >
     ).map(dl => ({
-      sourceInstanceId: dl.sourceNode?.spfModule?.instanceId ?? 0,
-      sourcePortId: dl.sourcePort?.dataPortId ?? 0,
-      destinationInstanceId: dl.destinationNode?.spfModule?.instanceId ?? 0,
-      destinationPortId: dl.destinationPort?.dataPortId ?? 0,
+      sourceInstanceNaturalId: dl.sourceNode?.spfModule?.naturalId ?? 0,
+      sourcePortNaturalId: dl.sourcePort?.naturalId ?? 0,
+      destinationInstanceNaturalId:
+        dl.destinationNode?.spfModule?.naturalId ?? 0,
+      destinationPortNaturalId: dl.destinationPort?.naturalId ?? 0,
       isEc: dl.isEc ?? undefined,
     }));
 

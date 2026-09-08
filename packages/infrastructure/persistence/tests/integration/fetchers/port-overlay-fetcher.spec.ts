@@ -90,11 +90,11 @@ async function seedDataPort(
 
 async function seedControlPort(
   ds: DataSource,
-  opts: {portId: number; isStatic?: boolean},
+  opts: {naturalId: number; isStatic?: boolean},
 ): Promise<number> {
   const rows: any[] = await ds.query(
     `INSERT INTO control_ports (port_id, is_static, node_system_id) VALUES (?, ?, ?) RETURNING system_id`,
-    [opts.portId, opts.isStatic ? 1 : 0, MODULE_ID],
+    [opts.naturalId, opts.isStatic ? 1 : 0, MODULE_ID],
   );
   if (rows.length > 0 && rows[0].system_id !== undefined)
     return rows[0].system_id as number;
@@ -196,7 +196,7 @@ describe('PortOverlayFetcher (integration)', () => {
         targetTable: ENTITY_NAMES.DataPort,
         operation: CHANGE_OPERATION.Create,
         newValue: JSON.stringify({
-          dataPortId: 1,
+          naturalId: 1,
           portIoType: 'OUTPUT',
           isStatic: false,
           name: 'staged',
@@ -263,7 +263,7 @@ describe('PortOverlayFetcher (integration)', () => {
 
   describe('fetchControlPortsWithIntents', () => {
     it('returns base control ports with their intents when sessionId is null', async () => {
-      const cpId = await seedControlPort(ds, {portId: 1, isStatic: false});
+      const cpId = await seedControlPort(ds, {naturalId: 1, isStatic: false});
       await seedIntent(ds, {controlPortSystemId: cpId});
       const result = await fetcher.fetchControlPortsWithIntents(
         MODULE_ID,
@@ -284,7 +284,7 @@ describe('PortOverlayFetcher (integration)', () => {
         targetTable: ENTITY_NAMES.ControlPort,
         operation: CHANGE_OPERATION.Create,
         newValue: JSON.stringify({
-          portId: 2,
+          naturalId: 2,
           isStatic: false,
           name: 'cp',
           nodeSystemId: MODULE_ID,
@@ -302,7 +302,7 @@ describe('PortOverlayFetcher (integration)', () => {
     });
 
     it('tombstones DELETE-staged control port', async () => {
-      const cpId = await seedControlPort(ds, {portId: 1, isStatic: false});
+      const cpId = await seedControlPort(ds, {naturalId: 1, isStatic: false});
       const sessionId = await seedSession(ds);
       await seedEditAction(ds, {
         sessionId,
@@ -321,7 +321,7 @@ describe('PortOverlayFetcher (integration)', () => {
     });
 
     it('includes CREATE-staged intent for existing control port', async () => {
-      const cpId = await seedControlPort(ds, {portId: 1, isStatic: false});
+      const cpId = await seedControlPort(ds, {naturalId: 1, isStatic: false});
       const sessionId = await seedSession(ds);
       const intentId = 555;
       await seedEditAction(ds, {
@@ -332,7 +332,7 @@ describe('PortOverlayFetcher (integration)', () => {
         operation: CHANGE_OPERATION.Create,
         newValue: JSON.stringify({
           controlPortSystemId: cpId,
-          intentId: 3,
+          naturalId: 3,
           fileSystemId: FILE_ID,
         }),
       });
@@ -346,7 +346,7 @@ describe('PortOverlayFetcher (integration)', () => {
     });
 
     it('tombstones DELETE-staged intent', async () => {
-      const cpId = await seedControlPort(ds, {portId: 1, isStatic: false});
+      const cpId = await seedControlPort(ds, {naturalId: 1, isStatic: false});
       const intentId = await seedIntent(ds, {controlPortSystemId: cpId});
       const sessionId = await seedSession(ds);
       await seedEditAction(ds, {

@@ -35,7 +35,7 @@ export interface ClientInputSpec {
 
 export interface FixOption {
   /** e.g. "delete-duplicate-link" */
-  id: string;
+  systemId: string;
   description: string;
   commandType: string;
   commandPayload: Record<string, unknown>;

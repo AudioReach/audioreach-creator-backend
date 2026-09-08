@@ -11,7 +11,7 @@ import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface TagDefinitionBase {
   systemId: number;
-  tagId: number;
+  naturalId: number;
   name: string;
   description?: string;
   isVoice: boolean;
@@ -32,7 +32,7 @@ export const TagDefinitionSchema = new EntitySchema<TagDefinitionRow>({
   tableName: 'tag_definitions',
   columns: {
     ...BaseColumnSchemaPart,
-    tagId: {
+    naturalId: {
       type: 'integer',
       name: 'tag_id',
     },

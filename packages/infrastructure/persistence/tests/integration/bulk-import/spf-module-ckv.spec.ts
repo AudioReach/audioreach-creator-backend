@@ -5,7 +5,7 @@
 
 import type {DataSource, EntityManager} from 'typeorm';
 import type {IdGenerationPort} from '@arc/core';
-import {SpfModule, KvData} from '@arc/core';
+import {SpfModule, KvData, ControlPort} from '@arc/core';
 import {
   setupIntegrationTest,
   teardownIntegrationTest,
@@ -52,7 +52,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     systemId: SUBGRAPH_ID,
     fileSystemId: FILE_ID,
     name: 'TestSubgraph',
-    subgraphId: 1,
+    naturalId: 1,
     isImported: 0,
     version: 1,
   });
@@ -61,14 +61,14 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     systemId: CONTAINER_ID,
     fileSystemId: FILE_ID,
     type: 'APM',
-    containerId: 1,
+    naturalId: 1,
     version: 1,
   });
 
   await manager.insert('ProcessorDefinition', {
     systemId: PROCESSOR_DEF_ID,
     fileSystemId: FILE_ID,
-    processorDefinitionId: 1,
+    naturalId: 1,
     name: 'TestProcessor',
     version: 1,
   });
@@ -76,7 +76,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('SpfModuleDefinition', {
     systemId: DEFINITION_ID,
     fileSystemId: FILE_ID,
-    moduleDefinitionId: 1,
+    naturalId: 1,
     name: 'TestModuleDefinition',
     processorSystemId: PROCESSOR_DEF_ID,
     version: 1,
@@ -85,7 +85,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('KeyDefinition', {
     systemId: KEY_DEF_ID,
     fileSystemId: FILE_ID,
-    keyId: 1,
+    naturalId: 1,
     name: 'TestKey',
     version: 1,
   });
@@ -98,7 +98,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     await manager.insert('ValueDefinition', {
       systemId,
       keySystemId: KEY_DEF_ID,
-      valueId,
+      naturalId: valueId,
       name: valueName,
       version: 1,
     });
@@ -108,16 +108,18 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 function buildModule(
   moduleSystemId: number,
   ckvs: {id: number; values: number[]}[],
+  options: {parentSystemId?: number; controlPorts?: ControlPort[]} = {},
 ): SpfModule {
   const module = new SpfModule({
     systemId: moduleSystemId,
-    instanceId: moduleSystemId * 10,
+    naturalId: moduleSystemId * 10,
     definitionSystemId: DEFINITION_ID,
     containerSystemId: CONTAINER_ID,
     subgraphSystemId: SUBGRAPH_ID,
     fileSystemId: FILE_ID,
+    parentSystemId: options.parentSystemId,
     dataPorts: [],
-    controlPorts: [],
+    controlPorts: options.controlPorts ?? [],
   });
 
   for (const {id, values} of ckvs) {
@@ -192,6 +194,33 @@ describe('SpfModuleInserter — CKV insertion', () => {
         (r: {value_def_system_id: number}) => r.value_def_system_id,
       ),
     ).toEqual([VALUE_DEF_ID_1, VALUE_DEF_ID_2, VALUE_DEF_ID_3]);
+  });
+
+  it('persists module parent and control-port natural IDs', async () => {
+    const module = buildModule(1004, [], {
+      parentSystemId: 777,
+      controlPorts: [
+        new ControlPort({
+          systemId: 1001,
+          naturalId: 9,
+          isStatic: false,
+          nodeSystemId: 1004,
+          intentSystemIds: [],
+        }),
+      ],
+    });
+
+    const result = await inserter.insert([module]);
+    const rows = await dataSource.query(
+      `SELECT n.parent_id, cp.port_id
+       FROM nodes n
+       INNER JOIN control_ports cp ON cp.node_system_id = n.system_id
+       WHERE n.system_id = ?`,
+      [1004],
+    );
+
+    expect(result.ok).toBe(true);
+    expect(rows).toEqual([{parent_id: 777, port_id: 9}]);
   });
 
   it('inserts separate ckv_values rows for two CKVs with different value sets', async () => {

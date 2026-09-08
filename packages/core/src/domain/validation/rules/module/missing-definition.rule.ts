@@ -41,7 +41,7 @@ export class MissingDefinitionRule implements ValidationRule<ModuleValidationCon
     for (const module of context.modules) {
       if (!context.definitions.has(module.definitionSystemId)) {
         const impactedUsecases = (
-          context.usecasesByModuleId.get(module.systemId) ?? []
+          context.usecasesByModuleSystemId.get(module.systemId) ?? []
         ).map(uc => uc.systemId);
 
         issues.push({

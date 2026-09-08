@@ -5,13 +5,13 @@
 
 export interface IntentReadModel {
   readonly systemId: number;
-  readonly intentId: number;
+  readonly naturalId: number;
   readonly name: string;
 }
 
 export interface ControlPortReadModel {
   readonly systemId: number;
-  readonly portId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly isStatic: boolean;
   readonly allocatedIntents: IntentReadModel[];

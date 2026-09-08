@@ -30,17 +30,17 @@ function makeDefinition(
 ) {
   return {
     systemId: MODULE_DEF_SYSTEM_ID,
-    moduleDefinitionId: 42,
+    naturalId: 42,
     containerTypesSystemIds: overrides.containerTypesSystemIds ?? new Set([50]),
     dataPortGroups: overrides.dataPortGroups ?? [
       {
         portIoType: 'INPUT',
-        staticPortDefinitions: [{dataPortId: 1, name: 'in_0'}],
+        staticPortDefinitions: [{naturalId: 1, name: 'in_0'}],
         maxAllowedPortCount: 4,
       },
     ],
     staticControlPorts: overrides.staticControlPorts ?? [
-      {portId: 1, portName: 'ctrl_0'},
+      {naturalId: 1, portName: 'ctrl_0'},
     ],
     dynamicIntents: [],
   };
@@ -70,7 +70,7 @@ function makeContainerRepo(): ContainerRepository {
       new PropertyDefinition({
         systemId: 900,
         fileSystemId: FILE_ID,
-        propertyId: 0x08_00_10_13,
+        naturalId: 0x08_00_10_13,
         name: 'Stack Size',
         type: 'SPF',
         elementsStructure: '',
@@ -81,7 +81,7 @@ function makeContainerRepo(): ContainerRepository {
       new PropertyDefinition({
         systemId: 900,
         fileSystemId: FILE_ID,
-        propertyId: 0x08_00_10_13,
+        naturalId: 0x08_00_10_13,
         name: 'Stack Size',
         type: 'SPF',
         elementsStructure: '',
@@ -257,7 +257,7 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
     const module = (moduleRepo.createModule as ReturnType<typeof jest.fn>).mock
       .calls[0][0];
     expect(module.dataPorts).toHaveLength(1);
-    expect(module.dataPorts[0].dataPortId).toBe(1);
+    expect(module.dataPorts[0].naturalId).toBe(1);
     expect(module.dataPorts[0].isStatic).toBe(true);
   });
 
@@ -275,7 +275,7 @@ describe('CreateModuleHandler — Variant 1 (auto-create subgraph + container)',
     const module = (moduleRepo.createModule as ReturnType<typeof jest.fn>).mock
       .calls[0][0];
     expect(module.controlPorts).toHaveLength(1);
-    expect(module.controlPorts[0].portId).toBe(1);
+    expect(module.controlPorts[0].naturalId).toBe(1);
     expect(module.controlPorts[0].isStatic).toBe(true);
   });
 });

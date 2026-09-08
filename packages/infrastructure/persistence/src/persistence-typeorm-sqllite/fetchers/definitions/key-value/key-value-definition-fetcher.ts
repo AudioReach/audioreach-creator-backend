@@ -27,7 +27,7 @@ export interface OverlaidKeyDefinition extends KeyDefinitionBase {
 export type KeyDefinitionFilters = {
   systemId?: number | number[];
   fileSystemId?: number | number[];
-  keyId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   description?: string | string[];
   isCalibrationKey?: boolean | boolean[];

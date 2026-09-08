@@ -19,7 +19,7 @@ import {
  */
 export type ProcessorDefinitionFilters = {
   systemId?: number | number[];
-  processorDefinitionId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   fileSystemId?: number | number[];
   $or?: ProcessorDefinitionFilters[];

@@ -28,7 +28,7 @@ export function toKeyDefinitionReadModel(
 
   return {
     systemId: row.systemId,
-    keyId: row.keyId,
+    naturalId: row.naturalId,
     name: row.name,
     description: row.description,
     isCalibrationKey: row.isCalibrationKey,
@@ -46,7 +46,7 @@ export function toKeyDefinitionReadModel(
     }),
     values: (row.values ?? []).map(v => ({
       systemId: v.systemId,
-      valueId: v.valueId,
+      naturalId: v.naturalId,
       name: v.name,
       description: v.description,
       enumMember: v.enumMember,

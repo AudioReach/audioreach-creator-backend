@@ -78,7 +78,7 @@ export class CreateModuleHandler implements CommandHandler<
           dataPorts.push(
             new DataPort({
               systemId: await this.idGeneration.getNextId(fileSystemId),
-              dataPortId: portDef.dataPortId,
+              naturalId: portDef.naturalId,
               portIoType: group.portIoType,
               isStatic: true,
               name: portDef.name,
@@ -87,9 +87,9 @@ export class CreateModuleHandler implements CommandHandler<
         }
       }
 
-      // 6. Allocate module systemId + instanceId
+      // 6. Allocate module systemId + instanceNaturalId
       const moduleSystemId = await this.idGeneration.getNextId(fileSystemId);
-      const instanceId = this.naturalIdGeneration.getNextId(
+      const instanceNaturalId = this.naturalIdGeneration.getNextId(
         fileSystemId,
         NaturalIdType.MODINSTANCE,
       );
@@ -100,7 +100,7 @@ export class CreateModuleHandler implements CommandHandler<
         controlPorts.push(
           new ControlPort({
             systemId: await this.idGeneration.getNextId(fileSystemId),
-            portId: portDef.portId,
+            naturalId: portDef.naturalId,
             isStatic: true,
             nodeSystemId: moduleSystemId,
             name: portDef.portName,
@@ -111,7 +111,7 @@ export class CreateModuleHandler implements CommandHandler<
 
       const module = new SpfModule({
         systemId: moduleSystemId,
-        instanceId,
+        naturalId: instanceNaturalId,
         definitionSystemId: definition.systemId,
         containerSystemId,
         subgraphSystemId,
@@ -160,7 +160,7 @@ export class CreateModuleHandler implements CommandHandler<
     const subgraphRepo = this.uow.getSubgraphRepository();
     if (command.subgraphSystemId === null) {
       const subgraphSystemId = await this.idGeneration.getNextId(fileSystemId);
-      const subgraphId = this.naturalIdGeneration.getNextId(
+      const subgraphNaturalId = this.naturalIdGeneration.getNextId(
         fileSystemId,
         NaturalIdType.SUBGRAPH,
       );
@@ -169,8 +169,8 @@ export class CreateModuleHandler implements CommandHandler<
       const subgraph = buildSubgraphWithDefaults(
         {
           systemId: subgraphSystemId,
-          subgraphId,
-          name: `SG_${subgraphId.toString(16).toUpperCase()}`,
+          subgraphNaturalId,
+          name: `SG_${subgraphNaturalId.toString(16).toUpperCase()}`,
           fileSystemId,
         },
         sgPropDefs,
@@ -203,7 +203,7 @@ export class CreateModuleHandler implements CommandHandler<
         );
       }
       const containerSystemId = await this.idGeneration.getNextId(fileSystemId);
-      const containerId = this.naturalIdGeneration.getNextId(
+      const containerNaturalId = this.naturalIdGeneration.getNextId(
         fileSystemId,
         NaturalIdType.CONTAINER,
       );
@@ -212,7 +212,7 @@ export class CreateModuleHandler implements CommandHandler<
       const container = buildContainerWithDefaults(
         {
           systemId: containerSystemId,
-          containerId,
+          containerNaturalId,
           containerTypeSystemId,
           fileSystemId,
         },

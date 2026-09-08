@@ -92,12 +92,12 @@ describe('ProcessorDefinitionFetcher (integration)', () => {
 
   async function saveProcessor(
     systemId: number,
-    processorDefinitionId: number,
+    naturalId: number,
     name: string,
   ): Promise<void> {
     await processorRepository.save({
       systemId,
-      processorDefinitionId,
+      naturalId,
       name,
       fileSystemId: FILE_ID,
     });
@@ -162,7 +162,7 @@ describe('ProcessorDefinitionFetcher (integration)', () => {
       targetSystemId: 10,
       operation: CHANGE_OPERATION.Create,
       newValue: {
-        processorDefinitionId: 10,
+        naturalId: 10,
         name: 'Created',
         fileSystemId: FILE_ID,
       },
@@ -183,7 +183,7 @@ describe('ProcessorDefinitionFetcher (integration)', () => {
       targetSystemId: 10,
       operation: CHANGE_OPERATION.Create,
       newValue: {
-        processorDefinitionId: 10,
+        naturalId: 10,
         name: 'Created',
         fileSystemId: FILE_ID,
       },

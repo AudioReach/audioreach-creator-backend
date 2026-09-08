@@ -48,7 +48,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   });
   await manager.insert('Subgraph', {
     systemId: SUBGRAPH_ID,
-    subgraphId: 1,
+    naturalId: 1,
     name: 'sg',
     isImported: 0,
     fileSystemId: FILE_ID,
@@ -68,14 +68,14 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   });
   await manager.insert('ControlPort', {
     systemId: PORT_A_ID,
-    portId: 1,
+    naturalId: 1,
     isStatic: 1,
     nodeSystemId: NODE_A_ID,
     version: 1,
   });
   await manager.insert('ControlPort', {
     systemId: PORT_B_ID,
-    portId: 2,
+    naturalId: 2,
     isStatic: 1,
     nodeSystemId: NODE_B_ID,
     version: 1,

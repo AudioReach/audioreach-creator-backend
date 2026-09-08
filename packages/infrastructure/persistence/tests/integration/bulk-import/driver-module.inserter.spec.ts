@@ -56,7 +56,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('DriverModuleDefinition', {
     systemId: DEFINITION_ID,
     fileSystemId: FILE_ID,
-    moduleDefinitionId: 1,
+    naturalId: 1,
     name: 'TestDriverModule',
     version: 1,
   });
@@ -64,7 +64,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('DriverModuleDefinition', {
     systemId: DEFINITION_ID_2,
     fileSystemId: FILE_ID,
-    moduleDefinitionId: 2,
+    naturalId: 2,
     name: 'TestDriverModule2',
     version: 1,
   });
@@ -72,7 +72,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('KeyDefinition', {
     systemId: KEY_DEF_ID,
     fileSystemId: FILE_ID,
-    keyId: 1,
+    naturalId: 1,
     name: 'TestKey',
     version: 1,
   });
@@ -85,7 +85,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     await manager.insert('ValueDefinition', {
       systemId,
       keySystemId: KEY_DEF_ID,
-      valueId,
+      naturalId: valueId,
       name: valueName,
       version: 1,
     });
@@ -98,7 +98,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
     await manager.insert('DriverModuleParameterDefinition', {
       systemId,
       driverModuleDefinitionSystemId: DEFINITION_ID,
-      parameterId,
+      naturalId: parameterId,
       name: `Param_${parameterId}`,
       maxSize: 100,
       paramStructure: '{}',
@@ -255,7 +255,7 @@ describe('DriverModuleInserter', () => {
     // Create conflicting driver module
     await manager.insert('DriverModule', {
       systemId: 1002,
-      moduleDefinitionId: 1,
+      naturalId: 1,
       definitionSystemId: DEFINITION_ID,
       fileSystemId: FILE_ID,
       version: 1,
@@ -299,7 +299,7 @@ describe('DriverModuleInserter', () => {
     // Create conflicting DKV
     await manager.insert('DriverModule', {
       systemId: 1003,
-      moduleDefinitionId: 2,
+      naturalId: 2,
       definitionSystemId: DEFINITION_ID,
       fileSystemId: FILE_ID,
       version: 1,
@@ -392,7 +392,7 @@ describe('DriverModuleInserter', () => {
     // Create conflict for first module
     await manager.insert('DriverModule', {
       systemId: 1006,
-      moduleDefinitionId: 5,
+      naturalId: 5,
       definitionSystemId: DEFINITION_ID,
       fileSystemId: FILE_ID,
       version: 1,
@@ -480,7 +480,7 @@ describe('DriverModuleInserter', () => {
     // Create conflicts at different levels
     await manager.insert('DriverModule', {
       systemId: 1009,
-      moduleDefinitionId: 8,
+      naturalId: 8,
       definitionSystemId: DEFINITION_ID,
       fileSystemId: FILE_ID,
       version: 1,
@@ -518,7 +518,7 @@ describe('DriverModuleInserter', () => {
     // Create a dummy driver module for the conflicting DKV
     await manager.insert('DriverModule', {
       systemId: 999,
-      moduleDefinitionId: 999,
+      naturalId: 999,
       definitionSystemId: DEFINITION_ID_2,
       fileSystemId: FILE_ID,
       version: 1,

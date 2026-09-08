@@ -29,7 +29,7 @@ describe('GetTagDefinitionHandler', () => {
 
     const tag: TagDefinitionReadModel = {
       systemId: 1,
-      tagId: 100,
+      naturalId: 100,
       name: 'MyTag',
       isVoice: false,
       keys: [],
@@ -51,7 +51,7 @@ describe('GetTagDefinitionHandler', () => {
     ).toHaveBeenCalledWith(42, 1);
     expect(result.data).toMatchObject({
       systemId: '1',
-      tagId: 100,
+      naturalId: 100,
       name: 'MyTag',
     });
   });

@@ -61,15 +61,15 @@ describe('Voice Calibration Download Integration', () => {
               valueIds: [10, 20],
               modules: [
                 {
-                  moduleInstanceId: 300,
+                  naturalId: 300,
                   parameters: [
                     {
-                      parameterId: 400,
+                      naturalId: 400,
                       payload: new Uint8Array([0xde, 0xad]),
                       pidType: 'SharedPersistent',
                     },
                     {
-                      parameterId: 401,
+                      naturalId: 401,
                       payload: new Uint8Array([0xbe, 0xef]),
                       pidType: 'SharedPersistent',
                     },

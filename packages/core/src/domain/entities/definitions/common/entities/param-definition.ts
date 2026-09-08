@@ -8,7 +8,7 @@ import type {ToolPolicy} from '../types/tool-policy-type.js';
 
 export interface ParamDefinitionInit {
   systemId: number;
-  paramId: number;
+  naturalId: number;
   name: string;
   description?: string;
   maxSize?: number;
@@ -17,12 +17,12 @@ export interface ParamDefinitionInit {
   elementsStructure: string;
   isPersistent: boolean;
   isReadOnly: boolean;
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 }
 
 export class ParamDefinition {
   systemId: number;
-  readonly paramId: number;
+  readonly naturalId: number;
   name: string;
   description?: string;
   maxSize?: number;
@@ -31,11 +31,11 @@ export class ParamDefinition {
   elementsStructure: string;
   isPersistent: boolean;
   isReadOnly: boolean;
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 
   constructor(initParam: ParamDefinitionInit) {
     this.systemId = initParam.systemId;
-    this.paramId = initParam.paramId;
+    this.naturalId = initParam.naturalId;
     this.name = initParam.name;
     this.description = initParam.description;
     this.maxSize = initParam.maxSize;
@@ -44,6 +44,6 @@ export class ParamDefinition {
     this.elementsStructure = initParam.elementsStructure;
     this.isPersistent = initParam.isPersistent;
     this.isReadOnly = initParam.isReadOnly;
-    this.copySrcParamId = initParam.copySrcParamId;
+    this.copySrcParamNaturalId = initParam.copySrcParamNaturalId;
   }
 }

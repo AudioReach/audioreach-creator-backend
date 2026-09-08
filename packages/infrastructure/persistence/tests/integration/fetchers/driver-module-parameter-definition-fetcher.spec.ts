@@ -84,7 +84,7 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
     await definitionRepository.save({
       systemId: DEFINITION_ID,
       fileSystemId: FILE_ID,
-      moduleDefinitionId: 1,
+      naturalId: 1,
       name: 'Driver Module',
     });
     fetcher = new DriverModuleParameterDefinitionFetcher(
@@ -107,12 +107,12 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
 
   async function saveParameter(
     systemId: number,
-    parameterId: number,
+    naturalId: number,
     name: string,
   ): Promise<void> {
     await parameterRepository.save({
       systemId,
-      parameterId,
+      naturalId,
       name,
       description: `${name} description`,
       maxSize: 4,
@@ -156,7 +156,7 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
     await saveParameter(12, 12, 'Other');
 
     const rows = await fetcher.fetchMany([DEFINITION_ID], null, {
-      $or: [{name: 'Input'}, {parameterId: 11}],
+      $or: [{name: 'Input'}, {naturalId: 11}],
     });
 
     expect(rows.map(row => row.systemId)).toEqual([10, 11]);
@@ -181,7 +181,7 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Create,
       fieldPath: '$',
       newValue: {
-        parameterId: 20,
+        naturalId: 20,
         name: 'Created',
         description: 'Created description',
         maxSize: 4,
@@ -206,7 +206,7 @@ describe('DriverModuleParameterDefinitionFetcher (integration)', () => {
       operation: CHANGE_OPERATION.Create,
       fieldPath: '$',
       newValue: {
-        parameterId: 20,
+        naturalId: 20,
         name: 'Created',
         description: 'Created description',
         maxSize: 4,

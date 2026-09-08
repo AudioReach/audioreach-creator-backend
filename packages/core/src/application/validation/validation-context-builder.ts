@@ -67,10 +67,10 @@ export class ValidationContextBuilder {
    *   to compute this from the active rule set.
    *
    * Entity type → DB query + derived maps:
-   *   SpfModule           → modules + modulesBySystemId + modulesBySubgraphId
+   *   SpfModule           → modules + modulesBySystemId + modulesBySubgraphSystemId
    *   DataLink            → dataLinks
    *   ControlLink         → controlLinks
-   *   UseCase             → usecases + usecasesByModuleId
+   *   UseCase             → usecases + usecasesByModuleSystemId
    *   Subgraph            → subgraphs + subgraphsBySystemId
    *   SpfModuleDefinition → definitions
    */
@@ -147,21 +147,21 @@ function buildContext(
   const subgraphsBySystemId = new Map(subgraphs.map(s => [s.systemId, s]));
   const definitionsMap = new Map(definitions.map(d => [d.systemId, d]));
 
-  const modulesBySubgraphId = new Map<number, SpfModule[]>();
+  const modulesBySubgraphSystemId = new Map<number, SpfModule[]>();
   for (const mod of modules) {
-    const list = modulesBySubgraphId.get(mod.subgraphSystemId) ?? [];
+    const list = modulesBySubgraphSystemId.get(mod.subgraphSystemId) ?? [];
     list.push(mod);
-    modulesBySubgraphId.set(mod.subgraphSystemId, list);
+    modulesBySubgraphSystemId.set(mod.subgraphSystemId, list);
   }
 
-  const usecasesByModuleId = new Map<number, UseCase[]>();
+  const usecasesByModuleSystemId = new Map<number, UseCase[]>();
   for (const uc of usecases) {
     for (const sgId of uc.subgraphSystemIds) {
-      const sgModules = modulesBySubgraphId.get(sgId) ?? [];
+      const sgModules = modulesBySubgraphSystemId.get(sgId) ?? [];
       for (const mod of sgModules) {
-        const list = usecasesByModuleId.get(mod.systemId) ?? [];
+        const list = usecasesByModuleSystemId.get(mod.systemId) ?? [];
         list.push(uc);
-        usecasesByModuleId.set(mod.systemId, list);
+        usecasesByModuleSystemId.set(mod.systemId, list);
       }
     }
   }
@@ -172,12 +172,12 @@ function buildContext(
     dataLinks,
     controlLinks,
     modulesBySystemId,
-    usecasesByModuleId,
+    usecasesByModuleSystemId,
     modules,
     definitions: definitionsMap,
     subgraphs,
     subgraphsBySystemId,
-    modulesBySubgraphId,
+    modulesBySubgraphSystemId,
     usecases,
   };
 }

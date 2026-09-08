@@ -57,9 +57,9 @@ export class TkvParametersResponseDto {
 export class CkvParameterRemovalResponseDto {
   @ApiProperty({
     description: 'Array of parameter system IDs that were removed',
-    type: [Number],
+    type: [String],
   })
-  removedParameterSystemIds!: number[];
+  removedParameterSystemIds!: string[];
 
   @ApiProperty({
     description:
@@ -90,9 +90,9 @@ export class TkvParameterRemovalItem {
   @ApiProperty({
     description:
       'Array of parameter system IDs that were removed from this TKV',
-    type: [Number],
+    type: [String],
   })
-  removedParameterSystemIds!: number[];
+  removedParameterSystemIds!: string[];
 }
 
 /**

@@ -49,7 +49,7 @@ async function createBaseDependencies(manager: EntityManager): Promise<void> {
   ]) {
     await manager.insert('Subgraph', {
       systemId,
-      subgraphId: sgId,
+      naturalId: sgId,
       name: `subgraph-${sgId}`,
       isImported: 0,
       fileSystemId: FILE_ID,
@@ -62,7 +62,7 @@ async function createGkvDependencies(manager: EntityManager): Promise<void> {
   await manager.insert('KeyDefinition', {
     systemId: 5001,
     fileSystemId: FILE_ID,
-    keyId: 1,
+    naturalId: 1,
     name: 'TestKey',
     version: 1,
   });
@@ -73,10 +73,10 @@ async function createGkvDependencies(manager: EntityManager): Promise<void> {
     await manager.insert('ValueDefinition', {
       systemId,
       keySystemId: 5001,
-      valueId,
+      naturalId: valueId,
       name: `Value${valueId}`,
       fileSystemId: FILE_ID,
-      aliasId: systemId,
+      naturalId: systemId,
       alias: `Value${valueId}`,
       version: 1,
     });

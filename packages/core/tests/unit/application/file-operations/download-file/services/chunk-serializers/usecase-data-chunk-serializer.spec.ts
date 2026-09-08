@@ -46,20 +46,20 @@ function createMockSubgraphData(
 
   // Create mock properties
   const properties = Array.from({length: numProperties}, (_, i) => ({
-    propertyId: 1000 + i,
+    propertyNaturalId: 1000 + i,
     payload: new Uint8Array([0x01, 0x02, 0x03, 0x04]),
   }));
 
   // Create mock modules
   const modules = Array.from({length: numModules}, (_, i) => ({
-    instanceId: subgraphId * 100 + i,
-    moduleId: 2000 + i,
-    containerId: 3000 + (i % 2), // Alternate between two containers
+    instanceNaturalId: subgraphId * 100 + i,
+    moduleNaturalId: 2000 + i,
+    containerNaturalId: 3000 + (i % 2), // Alternate between two containers
     maxInputPorts: 1,
     maxOutputPorts: 1,
     properties: [
       {
-        propertyId: 4000 + i,
+        propertyNaturalId: 4000 + i,
         payload: new Uint8Array([0x10, 0x20]),
       },
     ],
@@ -69,11 +69,11 @@ function createMockSubgraphData(
   const dataLinks =
     modules.length > 0
       ? Array.from({length: numDataLinks}, (_, i) => ({
-          sourceInstanceId: modules[i]?.instanceId ?? 0,
-          sourcePortId: 1,
-          destinationInstanceId:
-            modules[i + 1]?.instanceId ?? modules[0].instanceId,
-          destinationPortId: 1,
+          sourceInstanceNaturalId: modules[i]?.instanceNaturalId ?? 0,
+          sourcePortNaturalId: 1,
+          destinationInstanceNaturalId:
+            modules[i + 1]?.instanceNaturalId ?? modules[0].instanceNaturalId,
+          destinationPortNaturalId: 1,
           isInterGraph: false,
         }))
       : [];
@@ -82,10 +82,11 @@ function createMockSubgraphData(
   const controlLinks =
     modules.length > 0
       ? Array.from({length: numControlLinks}, (_, i) => ({
-          peer1InstanceId: modules[i]?.instanceId ?? 0,
-          peer1PortId: 1,
-          peer2InstanceId: modules[i + 1]?.instanceId ?? modules[0].instanceId,
-          peer2PortId: 1,
+          peer1InstanceNaturalId: modules[i]?.instanceNaturalId ?? 0,
+          peer1PortNaturalId: 1,
+          peer2InstanceNaturalId:
+            modules[i + 1]?.instanceNaturalId ?? modules[0].instanceNaturalId,
+          peer2PortNaturalId: 1,
           isInterGraph: false,
           heapId: 1,
           intentIds: [100, 101],
@@ -93,7 +94,7 @@ function createMockSubgraphData(
       : [];
 
   return {
-    subgraphId,
+    naturalId: subgraphId,
     isVoice,
     properties,
     modules,
@@ -107,7 +108,7 @@ function createMockSubgraphData(
  * Create mock container data for testing.
  */
 function createMockContainerData(
-  containerId: number,
+  containerNaturalId: number,
   options: {
     numProperties?: number;
     parentContainerId?: number;
@@ -116,7 +117,7 @@ function createMockContainerData(
   const {numProperties = 1, parentContainerId} = options;
 
   const properties = Array.from({length: numProperties}, (_, i) => ({
-    propertyId: 5000 + i,
+    propertyNaturalId: 5000 + i,
     payload: new Uint8Array([0xa0, 0xb0, 0xc0, 0xd0]),
   }));
 
@@ -130,13 +131,13 @@ function createMockContainerData(
     );
     view.setUint32(0, parentContainerId, true);
     properties.push({
-      propertyId: 0x08001192, // CONTAINER_PROP_ID_PARENT_CONTAINER
+      propertyNaturalId: 0x08001192, // CONTAINER_PROP_ID_PARENT_CONTAINER
       payload: parentPayload,
     });
   }
 
   return {
-    containerId,
+    containerNaturalId,
     properties,
   };
 }
@@ -365,8 +366,8 @@ describe('UsecaseDataChunkSerializer', () => {
       // Subgraphs should be populated
       const valueEntry = chunk.gkvGroups[0].keys[0].values[0];
       expect(valueEntry.subgraphs).toHaveLength(2);
-      expect(valueEntry.subgraphs[0].subgraphId).toBe(5000);
-      expect(valueEntry.subgraphs[1].subgraphId).toBe(5001);
+      expect(valueEntry.subgraphs[0].naturalId).toBe(5000);
+      expect(valueEntry.subgraphs[1].naturalId).toBe(5001);
     });
   });
 
@@ -708,8 +709,8 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should serialize subgraph with properties', () => {
       const subgraphId = 5000;
       const properties = [
-        {propertyId: 1000, payload: new Uint8Array([0x01, 0x02])},
-        {propertyId: 1001, payload: new Uint8Array([0x03, 0x04, 0x05])},
+        {propertyNaturalId: 1000, payload: new Uint8Array([0x01, 0x02])},
+        {propertyNaturalId: 1001, payload: new Uint8Array([0x03, 0x04, 0x05])},
       ];
 
       const result = (serializer as any).serializeSubgraphConfig(
@@ -788,7 +789,7 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should serialize driver properties', () => {
       const subgraphId = 5000;
       const properties = [
-        {propertyId: 1000, payload: new Uint8Array([0x01, 0x02])},
+        {propertyNaturalId: 1000, payload: new Uint8Array([0x01, 0x02])},
       ];
 
       const result = (serializer as any).serializeDriverProperties(
@@ -828,9 +829,9 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should serialize modules grouped by container', () => {
       const subgraphId = 5000;
       const modules = [
-        {instanceId: 100, moduleId: 2000, containerId: 3000},
-        {instanceId: 101, moduleId: 2001, containerId: 3000},
-        {instanceId: 102, moduleId: 2002, containerId: 3001},
+        {instanceNaturalId: 100, moduleId: 2000, containerNaturalId: 3000},
+        {instanceNaturalId: 101, moduleId: 2001, containerNaturalId: 3000},
+        {instanceNaturalId: 102, moduleId: 2002, containerNaturalId: 3001},
       ];
 
       const result = (serializer as any).serializeModuleList(
@@ -867,13 +868,13 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should serialize module properties including port info', () => {
       const modules = [
         {
-          instanceId: 100,
+          instanceNaturalId: 100,
           moduleId: 2000,
-          containerId: 3000,
+          containerNaturalId: 3000,
           maxInputPorts: 2,
           maxOutputPorts: 1,
           properties: [
-            {propertyId: 4000, payload: new Uint8Array([0x10, 0x20])},
+            {propertyNaturalId: 4000, payload: new Uint8Array([0x10, 0x20])},
           ],
         },
       ];
@@ -895,9 +896,9 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should return empty array when no modules have properties', () => {
       const modules = [
         {
-          instanceId: 100,
+          instanceNaturalId: 100,
           moduleId: 2000,
-          containerId: 3000,
+          containerNaturalId: 3000,
           maxInputPorts: 0,
           maxOutputPorts: 0,
           properties: [],
@@ -914,10 +915,10 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should serialize data links', () => {
       const dataLinks = [
         {
-          sourceInstanceId: 100,
-          sourcePortId: 1,
-          destinationInstanceId: 101,
-          destinationPortId: 1,
+          sourceInstanceNaturalId: 100,
+          sourcePortNaturalId: 1,
+          destinationInstanceNaturalId: 101,
+          destinationPortNaturalId: 1,
           isInterGraph: false,
         },
       ];
@@ -949,10 +950,10 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should serialize control links with heap ID and intents', () => {
       const controlLinks = [
         {
-          peer1InstanceId: 100,
-          peer1PortId: 1,
-          peer2InstanceId: 101,
-          peer2PortId: 1,
+          peer1InstanceNaturalId: 100,
+          peer1PortNaturalId: 1,
+          peer2InstanceNaturalId: 101,
+          peer2PortNaturalId: 1,
           isInterGraph: false,
           heapId: 2,
           intentIds: [100, 101],
@@ -976,10 +977,10 @@ describe('UsecaseDataChunkSerializer', () => {
     it('should use default heap ID when not provided', () => {
       const controlLinks = [
         {
-          peer1InstanceId: 100,
-          peer1PortId: 1,
-          peer2InstanceId: 101,
-          peer2PortId: 1,
+          peer1InstanceNaturalId: 100,
+          peer1PortNaturalId: 1,
+          peer2InstanceNaturalId: 101,
+          peer2PortNaturalId: 1,
           isInterGraph: false,
           intentIds: [],
         },

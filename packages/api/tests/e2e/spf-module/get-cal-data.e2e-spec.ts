@@ -65,13 +65,14 @@ describe('GET /arc-api/v1/projects/:projectId/spf-modules/:spfModuleSystemId/cal
   });
 });
 
-describe('GET cal-data for IIR_MBDRC module (moduleId=0x07001017)', () => {
+describe('GET cal-data for IIR_MBDRC module (naturalId=0x07001017)', () => {
   let app: INestApplication;
   let httpServer: any;
   let authToken: string;
   let projectId: string | undefined;
   let iirMbdrcSystemId: string | undefined;
   let iirMbdrcCkvSystemIds: string[];
+  let iirMbdrcDefinitionSystemId: string | undefined;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -81,6 +82,7 @@ describe('GET cal-data for IIR_MBDRC module (moduleId=0x07001017)', () => {
     projectId = undefined;
     iirMbdrcSystemId = undefined;
     iirMbdrcCkvSystemIds = [];
+    iirMbdrcDefinitionSystemId = undefined;
 
     // Upload fixture files to get a project with real module data
     const acdbPath = join(__dirname, '../fixtures/acdb_cal.acdb');
@@ -103,6 +105,19 @@ describe('GET cal-data for IIR_MBDRC module (moduleId=0x07001017)', () => {
     }
 
     projectId = uploadResponse.body.data.projectId;
+
+    // Resolve the DB system ID for the IIR_MBDRC module definition (natural ID 0x07001017)
+    const defResponse = await request(httpServer)
+      .get(`/arc-api/v1/projects/${projectId}/spf-module-definitions`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .timeout(30000);
+    const defDtos: any[] = defResponse.body?.data ?? [];
+    const iirMbdrcDefinition = defDtos.find(
+      (definition: any) => definition.naturalId === IIR_MBDRC_MODULE_ID,
+    );
+    if (iirMbdrcDefinition) {
+      iirMbdrcDefinitionSystemId = String(iirMbdrcDefinition.systemId);
+    }
 
     // Get all usecases for this project
     const usecasesResponse = await request(httpServer)
@@ -145,7 +160,7 @@ describe('GET cal-data for IIR_MBDRC module (moduleId=0x07001017)', () => {
 
       if (!moduleSystemIds.length) continue;
 
-      // Query full SpfModuleDto (includes moduleId and ckvs) to find IIR_MBDRC
+      // Query full SpfModuleDto (includes moduleDefinitionSystemId and ckvs) to find IIR_MBDRC
       const queryResponse = await request(httpServer)
         .post(
           `/arc-api/v1/projects/${projectId}/spf-modules/query?include=ckvs`,
@@ -158,7 +173,10 @@ describe('GET cal-data for IIR_MBDRC module (moduleId=0x07001017)', () => {
 
       const moduleDtos: any[] = queryResponse.body.data ?? [];
       for (const moduleDto of moduleDtos) {
-        if (moduleDto.moduleId === IIR_MBDRC_MODULE_ID) {
+        if (
+          iirMbdrcDefinitionSystemId !== undefined &&
+          moduleDto.moduleDefinitionSystemId === iirMbdrcDefinitionSystemId
+        ) {
           iirMbdrcSystemId = String(moduleDto.systemId);
           iirMbdrcCkvSystemIds = (moduleDto.ckvs ?? []).map((ckv: any) =>
             String(ckv.systemId),
@@ -185,7 +203,7 @@ describe('GET cal-data for IIR_MBDRC module (moduleId=0x07001017)', () => {
   it('returns HTTP 200 for IIR_MBDRC cal-data with first CKV', async () => {
     if (!projectId || !iirMbdrcSystemId) {
       throw new Error(
-        'IIR_MBDRC module (moduleId=0x07001017) not found in fixture',
+        'IIR_MBDRC module (naturalId=0x07001017) not found in fixture',
       );
     }
 

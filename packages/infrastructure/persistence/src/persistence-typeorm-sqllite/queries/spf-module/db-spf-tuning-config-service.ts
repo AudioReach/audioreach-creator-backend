@@ -279,7 +279,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
           return {
             systemId: tagMap.systemId,
             tagDefinitionSystemId: tagMap.tagDefinitionSystemId,
-            tagId: tagDef?.tagId ?? 0,
+            naturalId: tagDef?.naturalId ?? 0,
             tagName: tagDef?.name ?? '',
             tkvs,
           } satisfies TagReadModel;
@@ -434,7 +434,7 @@ export class DbSpfTuningConfigService implements SpfTuningConfigService {
   ): CkvParamReadModel {
     const base = {
       systemId: param.systemId,
-      parameterId: param.paramId,
+      naturalId: param.naturalId,
       name: param.name ?? '',
       description: param.description,
       pidType: param.pidType,

@@ -8,7 +8,7 @@ import {BaseQuery} from '../../../shared/base-query.js';
 export class GetAllContainerPropertyDefinitionsQuery extends BaseQuery {
   constructor(
     public readonly projectId: number,
-    public readonly propertyDefinitionId: number | undefined,
+    public readonly propertyDefinitionNaturalId: number | undefined,
     clientId: string,
   ) {
     super(clientId);

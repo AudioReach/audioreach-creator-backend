@@ -17,7 +17,7 @@ import {
 export type ValueDefinitionFilters = {
   systemId?: number | number[];
   keySystemId?: number | number[];
-  valueId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   $or?: ValueDefinitionFilters[];
 };

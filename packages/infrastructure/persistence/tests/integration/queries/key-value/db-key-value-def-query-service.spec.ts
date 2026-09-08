@@ -137,13 +137,13 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     const key = await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
     });
     await valueDefinitionRepository.save({
       systemId: 2,
       keySystemId: key.systemId,
-      valueId: 200,
+      naturalId: 200,
       name: 'MyValue',
     });
 
@@ -154,13 +154,13 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     expect(result.data).toHaveLength(1);
     expect(result.data[0]).toMatchObject({
       systemId: 1,
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
     });
     expect(result.data[0].values).toHaveLength(1);
     expect(result.data[0].values[0]).toMatchObject({
       systemId: 2,
-      valueId: 200,
+      naturalId: 200,
       name: 'MyValue',
     });
   });
@@ -171,13 +171,13 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'KeyOne',
     });
     await keyDefinitionRepository.save({
       systemId: 2,
       fileSystemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'KeyTwo',
     });
 
@@ -194,7 +194,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'KeyOne',
     });
 
@@ -210,7 +210,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     const key = await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'OriginalName',
     });
     const session = await createSession(fileSystemId);
@@ -243,7 +243,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     const key = await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'ToBeDeleted',
     });
     const session = await createSession(fileSystemId);
@@ -284,7 +284,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
       newValue: {
         systemId: 999,
         fileSystemId,
-        keyId: 900,
+        naturalId: 900,
         name: 'SessionOnlyKey',
       },
       source: SOURCE.Manual,
@@ -312,7 +312,7 @@ describe('DbKeyValueDefQueryService.getAllKeyDefinitions Integration Tests', () 
     await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'SomeKey',
     });
 

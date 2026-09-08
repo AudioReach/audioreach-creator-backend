@@ -18,9 +18,9 @@ describe('GetLogsByProjectQuery', () => {
     const q1 = new GetLogsByProjectQuery('proj-42', 'client-abc');
     const q2 = new GetLogsByProjectQuery('proj-42', 'client-abc');
 
-    expect(q1.id).toBeDefined();
-    expect(q2.id).toBeDefined();
-    expect(q1.id).not.toBe(q2.id);
+    expect(q1.requestToken).toBeDefined();
+    expect(q2.requestToken).toBeDefined();
+    expect(q1.requestToken).not.toBe(q2.requestToken);
   });
 
   it('sets a timeStamp on construction', () => {

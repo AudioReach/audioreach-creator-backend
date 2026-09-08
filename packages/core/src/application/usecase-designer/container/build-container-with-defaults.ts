@@ -11,7 +11,7 @@ import {encodeStackSize} from '../../../domain/services/container-property/conta
 
 export interface ContainerInit {
   systemId: number;
-  containerId: number;
+  containerNaturalId: number;
   containerTypeSystemId: number;
   fileSystemId: number;
 }
@@ -37,13 +37,13 @@ export function buildContainerWithDefaults(
 ): Container {
   const container = new Container(
     init.systemId,
-    init.containerId,
+    init.containerNaturalId,
     init.containerTypeSystemId,
     init.fileSystemId,
   );
 
   const stackSizeDefinition = propertyDefinitions.find(
-    propDef => propDef.propertyId === CONTAINER_PROP_ID_STACK_SIZE,
+    propDef => propDef.naturalId === CONTAINER_PROP_ID_STACK_SIZE,
   );
   if (!stackSizeDefinition) {
     throw new Error(
@@ -62,7 +62,7 @@ export function buildContainerWithDefaults(
 
   // Seed all other property definitions with their defaults.
   for (const propDef of propertyDefinitions) {
-    if (propDef.propertyId === CONTAINER_PROP_ID_STACK_SIZE) continue;
+    if (propDef.naturalId === CONTAINER_PROP_ID_STACK_SIZE) continue;
     container.properties.set(
       propDef.systemId,
       new ContainerPropertyValue(

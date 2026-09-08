@@ -15,7 +15,7 @@ const createReadModel = (
   overrides?: Partial<DriverModuleDefinitionSummaryReadModel>,
 ): DriverModuleDefinitionSummaryReadModel => ({
   systemId: 1,
-  moduleId: 100,
+  naturalId: 100,
   name: 'DriverModule',
   parameterDefinitions: [],
   ...overrides,
@@ -71,7 +71,7 @@ describe('GetDriverModuleDefinitionHandler', () => {
 
     // Result is now a mapped DTO — verify key fields
     expect(result.systemId).toBe('123');
-    expect(result.moduleId).toBe(readModel.moduleId);
+    expect(result.naturalId).toBe(readModel.naturalId);
     expect(result.name).toBe(readModel.name);
   });
 

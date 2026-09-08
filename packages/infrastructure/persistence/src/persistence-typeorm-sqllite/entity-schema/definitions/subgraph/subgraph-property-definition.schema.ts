@@ -12,7 +12,7 @@ import type {ArcDbFileRow} from '../../project-data/arc-db-file.schema.js';
 export interface SubgraphPropertyBase {
   systemId: number;
   fileSystemId: number;
-  propertyId: number;
+  naturalId: number;
   name: string;
   description?: string;
   maxSize: number;
@@ -37,7 +37,7 @@ export const SubgraphPropertyDefinitionSchema =
         type: 'integer',
         name: 'file_system_id',
       },
-      propertyId: {
+      naturalId: {
         type: 'integer',
         name: 'property_id',
       },

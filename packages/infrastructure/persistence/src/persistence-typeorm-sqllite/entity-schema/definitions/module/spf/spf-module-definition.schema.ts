@@ -21,7 +21,7 @@ import type {ProcessorDefinitionRow} from '../../common/processor-definition.sch
 /** Scalar columns only — used by overlay fetchers. */
 export interface SpfModuleDefinitionBase {
   systemId: number;
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   displayName?: string;
   description?: string;
@@ -59,7 +59,7 @@ export const SpfModuleDefinitionSchema =
     tableName: 'spf_module_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      moduleDefinitionId: {
+      naturalId: {
         type: 'integer',
         name: 'module_definition_id',
       },

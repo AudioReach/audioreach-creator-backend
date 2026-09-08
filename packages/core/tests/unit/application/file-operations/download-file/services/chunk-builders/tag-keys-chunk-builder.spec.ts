@@ -29,7 +29,7 @@ describe('TagKeysChunkBuilder', () => {
 
   it('writes tagId and datapool offset for a single tag', () => {
     const datapool = new DatapoolChunk();
-    const input = [{tagId: 0x1000, keyIds: [0x100, 0x200]}];
+    const input = [{tagNaturalId: 0x1000, keyIds: [0x100, 0x200]}];
     const result = build(input, datapool);
 
     // table: numEntries(4) + [tagId(4) + poolOffset(4)] = 12 bytes
@@ -51,8 +51,8 @@ describe('TagKeysChunkBuilder', () => {
   it('sorts entries by tagId ASC', () => {
     const datapool = new DatapoolChunk();
     const input = [
-      {tagId: 0x2000, keyIds: [0x10]},
-      {tagId: 0x1000, keyIds: [0x20]},
+      {tagNaturalId: 0x2000, keyIds: [0x10]},
+      {tagNaturalId: 0x1000, keyIds: [0x20]},
     ];
     const result = build(input, datapool);
     const view = new DataView(result.buffer);
@@ -63,8 +63,8 @@ describe('TagKeysChunkBuilder', () => {
   it('deduplicates payloads via addOrReuse when keyIds are identical', () => {
     const datapool = new DatapoolChunk();
     const input = [
-      {tagId: 0x1000, keyIds: [0x100]},
-      {tagId: 0x2000, keyIds: [0x100]},
+      {tagNaturalId: 0x1000, keyIds: [0x100]},
+      {tagNaturalId: 0x2000, keyIds: [0x100]},
     ];
     build(input, datapool);
     // Two tags with same keyIds → same datapool offset (addOrReuse)

@@ -17,7 +17,7 @@ import type {CkvRow} from './spf-module-calibration-data.schema.js';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface SpfModuleBase {
   systemId: number;
-  instanceId: number;
+  naturalId: number;
   alias: string | null;
   subgraphSystemId: number;
   containerSystemId: number;
@@ -46,7 +46,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
   tableName: 'spf_modules',
   columns: {
     ...BaseColumnSchemaPart,
-    instanceId: {name: 'instance_id', type: 'integer'},
+    naturalId: {name: 'instance_id', type: 'integer'},
     alias: {type: 'varchar', length: 250},
 
     //  scalar FK columns you will set directly
@@ -127,7 +127,7 @@ export const SpfModuleSchema = new EntitySchema<SpfModuleRow>({
     },
     {
       name: 'uq_spf_modules_instance_id_file_system_id',
-      columns: ['instanceId', 'fileSystemId'],
+      columns: ['naturalId', 'fileSystemId'],
       unique: true,
     },
   ],

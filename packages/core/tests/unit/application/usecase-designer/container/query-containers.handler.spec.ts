@@ -37,7 +37,7 @@ describe('ContainerQueryHandler', () => {
     const qs = makeQueryServices([
       {
         systemId: 10,
-        containerId: 100,
+        naturalId: 100,
         containerTypeSystemId: 5,
         containerTypeName: 'AudioProcessing',
       },
@@ -49,7 +49,7 @@ describe('ContainerQueryHandler', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind === RESULT_KIND.Ok) {
       expect(result.data).toEqual([
-        {systemId: '10', id: 100, name: 'AudioProcessing'},
+        {systemId: '10', naturalId: 100, name: 'AudioProcessing'},
       ]);
     }
   });
@@ -58,7 +58,7 @@ describe('ContainerQueryHandler', () => {
     const qs = makeQueryServices([
       {
         systemId: 7,
-        containerId: 77,
+        naturalId: 77,
         containerTypeSystemId: 3,
         containerTypeName: null,
       },
@@ -77,7 +77,7 @@ describe('ContainerQueryHandler', () => {
     const qs = makeQueryServices([
       {
         systemId: 8,
-        containerId: 88,
+        naturalId: 88,
         containerTypeSystemId: null,
         containerTypeName: null,
       },

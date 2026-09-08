@@ -10,5 +10,7 @@
       "@arc/logger": ["../../infrastructure/logger/src/index.ts"],
       "@arc/persistence": ["../../infrastructure/persistence/src/index.ts"]
     }
-  }
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

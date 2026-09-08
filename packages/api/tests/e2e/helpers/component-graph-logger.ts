@@ -8,9 +8,9 @@
 interface ModuleInfo {
   systemId: number;
   name: string;
-  subgraphId: number;
+  subgraphSystemId: string;
   subgraphName: string;
-  containerId: number;
+  containerSystemId: string;
   containerType: string;
   ports: PortInfo[];
 }
@@ -32,15 +32,15 @@ interface ConnectionInfo {
 }
 
 interface SubgraphInfo {
-  systemId: number;
+  systemId: string;
   name: string;
-  containers: Map<number, ContainerInfo>;
+  containers: Map<string, ContainerInfo>;
 }
 
 interface ContainerInfo {
-  systemId: number;
+  systemId: string;
   type: string;
-  subgraphId: number;
+  subgraphSystemId: string;
   modules: ModuleInfo[];
 }
 
@@ -55,7 +55,7 @@ interface DataLinkInfo {
 
 export class ComponentGraphLogger {
   private modules: Map<number, ModuleInfo> = new Map();
-  private subgraphs: Map<number, SubgraphInfo> = new Map();
+  private subgraphs: Map<string, SubgraphInfo> = new Map();
   private dataLinks: DataLinkInfo[] = [];
   private errors: string[] = [];
   private usecaseId: string;
@@ -77,9 +77,9 @@ export class ComponentGraphLogger {
         const moduleInfo: ModuleInfo = {
           systemId: module.systemId,
           name: module.name || `Module_${module.systemId}`,
-          subgraphId: module.subgraphId,
+          subgraphSystemId: module.subgraphSystemId,
           subgraphName: 'Unknown',
-          containerId: module.containerId,
+          containerSystemId: module.containerSystemId,
           containerType: 'Unknown',
           ports: [],
         };
@@ -100,27 +100,29 @@ export class ComponentGraphLogger {
         this.modules.set(module.systemId, moduleInfo);
 
         // Build subgraph info
-        if (!this.subgraphs.has(module.subgraphId)) {
-          this.subgraphs.set(module.subgraphId, {
-            systemId: module.subgraphId,
-            name: `Subgraph_${module.subgraphId}`,
+        if (!this.subgraphs.has(module.subgraphSystemId)) {
+          this.subgraphs.set(module.subgraphSystemId, {
+            systemId: module.subgraphSystemId,
+            name: `Subgraph_${module.subgraphSystemId}`,
             containers: new Map(),
           });
         }
 
-        const subgraph = this.subgraphs.get(module.subgraphId)!;
+        const subgraph = this.subgraphs.get(module.subgraphSystemId)!;
 
         // Build container info
-        if (!subgraph.containers.has(module.containerId)) {
-          subgraph.containers.set(module.containerId, {
-            systemId: module.containerId,
-            type: `Container_${module.containerId}`,
-            subgraphId: module.subgraphId,
+        if (!subgraph.containers.has(module.containerSystemId)) {
+          subgraph.containers.set(module.containerSystemId, {
+            systemId: module.containerSystemId,
+            type: `Container_${module.containerSystemId}`,
+            subgraphSystemId: module.subgraphSystemId,
             modules: [],
           });
         }
 
-        subgraph.containers.get(module.containerId)!.modules.push(moduleInfo);
+        subgraph.containers
+          .get(module.containerSystemId)!
+          .modules.push(moduleInfo);
       }
     }
 
@@ -300,7 +302,7 @@ export class ComponentGraphLogger {
     const interSubgraphConnections = resolvedLinks.filter(link => {
       const sourceModule = this.modules.get(link.sourceModuleId)!;
       const destModule = this.modules.get(link.destModuleId)!;
-      return sourceModule.subgraphId !== destModule.subgraphId;
+      return sourceModule.subgraphSystemId !== destModule.subgraphSystemId;
     });
 
     if (interSubgraphConnections.length > 0) {

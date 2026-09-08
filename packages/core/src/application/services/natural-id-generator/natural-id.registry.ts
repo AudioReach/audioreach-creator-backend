@@ -14,11 +14,11 @@ export class NaturalIdRegistry implements NaturalIdGenerationPort {
 
   registerBatch(
     fileSystemId: number,
-    entries: Array<{type: NaturalIdType; id: number}>,
+    entries: Array<{type: NaturalIdType; naturalId: number}>,
   ): void {
     const gen = this.getOrCreate(fileSystemId);
-    for (const {type, id} of entries) {
-      gen.register(type, id);
+    for (const {type, naturalId} of entries) {
+      gen.register(type, naturalId);
     }
   }
 
@@ -26,8 +26,12 @@ export class NaturalIdRegistry implements NaturalIdGenerationPort {
     return this.getOrCreate(fileSystemId).allocate(type);
   }
 
-  release(fileSystemId: number, type: NaturalIdType, id: number): boolean {
-    return this.getOrCreate(fileSystemId).release(type, id);
+  release(
+    fileSystemId: number,
+    type: NaturalIdType,
+    naturalId: number,
+  ): boolean {
+    return this.getOrCreate(fileSystemId).release(type, naturalId);
   }
 
   setVmid(
@@ -62,7 +66,7 @@ export class NaturalIdRegistry implements NaturalIdGenerationPort {
 
   async ensureLoaded(
     fileSystemId: number,
-    loader: () => Promise<Array<{type: NaturalIdType; id: number}>>,
+    loader: () => Promise<Array<{type: NaturalIdType; naturalId: number}>>,
   ): Promise<void> {
     if (this.generators.has(fileSystemId)) return;
 

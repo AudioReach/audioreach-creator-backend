@@ -231,7 +231,7 @@ describe('AwspFileSerializer', () => {
         },
         spfModuleDefinitions: [
           {
-            moduleDefinitionId: 0x100,
+            naturalId: 0x100,
             name: 'TestMod',
             stackSize: 0,
             params: [],
@@ -286,7 +286,7 @@ describe('AwspFileSerializer', () => {
         },
         driverModuleDefinitions: [
           {
-            moduleDefinitionId: 0xd100,
+            naturalId: 0xd100,
             name: 'DriverMod',
             params: [],
           },
@@ -336,7 +336,7 @@ describe('AwspFileSerializer', () => {
         },
         spfPropertyDefinitions: [
           {
-            propertyId: 1001,
+            propertyNaturalId: 1001,
             name: 'SgProp',
             maxSize: 4,
             elementsStructure: '[]',
@@ -388,7 +388,7 @@ describe('AwspFileSerializer', () => {
         },
         driverPropertyDefinitions: [
           {
-            propertyId: 3001,
+            propertyNaturalId: 3001,
             name: 'ModProp',
             maxSize: 4,
             propertyStructure: '[]',

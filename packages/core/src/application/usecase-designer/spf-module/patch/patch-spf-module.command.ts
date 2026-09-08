@@ -23,7 +23,7 @@ export class PatchSpfModuleCommand extends BaseCommand {
   constructor(
     public readonly spfModuleSystemId: number,
     public readonly alias?: string,
-    public readonly containerId?: number,
+    public readonly containerSystemId?: number,
     public readonly maxInputPortsSupported?: number,
     public readonly maxOutputPortsSupported?: number,
     public readonly maxControlPortsSupported?: number,

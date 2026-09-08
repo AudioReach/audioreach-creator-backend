@@ -58,7 +58,7 @@ export const VoiceCalibrationChunkBuilder = {
       // Build master key table and get offset
       const masterKeyTable: VoiceMasterKeyTable = {
         keyInfos: sgData.masterKeys.map(mk => ({
-          voiceKeyId: mk.keyId,
+          voiceKeyId: mk.keyNaturalId,
           isDynamic: mk.isDynamic,
         })),
       };
@@ -99,8 +99,8 @@ export const VoiceCalibrationChunkBuilder = {
           // Build DEF entry and get offset
           const defEntry: VoiceCalDefinitionEntry = {
             moduleInstanceParamPairs: module.parameters.map(p => ({
-              moduleInstanceId: module.moduleInstanceId,
-              paramId: p.parameterId,
+              moduleInstanceId: module.naturalId,
+              paramId: p.naturalId,
             })),
           };
           const defOffset = chunk.addCalDefinitionEntry(defEntry);
@@ -133,7 +133,7 @@ export const VoiceCalibrationChunkBuilder = {
 
       // Build subgraph cal table with actual offset
       const sgCalTable: VoiceSubgraphCalTable = {
-        subgraphId: sgData.subgraphId,
+        subgraphId: sgData.naturalId,
         subgraphCalTableSize: 0, // Will be calculated during serialization
         majorVersion: 1,
         minorVersion: 0,

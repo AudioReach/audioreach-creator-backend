@@ -37,7 +37,7 @@ export class ContainerQueryHandler implements QueryHandler<
 
     const dtos = readModels.data.map(c => ({
       systemId: String(c.systemId),
-      id: c.containerId,
+      naturalId: c.naturalId,
       name: c.containerTypeName ?? String(c.containerTypeSystemId ?? ''),
     }));
 

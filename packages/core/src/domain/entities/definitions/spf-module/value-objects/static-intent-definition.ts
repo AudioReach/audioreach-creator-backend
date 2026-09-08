@@ -5,17 +5,17 @@
 
 export interface StaticIntentDefinitionInit {
   systemId: number;
-  intentId: number;
+  naturalId: number;
   name: string;
 }
 
 export class StaticIntentDefinition {
   readonly systemId: number;
-  readonly intentId: number;
+  readonly naturalId: number;
   name: string;
 
   constructor(initParam: StaticIntentDefinitionInit) {
-    this.intentId = initParam.intentId;
+    this.naturalId = initParam.naturalId;
     this.systemId = initParam.systemId;
     this.name = initParam.name;
   }

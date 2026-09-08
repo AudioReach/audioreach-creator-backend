@@ -8,7 +8,7 @@ import type {LogEntryBase} from '../../../../../shared/types/log-entry-base.js';
 
 export interface LogEntryReadModel extends LogEntryBase {
   /** Database-generated log entry identifier */
-  readonly id: number;
+  readonly systemId: number;
   /** Severity of the log entry */
   readonly level: LogLevel;
   /** Serialized timestamp returned by the logging query service */

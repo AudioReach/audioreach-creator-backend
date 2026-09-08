@@ -16,7 +16,7 @@ describe('StartSessionCommand', () => {
     expect(cmd.projectId).toBe('proj-123');
     expect(cmd.mode).toBe(SESSION_MODE.Designer);
     expect(cmd.userId).toBe('user-xyz');
-    expect(typeof cmd.id).toBe('string');
+    expect(typeof cmd.requestToken).toBe('string');
     expect(cmd.timeStamp).toBeInstanceOf(Date);
   });
 

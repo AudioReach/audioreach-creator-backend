@@ -8,9 +8,9 @@ import type {KvData} from '../../../common/entities/kv-data.js';
 export class DuplicateTkvExceptionError extends Error {
   constructor(
     readonly idType: 'systemId' | 'valueDefinitionSystemIds',
-    readonly id: number | string,
+    readonly identifier: number | string,
   ) {
-    super(`Tkv with ${idType} ${id} already exists`);
+    super(`Tkv with ${idType} ${identifier} already exists`);
     this.name = 'DuplicateTkvExceptionError';
   }
 }

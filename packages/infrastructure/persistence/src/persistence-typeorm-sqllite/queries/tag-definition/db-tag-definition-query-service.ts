@@ -59,7 +59,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
         'all',
         fileSystemId,
         sessionId,
-        tagNaturalId === undefined ? undefined : {tagId: tagNaturalId},
+        tagNaturalId === undefined ? undefined : {naturalId: tagNaturalId},
       );
 
       return this.resolveAndMap(overlaidTags, fileSystemId);
@@ -182,7 +182,7 @@ export class DbTagDefinitionQueryService implements TagDefinitionQueryService {
 
       return {
         systemId: t.systemId,
-        tagId: t.tagId,
+        naturalId: t.naturalId,
         name: t.name,
         description: t.description,
         isVoice: t.isVoice,

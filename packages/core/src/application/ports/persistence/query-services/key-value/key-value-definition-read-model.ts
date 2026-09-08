@@ -9,7 +9,7 @@
  */
 export interface KeyDefinitionSummaryReadModel {
   readonly systemId: number;
-  readonly keyId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly description?: string;
 }
@@ -20,7 +20,7 @@ export interface KeyDefinitionSummaryReadModel {
  */
 export interface ValueDefinitionSummaryReadModel {
   readonly systemId: number;
-  readonly valueId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly description?: string;
 }

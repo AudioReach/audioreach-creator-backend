@@ -34,7 +34,7 @@ export function buildSubsystemTree(
   const childrenOf = new Map<number | undefined, number[]>(); // parentId → child subsystem IDs
 
   for (const sub of subsystems) {
-    const key = sub.parentId;
+    const key = sub.parentSystemId;
     const siblings = childrenOf.get(key) ?? [];
     siblings.push(sub.systemId);
     childrenOf.set(key, siblings);
@@ -47,7 +47,7 @@ export function buildSubsystemTree(
   ): boolean => {
     if (visited.has(subsystemId)) return false; // cycle guard
     visited.add(subsystemId);
-    if (modules.some(m => m.parentId === subsystemId)) return true;
+    if (modules.some(m => m.parentSystemId === subsystemId)) return true;
     return (childrenOf.get(subsystemId) ?? []).some(c =>
       hasInScopeDescendant(c, visited),
     );
@@ -58,7 +58,7 @@ export function buildSubsystemTree(
     parentId?: number,
     visited = new Set<number>(),
   ): ComponentsWithSubsystemsReadModel => {
-    const levelModules = modules.filter(m => m.parentId === parentId);
+    const levelModules = modules.filter(m => m.parentSystemId === parentId);
 
     // Child subsystems of this level — pruned to those with in-scope descendants
     const directChildIds = (childrenOf.get(parentId) ?? []).filter(id =>

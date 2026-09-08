@@ -97,8 +97,8 @@ export class DbNodeQueryService implements NodeQueryService {
       return Result.ok(
         overlaidPorts.map(port => ({
           systemId: port.systemId,
-          portId: port.dataPortId,
-          name: portNameMap?.get(port.dataPortId) ?? port.name ?? '',
+          naturalId: port.naturalId,
+          name: portNameMap?.get(port.naturalId) ?? port.name ?? '',
           portIoType: port.portIoType,
           isStatic: port.isStatic,
           totalLinksAtPort: linkCounts.get(port.systemId) ?? 0,
@@ -165,8 +165,8 @@ export class DbNodeQueryService implements NodeQueryService {
       return Result.ok(
         overlaidPorts.map(port => ({
           systemId: port.systemId,
-          portId: port.portId,
-          name: controlPortNameMap?.get(port.portId) ?? port.name ?? '',
+          naturalId: port.naturalId,
+          name: controlPortNameMap?.get(port.naturalId) ?? port.name ?? '',
           isStatic: port.isStatic,
           allocatedIntents: port.intents.map(i =>
             this.mapToIntentReadModel(i, intentNameMap ?? undefined),
@@ -194,11 +194,11 @@ export class DbNodeQueryService implements NodeQueryService {
   ): Promise<Map<number, number>> {
     if (portSystemIds.length === 0) return new Map();
 
-    const rows: Array<{portId: number; linkCount: string}> =
+    const rows: Array<{portSystemId: number; linkCount: string}> =
       await this.dataSource
         .getRepository(ENTITY_NAMES.DataPort)
         .createQueryBuilder('p')
-        .select('p.systemId', 'portId')
+        .select('p.systemId', 'portSystemId')
         .addSelect('COUNT(dl.systemId)', 'linkCount')
         .leftJoin(
           ENTITY_NAMES.DataLink,
@@ -210,7 +210,7 @@ export class DbNodeQueryService implements NodeQueryService {
         .getRawMany();
 
     const countMap = new Map<number, number>(
-      rows.map(r => [r.portId, Number(r.linkCount)]),
+      rows.map(r => [r.portSystemId, Number(r.linkCount)]),
     );
 
     const sessionId = await resolveActiveSessionId(
@@ -229,12 +229,16 @@ export class DbNodeQueryService implements NodeQueryService {
         sourcePortSystemId?: number;
         destinationPortSystemId?: number;
       };
-      for (const portId of [p.sourcePortSystemId, p.destinationPortSystemId]) {
-        if (!portId || !portSystemIds.includes(portId)) continue;
-        const current = countMap.get(portId) ?? 0;
-        if (draft.operation === 'CREATE') countMap.set(portId, current + 1);
+      for (const portSystemId of [
+        p.sourcePortSystemId,
+        p.destinationPortSystemId,
+      ]) {
+        if (!portSystemId || !portSystemIds.includes(portSystemId)) continue;
+        const current = countMap.get(portSystemId) ?? 0;
+        if (draft.operation === 'CREATE')
+          countMap.set(portSystemId, current + 1);
         if (draft.operation === 'DELETE')
-          countMap.set(portId, Math.max(0, current - 1));
+          countMap.set(portSystemId, Math.max(0, current - 1));
       }
     }
 
@@ -247,11 +251,11 @@ export class DbNodeQueryService implements NodeQueryService {
   ): Promise<Map<number, number>> {
     if (portSystemIds.length === 0) return new Map();
 
-    const rows: Array<{portId: number; linkCount: string}> =
+    const rows: Array<{portSystemId: number; linkCount: string}> =
       await this.dataSource
         .getRepository(ENTITY_NAMES.ControlPort)
         .createQueryBuilder('cp')
-        .select('cp.systemId', 'portId')
+        .select('cp.systemId', 'portSystemId')
         .addSelect('COUNT(cl.systemId)', 'linkCount')
         .leftJoin(
           ENTITY_NAMES.ControlLink,
@@ -263,7 +267,7 @@ export class DbNodeQueryService implements NodeQueryService {
         .getRawMany();
 
     const countMap = new Map<number, number>(
-      rows.map(r => [r.portId, Number(r.linkCount)]),
+      rows.map(r => [r.portSystemId, Number(r.linkCount)]),
     );
 
     const sessionId = await resolveActiveSessionId(
@@ -282,12 +286,13 @@ export class DbNodeQueryService implements NodeQueryService {
         nodeAPortSystemId?: number;
         nodeBPortSystemId?: number;
       };
-      for (const portId of [p.nodeAPortSystemId, p.nodeBPortSystemId]) {
-        if (!portId || !portSystemIds.includes(portId)) continue;
-        const current = countMap.get(portId) ?? 0;
-        if (draft.operation === 'CREATE') countMap.set(portId, current + 1);
+      for (const portSystemId of [p.nodeAPortSystemId, p.nodeBPortSystemId]) {
+        if (!portSystemId || !portSystemIds.includes(portSystemId)) continue;
+        const current = countMap.get(portSystemId) ?? 0;
+        if (draft.operation === 'CREATE')
+          countMap.set(portSystemId, current + 1);
         if (draft.operation === 'DELETE')
-          countMap.set(portId, Math.max(0, current - 1));
+          countMap.set(portSystemId, Math.max(0, current - 1));
       }
     }
 
@@ -306,7 +311,7 @@ export class DbNodeQueryService implements NodeQueryService {
       .createQueryBuilder('node')
       .select(['node.systemId', 'node.type'])
       .leftJoinAndSelect('node.spfModule', 'spfModule')
-      .where('node.systemId = :id', {id: nodeSystemId})
+      .where('node.systemId = :nodeSystemId', {nodeSystemId})
       .getOne()) as NodeRow | null;
 
     if (!nodeRow || nodeRow.type !== NodeType.Module) return null;
@@ -325,12 +330,12 @@ export class DbNodeQueryService implements NodeQueryService {
     const portDefRows = (await this.dataSource
       .getRepository(ENTITY_NAMES.DataPortDefinition)
       .createQueryBuilder('pd')
-      .select(['pd.systemId', 'pd.dataPortId', 'pd.name'])
+      .select(['pd.systemId', 'pd.naturalId', 'pd.name'])
       .innerJoin(
         'pd.dataPortGroup',
         'pg',
-        'pg.moduleDefinitionSystemId = :defId',
-        {defId: definitionSystemId},
+        'pg.moduleDefinitionSystemId = :definitionSystemId',
+        {definitionSystemId},
       )
       .getMany()) as DataPortDefinitionRow[];
 
@@ -344,7 +349,7 @@ export class DbNodeQueryService implements NodeQueryService {
             .map(r => r.effective)
         : portDefRows;
 
-    return new Map(overlaid.map(r => [r.dataPortId, r.name ?? '']));
+    return new Map(overlaid.map(r => [r.naturalId, r.name ?? '']));
   }
 
   /**
@@ -362,8 +367,8 @@ export class DbNodeQueryService implements NodeQueryService {
       .getRepository(ENTITY_NAMES.StaticControlPortDefinition)
       .createQueryBuilder('scp')
       .leftJoinAndSelect('scp.staticIntents', 'si')
-      .where('scp.moduleDefinitionSystemId = :defId', {
-        defId: definitionSystemId,
+      .where('scp.moduleDefinitionSystemId = :definitionSystemId', {
+        definitionSystemId,
       })
       .getMany()) as StaticControlPortDefinitionRow[];
 
@@ -382,7 +387,7 @@ export class DbNodeQueryService implements NodeQueryService {
         : staticPortDefRows;
 
     const controlPortNameMap = new Map(
-      overlaidPorts.map(r => [r.portId, r.portName ?? '']),
+      overlaidPorts.map(r => [r.naturalId, r.portName ?? '']),
     );
     const intentNameMap = new Map(
       overlaidPorts.flatMap(p => {
@@ -393,7 +398,7 @@ export class DbNodeQueryService implements NodeQueryService {
                 .map(r => r.effective)
             : (p.staticIntents ?? []);
         return (intents ?? []).map(
-          i => [i.intentId, i.name ?? ''] as [number, string],
+          i => [i.naturalId, i.name ?? ''] as [number, string],
         );
       }),
     );
@@ -407,9 +412,10 @@ export class DbNodeQueryService implements NodeQueryService {
   ): IntentReadModel {
     return {
       systemId: intent.systemId,
-      intentId: intent.intentId,
+      naturalId: intent.naturalId,
       // Use definition name when available; fall back to generated name
-      name: intentNameMap?.get(intent.intentId) ?? `Intent_${intent.intentId}`,
+      name:
+        intentNameMap?.get(intent.naturalId) ?? `Intent_${intent.naturalId}`,
     };
   }
 }

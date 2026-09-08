@@ -545,7 +545,7 @@ export class EntityBuilderService {
       for (const module of result.entities) {
         calBuilder.applyUiMetadataToCkvs(
           module.ckvs as KvData[],
-          module.instanceId,
+          module.naturalId,
           uiMetadata,
           this.foreignKeyMapper,
         );
@@ -554,7 +554,7 @@ export class EntityBuilderService {
 
     for (const module of result.entities) {
       this.foreignKeyMapper.addModuleInstanceSubgraphMapping(
-        asNaturalId(module.instanceId),
+        asNaturalId(module.naturalId),
         asSystemId(module.subgraphSystemId),
       );
     }
@@ -766,7 +766,7 @@ export class EntityBuilderService {
     const rows: EntityReviewedAt[] = [];
     const uiSubgraphMap = new Map(uiMetadata.subgraphs.map(s => [s.id, s]));
     for (const sg of subgraphs) {
-      const reviewedAt = uiSubgraphMap.get(sg.subgraphId)?.reviewedAt;
+      const reviewedAt = uiSubgraphMap.get(sg.naturalId)?.reviewedAt;
       if (reviewedAt != null) {
         rows.push({
           fileSystemId,
@@ -789,7 +789,7 @@ export class EntityBuilderService {
     const rows: EntityReviewedAt[] = [];
     const uiModuleMap = new Map(uiMetadata.modules.map(m => [m.instanceId, m]));
     for (const mod of modules) {
-      const reviewedAt = uiModuleMap.get(mod.instanceId)?.reviewedAt;
+      const reviewedAt = uiModuleMap.get(mod.naturalId)?.reviewedAt;
       if (reviewedAt != null) {
         rows.push({
           fileSystemId,
@@ -936,7 +936,7 @@ export class EntityBuilderService {
 
       const processor = new ProcessorDefinition({
         systemId,
-        processorDefinitionId: awspProcessor.id,
+        naturalId: awspProcessor.id,
         name: awspProcessor.name,
         fileSystemId,
       });
@@ -1040,7 +1040,7 @@ export class EntityBuilderService {
       const propertyDef = new SubgraphPropertyDefinition({
         systemId,
         fileSystemId,
-        propertyId: awspProperty.id,
+        naturalId: awspProperty.id,
         name: awspProperty.name,
         type: PROPERTY_TYPE.Spf,
         description: awspProperty.description,
@@ -1355,7 +1355,7 @@ export class EntityBuilderService {
       const propertyDef = new PropertyDefinition({
         systemId,
         fileSystemId,
-        propertyId: awspProperty.id,
+        naturalId: awspProperty.id,
         name: awspProperty.name,
         type: PROPERTY_TYPE.Spf,
         description: awspProperty.description,
@@ -1388,19 +1388,22 @@ export class EntityBuilderService {
   //TODO: Call this API during upload.
   registerNaturalIds(
     fileSystemId: number,
-    subgraphs: Array<{subgraphId: number}>,
-    containers: Array<{containerId: number}>,
-    modules: Array<{instanceId: number}>,
+    subgraphs: Array<{naturalId: number}>,
+    containers: Array<{naturalId: number}>,
+    modules: Array<{naturalId: number}>,
   ): void {
     this.naturalIdPort.registerBatch(fileSystemId, [
-      ...subgraphs.map(s => ({type: NaturalIdType.SUBGRAPH, id: s.subgraphId})),
+      ...subgraphs.map(s => ({
+        type: NaturalIdType.SUBGRAPH,
+        naturalId: s.naturalId,
+      })),
       ...containers.map(c => ({
         type: NaturalIdType.CONTAINER,
-        id: c.containerId,
+        naturalId: c.naturalId,
       })),
       ...modules.map(m => ({
         type: NaturalIdType.MODINSTANCE,
-        id: m.instanceId,
+        naturalId: m.naturalId,
       })),
     ]);
   }

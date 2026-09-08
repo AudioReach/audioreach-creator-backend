@@ -22,12 +22,12 @@ export const UseCaseQueryMappers = {
     return {
       key: {
         systemId: value.keys.systemId,
-        keyId: value.keys.keyId,
+        naturalId: value.keys.naturalId,
         name: value.keys.name,
       },
       value: {
         systemId: value.systemId,
-        valueId: value.valueId,
+        naturalId: value.naturalId,
         name: value.name,
       },
     };
@@ -44,14 +44,14 @@ export const UseCaseQueryMappers = {
 
     return {
       systemId: node.systemId,
-      parentId: node.parentId,
-      instanceId: spfModule.instanceId,
+      parentSystemId: node.parentSystemId,
+      naturalId: spfModule.naturalId,
       alias: spfModule.alias ?? '',
       name: definition.name,
-      moduleId: definition.moduleDefinitionId,
+      moduleDefinitionNaturalId: definition.naturalId,
       definitionSystemId: spfModule.definitionSystemId,
-      subgraphId: spfModule.subgraphSystemId,
-      containerId: spfModule.containerSystemId,
+      subgraphSystemId: spfModule.subgraphSystemId,
+      containerSystemId: spfModule.containerSystemId,
       maxInputPortsSupported: portGroups
         .filter(g => g.portIoType === PORT_IO_TYPE.Input)
         .reduce((s, g) => s + g.maxAllowedPortCount, 0),
@@ -98,7 +98,7 @@ export const UseCaseQueryMappers = {
     return (
       node.dataPorts?.map(port => ({
         systemId: port.systemId,
-        portId: port.dataPortId,
+        naturalId: port.naturalId,
         name: port.name ?? null,
         portIoType: port.portIoType,
         isStatic: port.isStatic,
@@ -113,12 +113,12 @@ export const UseCaseQueryMappers = {
         const allocatedIntents: IntentReadModel[] =
           port.allocatedIntents?.map(intent => ({
             systemId: intent.systemId,
-            intentId: intent.intentId,
-            name: `Intent_${intent.intentId}`,
+            naturalId: intent.naturalId,
+            name: `Intent_${intent.naturalId}`,
           })) ?? [];
         return {
           systemId: port.systemId,
-          portId: port.portId,
+          naturalId: port.naturalId,
           name: port.name ?? null,
           isStatic: port.isStatic,
           allocatedIntents,

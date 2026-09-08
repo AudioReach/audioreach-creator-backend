@@ -59,7 +59,7 @@ export class PatchSpfModuleHandler implements CommandHandler<
     // Validate at least one field provided (moves validation here, not controller)
     if (
       command.alias === undefined &&
-      command.containerId === undefined &&
+      command.containerSystemId === undefined &&
       command.maxInputPortsSupported === undefined &&
       command.maxOutputPortsSupported === undefined &&
       command.maxControlPortsSupported === undefined
@@ -107,8 +107,8 @@ export class PatchSpfModuleHandler implements CommandHandler<
       if (command.alias !== undefined) {
         await moduleRepo.renameModule(spfModuleSystemId, command.alias);
       }
-      if (command.containerId !== undefined) {
-        await this.applyContainerChange(command.containerId, module);
+      if (command.containerSystemId !== undefined) {
+        await this.applyContainerChange(command.containerSystemId, module);
       }
       if (command.maxInputPortsSupported !== undefined) {
         await this.applyDataPortCountChange(
@@ -308,13 +308,13 @@ export class PatchSpfModuleHandler implements CommandHandler<
     const moduleRepo = uow.getModuleRepository();
     const isInput = ioType === PORT_IO_TYPE.Input;
     // existingIds includes ALL ports (static + dynamic) to prevent ID collision with static ports
-    const existingIds = new Set(currentPorts.map(p => p.dataPortId));
+    const existingIds = new Set(currentPorts.map(p => p.naturalId));
     const newPortIds = nextDataPortIds(existingIds, isInput, strategy, toAdd);
     for (const dataPortId of newPortIds) {
       await moduleRepo.addDataPort(
         new DataPort({
           systemId: await this.idGeneration.getNextId(fileSystemId),
-          dataPortId,
+          naturalId: dataPortId,
           portIoType: ioType,
           isStatic: false,
           name: `${isInput ? 'Input' : 'Output'}_${dataPortId}`,
@@ -405,14 +405,14 @@ export class PatchSpfModuleHandler implements CommandHandler<
 
       // available = intent types where CurrentUsage < MaxUsage (maxPort)
       const availableIntents = definition.dynamicIntents.filter(
-        def => (usageByIntentTypeId.get(def.intentId) ?? 0) < def.maxPort,
+        def => (usageByIntentTypeId.get(def.naturalId) ?? 0) < def.maxPort,
       );
 
       // Total remaining capacity across all available intent types.
       // Each new port consumes one slot; we need at least toAdd slots available.
       const totalAvailableSlots = availableIntents.reduce(
         (sum, def) =>
-          sum + def.maxPort - (usageByIntentTypeId.get(def.intentId) ?? 0),
+          sum + def.maxPort - (usageByIntentTypeId.get(def.naturalId) ?? 0),
         0,
       );
 
@@ -429,14 +429,14 @@ export class PatchSpfModuleHandler implements CommandHandler<
 
       const moduleRepo = uow.getModuleRepository();
       const existingControlIds = new Set(
-        module.controlPorts.map(p => p.portId),
+        module.controlPorts.map(p => p.naturalId),
       );
       const newControlPortIds = nextControlPortIds(existingControlIds, toAdd);
       for (const portId of newControlPortIds) {
         await moduleRepo.addControlPort(
           new ControlPort({
             systemId: await this.idGeneration.getNextId(fileSystemId),
-            portId,
+            naturalId: portId,
             isStatic: false,
             nodeSystemId: module.systemId,
             name: `ControlPort_0x${portId.toString(16)}`,

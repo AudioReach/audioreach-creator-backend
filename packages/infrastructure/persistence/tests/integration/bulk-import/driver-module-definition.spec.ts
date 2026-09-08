@@ -45,15 +45,15 @@ async function seedFkDependencies(manager: EntityManager): Promise<void> {
 
 function buildDriverModuleDefinition(
   systemId: number,
-  moduleDefinitionId: number,
+  naturalId: number,
   params: Array<{systemId: number; parameterId: number}> = [],
 ): DriverModuleDefinition {
   const parameters = params.map(
-    ({systemId: paramSystemId, parameterId}) =>
+    ({systemId: paramSystemId, parameterId: naturalId}) =>
       new DriverModuleParameterDefinition({
         systemId: paramSystemId,
-        parameterId,
-        name: `Param_${parameterId}`,
+        naturalId,
+        name: `Param_${naturalId}`,
         description: 'Test parameter',
         maxSize: 100,
         paramStructure: JSON.stringify({type: 'test'}),
@@ -64,9 +64,9 @@ function buildDriverModuleDefinition(
 
   return new DriverModuleDefinition({
     systemId,
-    moduleDefinitionId,
-    name: `Module_${moduleDefinitionId}`,
-    displayName: `Module_${moduleDefinitionId}`,
+    naturalId,
+    name: `Module_${naturalId}`,
+    displayName: `Module_${naturalId}`,
     description: 'Test module',
     groupName: 'TestGroup',
     fileSystemId: FILE_ID,
@@ -143,7 +143,7 @@ describe('DriverModuleDefinitionInserter', () => {
   it('reports failure grouped under the aggregate natural ID', async () => {
     await manager.insert('DriverModuleDefinition', {
       systemId: 1002,
-      moduleDefinitionId: 1,
+      naturalId: 1,
       name: 'Existing',
       description: '',
       groupName: '',
@@ -167,7 +167,7 @@ describe('DriverModuleDefinitionInserter', () => {
   it('good sibling inserts successfully when one entity fails', async () => {
     await manager.insert('DriverModuleDefinition', {
       systemId: 1003,
-      moduleDefinitionId: 2,
+      naturalId: 2,
       name: 'Conflict',
       description: '',
       groupName: '',
@@ -194,7 +194,7 @@ describe('DriverModuleDefinitionInserter', () => {
   it('skips child rows when their parent fails', async () => {
     await manager.insert('DriverModuleDefinition', {
       systemId: 1005,
-      moduleDefinitionId: 4,
+      naturalId: 4,
       name: 'Conflict',
       description: '',
       groupName: '',

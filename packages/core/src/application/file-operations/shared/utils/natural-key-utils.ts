@@ -4,27 +4,27 @@
  */
 
 /**
- * Build natural key hash for control links using natural IDs (instanceId + portId)
+ * Build natural key hash for control links using natural IDs (instanceNaturalId + portNaturalId)
  * This hash is used for tracking and mapping control links back from repository results
  *
- * Format: "peer1InstanceId:peer1PortId<->peer2InstanceId:peer2PortId" (normalized order)
+ * Format: "peer1InstanceNaturalId:peer1PortNaturalId<->peer2InstanceNaturalId:peer2PortNaturalId" (normalized order)
  *
- * @param peer1InstanceId - Peer 1 module instance ID (natural ID)
- * @param peer1PortId - Peer 1 port ID (natural ID)
- * @param peer2InstanceId - Peer 2 module instance ID (natural ID)
- * @param peer2PortId - Peer 2 port ID (natural ID)
+ * @param peer1InstanceNaturalId - Peer 1 module instance ID (natural ID)
+ * @param peer1PortNaturalId - Peer 1 port ID (natural ID)
+ * @param peer2InstanceNaturalId - Peer 2 module instance ID (natural ID)
+ * @param peer2PortNaturalId - Peer 2 port ID (natural ID)
  * @returns Natural key hash string (normalized to consistent order)
  */
 export function buildControlLinkNaturalKeyHash(
-  peer1InstanceId: number,
-  peer1PortId: number,
-  peer2InstanceId: number,
-  peer2PortId: number,
+  peer1InstanceNaturalId: number,
+  peer1PortNaturalId: number,
+  peer2InstanceNaturalId: number,
+  peer2PortNaturalId: number,
 ): string {
   // Normalize order so smaller instance ID comes first for consistency
-  if (peer1InstanceId < peer2InstanceId) {
-    return `${peer1InstanceId}:${peer1PortId}<->${peer2InstanceId}:${peer2PortId}`;
+  if (peer1InstanceNaturalId < peer2InstanceNaturalId) {
+    return `${peer1InstanceNaturalId}:${peer1PortNaturalId}<->${peer2InstanceNaturalId}:${peer2PortNaturalId}`;
   } else {
-    return `${peer2InstanceId}:${peer2PortId}<->${peer1InstanceId}:${peer1PortId}`;
+    return `${peer2InstanceNaturalId}:${peer2PortNaturalId}<->${peer1InstanceNaturalId}:${peer1PortNaturalId}`;
   }
 }

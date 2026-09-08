@@ -73,14 +73,14 @@ describe('SubgraphBuilder', () => {
         // Verify first subgraph
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.entities[0].subgraphId).toBe(1);
+        expect(result.entities[0].naturalId).toBe(1);
         expect(result.entities[0].name).toBe('Subgraph_1');
         expect(result.entities[0].isImported).toBe(false);
 
         // Verify second subgraph
         expect(result.entities[1].systemId).toBeGreaterThan(0);
         expect(result.entities[1].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.entities[1].subgraphId).toBe(2);
+        expect(result.entities[1].naturalId).toBe(2);
         expect(result.entities[1].name).toBe('Subgraph_2');
 
         // Verify ID generation was called
@@ -124,9 +124,9 @@ describe('SubgraphBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(3);
-        expect(result.entities[0].subgraphId).toBe(1);
-        expect(result.entities[1].subgraphId).toBe(5);
-        expect(result.entities[2].subgraphId).toBe(10);
+        expect(result.entities[0].naturalId).toBe(1);
+        expect(result.entities[1].naturalId).toBe(5);
+        expect(result.entities[2].naturalId).toBe(10);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -212,9 +212,9 @@ describe('SubgraphBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(3);
-        expect(result.entities[0].subgraphId).toBe(1);
-        expect(result.entities[1].subgraphId).toBe(5);
-        expect(result.entities[2].subgraphId).toBe(10);
+        expect(result.entities[0].naturalId).toBe(1);
+        expect(result.entities[1].naturalId).toBe(5);
+        expect(result.entities[2].naturalId).toBe(10);
       });
 
       it('should use naming convention Subgraph_{id}', async () => {

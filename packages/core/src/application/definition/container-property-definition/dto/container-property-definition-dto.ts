@@ -12,7 +12,7 @@ import type {
 export const ContainerPropertyDefinitionSummaryDtoSchema = z
   .object({
     systemId: z.string().describe('System identifier'),
-    propertyId: z.number().int().describe('Property identifier'),
+    naturalId: z.number().int().describe('Property identifier'),
     name: z.string().describe('Property name'),
     description: z.string().describe('Property description'),
     type: z.string().describe('Property type'),
@@ -37,7 +37,7 @@ function mapPropertyDefinitionFields(
 ): ContainerPropertyDefinitionSummaryDto {
   return {
     systemId: String(m.systemId),
-    propertyId: m.propertyId,
+    naturalId: m.naturalId,
     name: m.name,
     description: m.description ?? '',
     type: m.propertyType,

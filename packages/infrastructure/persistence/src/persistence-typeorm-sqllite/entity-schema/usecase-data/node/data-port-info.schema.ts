@@ -11,7 +11,7 @@ import type {NodeRow} from './node.schema.js';
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface DataPortBase {
   systemId: number;
-  dataPortId: number;
+  naturalId: number;
   name?: string;
   portIoType: PortIoType;
   isStatic: boolean;
@@ -28,7 +28,7 @@ export const DataPortSchema = new EntitySchema<DataPortRow>({
   tableName: 'data_ports',
   columns: {
     ...BaseColumnSchemaPart,
-    dataPortId: {
+    naturalId: {
       type: 'integer',
       name: 'data_port_id',
     },

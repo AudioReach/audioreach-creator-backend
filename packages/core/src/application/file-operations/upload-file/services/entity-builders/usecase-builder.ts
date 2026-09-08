@@ -48,7 +48,7 @@ export class UsecaseBuilder {
     // Pre-resolve each ui-metadata usecase keyValue into a sorted set of valueSystemIds + type
     const resolvedUiUsecases: {
       type: UsecaseType;
-      orderedKeys?: Array<{id: number}>;
+      orderedKeys?: Array<{naturalId: number}>;
       reviewedAt?: string;
       categoryName?: string;
       valueSystemIdSet: string;
@@ -62,13 +62,13 @@ export class UsecaseBuilder {
             asNaturalId(valueId),
           ),
         )
-        .filter(id => id !== undefined)
-        .map(id => id as number)
+        .filter(naturalId => naturalId !== undefined)
+        .map(naturalId => naturalId as number)
         .sort((a, b) => a - b);
       if (ids.length > 0) {
         resolvedUiUsecases.push({
           type: mapAwspTypeToUsecaseType(uiUc.type),
-          orderedKeys: uiUc.orderedKeys,
+          orderedKeys: uiUc.orderedKeys?.map(k => ({naturalId: k.id})),
           reviewedAt: uiUc.reviewedAt,
           categoryName: uiUc.categoryName,
           valueSystemIdSet: ids.join(','),
@@ -115,7 +115,7 @@ export class UsecaseBuilder {
     gkvAliasChunk?: GkvAliasChunk,
     resolvedUiUsecases: {
       type: UsecaseType;
-      orderedKeys?: Array<{id: number}>;
+      orderedKeys?: Array<{naturalId: number}>;
       reviewedAt?: string;
       categoryName?: string;
       valueSystemIdSet: string;

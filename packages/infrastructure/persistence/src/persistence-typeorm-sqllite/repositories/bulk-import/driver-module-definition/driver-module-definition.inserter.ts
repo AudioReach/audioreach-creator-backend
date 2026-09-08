@@ -55,7 +55,7 @@ export class DriverModuleDefinitionInserter implements BulkInserter<DriverModule
       allRawFailures,
       definitionBySystemId,
       mod =>
-        `DriverModuleDefinition (moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}, name='${mod.name}')`,
+        `DriverModuleDefinition (moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}, name='${mod.name}')`,
     );
   }
 
@@ -64,7 +64,7 @@ export class DriverModuleDefinitionInserter implements BulkInserter<DriverModule
   ): Promise<StepResult> {
     const rows: InsertRow<DriverModuleDefinitionRow>[] = items.map(mod => ({
       systemId: mod.systemId,
-      moduleDefinitionId: mod.moduleDefinitionId,
+      naturalId: mod.naturalId,
       name: mod.name,
       description: mod.description,
       groupName: mod.groupName,
@@ -83,7 +83,7 @@ export class DriverModuleDefinitionInserter implements BulkInserter<DriverModule
       return {
         systemId: mod.systemId,
         entityLabel: 'DriverModuleDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -99,7 +99,7 @@ export class DriverModuleDefinitionInserter implements BulkInserter<DriverModule
   ): Promise<StepResult> {
     const contextBySystemId = new Map<
       number,
-      {mod: DriverModuleDefinition; paramId: number}
+      {mod: DriverModuleDefinition; paramNaturalId: number}
     >();
 
     const rows: InsertRow<DriverModuleParameterDefinitionRow>[] = items.flatMap(
@@ -107,17 +107,17 @@ export class DriverModuleDefinitionInserter implements BulkInserter<DriverModule
         mod.parameters.map(param => {
           const row: InsertRow<DriverModuleParameterDefinitionRow> = {
             systemId: param.systemId,
-            parameterId: param.parameterId,
+            naturalId: param.naturalId,
             name: param.name,
             description: param.description,
             maxSize: param.maxSize,
             paramStructure: param.paramStructure,
-            copySrcParamId: param.copySrcParamId,
+            copySrcParamNaturalId: param.copySrcParamNaturalId,
             driverModuleDefinitionSystemId: mod.systemId,
           };
           contextBySystemId.set(param.systemId, {
             mod,
-            paramId: param.parameterId,
+            paramNaturalId: param.naturalId,
           });
           return row;
         }),
@@ -137,7 +137,7 @@ export class DriverModuleDefinitionInserter implements BulkInserter<DriverModule
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'DriverModuleParameterDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, paramId=${BinaryUtils.toHexString(ctx.paramId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, paramId=${BinaryUtils.toHexString(ctx.paramNaturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });

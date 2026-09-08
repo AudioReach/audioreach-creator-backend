@@ -20,7 +20,7 @@ import {
 /** Optional scalar filters for TagDefinition queries. */
 export type TagDefinitionFilters = {
   systemId?: number | number[];
-  tagId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   description?: string | string[];
   isVoice?: boolean | boolean[];

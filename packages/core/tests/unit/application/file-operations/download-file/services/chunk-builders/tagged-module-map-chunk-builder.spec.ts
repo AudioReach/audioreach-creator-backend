@@ -30,16 +30,16 @@ describe('TaggedModuleMapChunkBuilder', () => {
   it('excludes voice tag entries', () => {
     const input = [
       {
-        subgraphId: 1,
-        tagId: 10,
+        subgraphNaturalId: 1,
+        tagNaturalId: 10,
         isVoice: true,
-        moduleInstances: [{moduleId: 100, instanceId: 200}],
+        moduleInstances: [{moduleNaturalId: 100, instanceNaturalId: 200}],
       },
       {
-        subgraphId: 1,
-        tagId: 20,
+        subgraphNaturalId: 1,
+        tagNaturalId: 20,
         isVoice: false,
-        moduleInstances: [{moduleId: 101, instanceId: 201}],
+        moduleInstances: [{moduleNaturalId: 101, instanceNaturalId: 201}],
       },
     ];
     const result = build(input);
@@ -51,12 +51,12 @@ describe('TaggedModuleMapChunkBuilder', () => {
   it('writes correct TMLU entry pointing into TMDE', () => {
     const input = [
       {
-        subgraphId: 5,
-        tagId: 10,
+        subgraphNaturalId: 5,
+        tagNaturalId: 10,
         isVoice: false,
         moduleInstances: [
-          {moduleId: 0xa0, instanceId: 0xb0},
-          {moduleId: 0xa1, instanceId: 0xb1},
+          {moduleNaturalId: 0xa0, instanceNaturalId: 0xb0},
+          {moduleNaturalId: 0xa1, instanceNaturalId: 0xb1},
         ],
       },
     ];
@@ -84,16 +84,16 @@ describe('TaggedModuleMapChunkBuilder', () => {
   it('TMDE offset advances correctly for multiple entries', () => {
     const input = [
       {
-        subgraphId: 1,
-        tagId: 10,
+        subgraphNaturalId: 1,
+        tagNaturalId: 10,
         isVoice: false,
-        moduleInstances: [{moduleId: 1, instanceId: 2}],
+        moduleInstances: [{moduleNaturalId: 1, instanceNaturalId: 2}],
       },
       {
-        subgraphId: 1,
-        tagId: 20,
+        subgraphNaturalId: 1,
+        tagNaturalId: 20,
         isVoice: false,
-        moduleInstances: [{moduleId: 3, instanceId: 4}],
+        moduleInstances: [{moduleNaturalId: 3, instanceNaturalId: 4}],
       },
     ];
     const result = build(input);

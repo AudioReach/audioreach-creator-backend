@@ -86,7 +86,7 @@ describe('Get Container Properties E2E (GET /arc-api/v1/projects/{projectId}/con
 
     for (const prop of response.body.data.properties) {
       expect(typeof prop.systemId).toBe('string');
-      expect(typeof prop.propertyId).toBe('number');
+      expect(typeof prop.naturalId).toBe('number');
       expect(typeof prop.propertyName).toBe('string');
       expect(Array.isArray(prop.elements)).toBe(true);
     }

@@ -199,7 +199,7 @@ export class SpfModuleDefinitionBuilder {
       // Store module definition mapping using the natural processor ID
       this.foreignKeyMapper.addModuleDefinitionMapping(
         processorNaturalId,
-        asNaturalId(moduleDef.moduleDefinitionId),
+        asNaturalId(moduleDef.naturalId),
         asSystemId(moduleDef.systemId),
       );
 
@@ -221,7 +221,7 @@ export class SpfModuleDefinitionBuilder {
       // Store parameter definition mapping immediately
       this.foreignKeyMapper.addParamDefinitionMapping(
         asSystemId(moduleDef.systemId),
-        asNaturalId(paramDef.paramId),
+        asNaturalId(paramDef.naturalId),
         asSystemId(paramDef.systemId),
       );
     }
@@ -237,7 +237,7 @@ export class SpfModuleDefinitionBuilder {
     if (systemId === undefined) {
       this.logger?.logWarn({
         msg: 'processor_mapping_not_found',
-        description: `Processor definition ID ${moduleDef.processorSystemId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
+        description: `Processor definition ID ${moduleDef.processorSystemId} not found in foreign key mapper for module ${moduleDef.naturalId}`,
         component: 'SpfModuleDefinitionBuilder',
         tag: 'spf-module-definitions',
       });
@@ -258,7 +258,7 @@ export class SpfModuleDefinitionBuilder {
       if (systemId === undefined) {
         this.logger?.logWarn({
           msg: 'container_type_mapping_not_found',
-          description: `Container type ID ${containerTypeNaturalId} not found in foreign key mapper for module ${moduleDef.moduleDefinitionId}`,
+          description: `Container type ID ${containerTypeNaturalId} not found in foreign key mapper for module ${moduleDef.naturalId}`,
           component: 'SpfModuleDefinitionBuilder',
           tag: 'spf-module-definitions',
         });
@@ -489,7 +489,7 @@ export class SpfModuleDefinitionBuilder {
   ): ParamDefinition {
     return new ParamDefinition({
       systemId,
-      paramId: awspParam.id,
+      naturalId: awspParam.id,
       name: awspParam.name,
       description: awspParam.description,
       maxSize: awspParam.maxSize,
@@ -498,7 +498,7 @@ export class SpfModuleDefinitionBuilder {
       elementsStructure: JSON.stringify(awspParam.elements),
       isPersistent: false,
       isReadOnly: false,
-      copySrcParamId: awspParam.copySrcParamId,
+      copySrcParamNaturalId: awspParam.copySrcParamId,
     });
   }
 
@@ -663,7 +663,7 @@ export class SpfModuleDefinitionBuilder {
       procId =>
         new SpfModuleDefinition({
           systemId: 0, // Placeholder - will be assigned during build process
-          moduleDefinitionId: awsp.id,
+          naturalId: awsp.id,
           fileSystemId: 0, // Placeholder - will be assigned during build process
           name: awsp.name,
           displayName: awsp.displayName || awsp.name,
@@ -691,7 +691,7 @@ export class SpfModuleDefinitionBuilder {
       for (const awspPort of awsp.inputPort.ports) {
         try {
           const dataPort = new DataPortDefinition({
-            dataPortId: awspPort.id,
+            naturalId: awspPort.id,
             name: awspPort.name || `Port_${awspPort.id}`,
           });
           staticPortDefinitions.push(dataPort);
@@ -719,7 +719,7 @@ export class SpfModuleDefinitionBuilder {
       for (const awspPort of awsp.outputPort.ports) {
         try {
           const dataPort = new DataPortDefinition({
-            dataPortId: awspPort.id,
+            naturalId: awspPort.id,
             name: awspPort.name || `Port_${awspPort.id}`,
           });
           staticPortDefinitions.push(dataPort);
@@ -750,7 +750,7 @@ export class SpfModuleDefinitionBuilder {
     for (const awspPort of awsp.controlPort.staticPorts) {
       try {
         const staticPort = new StaticControlPortDefinition({
-          portId: awspPort.id,
+          naturalId: awspPort.id,
           portName: awspPort.name || `Port_${awspPort.id}`,
         });
         staticControlPorts.push(staticPort);
@@ -776,7 +776,7 @@ export class SpfModuleDefinitionBuilder {
       try {
         dynamicIntents.push(
           new DynamicIntentDefinition({
-            intentId: awspIntent.id,
+            naturalId: awspIntent.id,
             name: awspIntent.name || `Intent_${awspIntent.id}`,
             maxPort: awspIntent.maxports,
           }),
@@ -798,8 +798,11 @@ export class SpfModuleDefinitionBuilder {
     input: SpfModuleDefinitionBuildInput,
   ): SpfModuleDefinitionBuildOutput {
     const validModuleDefinitions: SpfModuleDefinition[] = [];
-    const errors: Array<{moduleId: number; moduleName: string; error: string}> =
-      [];
+    const errors: Array<{
+      moduleId: number;
+      moduleName: string;
+      error: string;
+    }> = [];
 
     // Convert array back to Set for efficient lookup
     const bootUpModuleIds = input.bootUpModuleIds

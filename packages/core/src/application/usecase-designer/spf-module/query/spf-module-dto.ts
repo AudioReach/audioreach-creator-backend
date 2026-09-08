@@ -18,7 +18,7 @@ import type {Result} from '../../../shared/result/result.js';
 
 export const KeyInfoDtoSchema = z
   .object({
-    keyId: z.number().describe('Key id'),
+    naturalId: z.number().describe('Key id'),
     name: z.string().describe('Key name'),
     systemId: z.string().describe('Key system identifier'),
   })
@@ -28,7 +28,7 @@ export type KeyInfoDto = z.infer<typeof KeyInfoDtoSchema>;
 
 export const ValueInfoDtoSchema = z
   .object({
-    valueId: z.number().describe('Value id'),
+    naturalId: z.number().describe('Value id'),
     name: z.string().describe('Value name'),
     systemId: z.string().describe('Value system identifier'),
   })
@@ -69,8 +69,8 @@ export type SubsystemFilteredKeyValuePairsInfoDto = z.infer<
 >;
 
 export const ParamInfoDtoSchema = z.object({
-  paramId: z.number().describe('Parameter ID'),
-  paramSystemId: z.string().describe('Parameter system ID'),
+  naturalId: z.number().describe('Parameter ID'),
+  systemId: z.string().describe('Parameter system ID'),
   name: z.string().describe('Parameter name'),
   description: z.string().describe('Parameter description'),
 });
@@ -99,14 +99,14 @@ export const TkvDtoSchema = z.object({
 
 export const TagInfoDtoSchema = z.object({
   systemId: z.string().describe('Tag system ID'),
-  tagId: z.number().describe('Tag ID'),
+  naturalId: z.number().describe('Tag ID'),
   tagName: z.string().describe('Tag name'),
   tkvs: z.array(TkvDtoSchema).describe('Tag key-values configuration'),
 });
 
 export const DataPortDtoSchema = z.object({
   systemId: z.string().describe('Port system ID'),
-  id: z.number().int().describe('Port definition ID'),
+  naturalId: z.number().int().describe('Port definition natural ID'),
   name: z.string().describe('Port name'),
   portIoType: z.enum(['Input', 'Output']).describe('Port IO type'),
   portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
@@ -118,7 +118,7 @@ export const DataPortDtoSchema = z.object({
 
 export const ControlPortDtoSchema = z.object({
   systemId: z.string().describe('Control port system ID'),
-  id: z.number().int().describe('Control port definition ID'),
+  naturalId: z.number().int().describe('Control port definition natural ID'),
   name: z.string().describe('Component name'),
   portType: z.enum(['Static', 'Dynamic']).describe('Port type'),
   controlPortName: z.string().optional().describe('Control port name'),
@@ -129,7 +129,7 @@ export const ControlPortDtoSchema = z.object({
   intents: z
     .array(
       z.object({
-        id: z.number().int().describe('Intent ID'),
+        naturalId: z.number().int().describe('Intent natural ID'),
         name: z.string().optional().describe('Intent name'),
       }),
     )
@@ -138,16 +138,16 @@ export const ControlPortDtoSchema = z.object({
 
 export const SpfModuleDtoSchema = z.object({
   systemId: z.string().describe('SPF module system ID'),
-  id: z.number().int().describe('Module instance ID'),
-  moduleId: z.number().int().describe('Module definition ID'),
+  naturalId: z.number().int().describe('Module instance ID'),
+  moduleDefinitionSystemId: z.string().describe('Module definition system ID'),
   name: z.string().describe('Module name'),
   alias: z.string().describe('Module alias (user-defined label)'),
   parentSystemId: z
     .string()
     .optional()
     .describe('Parent subsystem system ID (for hierarchical modules)'),
-  subgraphId: z.number().int().describe('Subgraph this module belongs to'),
-  containerId: z.number().int().describe('Container this module belongs to'),
+  subgraphSystemId: z.string().describe('Subgraph this module belongs to'),
+  containerSystemId: z.string().describe('Container this module belongs to'),
   maxInputPortsSupported: z.number().int().describe('Maximum input data ports'),
   maxOutputPortsSupported: z
     .number()
@@ -180,7 +180,7 @@ export type ControlPortDto = z.infer<typeof ControlPortDtoSchema>;
 export function mapDataPort(p: DataPortReadModel): DataPortDto {
   return {
     systemId: String(p.systemId),
-    id: p.portId,
+    naturalId: p.naturalId,
     name: p.name ?? '',
     portIoType: p.portIoType === 'Input' ? 'Input' : 'Output',
     portType: p.isStatic ? 'Static' : 'Dynamic',
@@ -191,12 +191,15 @@ export function mapDataPort(p: DataPortReadModel): DataPortDto {
 export function mapControlPort(p: ControlPortReadModel): ControlPortDto {
   return {
     systemId: String(p.systemId),
-    id: p.portId,
+    naturalId: p.naturalId,
     name: p.name ?? '',
     portType: p.isStatic ? 'Static' : 'Dynamic',
     controlPortName: p.name ?? undefined,
     totalLinksAtPort: p.totalLinksAtPort,
-    intents: p.allocatedIntents.map(i => ({id: i.intentId, name: i.name})),
+    intents: p.allocatedIntents.map(i => ({
+      naturalId: i.naturalId,
+      name: i.name,
+    })),
   };
 }
 
@@ -207,12 +210,12 @@ export function mapCkv(c: CkvReadModel): CkvDto {
       .filter(kv => kv?.key && kv?.value)
       .map(kv => ({
         key: {
-          keyId: kv.key.keyId,
+          naturalId: kv.key.naturalId,
           name: kv.key.name,
           systemId: String(kv.key.systemId),
         },
         value: {
-          valueId: kv.value.valueId,
+          naturalId: kv.value.naturalId,
           name: kv.value.name,
           systemId: String(kv.value.systemId),
         },
@@ -228,12 +231,12 @@ export function mapTkv(t: TkvReadModel): TkvDto {
       .filter(kv => kv?.key && kv?.value)
       .map(kv => ({
         key: {
-          keyId: kv.key.keyId,
+          naturalId: kv.key.naturalId,
           name: kv.key.name,
           systemId: String(kv.key.systemId),
         },
         value: {
-          valueId: kv.value.valueId,
+          naturalId: kv.value.naturalId,
           name: kv.value.name,
           systemId: String(kv.value.systemId),
         },
@@ -245,7 +248,7 @@ export function mapTkv(t: TkvReadModel): TkvDto {
 export function mapTagInfo(t: TagReadModel): TagInfoDto {
   return {
     systemId: String(t.systemId),
-    tagId: t.tagId,
+    naturalId: t.naturalId,
     tagName: t.tagName,
     tkvs: t.tkvs.map(tkv => mapTkv(tkv)),
   };
@@ -258,13 +261,14 @@ export function mapSpfModule(
 ): SpfModuleDto {
   return {
     systemId: String(m.systemId),
-    id: m.instanceId,
-    moduleId: m.moduleId,
+    naturalId: m.naturalId,
+    moduleDefinitionSystemId: String(m.definitionSystemId),
     name: m.name,
     alias: m.alias,
-    parentSystemId: m.parentId != null ? String(m.parentId) : undefined,
-    subgraphId: m.subgraphId,
-    containerId: m.containerId,
+    parentSystemId:
+      m.parentSystemId != null ? String(m.parentSystemId) : undefined,
+    subgraphSystemId: String(m.subgraphSystemId),
+    containerSystemId: String(m.containerSystemId),
     maxInputPortsSupported: m.maxInputPortsSupported,
     maxOutputPortsSupported: m.maxOutputPortsSupported,
     maxControlPortsSupported: m.maxControlPortsSupported,

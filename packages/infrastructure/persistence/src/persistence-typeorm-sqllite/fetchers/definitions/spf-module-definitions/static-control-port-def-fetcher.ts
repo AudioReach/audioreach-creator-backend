@@ -17,7 +17,7 @@ import {
 /** Optional scalar filters for static control port definitions. */
 export type StaticControlPortDefinitionFilters = {
   systemId?: number | number[];
-  portId?: number | number[];
+  naturalId?: number | number[];
   portName?: string | string[];
   moduleDefinitionSystemId?: number | number[];
   $or?: StaticControlPortDefinitionFilters[];
@@ -117,10 +117,10 @@ export class StaticControlPortDefFetcher {
         baseIntentRows.map(i => ({...i})),
         intentActions,
         newValue => {
-          const portId = newValue.staticControlPortDefinitionSystemId;
+          const portSystemId = newValue.staticControlPortDefinitionSystemId;
           return (
-            typeof portId === 'number' &&
-            allPorts.some(port => port.systemId === portId)
+            typeof portSystemId === 'number' &&
+            allPorts.some(port => port.systemId === portSystemId)
           );
         },
       )

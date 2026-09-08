@@ -44,7 +44,7 @@ export class NodeOverlayFetcher {
     const baseRows = (await this.manager
       .getRepository<NodeRow>(ENTITY_NAMES.Node)
       .createQueryBuilder('n')
-      .select(['n.systemId', 'n.parentId', 'n.type', 'n.fileSystemId'])
+      .select(['n.systemId', 'n.parentSystemId', 'n.type', 'n.fileSystemId'])
       .where('n.systemId IN (:...ids) AND n.fileSystemId = :fileSystemId', {
         ids: nodeSystemIds,
         fileSystemId,

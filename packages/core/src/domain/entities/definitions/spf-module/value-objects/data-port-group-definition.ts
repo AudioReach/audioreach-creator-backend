@@ -30,10 +30,10 @@ export class DataPortGroupDefinition {
     const seen = new Set<number>();
     for (const port of this.staticPortDefinitions) {
       invariant(
-        !seen.has(port.dataPortId),
-        `Duplicate dataPortId: ${BinaryUtils.toHexString(port.dataPortId)}`,
+        !seen.has(port.naturalId),
+        `Duplicate dataPortId: ${BinaryUtils.toHexString(port.naturalId)}`,
       );
-      seen.add(port.dataPortId);
+      seen.add(port.naturalId);
     }
   }
 }

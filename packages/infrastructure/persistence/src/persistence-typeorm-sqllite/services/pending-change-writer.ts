@@ -426,7 +426,7 @@ export class PendingChangeWriter {
       row = await manager
         .createQueryBuilder(targetTable, 'e')
         .select('e.version', 'version')
-        .where('e.systemId = :id', {id: targetSystemId})
+        .where('e.systemId = :targetSystemId', {targetSystemId})
         .getRawOne<{version: number}>();
     } catch {
       // Entity schema has no `version` column (e.g., junction tables such as

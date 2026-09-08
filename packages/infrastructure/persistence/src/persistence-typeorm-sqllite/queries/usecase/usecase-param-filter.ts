@@ -12,9 +12,9 @@ import type {UseCaseRow} from '../../entity-schema/index.js';
  * ParamFilter definition for GET /usecases.
  *
  * Registered fields:
- *   spfModuleInstanceId — filter usecases that contain a module with this instance ID
- *   subgraphId          — filter usecases that reference this subgraph
- *   containerId         — filter usecases that contain a module in this container
+ *   spfModuleInstanceNaturalId — filter usecases that contain a module with this instance ID
+ *   subgraphNaturalId          — filter usecases that reference this subgraph
+ *   containerNaturalId         — filter usecases that contain a module in this container
  *
  * Each field's addCondition() adds an EXISTS subquery to the 'uc' QueryBuilder alias.
  * Adding a new filterable field: one .register() call, no other code changes required.
@@ -34,7 +34,7 @@ import type {UseCaseRow} from '../../entity-schema/index.js';
 export const USECASE_PARAM_FILTER = new ParamFilter<UseCaseRow>()
 
   .register({
-    name: 'spfModuleInstanceId',
+    name: 'spfModuleInstanceNaturalId',
     valueType: 'number',
     addCondition: (qb, value, key, alias) => {
       const sub = (qb as unknown as SelectQueryBuilder<Record<string, unknown>>)
@@ -46,43 +46,47 @@ export const USECASE_PARAM_FILTER = new ParamFilter<UseCaseRow>()
           'sm',
           'sm.subgraph_system_id = ucs.subgraph_system_id',
         )
-        .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sm.system_id')
         .where(`ucs.usecase_system_id = ${alias}.system_id`)
-        .andWhere(`n.module_id = :${key}`)
+        .andWhere(`sm.naturalId = :${key}`)
         .getQuery();
       qb.andWhere(`EXISTS ${sub}`, {[key]: value});
     },
     evaluate: (uc, value) =>
-      (uc as unknown as {modules?: Array<{moduleId: number}>}).modules?.some(
-        m => m.moduleId === value,
-      ) ?? false,
+      (
+        uc as unknown as {modules?: Array<{moduleNaturalId: number}>}
+      ).modules?.some(m => m.moduleNaturalId === value) ?? false,
   })
 
   .register({
-    name: 'subgraphId',
+    name: 'subgraphNaturalId',
     valueType: 'number',
     addCondition: (qb, value, key, alias) => {
       const sub = (qb as unknown as SelectQueryBuilder<Record<string, unknown>>)
         .subQuery()
         .select('1')
         .from(ENTITY_NAMES.UseCaseSubgraph, 'ucs')
+        .innerJoin(
+          ENTITY_NAMES.Subgraph,
+          'sg',
+          'sg.system_id = ucs.subgraph_system_id',
+        )
         .where(`ucs.usecase_system_id = ${alias}.system_id`)
-        .andWhere(`ucs.subgraph_system_id = :${key}`)
+        .andWhere(`sg.subgraph_id = :${key}`)
         .getQuery();
       qb.andWhere(`EXISTS ${sub}`, {[key]: value});
     },
     evaluate: (uc, value) =>
       (
         uc as unknown as {
-          subgraphMemberships?: Array<{subgraphSystemId: number}>;
+          subgraphMemberships?: Array<{subgraphNaturalId: number}>;
         }
       ).subgraphMemberships?.some(
-        membership => membership.subgraphSystemId === value,
+        membership => membership.subgraphNaturalId === value,
       ) ?? false,
   })
 
   .register({
-    name: 'containerId',
+    name: 'containerNaturalId',
     valueType: 'number',
     addCondition: (qb, value, key, alias) => {
       const sub = (qb as unknown as SelectQueryBuilder<Record<string, unknown>>)
@@ -94,13 +98,18 @@ export const USECASE_PARAM_FILTER = new ParamFilter<UseCaseRow>()
           'sm',
           'sm.subgraph_system_id = ucs.subgraph_system_id',
         )
+        .innerJoin(
+          ENTITY_NAMES.Container,
+          'c',
+          'c.system_id = sm.container_system_id',
+        )
         .where(`ucs.usecase_system_id = ${alias}.system_id`)
-        .andWhere(`sm.container_system_id = :${key}`)
+        .andWhere(`c.container_id = :${key}`)
         .getQuery();
       qb.andWhere(`EXISTS ${sub}`, {[key]: value});
     },
     evaluate: (uc, value) =>
-      (uc as unknown as {modules?: Array<{containerId: number}>}).modules?.some(
-        m => m.containerId === value,
-      ) ?? false,
+      (
+        uc as unknown as {modules?: Array<{containerNaturalId: number}>}
+      ).modules?.some(m => m.containerNaturalId === value) ?? false,
   });

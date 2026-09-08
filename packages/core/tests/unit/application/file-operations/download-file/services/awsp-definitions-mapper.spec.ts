@@ -30,11 +30,11 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all required fields', () => {
       const model: KeyDefinitionDownloadModel = {
-        keyId: 100,
+        keyNaturalId: 100,
         name: 'Key100',
         isCalibrationKey: true,
         isGraphKey: false,
-        values: [{valueId: 1001, name: 'Val1001'}],
+        values: [{valueNaturalId: 1001, name: 'Val1001'}],
       };
 
       const result = mapper.toAwspKeyDefinitions([model]);
@@ -51,7 +51,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all optional key fields', () => {
       const model: KeyDefinitionDownloadModel = {
-        keyId: 200,
+        keyNaturalId: 200,
         name: 'Key200',
         description: 'A key',
         isVoice: true,
@@ -78,7 +78,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should assign specialty SpecialKey via specialityKeyValue JSON', () => {
       const model: KeyDefinitionDownloadModel = {
-        keyId: 300,
+        keyNaturalId: 300,
         name: 'Key300',
         isCalibrationKey: true,
         specialityKeyValue: JSON.stringify({key: 'SAMPLE_RATE', value: ''}),
@@ -92,7 +92,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should leave specialty undefined when not provided', () => {
       const model: KeyDefinitionDownloadModel = {
-        keyId: 350,
+        keyNaturalId: 350,
         name: 'Key350',
         isCalibrationKey: true,
         values: [],
@@ -105,12 +105,12 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all value fields including optional ones', () => {
       const model: KeyDefinitionDownloadModel = {
-        keyId: 400,
+        keyNaturalId: 400,
         name: 'Key400',
         isCalibrationKey: true,
         values: [
           {
-            valueId: 4001,
+            valueNaturalId: 4001,
             name: 'Val4001',
             description: 'a value',
             enumMember: 'VAL_ENUM',
@@ -131,11 +131,11 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should produce toJSON output that passes KeyDefinitionSchema validation', () => {
       const model: KeyDefinitionDownloadModel = {
-        keyId: 500,
+        keyNaturalId: 500,
         name: 'Key500',
         isCalibrationKey: true,
         isGraphKey: false,
-        values: [{valueId: 5001, name: 'Val5001'}],
+        values: [{valueNaturalId: 5001, name: 'Val5001'}],
       };
 
       const [awspKey] = mapper.toAwspKeyDefinitions([model]);
@@ -152,7 +152,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all required tag fields', () => {
       const model: TagDefinitionDownloadModel = {
-        tagId: 500,
+        tagNaturalId: 500,
         name: 'TagX',
         isVoice: false,
         supportedKeys: [],
@@ -168,7 +168,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all optional tag fields', () => {
       const model: TagDefinitionDownloadModel = {
-        tagId: 600,
+        tagNaturalId: 600,
         name: 'TagY',
         description: 'A tag',
         isVoice: true,
@@ -187,12 +187,12 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map supportedKeys with id, name, and enumMember', () => {
       const model: TagDefinitionDownloadModel = {
-        tagId: 700,
+        tagNaturalId: 700,
         name: 'TagZ',
         isVoice: false,
         supportedKeys: [
-          {keyId: 100, keyName: 'KeyA', enumValue: 'KEY_TAG_ENUM'},
-          {keyId: 200, keyName: 'KeyB'},
+          {keyNaturalId: 100, keyName: 'KeyA', enumValue: 'KEY_TAG_ENUM'},
+          {keyNaturalId: 200, keyName: 'KeyB'},
         ],
       };
 
@@ -209,10 +209,10 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should produce toJSON output that passes TagDefinitionSchema validation', () => {
       const model: TagDefinitionDownloadModel = {
-        tagId: 800,
+        tagNaturalId: 800,
         name: 'TagW',
         isVoice: true,
-        supportedKeys: [{keyId: 100, keyName: 'KeyA'}],
+        supportedKeys: [{keyNaturalId: 100, keyName: 'KeyA'}],
       };
 
       const [awspTag] = mapper.toAwspTagDefinitions([model]);
@@ -229,7 +229,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all basic fields', () => {
       const model: SpfModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0x100,
+        naturalId: 0x100,
         name: 'TestMod',
         displayName: 'Test Module',
         description: 'desc',
@@ -260,12 +260,12 @@ describe('AwspDefinitionsMapper', () => {
     it('should parse elementsStructure JSON for parameters', () => {
       const elements = [{type: 'uint32', name: 'field1'}];
       const model: SpfModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0x200,
+        naturalId: 0x200,
         name: 'ModWithParams',
         stackSize: 0,
         params: [
           {
-            paramId: 1,
+            paramNaturalId: 1,
             name: 'P1',
             maxSize: 64,
             pidType: 'SHARED',
@@ -293,7 +293,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map input and output port groups', () => {
       const model: SpfModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0x300,
+        naturalId: 0x300,
         name: 'ModWithPorts',
         stackSize: 0,
         params: [],
@@ -301,12 +301,12 @@ describe('AwspDefinitionsMapper', () => {
           {
             maxPortCount: 4,
             portIoType: 'Input',
-            ports: [{portId: 1, name: 'In0'}],
+            ports: [{portNaturalId: 1, name: 'In0'}],
           },
           {
             maxPortCount: 2,
             portIoType: 'Output',
-            ports: [{portId: 2, name: 'Out0'}],
+            ports: [{portNaturalId: 2, name: 'Out0'}],
           },
         ],
         staticControlPorts: [],
@@ -327,16 +327,16 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map static control ports with intents', () => {
       const model: SpfModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0x400,
+        naturalId: 0x400,
         name: 'ModWithCtrl',
         stackSize: 0,
         params: [],
         portGroups: [],
         staticControlPorts: [
           {
-            portId: 10,
+            portNaturalId: 10,
             portName: 'CtrlPort0',
-            intents: [{intentId: 100, name: 'IntentA'}],
+            intents: [{intentNaturalId: 100, name: 'IntentA'}],
           },
         ],
         dynamicIntents: [],
@@ -355,13 +355,15 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map dynamic intents with maxports', () => {
       const model: SpfModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0x500,
+        naturalId: 0x500,
         name: 'ModWithDynIntents',
         stackSize: 0,
         params: [],
         portGroups: [],
         staticControlPorts: [],
-        dynamicIntents: [{intentId: 200, name: 'DynIntent0', maxPort: 8}],
+        dynamicIntents: [
+          {intentNaturalId: 200, name: 'DynIntent0', maxPort: 8},
+        ],
         supportedProcessorIds: [],
         supportedContainerTypes: [],
       };
@@ -376,7 +378,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should not set controlPortsInfo when no static ports or dynamic intents', () => {
       const model: SpfModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0x600,
+        naturalId: 0x600,
         name: 'SimpleModule',
         stackSize: 0,
         params: [],
@@ -394,7 +396,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should produce toJSON output that passes AwspSpfModuleDefinitionSchema validation', () => {
       const model: SpfModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0x700,
+        naturalId: 0x700,
         name: 'ValidMod',
         stackSize: 0,
         params: [],
@@ -419,7 +421,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map all basic fields', () => {
       const model: DriverModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0xd100,
+        naturalId: 0xd100,
         name: 'DriverMod',
         description: 'A driver',
         groupName: 'DriverGroup',
@@ -437,11 +439,11 @@ describe('AwspDefinitionsMapper', () => {
     it('should parse paramStructure JSON for parameters and use default toolPolicies/pidType', () => {
       const elements = [{type: 'uint16'}];
       const model: DriverModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0xd200,
+        naturalId: 0xd200,
         name: 'DriverWithParams',
         params: [
           {
-            parameterId: 1,
+            naturalId: 1,
             name: 'DP1',
             maxSize: 16,
             paramStructure: JSON.stringify(elements),
@@ -460,7 +462,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should produce toJSON output that passes AwspDriverModuleDefinitionSchema validation', () => {
       const model: DriverModuleDefinitionDownloadModel = {
-        moduleDefinitionId: 0xd300,
+        naturalId: 0xd300,
         name: 'ValidDriver',
         params: [],
       };
@@ -480,7 +482,7 @@ describe('AwspDefinitionsMapper', () => {
     it('should map SG_CFG property with isVoice', () => {
       const elements = [{type: 'uint32'}];
       const model: SpfPropertyDefinitionDownloadModel = {
-        propertyId: 1001,
+        propertyNaturalId: 1001,
         name: 'SgProp',
         description: 'subgraph prop',
         maxSize: 32,
@@ -504,7 +506,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should map CONTAINTER_CFG property', () => {
       const model: SpfPropertyDefinitionDownloadModel = {
-        propertyId: 2001,
+        propertyNaturalId: 2001,
         name: 'ContProp',
         maxSize: 64,
         elementsStructure: '[]',
@@ -519,7 +521,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should produce toJSON output that passes SpfPropertyDefinitionSchema validation', () => {
       const model: SpfPropertyDefinitionDownloadModel = {
-        propertyId: 1001,
+        propertyNaturalId: 1001,
         name: 'Prop',
         maxSize: 4,
         elementsStructure: '[]',
@@ -541,7 +543,7 @@ describe('AwspDefinitionsMapper', () => {
     it('should map all fields', () => {
       const elements = [{type: 'uint8', count: 128}];
       const model: DriverPropertyDefinitionDownloadModel = {
-        propertyId: 3001,
+        propertyNaturalId: 3001,
         name: 'ModProp',
         description: 'module property',
         maxSize: 128,
@@ -559,7 +561,7 @@ describe('AwspDefinitionsMapper', () => {
 
     it('should produce toJSON output that passes DriverPropertyDefinitionSchema validation', () => {
       const model: DriverPropertyDefinitionDownloadModel = {
-        propertyId: 3001,
+        propertyNaturalId: 3001,
         name: 'ValidProp',
         maxSize: 4,
         propertyStructure: '[]',

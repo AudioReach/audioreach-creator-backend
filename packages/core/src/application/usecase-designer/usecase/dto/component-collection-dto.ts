@@ -59,7 +59,7 @@ export type ComponentCollectionDto = z.infer<
 
 const FilteredKeyDtoSchema = z.object({
   systemId: z.string().describe('Key system ID'),
-  keyId: z.number().int().describe('Key definition ID'),
+  naturalId: z.number().int().describe('Key definition ID'),
   name: z.string().describe('Key name'),
   description: z.string().optional().describe('Key description'),
 });
@@ -103,13 +103,14 @@ export function mapSpfModuleForCollection(
 ): Omit<z.infer<typeof SpfModuleDtoSchema>, 'properties'> {
   return {
     systemId: String(m.systemId),
-    id: m.instanceId,
-    moduleId: m.definitionSystemId,
+    naturalId: m.naturalId,
+    moduleDefinitionSystemId: String(m.definitionSystemId),
     name: m.name,
     alias: m.alias,
-    parentSystemId: m.parentId != null ? String(m.parentId) : undefined,
-    subgraphId: m.subgraphId,
-    containerId: m.containerId,
+    parentSystemId:
+      m.parentSystemId != null ? String(m.parentSystemId) : undefined,
+    subgraphSystemId: String(m.subgraphSystemId),
+    containerSystemId: String(m.containerSystemId),
     maxInputPortsSupported: m.maxInputPortsSupported,
     maxOutputPortsSupported: m.maxOutputPortsSupported,
     maxControlPortsSupported: m.maxControlPortsSupported,
@@ -160,7 +161,7 @@ function mapSubsystemNode(sub: SubsystemNodeReadModel): SubsystemNodeDto {
     name: sub.name,
     filteredKeys: sub.filteredKeys.map(k => ({
       systemId: String(k.systemId),
-      keyId: k.keyId,
+      naturalId: k.naturalId,
       name: k.name,
       description: k.description,
     })),

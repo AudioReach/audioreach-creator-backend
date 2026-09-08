@@ -15,7 +15,7 @@ import type {TkvParameterPayloadRow} from '../../../usecase-data/module/spf-modu
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface SpfModuleParameterDefinitionBase {
   systemId: number;
-  paramId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
@@ -24,7 +24,7 @@ export interface SpfModuleParameterDefinitionBase {
   elementsStructure: string;
   isReadOnly: boolean;
   toolPolicies?: string;
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 
   // Foreign key relation
   spfModuleDefinitionSystemId: number;
@@ -44,7 +44,7 @@ export const SpfModuleParameterDefinitionSchema =
     tableName: 'spf_module_parameter_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      paramId: {
+      naturalId: {
         type: 'integer',
         name: 'param_id',
       },
@@ -86,7 +86,7 @@ export const SpfModuleParameterDefinitionSchema =
         nullable: true,
         name: 'tool_policies',
       },
-      copySrcParamId: {
+      copySrcParamNaturalId: {
         type: 'integer',
         nullable: true,
         name: 'copy_src_param_id',

@@ -71,10 +71,12 @@ export class UsecaseDataChunkSerializer {
     containerData: ContainerDownloadModel[],
   ): UsecaseDataSerializationResult {
     // Build subgraph lookup map for efficient access
-    const subgraphMap = new Map(subgraphData.map(sg => [sg.subgraphId, sg]));
+    const subgraphMap = new Map(subgraphData.map(sg => [sg.naturalId, sg]));
 
     // Build container lookup map for efficient access
-    const containerMap = new Map(containerData.map(c => [c.containerId, c]));
+    const containerMap = new Map(
+      containerData.map(c => [c.containerNaturalId, c]),
+    );
 
     // Phase 2: Sequential datapool assignment
     // Assign TWO offsets to all value entries
@@ -361,13 +363,13 @@ export class UsecaseDataChunkSerializer {
    *
    * Wrapped with APM parameter format (8-byte aligned).
    *
-   * @param subgraphId - Subgraph ID
+   * @param subgraphNaturalId - Subgraph ID
    * @param properties - Subgraph properties from database
    * @returns APM-wrapped subgraph config binary data
    */
   private serializeSubgraphConfig(
-    subgraphId: number,
-    properties: readonly {propertyId: number; payload: Uint8Array}[],
+    subgraphNaturalId: number,
+    properties: readonly {propertyNaturalId: number; payload: Uint8Array}[],
   ): Uint8Array {
     if (properties.length === 0) {
       return new Uint8Array(0);
@@ -398,7 +400,7 @@ export class UsecaseDataChunkSerializer {
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Write SubgraphID
-    BinaryUtils.writeUint32(payloadView, pos, subgraphId);
+    BinaryUtils.writeUint32(payloadView, pos, subgraphNaturalId);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Write NumProperties
@@ -408,7 +410,7 @@ export class UsecaseDataChunkSerializer {
     // Write each property
     for (const prop of properties) {
       // Write PropertyID
-      BinaryUtils.writeUint32(payloadView, pos, prop.propertyId);
+      BinaryUtils.writeUint32(payloadView, pos, prop.propertyNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write PropertyDataLength
@@ -455,7 +457,7 @@ export class UsecaseDataChunkSerializer {
       container: ContainerDownloadModel,
     ): number => {
       const parentProp = container.properties.find(
-        p => p.propertyId === CONTAINER_PROP_ID_PARENT_CONTAINER,
+        p => p.propertyNaturalId === CONTAINER_PROP_ID_PARENT_CONTAINER,
       );
 
       if (!parentProp || parentProp.payload.length < 4) {
@@ -471,7 +473,9 @@ export class UsecaseDataChunkSerializer {
     };
 
     // Build container map for quick lookup
-    const containerMap = new Map(containers.map(c => [c.containerId, c]));
+    const containerMap = new Map(
+      containers.map(c => [c.containerNaturalId, c]),
+    );
 
     // Order containers: parents first, then children
     const orderedContainers: ContainerDownloadModel[] = [];
@@ -481,7 +485,7 @@ export class UsecaseDataChunkSerializer {
     const addContainerWithParents = (
       container: ContainerDownloadModel,
     ): void => {
-      if (addedIds.has(container.containerId)) {
+      if (addedIds.has(container.containerNaturalId)) {
         return;
       }
 
@@ -495,9 +499,9 @@ export class UsecaseDataChunkSerializer {
       }
 
       // Add this container
-      if (!addedIds.has(container.containerId)) {
+      if (!addedIds.has(container.containerNaturalId)) {
         orderedContainers.push(container);
-        addedIds.add(container.containerId);
+        addedIds.add(container.containerNaturalId);
       }
     };
 
@@ -536,7 +540,7 @@ export class UsecaseDataChunkSerializer {
     // Write each container
     for (const container of orderedContainers) {
       // Write ContainerID
-      BinaryUtils.writeUint32(payloadView, pos, container.containerId);
+      BinaryUtils.writeUint32(payloadView, pos, container.containerNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write NumProperties
@@ -546,7 +550,7 @@ export class UsecaseDataChunkSerializer {
       // Write each property
       for (const prop of container.properties) {
         // Write PropertyID
-        BinaryUtils.writeUint32(payloadView, pos, prop.propertyId);
+        BinaryUtils.writeUint32(payloadView, pos, prop.propertyNaturalId);
         pos += BinaryUtils.SIZEOF_UINT32;
 
         // Write PropertyDataLength
@@ -575,13 +579,13 @@ export class UsecaseDataChunkSerializer {
    *   - PropertyDataLength: 4 bytes (uint32)
    *   - PropertyData: variable length bytes
    *
-   * @param subgraphId - Subgraph ID
+   * @param subgraphNaturalId - Subgraph ID
    * @param properties - Subgraph properties from database
    * @returns Driver property binary data
    */
   private serializeDriverProperties(
-    subgraphId: number,
-    properties: readonly {propertyId: number; payload: Uint8Array}[],
+    subgraphNaturalId: number,
+    properties: readonly {propertyNaturalId: number; payload: Uint8Array}[],
   ): Uint8Array {
     // Calculate total buffer size
     let totalSize = BinaryUtils.SIZEOF_UINT32; // SubgraphID
@@ -603,7 +607,7 @@ export class UsecaseDataChunkSerializer {
     let pos = 0;
 
     // Write SubgraphID
-    BinaryUtils.writeUint32(view, pos, subgraphId);
+    BinaryUtils.writeUint32(view, pos, subgraphNaturalId);
     pos += BinaryUtils.SIZEOF_UINT32;
 
     // Write NumProperties
@@ -613,7 +617,7 @@ export class UsecaseDataChunkSerializer {
     // Write each property
     for (const prop of properties) {
       // Write PropertyID
-      BinaryUtils.writeUint32(view, pos, prop.propertyId);
+      BinaryUtils.writeUint32(view, pos, prop.propertyNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write PropertyDataLength
@@ -630,7 +634,7 @@ export class UsecaseDataChunkSerializer {
 
   /**
    * Serialize module list.
-   * Groups modules by (subgraphId, containerId) and serializes with APM wrapper.
+   * Groups modules by (subgraphNaturalId, containerNaturalId) and serializes with APM wrapper.
    *
    * Binary format (inner payload):
    * - NumModuleProperties: 4 bytes
@@ -642,48 +646,51 @@ export class UsecaseDataChunkSerializer {
    *     - ModuleID: 4 bytes
    *     - InstanceID: 4 bytes
    *
-   * @param subgraphId - Subgraph ID for all modules
+   * @param subgraphNaturalId - Subgraph ID for all modules
    * @param modules - Module instances from database
    * @returns APM-wrapped module list binary data
    */
   private serializeModuleList(
-    subgraphId: number,
+    subgraphNaturalId: number,
     modules: readonly {
-      instanceId: number;
-      moduleId: number;
-      containerId: number;
+      instanceNaturalId: number;
+      moduleNaturalId: number;
+      containerNaturalId: number;
     }[],
   ): Uint8Array {
     if (modules.length === 0) {
       return new Uint8Array(0);
     }
 
-    // Group modules by containerId
+    // Group modules by containerNaturalId
     // All modules in this call belong to the same subgraph
     const groupMap = new Map<
       number,
       {
-        subgraphId: number;
-        containerId: number;
-        modules: Array<{instanceId: number; moduleId: number}>;
+        subgraphNaturalId: number;
+        containerNaturalId: number;
+        modules: Array<{
+          instanceNaturalId: number;
+          moduleNaturalId: number;
+        }>;
       }
     >();
 
-    // Group by containerId
+    // Group by containerNaturalId
     for (const module of modules) {
-      const key = module.containerId;
+      const key = module.containerNaturalId;
 
       if (!groupMap.has(key)) {
         groupMap.set(key, {
-          subgraphId,
-          containerId: module.containerId,
+          subgraphNaturalId,
+          containerNaturalId: module.containerNaturalId,
           modules: [],
         });
       }
 
       groupMap.get(key)!.modules.push({
-        instanceId: module.instanceId,
-        moduleId: module.moduleId,
+        instanceNaturalId: module.instanceNaturalId,
+        moduleNaturalId: module.moduleNaturalId,
       });
     }
 
@@ -713,11 +720,11 @@ export class UsecaseDataChunkSerializer {
     // Write each group
     for (const group of groupMap.values()) {
       // Write SubgraphID
-      BinaryUtils.writeUint32(payloadView, pos, group.subgraphId);
+      BinaryUtils.writeUint32(payloadView, pos, group.subgraphNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write ContainerID
-      BinaryUtils.writeUint32(payloadView, pos, group.containerId);
+      BinaryUtils.writeUint32(payloadView, pos, group.containerNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write NumModules
@@ -727,11 +734,11 @@ export class UsecaseDataChunkSerializer {
       // Write each module
       for (const module of group.modules) {
         // Write ModuleID
-        BinaryUtils.writeUint32(payloadView, pos, module.moduleId);
+        BinaryUtils.writeUint32(payloadView, pos, module.moduleNaturalId);
         pos += BinaryUtils.SIZEOF_UINT32;
 
         // Write InstanceID
-        BinaryUtils.writeUint32(payloadView, pos, module.instanceId);
+        BinaryUtils.writeUint32(payloadView, pos, module.instanceNaturalId);
         pos += BinaryUtils.SIZEOF_UINT32;
       }
     }
@@ -749,7 +756,7 @@ export class UsecaseDataChunkSerializer {
    * - For each module:
    *   - ModuleInstanceID: 4 bytes
    *   - NumProperties: 4 bytes
-   *   - For each property (sorted by propertyId):
+   *   - For each property (sorted by propertyNaturalId):
    *     - PropertyID: 4 bytes
    *     - PropertySize: 4 bytes
    *     - PropertyData: variable bytes
@@ -761,24 +768,25 @@ export class UsecaseDataChunkSerializer {
    */
   private serializeModuleConfig(
     modules: readonly {
-      instanceId: number;
-      moduleId: number;
-      containerId: number;
+      instanceNaturalId: number;
+      moduleNaturalId: number;
+      containerNaturalId: number;
       maxInputPorts: number;
       maxOutputPorts: number;
-      properties: readonly {propertyId: number; payload: Uint8Array}[];
+      properties: readonly {propertyNaturalId: number; payload: Uint8Array}[];
     }[],
   ): Uint8Array {
     // Build complete properties for each module (including port info)
     const modulesWithProperties: Array<{
-      instanceId: number;
-      properties: Array<{propertyId: number; payload: Uint8Array}>;
+      instanceNaturalId: number;
+      properties: Array<{propertyNaturalId: number; payload: Uint8Array}>;
     }> = [];
 
     for (const module of modules) {
-      const allProperties: Array<{propertyId: number; payload: Uint8Array}> = [
-        ...module.properties,
-      ];
+      const allProperties: Array<{
+        propertyNaturalId: number;
+        payload: Uint8Array;
+      }> = [...module.properties];
 
       // Create port info property from port data
       if (module.maxInputPorts > 0 || module.maxOutputPorts > 0) {
@@ -792,18 +800,18 @@ export class UsecaseDataChunkSerializer {
         portView.setUint32(4, module.maxOutputPorts, true); // little-endian
 
         allProperties.push({
-          propertyId: MODULE_PROP_ID_PORT_INFO,
+          propertyNaturalId: MODULE_PROP_ID_PORT_INFO,
           payload: portPayload,
         });
       }
 
       // Only include modules that have properties
       if (allProperties.length > 0) {
-        // Sort properties by propertyId
-        allProperties.sort((a, b) => a.propertyId - b.propertyId);
+        // Sort properties by propertyNaturalId
+        allProperties.sort((a, b) => a.propertyNaturalId - b.propertyNaturalId);
 
         modulesWithProperties.push({
-          instanceId: module.instanceId,
+          instanceNaturalId: module.instanceNaturalId,
           properties: allProperties,
         });
       }
@@ -843,7 +851,7 @@ export class UsecaseDataChunkSerializer {
     // Write each module
     for (const module of modulesWithProperties) {
       // Write ModuleInstanceID
-      BinaryUtils.writeUint32(payloadView, pos, module.instanceId);
+      BinaryUtils.writeUint32(payloadView, pos, module.instanceNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write NumProperties
@@ -853,7 +861,7 @@ export class UsecaseDataChunkSerializer {
       // Write each property
       for (const prop of module.properties) {
         // Write PropertyID
-        BinaryUtils.writeUint32(payloadView, pos, prop.propertyId);
+        BinaryUtils.writeUint32(payloadView, pos, prop.propertyNaturalId);
         pos += BinaryUtils.SIZEOF_UINT32;
 
         // Write PropertySize
@@ -887,10 +895,10 @@ export class UsecaseDataChunkSerializer {
    */
   private serializeDataLinks(
     dataLinks: readonly {
-      sourceInstanceId: number;
-      sourcePortId: number;
-      destinationInstanceId: number;
-      destinationPortId: number;
+      sourceInstanceNaturalId: number;
+      sourcePortNaturalId: number;
+      destinationInstanceNaturalId: number;
+      destinationPortNaturalId: number;
       isInterGraph: boolean;
     }[],
   ): Uint8Array {
@@ -919,19 +927,23 @@ export class UsecaseDataChunkSerializer {
     // Write each connection
     for (const link of dataLinks) {
       // Write SourceInstanceID
-      BinaryUtils.writeUint32(payloadView, pos, link.sourceInstanceId);
+      BinaryUtils.writeUint32(payloadView, pos, link.sourceInstanceNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write SourcePortID
-      BinaryUtils.writeUint32(payloadView, pos, link.sourcePortId);
+      BinaryUtils.writeUint32(payloadView, pos, link.sourcePortNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write DestinationInstanceID
-      BinaryUtils.writeUint32(payloadView, pos, link.destinationInstanceId);
+      BinaryUtils.writeUint32(
+        payloadView,
+        pos,
+        link.destinationInstanceNaturalId,
+      );
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write DestinationPortID
-      BinaryUtils.writeUint32(payloadView, pos, link.destinationPortId);
+      BinaryUtils.writeUint32(payloadView, pos, link.destinationPortNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
     }
 
@@ -952,7 +964,7 @@ export class UsecaseDataChunkSerializer {
    *   - Peer2InstanceID: 4 bytes
    *   - Peer2PortID: 4 bytes
    *   - NumProperties: 4 bytes
-   *   - For each property (sorted by propertyId):
+   *   - For each property (sorted by propertyNaturalId):
    *     - PropertyID: 4 bytes
    *     - PropertyDataLength: 4 bytes
    *     - PropertyData: variable length
@@ -962,10 +974,10 @@ export class UsecaseDataChunkSerializer {
    */
   private serializeControlLinks(
     controlLinks: readonly {
-      peer1InstanceId: number;
-      peer1PortId: number;
-      peer2InstanceId: number;
-      peer2PortId: number;
+      peer1InstanceNaturalId: number;
+      peer1PortNaturalId: number;
+      peer2InstanceNaturalId: number;
+      peer2PortNaturalId: number;
       isInterGraph: boolean;
       heapId?: number;
       intentIds: number[];
@@ -977,15 +989,18 @@ export class UsecaseDataChunkSerializer {
 
     // Build properties for each control link
     const linksWithProperties: Array<{
-      peer1InstanceId: number;
-      peer1PortId: number;
-      peer2InstanceId: number;
-      peer2PortId: number;
-      properties: Array<{propertyId: number; payload: Uint8Array}>;
+      peer1InstanceNaturalId: number;
+      peer1PortNaturalId: number;
+      peer2InstanceNaturalId: number;
+      peer2PortNaturalId: number;
+      properties: Array<{propertyNaturalId: number; payload: Uint8Array}>;
     }> = [];
 
     for (const link of controlLinks) {
-      const properties: Array<{propertyId: number; payload: Uint8Array}> = [];
+      const properties: Array<{
+        propertyNaturalId: number;
+        payload: Uint8Array;
+      }> = [];
 
       // Add heap ID property (always include, use default if not present)
       const heapId = link.heapId ?? HEAP_ID_DEFAULT;
@@ -997,7 +1012,7 @@ export class UsecaseDataChunkSerializer {
       );
       BinaryUtils.writeUint32(heapIdView, 0, heapId);
       properties.push({
-        propertyId: MODULE_PROP_ID_CTRL_HEAP_ID,
+        propertyNaturalId: MODULE_PROP_ID_CTRL_HEAP_ID,
         payload: heapIdPayload,
       });
 
@@ -1020,25 +1035,25 @@ export class UsecaseDataChunkSerializer {
         pos += BinaryUtils.SIZEOF_UINT32;
 
         // Write each intent ID
-        for (const intentId of link.intentIds) {
-          BinaryUtils.writeUint32(intentsView, pos, intentId);
+        for (const intentNaturalId of link.intentIds) {
+          BinaryUtils.writeUint32(intentsView, pos, intentNaturalId);
           pos += BinaryUtils.SIZEOF_UINT32;
         }
 
         properties.push({
-          propertyId: MODULE_PROP_ID_CTRL_LINK_INTENTS,
+          propertyNaturalId: MODULE_PROP_ID_CTRL_LINK_INTENTS,
           payload: intentsPayload,
         });
       }
 
-      // Sort properties by propertyId
-      properties.sort((a, b) => a.propertyId - b.propertyId);
+      // Sort properties by propertyNaturalId
+      properties.sort((a, b) => a.propertyNaturalId - b.propertyNaturalId);
 
       linksWithProperties.push({
-        peer1InstanceId: link.peer1InstanceId,
-        peer1PortId: link.peer1PortId,
-        peer2InstanceId: link.peer2InstanceId,
-        peer2PortId: link.peer2PortId,
+        peer1InstanceNaturalId: link.peer1InstanceNaturalId,
+        peer1PortNaturalId: link.peer1PortNaturalId,
+        peer2InstanceNaturalId: link.peer2InstanceNaturalId,
+        peer2PortNaturalId: link.peer2PortNaturalId,
         properties,
       });
     }
@@ -1073,19 +1088,19 @@ export class UsecaseDataChunkSerializer {
     // Write each control link
     for (const link of linksWithProperties) {
       // Write Peer1InstanceID
-      BinaryUtils.writeUint32(payloadView, pos, link.peer1InstanceId);
+      BinaryUtils.writeUint32(payloadView, pos, link.peer1InstanceNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write Peer1PortID
-      BinaryUtils.writeUint32(payloadView, pos, link.peer1PortId);
+      BinaryUtils.writeUint32(payloadView, pos, link.peer1PortNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write Peer2InstanceID
-      BinaryUtils.writeUint32(payloadView, pos, link.peer2InstanceId);
+      BinaryUtils.writeUint32(payloadView, pos, link.peer2InstanceNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write Peer2PortID
-      BinaryUtils.writeUint32(payloadView, pos, link.peer2PortId);
+      BinaryUtils.writeUint32(payloadView, pos, link.peer2PortNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Write NumProperties
@@ -1095,7 +1110,7 @@ export class UsecaseDataChunkSerializer {
       // Write each property
       for (const prop of link.properties) {
         // Write PropertyID
-        BinaryUtils.writeUint32(payloadView, pos, prop.propertyId);
+        BinaryUtils.writeUint32(payloadView, pos, prop.propertyNaturalId);
         pos += BinaryUtils.SIZEOF_UINT32;
 
         // Write PropertyDataLength
@@ -1120,7 +1135,10 @@ export class UsecaseDataChunkSerializer {
    * @returns APM-wrapped voice config binary data
    */
   private serializeVoiceConfig(
-    _voiceTags: readonly {tagId: number; moduleInstanceId: number}[],
+    _voiceTags: readonly {
+      tagNaturalId: number;
+      moduleInstanceNaturalId: number;
+    }[],
   ): Uint8Array {
     // Placeholder: Return empty buffer
     // Full implementation will serialize voice tagged modules with APM parameter wrapper
@@ -1137,33 +1155,39 @@ export class UsecaseDataChunkSerializer {
    */
   private serializeSpfProperties(
     subgraph: {
-      subgraphId: number;
-      properties: readonly {propertyId: number; payload: Uint8Array}[];
+      naturalId: number;
+      properties: readonly {propertyNaturalId: number; payload: Uint8Array}[];
       modules: readonly {
-        instanceId: number;
-        moduleId: number;
-        containerId: number;
+        instanceNaturalId: number;
+        moduleNaturalId: number;
+        containerNaturalId: number;
         maxInputPorts: number;
         maxOutputPorts: number;
-        properties: readonly {propertyId: number; payload: Uint8Array}[];
+        properties: readonly {
+          propertyNaturalId: number;
+          payload: Uint8Array;
+        }[];
       }[];
       dataLinks: readonly {
-        sourceInstanceId: number;
-        sourcePortId: number;
-        destinationInstanceId: number;
-        destinationPortId: number;
+        sourceInstanceNaturalId: number;
+        sourcePortNaturalId: number;
+        destinationInstanceNaturalId: number;
+        destinationPortNaturalId: number;
         isInterGraph: boolean;
       }[];
       controlLinks: readonly {
-        peer1InstanceId: number;
-        peer1PortId: number;
-        peer2InstanceId: number;
-        peer2PortId: number;
+        peer1InstanceNaturalId: number;
+        peer1PortNaturalId: number;
+        peer2InstanceNaturalId: number;
+        peer2PortNaturalId: number;
         isInterGraph: boolean;
         heapId?: number;
         intentIds: number[];
       }[];
-      voiceTags: readonly {tagId: number; moduleInstanceId: number}[];
+      voiceTags: readonly {
+        tagNaturalId: number;
+        moduleInstanceNaturalId: number;
+      }[];
     },
     containerMap: Map<number, ContainerDownloadModel>,
   ): Uint8Array {
@@ -1171,7 +1195,7 @@ export class UsecaseDataChunkSerializer {
 
     // 1. Add subgraph config
     const sgConfig = this.serializeSubgraphConfig(
-      subgraph.subgraphId,
+      subgraph.naturalId,
       subgraph.properties,
     );
     if (sgConfig.length > 0) {
@@ -1180,10 +1204,10 @@ export class UsecaseDataChunkSerializer {
 
     // 2. Add container config - get containers used by this subgraph
     const subgraphContainerIds = new Set(
-      subgraph.modules.map(m => m.containerId),
+      subgraph.modules.map(m => m.containerNaturalId),
     );
     const subgraphContainers = [...subgraphContainerIds]
-      .map(id => containerMap.get(id))
+      .map(naturalId => containerMap.get(naturalId))
       .filter((c): c is ContainerDownloadModel => c !== undefined);
 
     const contConfig = this.serializeContainerConfig(subgraphContainers);
@@ -1199,7 +1223,7 @@ export class UsecaseDataChunkSerializer {
 
     // 4. Add module list
     const moduleList = this.serializeModuleList(
-      subgraph.subgraphId,
+      subgraph.naturalId,
       subgraph.modules,
     );
     if (moduleList.length > 0) {
@@ -1263,33 +1287,39 @@ export class UsecaseDataChunkSerializer {
    */
   private serializeSubgraphPropertyPayload(
     subgraphs: readonly {
-      subgraphId: number;
-      properties: readonly {propertyId: number; payload: Uint8Array}[];
+      naturalId: number;
+      properties: readonly {propertyNaturalId: number; payload: Uint8Array}[];
       modules: readonly {
-        instanceId: number;
-        moduleId: number;
-        containerId: number;
+        instanceNaturalId: number;
+        moduleNaturalId: number;
+        containerNaturalId: number;
         maxInputPorts: number;
         maxOutputPorts: number;
-        properties: readonly {propertyId: number; payload: Uint8Array}[];
+        properties: readonly {
+          propertyNaturalId: number;
+          payload: Uint8Array;
+        }[];
       }[];
       dataLinks: readonly {
-        sourceInstanceId: number;
-        sourcePortId: number;
-        destinationInstanceId: number;
-        destinationPortId: number;
+        sourceInstanceNaturalId: number;
+        sourcePortNaturalId: number;
+        destinationInstanceNaturalId: number;
+        destinationPortNaturalId: number;
         isInterGraph: boolean;
       }[];
       controlLinks: readonly {
-        peer1InstanceId: number;
-        peer1PortId: number;
-        peer2InstanceId: number;
-        peer2PortId: number;
+        peer1InstanceNaturalId: number;
+        peer1PortNaturalId: number;
+        peer2InstanceNaturalId: number;
+        peer2PortNaturalId: number;
         isInterGraph: boolean;
         heapId?: number;
         intentIds: number[];
       }[];
-      voiceTags: readonly {tagId: number; moduleInstanceId: number}[];
+      voiceTags: readonly {
+        tagNaturalId: number;
+        moduleInstanceNaturalId: number;
+      }[];
     }[],
     containerMap: Map<number, ContainerDownloadModel>,
   ): Uint8Array {
@@ -1297,14 +1327,14 @@ export class UsecaseDataChunkSerializer {
     let totalSize = BinaryUtils.SIZEOF_UINT32; // NumSubgraphs
 
     const subgraphData: Array<{
-      sgId: number;
+      sgNaturalId: number;
       driverData: Uint8Array;
       orchestratorData: Uint8Array;
     }> = [];
 
     for (const subgraph of subgraphs) {
       const driverData = this.serializeDriverProperties(
-        subgraph.subgraphId,
+        subgraph.naturalId,
         subgraph.properties,
       );
       const orchestratorData = this.serializeSpfProperties(
@@ -1313,7 +1343,7 @@ export class UsecaseDataChunkSerializer {
       );
 
       subgraphData.push({
-        sgId: subgraph.subgraphId,
+        sgNaturalId: subgraph.naturalId,
         driverData,
         orchestratorData,
       });
@@ -1342,7 +1372,7 @@ export class UsecaseDataChunkSerializer {
     // Write each subgraph
     for (const sg of subgraphData) {
       // Write SGID
-      BinaryUtils.writeUint32(view, pos, sg.sgId);
+      BinaryUtils.writeUint32(view, pos, sg.sgNaturalId);
       pos += BinaryUtils.SIZEOF_UINT32;
 
       // Calculate TotalDataSize
@@ -1520,8 +1550,8 @@ export class UsecaseDataChunkSerializer {
         // Write each value entry
         for (const valueEntry of keyEntry.values) {
           // Write value IDs (numKeys values)
-          for (const valueId of valueEntry.valueIds) {
-            BinaryUtils.writeUint32(view, pos, valueId);
+          for (const valueNaturalId of valueEntry.valueIds) {
+            BinaryUtils.writeUint32(view, pos, valueNaturalId);
             pos += BinaryUtils.SIZEOF_UINT32;
           }
 

@@ -96,7 +96,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       allRawFailures,
       subgraphBySystemId,
       s =>
-        `some or all data belonging to Subgraph {subgraphId=${s.subgraphId}, systemId=${s.systemId}}`,
+        `some or all data belonging to Subgraph {subgraphId=${s.naturalId}, systemId=${s.systemId}}`,
     );
   }
 
@@ -105,7 +105,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
   private async insertSubgraphs(subgraphs: Subgraph[]): Promise<StepResult> {
     const rows: InsertRow<SubgraphRow>[] = subgraphs.map(s => ({
       systemId: s.systemId,
-      subgraphId: s.subgraphId,
+      naturalId: s.naturalId,
       name: s.name,
       isImported: s.isImported,
       fileSystemId: s.fileSystemId,
@@ -202,7 +202,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
     const rows: InsertRow<VcpmInstanceRow>[] = vcpmEntries.map(e => ({
       systemId: e.vcpm.systemId,
       subgraphSystemId: e.vcpm.subgraphSystemId,
-      vcpmDefinitionId: e.vcpm.vcpmModuleDefinitionId,
+      ['vcpmDefinitionId']: e.vcpm.vcpmModuleDefinitionSystemId,
     }));
 
     const {failedEntities} = await BatchInserter.insert(
@@ -460,7 +460,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
       return {
         systemId: ctx.subgraph.systemId,
         entityLabel: 'Sgkv',
-        failedRowJson: `(subgraphId=${BinaryUtils.toHexString(ctx.subgraph.subgraphId)}) Row: ${JSON.stringify(failedRow)}`,
+        failedRowJson: `(subgraphId=${BinaryUtils.toHexString(ctx.subgraph.naturalId)}) Row: ${JSON.stringify(failedRow)}`,
         dbError: error.message,
       };
     });
@@ -520,7 +520,7 @@ export class SubgraphInserter implements BulkInserter<Subgraph> {
         rawFailures.push({
           systemId: entry.subgraph.systemId,
           entityLabel: 'SgkvValues',
-          failedRowJson: `(subgraphId=${BinaryUtils.toHexString(entry.subgraph.subgraphId)}, sgkvSystemId=${BinaryUtils.toHexString(entry.sgkv.systemId)}) Row: ${JSON.stringify(valueRows)}`,
+          failedRowJson: `(subgraphId=${BinaryUtils.toHexString(entry.subgraph.naturalId)}, sgkvSystemId=${BinaryUtils.toHexString(entry.sgkv.systemId)}) Row: ${JSON.stringify(valueRows)}`,
           dbError: error instanceof Error ? error.message : String(error),
         });
       }

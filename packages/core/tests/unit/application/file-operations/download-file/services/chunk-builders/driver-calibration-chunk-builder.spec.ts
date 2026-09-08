@@ -37,12 +37,12 @@ describe('DriverCalibrationChunkBuilder + DriverCalibrationChunkSerializer', () 
     const payload = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
     const input: DriverCalibrationDownloadModel[] = [
       {
-        moduleDefinitionId: 0x100,
+        naturalId: 0x100,
         keyIds: [0x10],
         ckvs: [
           {
             valueIds: [0x20],
-            parameters: [{parameterId: 0x30, payload}],
+            parameters: [{naturalId: 0x30, payload}],
           },
         ],
       },
@@ -97,14 +97,14 @@ describe('DriverCalibrationChunkBuilder + DriverCalibrationChunkSerializer', () 
     const payload = new Uint8Array([0x01]);
     const input: DriverCalibrationDownloadModel[] = [
       {
-        moduleDefinitionId: 0x100,
+        naturalId: 0x100,
         keyIds: [0x10],
-        ckvs: [{valueIds: [0x20], parameters: [{parameterId: 0x30, payload}]}],
+        ckvs: [{valueIds: [0x20], parameters: [{naturalId: 0x30, payload}]}],
       },
       {
-        moduleDefinitionId: 0x100,
+        naturalId: 0x100,
         keyIds: [0x11],
-        ckvs: [{valueIds: [0x21], parameters: [{parameterId: 0x31, payload}]}],
+        ckvs: [{valueIds: [0x21], parameters: [{naturalId: 0x31, payload}]}],
       },
     ];
 
@@ -119,11 +119,17 @@ describe('DriverCalibrationChunkBuilder + DriverCalibrationChunkSerializer', () 
     const p2 = new Uint8Array([0x03, 0x04]);
     const input: DriverCalibrationDownloadModel[] = [
       {
-        moduleDefinitionId: 0x100,
+        naturalId: 0x100,
         keyIds: [0x10],
         ckvs: [
-          {valueIds: [0x20], parameters: [{parameterId: 0x30, payload: p1}]},
-          {valueIds: [0x21], parameters: [{parameterId: 0x31, payload: p2}]},
+          {
+            valueIds: [0x20],
+            parameters: [{naturalId: 0x30, payload: p1}],
+          },
+          {
+            valueIds: [0x21],
+            parameters: [{naturalId: 0x31, payload: p2}],
+          },
         ],
       },
     ];
@@ -153,14 +159,14 @@ describe('DriverCalibrationChunkBuilder + DriverCalibrationChunkSerializer', () 
     const payload = new Uint8Array([0x01]);
     const sorted: DriverCalibrationDownloadModel[] = [
       {
-        moduleDefinitionId: 0x100,
+        naturalId: 0x100,
         keyIds: [0x10],
-        ckvs: [{valueIds: [0x20], parameters: [{parameterId: 0x30, payload}]}],
+        ckvs: [{valueIds: [0x20], parameters: [{naturalId: 0x30, payload}]}],
       },
       {
-        moduleDefinitionId: 0x200,
+        naturalId: 0x200,
         keyIds: [0x10],
-        ckvs: [{valueIds: [0x20], parameters: [{parameterId: 0x30, payload}]}],
+        ckvs: [{valueIds: [0x20], parameters: [{naturalId: 0x30, payload}]}],
       },
     ];
     const unsorted: DriverCalibrationDownloadModel[] = [sorted[1], sorted[0]];

@@ -13,7 +13,7 @@ import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 export interface ModuleDefinitionInit {
   fileSystemId: number;
   systemId: number;
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   displayName: string;
   description?: string;
@@ -24,7 +24,7 @@ export interface ModuleDefinitionInit {
 
 export abstract class ModuleDefinition {
   systemId: number;
-  readonly moduleDefinitionId: number;
+  readonly naturalId: number;
   fileSystemId: number;
   name: string;
   displayName: string;
@@ -36,7 +36,7 @@ export abstract class ModuleDefinition {
 
   constructor(initParam: ModuleDefinitionInit) {
     this.systemId = initParam.systemId;
-    this.moduleDefinitionId = initParam.moduleDefinitionId;
+    this.naturalId = initParam.naturalId;
     this.fileSystemId = initParam.fileSystemId;
     this.name = initParam.name;
     this.displayName = initParam.displayName;
@@ -53,27 +53,27 @@ export abstract class ModuleDefinition {
   private AddParameter(paramDefinition: ParamDefinition) {
     assertNonNull(
       paramDefinition,
-      `parameter value is null for module definitionId: ${BinaryUtils.toHexString(this.moduleDefinitionId)})`,
+      `parameter value is null for module definitionId: ${BinaryUtils.toHexString(this.naturalId)})`,
     );
     assertNonNull(
       paramDefinition.systemId,
-      `systemId is required for parameter in module ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `systemId is required for parameter in module ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     assertNonNull(
-      paramDefinition.paramId,
-      `paramId is required for parameter in module ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      paramDefinition.naturalId,
+      `paramId is required for parameter in module ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     const sysKey = `sys:${paramDefinition.systemId}`;
-    const paramKey = `param:${paramDefinition.paramId}`;
+    const paramKey = `param:${paramDefinition.naturalId}`;
 
     invariant(
       !this.paramIds.has(sysKey),
-      `SystemId ${BinaryUtils.toHexString(paramDefinition.systemId)} already exists in ModuleDefinition for key: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `SystemId ${BinaryUtils.toHexString(paramDefinition.systemId)} already exists in ModuleDefinition for key: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     invariant(
       !this.paramIds.has(paramKey),
-      `ParamId ${paramDefinition.paramId} already exists in ModuleDefinition for key: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `ParamId ${paramDefinition.naturalId} already exists in ModuleDefinition for key: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     this.paramIds.add(sysKey);
@@ -84,16 +84,16 @@ export abstract class ModuleDefinition {
   private AddAttribute(name: string, value: string): void {
     assertNonNull(
       name,
-      `name is required for SPF module definition :${BinaryUtils.toHexString(this.moduleDefinitionId)} attribute`,
+      `name is required for SPF module definition :${BinaryUtils.toHexString(this.naturalId)} attribute`,
     );
     assertNonNull(
       value,
-      `value is required for SPF module definition :${BinaryUtils.toHexString(this.moduleDefinitionId)} attribute`,
+      `value is required for SPF module definition :${BinaryUtils.toHexString(this.naturalId)} attribute`,
     );
 
     invariant(
       !this.attributes.has(name),
-      `Attribute name: ${name} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `Attribute name: ${name} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     this.attributes.set(name, value);
   }

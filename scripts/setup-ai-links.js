@@ -7,12 +7,13 @@
 /**
  * Sets up AI tool integration files after cloning.
  *
- * Run after cloning:  node scripts/setup-dev-links.js
- * Or via npm script:  pnpm run setup-dev-links
+ * Run after cloning:  node scripts/setup-ai-links.js
+ * Or via npm script:  pnpm run setup-ai-links
  *
  * Directory links (junction on Windows, symlink on Linux/macOS — no admin required):
- *   .agents/skills  →  .ai/skills   (for QGenie and similar tools)
- *   .claude/skills  →  .ai/skills   (for Claude Code project-level skill discovery)
+ *   .opencode/skills → .ai/skills   (for OpenCode project-level skill discovery)
+ *   .agents/skills   → .ai/skills   (for agent-compatible tools)
+ *   .claude/skills   → .ai/skills   (for Claude Code project-level skill discovery)
  *
  * File copies (file symlinks require admin on Windows, so we copy instead):
  *   AGENTS.md  ←  .ai/context/CLAUDE.md
@@ -28,6 +29,10 @@ const isWindows = platform() === 'win32';
 const claudeMd = join(repoRoot, '.ai', 'context', 'CLAUDE.md');
 
 const dirLinks = [
+  {
+    from: join(repoRoot, '.opencode', 'skills'),
+    to: join(repoRoot, '.ai', 'skills'),
+  },
   {
     from: join(repoRoot, '.agents', 'skills'),
     to: join(repoRoot, '.ai', 'skills'),

@@ -49,7 +49,7 @@ export class ContainerInserter implements BulkInserter<Container> {
       allRawFailures,
       containerBySystemId,
       c =>
-        `some or all data belonging to Container {containerId=${c.containerId}, systemId=${c.systemId}}`,
+        `some or all data belonging to Container {containerId=${c.naturalId}, systemId=${c.systemId}}`,
     );
   }
 
@@ -58,7 +58,7 @@ export class ContainerInserter implements BulkInserter<Container> {
   private async insertContainers(containers: Container[]): Promise<StepResult> {
     const rows: InsertRow<ContainerRow>[] = containers.map(c => ({
       systemId: c.systemId,
-      containerId: c.containerId,
+      naturalId: c.naturalId,
       containerTypeSystemId: c.containerTypeSystemId,
       fileSystemId: c.fileSystemId,
     }));

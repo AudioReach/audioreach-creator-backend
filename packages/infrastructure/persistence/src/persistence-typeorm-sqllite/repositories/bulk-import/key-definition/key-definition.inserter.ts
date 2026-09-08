@@ -47,7 +47,7 @@ export class KeyDefinitionInserter {
       allRawFailures,
       keyBySystemId,
       key =>
-        `KeyDefinition (keyId=${BinaryUtils.toHexString(key.keyId)}, name='${key.name}')`,
+        `KeyDefinition (keyId=${BinaryUtils.toHexString(key.naturalId)}, name='${key.name}')`,
     );
   }
 
@@ -56,7 +56,7 @@ export class KeyDefinitionInserter {
   ): Promise<StepResult> {
     const rows: InsertRow<KeyDefinitionRow>[] = items.map(key => ({
       systemId: key.systemId,
-      keyId: key.keyId,
+      naturalId: key.naturalId,
       fileSystemId: key.fileSystemId,
       name: key.name,
       description: key.description,
@@ -87,7 +87,7 @@ export class KeyDefinitionInserter {
       return {
         systemId: key.systemId,
         entityLabel: 'KeyDefinition',
-        failedRowJson: `(keyId=${BinaryUtils.toHexString(key.keyId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(keyId=${BinaryUtils.toHexString(key.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -103,21 +103,24 @@ export class KeyDefinitionInserter {
   ): Promise<StepResult> {
     const contextBySystemId = new Map<
       number,
-      {key: KeyDefinition; valueId: number}
+      {key: KeyDefinition; valueNaturalId: number}
     >();
 
     const rows: InsertRow<ValueDefinitionRow>[] = items.flatMap(key =>
       key.values.map(vd => {
         const row: InsertRow<ValueDefinitionRow> = {
           systemId: vd.systemId,
-          valueId: vd.valueId,
+          naturalId: vd.naturalId,
           name: vd.name,
           description: vd.description,
           enumMember: vd.enumMember as string | undefined,
           specialValue: vd.specialValue,
           keySystemId: key.systemId,
         };
-        contextBySystemId.set(vd.systemId, {key, valueId: vd.valueId});
+        contextBySystemId.set(vd.systemId, {
+          key,
+          valueNaturalId: vd.naturalId,
+        });
         return row;
       }),
     );
@@ -136,7 +139,7 @@ export class KeyDefinitionInserter {
       return {
         systemId: ctx.key.systemId,
         entityLabel: 'ValueDefinition',
-        failedRowJson: `(keyId=${BinaryUtils.toHexString(ctx.key.keyId)}, valueId=${BinaryUtils.toHexString(ctx.valueId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(keyId=${BinaryUtils.toHexString(ctx.key.naturalId)}, valueId=${BinaryUtils.toHexString(ctx.valueNaturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });

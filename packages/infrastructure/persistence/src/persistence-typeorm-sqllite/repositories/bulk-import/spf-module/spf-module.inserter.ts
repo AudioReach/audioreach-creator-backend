@@ -130,7 +130,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       allRawFailures,
       moduleBySystemId,
       m =>
-        `some or all data belonging to Spf Module {instanceId=${m.instanceId}, systemId=${m.systemId}}`,
+        `some or all data belonging to Spf Module {instanceId=${m.naturalId}, systemId=${m.systemId}}`,
     );
   }
 
@@ -139,7 +139,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private async insertNodes(modules: SpfModule[]): Promise<StepResult> {
     const rows: InsertRow<NodeRow>[] = modules.map(m => ({
       systemId: m.systemId,
-      parentId: m.parentId,
+      parentSystemId: m.parentSystemId,
       type: NODE_TYPE.Module,
       fileSystemId: m.fileSystemId,
     }));
@@ -182,7 +182,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     const rows: InsertRow<DataPortRow>[] = modules.flatMap(m =>
       m.dataPorts.map(port => ({
         systemId: port.systemId,
-        dataPortId: port.dataPortId,
+        naturalId: port.naturalId,
         portIoType: port.portIoType,
         isStatic: port.isStatic,
         name: port.name,
@@ -230,7 +230,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
     const rows: InsertRow<ControlPortRow>[] = modules.flatMap(m =>
       m.controlPorts.map(port => ({
         systemId: port.systemId,
-        portId: port.portId,
+        naturalId: port.naturalId,
         isStatic: port.isStatic,
         name: port.name,
         nodeSystemId: m.systemId,
@@ -272,8 +272,8 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       m.controlPorts
         .filter(port => !failedPortIds.has(port.systemId))
         .flatMap(port =>
-          port.intentIds.map(intentId => ({
-            intentId,
+          port.intentIds.map(intentNaturalId => ({
+            intentNaturalId,
             controlPortSystemId: port.systemId,
             port,
             module: m,
@@ -294,7 +294,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       const systemId = await this.idGeneration.getNextId(fileId);
       rows.push({
         systemId,
-        intentId: entry.intentId,
+        naturalId: entry.intentNaturalId,
         controlPortSystemId: entry.controlPortSystemId,
       });
       contextBySystemId.set(systemId, {port: entry.port, module: entry.module});
@@ -312,7 +312,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
       return {
         systemId: ctx.module.systemId,
         entityLabel: 'Intent',
-        failedRowJson: `Intent row: ${JSON.stringify(failedRow)} Control Port: ${JSON.stringify({systemId: ctx.port.systemId, portId: ctx.port.portId})}`,
+        failedRowJson: `Intent row: ${JSON.stringify(failedRow)} Control Port: ${JSON.stringify({systemId: ctx.port.systemId, portNaturalId: ctx.port.naturalId})}`,
         dbError: error.message,
       };
     });
@@ -328,7 +328,7 @@ export class SpfModuleInserter implements BulkInserter<SpfModule> {
   private async insertSpfModules(modules: SpfModule[]): Promise<StepResult> {
     const rows: InsertRow<SpfModuleRow>[] = modules.map(m => ({
       systemId: m.systemId,
-      instanceId: m.instanceId,
+      naturalId: m.naturalId,
       alias: m.alias,
       subgraphSystemId: m.subgraphSystemId,
       containerSystemId: m.containerSystemId,

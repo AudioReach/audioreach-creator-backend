@@ -53,7 +53,7 @@ export class TagDefinitionInserter {
       allRawFailures,
       tagBySystemId,
       tag =>
-        `TagDefinition (tagId=${BinaryUtils.toHexString(tag.tagId)}, name='${tag.name}')`,
+        `TagDefinition (tagId=${BinaryUtils.toHexString(tag.naturalId)}, name='${tag.name}')`,
     );
   }
 
@@ -62,7 +62,7 @@ export class TagDefinitionInserter {
   ): Promise<StepResult> {
     const rows: InsertRow<TagDefinitionRow>[] = items.map(tag => ({
       systemId: tag.systemId,
-      tagId: tag.tagId,
+      naturalId: tag.naturalId,
       fileSystemId: tag.fileSystemId,
       name: tag.name,
       description: tag.description,
@@ -84,7 +84,7 @@ export class TagDefinitionInserter {
       return {
         systemId: tag.systemId,
         entityLabel: 'TagDefinition',
-        failedRowJson: `(tagId=${BinaryUtils.toHexString(tag.tagId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(tagId=${BinaryUtils.toHexString(tag.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -139,7 +139,7 @@ export class TagDefinitionInserter {
       return {
         systemId: ctx.tag.systemId,
         entityLabel: 'TagKeyDefLink',
-        failedRowJson: `(tagId=${BinaryUtils.toHexString(ctx.tag.tagId)}, keyRef=${BinaryUtils.toHexString(ctx.keyReferenceSystemId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(tagId=${BinaryUtils.toHexString(ctx.tag.naturalId)}, keyRef=${BinaryUtils.toHexString(ctx.keyReferenceSystemId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });

@@ -7,7 +7,7 @@ import {ContainerPropertyValue} from './value-objects/container-property.js';
 
 export class Container {
   public systemId: number;
-  public containerId: number;
+  public naturalId: number;
   public fileSystemId: number;
 
   /**
@@ -26,7 +26,7 @@ export class Container {
     fileSystemId: number,
   ) {
     this.systemId = systemId;
-    this.containerId = containerId;
+    this.naturalId = containerId;
     this.containerTypeSystemId = containerTypeSystemId;
     this.fileSystemId = fileSystemId;
 

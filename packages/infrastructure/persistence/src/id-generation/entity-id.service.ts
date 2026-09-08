@@ -35,7 +35,7 @@ export class EntityIdService {
   private pendingReserve: Promise<number> | null = null;
 
   constructor(
-    private readonly fileId: number,
+    private readonly fileSystemId: number,
     private readonly dataSource: DataSource,
     private readonly autoReserveSize: number = 100,
   ) {}
@@ -64,7 +64,7 @@ export class EntityIdService {
       await this.pendingReserve;
     }
     this.current += FILE_ID_MODULUS;
-    return this.current + this.fileId;
+    return this.current + this.fileSystemId;
   }
 
   /**
@@ -80,19 +80,19 @@ export class EntityIdService {
     const newHighWaterMark = await this.dataSource.transaction(async em => {
       await em.increment(
         ArcDbFileSchema,
-        {systemId: this.fileId},
+        {systemId: this.fileSystemId},
         'lastReservedId',
         increment,
       );
       const row = await em.findOne(ArcDbFileSchema, {
-        where: {systemId: this.fileId},
+        where: {systemId: this.fileSystemId},
       });
       return row!.lastReservedId;
     });
 
     this.blockEnd = newHighWaterMark;
     this.current = newHighWaterMark - increment;
-    return this.current + FILE_ID_MODULUS + this.fileId; // first ID in block
+    return this.current + FILE_ID_MODULUS + this.fileSystemId; // first ID in block
   }
 
   /**
@@ -107,7 +107,10 @@ export class EntityIdService {
   async persistLastUsedId(): Promise<void> {
     await this.dataSource.manager.update(
       ArcDbFileSchema,
-      {systemId: this.fileId, lastReservedId: LessThanOrEqual(this.blockEnd)},
+      {
+        systemId: this.fileSystemId,
+        lastReservedId: LessThanOrEqual(this.blockEnd),
+      },
       {lastReservedId: this.current},
     );
   }

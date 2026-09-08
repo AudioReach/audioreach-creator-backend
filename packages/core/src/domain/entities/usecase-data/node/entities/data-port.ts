@@ -7,20 +7,20 @@ import type {PortIoType} from '../../../common/enums/port-io-type.js';
 
 export class DataPort {
   systemId: number;
-  readonly dataPortId: number;
+  readonly naturalId: number;
   readonly portIoType: PortIoType;
   readonly isStatic: boolean;
   readonly name?: string;
 
   constructor(params: {
     systemId: number;
-    dataPortId: number;
+    naturalId: number;
     portIoType: PortIoType;
     isStatic: boolean;
     name?: string;
   }) {
     this.systemId = params.systemId;
-    this.dataPortId = params.dataPortId;
+    this.naturalId = params.naturalId;
     this.portIoType = params.portIoType;
     this.isStatic = params.isStatic;
     this.name = params.name;

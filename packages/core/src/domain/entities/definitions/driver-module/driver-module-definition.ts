@@ -8,7 +8,7 @@ import {DriverModuleParameterDefinition} from './driver-module-parameter-definit
 export interface DriverModuleDefinitionInit {
   fileSystemId: number;
   systemId: number;
-  moduleDefinitionId: number;
+  naturalId: number;
   name: string;
   displayName: string;
   description?: string;
@@ -23,7 +23,7 @@ export interface DriverModuleDefinitionInit {
  */
 export class DriverModuleDefinition {
   systemId: number;
-  readonly moduleDefinitionId: number;
+  readonly naturalId: number;
   fileSystemId: number;
   name: string;
   displayName: string;
@@ -33,7 +33,7 @@ export class DriverModuleDefinition {
 
   constructor(initParam: DriverModuleDefinitionInit) {
     this.systemId = initParam.systemId;
-    this.moduleDefinitionId = initParam.moduleDefinitionId;
+    this.naturalId = initParam.naturalId;
     this.fileSystemId = initParam.fileSystemId;
     this.name = initParam.name;
     this.displayName = initParam.displayName;

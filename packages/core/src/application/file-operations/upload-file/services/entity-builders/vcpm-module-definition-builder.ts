@@ -117,7 +117,7 @@ export class VcpmModuleDefinitionBuilder {
   ): Promise<VcpmModuleDefinition> {
     const definition = new VcpmModuleDefinition({
       systemId: 0,
-      moduleDefinitionId: awspDef.id,
+      naturalId: awspDef.id,
       fileSystemId,
       name: awspDef.name,
       displayName: awspDef.displayName ?? awspDef.name,
@@ -128,7 +128,7 @@ export class VcpmModuleDefinitionBuilder {
     definition.systemId = await this.idGenerator.getNextId(fileSystemId);
 
     this.foreignKeyMapper.addVcpmModuleDefinitionMapping(
-      asNaturalId(definition.moduleDefinitionId),
+      asNaturalId(definition.naturalId),
       asSystemId(definition.systemId),
     );
 
@@ -151,7 +151,7 @@ export class VcpmModuleDefinitionBuilder {
 
         const param = new ParamDefinition({
           systemId: paramSystemId,
-          paramId: awspParam.id,
+          naturalId: awspParam.id,
           name: awspParam.name,
           description: awspParam.description,
           maxSize: awspParam.maxSize ?? 0,
@@ -162,14 +162,14 @@ export class VcpmModuleDefinitionBuilder {
           elementsStructure: JSON.stringify(awspParam.elements),
           isPersistent: false,
           isReadOnly: awspParam.isReadOnly ?? false,
-          copySrcParamId: awspParam.copySrcParamId,
+          copySrcParamNaturalId: awspParam.copySrcParamId,
         });
 
         definition.parameters.push(param);
 
         this.foreignKeyMapper.addVcpmParamDefinitionMapping(
           asSystemId(definition.systemId),
-          asNaturalId(param.paramId),
+          asNaturalId(param.naturalId),
           asSystemId(param.systemId),
         );
       } catch (error) {

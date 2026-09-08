@@ -4,7 +4,7 @@
  */
 
 import {parentPort, workerData} from 'node:worker_threads';
-import type {WorkerTask, WorkerResult} from '@arc/core';
+import type {WorkerErrorDetails, WorkerTask, WorkerResult} from '@arc/core';
 import {NodeRegistry} from './node-registry.adapter.js';
 
 if (!parentPort) {
@@ -17,12 +17,12 @@ const registry = new NodeRegistry();
 
 // Get worker ID from workerData
 interface WorkerDataType {
-  workerId?: string;
+  workerLabel?: string;
   hasLogger?: boolean;
 }
 
 const typedWorkerData = workerData as WorkerDataType | undefined;
-const workerId = typedWorkerData?.workerId ?? 'unknown-worker';
+const workerLabel = typedWorkerData?.workerLabel ?? 'unknown-worker';
 
 /**
  * Generic worker message handler.
@@ -56,23 +56,25 @@ parentPort.on('message', (task: WorkerTask) => {
 
       const error =
         error_ instanceof Error ? error_ : new Error(String(error_));
+      const errorDetails: WorkerErrorDetails = {
+        stack: error.stack,
+        type: error.constructor.name,
+        handlerKey: task.handlerKey,
+        workerKey: workerLabel,
+        startTime,
+        duration,
+        context: {
+          taskInput:
+            typeof task.input === 'object' ? 'object' : typeof task.input,
+          taskContext: task.context ? Object.keys(task.context) : undefined,
+        },
+      };
+
       const response: WorkerResult = {
         success: false,
         error: error.message,
-        errorDetails: {
-          stack: error.stack,
-          type: error.constructor.name,
-          handlerKey: task.handlerKey,
-          workerId,
-          startTime,
-          duration,
-          context: {
-            taskInput:
-              typeof task.input === 'object' ? 'object' : typeof task.input,
-            taskContext: task.context ? Object.keys(task.context) : undefined,
-          },
-        },
-      } as WorkerResult;
+        errorDetails,
+      };
 
       parentPort!.postMessage(response);
     }

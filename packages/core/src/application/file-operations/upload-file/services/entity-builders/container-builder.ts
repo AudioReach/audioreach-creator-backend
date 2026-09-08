@@ -96,7 +96,7 @@ export class ContainerBuilder {
 
       // Store container mapping immediately
       this.foreignKeyMapper.addContainerMapping(
-        asNaturalId(container.containerId),
+        asNaturalId(container.naturalId),
         asSystemId(container.systemId),
       );
     }

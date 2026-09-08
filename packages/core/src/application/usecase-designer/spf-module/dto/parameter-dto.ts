@@ -11,7 +11,7 @@ import {
 
 export const ParameterDtoSchema = z.object({
   systemId: z.string().describe('System identifier'),
-  parameterId: z.string().describe('Parameter ID (PID)'),
+  naturalId: z.string().describe('Parameter ID (PID)'),
   name: z.string().describe('Parameter name'),
   description: z.string().optional().describe('Parameter description'),
   isHidden: z.boolean().optional().describe('When true, hidden from the UI'),

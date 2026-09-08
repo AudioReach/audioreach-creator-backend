@@ -11,7 +11,7 @@ import type {
 
 export const ValueDefinitionDtoSchema = z.object({
   systemId: z.string().describe('Unique system identifier for the value'),
-  valueId: z.number().int().describe('Value identifier'),
+  naturalId: z.number().int().describe('Value identifier'),
   name: z.string().describe('Value name'),
   description: z.string().optional().describe('Value description'),
   enumMember: z.string().describe('Value enum member for pseudo header file'),
@@ -23,7 +23,7 @@ export const ValueDefinitionDtoSchema = z.object({
 
 export const KeyDefinitionDtoSchema = z.object({
   systemId: z.string().describe('Unique system identifier for the key'),
-  keyId: z.number().int().describe('Key identifier'),
+  naturalId: z.number().int().describe('Key identifier'),
   name: z.string().describe('Key name'),
   description: z.string().optional().describe('Key description'),
   enumMember: z.string().describe('Key enum member for pseudo header file'),
@@ -59,7 +59,7 @@ export function mapValueDefinition(
 ): ValueDefinitionDto {
   return {
     systemId: String(v.systemId),
-    valueId: v.valueId,
+    naturalId: v.naturalId,
     name: v.name,
     description: v.description,
     enumMember: v.enumMember ?? '',
@@ -70,7 +70,7 @@ export function mapValueDefinition(
 export function mapKeyDefinition(k: KeyDefinitionReadModel): KeyDefinitionDto {
   return {
     systemId: String(k.systemId),
-    keyId: k.keyId,
+    naturalId: k.naturalId,
     name: k.name,
     description: k.description,
     enumMember: k.cHeaderAttributes?.enumMember ?? '',

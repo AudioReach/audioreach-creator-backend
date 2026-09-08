@@ -103,7 +103,7 @@ export class DriverModuleDefinitionBuilder {
   ): Promise<DriverModuleDefinition> {
     const definition = new DriverModuleDefinition({
       systemId: 0, // Will be assigned below
-      moduleDefinitionId: awspDef.id,
+      naturalId: awspDef.id,
       fileSystemId,
       name: awspDef.name,
       displayName: awspDef.displayName || awspDef.name,
@@ -116,7 +116,7 @@ export class DriverModuleDefinitionBuilder {
 
     // Store module definition mapping immediately
     this.foreignKeyMapper.addDriverModuleDefinitionMapping(
-      asNaturalId(definition.moduleDefinitionId),
+      asNaturalId(definition.naturalId),
       asSystemId(definition.systemId),
     );
 
@@ -142,13 +142,13 @@ export class DriverModuleDefinitionBuilder {
 
         const param = new DriverModuleParameterDefinition({
           systemId: paramSystemId,
-          parameterId: awspParam.id,
+          naturalId: awspParam.id,
           name: awspParam.name,
           description: awspParam.description,
           maxSize: awspParam.maxSize || 0,
           paramStructure: JSON.stringify(awspParam.elements),
           driverModuleDefinitionSystemId: definition.systemId,
-          copySrcParamId: awspParam.copySrcParamId,
+          copySrcParamNaturalId: awspParam.copySrcParamId,
         });
 
         definition.parameters.push(param);
@@ -156,7 +156,7 @@ export class DriverModuleDefinitionBuilder {
         // Store parameter definition mapping immediately
         this.foreignKeyMapper.addDriverParamDefinitionMapping(
           asSystemId(definition.systemId),
-          asNaturalId(param.parameterId),
+          asNaturalId(param.naturalId),
           asSystemId(param.systemId),
         );
       } catch (error) {

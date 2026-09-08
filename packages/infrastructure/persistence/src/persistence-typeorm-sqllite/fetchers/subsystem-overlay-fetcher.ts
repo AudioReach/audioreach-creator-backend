@@ -12,8 +12,8 @@ import {NODE_TYPE} from '../entity-schema/usecase-data/node/node.schema.js';
 import type {SubsystemBase} from '../entity-schema/usecase-data/subsystem/subsystem.js';
 
 export interface OverlaidSubsystem extends SubsystemBase {
-  /** parentId from Node.parentId — undefined when the subsystem is a root. */
-  parentId: number | undefined;
+  /** parentSystemId from Node.parentSystemId — undefined when the subsystem is a root. */
+  parentSystemId: number | undefined;
 }
 
 /**
@@ -52,22 +52,22 @@ export class SubsystemOverlayFetcher {
       .getRepository(ENTITY_NAMES.Subsystem)
       .createQueryBuilder('sub')
       .innerJoin(ENTITY_NAMES.Node, 'n', 'n.system_id = sub.system_id')
-      .addSelect('n.parentId', 'parentId')
+      .addSelect('n.parentSystemId', 'parentSystemId')
       .where('n.fileSystemId = :fileSystemId', {fileSystemId})
       .getRawAndEntities();
 
-    // Build parentId lookup from the JOIN result.
-    const parentIdBySystemId = new Map<number, number | undefined>(
+    // Build parentSystemId lookup from the JOIN result.
+    const parentSystemIdBySystemId = new Map<number, number | undefined>(
       rawRows.raw.map((r: Record<string, unknown>) => [
         Number(r['sub_system_id']),
-        r['parentId'] == null ? undefined : Number(r['parentId']),
+        r['parentSystemId'] == null ? undefined : Number(r['parentSystemId']),
       ]),
     );
 
     let rows = rawRows.entities as SubsystemBase[];
 
     if (sessionId === null) {
-      return this.buildResult(rows, parentIdBySystemId);
+      return this.buildResult(rows, parentSystemIdBySystemId);
     }
 
     // Pass 1 — Subsystem overlay (name UPDATE, CREATE, DELETE).
@@ -86,9 +86,9 @@ export class SubsystemOverlayFetcher {
     // CREATE actions on Node of type Subsystem carry parentId in the payload;
     // the Subsystem CREATE action itself does not include parentId because it
     // lives on the Node table.
-    this.supplementParentIds(parentIdBySystemId, nodeActions);
+    this.supplementParentSystemIds(parentSystemIdBySystemId, nodeActions);
 
-    return this.buildResult(rows, parentIdBySystemId);
+    return this.buildResult(rows, parentSystemIdBySystemId);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -98,8 +98,8 @@ export class SubsystemOverlayFetcher {
    * Called after the Subsystem overlay is applied so newly added subsystem
    * systemIds are present in the map.
    */
-  private supplementParentIds(
-    parentIdBySystemId: Map<number, number | undefined>,
+  private supplementParentSystemIds(
+    parentSystemIdBySystemId: Map<number, number | undefined>,
     nodeActions: Awaited<ReturnType<EditActionsQueryService['getByTable']>>,
   ): void {
     for (const action of nodeActions) {
@@ -111,11 +111,13 @@ export class SubsystemOverlayFetcher {
       const payload = action.newValue as Record<string, unknown>;
       if (
         payload.type === NODE_TYPE.Subsystem &&
-        !parentIdBySystemId.has(action.targetSystemId)
+        !parentSystemIdBySystemId.has(action.targetSystemId)
       ) {
-        parentIdBySystemId.set(
+        parentSystemIdBySystemId.set(
           action.targetSystemId,
-          payload.parentId == null ? undefined : Number(payload.parentId),
+          payload.parentSystemId == null
+            ? undefined
+            : Number(payload.parentSystemId),
         );
       }
     }
@@ -123,11 +125,11 @@ export class SubsystemOverlayFetcher {
 
   private buildResult(
     rows: SubsystemBase[],
-    parentIdBySystemId: Map<number, number | undefined>,
+    parentSystemIdBySystemId: Map<number, number | undefined>,
   ): OverlaidSubsystem[] {
     return rows.map(row => ({
       ...row,
-      parentId: parentIdBySystemId.get(row.systemId),
+      parentSystemId: parentSystemIdBySystemId.get(row.systemId),
     }));
   }
 }

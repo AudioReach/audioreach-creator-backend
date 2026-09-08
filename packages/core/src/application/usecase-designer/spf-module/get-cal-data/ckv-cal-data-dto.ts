@@ -21,12 +21,12 @@ export {
 
 const CkvKeyValuePairSchema = z.object({
   key: z.object({
-    keyId: z.number().int(),
+    naturalId: z.number().int(),
     name: z.string(),
     systemId: z.string(),
   }),
   value: z.object({
-    valueId: z.number().int(),
+    naturalId: z.number().int(),
     name: z.string(),
     systemId: z.string(),
   }),
@@ -47,7 +47,7 @@ export function mapParameterCalibrationToDto(
 ): ParameterDto {
   return {
     systemId: p.systemId.toString(),
-    parameterId: p.parameterId.toString(),
+    naturalId: p.naturalId.toString(),
     name: p.name,
     description: p.description,
     isHidden: p.isHidden,
@@ -67,12 +67,12 @@ export function mapCkvCalDataDto(
     systemId: ckv.systemId.toString(),
     Ckv: (ckv.keyValuePairs ?? []).map(kv => ({
       key: {
-        keyId: kv.key.keyId,
+        naturalId: kv.key.naturalId,
         name: kv.key.name,
         systemId: String(kv.key.systemId),
       },
       value: {
-        valueId: kv.value.valueId,
+        naturalId: kv.value.naturalId,
         name: kv.value.name,
         systemId: String(kv.value.systemId),
       },

@@ -24,6 +24,7 @@ export default [
       '**/.yarn/**',
       '**/build/**',
       'eslint.config.js',
+      'eslint.id-naming.config.js',
       'eslint-rules/**',
       '**/jest.config.js',
       '**/jest.config.mjs',
@@ -181,6 +182,68 @@ export default [
         {
           handlerPattern: '**/packages/core/src/application/**/*.handler.ts',
         },
+      ],
+    },
+  },
+
+  // DTOs and read models must identify whether IDs are database or file-format IDs.
+  {
+    files: [
+      '**/packages/*/src/**/*.dto.ts',
+      '**/packages/*/src/**/*-dto.ts',
+      '**/packages/*/src/**/*-read-model.ts',
+    ],
+    rules: {
+      'custom/no-ambiguous-id-fields': [
+        'error',
+        {
+          exemptFields: [
+            'projectId',
+            'aliasId',
+            'usecaseAliasId',
+            'changeId',
+            'clientId',
+            'codecId',
+            'heapId',
+            'sessionId',
+            'commitId',
+            'userId',
+            'byId',
+            'groupId',
+            'aggregateId',
+            'linkedEntityGroupId',
+            'lastReservedId',
+            'ipcTxId',
+            'ipcRxId',
+          ],
+        },
+      ],
+    },
+  },
+
+  // DTO transport contracts serialize every system ID as a decimal string.
+  {
+    files: [
+      '**/packages/core/src/**/*-dto.ts',
+      '**/packages/core/src/**/*.dto.ts',
+      '**/packages/api/src/**/*.dto.ts',
+      '**/packages/api/src/presentation/rest/common/swagger-doc/dto-examples/**/*.ts',
+    ],
+    rules: {
+      'custom/dto-system-ids-are-strings': 'error',
+    },
+  },
+
+  // Files with intentional bare 'id' — opaque stable key, not a domain entity ID.
+  {
+    files: [
+      '**/packages/api/src/presentation/rest/common/dto/api-response/api-fix-option.dto.ts',
+      '**/packages/api/src/presentation/rest/common/dto/usecase/usecase-alias.dto.ts',
+    ],
+    rules: {
+      'custom/no-ambiguous-id-fields': [
+        'error',
+        {exemptFields: ['id', 'projectId']},
       ],
     },
   },

@@ -35,7 +35,7 @@ const mockPayload: ParameterPayloadReadModel = {
 
 const mockDef: ParameterDefinitionReadModel = {
   systemId: 100,
-  paramId: 42,
+  naturalId: 42,
   name: 'gain',
   elementsStructure: JSON.stringify([
     {
@@ -156,7 +156,7 @@ describe('GetTkvCalibrationDataHandler', () => {
     const result = await handler.handle(makeQuery());
     expect(result.kind).toBe(RESULT_KIND.Ok);
     if (result.kind !== RESULT_KIND.Ok) return;
-    expect(result.data.parameters[0].parameterId).toBe('42');
+    expect(result.data.parameters[0].naturalId).toBe('42');
   });
 
   it('returns Result.partial when requested paramSystemIds are missing from payloads', async () => {

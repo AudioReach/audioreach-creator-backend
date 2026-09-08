@@ -159,14 +159,14 @@ describe('DbDriverModuleDefinitionQueryService Integration Tests', () => {
     const module = await moduleDefinitionRepository.save({
       systemId: base + 1,
       fileSystemId,
-      moduleDefinitionId: base + 1,
+      naturalId: base + 1,
       name: `DriverModule${moduleIndex}`,
     });
 
     await parameterDefinitionRepository.save({
       systemId: base + 2,
       driverModuleDefinitionSystemId: module.systemId,
-      parameterId: base + 2,
+      naturalId: base + 2,
       name: `Param${moduleIndex}`,
       maxSize: 4,
       paramStructure: '[]',

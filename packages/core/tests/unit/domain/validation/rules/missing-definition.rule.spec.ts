@@ -18,7 +18,7 @@ import type {SpfModuleDefinition} from '../../../../../src/domain/entities/defin
 function makeContext(
   modules: Partial<SpfModule>[],
   definitions: Map<number, Partial<SpfModuleDefinition>>,
-  usecasesByModuleId: Map<number, any[]> = new Map(),
+  usecasesByModuleSystemId: Map<number, any[]> = new Map(),
 ): ModuleValidationContext {
   return {
     fileSystemId: 1,
@@ -26,7 +26,7 @@ function makeContext(
     modules: modules as SpfModule[],
     definitions: definitions as Map<number, SpfModuleDefinition>,
     modulesBySystemId: new Map(modules.map(m => [m.systemId!, m as SpfModule])),
-    usecasesByModuleId,
+    usecasesByModuleSystemId,
   };
 }
 
@@ -99,14 +99,14 @@ describe('MissingDefinitionRule', () => {
     expect(issues[0].impactedEntity?.systemId).toBe(2);
   });
 
-  it('should populate impactedUsecases from usecasesByModuleId', () => {
-    const usecasesByModuleId = new Map([
+  it('should populate impactedUsecases from usecasesByModuleSystemId', () => {
+    const usecasesByModuleSystemId = new Map([
       [1, [{systemId: 101} as any, {systemId: 102} as any]],
     ]);
     const context = makeContext(
       [{systemId: 1, definitionSystemId: 999}],
       new Map(),
-      usecasesByModuleId,
+      usecasesByModuleSystemId,
     );
     const issues = rule.validate(context);
     expect(issues[0].impactedUsecases).toEqual([101, 102]);

@@ -82,7 +82,7 @@ async function seedSubgraphPropertyDef(ds: DataSource, systemId: number) {
   await getTestRepository(SubgraphPropertyDefinitionSchema).save({
     systemId,
     fileSystemId: FILE_ID,
-    propertyId: systemId,
+    naturalId: systemId,
     name: `prop-${systemId}`,
     maxSize: 4,
     propertyType: 'SPF',
@@ -202,7 +202,7 @@ describe('SubgraphOverlayFetcher (integration)', () => {
       targetTable: ENTITY_NAMES.Subgraph,
       operation: CHANGE_OPERATION.Create,
       newValue: JSON.stringify({
-        subgraphId: 1,
+        naturalId: 1,
         name: 'sg-new',
         isImported: false,
         fileSystemId: FILE_ID,

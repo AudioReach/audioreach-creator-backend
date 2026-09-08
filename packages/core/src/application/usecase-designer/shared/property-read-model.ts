@@ -6,7 +6,7 @@ import type {ElementData} from '../../../domain/entities/definitions/common/type
 
 export interface PropertyDataDto {
   readonly systemId: number;
-  readonly propertyId: number;
+  readonly naturalId: number;
   readonly propertyName: string;
   readonly elements: ElementData[];
 }

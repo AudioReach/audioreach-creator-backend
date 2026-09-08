@@ -63,27 +63,27 @@ export class SpfModuleDefinition extends ModuleDefinition {
   ) {
     assertNonNull(
       dynamicIntentDefinition,
-      `dynamicIntentDefinition is null for module ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `dynamicIntentDefinition is null for module ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     assertNonNull(
-      dynamicIntentDefinition.intentId,
-      `intentId is required for dynamic intent in module ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      dynamicIntentDefinition.naturalId,
+      `intentId is required for dynamic intent in module ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     assertNonNull(
       dynamicIntentDefinition.name,
-      `name is required for dynamic intent in module ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `name is required for dynamic intent in module ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
-    const idKey = `id:${dynamicIntentDefinition.intentId}`;
+    const idKey = `id:${dynamicIntentDefinition.naturalId}`;
     const nameKey = `name:${dynamicIntentDefinition.name}`;
 
     invariant(
       !this.dynamicIntentIds.has(idKey),
-      `Intent Id: ${BinaryUtils.toHexString(dynamicIntentDefinition.intentId)} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `Intent Id: ${BinaryUtils.toHexString(dynamicIntentDefinition.naturalId)} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     invariant(
       !this.dynamicIntentIds.has(nameKey),
-      `Intent Name: ${dynamicIntentDefinition.name} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `Intent Name: ${dynamicIntentDefinition.name} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     this.dynamicIntentIds.add(idKey);
@@ -94,20 +94,20 @@ export class SpfModuleDefinition extends ModuleDefinition {
   private AddStaticControlPort(staticPort: StaticControlPortDefinition) {
     assertNonNull(staticPort, 'staticPort is null');
     assertNonNull(
-      staticPort.portId,
-      `portId is required for static control port in module ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      staticPort.naturalId,
+      `portId is required for static control port in module ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
-    const idKey = `id:${staticPort.portId}`;
+    const idKey = `id:${staticPort.naturalId}`;
     const nameKey = `name:${staticPort.portName}`;
 
     invariant(
       !this.staticPortIds.has(idKey),
-      `Port Id: ${BinaryUtils.toHexString(staticPort.portId)} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `Port Id: ${BinaryUtils.toHexString(staticPort.naturalId)} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     invariant(
       !this.staticPortIds.has(nameKey),
-      `Port Name: ${staticPort.portName} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `Port Name: ${staticPort.portName} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     this.staticPortIds.add(idKey);
@@ -118,12 +118,12 @@ export class SpfModuleDefinition extends ModuleDefinition {
   private AddContainerType(containerTypeReferenceIds: number) {
     assertNonNull(
       containerTypeReferenceIds,
-      `containerTypeReferenceIds is null for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `containerTypeReferenceIds is null for SPF Module Definition: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     invariant(
       !this.containerTypesSystemIds.has(containerTypeReferenceIds),
-      `Container Type Reference Id: ${BinaryUtils.toHexString(containerTypeReferenceIds)} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.moduleDefinitionId)}`,
+      `Container Type Reference Id: ${BinaryUtils.toHexString(containerTypeReferenceIds)} already exists for SPF Module Definition: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     this.containerTypesSystemIds.add(containerTypeReferenceIds);

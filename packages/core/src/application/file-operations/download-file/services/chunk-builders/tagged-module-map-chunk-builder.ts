@@ -44,12 +44,16 @@ export const TaggedModuleMapChunkBuilder = {
     for (const entry of nonVoice) {
       const defEntry: TaggedModuleDefEntry = {
         moduleInstancePairs: entry.moduleInstances.map(m => ({
-          moduleId: m.moduleId,
-          instanceId: m.instanceId,
+          moduleId: m.moduleNaturalId,
+          instanceId: m.instanceNaturalId,
         })),
       };
       const tmdeOffset = chunk.addTaggedModuleDefEntry(defEntry);
-      chunk.addTaggedModuleEntry(entry.subgraphId, entry.tagId, tmdeOffset);
+      chunk.addTaggedModuleEntry(
+        entry.subgraphNaturalId,
+        entry.tagNaturalId,
+        tmdeOffset,
+      );
     }
 
     return {chunk};

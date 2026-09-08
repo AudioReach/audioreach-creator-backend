@@ -5,20 +5,21 @@
 
 import {describe, it, expect} from '@jest/globals';
 import {UsecaseDataChunkBuilder} from '../../../../../../../src/application/file-operations/download-file/services/chunk-builders/usecase-data-chunk-builder.js';
-import type {UsecaseDataFromDb} from '../../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
+import type {UsecaseDataDownloadModel} from '../../../../../../../src/application/ports/persistence/query-services/bulk-read/bulk-read-query-service.js';
 import {PARSED_CHUNK_TYPES} from '../../../../../../../src/application/file-operations/shared/constants/chunk-types.js';
 
 describe('UsecaseDataChunkBuilder', () => {
   describe('buildChunk', () => {
     it('should build chunk with gkvGroups structure', () => {
-      const usecaseData: UsecaseDataFromDb[] = [
+      const usecaseData: UsecaseDataDownloadModel[] = [
         {
           systemId: 1,
           keyIds: [100, 200],
           valueIds: [1001, 2001],
           subgraphIds: [5000, 5001],
-          subgraphPairs: [{sourceSubgraphId: 5000, destSubgraphId: 5001}],
-          subgraphs: [],
+          subgraphPairs: [
+            {sourceSubgraphNaturalId: 5000, destSubgraphNaturalId: 5001},
+          ],
         },
       ];
 
@@ -44,14 +45,13 @@ describe('UsecaseDataChunkBuilder', () => {
     });
 
     it('should initialize offsets to 0 (assigned in Phase 2)', () => {
-      const usecaseData: UsecaseDataFromDb[] = [
+      const usecaseData: UsecaseDataDownloadModel[] = [
         {
           systemId: 1,
           keyIds: [100],
           valueIds: [1001],
           subgraphIds: [5000],
           subgraphPairs: [],
-          subgraphs: [],
         },
       ];
 
@@ -62,14 +62,13 @@ describe('UsecaseDataChunkBuilder', () => {
     });
 
     it('should handle multiple value entries with same keys', () => {
-      const usecaseData: UsecaseDataFromDb[] = [
+      const usecaseData: UsecaseDataDownloadModel[] = [
         {
           systemId: 1,
           keyIds: [100],
           valueIds: [1001],
           subgraphIds: [5000],
           subgraphPairs: [],
-          subgraphs: [],
         },
         {
           systemId: 2,
@@ -77,7 +76,6 @@ describe('UsecaseDataChunkBuilder', () => {
           valueIds: [1002],
           subgraphIds: [5001],
           subgraphPairs: [],
-          subgraphs: [],
         },
       ];
 
@@ -93,14 +91,13 @@ describe('UsecaseDataChunkBuilder', () => {
     });
 
     it('should group by numKeys', () => {
-      const usecaseData: UsecaseDataFromDb[] = [
+      const usecaseData: UsecaseDataDownloadModel[] = [
         {
           systemId: 1,
           keyIds: [100],
           valueIds: [1001],
           subgraphIds: [5000],
           subgraphPairs: [],
-          subgraphs: [],
         },
         {
           systemId: 2,
@@ -108,7 +105,6 @@ describe('UsecaseDataChunkBuilder', () => {
           valueIds: [2001, 3001],
           subgraphIds: [5001],
           subgraphPairs: [],
-          subgraphs: [],
         },
       ];
 
@@ -129,18 +125,17 @@ describe('UsecaseDataChunkBuilder', () => {
     });
 
     it('should preserve subgraph pair order', () => {
-      const usecaseData: UsecaseDataFromDb[] = [
+      const usecaseData: UsecaseDataDownloadModel[] = [
         {
           systemId: 1,
           keyIds: [100],
           valueIds: [1001],
           subgraphIds: [5000, 5001, 5002],
           subgraphPairs: [
-            {sourceSubgraphId: 5000, destSubgraphId: 5001},
-            {sourceSubgraphId: 5001, destSubgraphId: 5002},
-            {sourceSubgraphId: 5000, destSubgraphId: 5002},
+            {sourceSubgraphNaturalId: 5000, destSubgraphNaturalId: 5001},
+            {sourceSubgraphNaturalId: 5001, destSubgraphNaturalId: 5002},
+            {sourceSubgraphNaturalId: 5000, destSubgraphNaturalId: 5002},
           ],
-          subgraphs: [],
         },
       ];
 
@@ -157,14 +152,13 @@ describe('UsecaseDataChunkBuilder', () => {
     });
 
     it('should deduplicate keys within numKeys groups', () => {
-      const usecaseData: UsecaseDataFromDb[] = [
+      const usecaseData: UsecaseDataDownloadModel[] = [
         {
           systemId: 1,
           keyIds: [100, 200],
           valueIds: [1001, 2001],
           subgraphIds: [5000],
           subgraphPairs: [],
-          subgraphs: [],
         },
         {
           systemId: 2,
@@ -172,7 +166,6 @@ describe('UsecaseDataChunkBuilder', () => {
           valueIds: [1002, 2002],
           subgraphIds: [5001],
           subgraphPairs: [],
-          subgraphs: [],
         },
         {
           systemId: 3,
@@ -180,7 +173,6 @@ describe('UsecaseDataChunkBuilder', () => {
           valueIds: [3001, 4001],
           subgraphIds: [5002],
           subgraphPairs: [],
-          subgraphs: [],
         },
       ];
 

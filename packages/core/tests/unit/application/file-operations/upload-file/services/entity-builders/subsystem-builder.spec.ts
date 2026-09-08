@@ -112,9 +112,9 @@ describe('SubsystemBuilder', () => {
     };
     const {subsystems} = await builder.build(meta.subsystems, 100, [], []);
     expect(subsystems).toHaveLength(1);
-    expect(subsystems[0].parentId).toBeUndefined();
+    expect(subsystems[0].parentSystemId).toBeUndefined();
     expect(subsystems[0].name).toBe('StreamRx');
-    expect(subsystems[0].subsystemId).toBe(0xf0100001);
+    expect(subsystems[0].naturalId).toBe(0xf0100001);
   });
 
   it('should set parentId for child subsystem', async () => {
@@ -137,8 +137,8 @@ describe('SubsystemBuilder', () => {
     };
     const {subsystems} = await builder.build(meta.subsystems, 100, [], []);
     expect(subsystems).toHaveLength(2);
-    const child = subsystems.find(s => s.subsystemId === 0xf0100002)!;
-    expect(child.parentId).toBeDefined();
+    const child = subsystems.find(s => s.naturalId === 0xf0100002)!;
+    expect(child.parentSystemId).toBeDefined();
   });
 
   it('should register mapping in fk mapper for each subsystem', async () => {
@@ -350,7 +350,7 @@ describe('SubsystemBuilder — boundary ports', () => {
   describe('SubsystemBuilder.computePaths (static worker handler)', () => {
     it('returns null for same-subsystem links', () => {
       const output = SubsystemBuilder.computePaths({
-        links: [{systemId: 1, nodeAId: 100, nodeBId: 101}],
+        links: [{systemId: 1, nodeANaturalId: 100, nodeBNaturalId: 101}],
         nodeParentMapEntries: [
           [10, null],
           [100, 10],
@@ -362,7 +362,7 @@ describe('SubsystemBuilder — boundary ports', () => {
 
     it('returns a path for cross-subsystem links', () => {
       const output = SubsystemBuilder.computePaths({
-        links: [{systemId: 1, nodeAId: 100, nodeBId: 200}],
+        links: [{systemId: 1, nodeANaturalId: 100, nodeBNaturalId: 200}],
         nodeParentMapEntries: [
           [10, null],
           [20, null],
@@ -377,7 +377,7 @@ describe('SubsystemBuilder — boundary ports', () => {
 
     it('reconstructs nodeParentMap from entries correctly for multi-hop', () => {
       const output = SubsystemBuilder.computePaths({
-        links: [{systemId: 1, nodeAId: 100, nodeBId: 200}],
+        links: [{systemId: 1, nodeANaturalId: 100, nodeBNaturalId: 200}],
         nodeParentMapEntries: [
           [30, null],
           [20, 30],

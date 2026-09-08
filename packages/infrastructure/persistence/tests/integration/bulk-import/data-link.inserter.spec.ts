@@ -51,7 +51,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 
   await manager.insert('Subgraph', {
     systemId: SUBGRAPH_ID,
-    subgraphId: 1,
+    naturalId: 1,
     name: 'test-subgraph',
     isImported: 0,
     fileSystemId: FILE_ID,
@@ -74,7 +74,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 
   await manager.insert('DataPort', {
     systemId: SRC_PORT_ID,
-    dataPortId: 1,
+    naturalId: 1,
     portIoType: PORT_IO_TYPE.Output,
     isStatic: 1,
     nodeSystemId: NODE_A_ID,
@@ -83,7 +83,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 
   await manager.insert('DataPort', {
     systemId: DST_PORT_ID,
-    dataPortId: 2,
+    naturalId: 2,
     portIoType: PORT_IO_TYPE.Input,
     isStatic: 1,
     nodeSystemId: NODE_B_ID,
@@ -99,7 +99,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 
   await manager.insert('DataPort', {
     systemId: SLS_OUTPUT_INPUT_PORT_ID,
-    dataPortId: 1,
+    naturalId: 1,
     portIoType: PORT_IO_TYPE.OutputInput,
     isStatic: 0,
     nodeSystemId: SUBSYSTEM_NODE_ID,
@@ -108,7 +108,7 @@ async function createFkDependencies(manager: EntityManager): Promise<void> {
 
   await manager.insert('DataPort', {
     systemId: SLS_INPUT_OUTPUT_PORT_ID,
-    dataPortId: 2,
+    naturalId: 2,
     portIoType: PORT_IO_TYPE.InputOutput,
     isStatic: 0,
     nodeSystemId: SUBSYSTEM_NODE_ID,
@@ -215,7 +215,7 @@ describe('DataLinkInserter', () => {
     });
     await manager.insert('DataPort', {
       systemId: 302,
-      dataPortId: 3,
+      naturalId: 3,
       portIoType: PORT_IO_TYPE.Output,
       isStatic: 1,
       nodeSystemId: 202,
@@ -223,7 +223,7 @@ describe('DataLinkInserter', () => {
     });
     await manager.insert('DataPort', {
       systemId: 303,
-      dataPortId: 4,
+      naturalId: 4,
       portIoType: PORT_IO_TYPE.Input,
       isStatic: 1,
       nodeSystemId: 203,
@@ -297,7 +297,7 @@ describe('DataLinkInserter', () => {
     });
     await manager.insert('DataPort', {
       systemId: 304,
-      dataPortId: 5,
+      naturalId: 5,
       portIoType: PORT_IO_TYPE.Output,
       isStatic: 1,
       nodeSystemId: 204,
@@ -305,7 +305,7 @@ describe('DataLinkInserter', () => {
     });
     await manager.insert('DataPort', {
       systemId: 305,
-      dataPortId: 6,
+      naturalId: 6,
       portIoType: PORT_IO_TYPE.Input,
       isStatic: 1,
       nodeSystemId: 205,

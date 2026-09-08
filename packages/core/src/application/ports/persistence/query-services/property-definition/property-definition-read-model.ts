@@ -7,7 +7,7 @@ import type {PropertyType} from '../../../../../domain/entities/definitions/comm
 
 export interface PropertyDefinitionSummaryReadModel {
   readonly systemId: number;
-  readonly propertyId: number;
+  readonly naturalId: number;
   readonly name: string;
   readonly description?: string;
   readonly propertyType: PropertyType;

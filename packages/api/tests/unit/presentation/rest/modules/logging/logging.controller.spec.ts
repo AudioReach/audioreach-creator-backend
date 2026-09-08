@@ -117,7 +117,7 @@ describe('LogController', () => {
       const queryBus = makeQueryBus();
       const entries: LogEntryReadModel[] = [
         {
-          id: 1,
+          systemId: 1,
           level: 'info',
           description: 'desc',
           timestamp: '2026-01-01T00:00:00.000Z',
@@ -136,7 +136,7 @@ describe('LogController', () => {
       expect(queryBus.execute).toHaveBeenCalledTimes(1);
       expect(result.data).toHaveLength(1);
       expect(result.data?.[0]).toMatchObject({
-        id: 1,
+        systemId: '1',
         level: 'info',
         description: 'desc',
         msg: 'test-msg',

@@ -491,7 +491,7 @@ describe('ForeignKeyMapper', () => {
       expect(stats.subgraphMappings).toBe(0);
       expect(stats.containerMappings).toBe(0);
       expect(stats.moduleDefinitionMappings).toBe(0);
-      expect(stats.paramDefinitionMappingsByModuleId).toBe(0);
+      expect(stats.paramDefinitionMappingsByModuleNaturalId).toBe(0);
       expect(stats.spfModuleMappings).toBe(0);
       expect(stats.moduleInputPortMappings).toBe(0);
       expect(stats.moduleOutputPortMappings).toBe(0);
@@ -567,7 +567,7 @@ describe('ForeignKeyMapper', () => {
 
       const stats = mapper.getStats();
 
-      expect(stats.paramDefinitionMappingsByModuleId).toBe(2); // 2 modules with params
+      expect(stats.paramDefinitionMappingsByModuleNaturalId).toBe(2); // 2 modules with params
     });
 
     it('should return correct stats with mixed mapping types', () => {
@@ -593,7 +593,7 @@ describe('ForeignKeyMapper', () => {
       expect(stats.keyMappings).toBe(1);
       expect(stats.valueMappings).toBe(1);
       expect(stats.moduleDefinitionMappings).toBe(1);
-      expect(stats.paramDefinitionMappingsByModuleId).toBe(1);
+      expect(stats.paramDefinitionMappingsByModuleNaturalId).toBe(1);
     });
   });
 

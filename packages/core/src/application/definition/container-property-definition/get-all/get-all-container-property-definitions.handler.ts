@@ -36,7 +36,7 @@ export class GetAllContainerPropertyDefinitionsHandler implements QueryHandler<
     const result =
       await this.queryServices.containerPropertyDefQueryService.getAllContainerPropertyDefinitionsSummary(
         fileId,
-        query.propertyDefinitionId,
+        query.propertyDefinitionNaturalId,
       );
 
     if (result.kind === RESULT_KIND.Fail) {

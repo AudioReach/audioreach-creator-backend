@@ -28,8 +28,8 @@ describe('UniqueIdGenerator', () => {
   it('allocate-03: ALL IDs in range used → returns max + 1 (overflow sentinel)', () => {
     const small = new NaturalIdGenerator();
     // Fill the entire SUBGRAPH range via internal state directly
-    for (let id = 0xb0000001; id <= 0xb0ffffff; id++) {
-      (small as any)['state'][NaturalIdType.SUBGRAPH].usedIds.add(id);
+    for (let naturalId = 0xb0000001; naturalId <= 0xb0ffffff; naturalId++) {
+      (small as any)['state'][NaturalIdType.SUBGRAPH].usedIds.add(naturalId);
     }
     (small as any)['state'][NaturalIdType.SUBGRAPH].watermark = 0xb0ffffff;
     expect(small.allocate(NaturalIdType.SUBGRAPH)).toBe(0xb0ffffff + 1);
@@ -91,7 +91,7 @@ describe('UniqueIdGenerator', () => {
     expect(second).toBe(first + 1);
   });
 
-  it('watermark-04: release(SUBGRAPH, id) where id > watermark → next allocate skips past it', () => {
+  it('watermark-04: release(SUBGRAPH, naturalId) where naturalId > watermark → next allocate skips past it', () => {
     gen.allocate(NaturalIdType.SUBGRAPH); // 0xB0000001, watermark=0xB0000001
     gen.allocate(NaturalIdType.SUBGRAPH); // 0xB0000002, watermark=0xB0000002
     gen.register(NaturalIdType.SUBGRAPH, 0xb0000010);
@@ -117,8 +117,8 @@ describe('UniqueIdGenerator', () => {
     expect(remappings).toHaveLength(1);
     expect(remappings[0]).toEqual({
       type: NaturalIdType.SUBGRAPH,
-      oldId: 0xb0000001,
-      newId: 0xb1000001,
+      oldNaturalId: 0xb0000001,
+      newNaturalId: 0xb1000001,
     });
     expect(gen.isUsed(NaturalIdType.SUBGRAPH, 0xb1000001)).toBe(true);
   });
@@ -172,12 +172,12 @@ describe('UniqueIdGenerator', () => {
     expect(new Date(ts).toISOString()).toBe(ts);
   });
 
-  it('diag-03: lastUsedId(SUBGRAPH) updates on both allocate and release', () => {
+  it('diag-03: lastUsedNaturalId(SUBGRAPH) updates on both allocate and release', () => {
     gen.allocate(NaturalIdType.SUBGRAPH); // 0xB0000001
-    expect(gen.lastUsedId(NaturalIdType.SUBGRAPH)).toBe(0xb0000001);
+    expect(gen.lastUsedNaturalId(NaturalIdType.SUBGRAPH)).toBe(0xb0000001);
     gen.allocate(NaturalIdType.SUBGRAPH); // 0xB0000002
-    expect(gen.lastUsedId(NaturalIdType.SUBGRAPH)).toBe(0xb0000002);
+    expect(gen.lastUsedNaturalId(NaturalIdType.SUBGRAPH)).toBe(0xb0000002);
     gen.release(NaturalIdType.SUBGRAPH, 0xb0000001);
-    expect(gen.lastUsedId(NaturalIdType.SUBGRAPH)).toBe(0xb0000001);
+    expect(gen.lastUsedNaturalId(NaturalIdType.SUBGRAPH)).toBe(0xb0000001);
   });
 });

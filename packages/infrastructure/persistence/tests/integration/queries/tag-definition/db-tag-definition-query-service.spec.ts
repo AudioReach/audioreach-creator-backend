@@ -163,19 +163,19 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const key = await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
     });
     await valueDefinitionRepository.save({
       systemId: 2,
       keySystemId: key.systemId,
-      valueId: 200,
+      naturalId: 200,
       name: 'MyValue',
     });
     const tag = await tagDefinitionRepository.save({
       systemId: 3,
       fileSystemId,
-      tagId: 300,
+      naturalId: 300,
       name: 'MyTag',
       isVoice: false,
     });
@@ -193,7 +193,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0]).toMatchObject({
       systemId: 3,
-      tagId: 300,
+      naturalId: 300,
       name: 'MyTag',
     });
     expect(result.data[0].keys).toHaveLength(1);
@@ -202,13 +202,13 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     });
     expect(result.data[0].keys[0].keyDefinition).toMatchObject({
       systemId: 1,
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
     });
     expect(result.data[0].keys[0].keyDefinition.values).toHaveLength(1);
     expect(result.data[0].keys[0].keyDefinition.values[0]).toMatchObject({
       systemId: 2,
-      valueId: 200,
+      naturalId: 200,
       name: 'MyValue',
     });
   });
@@ -219,14 +219,14 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     await tagDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      tagId: 100,
+      naturalId: 100,
       name: 'TagOne',
       isVoice: false,
     });
     await tagDefinitionRepository.save({
       systemId: 2,
       fileSystemId,
-      tagId: 200,
+      naturalId: 200,
       name: 'TagTwo',
       isVoice: false,
     });
@@ -252,13 +252,13 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const key = await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
     });
     const tag = await tagDefinitionRepository.save({
       systemId: 2,
       fileSystemId,
-      tagId: 200,
+      naturalId: 200,
       name: 'MyTag',
       isVoice: false,
     });
@@ -270,7 +270,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
 
     const result = await service.getTagDefinition(fileSystemId, tag.systemId);
 
-    expect(result).toMatchObject({systemId: 2, tagId: 200, name: 'MyTag'});
+    expect(result).toMatchObject({systemId: 2, naturalId: 200, name: 'MyTag'});
     expect(result?.keys).toHaveLength(1);
     expect(result?.keys[0].keyDefinition.systemId).toBe(1);
   });
@@ -280,7 +280,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const tag = await tagDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      tagId: 100,
+      naturalId: 100,
       name: 'OriginalName',
       isVoice: false,
     });
@@ -314,7 +314,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const tag = await tagDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      tagId: 100,
+      naturalId: 100,
       name: 'ToBeDeleted',
       isVoice: false,
     });
@@ -347,13 +347,13 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const key = await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
     });
     const tag = await tagDefinitionRepository.save({
       systemId: 2,
       fileSystemId,
-      tagId: 200,
+      naturalId: 200,
       name: 'MyTag',
       isVoice: false,
     });
@@ -398,26 +398,26 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const goodKey = await keyDefinitionRepository.save({
       systemId: 1,
       fileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'GoodKey',
     });
     await valueDefinitionRepository.save({
       systemId: 10,
       keySystemId: goodKey.systemId,
-      valueId: 1000,
+      naturalId: 1000,
       name: 'GoodValue',
     });
     const badKey = await keyDefinitionRepository.save({
       systemId: 2,
       fileSystemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'BadKey',
     });
 
     const goodTag = await tagDefinitionRepository.save({
       systemId: 3,
       fileSystemId,
-      tagId: 300,
+      naturalId: 300,
       name: 'TagOnGoodKey',
       isVoice: false,
     });
@@ -431,7 +431,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const badTag = await tagDefinitionRepository.save({
       systemId: 5,
       fileSystemId,
-      tagId: 400,
+      naturalId: 400,
       name: 'TagOnBadKey',
       isVoice: false,
     });
@@ -513,7 +513,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
         keyDefinitionRepository.save({
           systemId: i + 1,
           fileSystemId,
-          keyId: 100 + i,
+          naturalId: 100 + i,
           name: `Key${i}`,
         }),
       ),
@@ -522,7 +522,7 @@ describe('DbTagDefinitionQueryService Integration Tests', () => {
     const tag = await tagDefinitionRepository.save({
       systemId: 1000,
       fileSystemId,
-      tagId: 900,
+      naturalId: 900,
       name: 'ScopedTag',
       isVoice: false,
     });

@@ -519,8 +519,8 @@ export class SubgraphController extends BaseController {
     await this.commandBus.execute<void>(
       new UpdateSubgraphContainerIdCommand(
         subgraphSystemId,
-        dto.oldContainerId,
-        dto.newContainerId,
+        dto.oldContainerNaturalId,
+        dto.newContainerNaturalId,
       ),
       session,
     );

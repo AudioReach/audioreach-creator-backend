@@ -62,7 +62,7 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
       const filtered =
         propertyNaturalId === undefined
           ? rows
-          : rows.filter(r => r.propertyId === propertyNaturalId);
+          : rows.filter(r => r.naturalId === propertyNaturalId);
 
       return Result.ok(filtered.map(r => this.toSummaryReadModel(r)));
     } catch (error) {
@@ -153,7 +153,7 @@ export class DbContainerPropertyDefQueryService implements ContainerPropertyDefQ
   ): PropertyDefinitionSummaryReadModel {
     return {
       systemId: row.systemId,
-      propertyId: row.propertyId,
+      naturalId: row.naturalId,
       name: row.name,
       description: row.description,
       propertyType: row.propertyType,

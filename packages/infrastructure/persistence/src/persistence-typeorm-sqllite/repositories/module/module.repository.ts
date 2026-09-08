@@ -255,7 +255,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     if (spf === undefined) return null;
     const moduleNode = {
       ...spf,
-      parentId: nodeMap.get(spf.systemId)?.parentId ?? null,
+      parentSystemId: nodeMap.get(spf.systemId)?.parentSystemId ?? null,
     };
     const dataPorts = await this.portFetcher.fetchDataPorts(
       systemId,
@@ -270,17 +270,17 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     return new SpfModule({
       systemId,
       fileSystemId,
-      instanceId: moduleNode.instanceId,
+      naturalId: moduleNode.naturalId,
       definitionSystemId: moduleNode.definitionSystemId,
       containerSystemId: moduleNode.containerSystemId,
       subgraphSystemId: moduleNode.subgraphSystemId,
       alias: moduleNode.alias ?? undefined,
-      parentSystemId: moduleNode.parentId ?? undefined,
+      parentSystemId: moduleNode.parentSystemId ?? undefined,
       dataPorts: dataPorts.map(
         dp =>
           new DataPort({
             systemId: dp.systemId,
-            dataPortId: dp.dataPortId,
+            naturalId: dp.naturalId,
             portIoType: dp.portIoType,
             isStatic: dp.isStatic,
             name: dp.name ?? undefined,
@@ -290,12 +290,12 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         cp =>
           new ControlPort({
             systemId: cp.systemId,
-            portId: cp.portId,
+            naturalId: cp.naturalId,
             isStatic: cp.isStatic,
             nodeSystemId: systemId,
             name: cp.name ?? undefined,
             intentSystemIds: cp.intents.map(i => i.systemId),
-            intentTypeIds: cp.intents.map(i => i.intentId),
+            intentTypeIds: cp.intents.map(i => i.naturalId),
           }),
       ),
     });
@@ -353,7 +353,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         targetSystemId: port.systemId,
         aggregateId: moduleSystemId,
         payload: {
-          dataPortId: port.dataPortId,
+          naturalId: port.naturalId,
           portIoType: port.portIoType,
           isStatic: port.isStatic,
           name: port.name ?? '',
@@ -399,7 +399,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         targetSystemId: port.systemId,
         aggregateId: moduleSystemId,
         payload: {
-          portId: port.portId,
+          naturalId: port.naturalId,
           isStatic: port.isStatic,
           name: port.name ?? '',
           nodeSystemId: moduleSystemId,
@@ -444,7 +444,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         aggregateId: module.systemId,
         payload: {
           type: 'module',
-          parentId: module.parentId ?? null,
+          parentSystemId: module.parentSystemId ?? null,
           fileSystemId,
         },
         ...options,
@@ -459,7 +459,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
         targetSystemId: module.systemId,
         aggregateId: module.systemId,
         payload: {
-          instanceId: module.instanceId,
+          naturalId: module.naturalId,
           alias: module.alias ?? '',
           subgraphSystemId: module.subgraphSystemId,
           containerSystemId: module.containerSystemId,
@@ -479,7 +479,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           targetSystemId: dp.systemId,
           aggregateId: module.systemId,
           payload: {
-            dataPortId: dp.dataPortId,
+            naturalId: dp.naturalId,
             portIoType: dp.portIoType,
             isStatic: dp.isStatic,
             name: dp.name ?? '',
@@ -500,7 +500,7 @@ export class TypeOrmModuleRepository implements ModuleRepository {
           targetSystemId: cp.systemId,
           aggregateId: module.systemId,
           payload: {
-            portId: cp.portId,
+            naturalId: cp.naturalId,
             isStatic: cp.isStatic,
             name: cp.name ?? '',
             nodeSystemId: module.systemId,
@@ -529,7 +529,10 @@ export class TypeOrmModuleRepository implements ModuleRepository {
     const nodeMap = new Map(nodeRows.map(n => [n.systemId, n]));
     const spf = spfRows.at(0);
     if (!spf) return null;
-    const row = {...spf, parentId: nodeMap.get(spf.systemId)?.parentId ?? null};
+    const row = {
+      ...spf,
+      parentSystemId: nodeMap.get(spf.systemId)?.parentSystemId ?? null,
+    };
     return {
       systemId: row.systemId,
       definitionSystemId: row.definitionSystemId,

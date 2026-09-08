@@ -50,6 +50,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
     expect(response.body.data.projectId).toBeDefined();
     expect(response.body.data.projectType).toBe('OFFLINE');
     expect(response.body.data.sessionMode).toBe('DESIGNER');
+    expect(response.body).not.toHaveProperty('issues');
     expect(response.body).not.toHaveProperty('success');
     expect(response.body).not.toHaveProperty('message');
 
@@ -159,7 +160,7 @@ describe('Open File E2E (POST /arc-api/v1/projects/offline/upload-files)', () =>
         'Module instances details:',
         ...componentsData.spfModules.map(
           (module: any) =>
-            `  - ${module.systemId}: ${module.name || 'Unnamed'} (Definition: ${module.moduleId})`,
+            `  - ${module.systemId}: ${module.name || 'Unnamed'} (Definition: ${module.moduleDefinitionSystemId})`,
         ),
       ].join('\n');
 

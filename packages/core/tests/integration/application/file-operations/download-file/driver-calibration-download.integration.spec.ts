@@ -41,29 +41,29 @@ describe('Driver Calibration Download Integration', () => {
       },
       driverCalibrationData: [
         {
-          moduleDefinitionId: 0x100,
+          naturalId: 0x100,
           keyIds: [0x10, 0x20],
           ckvs: [
             {
               valueIds: [0xa0, 0xb0],
               parameters: [
-                {parameterId: 0x30, payload: payload1},
-                {parameterId: 0x31, payload: payload2},
+                {naturalId: 0x30, payload: payload1},
+                {naturalId: 0x31, payload: payload2},
               ],
             },
             {
               valueIds: [0xa1, 0xb1],
-              parameters: [{parameterId: 0x30, payload: payload1}],
+              parameters: [{naturalId: 0x30, payload: payload1}],
             },
           ],
         },
         {
-          moduleDefinitionId: 0x200,
+          naturalId: 0x200,
           keyIds: [0x10],
           ckvs: [
             {
               valueIds: [0xc0],
-              parameters: [{parameterId: 0x40, payload: payload2}],
+              parameters: [{naturalId: 0x40, payload: payload2}],
             },
           ],
         },

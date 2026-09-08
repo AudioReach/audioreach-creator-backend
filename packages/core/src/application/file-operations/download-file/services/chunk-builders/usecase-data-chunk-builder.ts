@@ -109,7 +109,11 @@ export const UsecaseDataChunkBuilder = {
         sgPropOffset: 0, // Will be assigned in Phase 2 serialization
         sgList: usecase.subgraphIds,
         sgPairList: usecase.subgraphPairs.map(
-          pair => new SubgraphPair(pair.sourceSubgraphId, pair.destSubgraphId),
+          pair =>
+            new SubgraphPair(
+              pair.sourceSubgraphNaturalId,
+              pair.destSubgraphNaturalId,
+            ),
         ),
         subgraphs: [], // Will be populated from entities.subgraphData in serializer
       };

@@ -62,7 +62,7 @@ export class VcpmModuleDefinitionInserter {
       allRawFailures,
       moduleBySystemId,
       mod =>
-        `VcpmModuleDefinition (moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}, name='${mod.name}')`,
+        `VcpmModuleDefinition (moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}, name='${mod.name}')`,
     );
   }
 
@@ -71,7 +71,7 @@ export class VcpmModuleDefinitionInserter {
   ): Promise<StepResult> {
     const rows: InsertRow<VcpmModuleDefinitionRow>[] = items.map(mod => ({
       systemId: mod.systemId,
-      moduleDefinitionId: mod.moduleDefinitionId,
+      naturalId: mod.naturalId,
       fileSystemId: mod.fileSystemId,
       name: mod.name,
       displayName: mod.displayName,
@@ -91,7 +91,7 @@ export class VcpmModuleDefinitionInserter {
       return {
         systemId: mod.systemId,
         entityLabel: 'VcpmModuleDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.moduleDefinitionId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(mod.naturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -107,7 +107,7 @@ export class VcpmModuleDefinitionInserter {
   ): Promise<StepResult> {
     const contextBySystemId = new Map<
       number,
-      {mod: VcpmModuleDefinition; paramId: number}
+      {mod: VcpmModuleDefinition; paramNaturalId: number}
     >();
 
     const rows: InsertRow<VcpmModuleParameterDefinitionRow>[] = items.flatMap(
@@ -115,7 +115,7 @@ export class VcpmModuleDefinitionInserter {
         mod.parameters.map(param => {
           const row: InsertRow<VcpmModuleParameterDefinitionRow> = {
             systemId: param.systemId,
-            paramId: param.paramId,
+            naturalId: param.naturalId,
             name: param.name,
             description: param.description,
             maxSize: param.maxSize ?? 0,
@@ -127,10 +127,13 @@ export class VcpmModuleDefinitionInserter {
               param.toolPolicies.length > 0
                 ? JSON.stringify(param.toolPolicies)
                 : undefined,
-            copySrcParamId: param.copySrcParamId,
+            copySrcParamNaturalId: param.copySrcParamNaturalId,
             vcpmModuleDefinitionSystemId: mod.systemId,
           };
-          contextBySystemId.set(param.systemId, {mod, paramId: param.paramId});
+          contextBySystemId.set(param.systemId, {
+            mod,
+            paramNaturalId: param.naturalId,
+          });
           return row;
         }),
     );
@@ -149,7 +152,7 @@ export class VcpmModuleDefinitionInserter {
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'VcpmModuleParameterDefinition',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, paramId=${BinaryUtils.toHexString(ctx.paramId)}) Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, paramId=${BinaryUtils.toHexString(ctx.paramNaturalId)}) Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });
@@ -198,7 +201,7 @@ export class VcpmModuleDefinitionInserter {
       return {
         systemId: ctx.mod.systemId,
         entityLabel: 'VcpmModuleAttribute',
-        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.moduleDefinitionId)}, attrName='${ctx.attrName}') Row: ${JSON.stringify(row)}`,
+        failedRowJson: `(moduleDefinitionId=${BinaryUtils.toHexString(ctx.mod.naturalId)}, attrName='${ctx.attrName}') Row: ${JSON.stringify(row)}`,
         dbError: error.message,
       };
     });

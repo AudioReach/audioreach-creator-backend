@@ -11,45 +11,45 @@ import {
 import {BinaryUtils} from '../../../../../shared/utilities/binary-utils.js';
 
 export interface StaticControlPortDefinitionInit {
-  portId: number;
+  naturalId: number;
   portName: string;
 }
 
 export class StaticControlPortDefinition {
-  readonly portId: number;
+  readonly naturalId: number;
   portName: string;
   readonly staticIntents: StaticIntentDefinition[] = [];
   private readonly intentIds = new Set<string>();
 
   constructor(initParam: StaticControlPortDefinitionInit) {
-    this.portId = initParam.portId;
+    this.naturalId = initParam.naturalId;
     this.portName = initParam.portName;
   }
 
   AddStaticIntent(staticIntent: StaticIntentDefinition) {
     assertNonNull(
       staticIntent,
-      `staticIntent is null for port ${BinaryUtils.toHexString(this.portId)}`,
+      `staticIntent is null for port ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     assertNonNull(
-      staticIntent.intentId,
-      `intentId is required for static intent in port ${BinaryUtils.toHexString(this.portId)}`,
+      staticIntent.naturalId,
+      `intentId is required for static intent in port ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     assertNonNull(
       staticIntent.name,
-      `intentName is required for static intent in port ${BinaryUtils.toHexString(this.portId)}`,
+      `intentName is required for static intent in port ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
-    const idKey = `id:${staticIntent.intentId}`;
+    const idKey = `id:${staticIntent.naturalId}`;
     const nameKey = `name:${staticIntent.name}`;
 
     invariant(
       !this.intentIds.has(idKey),
-      `Intent Id: ${BinaryUtils.toHexString(staticIntent.intentId)} already exists for Port Id: ${BinaryUtils.toHexString(this.portId)}`,
+      `Intent Id: ${BinaryUtils.toHexString(staticIntent.naturalId)} already exists for Port Id: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
     invariant(
       !this.intentIds.has(nameKey),
-      `Intent Name: ${staticIntent.name} already exists for Port Id: ${BinaryUtils.toHexString(this.portId)}`,
+      `Intent Name: ${staticIntent.name} already exists for Port Id: ${BinaryUtils.toHexString(this.naturalId)}`,
     );
 
     this.intentIds.add(idKey);

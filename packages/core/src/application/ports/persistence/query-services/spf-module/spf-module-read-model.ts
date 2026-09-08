@@ -8,14 +8,14 @@ import type {ControlPortReadModel} from './ports/control-port-read-model.js';
 
 export interface SpfModuleReadModel {
   readonly systemId: number;
-  readonly parentId?: number;
-  readonly instanceId: number;
+  readonly parentSystemId?: number;
+  readonly naturalId: number;
   readonly alias: string;
   readonly definitionSystemId: number;
   readonly name: string;
-  readonly moduleId: number;
-  readonly subgraphId: number;
-  readonly containerId: number;
+  readonly moduleDefinitionNaturalId: number;
+  readonly subgraphSystemId: number;
+  readonly containerSystemId: number;
   readonly maxInputPortsSupported: number;
   readonly maxOutputPortsSupported: number;
   readonly maxControlPortsSupported: number;

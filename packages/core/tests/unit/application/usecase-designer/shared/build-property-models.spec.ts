@@ -16,7 +16,7 @@ const makeDef = (
   overrides: Partial<PropertyDefinitionWithElements> = {},
 ): PropertyDefinitionWithElements => ({
   systemId: 1,
-  propertyId: 100,
+  naturalId: 100,
   name: 'volume',
   description: 'Volume property',
   propertyType: PROPERTY_TYPE.Spf,
@@ -43,13 +43,13 @@ describe('buildPropertyModels', () => {
     expect(result.data).toEqual([]);
   });
 
-  it('maps systemId and propertyId from payload and definition', () => {
+  it('maps systemId and naturalId from payload and definition', () => {
     const payload: PropertyPayloadReadModel = {
       systemId: 42,
       propertySystemId: 1,
       payload: null,
     };
-    const def = makeDef({systemId: 1, propertyId: 100, name: 'volume'});
+    const def = makeDef({systemId: 1, naturalId: 100, name: 'volume'});
     const defMap = new Map([[1, def]]);
 
     const result = buildPropertyModels([payload], defMap);
@@ -57,7 +57,7 @@ describe('buildPropertyModels', () => {
     expect(result.kind).toBe(RESULT_KIND.Ok);
     const [model] = result.data!;
     expect(model.systemId).toBe(42);
-    expect(model.propertyId).toBe(100);
+    expect(model.naturalId).toBe(100);
     expect(model.propertyName).toBe('volume');
   });
 
@@ -76,7 +76,7 @@ describe('buildPropertyModels', () => {
   });
 
   it('returns partial result with PROPERTY_PAYLOAD_NOT_FOUND issue when definition has no matching payload', () => {
-    const def = makeDef({systemId: 2, propertyId: 200});
+    const def = makeDef({systemId: 2, naturalId: 200});
     const result = buildPropertyModels([], new Map([[2, def]]));
 
     expect(result.kind).toBe(RESULT_KIND.Partial);

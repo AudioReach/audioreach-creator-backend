@@ -24,7 +24,7 @@ export type NodeType = (typeof NODE_TYPE)[keyof typeof NODE_TYPE];
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface NodeBase {
   systemId: number;
-  parentId?: number;
+  parentSystemId?: number;
   type: NodeType;
   fileSystemId: number;
 }
@@ -52,7 +52,7 @@ export const NodeSchema = new EntitySchema<NodeRow>({
   tableName: 'nodes',
   columns: {
     ...BaseColumnSchemaPart,
-    parentId: {
+    parentSystemId: {
       type: 'integer',
       nullable: true,
       name: 'parent_id',

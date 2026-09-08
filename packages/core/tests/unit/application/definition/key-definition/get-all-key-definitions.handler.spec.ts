@@ -30,7 +30,7 @@ describe('GetAllKeyDefinitionsHandler', () => {
     const keys: KeyDefinitionReadModel[] = [
       {
         systemId: 1,
-        keyId: 100,
+        naturalId: 100,
         name: 'MyKey',
         values: [],
         cHeaderAttributes: {enumMember: 'MY_KEY_ENUM', enumName: 'MY_KEY_NAME'},
@@ -58,7 +58,7 @@ describe('GetAllKeyDefinitionsHandler', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0]).toMatchObject({
       systemId: '1',
-      keyId: 100,
+      naturalId: 100,
       name: 'MyKey',
       enumMember: 'MY_KEY_ENUM',
       enumName: 'MY_KEY_NAME',
@@ -76,10 +76,10 @@ describe('GetAllKeyDefinitionsHandler', () => {
     const keys: KeyDefinitionReadModel[] = [
       {
         systemId: 5,
-        keyId: 200,
+        naturalId: 200,
         name: 'KeyWithValues',
         values: [
-          {systemId: 10, valueId: 1, name: 'Val1', enumMember: 'VAL1_ENUM'},
+          {systemId: 10, naturalId: 1, name: 'Val1', enumMember: 'VAL1_ENUM'},
         ],
       },
     ];
@@ -95,7 +95,7 @@ describe('GetAllKeyDefinitionsHandler', () => {
     if (result.kind !== RESULT_KIND.Ok) return;
     expect(result.data[0].values[0]).toMatchObject({
       systemId: '10',
-      valueId: 1,
+      naturalId: 1,
       name: 'Val1',
       enumMember: 'VAL1_ENUM',
     });
@@ -126,7 +126,7 @@ describe('GetAllKeyDefinitionsHandler', () => {
     ).mockResolvedValue(42);
 
     const keys: KeyDefinitionReadModel[] = [
-      {systemId: 1, keyId: 100, name: 'GoodKey', values: []},
+      {systemId: 1, naturalId: 100, name: 'GoodKey', values: []},
     ];
     const partial = Result.partial(keys, [
       {

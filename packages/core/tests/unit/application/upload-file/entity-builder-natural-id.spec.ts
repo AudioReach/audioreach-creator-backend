@@ -5,9 +5,9 @@
 
 import {jest} from '@jest/globals';
 import {EntityBuilderService} from '../../../../src/application/file-operations/upload-file/services/entity-builder-service.js';
-import type {NaturalIdGenerationPort} from '../../../../src/application/ports/id-generation/natural-id-generation.port.js';
+import type {NaturalIdGenerationPort} from '../../../../src/application/ports/naturalId-generation/natural-naturalId-generation.port.js';
 import {NaturalIdType} from '../../../../src/domain/services/natural-id-generator/natural-id-type.js';
-import type {IdGenerationPort} from '../../../../src/application/ports/id-generation/id-generation.port.js';
+import type {IdGenerationPort} from '../../../../src/application/ports/naturalId-generation/naturalId-generation.port.js';
 import type {ForeignKeyMapper} from '../../../../src/application/file-operations/upload-file/services/foreign-key-mapper.js';
 
 function makeIdGeneratorStub(): IdGenerationPort {
@@ -38,9 +38,9 @@ describe('EntityBuilderService — registerNaturalIds', () => {
       makeForeignKeyMapperStub(),
     );
 
-    const fakeSubgraphs = [{subgraphId: 0xb0000001}] as any[];
-    const fakeContainers = [{containerId: 0xe0000001}] as any[];
-    const fakeModules = [{instanceId: 0x00004001}] as any[];
+    const fakeSubgraphs = [{naturalId: 0xb0000001}] as any[];
+    const fakeContainers = [{naturalId: 0xe0000001}] as any[];
+    const fakeModules = [{naturalId: 0x00004001}] as any[];
 
     service.registerNaturalIds(42, fakeSubgraphs, fakeContainers, fakeModules);
 
@@ -48,9 +48,9 @@ describe('EntityBuilderService — registerNaturalIds', () => {
     expect(naturalIdPort.registerBatch).toHaveBeenCalledWith(
       42,
       expect.arrayContaining([
-        {type: NaturalIdType.SUBGRAPH, id: 0xb0000001},
-        {type: NaturalIdType.CONTAINER, id: 0xe0000001},
-        {type: NaturalIdType.MODINSTANCE, id: 0x00004001},
+        {type: NaturalIdType.SUBGRAPH, naturalId: 0xb0000001},
+        {type: NaturalIdType.CONTAINER, naturalId: 0xe0000001},
+        {type: NaturalIdType.MODINSTANCE, naturalId: 0x00004001},
       ]),
     );
   });

@@ -18,7 +18,7 @@ describe('Key Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
   let authToken: string;
   let projectId: string | undefined;
   let sampleKeySystemId: string | undefined;
-  let sampleKeyId: number | undefined;
+  let sampleKeyNaturalId: number | undefined;
 
   beforeAll(async () => {
     const testSetup = await setupE2ETest();
@@ -58,7 +58,7 @@ describe('Key Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
     const keys: any[] = listResponse.body.data ?? [];
     if (keys.length > 0) {
       sampleKeySystemId = String(keys[0].systemId);
-      sampleKeyId = keys[0].keyId;
+      sampleKeyNaturalId = keys[0].naturalId;
     }
 
     console.log(
@@ -86,7 +86,7 @@ describe('Key Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
 
     for (const key of response.body.data) {
       expect(typeof key.systemId).toBe('string');
-      expect(typeof key.keyId).toBe('number');
+      expect(typeof key.naturalId).toBe('number');
       expect(typeof key.name).toBe('string');
       expect(typeof key.isVoice).toBe('boolean');
       expect(typeof key.isDynamic).toBe('boolean');
@@ -96,21 +96,21 @@ describe('Key Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
 
       for (const value of key.values) {
         expect(typeof value.systemId).toBe('string');
-        expect(typeof value.valueId).toBe('number');
+        expect(typeof value.naturalId).toBe('number');
         expect(typeof value.name).toBe('string');
       }
     }
   });
 
   it('should filter by keyDefinitionId when provided', async () => {
-    if (!projectId || sampleKeyId === undefined) {
-      console.warn('No projectId or sampleKeyId — skipping');
+    if (!projectId || sampleKeyNaturalId === undefined) {
+      console.warn('No projectId or sampleKeyNaturalId — skipping');
       return;
     }
 
     const response = await request(httpServer)
       .get(
-        `/arc-api/v1/projects/${projectId}/definitions/keys?keyDefinitionId=${sampleKeyId}`,
+        `/arc-api/v1/projects/${projectId}/definitions/keys?keyDefinitionId=${sampleKeyNaturalId}`,
       )
       .set('Authorization', `Bearer ${authToken}`)
       .timeout(30000)
@@ -118,7 +118,7 @@ describe('Key Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
 
     expect(response.body.data.length).toBeGreaterThan(0);
     for (const key of response.body.data) {
-      expect(key.keyId).toBe(sampleKeyId);
+      expect(key.naturalId).toBe(sampleKeyNaturalId);
     }
   });
 
@@ -164,7 +164,7 @@ describe('Key Definition Query E2E (GET /arc-api/v1/projects/{projectId}/definit
 
     const key = response.body.data;
     expect(key.systemId).toBe(sampleKeySystemId);
-    expect(typeof key.keyId).toBe('number');
+    expect(typeof key.naturalId).toBe('number');
     expect(typeof key.name).toBe('string');
     expect(typeof key.isVoice).toBe('boolean');
     expect(typeof key.isDynamic).toBe('boolean');

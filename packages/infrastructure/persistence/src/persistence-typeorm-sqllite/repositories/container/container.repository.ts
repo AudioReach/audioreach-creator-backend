@@ -100,7 +100,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     if (overlaid === null) return null;
     const container = new Container(
       overlaid.systemId,
-      overlaid.containerId,
+      overlaid.naturalId,
       overlaid.containerTypeSystemId,
       overlaid.fileSystemId,
     );
@@ -125,7 +125,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
         targetSystemId: container.systemId,
         aggregateId: container.systemId,
         payload: {
-          containerId: container.containerId,
+          naturalId: container.naturalId,
           containerTypeSystemId: container.containerTypeSystemId,
           fileSystemId: container.fileSystemId,
         },
@@ -170,12 +170,12 @@ export class TypeOrmContainerRepository implements ContainerRepository {
 
   async getPropertyDefinitionByPropertyId(
     fileSystemId: number,
-    propertyId: number,
+    propertyNaturalId: number,
   ): Promise<PropertyDefinition | null> {
     const definition =
-      await this.propertyDefinitionFetcher.fetchOneByPropertyId(
+      await this.propertyDefinitionFetcher.fetchOneByPropertyNaturalId(
         fileSystemId,
-        propertyId,
+        propertyNaturalId,
         this.uow.getWriteContext().session.sessionId,
       );
     return definition ? this.toPropertyDefinition(definition) : null;
@@ -246,7 +246,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
   private toPropertyDefinition(definition: {
     systemId: number;
     fileSystemId: number;
-    propertyId: number;
+    naturalId: number;
     name: string;
     description?: string;
     maxSize: number;
@@ -256,7 +256,7 @@ export class TypeOrmContainerRepository implements ContainerRepository {
     return new PropertyDefinition({
       systemId: definition.systemId,
       fileSystemId: definition.fileSystemId,
-      propertyId: definition.propertyId,
+      naturalId: definition.naturalId,
       name: definition.name ?? '',
       description: definition.description ?? undefined,
       maxSize: definition.maxSize,

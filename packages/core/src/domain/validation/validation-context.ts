@@ -27,7 +27,7 @@ export interface BaseValidationContext {
  * Includes:
  * - dataLinks / controlLinks — the links to validate
  * - modulesBySystemId — to check if endpoint modules exist in the file
- * - usecasesByModuleId — to report which usecases are impacted by a link issue
+ * - usecasesByModuleSystemId — to report which usecases are impacted by a link issue
  *
  * Example rules using this profile:
  *   - DuplicateDataLinkRule (ARC-LINK-002)
@@ -39,7 +39,7 @@ export interface LinkValidationContext extends BaseValidationContext {
   /** Lookup: module systemId → SpfModule. Used to check if endpoint modules exist. */
   modulesBySystemId: ReadonlyMap<number, SpfModule>;
   /** Lookup: module systemId → usecases that contain it. Used to report impacted usecases. */
-  usecasesByModuleId: ReadonlyMap<number, ReadonlyArray<UseCase>>;
+  usecasesByModuleSystemId: ReadonlyMap<number, ReadonlyArray<UseCase>>;
 }
 
 /**
@@ -48,7 +48,7 @@ export interface LinkValidationContext extends BaseValidationContext {
  * Includes:
  * - modules / definitions — the modules and their definitions to validate
  * - modulesBySystemId — for O(1) module lookup
- * - usecasesByModuleId — to report which usecases are impacted by a module issue
+ * - usecasesByModuleSystemId — to report which usecases are impacted by a module issue
  *
  * Example rules using this profile:
  *   - MissingDefinitionRule (ARC-MOD-001)
@@ -59,7 +59,7 @@ export interface ModuleValidationContext extends BaseValidationContext {
   /** Lookup: module systemId → SpfModule. */
   modulesBySystemId: ReadonlyMap<number, SpfModule>;
   /** Lookup: module systemId → usecases that contain it. Used to report impacted usecases. */
-  usecasesByModuleId: ReadonlyMap<number, ReadonlyArray<UseCase>>;
+  usecasesByModuleSystemId: ReadonlyMap<number, ReadonlyArray<UseCase>>;
 }
 
 /**
@@ -70,9 +70,9 @@ export interface ModuleValidationContext extends BaseValidationContext {
  *
  * Full profile hierarchy (see design doc Section 3.6):
  *   BaseValidationContext
- *     ├── LinkValidationContext (dataLinks, controlLinks, modulesBySystemId, usecasesByModuleId)
- *     ├── ModuleValidationContext (modules, definitions, modulesBySystemId, usecasesByModuleId)
- *     ├── SubgraphValidationContext (subgraphs, subgraphsBySystemId, modulesBySubgraphId) — future
+ *     ├── LinkValidationContext (dataLinks, controlLinks, modulesBySystemId, usecasesByModuleSystemId)
+ *     ├── ModuleValidationContext (modules, definitions, modulesBySystemId, usecasesByModuleSystemId)
+ *     ├── SubgraphValidationContext (subgraphs, subgraphsBySystemId, modulesBySubgraphSystemId) — future
  *     └── UsecaseValidationContext (usecases) — future
  *   FileValidationContext extends all of the above
  */
@@ -81,7 +81,7 @@ export interface FileValidationContext
   // ── Subgraph data ─────────────────────────────────────────────────────────
   subgraphs: ReadonlyArray<Subgraph>;
   subgraphsBySystemId: ReadonlyMap<number, Subgraph>;
-  modulesBySubgraphId: ReadonlyMap<number, ReadonlyArray<SpfModule>>;
+  modulesBySubgraphSystemId: ReadonlyMap<number, ReadonlyArray<SpfModule>>;
 
   // ── Usecase data ──────────────────────────────────────────────────────────
   usecases: ReadonlyArray<UseCase>;

@@ -16,13 +16,13 @@ import {PORT_IO_TYPE} from '../../../../../src/domain/entities/common/enums/port
 // ---------------------------------------------------------------------------
 
 function makeInput(
-  sourceNodeId: number,
-  destNodeId: number,
+  sourceNodeSystemId: number,
+  destinationNodeSystemId: number,
   parentEntries: [number, number | null][],
 ): PathInput {
   return {
-    sourceNodeId,
-    destNodeId,
+    sourceNodeSystemId,
+    destinationNodeSystemId,
     nodeParentMap: new Map<number, number | null>(parentEntries),
   };
 }

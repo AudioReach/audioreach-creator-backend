@@ -11,9 +11,9 @@ import {PORT_IO_TYPE} from '../../entities/common/enums/port-io-type.js';
 
 export interface PathInput {
   /** node.system_id for the source module */
-  sourceNodeId: number;
+  sourceNodeSystemId: number;
   /** node.system_id for the dest module */
-  destNodeId: number;
+  destinationNodeSystemId: number;
   /** All nodes visible in the file: maps node.system_id → node.parentId (null = top level) */
   nodeParentMap: Map<number, number | null>;
 }
@@ -43,8 +43,8 @@ export const SubsystemBoundaryPathService = {
    * required at each subsystem boundary.
    *
    * Algorithm (spec section 5.1 / OQ-2):
-   * 1. Walk nodeParentMap upward from sourceNodeId → exitChain
-   * 2. Walk nodeParentMap upward from destNodeId   → entryChain
+   * 1. Walk nodeParentMap upward from sourceNodeSystemId → exitChain
+   * 2. Walk nodeParentMap upward from destinationNodeSystemId   → entryChain
    * 3. Find LCA — first entry shared by both chains (null = top level if none)
    * 4. Trim both chains at LCA (exclusive)
    * 5. Reverse entryChain (LCA-level down to dest's immediate parent)
@@ -52,11 +52,11 @@ export const SubsystemBoundaryPathService = {
    * 7. Assign requiredPortType per chain membership
    */
   compute(input: PathInput): PathOutput {
-    const {sourceNodeId, destNodeId, nodeParentMap} = input;
+    const {sourceNodeSystemId, destinationNodeSystemId, nodeParentMap} = input;
 
     // Step 1: build exitChain (ancestors of source, innermost first)
     const exitChain: number[] = [];
-    let cursor: number | null = nodeParentMap.get(sourceNodeId) ?? null;
+    let cursor: number | null = nodeParentMap.get(sourceNodeSystemId) ?? null;
     while (cursor !== null) {
       exitChain.push(cursor);
       cursor = nodeParentMap.get(cursor) ?? null;
@@ -64,7 +64,7 @@ export const SubsystemBoundaryPathService = {
 
     // Step 2: build entryChain (ancestors of dest, innermost first)
     const entryChain: number[] = [];
-    cursor = nodeParentMap.get(destNodeId) ?? null;
+    cursor = nodeParentMap.get(destinationNodeSystemId) ?? null;
     while (cursor !== null) {
       entryChain.push(cursor);
       cursor = nodeParentMap.get(cursor) ?? null;
@@ -93,10 +93,10 @@ export const SubsystemBoundaryPathService = {
 
     // Step 6: assemble nodeSequence
     const nodeSequence: number[] = [
-      sourceNodeId,
+      sourceNodeSystemId,
       ...trimmedExit,
       ...reversedEntry,
-      destNodeId,
+      destinationNodeSystemId,
     ];
 
     // Step 7: assign requiredPortType

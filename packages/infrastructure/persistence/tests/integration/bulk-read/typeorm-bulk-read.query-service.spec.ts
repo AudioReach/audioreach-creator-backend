@@ -93,13 +93,13 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     const key1 = await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'Key100',
     });
     const key2 = await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'Key200',
     });
 
@@ -107,13 +107,13 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     const value1 = await valueRepository.save({
       systemId: nextId++,
       keySystemId: key1.systemId,
-      valueId: 1001,
+      naturalId: 1001,
       name: 'Value1001',
     });
     const value2 = await valueRepository.save({
       systemId: nextId++,
       keySystemId: key1.systemId,
-      valueId: 1002,
+      naturalId: 1002,
       name: 'Value1002',
     });
 
@@ -121,7 +121,7 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     const subgraph1 = await subgraphRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      subgraphId: 5000,
+      naturalId: 5000,
       name: 'Subgraph5000',
       isImported: false,
     });
@@ -167,13 +167,13 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     const key1 = await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'Key100',
     });
     const key2 = await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 200,
+      naturalId: 200,
       name: 'Key200',
     });
 
@@ -181,13 +181,13 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     const value1 = await valueRepository.save({
       systemId: nextId++,
       keySystemId: key1.systemId,
-      valueId: 1001,
+      naturalId: 1001,
       name: 'Value1001',
     });
     const value2 = await valueRepository.save({
       systemId: nextId++,
       keySystemId: key2.systemId,
-      valueId: 2001,
+      naturalId: 2001,
       name: 'Value2001',
     });
 
@@ -260,13 +260,13 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     const key1 = await keyRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      keyId: 100,
+      naturalId: 100,
       name: 'Key100',
     });
     const value1 = await valueRepository.save({
       systemId: nextId++,
       keySystemId: key1.systemId,
-      valueId: 1001,
+      naturalId: 1001,
       name: 'Value1001',
     });
 
@@ -274,14 +274,14 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
     const subgraph1 = await subgraphRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      subgraphId: 5000,
+      naturalId: 5000,
       name: 'Subgraph5000',
       isImported: false,
     });
     const subgraph2 = await subgraphRepository.save({
       systemId: nextId++,
       fileSystemId: testFileSystemId,
-      subgraphId: 5001,
+      naturalId: 5001,
       name: 'Subgraph5001',
       isImported: false,
     });
@@ -312,7 +312,7 @@ describe('TypeOrmBulkReadQueryService - readUsecaseData', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].subgraphPairs).toEqual([
-      {sourceSubgraphId: 5000, destSubgraphId: 5001},
+      {sourceSubgraphNaturalId: 5000, destSubgraphNaturalId: 5001},
     ]);
   });
 });

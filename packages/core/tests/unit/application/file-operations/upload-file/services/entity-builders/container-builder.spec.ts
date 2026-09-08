@@ -72,12 +72,12 @@ describe('ContainerBuilder', () => {
         // Verify first container
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.entities[0].containerId).toBe(1);
+        expect(result.entities[0].naturalId).toBe(1);
 
         // Verify second container
         expect(result.entities[1].systemId).toBeGreaterThan(0);
         expect(result.entities[1].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
-        expect(result.entities[1].containerId).toBe(2);
+        expect(result.entities[1].naturalId).toBe(2);
 
         // Verify ID generation was called
         expect(mockIdGenerator.getNextId).toHaveBeenCalledTimes(2);
@@ -120,9 +120,9 @@ describe('ContainerBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(3);
-        expect(result.entities[0].containerId).toBe(1);
-        expect(result.entities[1].containerId).toBe(5);
-        expect(result.entities[2].containerId).toBe(10);
+        expect(result.entities[0].naturalId).toBe(1);
+        expect(result.entities[1].naturalId).toBe(5);
+        expect(result.entities[2].naturalId).toBe(10);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -208,9 +208,9 @@ describe('ContainerBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(3);
-        expect(result.entities[0].containerId).toBe(1);
-        expect(result.entities[1].containerId).toBe(5);
-        expect(result.entities[2].containerId).toBe(10);
+        expect(result.entities[0].naturalId).toBe(1);
+        expect(result.entities[1].naturalId).toBe(5);
+        expect(result.entities[2].naturalId).toBe(10);
       });
     });
 

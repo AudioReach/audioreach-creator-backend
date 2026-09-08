@@ -12,8 +12,8 @@ import {DriverModuleDefinitionResponseDto} from '../../definition/module-definit
 // ── Inlined DTOs (used only in this file) ────────────────────────────────────
 
 class SpfPropertyDto {
-  @ApiProperty({description: 'Property ID'})
-  id!: string;
+  @ApiProperty({description: 'Property system ID'})
+  systemId!: string;
 
   @ApiProperty({description: 'Property name'})
   name!: string;
@@ -43,8 +43,8 @@ class SpfPropertyDefinitionDto {
 }
 
 class DriverPropertyDto {
-  @ApiProperty({description: 'Property ID'})
-  id!: string;
+  @ApiProperty({description: 'Property system ID'})
+  systemId!: string;
 
   @ApiProperty({description: 'Property name'})
   name!: string;
@@ -96,11 +96,11 @@ class DriverModuleCalDto {
 }
 
 class CustomModuleDto {
-  @ApiProperty({description: 'Processor ID'})
-  procId!: string;
+  @ApiProperty({description: 'Processor system ID'})
+  processorSystemId!: string;
 
-  @ApiProperty({description: 'Module ID'})
-  id!: string;
+  @ApiProperty({description: 'Module system ID'})
+  moduleSystemId!: string;
 
   @ApiProperty({description: 'Interface type'})
   interfaceType!: string;
@@ -151,8 +151,8 @@ class PreviewUsecaseAliasDto {
   @ApiProperty({description: 'Usecase alias name'})
   usecaseAlias!: string;
 
-  @ApiProperty({description: 'Usecase ID'})
-  usecaseId!: string;
+  @ApiProperty({description: 'Usecase system ID'})
+  usecaseSystemId!: string;
 
   @ApiProperty({
     description: 'Previous alias name (for updates)',
@@ -161,10 +161,10 @@ class PreviewUsecaseAliasDto {
   oldUsecaseAlias?: string;
 
   @ApiProperty({
-    description: 'Previous usecase ID (for updates)',
+    description: 'Previous usecase system ID (for updates)',
     required: false,
   })
-  oldUsecaseId?: string;
+  oldUsecaseSystemId?: string;
 }
 
 // ── Public DTOs ───────────────────────────────────────────────────────────────

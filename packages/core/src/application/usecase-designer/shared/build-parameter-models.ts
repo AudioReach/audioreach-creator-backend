@@ -33,8 +33,8 @@ export function buildParameterModels(
     );
     return {
       systemId: p.systemId,
-      parameterId: def.paramId,
-      name: def.name ?? String(def.paramId),
+      naturalId: def.naturalId,
+      name: def.name ?? String(def.naturalId),
       description: def.description,
       isReadOnly: def.isReadOnly ?? false,
       isHidden: undefined,

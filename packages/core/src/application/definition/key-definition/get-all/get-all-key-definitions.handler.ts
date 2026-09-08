@@ -31,7 +31,7 @@ export class GetAllKeyDefinitionsHandler implements QueryHandler<
     const result =
       await this.queryServices.keyValueDefQueryService.getAllKeyDefinitions(
         fileId,
-        query.keyId,
+        query.keyNaturalId,
       );
 
     if (result.kind === RESULT_KIND.Fail) return result;

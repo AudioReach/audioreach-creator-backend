@@ -11,10 +11,10 @@ export const ContainerDtoSchema = z.object({
     .describe(
       'Unique system identifier (string form of the database system_id)',
     ),
-  id: z
+  naturalId: z
     .number()
     .int()
-    .describe('Container database ID (containerId from ACDB)'),
+    .describe('Container natural ID (containerId from ACDB)'),
   name: z
     .string()
     .describe(

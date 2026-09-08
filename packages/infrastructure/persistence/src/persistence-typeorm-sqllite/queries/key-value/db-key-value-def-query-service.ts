@@ -67,7 +67,7 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
       const filtered =
         keyNaturalId === undefined
           ? all
-          : all.filter(k => k.keyId === keyNaturalId);
+          : all.filter(k => k.naturalId === keyNaturalId);
 
       return Result.ok(filtered);
     } catch (error) {
@@ -293,13 +293,13 @@ export class DbKeyValueDefQueryService implements KeyValueDefQueryService {
           .map(value => ({
             key: {
               systemId: key.systemId,
-              keyId: key.keyId,
+              naturalId: key.naturalId,
               name: key.name,
               description: key.description,
             },
             value: {
               systemId: value.systemId,
-              valueId: value.valueId,
+              naturalId: value.naturalId,
               name: value.name,
               description: value.description,
             },

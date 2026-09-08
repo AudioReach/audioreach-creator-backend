@@ -69,14 +69,14 @@ describe('UploadFileOrchestrator', () => {
 
       // Set up required state
       (orchestrator as any).parsedAwsp = {};
-      (orchestrator as any).currentFileId = 1;
+      (orchestrator as any).currentFileSystemId = 1;
     });
 
     describe('Happy Path', () => {
       it('should build and insert key definitions when they exist', async () => {
         const mockKeyDef = new KeyDefinition({
           systemId: 0,
-          keyId: 100,
+          naturalId: 100,
           fileSystemId: 0,
           name: 'Test Key',
           description: '',
@@ -112,7 +112,7 @@ describe('UploadFileOrchestrator', () => {
       it('should call methods in correct sequence', async () => {
         const mockKeyDef = new KeyDefinition({
           systemId: 0,
-          keyId: 100,
+          naturalId: 100,
           fileSystemId: 0,
           name: 'Test Key',
           description: '',
@@ -206,7 +206,7 @@ describe('UploadFileOrchestrator', () => {
       it('should propagate error when insertKeyDefinitions throws', async () => {
         const mockKeyDef = new KeyDefinition({
           systemId: 0,
-          keyId: 100,
+          naturalId: 100,
           fileSystemId: 0,
           name: 'Test Key',
           description: '',
@@ -266,7 +266,7 @@ describe('UploadFileOrchestrator', () => {
       it('should call all methods exactly once when key definitions exist', async () => {
         const mockKeyDef = new KeyDefinition({
           systemId: 0,
-          keyId: 100,
+          naturalId: 100,
           fileSystemId: 0,
           name: 'Test Key',
           description: '',
@@ -324,14 +324,14 @@ describe('UploadFileOrchestrator', () => {
           },
         ]),
       };
-      (orchestrator as any).currentFileId = 1;
+      (orchestrator as any).currentFileSystemId = 1;
     });
 
     describe('Happy Path', () => {
       it('should build, and insert SPF module definitions when they exist', async () => {
         const mockModuleDef = {
           systemId: 0,
-          moduleDefinitionId: 100,
+          naturalId: 100,
           fileSystemId: 1,
           name: 'Test Module',
           displayName: 'Test Module',
@@ -371,7 +371,7 @@ describe('UploadFileOrchestrator', () => {
       it('should call methods in correct sequence', async () => {
         const mockModuleDef = {
           systemId: 0,
-          moduleDefinitionId: 100,
+          naturalId: 100,
           fileSystemId: 1,
           name: 'Test Module',
           displayName: 'Test Module',
@@ -469,7 +469,7 @@ describe('UploadFileOrchestrator', () => {
       it('should propagate error when insertSpfModuleDefinitions throws', async () => {
         const mockModuleDef = {
           systemId: 0,
-          moduleDefinitionId: 100,
+          naturalId: 100,
           fileSystemId: 1,
           name: 'Test Module',
           displayName: 'Test Module',
@@ -502,7 +502,7 @@ describe('UploadFileOrchestrator', () => {
       it('should collect insertion errors when insert result is not ok', async () => {
         const mockModuleDef = {
           systemId: 0,
-          moduleDefinitionId: 100,
+          naturalId: 100,
           fileSystemId: 1,
           name: 'Test Module',
           displayName: 'Test Module',
@@ -565,7 +565,7 @@ describe('UploadFileOrchestrator', () => {
       it('should call all methods exactly once when module definitions exist', async () => {
         const mockModuleDef = {
           systemId: 0,
-          moduleDefinitionId: 100,
+          naturalId: 100,
           fileSystemId: 1,
           name: 'Test Module',
           displayName: 'Test Module',

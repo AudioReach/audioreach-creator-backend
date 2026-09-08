@@ -371,7 +371,7 @@ describe('PatchSpfModuleHandler', () => {
   it('maxInputPortsSupported increase: calls addDataPort the correct number of times', async () => {
     const existingPort = new DataPort({
       systemId: 1,
-      dataPortId: 1,
+      naturalId: 1,
       portIoType: 'INPUT',
       isStatic: false,
     });
@@ -394,13 +394,13 @@ describe('PatchSpfModuleHandler', () => {
   it('maxInputPortsSupported decrease: blocked by linked port, throws DomainRuleViolationException', async () => {
     const portA = new DataPort({
       systemId: 1,
-      dataPortId: 1,
+      naturalId: 1,
       portIoType: 'INPUT',
       isStatic: false,
     });
     const portB = new DataPort({
       systemId: 2,
-      dataPortId: 2,
+      naturalId: 2,
       portIoType: 'INPUT',
       isStatic: false,
     });
@@ -430,13 +430,13 @@ describe('PatchSpfModuleHandler', () => {
   it('maxInputPortsSupported decrease: removes ports LIFO when no links', async () => {
     const portA = new DataPort({
       systemId: 1,
-      dataPortId: 1,
+      naturalId: 1,
       portIoType: 'INPUT',
       isStatic: false,
     });
     const portB = new DataPort({
       systemId: 3,
-      dataPortId: 3,
+      naturalId: 3,
       portIoType: 'INPUT',
       isStatic: false,
     });
@@ -462,7 +462,7 @@ describe('PatchSpfModuleHandler', () => {
     // CurrentUsage(1)=1 == maxPort(1), CurrentUsage(2)=1 == maxPort(1) → no slots available.
     const existingCp = new ControlPort({
       systemId: 1,
-      portId: 1,
+      naturalId: 1,
       isStatic: false,
       nodeSystemId: MODULE_ID,
       intentSystemIds: [10, 11],
@@ -475,10 +475,10 @@ describe('PatchSpfModuleHandler', () => {
     const definition = {
       containerTypesSystemIds: new Set<number>([]),
       dataPortGroups: [],
-      staticControlPorts: [{portId: 1}, {portId: 2}], // length=2 → max control ports
+      staticControlPorts: [{naturalId: 1}, {naturalId: 2}], // length=2 → max control ports
       dynamicIntents: [
-        {intentId: 1, maxPort: 1}, // at capacity
-        {intentId: 2, maxPort: 1}, // at capacity
+        {naturalId: 1, maxPort: 1}, // at capacity
+        {naturalId: 2, maxPort: 1}, // at capacity
       ],
     };
     const defRepo = makeDefRepo({
@@ -516,19 +516,19 @@ describe('PatchSpfModuleHandler — port ID generation', () => {
     const existingInputPorts = [
       new DataPort({
         systemId: 10,
-        dataPortId: 1,
+        naturalId: 1,
         portIoType: PORT_IO_TYPE.Input,
         isStatic: true,
       }),
       new DataPort({
         systemId: 11,
-        dataPortId: 4,
+        naturalId: 4,
         portIoType: PORT_IO_TYPE.Input,
         isStatic: false,
       }),
       new DataPort({
         systemId: 12,
-        dataPortId: 5,
+        naturalId: 5,
         portIoType: PORT_IO_TYPE.Input,
         isStatic: false,
       }),
@@ -563,7 +563,7 @@ describe('PatchSpfModuleHandler — port ID generation', () => {
       .calls;
     expect(addCalls).toHaveLength(2);
     const addedIds = addCalls.map(
-      (c: unknown[]) => (c[0] as DataPort).dataPortId,
+      (c: unknown[]) => (c[0] as DataPort).naturalId,
     );
     expect(addedIds).toEqual([2, 3]);
   });
@@ -572,7 +572,7 @@ describe('PatchSpfModuleHandler — port ID generation', () => {
     // Module has one dynamic control port at 0x80000000; requesting 2 → add 1 → should be 0x80000001.
     const existingControlPort = new ControlPort({
       systemId: 20,
-      portId: 0x80000000,
+      naturalId: 0x80000000,
       isStatic: false,
       nodeSystemId: MODULE_ID,
       name: 'cp0',
@@ -587,8 +587,8 @@ describe('PatchSpfModuleHandler — port ID generation', () => {
       findBySystemId: jest.fn().mockResolvedValue({
         containerTypesSystemIds: new Set<number>(),
         dataPortGroups: [],
-        staticControlPorts: [{portId: 1}, {portId: 2}], // length=2 → maxAllowed=2
-        dynamicIntents: [{intentId: 1, maxPort: 10}], // 10 slots available
+        staticControlPorts: [{naturalId: 1}, {naturalId: 2}], // length=2 → maxAllowed=2
+        dynamicIntents: [{naturalId: 1, maxPort: 10}], // 10 slots available
       }),
     });
     const testUow = makeUow({moduleRepo, defRepo});
@@ -608,7 +608,7 @@ describe('PatchSpfModuleHandler — port ID generation', () => {
     const addCalls = (moduleRepo.addControlPort as ReturnType<typeof jest.fn>)
       .mock.calls;
     expect(addCalls).toHaveLength(1);
-    expect((addCalls[0][0] as ControlPort).portId).toBe(0x80000001);
+    expect((addCalls[0][0] as ControlPort).naturalId).toBe(0x80000001);
   });
 
   it('does not call getPortStrategy on alias-only patch', async () => {
@@ -627,13 +627,13 @@ describe('PatchSpfModuleHandler — static port protection', () => {
     // Module has 2 static input ports; requesting 1 is below the static minimum.
     const staticPort1 = new DataPort({
       systemId: 1,
-      dataPortId: 2,
+      naturalId: 2,
       portIoType: PORT_IO_TYPE.Input,
       isStatic: true,
     });
     const staticPort2 = new DataPort({
       systemId: 2,
-      dataPortId: 4,
+      naturalId: 4,
       portIoType: PORT_IO_TYPE.Input,
       isStatic: true,
     });
@@ -672,7 +672,7 @@ describe('PatchSpfModuleHandler — static port protection', () => {
     // Module has 1 static control port; requesting 0 is below the static minimum.
     const staticCp = new ControlPort({
       systemId: 10,
-      portId: 1,
+      naturalId: 1,
       isStatic: true,
       nodeSystemId: MODULE_ID,
       intentSystemIds: [],
@@ -685,7 +685,7 @@ describe('PatchSpfModuleHandler — static port protection', () => {
       findBySystemId: jest.fn().mockResolvedValue({
         containerTypesSystemIds: new Set<number>(),
         dataPortGroups: [],
-        staticControlPorts: [{portId: 1}],
+        staticControlPorts: [{naturalId: 1}],
         dynamicIntents: [],
       }),
     });

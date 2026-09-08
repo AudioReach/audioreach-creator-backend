@@ -86,7 +86,7 @@ export class LogController {
 
   private mapToDto(log: LogEntryReadModel): LogEntryResponseDto {
     const dto = new LogEntryResponseDto();
-    dto.id = log.id;
+    dto.systemId = String(log.systemId);
     dto.level = log.level;
     dto.description = log.description;
     dto.timestamp = log.timestamp;

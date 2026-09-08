@@ -5,13 +5,13 @@
 
 export interface DriverModuleParameterDefinitionInit {
   systemId: number;
-  parameterId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
   paramStructure: string; // JSON string
   driverModuleDefinitionSystemId: number;
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 }
 
 /**
@@ -20,22 +20,22 @@ export interface DriverModuleParameterDefinitionInit {
  */
 export class DriverModuleParameterDefinition {
   systemId: number;
-  parameterId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
   paramStructure: string; // JSON string
   driverModuleDefinitionSystemId: number;
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 
   constructor(init: DriverModuleParameterDefinitionInit) {
     this.systemId = init.systemId;
-    this.parameterId = init.parameterId;
+    this.naturalId = init.naturalId;
     this.name = init.name;
     this.description = init.description;
     this.maxSize = init.maxSize;
     this.paramStructure = init.paramStructure;
     this.driverModuleDefinitionSystemId = init.driverModuleDefinitionSystemId;
-    this.copySrcParamId = init.copySrcParamId;
+    this.copySrcParamNaturalId = init.copySrcParamNaturalId;
   }
 }

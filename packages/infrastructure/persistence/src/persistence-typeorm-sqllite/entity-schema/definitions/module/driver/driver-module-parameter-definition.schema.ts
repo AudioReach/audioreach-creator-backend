@@ -13,12 +13,12 @@ import type {DriverModuleDefinitionRow} from './driver-module-definition.schema.
 /** Scalar columns only — no relations, no audit fields. Used by overlay fetchers. */
 export interface DriverModuleParameterDefinitionBase {
   systemId: number;
-  parameterId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;
   paramStructure: string; // JSON
-  copySrcParamId?: number;
+  copySrcParamNaturalId?: number;
 
   // Foreign key relation
   driverModuleDefinitionSystemId: number;
@@ -35,7 +35,7 @@ export const DriverModuleParameterDefinitionSchema =
     tableName: 'driver_module_parameter_definitions',
     columns: {
       ...BaseColumnSchemaPart,
-      parameterId: {
+      naturalId: {
         type: 'integer',
         name: 'parameter_id',
       },
@@ -58,7 +58,7 @@ export const DriverModuleParameterDefinitionSchema =
         type: 'text',
         name: 'param_structure',
       },
-      copySrcParamId: {
+      copySrcParamNaturalId: {
         type: 'integer',
         nullable: true,
         name: 'copy_src_param_id',

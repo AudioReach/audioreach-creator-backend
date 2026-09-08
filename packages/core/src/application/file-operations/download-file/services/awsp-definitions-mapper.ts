@@ -61,7 +61,7 @@ export class AwspDefinitionsMapper {
   ): AwspKeyDefinition[] {
     return models.map(model => {
       const instance = new AwspKeyDefinition();
-      instance.id = model.keyId;
+      instance.id = model.keyNaturalId;
       instance.name = model.name;
       instance.description = model.description;
       instance.isVoice = model.isVoice;
@@ -87,7 +87,7 @@ export class AwspDefinitionsMapper {
         : undefined;
       instance.values = model.values.map(v => {
         const val = new AwspValueDefinition();
-        val.id = v.valueId;
+        val.id = v.valueNaturalId;
         val.name = v.name;
         val.description = v.description;
         val.enumMember = v.enumMember;
@@ -103,7 +103,7 @@ export class AwspDefinitionsMapper {
   ): AwspTagDefinition[] {
     return models.map(model => {
       const instance = new AwspTagDefinition();
-      instance.id = model.tagId;
+      instance.id = model.tagNaturalId;
       instance.name = model.name;
       instance.description = model.description;
       instance.isVoice = model.isVoice;
@@ -112,7 +112,7 @@ export class AwspDefinitionsMapper {
       instance.isSpfTag = model.isSpfTag;
       instance.keys = model.supportedKeys.map(sk => {
         const link = new AwspTagKeyDefinition();
-        link.id = sk.keyId;
+        link.id = sk.keyNaturalId;
         link.name = sk.keyName;
         link.enumMember = sk.enumValue;
         return link;
@@ -126,7 +126,7 @@ export class AwspDefinitionsMapper {
   ): AwspSpfModuleDefinition[] {
     return models.map(model => {
       const instance = new AwspSpfModuleDefinition();
-      instance.id = model.moduleDefinitionId;
+      instance.id = model.naturalId;
       instance.name = model.name;
       instance.displayName = model.displayName;
       instance.description = model.description;
@@ -146,7 +146,7 @@ export class AwspDefinitionsMapper {
         info.maxPortCount = inputGroup.maxPortCount;
         info.ports = inputGroup.ports.map(p => {
           const port = new AwspPort();
-          port.id = p.portId;
+          port.id = p.portNaturalId;
           port.name = p.name;
           return port;
         });
@@ -159,7 +159,7 @@ export class AwspDefinitionsMapper {
         info.maxPortCount = outputGroup.maxPortCount;
         info.ports = outputGroup.ports.map(p => {
           const port = new AwspPort();
-          port.id = p.portId;
+          port.id = p.portNaturalId;
           port.name = p.name;
           return port;
         });
@@ -173,11 +173,11 @@ export class AwspDefinitionsMapper {
         const ctrlInfo = new AwspControlPortsInfo();
         ctrlInfo.staticPorts = model.staticControlPorts.map(sp => {
           const staticPort = new AwspStaticControlPort();
-          staticPort.id = sp.portId;
+          staticPort.id = sp.portNaturalId;
           staticPort.name = sp.portName;
           staticPort.intents = sp.intents.map(i => {
             const intent = new AwspIntent();
-            intent.id = i.intentId;
+            intent.id = i.intentNaturalId;
             intent.name = i.name;
             intent.maxports = 0;
             return intent;
@@ -186,7 +186,7 @@ export class AwspDefinitionsMapper {
         });
         ctrlInfo.dynamicIntents = model.dynamicIntents.map(di => {
           const intent = new AwspIntent();
-          intent.id = di.intentId;
+          intent.id = di.intentNaturalId;
           intent.name = di.name;
           intent.maxports = di.maxPort ?? 0;
           return intent;
@@ -203,13 +203,13 @@ export class AwspDefinitionsMapper {
   ): DriverModuleDefinition[] {
     return models.map(model => {
       const instance = new DriverModuleDefinition();
-      instance.id = model.moduleDefinitionId;
+      instance.id = model.naturalId;
       instance.name = model.name;
       instance.description = model.description;
 
       instance.parameters = model.params.map(p => {
         const param = new AwspParamDefinition();
-        param.id = p.parameterId;
+        param.id = p.naturalId;
         param.name = p.name ?? '';
         param.description = p.description;
         param.maxSize = p.maxSize;
@@ -220,7 +220,7 @@ export class AwspDefinitionsMapper {
           ? AwspDefinitionsMapper.parseJson<AwspParamDefinition['elements']>(
               p.paramStructure,
               'paramStructure',
-              `driver param ${p.parameterId}`,
+              `driver param ${p.naturalId}`,
             )
           : [];
         return param;
@@ -235,13 +235,13 @@ export class AwspDefinitionsMapper {
   ): AwspVcpmModuleDefinition[] {
     return models.map(model => {
       const instance = new AwspVcpmModuleDefinition();
-      instance.id = model.moduleDefinitionId;
+      instance.id = model.naturalId;
       instance.name = model.name;
       instance.description = model.description;
 
       instance.parameters = model.params.map(p => {
         const param = new AwspParamDefinition();
-        param.id = p.parameterId;
+        param.id = p.naturalId;
         param.name = p.name ?? '';
         param.description = p.description;
         param.maxSize = p.maxSize;
@@ -251,7 +251,7 @@ export class AwspDefinitionsMapper {
           ? AwspDefinitionsMapper.parseJson<AwspParamDefinition['elements']>(
               p.paramStructure,
               'paramStructure',
-              `vcpm param ${p.parameterId}`,
+              `vcpm param ${p.naturalId}`,
             )
           : [];
         return param;
@@ -266,7 +266,7 @@ export class AwspDefinitionsMapper {
   ): SpfPropertyDefinition[] {
     return models.map(model => {
       const instance = new SpfPropertyDefinition();
-      instance.id = model.propertyId;
+      instance.id = model.propertyNaturalId;
       instance.name = model.name;
       instance.description = model.description;
       instance.maxSize = model.maxSize;
@@ -274,7 +274,7 @@ export class AwspDefinitionsMapper {
         ? AwspDefinitionsMapper.parseJson<SpfPropertyDefinition['elements']>(
             model.elementsStructure,
             'elementsStructure',
-            `spf property ${model.propertyId}`,
+            `spf property ${model.propertyNaturalId}`,
           )
         : [];
       instance.categoryName = model.categoryName;
@@ -292,7 +292,7 @@ export class AwspDefinitionsMapper {
   ): DriverPropertyDefinition[] {
     return models.map(model => {
       const instance = new DriverPropertyDefinition();
-      instance.id = model.propertyId;
+      instance.id = model.propertyNaturalId;
       instance.name = model.name;
       instance.description = model.description;
       instance.maxSize = model.maxSize;
@@ -300,7 +300,7 @@ export class AwspDefinitionsMapper {
         ? AwspDefinitionsMapper.parseJson<DriverPropertyDefinition['elements']>(
             model.propertyStructure,
             'propertyStructure',
-            `driver property ${model.propertyId}`,
+            `driver property ${model.propertyNaturalId}`,
           )
         : [];
       return instance;
@@ -312,7 +312,7 @@ export class AwspDefinitionsMapper {
   ): ProcessorDefinition[] {
     return models.map(model => {
       const instance = new ProcessorDefinition();
-      instance.id = model.processorDefinitionId;
+      instance.id = model.processorDefinitionNaturalId;
       instance.name = model.name;
       return instance;
     });
@@ -333,7 +333,7 @@ export class AwspDefinitionsMapper {
     p: SpfParamDefDownloadModel,
   ): AwspParamDefinition {
     const param = new AwspParamDefinition();
-    param.id = p.paramId;
+    param.id = p.paramNaturalId;
     param.name = p.name ?? '';
     param.description = p.description;
     param.maxSize = p.maxSize;
@@ -341,23 +341,23 @@ export class AwspDefinitionsMapper {
       AwspDefinitionsMapper.PARAM_TYPE_BY_VALUE,
       p.pidType,
       'PARAM_TYPE',
-      `param ${p.paramId}`,
+      `param ${p.paramNaturalId}`,
       'None',
     ) as AwspParamDefinition['pidType'];
     param.elements = p.elementsStructure
       ? AwspDefinitionsMapper.parseJson<AwspParamDefinition['elements']>(
           p.elementsStructure,
           'elementsStructure',
-          `spf param ${p.paramId}`,
+          `spf param ${p.paramNaturalId}`,
         )
       : [];
     param.isReadOnly = p.isReadOnly;
-    param.copySrcParamId = p.copySrcParamId;
+    param.copySrcParamId = p.copySrcParamNaturalId;
     const rawPolicies = p.toolPolicies
       ? AwspDefinitionsMapper.parseJson<string[]>(
           p.toolPolicies,
           'toolPolicies',
-          `spf param ${p.paramId}`,
+          `spf param ${p.paramNaturalId}`,
         )
       : [];
     param.toolPolicies = rawPolicies
@@ -367,7 +367,7 @@ export class AwspDefinitionsMapper {
           AwspDefinitionsMapper.TOOL_POLICY_BY_VALUE,
           v,
           'TOOL_POLICY',
-          `param ${p.paramId}`,
+          `param ${p.paramNaturalId}`,
         ),
       )
       .filter(

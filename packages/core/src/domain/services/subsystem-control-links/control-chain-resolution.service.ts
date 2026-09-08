@@ -84,14 +84,14 @@ export const ControlChainResolutionService = {
 
     for (const link of unresolvedSubsystemControlLinks) {
       addEdge(link.peerNodeASystemId, {
-        neighborId: link.peerNodeBSystemId,
-        subsystemControlLinkId: link.systemId,
+        neighborSystemId: link.peerNodeBSystemId,
+        subsystemControlLinkSystemId: link.systemId,
         portOnThis: link.nodeAPortSystemId,
         portOnNeighbor: link.nodeBPortSystemId,
       });
       addEdge(link.peerNodeBSystemId, {
-        neighborId: link.peerNodeASystemId,
-        subsystemControlLinkId: link.systemId,
+        neighborSystemId: link.peerNodeASystemId,
+        subsystemControlLinkSystemId: link.systemId,
         portOnThis: link.nodeBPortSystemId,
         portOnNeighbor: link.nodeAPortSystemId,
       });
@@ -113,16 +113,17 @@ export const ControlChainResolutionService = {
         traverse(
           nodeId,
           firstEdge.portOnThis,
-          firstEdge.neighborId,
+          firstEdge.neighborSystemId,
           [
             {
-              subsystemControlLinkId: firstEdge.subsystemControlLinkId,
+              subsystemControlLinkSystemId:
+                firstEdge.subsystemControlLinkSystemId,
               neighborPort: firstEdge.portOnNeighbor,
             },
           ],
-          new Set([nodeId, firstEdge.neighborId]),
-          [nodeId, firstEdge.neighborId],
-          firstEdge.subsystemControlLinkId,
+          new Set([nodeId, firstEdge.neighborSystemId]),
+          [nodeId, firstEdge.neighborSystemId],
+          firstEdge.subsystemControlLinkSystemId,
           ctx,
         );
       }
@@ -140,14 +141,14 @@ export const ControlChainResolutionService = {
 // ---------------------------------------------------------------------------
 
 interface AdjEdge {
-  neighborId: number;
-  subsystemControlLinkId: number;
+  neighborSystemId: number;
+  subsystemControlLinkSystemId: number;
   portOnThis: number; // port belonging to the node that owns this edge entry
   portOnNeighbor: number; // port belonging to the neighbor node
 }
 
 interface Step {
-  subsystemControlLinkId: number;
+  subsystemControlLinkSystemId: number;
   neighborPort: number; // port on the node we just arrived at
 }
 
@@ -165,7 +166,7 @@ interface TraverseCtx {
 // ---------------------------------------------------------------------------
 
 function linkIds(steps: Step[]): number[] {
-  return steps.map(s => s.subsystemControlLinkId);
+  return steps.map(s => s.subsystemControlLinkSystemId);
 }
 
 function chainKey(ids: number[]): string {
@@ -235,7 +236,7 @@ function traverse(
   }
 
   const candidates = (ctx.adjacency.get(currentNode) ?? []).filter(
-    e => e.subsystemControlLinkId !== incomingLinkId,
+    e => e.subsystemControlLinkSystemId !== incomingLinkId,
   );
 
   if (candidates.length === 0) {
@@ -244,9 +245,9 @@ function traverse(
   }
 
   for (const edge of candidates) {
-    if (visited.has(edge.neighborId)) {
+    if (visited.has(edge.neighborSystemId)) {
       recordIncomplete(
-        [...linkIds(steps), edge.subsystemControlLinkId],
+        [...linkIds(steps), edge.subsystemControlLinkSystemId],
         reachable,
         ctx,
       );
@@ -255,25 +256,25 @@ function traverse(
 
     // Mutate-and-backtrack: O(1) per call vs O(n) Set/array copy per call.
     steps.push({
-      subsystemControlLinkId: edge.subsystemControlLinkId,
+      subsystemControlLinkSystemId: edge.subsystemControlLinkSystemId,
       neighborPort: edge.portOnNeighbor,
     });
-    visited.add(edge.neighborId);
-    reachable.push(edge.neighborId);
+    visited.add(edge.neighborSystemId);
+    reachable.push(edge.neighborSystemId);
 
     traverse(
       startNode,
       startPort,
-      edge.neighborId,
+      edge.neighborSystemId,
       steps,
       visited,
       reachable,
-      edge.subsystemControlLinkId,
+      edge.subsystemControlLinkSystemId,
       ctx,
     );
 
     steps.pop();
-    visited.delete(edge.neighborId);
+    visited.delete(edge.neighborSystemId);
     reachable.pop();
   }
 }

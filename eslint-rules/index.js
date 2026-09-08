@@ -6,6 +6,8 @@
 import {createRequire} from 'module';
 import noBannedKeywords from './no-banned-keywords.js';
 import noApiPropertyExample from './no-api-property-example.js';
+import noAmbiguousIdFields from './no-ambiguous-id-fields.js';
+import dtoSystemIdsAreStrings from './dto-system-ids-are-strings.js';
 
 const require = createRequire(import.meta.url);
 const noManualStatusCodes = require('./no-manual-status-codes.cjs');
@@ -20,6 +22,8 @@ export default {
   rules: {
     'no-banned-keywords': noBannedKeywords,
     'no-api-property-example': noApiPropertyExample,
+    'no-ambiguous-id-fields': noAmbiguousIdFields,
+    'dto-system-ids-are-strings': dtoSystemIdsAreStrings,
     'no-manual-status-codes': noManualStatusCodes,
     'no-controller-try-catch': noControllerTryCatch,
     'enforce-http-exceptions': enforceHttpExceptions,

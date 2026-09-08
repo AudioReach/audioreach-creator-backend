@@ -16,7 +16,7 @@ import {
 /** Optional scalar filters for SPF module parameter definitions. */
 export type SpfModuleParameterDefinitionFilters = {
   systemId?: number | number[];
-  paramId?: number | number[];
+  naturalId?: number | number[];
   name?: string | string[];
   pidType?: string | string[];
   isPersistent?: boolean | boolean[];

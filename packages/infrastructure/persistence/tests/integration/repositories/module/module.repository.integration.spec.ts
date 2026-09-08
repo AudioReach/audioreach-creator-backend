@@ -25,7 +25,7 @@ import {EditActionSchema} from '../../../../src/persistence-typeorm-sqllite/enti
 import {ProjectSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/project.schema.js';
 import {ArcDbFileSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/project-data/arc-db-file.schema.js';
 import {ProjectSessionSchema} from '../../../../src/persistence-typeorm-sqllite/entity-schema/edit-session/project-session.schema.js';
-import {DataPort} from '@arc/core';
+import {ControlPort, DataPort} from '@arc/core';
 import {
   describe,
   it,
@@ -214,6 +214,28 @@ describe('TypeOrmModuleRepository (integration)', () => {
       expect(module!.dataPorts).toHaveLength(1);
       expect(module!.dataPorts[0].systemId).toBe(600);
     });
+
+    it('overlays a newly created control port with its natural ID', async () => {
+      await seedModule(ds);
+      const sessionId = await seedSession(ds);
+      const repo = makeRepo(qr.manager, sessionId);
+      await repo.addControlPort(
+        new ControlPort({
+          systemId: 601,
+          naturalId: 9,
+          isStatic: false,
+          nodeSystemId: MODULE_ID,
+          intentSystemIds: [],
+        }),
+        MODULE_ID,
+      );
+
+      const module = await repo.findModuleForPatch(MODULE_ID, FILE_ID);
+
+      expect(module!.controlPorts).toEqual(
+        expect.arrayContaining([expect.objectContaining({naturalId: 9})]),
+      );
+    });
   });
 
   describe('effective module reads', () => {
@@ -294,7 +316,7 @@ describe('TypeOrmModuleRepository (integration)', () => {
       const repo = makeRepo(qr.manager, sessionId);
       const port = new DataPort({
         systemId: 700,
-        dataPortId: 1,
+        naturalId: 1,
         portIoType: 'INPUT',
         isStatic: false,
         name: 'p',

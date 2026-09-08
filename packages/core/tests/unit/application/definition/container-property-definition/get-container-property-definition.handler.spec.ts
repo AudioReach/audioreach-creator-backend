@@ -32,7 +32,7 @@ describe('GetContainerPropertyDefinitionHandler', () => {
 
     const property: PropertyDefinitionReadModel = {
       systemId: 1,
-      propertyId: 100,
+      naturalId: 100,
       name: 'MyProperty',
       propertyType: PROPERTY_TYPE.Spf,
       maxSize: 4,
@@ -56,7 +56,7 @@ describe('GetContainerPropertyDefinitionHandler', () => {
     ).toHaveBeenCalledWith(1, 42);
     // Result is now a mapped DTO — verify key fields
     expect(result.systemId).toBe('1');
-    expect(result.propertyId).toBe(100);
+    expect(result.naturalId).toBe(100);
     expect(result.name).toBe('MyProperty');
     expect(result.type).toBe('SPF');
   });

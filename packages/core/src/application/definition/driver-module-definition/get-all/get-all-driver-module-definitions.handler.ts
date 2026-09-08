@@ -40,8 +40,8 @@ export class GetAllDriverModuleDefinitionsHandler implements QueryHandler<
       await this.queryServices.driverModuleDefinitionQueryService.getAllDriverModuleDefinitions(
         fileSystemId,
         {
-          moduleDefinitionNaturalId: query.moduleDefinitionId,
-          parameterNaturalId: query.parameterId,
+          moduleDefinitionNaturalId: query.moduleDefinitionNaturalId,
+          parameterNaturalId: query.parameterNaturalId,
         },
       );
 

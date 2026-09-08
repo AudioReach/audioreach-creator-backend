@@ -13,7 +13,7 @@ import type {PropertyDataDto} from '../../application/usecase-designer/shared/pr
 export const PropertyDtoSchema = z
   .object({
     systemId: z.string().describe('System ID'),
-    propertyId: z.number().int().describe('Property ID'),
+    naturalId: z.number().int().describe('Property ID'),
     propertyName: z.string().describe('Property name'),
     hasDefinition: z.boolean().describe('Has definition or not'),
     elements: z
@@ -103,7 +103,7 @@ function mapElement(e: ElementData): ElementUnion {
 export function mapPropertyToDto(model: PropertyDataDto): PropertyDto {
   return {
     systemId: String(model.systemId),
-    propertyId: model.propertyId,
+    naturalId: model.naturalId,
     propertyName: model.propertyName,
     hasDefinition: true,
     elements: mapElements(model.elements),

@@ -9,12 +9,16 @@ import type {VmidRemapping} from '../../../domain/services/natural-id-generator/
 export interface NaturalIdGenerationPort {
   registerBatch(
     fileSystemId: number,
-    entries: Array<{type: NaturalIdType; id: number}>,
+    entries: Array<{type: NaturalIdType; naturalId: number}>,
   ): void;
 
   getNextId(fileSystemId: number, type: NaturalIdType): number;
 
-  release(fileSystemId: number, type: NaturalIdType, id: number): boolean;
+  release(
+    fileSystemId: number,
+    type: NaturalIdType,
+    naturalId: number,
+  ): boolean;
 
   getRange(
     fileSystemId: number,

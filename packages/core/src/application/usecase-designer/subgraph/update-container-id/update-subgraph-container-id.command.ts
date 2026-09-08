@@ -16,8 +16,8 @@ export class UpdateSubgraphContainerIdCommand extends BaseCommand {
 
   constructor(
     public readonly subgraphSystemId: number,
-    public readonly oldContainerId: number,
-    public readonly newContainerId: number,
+    public readonly oldContainerNaturalId: number,
+    public readonly newContainerNaturalId: number,
   ) {
     super();
   }

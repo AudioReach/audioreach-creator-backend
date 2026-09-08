@@ -10,7 +10,7 @@ import {OverlayMergeImpl} from '../../../queries/edit-session/overlay-merge.js';
 
 export interface ModuleParameterDefinitionBase {
   systemId: number;
-  paramId: number;
+  naturalId: number;
   name?: string;
   description?: string;
   maxSize: number;

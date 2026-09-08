@@ -167,7 +167,7 @@ export class SpfModuleBuilder {
 
       // Store module mapping immediately
       this.foreignKeyMapper.addSpfModuleMapping(
-        asNaturalId(spfModule.instanceId),
+        asNaturalId(spfModule.naturalId),
         asSystemId(spfModule.systemId),
       );
 
@@ -195,7 +195,7 @@ export class SpfModuleBuilder {
       // Store port mapping
       this.foreignKeyMapper.addDataPortMapping(
         asSystemId(moduleSystemId),
-        asNaturalId(port.dataPortId),
+        asNaturalId(port.naturalId),
         asSystemId(port.systemId),
         port.portIoType,
       );
@@ -221,7 +221,7 @@ export class SpfModuleBuilder {
       // Store port mapping
       this.foreignKeyMapper.addControlPortMapping(
         asSystemId(moduleSystemId),
-        asNaturalId(port.portId),
+        asNaturalId(port.naturalId),
         asSystemId(port.systemId),
       );
     }
@@ -361,7 +361,7 @@ export class SpfModuleBuilder {
     const map = new Map<NaturalId, SystemId>();
     for (const spfModule of spfModules) {
       map.set(
-        asNaturalId(spfModule.instanceId),
+        asNaturalId(spfModule.naturalId),
         asSystemId(spfModule.definitionSystemId),
       );
     }
@@ -598,7 +598,7 @@ export class SpfModuleBuilder {
     // Create SpfModule entity
     return new SpfModule({
       systemId: 0, // Will be generated during insertion
-      instanceId: moduleInstance.instanceId,
+      naturalId: moduleInstance.instanceId,
       definitionSystemId,
       containerSystemId,
       subgraphSystemId,
@@ -697,7 +697,7 @@ export class SpfModuleBuilder {
       staticPort =>
         new DataPort({
           systemId: 0,
-          dataPortId: staticPort.id,
+          naturalId: staticPort.id,
           portIoType,
           isStatic: true,
           name:
@@ -731,7 +731,7 @@ export class SpfModuleBuilder {
       ports.push(
         new DataPort({
           systemId: 0,
-          dataPortId: portId,
+          naturalId: portId,
           portIoType,
           isStatic: false,
           name: `${portTypeLabel}_${portId}`,
@@ -845,7 +845,7 @@ export class SpfModuleBuilder {
       controlPorts.push(
         new ControlPort({
           systemId: 0,
-          portId: staticPort.id,
+          naturalId: staticPort.id,
           isStatic: true,
           nodeSystemId: 0,
           name: staticPort.name || `ControlPort_${staticPort.id}`,
@@ -890,7 +890,7 @@ export class SpfModuleBuilder {
       controlPorts.push(
         new ControlPort({
           systemId: 0,
-          portId: portId,
+          naturalId: portId,
           isStatic: false,
           nodeSystemId: 0,
           name: `ControlPort_0x${portId.toString(16)}`,

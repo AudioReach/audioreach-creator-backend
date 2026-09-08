@@ -11,7 +11,7 @@ import {BinaryUtils} from '../../../../shared/utilities/binary-utils.js';
 
 export interface SubgraphInit {
   systemId: number;
-  subgraphId: number;
+  naturalId: number;
   name: string;
   isImported: boolean;
   fileSystemId: number;
@@ -24,7 +24,7 @@ export class Subgraph {
   private readonly sgkvKeys = new Set<string>();
 
   systemId: number;
-  readonly subgraphId: number;
+  readonly naturalId: number;
   name: string;
   readonly isImported: boolean;
   fileSystemId: number;
@@ -34,7 +34,7 @@ export class Subgraph {
 
   constructor(initParams: SubgraphInit) {
     this.systemId = initParams.systemId;
-    this.subgraphId = initParams.subgraphId;
+    this.naturalId = initParams.naturalId;
     this.name = initParams.name;
     this.isImported = initParams.isImported;
     this.fileSystemId = initParams.fileSystemId;
@@ -54,7 +54,7 @@ export class Subgraph {
   private addProperty(propertyData: SubgraphPropertyData): void {
     invariant(
       !this.propertyIds.has(propertyData.propertyDefinitionSystemId),
-      `Property with systemId ${BinaryUtils.toHexString(propertyData.propertyDefinitionSystemId)} already exists for Subgraph (subgraphId=${BinaryUtils.toHexString(this.subgraphId)})`,
+      `Property with systemId ${BinaryUtils.toHexString(propertyData.propertyDefinitionSystemId)} already exists for Subgraph (naturalId=${BinaryUtils.toHexString(this.naturalId)})`,
     );
     this.propertyIds.add(propertyData.propertyDefinitionSystemId);
     this.properties.push(propertyData);
@@ -67,13 +67,13 @@ export class Subgraph {
       const systemIdKey = `sys:${sgkv.systemId}`;
       invariant(
         !this.sgkvKeys.has(systemIdKey),
-        `SGKV with systemId ${sgkv.systemId} already exists for Subgraph (subgraphId=${BinaryUtils.toHexString(this.subgraphId)})`,
+        `SGKV with systemId ${sgkv.systemId} already exists for Subgraph (naturalId=${BinaryUtils.toHexString(this.naturalId)})`,
       );
       this.sgkvKeys.add(systemIdKey);
     }
     invariant(
       !this.sgkvKeys.has(valuesKey),
-      `SGKV with valueDefinitionSystemIds already exists for Subgraph (subgraphId=${BinaryUtils.toHexString(this.subgraphId)})`,
+      `SGKV with valueDefinitionSystemIds already exists for Subgraph (naturalId=${BinaryUtils.toHexString(this.naturalId)})`,
     );
     this.sgkvKeys.add(valuesKey);
     this.sgkvs.push(sgkv);

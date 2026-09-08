@@ -8,7 +8,7 @@ import {BaseQuery} from '../../../shared/base-query.js';
 export class GetAllTagDefinitionsQuery extends BaseQuery {
   constructor(
     public readonly projectId: number,
-    public readonly tagId: number | undefined,
+    public readonly tagNaturalId: number | undefined,
     clientId: string,
   ) {
     super(clientId);

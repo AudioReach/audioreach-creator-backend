@@ -23,13 +23,13 @@ export interface TkvReadModel extends KeyValuePairListReadModel {
 
 /**
  * Result for one tag group with its TKV bins.
- * summary     → tagId + tagName + tkvs with key-value pairs
+ * summary     → naturalId + tagName + tkvs with key-value pairs
  * fullDetails → summary + params + payload per TKV
  */
 export interface TagReadModel {
   readonly systemId: number;
   readonly tagDefinitionSystemId: number;
-  readonly tagId: number;
+  readonly naturalId: number;
   readonly tagName: string;
   readonly tkvs: TkvReadModel[];
 }
@@ -44,7 +44,7 @@ export interface CkvParamReadModel {
   readonly systemId: number;
   readonly definition: {
     readonly systemId: number;
-    readonly parameterId: number;
+    readonly naturalId: number;
     readonly name?: string;
     readonly description?: string;
     readonly pidType: string;

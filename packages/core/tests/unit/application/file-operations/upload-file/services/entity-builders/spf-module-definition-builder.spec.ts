@@ -107,7 +107,7 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         // supportedProcessorIds: [1, 2] → 2 entities
         expect(result.entities).toHaveLength(2);
-        expect(result.entities[0].moduleDefinitionId).toBe(100);
+        expect(result.entities[0].naturalId).toBe(100);
         expect(result.entities[0].name).toBe('Test Module');
         expect(result.entities[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].fileSystemId).toBe(TEST_FILE_SYSTEM_ID);
@@ -255,8 +255,8 @@ describe('SpfModuleDefinitionBuilder', () => {
         );
 
         expect(result.entities).toHaveLength(2);
-        expect(result.entities[0].moduleDefinitionId).toBe(100);
-        expect(result.entities[1].moduleDefinitionId).toBe(200);
+        expect(result.entities[0].naturalId).toBe(100);
+        expect(result.entities[1].naturalId).toBe(200);
       });
 
       it('should verify correct BuildResult structure', async () => {
@@ -386,8 +386,8 @@ describe('SpfModuleDefinitionBuilder', () => {
 
         expect(result.entities).toHaveLength(1);
         expect(result.entities[0].parameters).toHaveLength(2);
-        expect(result.entities[0].parameters[0].paramId).toBe(1);
-        expect(result.entities[0].parameters[1].paramId).toBe(2);
+        expect(result.entities[0].parameters[0].naturalId).toBe(1);
+        expect(result.entities[0].parameters[1].naturalId).toBe(2);
         expect(result.entities[0].parameters[0].systemId).toBeGreaterThan(0);
         expect(result.entities[0].parameters[1].systemId).toBeGreaterThan(0);
         expect(
@@ -669,7 +669,7 @@ describe('SpfModuleDefinitionBuilder', () => {
         // Two processors → two entities, one per processor
         expect(result.entities).toHaveLength(2);
         expect(result.entities![0].systemId).toBe(0);
-        expect(result.entities![0].moduleDefinitionId).toBe(100);
+        expect(result.entities![0].naturalId).toBe(100);
         expect(result.entities![0].name).toBe('Test Module');
         expect(result.entities![0].displayName).toBe('Test Module Display');
         expect(result.entities![0].description).toBe('Test Description');
@@ -711,7 +711,7 @@ describe('SpfModuleDefinitionBuilder', () => {
         expect(result.errors).toHaveLength(0);
         expect(result.entities![0].parameters).toHaveLength(1);
         expect(result.entities![0].parameters[0].systemId).toBe(0);
-        expect(result.entities![0].parameters[0].paramId).toBe(1);
+        expect(result.entities![0].parameters[0].naturalId).toBe(1);
         expect(result.entities![0].parameters[0].name).toBe('Param 1');
         expect(result.entities![0].parameters[0].description).toBe(
           'Param 1 desc',
@@ -756,13 +756,13 @@ describe('SpfModuleDefinitionBuilder', () => {
         expect(inputGroup.portIoType).toBe(PORT_IO_TYPE.Input);
         expect(inputGroup.maxAllowedPortCount).toBe(2);
         expect(inputGroup.staticPortDefinitions).toHaveLength(1);
-        expect(inputGroup.staticPortDefinitions[0].dataPortId).toBe(1);
+        expect(inputGroup.staticPortDefinitions[0].naturalId).toBe(1);
 
         const outputGroup = result.entities![0].dataPortGroups[1];
         expect(outputGroup.portIoType).toBe(PORT_IO_TYPE.Output);
         expect(outputGroup.maxAllowedPortCount).toBe(3);
         expect(outputGroup.staticPortDefinitions).toHaveLength(1);
-        expect(outputGroup.staticPortDefinitions[0].dataPortId).toBe(2);
+        expect(outputGroup.staticPortDefinitions[0].naturalId).toBe(2);
       });
 
       it('should transform static control ports', () => {
@@ -791,11 +791,11 @@ describe('SpfModuleDefinitionBuilder', () => {
         expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
         expect(result.entities![0].staticControlPorts).toHaveLength(2);
-        expect(result.entities![0].staticControlPorts[0].portId).toBe(1);
+        expect(result.entities![0].staticControlPorts[0].naturalId).toBe(1);
         expect(result.entities![0].staticControlPorts[0].portName).toBe(
           'Static 1',
         );
-        expect(result.entities![0].staticControlPorts[1].portId).toBe(2);
+        expect(result.entities![0].staticControlPorts[1].naturalId).toBe(2);
         expect(result.entities![0].staticControlPorts[1].portName).toBe(
           'Static 2',
         );
@@ -827,10 +827,10 @@ describe('SpfModuleDefinitionBuilder', () => {
         expect(result.entities).not.toBeNull();
         expect(result.errors).toHaveLength(0);
         expect(result.entities![0].dynamicIntents).toHaveLength(2);
-        expect(result.entities![0].dynamicIntents[0].intentId).toBe(10);
+        expect(result.entities![0].dynamicIntents[0].naturalId).toBe(10);
         expect(result.entities![0].dynamicIntents[0].name).toBe('Intent 1');
         expect(result.entities![0].dynamicIntents[0].maxPort).toBe(5);
-        expect(result.entities![0].dynamicIntents[1].intentId).toBe(20);
+        expect(result.entities![0].dynamicIntents[1].naturalId).toBe(20);
         expect(result.entities![0].dynamicIntents[1].name).toBe('Intent 2');
         expect(result.entities![0].dynamicIntents[1].maxPort).toBe(10);
       });

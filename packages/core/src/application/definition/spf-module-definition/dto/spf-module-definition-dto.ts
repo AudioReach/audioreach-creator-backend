@@ -74,7 +74,7 @@ export const SpfCustomModuleMetadataDtoSchema = z.object({
 const ProcessorInfoDtoSchema = z
   .object({
     systemId: z.string().describe('Unique system identifier for the processor'),
-    processorId: z.number().int().describe('Processor identifier'),
+    naturalId: z.number().int().describe('Processor identifier'),
     name: z.string().describe('Processor name'),
   })
   .meta({id: 'ProcessorInfo'});
@@ -82,7 +82,7 @@ const ProcessorInfoDtoSchema = z
 const ParameterDefinitionSummaryInfoDtoSchema = z
   .object({
     systemId: z.string().describe('Unique system identifier for the param'),
-    paramId: z.number().int().describe('Parameter identifier'),
+    naturalId: z.number().int().describe('Parameter identifier'),
     name: z.string().describe('Name of the parameter'),
     description: z.string().describe('Description of the parameter'),
     isHidden: z.boolean().describe('Indicates if the parameter is hidden'),
@@ -101,7 +101,7 @@ const ParameterDefinitionSummaryInfoDtoSchema = z
 const IntentInfoDtoSchema = z
   .object({
     systemId: z.string().describe('Unique system identifier for the intent'),
-    intentId: z.number().int().describe('Identifier of the intent'),
+    naturalId: z.number().int().describe('Identifier of the intent'),
     name: z.string().describe('Name of the intent'),
     maxPorts: z
       .number()
@@ -112,7 +112,7 @@ const IntentInfoDtoSchema = z
 
 const PortInfoDtoSchema = z
   .object({
-    portId: z.number().int().describe('Unique identifier for the port'),
+    naturalId: z.number().int().describe('Unique identifier for the port'),
     portName: z.string().describe('Name of the port'),
   })
   .meta({id: 'PortInfo'});
@@ -128,7 +128,7 @@ const DataPortInfoDtoSchema = z
 const StaticCtrlPortInfoDtoSchema = z
   .object({
     systemId: z.string().describe('Unique system identifier for the ctrl port'),
-    portId: z.number().int().describe('Unique identifier for the port'),
+    naturalId: z.number().int().describe('Unique identifier for the port'),
     portName: z.string().describe('Name of the port'),
     portIntents: z
       .array(IntentInfoDtoSchema)
@@ -168,7 +168,7 @@ const ModuleInfoDtoSchema = z
 export const SpfModuleDefinitionDtoSchema = z
   .object({
     systemId: z.string().describe('Unique system identifier for the module'),
-    moduleId: z.number().int().describe('Module identifier'),
+    naturalId: z.number().int().describe('Module identifier'),
     name: z.string().describe('Module name'),
     displayName: z.string().describe('Display name of the module'),
     description: z.string().describe('Description of the module'),
@@ -222,7 +222,7 @@ function mapDataPortGroup(
     systemId: group ? String(group.systemId) : '',
     maxPorts: group?.maxAllowedPortCount ?? 0,
     ports: (group?.ports ?? []).map(p => ({
-      portId: p.dataPortId,
+      naturalId: p.naturalId,
       portName: p.name,
     })),
   };
@@ -261,13 +261,13 @@ export function mapSpfModuleDefinition(
 ): SpfModuleDefinitionDto {
   return {
     systemId: String(row.systemId),
-    moduleId: row.moduleId,
+    naturalId: row.naturalId,
     name: row.name,
     displayName: row.displayName ?? '',
     description: row.description ?? '',
     paramDefinitionsSummaryInfo: row.parameterDefinitions.map(p => ({
       systemId: String(p.systemId),
-      paramId: p.paramId,
+      naturalId: p.naturalId,
       name: p.name ?? '',
       description: p.description ?? '',
       isHidden: p.isHidden,
@@ -279,7 +279,7 @@ export function mapSpfModuleDefinition(
     deprecated: row.deprecated,
     processorInfo: {
       systemId: String(row.processorInfo.systemId),
-      processorId: row.processorInfo.processorId,
+      naturalId: row.processorInfo.naturalId,
       name: row.processorInfo.name,
     },
     modSearchKeys: row.modSearchKeys ?? '',
@@ -298,18 +298,18 @@ export function mapSpfModuleDefinition(
       outputDataPortInfo: mapDataPortGroup(row.moduleInfo.outputDataPortInfo),
       staticCtrlPorts: row.moduleInfo.staticCtrlPorts.map(p => ({
         systemId: String(p.systemId),
-        portId: p.portId,
+        naturalId: p.naturalId,
         portName: p.portName,
         portIntents: (p.staticIntents ?? []).map(i => ({
           systemId: String(i.systemId),
-          intentId: i.intentId,
+          naturalId: i.naturalId,
           name: i.name,
           maxPorts: 0,
         })),
       })),
       dynamicIntents: row.moduleInfo.dynamicIntents.map(d => ({
         systemId: String(d.systemId),
-        intentId: d.intentId,
+        naturalId: d.naturalId,
         name: d.name,
         maxPorts: d.maxPort,
       })),
