@@ -47,9 +47,11 @@ export class DbSubsystemQueryService implements SubsystemQueryService {
       return Result.ok(
         subsystems.map(s => ({
           systemId: s.systemId,
+          subsystemNaturalId: s.subsystemId,
           name: s.name,
           parentSystemId: s.parentSystemId,
-          filteredKeys: [], // TODO: load from SubsystemFilteredKey when filtered-by-subsystem is implemented
+          filteredKeys: [],
+          filteredKeySystemIds: s.filteredKeySystemIds,
         })),
       );
     } catch (error) {
